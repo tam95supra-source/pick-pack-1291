@@ -1,0 +1,16 @@
+checked_at=2026-08-22T18:20:32Z
+beta_source_sha=5ea28274fe0a638d927a740eb4eda73e112f54fb
+release_run_id=32590295070
+artifact_id=9480165162
+beta_name=0.4.2-beta.55
+beta_code=61
+apk_name=pick-pack-1291-public-beta-0.4.2-beta.55.apk
+apk_sha256=6428d934a3a86b55c0c3107840e211c6841f82e875b975510174e44e63045c85
+apk_size=13027947
+signer_sha256=d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
+release_url=https://github.com/tam95supra-source/pick-pack-1291/releases/download/v0.4.2-beta.55-publicbeta/pick-pack-1291-public-beta-0.4.2-beta.55.apk
+stable=UNTOUCHED
+main=UNTOUCHED
+pr38_merge=FORBIDDEN
+pr52_merge=FORBIDDEN
+verdict=PASS

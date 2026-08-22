@@ -1,14 +1,14 @@
 {
   "source": "GITHUB_RELEASE",
   "channel": "BETA",
-  "version_name": "0.4.2-beta.53",
-  "version_code": 59,
-  "apk_name": "pick-pack-1291-public-beta-0.4.2-beta.53.apk",
-  "apk_url": "https://github.com/tam95supra-source/pick-pack-1291/releases/download/v0.4.2-beta.53-publicbeta/pick-pack-1291-public-beta-0.4.2-beta.53.apk",
-  "sha256": "57e4930e41c299ca96e1bc65639b9a62ebac7fe608f3239c8b06880f4262e2f1",
-  "size": 13011563,
-  "published_at": "2026-08-22T13:47:34Z",
-  "notes": "Beta53: khôi phục tab Nhân sự; bỏ tab Đồng bộ; icon làm mới vòng tròn; ba thẻ Mạng/Đồng bộ/Dịch vụ mở chi tiết thuần Việt; Dịch vụ hiển thị Cloudflare/Google Drive/OFFLINE; ẩn bàn phím sau khi hiển thị thông tin nhân sự. Stable không thay đổi.",
+  "version_name": "0.4.2-beta.55",
+  "version_code": 61,
+  "apk_name": "pick-pack-1291-public-beta-0.4.2-beta.55.apk",
+  "apk_url": "https://github.com/tam95supra-source/pick-pack-1291/releases/download/v0.4.2-beta.55-publicbeta/pick-pack-1291-public-beta-0.4.2-beta.55.apk",
+  "sha256": "6428d934a3a86b55c0c3107840e211c6841f82e875b975510174e44e63045c85",
+  "size": 13027947,
+  "published_at": "2026-08-22T18:20:32Z",
+  "notes": "Beta55: Cloudflare lỗi chuyển qua Google/GAS; chỉ khi cả Cloudflare và Google đều không dùng được mới OFFLINE. Giữ nguyên toàn bộ sửa lỗi Beta54.",
   "mandatory": false,
   "retention": 10
 }
