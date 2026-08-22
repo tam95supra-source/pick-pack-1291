@@ -1,0 +1,8 @@
+trigger=2026-08-23T01:24:00+07:00
+version=0.4.2-beta.55
+version_code=61
+scope=all-current-owner-gates+google-fallback+ota
+stable=UNTOUCHED
+main=UNTOUCHED
+pr38=FORBIDDEN
+pr52=FORBIDDEN
