@@ -1,0 +1,5 @@
+trigger=2026-08-22T18:28:00Z
+source=fix/beta56-auto-ota-20260823
+scope=automatic-ota-beta-stable+all-owner-gates
+stable=UNTOUCHED
+main=UNTOUCHED
