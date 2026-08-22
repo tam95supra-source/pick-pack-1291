@@ -8,9 +8,9 @@ import java.net.URL
 
 /**
  * S31D_RUNTIME_BRIDGE_COMPILE_FIX
- * Cache-only routing for hot reads. GAS is never used as a request fallback while the cached
- * canonical authority is SERVICE_PRIMARY. GAS session material may only be exchanged directly
- * with Service to obtain a Service token; no GAS network request is made here.
+ * Cache-only routing for hot reads. GAS is used as controlled fallback when Cloudflare is unavailable.
+ * S58_BETA55_GOOGLE_FALLBACK keeps device-local fault injection truthful: a local Cloudflare test
+ * uses the Google/GAS path without pretending production authority globally changed to Google.
  */
 class M2RuntimeBridge(context: Context) {
     private val app = context.applicationContext
@@ -48,7 +48,7 @@ class M2RuntimeBridge(context: Context) {
         val base = discovery.optString("service_url").trimEnd('/')
         prefs.edit().putString(KEY_AUTHORITY_MODE, mode).putString(KEY_SERVICE_URL, base).apply()
 
-        // Only an explicit canonical Google authority may hand the read to the GAS compatibility path.
+        // Explicit Google authority hands the read to GAS compatibility/fallback path.
         if (mode == "GOOGLE_FALLBACK") {
             return M2ServiceTransport.TransportResult(false, false, 0, null, "FENCED_GOOGLE_FALLBACK")
         }
@@ -113,14 +113,16 @@ class M2RuntimeBridge(context: Context) {
         edit.apply()
     }
 
-    /** Compatibility method kept for callers; it cannot manufacture a Google route. */
     fun recordFallback(reason: String? = null) {
         val mode = transport.cachedDiscoverySnapshot()?.optString("authority_mode").orEmpty()
             .ifBlank { prefs.getString(KEY_AUTHORITY_MODE, "").orEmpty() }
-        val route = when (mode) {
-            "GOOGLE_FALLBACK" -> "GOOGLE_FALLBACK"
-            "SERVICE_PRIMARY" -> "SERVICE_D1_PENDING"
-            else -> "UNRESOLVED"
+        val cfOff=ServiceFaultInjection.cloudflareDisabled(app)
+        val googleOff=ServiceFaultInjection.googleDisabled(app)
+        val route = when {
+            cfOff && googleOff -> "OFFLINE"
+            cfOff && !googleOff -> "GOOGLE_RELAY_TEST"
+            mode == "GOOGLE_FALLBACK" -> "GOOGLE_FALLBACK"
+            else -> "GOOGLE_RELAY_PENDING"
         }
         val edit = prefs.edit().putString(KEY_LAST_ROUTE, route)
         if (!reason.isNullOrBlank()) edit.putString(KEY_LAST_ERROR, reason.take(120))
@@ -139,7 +141,8 @@ class M2RuntimeBridge(context: Context) {
         val googleOff=ServiceFaultInjection.googleDisabled(app)
         val route = when {
             cfOff && googleOff -> "OFFLINE"
-            cfOff && !googleOff -> "GOOGLE_FALLBACK"
+            cfOff && !googleOff && mode == "GOOGLE_FALLBACK" -> "GOOGLE_FALLBACK"
+            cfOff && !googleOff -> "GOOGLE_RELAY_TEST"
             else -> prefs.getString(KEY_LAST_ROUTE, null) ?: when {
                 mode == "GOOGLE_FALLBACK" -> "GOOGLE_FALLBACK"
                 mode == "SERVICE_PRIMARY" && tokenPresent -> "SERVICE_D1_DIRECT"
@@ -150,9 +153,17 @@ class M2RuntimeBridge(context: Context) {
         val label = when (route) {
             "SERVICE_D1_DIRECT" -> "Cloudflare / D1"
             "SERVICE_D1_PENDING" -> "Cloudflare • chờ đồng bộ"
-            "GOOGLE_FALLBACK" -> "Google Drive / GSheet dự phòng"
+            "GOOGLE_FALLBACK" -> "Google Drive / GSheet trực tiếp"
+            "GOOGLE_RELAY_TEST" -> "Google/GAS dự phòng (test Cloudflare)"
+            "GOOGLE_RELAY_PENDING" -> "Google/GAS dự phòng"
             "OFFLINE" -> "OFFLINE"
             else -> "Đang xác định"
+        }
+        val provider = when(route){
+            "GOOGLE_FALLBACK" -> "Google Drive"
+            "GOOGLE_RELAY_TEST","GOOGLE_RELAY_PENDING" -> "Google/GAS"
+            "OFFLINE" -> "OFFLINE"
+            else -> if(url.isNotBlank()) "Cloudflare" else "—"
         }
         return JSONObject()
             .put("authority_mode", mode)
@@ -160,7 +171,7 @@ class M2RuntimeBridge(context: Context) {
             .put("service_session", tokenPresent)
             .put("route", route)
             .put("label", label)
-            .put("provider", when(route){"GOOGLE_FALLBACK"->"Google Drive";"OFFLINE"->"OFFLINE";else->if(url.isNotBlank())"Cloudflare" else "—"})
+            .put("provider", provider)
             .put("last_error", prefs.getString(KEY_LAST_ERROR, "").orEmpty())
             .put("test_mode",ServiceFaultInjection.mode(app).stored)
     }
