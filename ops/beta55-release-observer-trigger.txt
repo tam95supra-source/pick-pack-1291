@@ -1,0 +1,4 @@
+observe=beta55-signed-release
+scope=read-only-actions-status
+stable=UNTOUCHED
+main=UNTOUCHED
