@@ -1,6 +1,6 @@
-trigger=2026-08-23T03:18:00+07:00
+trigger=2026-08-23T03:27:00+07:00
 release=Beta56
 version=0.4.2-beta.56
 version_code=62
 previous_beta=0.4.2-beta.55
-reason=owner-requested-beta56-release-retrigger-via-merged-pr
+reason=owner-requested-beta56-release-observable-merged-pr
