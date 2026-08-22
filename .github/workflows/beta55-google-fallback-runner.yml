@@ -4,6 +4,8 @@ on:
   push:
     branches: [ stabilization/beta48-golden-reset-beta50-20260822 ]
     paths: [ 'ops/beta55-google-fallback-runner-trigger.txt' ]
+  pull_request:
+    branches: [ stabilization/beta48-golden-reset-beta50-20260822 ]
 
 permissions:
   contents: write
