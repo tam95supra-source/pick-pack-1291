@@ -1,0 +1,74 @@
+name: Beta56 Automatic OTA Runner
+
+on:
+  pull_request:
+    branches: [ stabilization/beta48-golden-reset-beta50-20260822 ]
+  push:
+    branches: [ stabilization/beta48-golden-reset-beta50-20260822 ]
+    paths: [ 'ops/beta56-auto-ota-runner-trigger.txt' ]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: beta56-auto-ota-runner
+  cancel-in-progress: false
+
+jobs:
+  apply-check:
+    if: ${{ github.event_name == 'push' || github.head_ref == 'fix/beta56-auto-ota-20260823' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/beta56-auto-ota-20260823
+          fetch-depth: 0
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.4.1'
+          cache-read-only: true
+      - name: Apply S59 automatic OTA contract
+        run: python3 tools/apply_s59_beta56_auto_ota.py
+      - name: Static automatic OTA and owner-lock guards
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          UM=app/src/main/java/vn/pickpack1291/app/beta/UpdateManager.kt
+          FA=app/src/main/java/vn/pickpack1291/app/beta/FullBetaActivity.kt
+          OA=app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt
+          grep -Fq 'S59_BETA56_AUTO_OTA' "$UM"
+          grep -Fq 'fun checkAutomatic(activity: Activity)' "$UM"
+          grep -Fq 'AUTO_CHECK_INTERVAL_MS = 15L * 60L * 1000L' "$UM"
+          grep -Fq 'SAME_OFFER_COOLDOWN_MS = 2L * 60L * 60L * 1000L' "$UM"
+          grep -Fq 'UpdateManager.checkAutomatic(this) // S59_BETA56_AUTO_OTA' "$FA"
+          grep -Fq 'UpdateManager.checkAutomatic(this) // S59_BETA56_AUTO_OTA' "$OA"
+          grep -Fq 'fun openManual(activity: Activity)' "$UM"
+          grep -Fq 'versionCode = 62' app/build.gradle.kts
+          grep -Fq 'versionName = "0.4.2-beta.56"' app/build.gradle.kts
+          grep -Fq 'versionCode = 1' app/build.gradle.kts
+          grep -Fq 'versionName = "0.1.0-stable"' app/build.gradle.kts
+          grep -Fq 'S58_BETA55_GOOGLE_FALLBACK' app/src/main/java/vn/pickpack1291/app/beta/M2ServiceTransport.kt
+          grep -Fq 'GOOGLE_RELAY_TEST' app/src/main/java/vn/pickpack1291/app/beta/M2RuntimeBridge.kt
+          grep -Fq '"Quản lý biên bản"' "$OA"
+          ! grep -Fq 'Người dùng đang kết nối' "$OA"
+          ! grep -Fq 'mục chờ gửi' "$OA"
+          for x in 'THÔNG TIN TRÊN PDA' 'THÔNG TIN TRÊN SERVICE' 'THÔNG TIN TRÊN GOOGLE SHEET' 'THÔNG TIN ĐỒNG BỘ KHÁC' 'THÔNG TIN ỨNG DỤNG'; do grep -Fq "$x" "$OA"; done
+          git diff --check
+      - name: Compile Beta and Stable
+        run: gradle :app:assembleBetaDebug :app:assembleStableDebug --no-daemon
+      - name: Commit canonical Beta56 source
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git config user.name pick-pack-1291-release-bot
+          git config user.email actions@users.noreply.github.com
+          git add app/build.gradle.kts app/src/main/java/vn/pickpack1291/app/beta/UpdateManager.kt app/src/main/java/vn/pickpack1291/app/beta/FullBetaActivity.kt app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt
+          git diff --cached --quiet && exit 0
+          git commit -m 'fix: automatic OTA detection for Beta and Stable [beta56-auto-ota-applied]'
+          git pull --rebase origin fix/beta56-auto-ota-20260823
+          git push origin HEAD:fix/beta56-auto-ota-20260823
