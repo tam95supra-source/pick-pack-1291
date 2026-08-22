@@ -19,11 +19,12 @@ p.write_text(s)
 # Application-wide lifecycle hook: every foreground Activity gets the same throttled OTA check.
 p=Path('app/src/main/java/vn/pickpack1291/app/beta/M2Firebase.kt')
 s=p.read_text()
-s=once(s,'import android.app.Application\n','import android.app.Activity\nimport android.app.Application\n', 'Activity import')
-s=once(s,'import android.content.Context\n','import android.content.Context\nimport android.os.Bundle\n', 'Bundle import')
-old='''class M2Application : Application() {\n    override fun onCreate() {\n        super.onCreate()\n        M2Firebase.bootstrap(this)\n    }\n}'''
-new='''class M2Application : Application() {\n    override fun onCreate() {\n        super.onCreate()\n        M2Firebase.bootstrap(this)\n        registerActivityLifecycleCallbacks(object : ActivityLifecycleCallbacks {\n            override fun onActivityResumed(activity: Activity) { UpdateManager.checkAutomatic(activity) } // S59_BETA56_AUTO_OTA\n            override fun onActivityCreated(activity: Activity, state: Bundle?) {}\n            override fun onActivityStarted(activity: Activity) {}\n            override fun onActivityPaused(activity: Activity) {}\n            override fun onActivityStopped(activity: Activity) {}\n            override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) {}\n            override fun onActivityDestroyed(activity: Activity) {}\n        })\n    }\n}'''
-s=once(s,old,new,'M2Application lifecycle')
+if 'UpdateManager.checkAutomatic(activity) // S59_BETA56_AUTO_OTA' not in s:
+    s=once(s,'import android.app.Application\n','import android.app.Activity\nimport android.app.Application\n', 'Activity import')
+    s=once(s,'import android.content.Context\n','import android.content.Context\nimport android.os.Bundle\n', 'Bundle import')
+    old='''class M2Application : Application() {\n    override fun onCreate() {\n        super.onCreate()\n        M2Firebase.bootstrap(this)\n    }\n}'''
+    new='''class M2Application : Application() {\n    override fun onCreate() {\n        super.onCreate()\n        M2Firebase.bootstrap(this)\n        registerActivityLifecycleCallbacks(object : ActivityLifecycleCallbacks {\n            override fun onActivityResumed(activity: Activity) { UpdateManager.checkAutomatic(activity) } // S59_BETA56_AUTO_OTA\n            override fun onActivityCreated(activity: Activity, state: Bundle?) {}\n            override fun onActivityStarted(activity: Activity) {}\n            override fun onActivityPaused(activity: Activity) {}\n            override fun onActivityStopped(activity: Activity) {}\n            override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) {}\n            override fun onActivityDestroyed(activity: Activity) {}\n        })\n    }\n}'''
+    s=once(s,old,new,'M2Application lifecycle')
 p.write_text(s)
 
 # Bump only Beta; Stable metadata remains immutable.
