@@ -70,11 +70,11 @@ jobs:
           RAW=$(printf '%s' "$GAS_DEPLOYMENT_ID" | tr -d '\r\n\t ')
           DEPLOYMENT_ID="$RAW"
           if [[ "$RAW" =~ /s/([^/]+)/ ]]; then DEPLOYMENT_ID="${BASH_REMATCH[1]}"; fi
-          RESP=$(curl -fsS https://oauth2.googleapis.com/token -H 'Content-Type: application/x-www-form-urlencoded' \
+          RESP=$(printf '%s' "$GOOGLE_OAUTH_REFRESH_TOKEN" | { read -r _ || true; curl -fsS https://oauth2.googleapis.com/token -H 'Content-Type: application/x-www-form-urlencoded' \
             --data-urlencode "client_id=$GOOGLE_OAUTH_CLIENT_ID" \
             --data-urlencode "client_secret=$GOOGLE_OAUTH_CLIENT_SECRET" \
             --data-urlencode "refresh_token=$GOOGLE_OAUTH_REFRESH_TOKEN" \
-            --data-urlencode 'grant_type=refresh_token')
+            --data-urlencode 'grant_type=refresh_token'; })
           TOKEN=$(python3 -c 'import json,sys;print(json.load(sys.stdin).get("access_token",""))' <<<"$RESP")
           [[ -n "$SCRIPT_ID" && -n "$DEPLOYMENT_ID" && -n "$TOKEN" ]]
           echo "::add-mask::$SCRIPT_ID"; echo "::add-mask::$DEPLOYMENT_ID"; echo "::add-mask::$TOKEN"
@@ -88,18 +88,18 @@ jobs:
           PY
           H=$(curl -sS -o /tmp/content.out -w '%{http_code}' -X PUT -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' --data-binary @/tmp/content.json "https://script.googleapis.com/v1/projects/$SCRIPT_ID/content")
           [[ "$H" == 200 ]] || { cat /tmp/content.out; exit 1; }
-          H=$(curl -sS -o /tmp/version.json -w '%{http_code}' -X POST -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d '{"description":"Pick Pack 1291 current manual OTA"}' "https://script.googleapis.com/v1/projects/$SCRIPT_ID/versions")
+          H=$(curl -sS -o /tmp/version.json -w '%{http_code}' -X POST -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d '{"description":"Pick Pack 1291 current OTA"}' "https://script.googleapis.com/v1/projects/$SCRIPT_ID/versions")
           [[ "$H" == 200 ]] || { cat /tmp/version.json; exit 1; }
           V=$(python3 -c 'import json;print(json.load(open("/tmp/version.json"))["versionNumber"])')
           python3 - "$SCRIPT_ID" "$V" <<'PY'
           import json,sys
-          open('/tmp/deploy.json','w').write(json.dumps({'deploymentConfig':{'scriptId':sys.argv[1],'versionNumber':int(sys.argv[2]),'manifestFileName':'appsscript','description':'Pick Pack 1291 current manual OTA'}}))
+          open('/tmp/deploy.json','w').write(json.dumps({'deploymentConfig':{'scriptId':sys.argv[1],'versionNumber':int(sys.argv[2]),'manifestFileName':'appsscript','description':'Pick Pack 1291 current OTA'}}))
           PY
           H=$(curl -sS -o /tmp/deploy.out -w '%{http_code}' -X PUT -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' --data-binary @/tmp/deploy.json "https://script.googleapis.com/v1/projects/$SCRIPT_ID/deployments/$DEPLOYMENT_ID")
           [[ "$H" == 200 ]] || { cat /tmp/deploy.out; exit 1; }
           echo "version=$V" >> "$GITHUB_OUTPUT"
 
-      - name: Verify live manual OTA behavior
+      - name: Verify live OTA behavior
         id: verify
         shell: bash
         run: |
@@ -145,8 +145,8 @@ jobs:
           DOWNLOAD_SIZE: ${{ steps.verify.outputs.download_size }}
         run: |
           set -euo pipefail
-          verdict=FAIL; manual=FAIL; self_state=UNKNOWN
-          if [[ "$DEPLOY_OUTCOME" == success && "$VERIFY_OUTCOME" == success ]]; then verdict=PASS; manual=PASS; self_state=FALSE; fi
+          verdict=FAIL; ota=FAIL; self_state=UNKNOWN
+          if [[ "$DEPLOY_OUTCOME" == success && "$VERIFY_OUTCOME" == success ]]; then verdict=PASS; ota=PASS; self_state=FALSE; fi
           git reset --hard "$GITHUB_SHA"
           cat > ops/gas-deploy-result.txt <<EOF
           checked_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
@@ -165,8 +165,8 @@ jobs:
           beta_size=${TARGET_BETA_SIZE:-}
           download_sha256=${DOWNLOAD_SHA:-}
           download_size=${DOWNLOAD_SIZE:-}
-          manual_check=$manual
-          automatic_check=DISABLED_IN_APP
+          ota_e2e=$ota
+          automatic_check=SOURCE_VERIFIED_IN_APP
           target_self_update=$self_state
           stable=UNTOUCHED
           pr38_merge=FORBIDDEN
@@ -175,7 +175,7 @@ jobs:
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git add ops/gas-deploy-result.txt
-          git commit -m 'ops: record production GAS manual OTA deploy' || true
+          git commit -m 'ops: record production GAS OTA deploy' || true
           git pull --rebase origin agent/service-migration-m2
           git push origin HEAD:agent/service-migration-m2
           [[ "$verdict" == PASS ]]
