@@ -1,0 +1,5 @@
+trigger=2026-08-23T01:12:00+07:00
+source_branch=fix/beta55-google-fallback-20260823
+scope=cloudflare-to-google-fallback
+stable=UNTOUCHED
+main=UNTOUCHED
