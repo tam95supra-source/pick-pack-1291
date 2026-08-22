@@ -32,8 +32,8 @@ android {
         create("beta") {
             dimension = "channel"
             applicationId = "vn.pickpack1291.app.beta.publicbeta"
-            versionCode = 61
-            versionName = "0.4.2-beta.55"
+            versionCode = 62
+            versionName = "0.4.2-beta.56"
             manifestPlaceholders["appLabel"] = "Pick Pack 1291 Beta"
             buildConfigField("String", "CHANNEL", "\"BETA\"")
         }
@@ -74,6 +74,7 @@ dependencies {
 // GSHEET_API_URL remains public discovery/fallback configuration and manual update lookup path; no Service URL is compiled into APK.
 // Signing material remains outside this repository and the Android signer is owner-locked.
 // Beta55: restores Cloudflare -> Google/GAS fallback, truthful fault-test routing, Beta54 resilience retained.
+// Beta56: automatic foreground OTA detection for Beta and Stable channels; manual check retained.
 // Legacy Beta44 candidate-workflow compatibility markers only; actual beta metadata above is authoritative:
 // versionCode = 50
 // versionName = "0.4.2-beta.44"

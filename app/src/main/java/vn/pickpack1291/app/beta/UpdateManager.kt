@@ -16,7 +16,44 @@ import java.security.MessageDigest
 
 // S51_BETA45_MANUAL_UPDATE_SYNC_DETAIL_VI
 object UpdateManager {
+    // S59_BETA56_AUTO_OTA: automatic foreground OTA detection for both BETA and STABLE channels.
     private var busy = false
+    private var automaticBusy = false
+    private const val PREFS = "pp_update_manager"
+    private const val KEY_LAST_AUTO_CHECK_AT = "last_auto_check_at"
+    private const val KEY_LAST_OFFER_VERSION = "last_offer_version"
+    private const val KEY_LAST_OFFER_AT = "last_offer_at"
+    private const val AUTO_CHECK_INTERVAL_MS = 15L * 60L * 1000L
+    private const val SAME_OFFER_COOLDOWN_MS = 2L * 60L * 60L * 1000L
+
+    fun checkAutomatic(activity: Activity) {
+        if (automaticBusy || busy || activity.isFinishing || activity.isDestroyed) return
+        val prefs = activity.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val now = System.currentTimeMillis()
+        val lastCheck = prefs.getLong(KEY_LAST_AUTO_CHECK_AT, 0L)
+        if (lastCheck > 0L && now - lastCheck < AUTO_CHECK_INTERVAL_MS) return
+        prefs.edit().putLong(KEY_LAST_AUTO_CHECK_AT, now).apply()
+        automaticBusy = true
+        BetaApiClient(activity.applicationContext).updateCheck(BuildConfig.CHANNEL, BuildConfig.VERSION_NAME) { result ->
+            activity.runOnUiThread {
+                automaticBusy = false
+                if (activity.isFinishing || activity.isDestroyed || !result.ok) return@runOnUiThread
+                val j = result.json ?: return@runOnUiThread
+                if (!j.optBoolean("available", false)) return@runOnUiThread
+                val version = j.optString("version_name").trim()
+                val url = j.optString("apk_url").trim()
+                val sha = j.optString("sha256").trim()
+                val notes = j.optString("notes").trim().take(4000)
+                if (version.isBlank() || url.isBlank() || version == BuildConfig.VERSION_NAME) return@runOnUiThread
+                val lastVersion = prefs.getString(KEY_LAST_OFFER_VERSION, "").orEmpty()
+                val lastOfferAt = prefs.getLong(KEY_LAST_OFFER_AT, 0L)
+                val offerNow = System.currentTimeMillis()
+                if (lastVersion == version && lastOfferAt > 0L && offerNow - lastOfferAt < SAME_OFFER_COOLDOWN_MS) return@runOnUiThread
+                prefs.edit().putString(KEY_LAST_OFFER_VERSION, version).putLong(KEY_LAST_OFFER_AT, offerNow).apply()
+                showRelease(activity, version, url, sha, notes)
+            }
+        }
+    }
 
     fun openManual(activity: Activity) {
         if (busy || activity.isFinishing || activity.isDestroyed) return
@@ -81,7 +118,7 @@ object UpdateManager {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !activity.packageManager.canRequestPackageInstalls()) {
             AlertDialog.Builder(activity)
                 .setTitle("Cần quyền cài APK")
-                .setMessage("Android đang chặn cài APK từ Pick Pack 1291. Mở Cài đặt và cho phép nguồn này. Sau đó quay lại ứng dụng và bấm KIỂM TRA CẬP NHẬT lại; ứng dụng sẽ không tự kiểm tra.")
+                .setMessage("Android đang chặn cài APK từ Pick Pack 1291. Mở Cài đặt và cho phép nguồn này. Sau đó quay lại ứng dụng. Ứng dụng sẽ tự kiểm tra lại khi vào foreground; bạn cũng có thể bấm KIỂM TRA CẬP NHẬT trong Cài đặt.")
                 .setNegativeButton("HỦY", null)
                 .setPositiveButton("MỞ CÀI ĐẶT") { _, _ -> activity.startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${activity.packageName}"))) }
                 .show()

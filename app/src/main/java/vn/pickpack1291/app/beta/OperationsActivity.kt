@@ -178,6 +178,7 @@ class OperationsActivity : Activity() {
 
     override fun onStart() {
         super.onStart()
+        UpdateManager.checkAutomatic(this) // S59_BETA56_AUTO_OTA
         PpForegroundGate.enter()
         if (api.token != null) {
             // S43_FOREGROUND_OUTBOX_WAKE: old unresolved events are flushed immediately on a

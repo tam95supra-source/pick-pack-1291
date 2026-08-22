@@ -82,6 +82,7 @@ class FullBetaActivity : Activity() {
     override fun onStart() {
         super.onStart()
         if (api.token != null) foregroundSync.start()
+        else UpdateManager.checkAutomatic(this) // S59_BETA56_AUTO_OTA
     }
 
     override fun onStop() {
