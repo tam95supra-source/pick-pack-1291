@@ -1,6 +1,7 @@
-trigger=2026-08-22T18:20:32Z
+trigger=2026-08-22T18:23:00Z
 release=Beta55
+beta_from=0.4.2-beta.54
 beta_source_sha=5ea28274fe0a638d927a740eb4eda73e112f54fb
 artifact_id=9480165162
 apk_sha256=6428d934a3a86b55c0c3107840e211c6841f82e875b975510174e44e63045c85
-reason=publish-beta55-google-fallback
+reason=publish-beta55-google-fallback-retry-with-from-gate
