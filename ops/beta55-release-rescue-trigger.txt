@@ -1,0 +1,5 @@
+trigger=2026-08-23T01:35:00+07:00
+version=0.4.2-beta.55
+mode=idempotent-rescue
+stable=UNTOUCHED
+main=UNTOUCHED
