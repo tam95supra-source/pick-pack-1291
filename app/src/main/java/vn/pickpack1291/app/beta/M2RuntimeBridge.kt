@@ -19,7 +19,7 @@ class M2RuntimeBridge(context: Context) {
 
     // S44_SESSION_SINGLEFLIGHT_OBSERVABILITY: no independent session exchange lane.
     fun ensureServiceSession(gasToken:String?,force:Boolean=false):Boolean {
-        if(ServiceFaultInjection.cloudflareDisabled(app)){recordServicePending("TEST_CLOUDFLARE_DISABLED");return false}
+        if(ServiceFaultInjection.cloudflareDisabled(app)){recordFallback("TEST_CLOUDFLARE_DISABLED");return false}
         val d=transport.cachedDiscoverySnapshot() ?: transport.discoverySnapshot() ?: return false
         val mode=d.optString("authority_mode");val base=d.optString("service_url").trimEnd('/')
         prefs.edit().putString(KEY_AUTHORITY_MODE,mode).putString(KEY_SERVICE_URL,base).apply()
@@ -38,6 +38,10 @@ class M2RuntimeBridge(context: Context) {
             return M2ServiceTransport.TransportResult(false, false, 0, null, null)
         }
 
+        if(ServiceFaultInjection.cloudflareDisabled(app)){
+            recordFallback("TEST_CLOUDFLARE_DISABLED")
+            return M2ServiceTransport.TransportResult(false,false,-1,null,"TEST_CLOUDFLARE_DISABLED")
+        }
         val discovery = transport.cachedDiscoverySnapshot()
             ?: return M2ServiceTransport.TransportResult(true, false, 0, null, "DISCOVERY_WARMING")
         val mode = discovery.optString("authority_mode")
@@ -65,18 +69,18 @@ class M2RuntimeBridge(context: Context) {
             var response = one()
             if (response.code == 401 && ensureServiceSession(gasToken, force = true)) response = one()
             if (response.code >= 500 || response.code == -1) {
-                recordServicePending(response.error ?: "SERVICE_READ_${response.code}")
+                recordFallback(response.error ?: "SERVICE_READ_${response.code}")
                 M2WorkScheduler.schedule(app)
-                M2ServiceTransport.TransportResult(true, false, response.code, response.json, response.error)
+                M2ServiceTransport.TransportResult(false, false, response.code, response.json, response.error)
             } else {
                 if (response.code == 401) prefs.edit().remove(KEY_SERVICE_TOKEN).apply()
                 if (response.ok) recordDirect()
                 M2ServiceTransport.TransportResult(true, response.ok, response.code, response.json, response.error)
             }
         } catch (t: Throwable) {
-            recordServicePending(t.message ?: "SERVICE_READ_NETWORK")
+            recordFallback(t.message ?: "SERVICE_READ_NETWORK")
             M2WorkScheduler.schedule(app)
-            M2ServiceTransport.TransportResult(true, false, -1, null, t.message)
+            M2ServiceTransport.TransportResult(false, false, -1, null, t.message)
         }
     }
 
@@ -131,16 +135,23 @@ class M2RuntimeBridge(context: Context) {
         val url = discovery?.optString("service_url").orEmpty()
             .ifBlank { prefs.getString(KEY_SERVICE_URL, "").orEmpty() }
         val tokenPresent = !prefs.getString(KEY_SERVICE_TOKEN, null).isNullOrBlank()
-        val route = prefs.getString(KEY_LAST_ROUTE, null) ?: when {
-            mode == "GOOGLE_FALLBACK" -> "GOOGLE_FALLBACK"
-            mode == "SERVICE_PRIMARY" && tokenPresent -> "SERVICE_D1_DIRECT"
-            mode == "SERVICE_PRIMARY" -> "SERVICE_D1_PENDING"
-            else -> "UNRESOLVED"
+        val cfOff=ServiceFaultInjection.cloudflareDisabled(app)
+        val googleOff=ServiceFaultInjection.googleDisabled(app)
+        val route = when {
+            cfOff && googleOff -> "OFFLINE"
+            cfOff && !googleOff -> "GOOGLE_FALLBACK"
+            else -> prefs.getString(KEY_LAST_ROUTE, null) ?: when {
+                mode == "GOOGLE_FALLBACK" -> "GOOGLE_FALLBACK"
+                mode == "SERVICE_PRIMARY" && tokenPresent -> "SERVICE_D1_DIRECT"
+                mode == "SERVICE_PRIMARY" -> "SERVICE_D1_PENDING"
+                else -> "UNRESOLVED"
+            }
         }
         val label = when (route) {
             "SERVICE_D1_DIRECT" -> "Cloudflare / D1"
             "SERVICE_D1_PENDING" -> "Cloudflare • chờ đồng bộ"
-            "GOOGLE_FALLBACK" -> "Google dự phòng"
+            "GOOGLE_FALLBACK" -> "Google Drive / GSheet dự phòng"
+            "OFFLINE" -> "OFFLINE"
             else -> "Đang xác định"
         }
         return JSONObject()
@@ -149,7 +160,7 @@ class M2RuntimeBridge(context: Context) {
             .put("service_session", tokenPresent)
             .put("route", route)
             .put("label", label)
-            .put("provider", if (mode == "GOOGLE_FALLBACK") "Google dự phòng" else if (url.isNotBlank()) "Cloudflare" else "—")
+            .put("provider", when(route){"GOOGLE_FALLBACK"->"Google Drive";"OFFLINE"->"OFFLINE";else->if(url.isNotBlank())"Cloudflare" else "—"})
             .put("last_error", prefs.getString(KEY_LAST_ERROR, "").orEmpty())
             .put("test_mode",ServiceFaultInjection.mode(app).stored)
     }

@@ -109,7 +109,7 @@ class M2ServiceTransport(context: Context) {
     /** Direct Service read using cached discovery only. A Service failure is handled, never a GAS fall-through. */
     fun sync(action: String, payload: JSONObject): TransportResult {
         if (action !in SYNC_ACTIONS) return TransportResult(false, false, 0, null, null)
-        if (ServiceFaultInjection.cloudflareDisabled(app)) return TransportResult(true,false,-1,null,"TEST_CLOUDFLARE_DISABLED")
+        if (ServiceFaultInjection.cloudflareDisabled(app)) return TransportResult(false,false,-1,null,"TEST_CLOUDFLARE_DISABLED")
         if (!hasNetwork()) return TransportResult(true, false, -1, null, "OFFLINE_LOCAL")
         val discovery = cachedDiscoverySnapshot() ?: return TransportResult(true, false, 0, null, "DISCOVERY_WARMING")
         val mode = discovery.optString("authority_mode")
@@ -126,7 +126,7 @@ class M2ServiceTransport(context: Context) {
             val rtt = (SystemClock.elapsedRealtime() - started).coerceAtLeast(0L)
             val body = (r.json?.let { JSONObject(it.toString()) } ?: JSONObject()).put("_service_rtt_ms", rtt)
             if (r.code >= 500 || r.code == -1) {
-                recordFailure(); M2WorkScheduler.schedule(app); TransportResult(true, false, r.code, body, r.error ?: "SERVICE_UNAVAILABLE")
+                recordFailure(); M2WorkScheduler.schedule(app); TransportResult(false, false, r.code, body, r.error ?: "SERVICE_UNAVAILABLE")
             } else {
                 if (r.code == 401) prefs.edit().remove(KEY_SERVICE_TOKEN).apply()
                 if (r.ok) closeCircuit()
@@ -135,7 +135,7 @@ class M2ServiceTransport(context: Context) {
         } catch (t: Throwable) {
             val rtt = (SystemClock.elapsedRealtime() - started).coerceAtLeast(0L)
             recordFailure(); M2WorkScheduler.schedule(app)
-            TransportResult(true, false, -1, JSONObject().put("_service_rtt_ms", rtt), t.message ?: "SERVICE_READ_NETWORK_ERROR")
+            TransportResult(false, false, -1, JSONObject().put("_service_rtt_ms", rtt), t.message ?: "SERVICE_READ_NETWORK_ERROR")
         }
     }
 
@@ -153,16 +153,16 @@ class M2ServiceTransport(context: Context) {
     private fun flushOutboxLocked(): Boolean {
         if (!hasNetwork()) return false
         if(ServiceFaultInjection.cloudflareDisabled(app)){
-            // Fault injection simulates provider loss only. Do not bypass the authority fence or
-            // manufacture a Google write authority while production still says SERVICE_PRIMARY.
-            return false
+            // S58_BETA55_GOOGLE_FALLBACK: Cloudflare unavailable -> GAS/Google Sheets.
+            // Only disabling both providers is OFFLINE.
+            return flushFallbackItems(store.unresolvedMutations(100))
         }
         var discovery=cachedDiscoverySnapshot();if(discovery==null)discovery=discover(force=true);if(discovery==null)return false
         if(discovery.optString("authority_mode")=="GOOGLE_FALLBACK")return flushFallbackItems(store.unresolvedMutations(100))
         if(discovery.optString("authority_mode")!="SERVICE_PRIMARY")return false
         val items=store.unresolvedMutations(100);if(items.isEmpty())return true
         if(circuitOpen()){
-            if(failureCount()>=FALLBACK_PROBE_FAILURES&&fallbackProbeDue()){val confirmed=discover(force=true);noteFallbackProbe();if(confirmed?.optString("authority_mode")=="GOOGLE_FALLBACK")return flushFallbackItems(items)}
+            if(failureCount()>=FALLBACK_PROBE_FAILURES)return flushFallbackItems(items)
             return false
         }
         val base=discovery.optString("service_url").trimEnd('/');if(!validServiceUrl(base))return false
@@ -173,11 +173,11 @@ class M2ServiceTransport(context: Context) {
             var r=submit(token)
             if(r.code==401){M2ServiceSessionManager.clearIfSame(app,token);val refreshed=exchangeBackgroundServiceSession(base);if(!refreshed.isNullOrBlank())r=submit(refreshed)}
             if(r.code==401){items.forEach{store.markMutationRetry(it.eventId,"SERVICE_SESSION_REAUTH_REQUIRED",retryDelay(it.attemptCount))};return false}
-            if(!r.ok||r.json==null){if(r.code>=500||r.code==-1)recordFailure();if(failureCount()>=FALLBACK_PROBE_FAILURES&&fallbackProbeDue()){val confirmed=discover(force=true);noteFallbackProbe();if(confirmed?.optString("authority_mode")=="GOOGLE_FALLBACK")return flushFallbackItems(items)};items.forEach{store.markMutationRetry(it.eventId,r.error?:"HTTP_${r.code}",retryDelay(it.attemptCount))};return false}
+            if(!r.ok||r.json==null){if(r.code>=500||r.code==-1)recordFailure();if((r.code>=500||r.code==-1)&&failureCount()>=FALLBACK_PROBE_FAILURES)return flushFallbackItems(items);items.forEach{store.markMutationRetry(it.eventId,r.error?:"HTTP_${r.code}",retryDelay(it.attemptCount))};return false}
             val results=r.json.optJSONArray("results")?:JSONArray();val byId=items.associateBy{it.eventId};var retryNeeded=false
             for(i in 0 until results.length()){val result=results.optJSONObject(i)?:continue;val eventId=result.optString("local_event_id");val item=byId[eventId]?:continue;val error=result.optString("error_code").ifBlank{result.optJSONObject("conflict")?.toString().orEmpty()};when(result.optString("status")){"CONFIRMED","DUPLICATE"->store.markMutationSynced(eventId);"REVIEW_REQUIRED"->store.markMutationReviewRequired(eventId,error);"REJECTED"->if(result.optBoolean("retryable",false)){store.markMutationRetry(eventId,error.ifBlank{"RETRYABLE_REJECT"},retryDelay(item.attemptCount));retryNeeded=true}else store.markMutationRejected(eventId,error);else->{store.markMutationRetry(eventId,"BATCH_RESULT_INVALID",retryDelay(item.attemptCount));retryNeeded=true}}}
             val returned=HashSet<String>().apply{for(i in 0 until results.length())add(results.optJSONObject(i)?.optString("local_event_id").orEmpty())};items.filter{it.eventId !in returned}.forEach{store.markMutationRetry(it.eventId,"BATCH_RESULT_MISSING",retryDelay(it.attemptCount));retryNeeded=true};if(!retryNeeded)closeCircuit();!retryNeeded
-        }catch(x:Throwable){recordFailure();items.forEach{store.markMutationRetry(it.eventId,x.message?:"NETWORK",retryDelay(it.attemptCount))};false}
+        }catch(x:Throwable){recordFailure();if(failureCount()>=FALLBACK_PROBE_FAILURES)return flushFallbackItems(items);items.forEach{store.markMutationRetry(it.eventId,x.message?:"NETWORK",retryDelay(it.attemptCount))};false}
     }
 
     private fun exchangeBackgroundServiceSession(base:String):String? = M2ServiceSessionManager.ensure(app,base,force=true)
