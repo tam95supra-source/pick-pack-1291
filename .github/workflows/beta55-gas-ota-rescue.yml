@@ -1,0 +1,202 @@
+name: Beta55 GAS OTA Rescue
+
+on:
+  push:
+    branches: [ agent/service-migration-m2 ]
+    paths:
+      - 'ops/beta55-gas-rescue-trigger.txt'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: gas-live-deploy
+  cancel-in-progress: false
+
+env:
+  GAS_URL: https://script.google.com/macros/s/AKfycbzbEoGfbNg6s2HnP-gUpcBJ7mMIkVBtYuQKMndb9seDV2c55lQwSUO1GZ-LtQ2CxMCauA/exec
+  TARGET_BETA: 0.4.2-beta.55
+  TARGET_CODE: '61'
+  TARGET_SHA: 6428d934a3a86b55c0c3107840e211c6841f82e875b975510174e44e63045c85
+  TARGET_SIZE: '13027947'
+  FROM_BETA: 0.4.2-beta.54
+  SERVICE_BRANCH: agent/service-migration-m2
+
+jobs:
+  rescue:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+      GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+      GOOGLE_OAUTH_REFRESH_TOKEN: ${{ secrets.GOOGLE_OAUTH_REFRESH_TOKEN }}
+      GAS_SCRIPT_ID: ${{ secrets.GAS_SCRIPT_ID }}
+      GAS_DEPLOYMENT_ID: ${{ secrets.GAS_DEPLOYMENT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Publish observable GAS rescue run
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          printf 'run_id=%s\nsource_sha=%s\nstatus=RUNNING\nstarted_at=%s\n' "$GITHUB_RUN_ID" "$GITHUB_SHA" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >/tmp/obs
+          API="repos/$GITHUB_REPOSITORY/contents/ops/beta55-gas-rescue-observer.txt"; sha=$(gh api "$API?ref=$SERVICE_BRANCH" --jq .sha 2>/dev/null || true); content=$(base64 -w0 /tmp/obs)
+          if [[ -n "$sha" ]]; then gh api -X PUT "$API" -f message='ops: observe Beta55 GAS rescue' -f content="$content" -f sha="$sha" -f branch="$SERVICE_BRANCH" >/dev/null
+          else gh api -X PUT "$API" -f message='ops: observe Beta55 GAS rescue' -f content="$content" -f branch="$SERVICE_BRANCH" >/dev/null; fi
+
+      - name: Lock canonical Beta55 metadata and materialize GAS source
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY'
+          import json
+          m=json.load(open('ops/beta-ota-current.json'))
+          assert m.get('source')=='GITHUB_RELEASE',m
+          assert m.get('version_name')=='0.4.2-beta.55',m
+          assert int(m.get('version_code',-1))==61,m
+          assert str(m.get('sha256','')).lower()=='6428d934a3a86b55c0c3107840e211c6841f82e875b975510174e44e63045c85',m
+          assert int(m.get('size',-1))==13027947,m
+          PY
+          python3 -m py_compile tools/apply_s46_gas_auth.py tools/apply_github_ota_canonical.py
+          python3 tools/apply_s46_gas_auth.py
+          python3 tools/apply_github_ota_canonical.py
+          grep -q 'PP_GITHUB_RELEASE_OTA_CANONICAL_V1' google-apps-script/PICK_PACK_API.gs
+          grep -q 'PP_GITHUB_RELEASE_OTA_STATIC_CANONICAL_V2' google-apps-script/ZZZ_GITHUB_OTA_OVERRIDE.gs
+          cp google-apps-script/PICK_PACK_API.gs /tmp/PICK_PACK_API.js
+          cp google-apps-script/SERVICE_MIGRATION_M2.gs /tmp/SERVICE_MIGRATION_M2.js
+          node --check /tmp/PICK_PACK_API.js
+          node --check /tmp/SERVICE_MIGRATION_M2.js
+
+      - name: Detect whether production GAS already serves exact Beta55
+        id: detect
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          post(){ curl -sSL --connect-timeout 20 --max-time 90 -H 'content-type: application/json' "$GAS_URL" -d "$1"; }
+          post "{\"action\":\"update_check\",\"channel\":\"BETA\",\"current_version\":\"$FROM_BETA\"}" >/tmp/pre.json || true
+          if python3 - <<'PY'
+          import json,os
+          try:j=json.load(open('/tmp/pre.json'))
+          except:raise SystemExit(1)
+          good=j.get('ok') is True and j.get('available') is True and j.get('version_name')==os.environ['TARGET_BETA'] and int(j.get('version_code',-1))==int(os.environ['TARGET_CODE']) and str(j.get('sha256','')).lower()==os.environ['TARGET_SHA'] and int(j.get('size',-1))==int(os.environ['TARGET_SIZE'])
+          raise SystemExit(0 if good else 1)
+          PY
+          then echo 'already=true' >> "$GITHUB_OUTPUT"; else echo 'already=false' >> "$GITHUB_OUTPUT"; fi
+
+      - name: Deploy exact current GAS only when live OTA is not Beta55
+        id: deploy
+        if: steps.detect.outputs.already != 'true'
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          for v in GOOGLE_OAUTH_CLIENT_ID GOOGLE_OAUTH_CLIENT_SECRET GOOGLE_OAUTH_REFRESH_TOKEN GAS_SCRIPT_ID GAS_DEPLOYMENT_ID; do [[ -n "${!v:-}" ]]; done
+          SCRIPT_ID=$(printf '%s' "$GAS_SCRIPT_ID"|tr -d '\r\n\t '); RAW=$(printf '%s' "$GAS_DEPLOYMENT_ID"|tr -d '\r\n\t '); DEPLOYMENT_ID="$RAW"; if [[ "$RAW" =~ /s/([^/]+)/ ]]; then DEPLOYMENT_ID="${BASH_REMATCH[1]}"; fi
+          RESP=$(curl -fsS https://oauth2.googleapis.com/token -H 'Content-Type: application/x-www-form-urlencoded' --data-urlencode "client_id=$GOOGLE_OAUTH_CLIENT_ID" --data-urlencode "client_secret=$GOOGLE_OAUTH_CLIENT_SECRET" --data-urlencode "refresh_token=$GOOGLE_OAUTH_REFRESH_TOKEN" --data-urlencode 'grant_type=refresh_token')
+          TOKEN=$(python3 -c 'import json,sys;print(json.load(sys.stdin).get("access_token",""))' <<<"$RESP"); [[ -n "$TOKEN" ]]; echo "::add-mask::$TOKEN"
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          b=Path('google-apps-script');files=[]
+          for p in sorted(b.glob('*.gs')):files.append({'name':p.stem,'type':'SERVER_JS','source':p.read_text()})
+          files.append({'name':'appsscript','type':'JSON','source':(b/'appsscript.json').read_text()})
+          Path('/tmp/content.json').write_text(json.dumps({'files':files},ensure_ascii=False))
+          PY
+          H=$(curl -sS -o /tmp/content.out -w '%{http_code}' -X PUT -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' --data-binary @/tmp/content.json "https://script.googleapis.com/v1/projects/$SCRIPT_ID/content"); [[ "$H" == 200 ]]
+          H=$(curl -sS -o /tmp/version.json -w '%{http_code}' -X POST -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d '{"description":"Pick Pack 1291 Beta55 OTA fallback repair"}' "https://script.googleapis.com/v1/projects/$SCRIPT_ID/versions"); [[ "$H" == 200 ]]
+          V=$(python3 -c 'import json;print(json.load(open("/tmp/version.json"))["versionNumber"])')
+          python3 - "$SCRIPT_ID" "$V" <<'PY'
+          import json,sys
+          open('/tmp/deploy.json','w').write(json.dumps({'deploymentConfig':{'scriptId':sys.argv[1],'versionNumber':int(sys.argv[2]),'manifestFileName':'appsscript','description':'Pick Pack 1291 Beta55 OTA fallback repair'}}))
+          PY
+          H=$(curl -sS -o /tmp/deploy.out -w '%{http_code}' -X PUT -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' --data-binary @/tmp/deploy.json "https://script.googleapis.com/v1/projects/$SCRIPT_ID/deployments/$DEPLOYMENT_ID"); [[ "$H" == 200 ]]
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+
+      - name: Verify live Beta54 to Beta55 OTA exact bytes and safety
+        id: verify
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          post(){ curl -sSL --connect-timeout 20 --max-time 90 -H 'content-type: application/json' "$GAS_URL" -d "$1"; }
+          good=false
+          for n in $(seq 1 25); do
+            post "{\"action\":\"update_check\",\"channel\":\"BETA\",\"current_version\":\"$FROM_BETA\"}" >/tmp/update.json || true
+            if python3 - <<'PY'
+          import json,os
+          try:j=json.load(open('/tmp/update.json'))
+          except:raise SystemExit(1)
+          good=j.get('ok') is True and j.get('available') is True and j.get('source')=='GITHUB_RELEASE' and j.get('version_name')==os.environ['TARGET_BETA'] and int(j.get('version_code',-1))==int(os.environ['TARGET_CODE']) and str(j.get('sha256','')).lower()==os.environ['TARGET_SHA'] and int(j.get('size',-1))==int(os.environ['TARGET_SIZE']) and str(j.get('apk_url','')).startswith('https://github.com/')
+          raise SystemExit(0 if good else 1)
+          PY
+            then good=true; break; fi; sleep 3
+          done
+          [[ "$good" == true ]]
+          URL=$(python3 -c 'import json;print(json.load(open("/tmp/update.json"))["apk_url"])'); curl -fL --retry 6 --retry-all-errors --retry-delay 2 --connect-timeout 20 --max-time 180 "$URL" -o /tmp/ota.apk
+          [[ "$(sha256sum /tmp/ota.apk|awk '{print $1}')" == "$TARGET_SHA" ]]; [[ "$(stat -c '%s' /tmp/ota.apk)" == "$TARGET_SIZE" ]]
+          post "{\"action\":\"update_check\",\"channel\":\"BETA\",\"current_version\":\"$TARGET_BETA\"}" >/tmp/self.json
+          post '{"action":"update_check","channel":"STABLE","current_version":"0.1.0-stable"}' >/tmp/stable.json
+          python3 - <<'PY'
+          import json
+          s=json.load(open('/tmp/self.json'));t=json.load(open('/tmp/stable.json'))
+          assert s.get('ok') is True and s.get('available') is False,s
+          assert t.get('ok') is True and t.get('available') is False,t
+          PY
+          echo "download_sha=$(sha256sum /tmp/ota.apk|awk '{print $1}')" >> "$GITHUB_OUTPUT"; echo "download_size=$(stat -c '%s' /tmp/ota.apk)" >> "$GITHUB_OUTPUT"
+
+      - name: Persist Beta55 GAS production receipt
+        if: always()
+        env:
+          DETECT: ${{ steps.detect.outputs.already }}
+          DEPLOY_OUTCOME: ${{ steps.deploy.outcome }}
+          GAS_VERSION: ${{ steps.deploy.outputs.version }}
+          VERIFY_OUTCOME: ${{ steps.verify.outcome }}
+          DOWNLOAD_SHA: ${{ steps.verify.outputs.download_sha }}
+          DOWNLOAD_SIZE: ${{ steps.verify.outputs.download_size }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          verdict=FAIL; [[ "$VERIFY_OUTCOME" == success ]] && verdict=PASS
+          git reset --hard "$GITHUB_SHA"
+          cat > ops/beta55-gas-ota-result.txt <<EOF
+          checked_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          source_sha=$GITHUB_SHA
+          run_id=$GITHUB_RUN_ID
+          live_already_beta55=${DETECT:-}
+          deploy_outcome=${DEPLOY_OUTCOME:-}
+          gas_version=${GAS_VERSION:-}
+          verify=$VERIFY_OUTCOME
+          from_version=$FROM_BETA
+          target=$TARGET_BETA
+          target_code=$TARGET_CODE
+          target_sha256=$TARGET_SHA
+          target_size=$TARGET_SIZE
+          download_sha256=${DOWNLOAD_SHA:-}
+          download_size=${DOWNLOAD_SIZE:-}
+          self_update=FALSE
+          stable=UNTOUCHED
+          main=UNTOUCHED
+          pr38_merge=FORBIDDEN
+          pr52_merge=FORBIDDEN
+          verdict=$verdict
+          EOF
+          git config user.name github-actions[bot]; git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add ops/beta55-gas-ota-result.txt
+          git commit -m "ops: record Beta55 GAS OTA $verdict" || true
+          git pull --rebase origin agent/service-migration-m2; git push origin HEAD:agent/service-migration-m2
+          [[ "$verdict" == PASS ]]
+
+      - name: Finalize GAS rescue observer
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf 'run_id=%s\nsource_sha=%s\nstatus=%s\nfinished_at=%s\n' "$GITHUB_RUN_ID" "$GITHUB_SHA" "${{ job.status }}" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >/tmp/obs
+          API="repos/$GITHUB_REPOSITORY/contents/ops/beta55-gas-rescue-observer.txt"; sha=$(gh api "$API?ref=$SERVICE_BRANCH" --jq .sha 2>/dev/null || true); content=$(base64 -w0 /tmp/obs)
+          if [[ -n "$sha" ]]; then gh api -X PUT "$API" -f message='ops: finalize Beta55 GAS rescue' -f content="$content" -f sha="$sha" -f branch="$SERVICE_BRANCH" >/dev/null
+          else gh api -X PUT "$API" -f message='ops: finalize Beta55 GAS rescue' -f content="$content" -f branch="$SERVICE_BRANCH" >/dev/null; fi
