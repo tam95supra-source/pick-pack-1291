@@ -1,0 +1,8 @@
+requested_at=2026-08-23T00:22:00+07:00
+target=pick-pack-1291-service
+required_pr61_merge_sha=36374d58aaa6669713d6fe51b366bc87bf048539
+scope=beta54-exit-resolution-pda-guards
+expected_authority=SERVICE_PRIMARY
+stable=FORBIDDEN
+main=UNTOUCHED
+pr38_merge=FORBIDDEN
