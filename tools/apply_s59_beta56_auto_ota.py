@@ -16,21 +16,14 @@ s=once(s,old,new,'UpdateManager object')
 s=s.replace('''Sau đó quay lại ứng dụng và bấm KIỂM TRA CẬP NHẬT lại; ứng dụng sẽ không tự kiểm tra.''','''Sau đó quay lại ứng dụng. Ứng dụng sẽ tự kiểm tra lại khi vào foreground; bạn cũng có thể bấm KIỂM TRA CẬP NHẬT trong Cài đặt.''')
 p.write_text(s)
 
-# Launcher: auto-check while login screen is visible. Logged-in path immediately opens OperationsActivity,
-# which performs its own foreground check.
-p=Path('app/src/main/java/vn/pickpack1291/app/beta/FullBetaActivity.kt')
+# Application-wide lifecycle hook: every foreground Activity gets the same throttled OTA check.
+p=Path('app/src/main/java/vn/pickpack1291/app/beta/M2Firebase.kt')
 s=p.read_text()
-old='''    override fun onStart() {\n        super.onStart()\n        if (api.token != null) foregroundSync.start()\n    }'''
-new='''    override fun onStart() {\n        super.onStart()\n        if (api.token != null) foregroundSync.start()\n        else UpdateManager.checkAutomatic(this) // S59_BETA56_AUTO_OTA\n    }'''
-s=once(s,old,new,'FullBeta onStart')
-p.write_text(s)
-
-# Main operational activity: one throttled automatic OTA check whenever app returns to foreground.
-p=Path('app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt')
-s=p.read_text()
-old='''    override fun onStart() {\n        super.onStart()\n        PpForegroundGate.enter()'''
-new='''    override fun onStart() {\n        super.onStart()\n        UpdateManager.checkAutomatic(this) // S59_BETA56_AUTO_OTA\n        PpForegroundGate.enter()'''
-s=once(s,old,new,'Operations onStart')
+s=once(s,'import android.app.Application\n','import android.app.Activity\nimport android.app.Application\n', 'Activity import')
+s=once(s,'import android.content.Context\n','import android.content.Context\nimport android.os.Bundle\n', 'Bundle import')
+old='''class M2Application : Application() {\n    override fun onCreate() {\n        super.onCreate()\n        M2Firebase.bootstrap(this)\n    }\n}'''
+new='''class M2Application : Application() {\n    override fun onCreate() {\n        super.onCreate()\n        M2Firebase.bootstrap(this)\n        registerActivityLifecycleCallbacks(object : ActivityLifecycleCallbacks {\n            override fun onActivityResumed(activity: Activity) { UpdateManager.checkAutomatic(activity) } // S59_BETA56_AUTO_OTA\n            override fun onActivityCreated(activity: Activity, state: Bundle?) {}\n            override fun onActivityStarted(activity: Activity) {}\n            override fun onActivityPaused(activity: Activity) {}\n            override fun onActivityStopped(activity: Activity) {}\n            override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) {}\n            override fun onActivityDestroyed(activity: Activity) {}\n        })\n    }\n}'''
+s=once(s,old,new,'M2Application lifecycle')
 p.write_text(s)
 
 # Bump only Beta; Stable metadata remains immutable.
