@@ -1,0 +1,251 @@
+name: Beta55 Signed OTA Release
+
+on:
+  push:
+    branches: [ stabilization/beta48-golden-reset-beta50-20260822 ]
+    paths:
+      - 'ops/beta55-release-trigger.txt'
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: beta55-signed-ota-release
+  cancel-in-progress: false
+
+env:
+  BETA_NAME: 0.4.2-beta.55
+  BETA_CODE: '61'
+  STABLE_NAME: 0.1.0-stable
+  STABLE_CODE: '1'
+  EXPECTED_PACKAGE: vn.pickpack1291.app.beta.publicbeta
+  EXPECTED_SIGNER_SHA256: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
+  SERVICE_URL: https://pick-pack-1291-service.pp1291-d79b87776e86.workers.dev
+
+jobs:
+  build-sign-publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      SIGNING_KEY_B64: ${{ secrets.ANDROID_SIGNING_KEY_B64 }}
+      SIGNING_STORE_PASSWORD: ${{ secrets.ANDROID_SIGNING_STORE_PASSWORD }}
+      SIGNING_KEY_PASSWORD: ${{ secrets.ANDROID_SIGNING_KEY_PASSWORD }}
+      SIGNING_ALIAS: ${{ secrets.ANDROID_SIGNING_ALIAS }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Lock Beta55 source and all current owner requirements
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          grep -Fq 'versionCode = 61' app/build.gradle.kts
+          grep -Fq 'versionName = "0.4.2-beta.55"' app/build.gradle.kts
+          grep -Fq 'versionCode = 1' app/build.gradle.kts
+          grep -Fq 'versionName = "0.1.0-stable"' app/build.gradle.kts
+          grep -Fq 'S58_BETA55_GOOGLE_FALLBACK' app/src/main/java/vn/pickpack1291/app/beta/M2ServiceTransport.kt
+          grep -Fq 'return flushFallbackItems(store.unresolvedMutations(100))' app/src/main/java/vn/pickpack1291/app/beta/M2ServiceTransport.kt
+          grep -Fq 'GOOGLE_RELAY_TEST' app/src/main/java/vn/pickpack1291/app/beta/M2RuntimeBridge.kt
+          grep -Fq 'Google/GAS dự phòng (test Cloudflare)' app/src/main/java/vn/pickpack1291/app/beta/M2RuntimeBridge.kt
+          grep -Fq 'cfOff && googleOff -> "OFFLINE"' app/src/main/java/vn/pickpack1291/app/beta/M2RuntimeBridge.kt
+          OPS=app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt
+          grep -Fq '"Quản lý biên bản"' "$OPS"
+          grep -Fq 'Quản lý biên bản đang chờ xây dựng.' "$OPS"
+          ! grep -Fq 'Người dùng đang kết nối' "$OPS"
+          ! grep -Fq 'mục chờ gửi' "$OPS"
+          grep -Fq 'THÔNG TIN TRÊN PDA' "$OPS"
+          grep -Fq 'THÔNG TIN TRÊN SERVICE' "$OPS"
+          grep -Fq 'THÔNG TIN TRÊN GOOGLE SHEET' "$OPS"
+          grep -Fq 'THÔNG TIN ĐỒNG BỘ KHÁC' "$OPS"
+          grep -Fq 'THÔNG TIN ỨNG DỤNG' "$OPS"
+          git diff --check
+          code=$(curl -sS --retry 4 --retry-delay 2 --connect-timeout 15 --max-time 45 -o /tmp/health.json -w '%{http_code}' "$SERVICE_URL/health")
+          [[ "$code" == 200 ]]
+          python3 - <<'PY'
+          import json
+          j=json.load(open('/tmp/health.json')); a=j.get('authority') or {}; r=j.get('replication') or {}
+          assert j.get('ok') is True,j
+          assert a.get('mode')=='SERVICE_PRIMARY' and a.get('scope')=='PRODUCTION',a
+          assert r.get('state')=='HEALTHY' and int(r.get('pending_count',-1))==0,r
+          PY
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.4.1'
+          cache-read-only: true
+
+      - name: Resolve Android SDK 36
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          if [[ -n "${ANDROID_HOME:-}" && -f "$ANDROID_HOME/platforms/android-36/android.jar" && -x "$ANDROID_HOME/build-tools/36.0.0/apksigner" && -x "$ANDROID_HOME/build-tools/36.0.0/aapt" ]]; then
+            echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> "$GITHUB_ENV"; exit 0
+          fi
+          SDK="$RUNNER_TEMP/android-sdk"; ZIP="$RUNNER_TEMP/commandlinetools.zip"
+          curl -fsSL https://dl.google.com/android/repository/commandlinetools-linux-15859902_latest.zip -o "$ZIP"
+          echo "4e4c464f145a7512b57d088ac6c278c03c9eea610886b35a5e0804e74eedf583  $ZIP" | sha256sum -c -
+          mkdir -p "$SDK/cmdline-tools"; unzip -q "$ZIP" -d "$RUNNER_TEMP/android-cmdline"; mv "$RUNNER_TEMP/android-cmdline/cmdline-tools" "$SDK/cmdline-tools/latest"
+          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"; echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
+          yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
+          "$SDK/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-36' 'build-tools;36.0.0'
+
+      - name: Build Beta55 and immutable Stable validation APK
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          gradle --no-daemon --build-cache --parallel :app:assembleBetaRelease :app:assembleStableRelease
+          test -s app/build/outputs/apk/beta/release/app-beta-release-unsigned.apk
+          test -s app/build/outputs/apk/stable/release/app-stable-release-unsigned.apk
+
+      - name: Verify package/version and sign Beta55
+        id: sign
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          BT="$ANDROID_SDK_ROOT/build-tools/36.0.0"
+          BETA=app/build/outputs/apk/beta/release/app-beta-release-unsigned.apk
+          STABLE=app/build/outputs/apk/stable/release/app-stable-release-unsigned.apk
+          "$BT/aapt" dump badging "$BETA" > /tmp/beta.txt
+          "$BT/aapt" dump badging "$STABLE" > /tmp/stable.txt
+          grep -q "package: name='$EXPECTED_PACKAGE'" /tmp/beta.txt
+          grep -q "versionCode='$BETA_CODE'" /tmp/beta.txt
+          grep -q "versionName='$BETA_NAME'" /tmp/beta.txt
+          grep -q "package: name='vn.pickpack1291.app.stable'" /tmp/stable.txt
+          grep -q "versionCode='$STABLE_CODE'" /tmp/stable.txt
+          grep -q "versionName='$STABLE_NAME'" /tmp/stable.txt
+          for v in SIGNING_KEY_B64 SIGNING_STORE_PASSWORD SIGNING_KEY_PASSWORD SIGNING_ALIAS; do [[ -n "${!v:-}" ]]; done
+          KS="$RUNNER_TEMP/release.jks"; printf '%s' "$SIGNING_KEY_B64" | base64 -d > "$KS"
+          printf '%s' "$SIGNING_STORE_PASSWORD" > "$RUNNER_TEMP/store.pass"
+          printf '%s' "$SIGNING_KEY_PASSWORD" > "$RUNNER_TEMP/key.pass"
+          mkdir -p dist/beta
+          APK_NAME="pick-pack-1291-public-beta-$BETA_NAME.apk"; OUT="dist/beta/$APK_NAME"
+          "$BT/apksigner" sign --ks "$KS" --ks-key-alias "$SIGNING_ALIAS" --ks-pass "file:$RUNNER_TEMP/store.pass" --key-pass "file:$RUNNER_TEMP/key.pass" --out "$OUT" "$BETA"
+          "$BT/apksigner" verify --verbose --print-certs "$OUT" > /tmp/cert.txt
+          grep -qi "Signer #1 certificate SHA-256 digest: $EXPECTED_SIGNER_SHA256" /tmp/cert.txt
+          "$BT/aapt" dump badging "$OUT" > /tmp/signed.txt
+          grep -q "package: name='$EXPECTED_PACKAGE'" /tmp/signed.txt
+          grep -q "versionCode='$BETA_CODE'" /tmp/signed.txt
+          grep -q "versionName='$BETA_NAME'" /tmp/signed.txt
+          SHA=$(sha256sum "$OUT"|awk '{print $1}'); SIZE=$(stat -c '%s' "$OUT")
+          printf '%s  %s\n' "$SHA" "$APK_NAME" > "dist/beta/SHA256SUMS-$BETA_NAME.txt"
+          echo "apk_name=$APK_NAME" >> "$GITHUB_OUTPUT"; echo "sha=$SHA" >> "$GITHUB_OUTPUT"; echo "size=$SIZE" >> "$GITHUB_OUTPUT"
+
+      - name: Upload locked signed candidate artifact
+        id: upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: pick-pack-1291-public-beta-0.4.2-beta.55-signed-candidate
+          path: dist/beta/*
+          retention-days: 14
+
+      - name: Publish immutable GitHub Beta55 release
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          APK_NAME: ${{ steps.sign.outputs.apk_name }}
+          APK_SHA: ${{ steps.sign.outputs.sha }}
+          APK_SIZE: ${{ steps.sign.outputs.size }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          TAG="v${BETA_NAME}-publicbeta"; APK="dist/beta/$APK_NAME"; SUM="dist/beta/SHA256SUMS-$BETA_NAME.txt"
+          cat > /tmp/notes.txt <<EOF
+          Pick Pack 1291 Beta ${BETA_NAME}
+
+          PP_CHANNEL=BETA
+          PP_VERSION=${BETA_NAME}
+          PP_VERSION_CODE=${BETA_CODE}
+          PP_SHA256=${APK_SHA}
+          PP_SIZE=${APK_SIZE}
+          PP_SIGNER_SHA256=${EXPECTED_SIGNER_SHA256}
+          PP_APK_NAME=${APK_NAME}
+          PP_MANDATORY=false
+          PP_FIX=Cloudflare unavailable -> Google/GAS fallback; both unavailable -> offline
+          EOF
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            URL="https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/$APK_NAME"
+            curl -fL --retry 5 --retry-all-errors --connect-timeout 20 --max-time 180 "$URL" -o /tmp/existing.apk
+            [[ "$(sha256sum /tmp/existing.apk|awk '{print $1}')" == "$APK_SHA" ]]
+            [[ "$(stat -c '%s' /tmp/existing.apk)" == "$APK_SIZE" ]]
+          else
+            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "Pick Pack 1291 ${BETA_NAME}" --notes-file /tmp/notes.txt --prerelease
+            gh release upload "$TAG" "$APK#$APK_NAME" "$SUM#$(basename "$SUM")" --repo "$GITHUB_REPOSITORY"
+          fi
+          URL="https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/$APK_NAME"
+          curl -fL --retry 6 --retry-all-errors --retry-delay 2 --connect-timeout 20 --max-time 180 "$URL" -o /tmp/live.apk
+          [[ "$(sha256sum /tmp/live.apk|awk '{print $1}')" == "$APK_SHA" ]]
+          [[ "$(stat -c '%s' /tmp/live.apk)" == "$APK_SIZE" ]]
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"; echo "url=$URL" >> "$GITHUB_OUTPUT"
+
+      - name: Stage exact Beta55 OTA metadata onto canonical Service branch
+        env:
+          APK_NAME: ${{ steps.sign.outputs.apk_name }}
+          APK_SHA: ${{ steps.sign.outputs.sha }}
+          APK_SIZE: ${{ steps.sign.outputs.size }}
+          RELEASE_URL: ${{ steps.release.outputs.url }}
+          ARTIFACT_ID: ${{ steps.upload.outputs.artifact-id }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          BUILD_SOURCE_SHA="$GITHUB_SHA"
+          git fetch origin agent/service-migration-m2
+          git checkout -B beta55-gas-stage origin/agent/service-migration-m2
+          mkdir -p ops
+          cat > ops/beta-ota-current.json <<EOF
+          {
+            "source": "GITHUB_RELEASE",
+            "channel": "BETA",
+            "version_name": "$BETA_NAME",
+            "version_code": $BETA_CODE,
+            "apk_name": "$APK_NAME",
+            "apk_url": "$RELEASE_URL",
+            "sha256": "$APK_SHA",
+            "size": $APK_SIZE,
+            "published_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "notes": "Beta55: Cloudflare lỗi chuyển qua Google/GAS; chỉ khi cả Cloudflare và Google đều không dùng được mới OFFLINE. Giữ nguyên toàn bộ sửa lỗi Beta54.",
+            "mandatory": false,
+            "retention": 10
+          }
+          EOF
+          cat > ops/gas-deploy-trigger.txt <<EOF
+          trigger=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          release=Beta55
+          beta_source_sha=$BUILD_SOURCE_SHA
+          artifact_id=$ARTIFACT_ID
+          apk_sha256=$APK_SHA
+          reason=publish-beta55-google-fallback
+          EOF
+          cat > ops/beta55-signed-release-result.txt <<EOF
+          checked_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          beta_source_sha=$BUILD_SOURCE_SHA
+          release_run_id=$GITHUB_RUN_ID
+          artifact_id=$ARTIFACT_ID
+          beta_name=$BETA_NAME
+          beta_code=$BETA_CODE
+          apk_name=$APK_NAME
+          apk_sha256=$APK_SHA
+          apk_size=$APK_SIZE
+          signer_sha256=$EXPECTED_SIGNER_SHA256
+          release_url=$RELEASE_URL
+          stable=UNTOUCHED
+          main=UNTOUCHED
+          pr38_merge=FORBIDDEN
+          pr52_merge=FORBIDDEN
+          verdict=PASS
+          EOF
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add ops/beta-ota-current.json ops/gas-deploy-trigger.txt ops/beta55-signed-release-result.txt
+          git commit -m 'release: stage Beta55 OTA metadata for production GAS'
+          git push origin HEAD:agent/service-migration-m2
+
+      - name: Cleanup signing material
+        if: always()
+        run: rm -f "$RUNNER_TEMP/release.jks" "$RUNNER_TEMP/store.pass" "$RUNNER_TEMP/key.pass"
