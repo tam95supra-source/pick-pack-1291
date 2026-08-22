@@ -1,0 +1,4 @@
+trigger=2026-08-23T01:08:00+07:00
+scope=cloudflare-to-google-fallback
+stable=UNTOUCHED
+main=UNTOUCHED
