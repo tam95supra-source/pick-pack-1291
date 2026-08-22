@@ -166,7 +166,7 @@ jobs:
           download_sha256=${DOWNLOAD_SHA:-}
           download_size=${DOWNLOAD_SIZE:-}
           manual_check=$manual
-          automatic_check=SOURCE_VERIFIED_IN_APP
+          automatic_check=DISABLED_IN_APP
           target_self_update=$self_state
           stable=UNTOUCHED
           pr38_merge=FORBIDDEN
@@ -175,7 +175,7 @@ jobs:
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git add ops/gas-deploy-result.txt
-          git commit -m 'ops: record production GAS OTA deploy' || true
+          git commit -m 'ops: record production GAS manual OTA deploy' || true
           git pull --rebase origin agent/service-migration-m2
           git push origin HEAD:agent/service-migration-m2
           [[ "$verdict" == PASS ]]
