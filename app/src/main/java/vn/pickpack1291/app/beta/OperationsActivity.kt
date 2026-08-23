@@ -1420,7 +1420,6 @@ class OperationsActivity : Activity() {
         gravity=Gravity.CENTER;setPadding(dp(3),dp(5),dp(3),dp(5));background=outlineBg(surface,16);elevation=dp(8).toFloat();navRefs.clear()
         val items=mutableListOf(
             Triple(R.drawable.ic_pp_business,"Nghiệp vụ","BUSINESS"),
-            Triple(R.drawable.ic_pp_staff,"Nhân sự","STAFF"),
             Triple(R.drawable.ic_pp_history,"Lịch sử","HISTORY"),
             Triple(R.drawable.ic_pp_settings,"Cài đặt","SETTINGS")
         )
