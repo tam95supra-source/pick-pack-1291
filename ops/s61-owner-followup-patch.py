@@ -6,6 +6,10 @@ old='''  const hasPick=Boolean(pda||pick),hasPack=Boolean(table&&pack);let choic
 new='''  const hasPick=Boolean(pda||pick),hasPack=Boolean(table&&pack),preserveWorkChoice=Boolean(b.preserve_work_choice),requestedChoice=text(b.work_choice,20).toUpperCase();let choice=requestedChoice;if(!["PICK","PACK","KHONG"].includes(choice))choice=s.work_choice;if(!preserveWorkChoice){if(hasPick&&hasPack){if(choice!=="PICK"&&choice!=="PACK")choice=s.work_choice==="PACK"?"PACK":"PICK";}else if(hasPick)choice="PICK";else if(hasPack)choice="PACK";else choice="KHONG";}'''
 if old not in s: raise SystemExit('choice anchor missing')
 s=s.replace(old,new,1)
+old='''.first<{n:number}>)?.n??0'''
+new='''.first<{n:number}>())?.n??0'''
+if old not in s: raise SystemExit('labor count query anchor missing')
+s=s.replace(old,new,1)
 p.write_text(s)
 
 p=Path('service/src/resource_admin.ts')
