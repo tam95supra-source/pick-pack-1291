@@ -1,0 +1,2 @@
+trigger=2026-08-23T17:33+07:00
+purpose=S61 owner session/resource validation
