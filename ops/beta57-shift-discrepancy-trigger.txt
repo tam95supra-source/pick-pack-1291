@@ -1,0 +1,2 @@
+trigger=2026-08-23T10:12:00+07:00
+purpose=shift_discrepancy_vào_ra_chua_ra
