@@ -1,0 +1,158 @@
+name: Oneoff Service S62 Repaired Production Deploy
+
+on:
+  pull_request:
+    branches:
+      - deploy/service-s62-safe-base-20260824
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: oneoff-service-s62-repair-production
+  cancel-in-progress: false
+
+jobs:
+  deploy-production:
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'deploy/service-s62-clean-exec-20260824'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      SERVICE_URL: https://pick-pack-1291-service.pp1291-d79b87776e86.workers.dev
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Lock exact S62 source and typecheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha }}"
+          python3 tools/apply_service_s62_session_authority_fix.py
+          grep -F 'aOverride?:Awaited<ReturnType<typeof currentAuthority>>' service/src/session_hotfix.ts
+          grep -F 'const a=aOverride??await currentAuthority(env.DB);' service/src/session_hotfix.ts
+          test "$(grep -o ',idem,newVersion,a);const stmts=eventStmts(env.DB,e,a.authority_seq' service/src/session_hotfix.ts | wc -l)" -ge 5
+          cd service
+          npm install --no-audit --no-fund
+          npm run typecheck
+
+      - name: Generate exact production Wrangler config preserving DO migration lineage
+        working-directory: service
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > wrangler.prod.s62.jsonc <<'EOF'
+          {
+            "$schema":"./node_modules/wrangler/config-schema.json",
+            "name":"pick-pack-1291-service",
+            "main":"src/entry_product.ts",
+            "compatibility_date":"2026-08-08",
+            "compatibility_flags":["nodejs_compat"],
+            "workers_dev":true,
+            "placement":{"mode":"smart"},
+            "vars":{"SERVICE_GENERATION":"m2-prod-20260819-001","GOOGLE_SOURCE_SHEET_ID":"1E7ZWz-4eMcBliQxDYBVoogIoeSYyiaXGwj0I6mbMm78"},
+            "d1_databases":[{"binding":"DB","database_name":"pick-pack-1291-service-prod","database_id":"b619df89-528d-4126-a948-de0425037b11","migrations_dir":"migrations"}],
+            "durable_objects":{"bindings":[{"name":"REALTIME_HUB","class_name":"RealtimeHub"}]},
+            "migrations":[{"tag":"v1-realtime-hub","new_sqlite_classes":["RealtimeHub"]}],
+            "assets":{"directory":"./public","binding":"ASSETS","not_found_handling":"single-page-application","run_worker_first":["/health","/v1/*","/internal/*"]},
+            "triggers":{"crons":["*/1 * * * *"]},
+            "observability":{"enabled":true,"head_sampling_rate":1}
+          }
+          EOF
+
+      - name: Pre-deploy production fences
+        working-directory: service
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${CLOUDFLARE_API_TOKEN:-}"
+          test -n "${CLOUDFLARE_ACCOUNT_ID:-}"
+          code=$(curl -sS --retry 4 --retry-all-errors --retry-delay 2 --connect-timeout 15 --max-time 60 -o /tmp/pre-health.json -w '%{http_code}' "$SERVICE_URL/health")
+          test "$code" = 200
+          node - <<'NODE'
+          const h=require('/tmp/pre-health.json'); const a=h.authority||{}; const r=h.replication||{};
+          if(h.ok!==true || (h.authority_mode||a.mode)!=='SERVICE_PRIMARY' || (h.authority_scope||a.scope)!=='PRODUCTION') process.exit(1);
+          if(r.state && r.state!=='HEALTHY') process.exit(1);
+          if(r.pending_count!=null && Number(r.pending_count)!==0) process.exit(1);
+          NODE
+          npx wrangler d1 execute pick-pack-1291-service-prod --remote --config wrangler.prod.s62.jsonc --command "SELECT authority_epoch,authority_seq,mode,scope,service_generation FROM authority_state WHERE singleton_id=1" --json > /tmp/pre-d1.json
+          python3 - <<'PY'
+          import json
+          x=json.load(open('/tmp/pre-d1.json')); rows=[]
+          def w(v):
+            if isinstance(v,dict):
+              if 'mode' in v and 'scope' in v: rows.append(v)
+              for z in v.values(): w(z)
+            elif isinstance(v,list):
+              for z in v: w(z)
+          w(x); assert rows,x; r=rows[0]
+          assert r.get('mode')=='SERVICE_PRIMARY',r
+          assert r.get('scope')=='PRODUCTION',r
+          print('PRE_D1_PASS',r)
+          PY
+
+      - name: Deploy exact S62 production source
+        working-directory: service
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx wrangler deploy --config wrangler.prod.s62.jsonc --keep-vars 2>&1 | tee /tmp/deploy.log
+          sed -n 's/.*Version ID: */worker_version_id=/p' /tmp/deploy.log | tail -1 > /tmp/version.txt || true
+
+      - name: Post-deploy health and protected-route verification
+        shell: bash
+        run: |
+          set -euo pipefail
+          ok=false
+          for n in 1 2 3 4 5 6 7 8; do
+            code=$(curl -sS --connect-timeout 15 --max-time 45 -o /tmp/post-health.json -w '%{http_code}' "$SERVICE_URL/health" || true)
+            if [[ "$code" == 200 ]] && node - <<'NODE'
+          const h=require('/tmp/post-health.json'); const a=h.authority||{}; const r=h.replication||{};
+          let good=h.ok===true && (h.authority_mode||a.mode)==='SERVICE_PRIMARY' && (h.authority_scope||a.scope)==='PRODUCTION';
+          if(r.state && r.state!=='HEALTHY') good=false;
+          if(r.pending_count!=null && Number(r.pending_count)!==0) good=false;
+          process.exit(good?0:1);
+          NODE
+            then ok=true; break; fi
+            sleep 3
+          done
+          test "$ok" = true
+          probe(){ curl -sS -o /tmp/probe.json -w '%{http_code}' -H 'content-type: application/json' -d '{}' "$SERVICE_URL$1"; }
+          r1=$(probe /v1/session/work); r2=$(probe /v1/session/exit); r3=$(probe /v1/session/time-correction); r4=$(probe /v1/session/delete-exit); r5=$(probe /v1/session/delete-enter)
+          test "$r1" = 401; test "$r2" = 401; test "$r3" = 401; test "$r4" = 401; test "$r5" = 401
+          {
+            echo "source_sha=${{ github.event.pull_request.head.sha }}"
+            cat /tmp/version.txt 2>/dev/null || true
+            echo "service_url=$SERVICE_URL"
+            echo "session_work_route=$r1"
+            echo "session_exit_route=$r2"
+            echo "time_correction_route=$r3"
+            echo "delete_exit_route=$r4"
+            echo "delete_enter_route=$r5"
+            echo "authority=SERVICE_PRIMARY/PRODUCTION"
+            echo "verdict=PASS"
+          } > /tmp/service-s62-repair-deploy-receipt.txt
+          cat /tmp/service-s62-repair-deploy-receipt.txt
+
+      - name: Upload deployment evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: service-s62-repair-production-evidence
+          path: |
+            /tmp/service-s62-repair-deploy-receipt.txt
+            /tmp/pre-health.json
+            /tmp/post-health.json
+            /tmp/pre-d1.json
+            /tmp/deploy.log
+          if-no-files-found: ignore
+          retention-days: 14
