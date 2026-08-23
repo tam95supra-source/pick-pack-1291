@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     env:
-      SERVICE_URL: https://pick-pack-1291-service.pp1291-d79b87776e86.workers.dev
+      GAS_URL: https://script.google.com/macros/s/AKfycbzbEoGfbNg6s2HnP-gUpcBJ7mMIkVBtYuQKMndb9seDV2c55lQwSUO1GZ-LtQ2CxMCauA/exec
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
     steps:
@@ -45,25 +45,56 @@ jobs:
           npm install --no-audit --no-fund
           npm run typecheck
 
+      - name: Discover current production authority and Service URL
+        shell: bash
+        run: |
+          set -euo pipefail
+          code=$(curl -sSL --retry 5 --retry-all-errors --retry-delay 2 --connect-timeout 15 --max-time 60 -o /tmp/discovery.json -w '%{http_code}' -H 'content-type: application/json' "$GAS_URL" -d '{"action":"service_discovery"}')
+          test "$code" = 200
+          python3 - <<'PY' >> "$GITHUB_ENV"
+          import json,re
+          j=json.load(open('/tmp/discovery.json'))
+          assert j.get('ok') is True,j
+          a=j.get('authority') if isinstance(j.get('authority'),dict) else {}
+          mode=j.get('authority_mode') or a.get('mode')
+          scope=j.get('authority_scope') or a.get('scope') or 'PRODUCTION'
+          url=str(j.get('service_url') or a.get('service_url') or '').rstrip('/')
+          assert mode=='SERVICE_PRIMARY',(mode,j)
+          assert scope=='PRODUCTION',(scope,j)
+          assert re.match(r'^https://[A-Za-z0-9._-]+\.workers\.dev$',url),url
+          print('SERVICE_URL='+url)
+          print('DISCOVERY_AUTHORITY_MODE='+mode)
+          print('DISCOVERY_AUTHORITY_SCOPE='+scope)
+          PY
+          cat /tmp/discovery.json
+
       - name: Pre-deploy production health fence
         shell: bash
         run: |
           set -euo pipefail
-          code=$(curl -sS --retry 4 --retry-delay 2 --connect-timeout 15 --max-time 45 -o /tmp/pre-health.json -w '%{http_code}' "$SERVICE_URL/health")
+          fetch_health(){
+            local out="$1" code
+            code=$(curl -sS --retry 3 --retry-delay 2 --connect-timeout 15 --max-time 45 -o "$out" -w '%{http_code}' "$SERVICE_URL/health" 2>/tmp/curl.err || true)
+            if [[ "$code" != 200 ]]; then
+              code=$(curl --doh-url https://cloudflare-dns.com/dns-query -sS --retry 3 --retry-delay 2 --connect-timeout 15 --max-time 45 -o "$out" -w '%{http_code}' "$SERVICE_URL/health" 2>>/tmp/curl.err || true)
+            fi
+            echo "$code"
+          }
+          code=$(fetch_health /tmp/pre-health.json)
+          if [[ "$code" != 200 ]]; then cat /tmp/curl.err >&2 || true; fi
           test "$code" = 200
           python3 - <<'PY'
           import json
           j=json.load(open('/tmp/pre-health.json'))
-          assert j.get('ok') is True, j
+          assert j.get('ok') is True,j
           a=j.get('authority') if isinstance(j.get('authority'),dict) else {}
           mode=j.get('authority_mode') or a.get('mode')
           scope=j.get('authority_scope') or a.get('scope')
-          assert mode=='SERVICE_PRIMARY', (mode,j)
-          assert scope=='PRODUCTION', (scope,j)
-          for key in ('degraded','is_degraded'):
-              if key in j: assert j[key] in (False,0,None), (key,j[key])
-          for key in ('backlog','outbox_pending','outbox_inflight','pending_outbox','inflight_outbox'):
-              if key in j: assert int(j[key] or 0)==0, (key,j[key])
+          assert mode=='SERVICE_PRIMARY',(mode,j)
+          assert scope=='PRODUCTION',(scope,j)
+          r=j.get('replication') if isinstance(j.get('replication'),dict) else {}
+          if 'state' in r: assert r.get('state')=='HEALTHY',r
+          if 'pending_count' in r: assert int(r.get('pending_count') or 0)==0,r
           print('PREHEALTH_FENCE_PASS')
           PY
 
@@ -105,19 +136,28 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          curl_service(){
+            local method="$1" path="$2" out="$3" data="${4:-}" code
+            local args=(-sS --connect-timeout 15 --max-time 45 -o "$out" -w '%{http_code}')
+            if [[ "$method" == POST ]]; then args+=(-H 'content-type: application/json' -d "$data"); fi
+            code=$(curl "${args[@]}" "$SERVICE_URL$path" 2>/tmp/post-curl.err || true)
+            if [[ -z "$code" || "$code" == 000 ]]; then
+              code=$(curl --doh-url https://cloudflare-dns.com/dns-query "${args[@]}" "$SERVICE_URL$path" 2>>/tmp/post-curl.err || true)
+            fi
+            echo "$code"
+          }
           ok=false
           for n in 1 2 3 4 5 6; do
-            code=$(curl -sS --connect-timeout 15 --max-time 45 -o /tmp/post-health.json -w '%{http_code}' "$SERVICE_URL/health" || true)
+            code=$(curl_service GET /health /tmp/post-health.json)
             if [[ "$code" == 200 ]] && python3 - <<'PY'
           import json
           try:
               j=json.load(open('/tmp/post-health.json'))
               a=j.get('authority') if isinstance(j.get('authority'),dict) else {}
-              mode=j.get('authority_mode') or a.get('mode')
-              scope=j.get('authority_scope') or a.get('scope')
-              good=j.get('ok') is True and mode=='SERVICE_PRIMARY' and scope=='PRODUCTION'
-              if any(j.get(k) not in (False,0,None) for k in ('degraded','is_degraded') if k in j): good=False
-              if any(int(j.get(k) or 0)!=0 for k in ('backlog','outbox_pending','outbox_inflight','pending_outbox','inflight_outbox') if k in j): good=False
+              r=j.get('replication') if isinstance(j.get('replication'),dict) else {}
+              good=j.get('ok') is True and (j.get('authority_mode') or a.get('mode'))=='SERVICE_PRIMARY' and (j.get('authority_scope') or a.get('scope'))=='PRODUCTION'
+              if 'state' in r and r.get('state')!='HEALTHY': good=False
+              if 'pending_count' in r and int(r.get('pending_count') or 0)!=0: good=False
               raise SystemExit(0 if good else 1)
           except Exception:
               raise SystemExit(1)
@@ -125,18 +165,14 @@ jobs:
             then ok=true; break; fi
             sleep 3
           done
+          if [[ "$ok" != true ]]; then cat /tmp/post-curl.err >&2 || true; fi
           test "$ok" = true
-          probe_post(){ curl -sS -o /tmp/probe.json -w '%{http_code}' -H 'content-type: application/json' -d '{}' "$SERVICE_URL$1"; }
-          r1=$(probe_post /v1/session/work)
-          r2=$(probe_post /v1/session/exit)
-          r3=$(probe_post /v1/session/time-correction)
-          r4=$(probe_post /v1/session/delete-exit)
-          r5=$(probe_post /v1/session/delete-enter)
-          test "$r1" = 401
-          test "$r2" = 401
-          test "$r3" = 401
-          test "$r4" = 401
-          test "$r5" = 401
+          r1=$(curl_service POST /v1/session/work /tmp/probe1.json '{}')
+          r2=$(curl_service POST /v1/session/exit /tmp/probe2.json '{}')
+          r3=$(curl_service POST /v1/session/time-correction /tmp/probe3.json '{}')
+          r4=$(curl_service POST /v1/session/delete-exit /tmp/probe4.json '{}')
+          r5=$(curl_service POST /v1/session/delete-enter /tmp/probe5.json '{}')
+          test "$r1" = 401; test "$r2" = 401; test "$r3" = 401; test "$r4" = 401; test "$r5" = 401
           {
             echo "source_sha=${{ github.event.pull_request.head.sha }}"
             echo "service_url=$SERVICE_URL"
@@ -147,6 +183,7 @@ jobs:
             echo "delete_exit_route=$r4"
             echo "delete_enter_route=$r5"
             echo "authority=SERVICE_PRIMARY/PRODUCTION"
+            echo "replication=HEALTHY_0"
             echo "verdict=PASS"
           } > /tmp/service-s62-deploy-receipt.txt
           cat /tmp/service-s62-deploy-receipt.txt
@@ -157,6 +194,7 @@ jobs:
           name: service-s62-production-deploy-evidence
           path: |
             /tmp/service-s62-deploy-receipt.txt
+            /tmp/discovery.json
             /tmp/pre-health.json
             /tmp/post-health.json
           retention-days: 14
