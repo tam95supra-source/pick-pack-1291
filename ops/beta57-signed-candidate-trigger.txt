@@ -1,0 +1,4 @@
+trigger=2026-08-23T10:08:00+07:00
+source_sha=20c9a1c45fcc25c2081ce8c8d863993365b7ac22
+version=0.4.2-beta.57
+version_code=63
