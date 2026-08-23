@@ -1,0 +1,83 @@
+name: GAS Beta59 Deploy OTA
+
+on:
+  pull_request:
+    branches:
+      - ci/beta59-gas-gate-base-20260823
+    paths:
+      - 'ops/gas-beta59-deploy-trigger.txt'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gas-beta59-deploy-ota
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.head_ref == 'release/gas-beta59-ota-20260823'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+      GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+      GOOGLE_OAUTH_REFRESH_TOKEN: ${{ secrets.GOOGLE_OAUTH_REFRESH_TOKEN }}
+      GAS_SCRIPT_ID: ${{ secrets.GAS_SCRIPT_ID }}
+      GAS_DEPLOYMENT_ID: ${{ secrets.GAS_DEPLOYMENT_ID }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          fetch-depth: 0
+
+      - name: Fresh production Service health gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --max-time 30 https://pickpack.1291.workers.dev/health -o /tmp/health.json
+          python3 - <<'PY'
+          import json
+          j=json.load(open('/tmp/health.json',encoding='utf-8'))
+          assert j.get('ok') is True, j
+          assert j.get('service') == 'pickpack', j
+          assert j.get('generation') == 'm2-prod-reset-20260823-001', j
+          a=j.get('authority') or {}
+          assert int(a.get('authority_epoch',-1)) == 9, a
+          assert a.get('mode') == 'SERVICE_PRIMARY', a
+          assert a.get('scope') == 'PRODUCTION', a
+          assert a.get('service_generation') == 'm2-prod-reset-20260823-001', a
+          r=j.get('replication') or {}
+          assert r.get('state') == 'HEALTHY', r
+          assert int(r.get('pending_count',-1)) == 0, r
+          assert int(r.get('failed_unresolved_count',0)) == 0, r
+          assert int(r.get('drift_candidate_count',0)) == 0, r
+          assert j.get('health_reason') == 'CLEAN', j
+          print('SERVICE_HEALTH=PASS')
+          PY
+
+      - name: Resolve exact Beta59 release publication time
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          PUBLISHED_AT=$(gh release view v0.4.2-beta.59-publicbeta --repo "$GITHUB_REPOSITORY" --json publishedAt -q .publishedAt)
+          test -n "$PUBLISHED_AT"
+          echo "PUBLISHED_AT=$PUBLISHED_AT" >> "$GITHUB_ENV"
+
+      - name: Deploy exact-source Beta59 OTA and run live gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile ops/gas_beta59_deploy.py
+          python3 ops/gas_beta59_deploy.py
+
+      - name: Upload GAS production receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gas-beta59-deploy-ota-receipt
+          path: out/*
+          retention-days: 30
