@@ -25,8 +25,18 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python3 -m py_compile tools/apply_beta62_owner_fixes.py
+          python3 -m py_compile tools/apply_beta62_owner_fixes.py tools/apply_beta62_owner_fixes_post.py
+          # V1 contained one stale source anchor for the optimistic retry. Strip only that patch instruction;
+          # the exact current-source transformation is applied by the checked-in post patch below.
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('tools/apply_beta62_owner_fixes.py')
+          lines=p.read_text().splitlines()
+          lines=[x for x in lines if "'session conflict retry')" not in x]
+          p.write_text('\n'.join(lines)+'\n')
+          PY
           python3 tools/apply_beta62_owner_fixes.py
+          python3 tools/apply_beta62_owner_fixes_post.py
       - name: Beta62 owner contracts
         shell: bash
         run: |
@@ -42,25 +52,36 @@ jobs:
           gradle=Path('app/build.gradle.kts').read_text()
           assert 'versionCode = 68' in gradle and 'versionName = "0.4.2-beta.62"' in gradle
           assert 'versionCode = 1' in gradle and 'versionName = "0.1.0-stable"' in gradle
-          assert 'private fun mnvInput(h:String)=scanField(h,true,50)' in op
-          assert 'mnvInput("Scan / Nhập mã nhân viên")' in op
+          assert 'private fun mnvInput(h:String)=scanField(h,true,50).apply{setSingleLine(true);minLines=1;maxLines=1' in op
+          assert op.count('mnvInput("Scan / Nhập mã nhân viên")') >= 3
           assert 'if(!isRootScreen())navigateBack()' in op
           assert 'confirmPdaHandoverCondition' in op
           assert 'Nhập 5 số cuối PDA' in op
           pda=op[op.index('private fun pdaExchangeScreen'):]
           assert 'val find=primary("TÌM PDA"' not in pda
+          assert 'addTextChangedListener(object:TextWatcher' in pda
+          assert 'Triple("PDA","DANH SÁCH PDA","")' in op
+          assert 'Quản lý danh mục tài nguyên dùng chung' not in op
+          assert 'Danh mục dùng chung. Thay đổi được ghi nhận' not in op
           assert 'Triple(R.drawable.ic_pp_account,"Quyền","ROLE_MODE")' in op
           assert 'setMessage("Nhập mật khẩu thực tế")' in op
           assert 'Nhập mã 4 số theo giờ Việt Nam' not in op
+          assert 'verifyEditPassword' in op
           assert 'ĐANG TRONG PHIÊN' not in op
           assert 'body.addView(status("ĐÃ RA CA"' not in op
+          assert 'Color.rgb(255,249,214)' in op and 'Color.rgb(231,247,237)' in op
+          assert 'rows.sortWith(Comparator{a,b->naturalUserCompare(a.optString("resource_id"),b.optString("resource_id"))})' in op
           assert 'DirectOwnerDiagnostics.record' in api
+          assert 'SESSION_WORK_CONFLICT' in api and 'result=request(bearer)' in api
           assert 'DirectOwnerDiagnostics.snapshotLines' in log
+          assert 'resetAfterSuccessfulManualSend' in log
           assert 'GOOGLE_RELAY_TEST' not in rb
           assert 'SERVICE_D1_BLOCKED_TEST' in rb
           assert 'return flushFallbackItems(store.unresolvedMutations(100))' not in tr
+          assert 'Service OFFLINE (test)' in op
           assert 'Hiện mật khẩu' in fb and 'ĐĂNG KÝ' in fb
-          assert 'owner_launcher' not in fb[fb.index('private fun login()'):fb.index('private fun openMainShell()')]
+          login=fb[fb.index('private fun login()'):fb.index('private fun openMainShell()')]
+          assert 'owner_launcher' not in login
           assert 'Pick Pack 1291' in fb and 'Supra DC Hưng Yên' in fb
           print('STATIC_OWNER_CONTRACTS=PASS')
           PY
@@ -97,6 +118,7 @@ jobs:
           set -euo pipefail
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git checkout -- tools/apply_beta62_owner_fixes.py
           git add app/build.gradle.kts \
             app/src/main/java/vn/pickpack1291/app/beta/FullBetaActivity.kt \
             app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt \
