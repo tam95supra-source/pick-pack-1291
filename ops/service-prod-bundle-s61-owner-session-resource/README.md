@@ -1,0 +1,1 @@
+This folder contains the built output assets for the worker "pickpack" generated at 2026-08-23T10:43:40.245Z.

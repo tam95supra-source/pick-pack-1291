@@ -16,7 +16,7 @@ function cleanMeta(raw:Record<string,unknown>|undefined):Record<string,unknown>{
 export async function resourceAdminList(request:Request,env:Env):Promise<Response>{
   const auth=await authenticate(env.DB,env,request);if(!auth)return apiError("UNAUTHORIZED","AUTH",401);
   const [resources,maps,catalogs]=await env.DB.batch([
-    env.DB.prepare("SELECT resource_type,resource_id,status_label,available,metadata_json FROM resources ORDER BY resource_type,resource_id"),
+    env.DB.prepare("SELECT r.resource_type,r.resource_id,r.status_label,r.available,r.metadata_json,l.session_id AS leased_session_id,l.mnv AS leased_by_mnv FROM resources r LEFT JOIN resource_leases l ON l.resource_type=r.resource_type AND l.resource_id=r.resource_id ORDER BY r.resource_type,r.resource_id"),
     env.DB.prepare("SELECT pack_table,shift,user_pack,label,available FROM resource_pack_map ORDER BY pack_table,shift,user_pack"),
     env.DB.prepare("SELECT namespace,ordinal,value FROM catalog_values WHERE namespace IN ('DANH SÁCH PDA_Tình trạng','DANH SÁCH USER PICK_Tình trạng','DANH SÁCH BÀN PACK_Tình trạng','DANH SÁCH USER PACK_Tình trạng') ORDER BY namespace,ordinal"),
   ]);

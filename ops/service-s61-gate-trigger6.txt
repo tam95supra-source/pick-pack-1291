@@ -1,0 +1,2 @@
+trigger=v6
+fix=first-generic-invocation

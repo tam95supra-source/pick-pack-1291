@@ -109,7 +109,7 @@ async function replicateUserAssignments(db:D1Database,sheetId:string,token:strin
 }
 
 function resourceChangeDetail(e:EventRow):string{
-  const p=payload(e),before=pobj(p,"before"),after=pobj(p,"after"),labels:Record<string,string>={work_choice:"Vị trí",pda_serial:"PDA",user_pick:"User Pick",pack_table:"Bàn Pack",user_pack:"User Pack"},parts:string[]=[];
+  const p=payload(e),before=pobj(p,"before"),after=pobj(p,"after"),labels:Record<string,string>={shift:"Ca",work_choice:"Vị trí",pda_serial:"PDA",user_pick:"User Pick",pack_table:"Bàn Pack",user_pack:"User Pack"},parts:string[]=[];
   if(Object.keys(after).length){for(const k of Object.keys(labels)){const a=ptext(before,k)||"—",b=ptext(after,k)||"—";if(a!==b)parts.push(`${labels[k]}: ${a} → ${b}`);}}
   if(!parts.length){for(const k of Object.keys(labels)){const v=ptext(p,k);if(v)parts.push(`${labels[k]}: ${v}`);}}
   const kind=ptext(p,"mutation_kind").toUpperCase(),verb=kind==="ADD"?"Thêm":kind==="DELETE"?"Xóa":"Sửa",note=ptext(p,"audit_note");
@@ -128,7 +128,8 @@ async function attendanceUsageThrough(db:D1Database,sessionId:string,throughSeq:
 async function updateAttendanceEnterAggregate(db:D1Database,sheetId:string,token:string,index:OperationalIndex,e:EventRow):Promise<void>{
   const enter=await db.prepare("SELECT event_id FROM events WHERE entity_id=?1 AND event_type='ATTENDANCE_ENTER' ORDER BY authority_seq,event_id LIMIT 1").bind(e.entity_id).first<{event_id:string}>();
   if(!enter?.event_id)throw new Error(`RA_ENTER_EVENT_MISSING:${e.entity_id}`);const row=index.raEventRows.get(enter.event_id);if(!row)throw new Error(`RA_ENTER_ROW_MISSING:${enter.event_id}`);
-  const u=await attendanceUsageThrough(db,e.entity_id,e.authority_seq),positions=u.workChoices.map(workLabel).join(", ")||"Không";
+  const u=await attendanceUsageThrough(db,e.entity_id,e.authority_seq),positions=u.workChoices.map(workLabel).join(", ")||"Không",current=await db.prepare("SELECT shift,mnv,business_date FROM attendance_sessions WHERE session_id=?1").bind(e.entity_id).first<{shift:string;mnv:string;business_date:string}>();
+  if(current?.shift){await putValues(sheetId,token,"RA - VÀO TRONG CA",`B${row}:B${row}`,[[current.shift]]);const userRows=await getValues(sheetId,token,"THÔNG TIN USER CỦA NLĐ","A2:C");const date=visibleDate(current.business_date);for(let i=0;i<userRows.length;i++){const r=userRows[i]??[];if(String(r[0]??"")===date&&String(r[2]??"")===current.mnv)await putValues(sheetId,token,"THÔNG TIN USER CỦA NLĐ",`B${i+2}:B${i+2}`,[[current.shift]]);}}
   await putValues(sheetId,token,"RA - VÀO TRONG CA",`K${row}:O${row}`,[[positions,u.pdaSerials.join(", "),u.userPicks.join(", "),u.packTables.join(", "),u.userPacks.join(", ")]]);
 }
 

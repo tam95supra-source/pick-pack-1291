@@ -1,0 +1,2 @@
+trigger=final
+expected=typecheck+dry-run+validated-source-bundle-commit
