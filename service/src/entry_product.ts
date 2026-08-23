@@ -2,13 +2,10 @@ import current, { RealtimeHub } from "./entry";
 import { authenticate } from "./auth";
 import { exchangeGasSession, mobileRead } from "./mobile_hotfix";
 import { resourceAdminList, resourceAdminMutate } from "./resource_admin";
-import { attendanceExitDelete, attendanceTimeCorrect, flushSessionSpecialProjections, sessionExitGuarded, sessionWorkUpdate } from "./session_hotfix";
+import { attendanceExitDelete, attendanceTimeCorrect, sessionExitGuarded, sessionWorkUpdate } from "./session_hotfix";
 import { superadminDeleteAccounts } from "./beta44_owner";
 import { serviceConnectionsV47 } from "./beta47_connections";
-import { backfillAllHistoryAudit } from "./beta47_history_audit";
-import { reconcileBeta47OperationalProjection } from "./beta47_projection";
 import { historyDelete } from "./history_delete";
-import { enqueueInvalidation } from "./push";
 import { apiError, json } from "./util";
 
 export { RealtimeHub };
@@ -21,16 +18,6 @@ async function historicalBusinessDates(request:Request,env:Env):Promise<Response
     :env.DB.prepare("SELECT business_date,sequence_no FROM business_dates WHERE sequence_no<?1 ORDER BY sequence_no DESC LIMIT ?2").bind(before,limit+1);
   const r=await q.all<{business_date:string;sequence_no:number}>(),all=r.results??[],rows=all.slice(0,limit),next=all.length>limit?rows[rows.length-1]?.sequence_no??null:null;
   return json({ok:true,items:rows,next_before_sequence:next,has_more:all.length>limit});
-}
-
-async function broadcastCatalogRevision(env:Env):Promise<void>{
-  const [rev,a]=await Promise.all([
-    env.DB.prepare("SELECT revision FROM revision_state WHERE namespace='catalogs'").first<{revision:number}>(),
-    env.DB.prepare("SELECT authority_epoch,authority_seq FROM authority_state WHERE singleton_id=1").first<{authority_epoch:number;authority_seq:number}>(),
-  ]);
-  const revision=Number(rev?.revision??0);if(revision<=0)return;
-  await enqueueInvalidation(env.DB,"catalogs",revision);
-  try{const hub=env.REALTIME_HUB.getByName("master:global") as unknown as {invalidate(message:Record<string,unknown>):Promise<number>};await hub.invalidate({type:"MASTER_CHANGED",namespace:"catalogs",revision,authority_epoch:Number(a?.authority_epoch??0),authority_seq:Number(a?.authority_seq??0)});}catch{}
 }
 
 export default {
@@ -50,12 +37,10 @@ export default {
     if(u.pathname==="/v1/session/delete-exit"&&method==="POST")return attendanceExitDelete(request,env);
     return current.fetch(request,env,ctx);
   },
+  // Production hot cron must stay bounded on Workers Free. Historical reconciliation,
+  // projection repair and history backfill are maintenance jobs and must never full-scan
+  // every minute. The base scheduled handler performs only bounded replication + push.
   async scheduled(controller:ScheduledController,env:Env,ctx:ExecutionContext):Promise<void>{
-    await current.scheduled(controller,env,ctx);
-    await flushSessionSpecialProjections(env);
-    try{const r=await reconcileBeta47OperationalProjection(env);if(r.catalog_changed)await broadcastCatalogRevision(env);console.log(JSON.stringify({level:"info",kind:"beta47_projection",...r}));}
-    catch(e){console.log(JSON.stringify({level:"error",kind:"beta47_projection_failed",error:String(e).slice(0,500)}));}
-    try{const historyRows=await backfillAllHistoryAudit(env);console.log(JSON.stringify({level:"info",kind:"beta47_history_audit",history_rows:historyRows}));}
-    catch(e){console.log(JSON.stringify({level:"error",kind:"beta47_history_audit_failed",error:String(e).slice(0,500)}));}
+    return current.scheduled(controller,env,ctx);
   },
 } satisfies ExportedHandler<Env>;
