@@ -8,6 +8,8 @@ import { serviceConnectionsV47 } from "./beta47_connections";
 import { historyDelete } from "./history_delete";
 import { productHealth } from "./health_product";
 import { resetFenceGate } from "./reset_fence";
+import { replicatePending } from "./replication";
+import { flushPushOutbox } from "./push";
 import { apiError, json } from "./util";
 
 export { RealtimeHub };
@@ -20,6 +22,23 @@ async function historicalBusinessDates(request:Request,env:Env):Promise<Response
     :env.DB.prepare("SELECT business_date,sequence_no FROM business_dates WHERE sequence_no<?1 ORDER BY sequence_no DESC LIMIT ?2").bind(before,limit+1);
   const r=await q.all<{business_date:string;sequence_no:number}>(),all=r.results??[],rows=all.slice(0,limit),next=all.length>limit?rows[rows.length-1]?.sequence_no??null:null;
   return json({ok:true,items:rows,next_before_sequence:next,has_more:all.length>limit});
+}
+
+async function runProductionScheduled(env:Env):Promise<void>{
+  // Replication is authoritative durability work and MUST NOT share a failure boundary with FCM.
+  // Run it to completion first. Push is wake-only/best-effort and may fail independently.
+  try{
+    const replication=await replicatePending(env.DB,env);
+    console.log(JSON.stringify({level:replication.ok?"info":"error",kind:"scheduled_replication_complete",...replication}));
+  }catch(e){
+    console.log(JSON.stringify({level:"error",kind:"scheduled_replication_failed",error:String(e).slice(0,500)}));
+  }
+  try{
+    const push=await flushPushOutbox(env.DB,env);
+    console.log(JSON.stringify({level:"info",kind:"scheduled_push_complete",...push}));
+  }catch(e){
+    console.log(JSON.stringify({level:"error",kind:"scheduled_push_failed",error:String(e).slice(0,500)}));
+  }
 }
 
 export default {
@@ -41,10 +60,9 @@ export default {
     if(u.pathname==="/v1/session/delete-exit"&&method==="POST")return attendanceExitDelete(request,env);
     return current.fetch(request,env,ctx);
   },
-  // Production hot cron must stay bounded on Workers Free. Historical reconciliation,
-  // projection repair and history backfill are maintenance jobs and must never full-scan
-  // every minute. The base scheduled handler performs only bounded replication + push.
-  async scheduled(controller:ScheduledController,env:Env,ctx:ExecutionContext):Promise<void>{
-    return current.scheduled(controller,env,ctx);
+  // Production hot cron stays bounded on Workers Free. Replication is executed first and gets its own
+  // lifecycle so a broken FCM credential can never terminate Google operational replication early.
+  async scheduled(_controller:ScheduledController,env:Env,ctx:ExecutionContext):Promise<void>{
+    ctx.waitUntil(runProductionScheduled(env));
   },
 } satisfies ExportedHandler<Env>;
