@@ -136,6 +136,7 @@ class OperationsActivity : Activity() {
                 if(screenState=="HISTORY"){historyLastCanonicalRefreshAt=0L;refreshHistoryCanonical()}
                 if(module=="BUSINESS" && liveEmployeeMnv.isNotBlank()) return
                 when (screenState) {
+                    "BUSINESS" -> businessHome()
                     "LISTS" -> listsScreen()
                     "REPORT" -> reportScreen()
                     "HISTORY" -> historyScreen()
@@ -206,6 +207,7 @@ class OperationsActivity : Activity() {
     private fun businessHome(){
         module="BUSINESS";screenState="BUSINESS"
         val root=baseRoot("NGHIỆP VỤ");val body=body()
+        addBusinessShiftReconciliation(body)
         val cards=listOf(
             businessCard(R.drawable.ic_pp_scan,"Quét nhân sự","Vào ca / ra ca theo trạng thái hiện tại",true){employeeScan()},
             businessCard(R.drawable.ic_pp_pda_exchange,"Đổi / trả PDA","Đổi PDA có lý do hoặc trả PDA đang sử dụng",true){pdaExchangeScreen()},
@@ -221,6 +223,52 @@ class OperationsActivity : Activity() {
         body.addView(businessRow(cards[4],cards[5]));body.addView(gap(9))
         body.addView(businessRow(cards[6],cards[7]))
         attach(root,body)
+    }
+
+    // S59_BETA58_SHIFT_RECONCILIATION_HOME: below status chips, above business cards; empty shifts stay hidden.
+    private fun addBusinessShiftReconciliation(body:LinearLayout){
+        val day=operationalStore.loadDay(operationalStore.businessDate())?:return
+        val sessions=day.optJSONArray("sessions")?:JSONArray()
+        val byShift=linkedMapOf<String,MutableList<JSONObject>>(
+            "Ca 1" to mutableListOf(), "Ca HC" to mutableListOf(), "Ca 2" to mutableListOf()
+        )
+        for(i in 0 until sessions.length()){
+            val ses=sessions.optJSONObject(i)?:continue
+            val shift=ses.optString("shift").trim().ifBlank{"Chưa xác định"}
+            byShift.getOrPut(shift){mutableListOf()}.add(JSONObject(ses.toString()))
+        }
+        val visible=byShift.mapNotNull{(shift,rows)->
+            val entered=rows.filter{it.optString("enter_at").isNotBlank()||it.optString("state").uppercase() in setOf("ACTIVE","ENDED")}
+            if(entered.isEmpty())null else shift to entered
+        }
+        if(visible.isEmpty())return
+        body.addView(section("ĐỐI SOÁT VÀO / RA"))
+        visible.forEach{(shift,entered)->
+            val exited=entered.filter{it.optString("exit_at").isNotBlank()||it.optString("state").equals("ENDED",true)}
+            val pending=entered.filter{it.optString("state").equals("ACTIVE",true)&&it.optString("exit_at").isBlank()}
+            val button=smallButton("$shift  •  Vào ${entered.size}  •  Ra ${exited.size}  •  Chưa ra ${pending.size}",if(pending.isNotEmpty())orange else teal)
+            button.setOnClickListener{
+                if(pending.isEmpty()){
+                    TopNotice.show(this,"$shift không có nhân sự đã vào nhưng chưa ra.",TopNotice.Kind.SUCCESS)
+                }else{
+                    val labels=pending.map{ses->
+                        val mnv=ses.optString("mnv").trim()
+                        val emp=MasterDataCache.employee(this,mnv)
+                        val display=emp?.optString("full_name").orEmpty().ifBlank{ses.optJSONObject("employee_snapshot")?.optString("full_name").orEmpty()}
+                        "$mnv • ${display.ifBlank{"Chưa có tên"}}"
+                    }
+                    AlertDialog.Builder(this)
+                        .setTitle("$shift • ${pending.size} nhân sự chưa ra")
+                        .setItems(labels.toTypedArray()){_,which->
+                            pending.getOrNull(which)?.optString("mnv")?.takeIf{it.isNotBlank()}?.let(::loadEmployee)
+                        }
+                        .setNegativeButton("Đóng",null)
+                        .show()
+                }
+            }
+            body.addView(button,matchWrap());body.addView(gap(5))
+        }
+        body.addView(gap(4))
     }
 
     private fun employeeScan() {
@@ -747,44 +795,6 @@ class OperationsActivity : Activity() {
         val dateButton=Button(this).apply{text=runCatching{java.time.LocalDate.parse(selectedDate).format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}.getOrDefault(selectedDate);textSize=12f;isAllCaps=false;background=outlineBg(surface,14);setTextColor(ink)}
         val controls=row(bg).apply{gravity=Gravity.CENTER_VERTICAL;addView(period,LinearLayout.LayoutParams(0,dp(50),1f).apply{marginEnd=dp(5)});addView(dateButton,LinearLayout.LayoutParams(0,dp(50),1f).apply{marginStart=dp(5)})}
         body.addView(section("Phạm vi báo cáo"));body.addView(controls,matchWrap());body.addView(gap(7))
-        // S58_BETA57_SHIFT_DISCREPANCY: canonical selected-day Vao/Ra/Chua-ra drilldown.
-        val discrepancyBox=column(bg)
-        body.addView(section("ĐỐI SOÁT VÀO / RA"));body.addView(discrepancyBox,matchWrap());body.addView(gap(7))
-        fun renderShiftDiscrepancy(){
-            discrepancyBox.removeAllViews()
-            val day=operationalStore.loadDay(selectedDate)
-            if(day==null){discrepancyBox.addView(info("Chưa có snapshot canonical của ngày đã chọn. Bấm làm mới để đồng bộ."));return}
-            val sessions=day.optJSONArray("sessions")?:JSONArray()
-            val byShift=LinkedHashMap<String,MutableList<JSONObject>>()
-            listOf("Ca 1","Ca HC","Ca 2").forEach{byShift[it]=mutableListOf()}
-            for(i in 0 until sessions.length()){
-                val ses=sessions.optJSONObject(i)?:continue
-                val shift=ses.optString("shift").trim().ifBlank{"Chưa xác định"}
-                byShift.getOrPut(shift){mutableListOf()}.add(JSONObject(ses.toString()))
-            }
-            var pendingAll=0
-            byShift.forEach{(shift,rows)->
-                val entered=rows.filter{it.optString("enter_at").isNotBlank()||it.optString("state").uppercase() in setOf("ACTIVE","ENDED")}
-                val exited=entered.filter{it.optString("exit_at").isNotBlank()||it.optString("state").equals("ENDED",true)}
-                val pending=entered.filter{it.optString("state").equals("ACTIVE",true)&&it.optString("exit_at").isBlank()}
-                pendingAll+=pending.size
-                val button=smallButton("$shift  •  Vào ${entered.size}  •  Ra ${exited.size}  •  Chưa ra ${pending.size}",if(pending.isNotEmpty())orange else teal)
-                button.setOnClickListener{
-                    if(pending.isEmpty()){TopNotice.show(this,"$shift không có nhân sự đã vào nhưng chưa ra.",TopNotice.Kind.SUCCESS);return@setOnClickListener}
-                    val labels=pending.map{ses->
-                        val mnv=ses.optString("mnv").trim();val emp=MasterDataCache.employee(this,mnv)
-                        "$mnv • ${emp?.optString("full_name").orEmpty().ifBlank{"Chưa có họ tên"}}"
-                    }.toTypedArray()
-                    AlertDialog.Builder(this).setTitle("$shift • ${pending.size} chưa ra").setItems(labels){_,idx->
-                        val mnv=pending.getOrNull(idx)?.optString("mnv").orEmpty()
-                        if(mnv.isNotBlank())loadEmployee(mnv)
-                    }.setNegativeButton("Đóng",null).show()
-                }
-                discrepancyBox.addView(button,matchWrap());discrepancyBox.addView(gap(5))
-            }
-            if(pendingAll>0)discrepancyBox.addView(status("CẢNH BÁO • $pendingAll nhân sự đã VÀO nhưng CHƯA RA",orange,Color.rgb(255,247,230)))
-            else discrepancyBox.addView(status("Đã đối soát • không còn nhân sự CHƯA RA",green,Color.rgb(235,248,239)))
-        }
         val box=column(bg);body.addView(box,matchWrap())
         fun fold(v:String)=java.text.Normalizer.normalize(v,java.text.Normalizer.Form.NFD).replace(Regex("\\p{Mn}+"),"").uppercase().trim()
         fun site1291(v:String):Boolean{val x=fold(v);return x=="1291"||x=="SITE 1291"||Regex("(^|[^0-9])1291([^0-9]|$)").containsMatchIn(x)}
@@ -821,7 +831,7 @@ class OperationsActivity : Activity() {
                     val shift=e.optString("shift").ifBlank{p.optString("shift")}.ifBlank{after?.optString("shift").orEmpty()};val work=e.optString("work_choice").ifBlank{p.optString("work_choice")}.ifBlank{after?.optString("work_choice").orEmpty()}
                     val key=e.optString("entity_id").ifBlank{e.optString("session_id")}.ifBlank{e.optString("event_id")}.ifBlank{"$mnv|$shift|$i"};out[key]=Entry(mnv,shift,work,emp)
                 }
-                runOnUiThread{if(serial==loadSerial&&screenState=="REPORT"){cachedDate=selectedDate;cachedEntries=out.values.toList();renderCached();renderShiftDiscrepancy()}}
+                runOnUiThread{if(serial==loadSerial&&screenState=="REPORT"){cachedDate=selectedDate;cachedEntries=out.values.toList();renderCached()}}
             }.start()
         }
         dateButton.setOnClickListener{
@@ -1452,7 +1462,7 @@ class OperationsActivity : Activity() {
         val fault=ServiceFaultInjection.mode(this)
         if(fault==ServiceFaultInjection.Mode.DISABLE_BOTH)return "OFFLINE"
         val st=api.runtimeStatus();val mode=st.optString("authority_mode");val route=st.optString("route");val url=st.optString("service_url")
-        if(ServiceFaultInjection.cloudflareDisabled(this)){return if(mode=="GOOGLE_FALLBACK"&&!ServiceFaultInjection.googleDisabled(this))"Google Drive" else "OFFLINE"}
+        if(ServiceFaultInjection.cloudflareDisabled(this)){return if(!ServiceFaultInjection.googleDisabled(this))"Google Drive" else "OFFLINE"}
         if(lastConnected==false)return "OFFLINE"
         return when{
             mode=="GOOGLE_FALLBACK"||route=="GOOGLE_FALLBACK"||route=="GAS_COMPAT"->if(ServiceFaultInjection.googleDisabled(this))"OFFLINE" else "Google Drive"
