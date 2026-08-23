@@ -6,10 +6,10 @@ on:
       - ci/service-ra-projection-gate-20260823
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  apply-check-commit:
+  apply-check-package:
     if: github.event.pull_request.head.ref == 'agent/service-attendance-aggregate-audit-20260823'
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -74,15 +74,14 @@ jobs:
             echo "scope=SERVICE_S60_ATTENDANCE_AGGREGATE_AUDIT"
           } > ../ops/service-prod-bundle-attendance-s60/receipt.txt
 
-      - name: Persist verified source and bundle
-        run: |
-          set -euo pipefail
-          git config user.name 'pick-pack-1291-bot'
-          git config user.email 'actions@users.noreply.github.com'
-          git add service/src/session_hotfix.ts service/src/replication.ts ops/service-prod-bundle-attendance-s60
-          if git diff --cached --quiet; then
-            echo 'No verified S60 source/bundle changes to commit.'
-          else
-            git commit -m 'feat(service): verify S60 attendance aggregate bundle'
-            git push origin HEAD:agent/service-attendance-aggregate-audit-20260823
-          fi
+      - name: Upload exact verified S60 bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: service-s60-entry-production
+          path: |
+            ops/service-prod-bundle-attendance-s60/entry_production.js
+            ops/service-prod-bundle-attendance-s60/entry_production.sha256
+            ops/service-prod-bundle-attendance-s60/entry_production.size
+            ops/service-prod-bundle-attendance-s60/receipt.txt
+          if-no-files-found: error
+          compression-level: 0
