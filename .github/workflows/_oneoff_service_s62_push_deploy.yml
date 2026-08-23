@@ -8,7 +8,7 @@ on:
       - '.github/workflows/_oneoff_service_s62_push_deploy.yml'
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: oneoff-service-s62-production
@@ -162,6 +162,18 @@ jobs:
             /tmp/pre-health.json
             /tmp/post-health.json
           retention-days: 14
+
+      - name: Persist sanitized deploy receipt on evidence branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p ops
+          cp /tmp/service-s62-deploy-receipt.txt ops/service-s62-production-deploy-latest.txt
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git add ops/service-s62-production-deploy-latest.txt
+          git commit -m 'evidence(service-s62): production deploy PASS'
+          git push origin HEAD:agent/service-s62-session-authority-cas-fix-20260824
 
       - name: Remove generated production config
         if: always()
