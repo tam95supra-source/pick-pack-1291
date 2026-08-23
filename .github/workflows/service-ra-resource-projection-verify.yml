@@ -9,15 +9,15 @@ permissions:
   contents: write
 
 jobs:
-  patch-and-typecheck:
-    if: github.head_ref == 'agent/service-ra-resource-projection-20260823'
+  patch-typecheck-dryrun:
+    if: github.head_ref == 'ci/service-ra-projection-gate-20260823'
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 12
     steps:
-      - name: Checkout service fix branch
+      - name: Checkout exact gate branch
         uses: actions/checkout@v4
         with:
-          ref: agent/service-ra-resource-projection-20260823
+          ref: ci/service-ra-projection-gate-20260823
           fetch-depth: 0
 
       - name: Apply deterministic projection patch
@@ -44,14 +44,37 @@ jobs:
         working-directory: service
         run: npm run check
 
-      - name: Commit patched replication source
+      - name: Wrangler dry-run bundle only
+        working-directory: service
         run: |
-          if git diff --quiet -- service/src/replication.ts; then
-            echo 'replication.ts already patched.'
-            exit 0
-          fi
+          set -euo pipefail
+          rm -rf ../ops/service-prod-bundle-ra-projection
+          mkdir -p ../ops/service-prod-bundle-ra-projection
+          npx wrangler deploy --dry-run --outdir ../ops/service-prod-bundle-ra-projection
+          BUNDLE="$(find ../ops/service-prod-bundle-ra-projection -maxdepth 1 -type f -name '*.js' | head -n 1)"
+          test -n "$BUNDLE"
+          cp "$BUNDLE" ../ops/service-prod-bundle-ra-projection/entry_production.js.tmp
+          mv ../ops/service-prod-bundle-ra-projection/entry_production.js.tmp ../ops/service-prod-bundle-ra-projection/entry_production.js
+          sha256sum ../ops/service-prod-bundle-ra-projection/entry_production.js > ../ops/service-prod-bundle-ra-projection/entry_production.sha256
+          stat -c '%s' ../ops/service-prod-bundle-ra-projection/entry_production.js > ../ops/service-prod-bundle-ra-projection/entry_production.size
+          {
+            echo "checked_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo "source_sha=$GITHUB_SHA"
+            echo "typecheck=PASS"
+            echo "wrangler_dry_run=PASS"
+            echo "production_deploy=NOT_RUN"
+            echo "stable=UNTOUCHED"
+          } > ../ops/service-prod-bundle-ra-projection/receipt.txt
+
+      - name: Persist verified source and bundle
+        run: |
+          set -euo pipefail
           git config user.name 'pick-pack-1291-bot'
           git config user.email 'actions@users.noreply.github.com'
-          git add service/src/replication.ts
-          git commit -m 'fix(service): project attendance resources to daily sheet'
-          git push origin HEAD:agent/service-ra-resource-projection-20260823
+          git add service/src/replication.ts ops/service-prod-bundle-ra-projection
+          if git diff --cached --quiet; then
+            echo 'No verified source/bundle changes to commit.'
+          else
+            git commit -m 'fix(service): verify RA resource projection bundle'
+            git push origin HEAD:ci/service-ra-projection-gate-20260823
+          fi
