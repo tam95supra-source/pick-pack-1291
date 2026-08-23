@@ -747,6 +747,44 @@ class OperationsActivity : Activity() {
         val dateButton=Button(this).apply{text=runCatching{java.time.LocalDate.parse(selectedDate).format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}.getOrDefault(selectedDate);textSize=12f;isAllCaps=false;background=outlineBg(surface,14);setTextColor(ink)}
         val controls=row(bg).apply{gravity=Gravity.CENTER_VERTICAL;addView(period,LinearLayout.LayoutParams(0,dp(50),1f).apply{marginEnd=dp(5)});addView(dateButton,LinearLayout.LayoutParams(0,dp(50),1f).apply{marginStart=dp(5)})}
         body.addView(section("Phạm vi báo cáo"));body.addView(controls,matchWrap());body.addView(gap(7))
+        // S58_BETA57_SHIFT_DISCREPANCY: canonical selected-day Vao/Ra/Chua-ra drilldown.
+        val discrepancyBox=column(bg)
+        body.addView(section("ĐỐI SOÁT VÀO / RA"));body.addView(discrepancyBox,matchWrap());body.addView(gap(7))
+        fun renderShiftDiscrepancy(){
+            discrepancyBox.removeAllViews()
+            val day=operationalStore.loadDay(selectedDate)
+            if(day==null){discrepancyBox.addView(info("Chưa có snapshot canonical của ngày đã chọn. Bấm làm mới để đồng bộ."));return}
+            val sessions=day.optJSONArray("sessions")?:JSONArray()
+            val byShift=LinkedHashMap<String,MutableList<JSONObject>>()
+            listOf("Ca 1","Ca HC","Ca 2").forEach{byShift[it]=mutableListOf()}
+            for(i in 0 until sessions.length()){
+                val ses=sessions.optJSONObject(i)?:continue
+                val shift=ses.optString("shift").trim().ifBlank{"Chưa xác định"}
+                byShift.getOrPut(shift){mutableListOf()}.add(JSONObject(ses.toString()))
+            }
+            var pendingAll=0
+            byShift.forEach{(shift,rows)->
+                val entered=rows.filter{it.optString("enter_at").isNotBlank()||it.optString("state").uppercase() in setOf("ACTIVE","ENDED")}
+                val exited=entered.filter{it.optString("exit_at").isNotBlank()||it.optString("state").equals("ENDED",true)}
+                val pending=entered.filter{it.optString("state").equals("ACTIVE",true)&&it.optString("exit_at").isBlank()}
+                pendingAll+=pending.size
+                val button=smallButton("$shift  •  Vào ${entered.size}  •  Ra ${exited.size}  •  Chưa ra ${pending.size}",if(pending.isNotEmpty())orange else teal)
+                button.setOnClickListener{
+                    if(pending.isEmpty()){TopNotice.show(this,"$shift không có nhân sự đã vào nhưng chưa ra.",TopNotice.Kind.SUCCESS);return@setOnClickListener}
+                    val labels=pending.map{ses->
+                        val mnv=ses.optString("mnv").trim();val emp=MasterDataCache.employee(this,mnv)
+                        "$mnv • ${emp?.optString("full_name").orEmpty().ifBlank{"Chưa có họ tên"}}"
+                    }.toTypedArray()
+                    AlertDialog.Builder(this).setTitle("$shift • ${pending.size} chưa ra").setItems(labels){_,idx->
+                        val mnv=pending.getOrNull(idx)?.optString("mnv").orEmpty()
+                        if(mnv.isNotBlank())loadEmployee(mnv)
+                    }.setNegativeButton("Đóng",null).show()
+                }
+                discrepancyBox.addView(button,matchWrap());discrepancyBox.addView(gap(5))
+            }
+            if(pendingAll>0)discrepancyBox.addView(status("CẢNH BÁO • $pendingAll nhân sự đã VÀO nhưng CHƯA RA",orange,Color.rgb(255,247,230)))
+            else discrepancyBox.addView(status("Đã đối soát • không còn nhân sự CHƯA RA",green,Color.rgb(235,248,239)))
+        }
         val box=column(bg);body.addView(box,matchWrap())
         fun fold(v:String)=java.text.Normalizer.normalize(v,java.text.Normalizer.Form.NFD).replace(Regex("\\p{Mn}+"),"").uppercase().trim()
         fun site1291(v:String):Boolean{val x=fold(v);return x=="1291"||x=="SITE 1291"||Regex("(^|[^0-9])1291([^0-9]|$)").containsMatchIn(x)}
@@ -783,7 +821,7 @@ class OperationsActivity : Activity() {
                     val shift=e.optString("shift").ifBlank{p.optString("shift")}.ifBlank{after?.optString("shift").orEmpty()};val work=e.optString("work_choice").ifBlank{p.optString("work_choice")}.ifBlank{after?.optString("work_choice").orEmpty()}
                     val key=e.optString("entity_id").ifBlank{e.optString("session_id")}.ifBlank{e.optString("event_id")}.ifBlank{"$mnv|$shift|$i"};out[key]=Entry(mnv,shift,work,emp)
                 }
-                runOnUiThread{if(serial==loadSerial&&screenState=="REPORT"){cachedDate=selectedDate;cachedEntries=out.values.toList();renderCached()}}
+                runOnUiThread{if(serial==loadSerial&&screenState=="REPORT"){cachedDate=selectedDate;cachedEntries=out.values.toList();renderCached();renderShiftDiscrepancy()}}
             }.start()
         }
         dateButton.setOnClickListener{
@@ -914,7 +952,7 @@ class OperationsActivity : Activity() {
                 var mnv=e.optString("mnv");var full=e.optString("full_name");var actor=e.optString("actor").ifBlank{e.optString("actor_id")};var detail=e.optString("detail");var shift=e.optString("shift")
                 var p:JSONObject?=null;if(mnv.isBlank()||full.isBlank()||actor.isBlank()||detail.isBlank()||n.isNotBlank()){p=runCatching{JSONObject(e.optString("payload_json","{}"))}.getOrNull();mnv=mnv.ifBlank{p?.optString("mnv").orEmpty()};full=full.ifBlank{p?.optString("full_name").orEmpty()};actor=actor.ifBlank{p?.optString("actor").orEmpty()};detail=detail.ifBlank{p?.optString("detail").orEmpty().ifBlank{p?.optString("labor_type").orEmpty()}};shift=shift.ifBlank{p?.optString("shift").orEmpty()}}
                 if(full.isBlank()&&mnv.isNotBlank())full=MasterDataCache.employee(this,mnv)?.optString("full_name").orEmpty();val label=if(type.uppercase()=="HISTORY_DELETE")"Xóa lịch sử" else friendly(type,e.optString("label"));if(type.uppercase()=="HISTORY_DELETE"&&detail.isBlank()){val hp=p?:runCatching{JSONObject(e.optString("payload_json","{}"))}.getOrNull();detail="Đã xóa ${hp?.optInt("deleted_count",0)?:0} mục; dữ liệu gốc và dấu vết kiểm toán được giữ."};if(n.isNotBlank()&&!listOf(mnv,full,label,actor,detail,shift).any{it.uppercase().contains(n)})continue
-                out.add(JSONObject().put("event_id",realId.ifBlank{"$date:$i"}).put("event_type",type).put("entity_type",e.optString("entity_type")).put("entity_id",e.optString("entity_id")).put("payload_json",e.optString("payload_json","{}")).put("label",label).put("mnv",mnv).put("full_name",full).put("actor",actor).put("actor_role",e.optString("actor_role")).put("origin",e.optString("origin")).put("detail",detail).put("shift",shift).put("at_iso",e.optString("at_iso").ifBlank{e.optString("committed_at")}.ifBlank{e.optString("at")}).put("authority_seq",e.optLong("authority_seq",0L)).put("business_date",date).put("history_source","SERVICE_CANONICAL").put("local_status","CONFIRMED"))
+                out.add(JSONObject().put("event_id",realId.ifBlank{"$date:$i"}).put("event_type",type).put("entity_type",e.optString("entity_type")).put("entity_id",e.optString("entity_id")).put("payload_json",e.optString("payload_json","{}")).put("label",label).put("mnv",mnv).put("full_name",full).put("actor",actor).put("actor_role",e.optString("actor_role")).put("device_id",e.optString("device_id")).put("origin",e.optString("origin")).put("detail",detail).put("shift",shift).put("at_iso",e.optString("at_iso").ifBlank{e.optString("committed_at")}.ifBlank{e.optString("at")}).put("authority_seq",e.optLong("authority_seq",0L)).put("business_date",date).put("history_source","SERVICE_CANONICAL").put("local_status","CONFIRMED"))
             }
         }
         fun loadRows():MutableList<JSONObject>{
@@ -924,12 +962,12 @@ class OperationsActivity : Activity() {
                 val id=local.optString("event_id");if(id in hiddenHistoryIds)continue;val idx=out.indexOfFirst{it.optString("event_id")==id};if(idx>=0){out[idx].put("local_status",local.optString("status")).put("local_error",local.optString("error")).put("local_queued_at",local.optLong("queued_at"));continue}
                 val action=bodyJ.optString("action");val mnv=payload.optString("mnv").ifBlank{bodyJ.optString("target_id")};val full=payload.optString("full_name").ifBlank{bodyJ.optString("target_label")}.ifBlank{MasterDataCache.employee(this,mnv)?.optString("full_name").orEmpty()};val actor=payload.optString("actor").ifBlank{payload.optString("login_id")}.ifBlank{"Thiết bị này"};val detail=bodyJ.optString("detail").ifBlank{payload.optString("labor_type")};val label=friendly(action.uppercase(),action)
                 if(needle.isNotBlank()&&!listOf(mnv,full,label,actor,detail).any{it.uppercase().contains(needle.uppercase())})continue
-                out.add(JSONObject().put("event_id",id).put("event_type",action.uppercase()).put("label",label).put("mnv",mnv).put("full_name",full).put("actor",actor).put("detail",detail).put("business_date",d).put("history_source","LOCAL_PDA").put("local_status",local.optString("status")).put("local_error",local.optString("error")).put("local_queued_at",local.optLong("queued_at")))
+                out.add(JSONObject().put("event_id",id).put("event_type",action.uppercase()).put("label",label).put("mnv",mnv).put("full_name",full).put("actor",actor).put("device_id",payload.optString("device_id").ifBlank{payload.optString("_device_id")}).put("detail",detail).put("business_date",d).put("history_source","LOCAL_PDA").put("local_status",local.optString("status")).put("local_error",local.optString("error")).put("local_queued_at",local.optLong("queued_at")))
             }
             out.sortByDescending{e->val qAt=e.optLong("local_queued_at",0L);if(qAt>0)qAt else runCatching{java.time.Instant.parse(e.optString("at_iso")).toEpochMilli()}.getOrDefault(0L)};return out
         }
         fun render(){
-            box.removeAllViews();currentPageDeleteIds.clear();pageChecks.clear();val rows=loadRows();val groups=rows.groupBy{e->e.optString("mnv").ifBlank{e.optString("event_id")}}.entries.sortedByDescending{entry->entry.value.maxOfOrNull{e->e.optLong("local_queued_at",0L).takeIf{it>0}?:runCatching{java.time.Instant.parse(e.optString("at_iso")).toEpochMilli()}.getOrDefault(0L)}?:0L};val states=groups.map{g->if(g.value.any{statusOf(it)=="FAILED"})"FAILED" else if(g.value.any{statusOf(it)=="PENDING"})"PENDING" else "SYNCED"};val metricRows=if(query.isBlank())rows else run{val savedQuery=query;query="";val allRows=loadRows();query=savedQuery;allRows};val pending=metricRows.count{statusOf(it)=="PENDING"};val failed=metricRows.count{statusOf(it)=="FAILED"}
+            box.removeAllViews();currentPageDeleteIds.clear();pageChecks.clear();val rows=loadRows();val groups=rows.groupBy{e->e.optString("event_id").ifBlank{"${e.optString("mnv")}|${e.optString("at_iso")}|${e.optString("event_type")}"}}.entries.sortedByDescending{entry->entry.value.maxOfOrNull{e->e.optLong("local_queued_at",0L).takeIf{it>0}?:runCatching{java.time.Instant.parse(e.optString("at_iso")).toEpochMilli()}.getOrDefault(0L)}?:0L};val states=groups.map{g->if(g.value.any{statusOf(it)=="FAILED"})"FAILED" else if(g.value.any{statusOf(it)=="PENDING"})"PENDING" else "SYNCED"};val metricRows=if(query.isBlank())rows else run{val savedQuery=query;query="";val allRows=loadRows();query=savedQuery;allRows};val pending=metricRows.count{statusOf(it)=="PENDING"};val failed=metricRows.count{statusOf(it)=="FAILED"}
             fun updateMetric(v:View,n:Int){if(v is ViewGroup){for(i in v.childCount-1 downTo 0){val child=v.getChildAt(i);if(child is TextView){child.text=n.toString();break}}}};updateMetric(allBtn,metricRows.size);updateMetric(pendingBtn,pending);updateMetric(failBtn,failed)
             val filtered=groups.filterIndexed{idx,_->filter=="ALL"||states[idx]==filter};if(pageStart>=filtered.size&&pageStart>0)pageStart=((filtered.size-1).coerceAtLeast(0)/pageSize)*pageSize;val visible=filtered.drop(pageStart).take(pageSize)
             if(query.isNotBlank())box.addView(info("Tìm trên toàn bộ lịch sử đang giữ trên PDA • tối đa 300 kết quả trước khi nhóm."))
@@ -998,15 +1036,14 @@ class OperationsActivity : Activity() {
         screenState="HISTORY_DETAIL";val root=baseRoot("LỊCH SỬ");val body=body();val first=items.firstOrNull()?:return;val mnv=first.optString("mnv");val full=first.optString("full_name").ifBlank{MasterDataCache.employee(this,mnv)?.optString("full_name").orEmpty()};val detailTitle=if(mnv.isBlank())"Chi tiết thao tác" else listOf(mnv,full).filter{it.isNotBlank()}.joinToString(" – ");body.addView(section(detailTitle));body.addView(gap(8))
         fun label(type:String)=when(type){"ATTENDANCE_ENTER"->"Vào ca";"ATTENDANCE_EXIT"->"Ra ca";"RESOURCE_CHANGE"->"Đổi tài nguyên / vị trí";"LABOR_START"->"Bắt đầu công nhật";"LABOR_FINISH"->"Hoàn thành công nhật";"HISTORICAL_CORRECTION"->"Sửa lịch sử";else->type.ifBlank{"Thao tác"}}
         items.sortedBy{historyEventTime(it)}.forEach{e->
-            val type=e.optString("event_type");val actor=e.optString("actor_id").ifBlank{e.optString("actor")}.ifBlank{"Hệ thống"};val status=historyGroupStatus(listOf(e));val statusColor=when(status){"Đã đồng bộ"->green;"Lỗi đồng bộ"->red;else->orange};val fill=when(status){"Đã đồng bộ"->android.graphics.Color.rgb(239,250,244);"Lỗi đồng bộ"->android.graphics.Color.rgb(255,239,239);else->android.graphics.Color.rgb(255,248,230)}
-            val p=runCatching{JSONObject(e.optString("payload_json","{}"))}.getOrDefault(JSONObject());val after=p.optJSONObject("after");val src=after?:p;val d=mutableListOf<String>();listOf("shift","work_choice","pda_serial","user_pick","pack_table","user_pack","labor_type","time_marker","start_at","end_at","note","state").forEach{k->val v=src.optString(k);if(v.isNotBlank())d.add("$k: $v")}
+            val type=e.optString("event_type");val actor=e.optString("actor_id").ifBlank{e.optString("actor")}.ifBlank{"Hệ thống"};val status=historyGroupStatus(listOf(e));val auditRole=e.optString("actor_role").ifBlank{"—"};val auditDevice=e.optString("device_id").ifBlank{"—"};val auditSource=e.optString("history_source").ifBlank{e.optString("origin")}.ifBlank{"Service"};val statusColor=when(status){"Đã đồng bộ"->green;"Lỗi đồng bộ"->red;else->orange};val fill=when(status){"Đã đồng bộ"->android.graphics.Color.rgb(239,250,244);"Lỗi đồng bộ"->android.graphics.Color.rgb(255,239,239);else->android.graphics.Color.rgb(255,248,230)}
+            val p=runCatching{JSONObject(e.optString("payload_json","{}"))}.getOrDefault(JSONObject());val before=p.optJSONObject("before");val after=p.optJSONObject("after");val src=after?:p;val d=mutableListOf<String>();listOf("shift","work_choice","pda_serial","user_pick","pack_table","user_pack","labor_type","time_marker","start_at","end_at","note","state").forEach{k->val v=src.optString(k);if(v.isNotBlank())d.add("$k: $v")};if(before!=null)d.add("Trước: ${before.toString().take(500)}");if(after!=null)d.add("Sau: ${after.toString().take(500)}")
             val card=column(fill).apply{setPadding(dp(13),dp(11),dp(13),dp(11));background=android.graphics.drawable.GradientDrawable().apply{setColor(fill);cornerRadius=dp(14).toFloat();setStroke(dp(1),statusColor)}}
             val head=row(android.graphics.Color.TRANSPARENT).apply{gravity=Gravity.CENTER_VERTICAL};head.addView(txt(label(type),12.5f,navy,true),LinearLayout.LayoutParams(0,-2,1f).apply{marginEnd=dp(6)});head.addView(txt(status,8.9f,statusColor,true).apply{setPadding(dp(7),dp(4),dp(7),dp(4));background=round(fill,9)})
-            card.addView(head,matchWrap());card.addView(txt("${historyEventTime(e)} • $actor",9.8f,muted,false));if(d.isNotEmpty())card.addView(txt(d.joinToString("\n"),9.8f,ink,false));val err=e.optString("local_error");if(err.isNotBlank())card.addView(txt("Lỗi: $err",9.5f,red,true));card.addView(txt("Event ID: ${e.optString("event_id")}",8.7f,muted,false));if((e.optString("entity_type")=="ATTENDANCE_SESSION"||e.optString("entity_type")=="LABOR_SESSION")&&e.optString("entity_id").isNotBlank()&&historyCanEdit(e)){card.addView(gap(7));card.addView(smallButton("SỬA THÔNG TIN",teal).apply{setOnClickListener{historyEditDialog(e)}})};body.addView(card,matchWrap());body.addView(gap(7))
+            card.addView(head,matchWrap());card.addView(txt("${historyEventTime(e)} • $actor • $auditRole",9.8f,muted,false));card.addView(txt("Thiết bị: $auditDevice • Nguồn: $auditSource • Đồng bộ: $status",9.3f,muted,false));if(d.isNotEmpty())card.addView(txt(d.joinToString("\n"),9.8f,ink,false));val err=e.optString("local_error");if(err.isNotBlank())card.addView(txt("Lỗi: $err",9.5f,red,true));card.addView(txt("Event ID: ${e.optString("event_id")}",8.7f,muted,false));body.addView(card,matchWrap());body.addView(gap(7))
         };attach(root,body)
     }
 
-    private fun historyEditDialog(e:JSONObject){val entity=e.optString("entity_type");if(entity!="ATTENDANCE_SESSION"&&entity!="LABOR_SESSION")return;val raw=runCatching{JSONObject(e.optString("payload_json","{}"))}.getOrDefault(JSONObject());val initial=raw.optJSONObject("after")?:raw;val box=column(surface).apply{setPadding(dp(10),dp(4),dp(10),dp(8))};val fields=LinkedHashMap<String,EditText>();val keys=if(entity=="ATTENDANCE_SESSION")listOf("shift","work_choice","pda_serial","user_pick","pack_table","user_pack","state")else listOf("labor_type","time_marker","start_at","end_at","note","state");for(k in keys){val v=input(k,false).apply{setText(initial.optString(k))};fields[k]=v;box.addView(labelled(k,v));box.addView(gap(6))};val deduct=CheckBox(this).apply{text="Khấu trừ nhân sự";isChecked=initial.optBoolean("deduct_staff",false);visibility=if(entity=="LABOR_SESSION")View.VISIBLE else View.GONE};box.addView(deduct);val reason=input("Lý do chỉnh sửa (bắt buộc)",false);box.addView(labelled("Lý do",reason));val dialog=AlertDialog.Builder(this).setTitle("Sửa thông tin lịch sử").setView(ScrollView(this).apply{addView(box)}).setNegativeButton("Hủy",null).setPositiveButton("LƯU",null).create();dialog.setOnShowListener{dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener{val why=reason.text.toString().trim();if(why.length<3){showError("Nhập lý do chỉnh sửa.");return@setOnClickListener};val patch=JSONObject();fields.forEach{(k,v)->patch.put(k,v.text.toString().trim())};if(entity=="LABOR_SESSION")patch.put("deduct_staff",deduct.isChecked);val p=JSONObject().put("entity_type",entity).put("entity_id",e.optString("entity_id")).put("reason",why).put("patch",patch).put("target_event_id",e.optString("event_id")).put("idempotency_key",UUID.randomUUID().toString()).put("client_source","PDA");api.call("history_correction",p){r->runOnUiThread{if(handleAuth(r))return@runOnUiThread;if(!r.ok)showError(r.error?:"Không sửa được lịch sử")else{dialog.dismiss();TopNotice.show(this,"Đã lưu chỉnh sửa vào lịch sử.",TopNotice.Kind.SUCCESS);foregroundSync.requestSync();historyScreen()}}}}};dialog.show()}
 
     // S51B_BETA45_COMPILE_GUARD
     // S51_BETA45_MANUAL_UPDATE_SYNC_DETAIL_VI: detailed Vietnamese sync view shared by all roles.
@@ -1161,7 +1198,21 @@ class OperationsActivity : Activity() {
             body.addView(gap(7));body.addView(primary("CHỌN CHẾ ĐỘ THỬ NGHIỆM",orange){showServiceFaultModeDialog()},matchWrap())
         }
         body.addView(gap(14))
-        body.addView(primary("ĐĂNG XUẤT",red){api.call("logout"){runOnUiThread{api.clearSession();startActivity(android.content.Intent(this,FullBetaActivity::class.java).apply{addFlags(android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP or android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK)});finish();overridePendingTransition(0,0)}}},matchWrap())
+        body.addView(primary("ĐĂNG XUẤT",red){
+            AlertDialog.Builder(this)
+                .setTitle("Xác nhận đăng xuất")
+                .setMessage("Bạn có chắc muốn đăng xuất khỏi ứng dụng?")
+                .setNegativeButton("Hủy",null)
+                .setPositiveButton("ĐĂNG XUẤT"){_,_->
+                    api.call("logout"){runOnUiThread{
+                        api.clearSession()
+                        startActivity(android.content.Intent(this,FullBetaActivity::class.java).apply{addFlags(android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP or android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK)})
+                        finish()
+                        overridePendingTransition(0,0)
+                    }}
+                }
+                .show()
+        },matchWrap())
         attach(root,body)
     }
     private fun showServiceFaultModeDialog(){
@@ -1420,7 +1471,6 @@ class OperationsActivity : Activity() {
         gravity=Gravity.CENTER;setPadding(dp(3),dp(5),dp(3),dp(5));background=outlineBg(surface,16);elevation=dp(8).toFloat();navRefs.clear()
         val items=mutableListOf(
             Triple(R.drawable.ic_pp_business,"Nghiệp vụ","BUSINESS"),
-            Triple(R.drawable.ic_pp_staff,"Nhân sự","STAFF"),
             Triple(R.drawable.ic_pp_history,"Lịch sử","HISTORY"),
             Triple(R.drawable.ic_pp_settings,"Cài đặt","SETTINGS")
         )

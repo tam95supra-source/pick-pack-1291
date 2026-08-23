@@ -1,0 +1,177 @@
+name: Beta57 Exact Artifact Release
+
+on:
+  pull_request:
+    branches: [ agent/beta57-reset-fence-20260823 ]
+    paths:
+      - 'ops/beta57-exact-release-trigger.txt'
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      SOURCE_SHA: fc456fe4b830782b4d643ef004fa9d25fdc4e31c
+      CANDIDATE_RUN_ID: '32615808723'
+      ARTIFACT_ID: '9486928648'
+      VERSION: 0.4.2-beta.57
+      VERSION_CODE: '63'
+      PACKAGE: vn.pickpack1291.app.beta.publicbeta
+      APK_NAME: pick-pack-1291-public-beta-0.4.2-beta.57.apk
+      EXPECTED_SHA: ae060aaf96d47388d699577e6b1cd003229b6d7f35feb6da12f5b339cb1d2fcc
+      EXPECTED_SIZE: '13027947'
+      EXPECTED_SIGNER: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
+      TAG: v0.4.2-beta.57-publicbeta
+      GAS_URL: https://script.google.com/macros/s/AKfycbzbEoGfbNg6s2HnP-gUpcBJ7mMIkVBtYuQKMndb9seDV2c55lQwSUO1GZ-LtQ2CxMCauA/exec
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          fetch-depth: 0
+
+      - name: Lock exact candidate identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          test "$VERSION" = '0.4.2-beta.57'
+          test "$VERSION_CODE" = '63'
+          test "$TAG" = 'v0.4.2-beta.57-publicbeta'
+          test "$PACKAGE" = 'vn.pickpack1291.app.beta.publicbeta'
+          test "$EXPECTED_SIZE" = '13027947'
+          test "$EXPECTED_SHA" = 'ae060aaf96d47388d699577e6b1cd003229b6d7f35feb6da12f5b339cb1d2fcc'
+          ! git tag -l | grep -qx 'v0.4.2-beta.56-publicbeta'
+          echo 'PASS exact release identity; Beta56 remains denylisted.'
+
+      - name: Download exact signed candidate artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/artifacts/$ARTIFACT_ID/zip" -o /tmp/candidate.zip
+          rm -rf /tmp/candidate && mkdir -p /tmp/candidate
+          unzip -q /tmp/candidate.zip -d /tmp/candidate
+          APK=$(find /tmp/candidate -type f -name "$APK_NAME" -print -quit)
+          RECEIPT=$(find /tmp/candidate -type f -name 'BETA57_CANDIDATE_RECEIPT.txt' -print -quit)
+          SUM=$(find /tmp/candidate -type f -name 'SHA256SUMS-0.4.2-beta.57.txt' -print -quit)
+          SIGNER=$(find /tmp/candidate -type f -name 'APK_SIGNER-0.4.2-beta.57.txt' -print -quit)
+          BADGING=$(find /tmp/candidate -type f -name 'APK_BADGING-0.4.2-beta.57.txt' -print -quit)
+          for f in "$APK" "$RECEIPT" "$SUM" "$SIGNER" "$BADGING"; do test -n "$f" && test -s "$f"; done
+          test "$(sha256sum "$APK" | awk '{print $1}')" = "$EXPECTED_SHA"
+          test "$(stat -c '%s' "$APK")" = "$EXPECTED_SIZE"
+          grep -qx "source_sha=$SOURCE_SHA" "$RECEIPT"
+          grep -qx "version_name=$VERSION" "$RECEIPT"
+          grep -qx "version_code=$VERSION_CODE" "$RECEIPT"
+          grep -qx "package=$PACKAGE" "$RECEIPT"
+          grep -qx "apk_file=$APK_NAME" "$RECEIPT"
+          grep -qx "apk_sha256=$EXPECTED_SHA" "$RECEIPT"
+          grep -qx "apk_size=$EXPECTED_SIZE" "$RECEIPT"
+          grep -qx "signer_sha256=$EXPECTED_SIGNER" "$RECEIPT"
+          grep -qx 'stable_publish=FORBIDDEN' "$RECEIPT"
+          grep -qx 'beta56=DENYLISTED' "$RECEIPT"
+          grep -qx 'ota_mode=MANUAL_ONLY' "$RECEIPT"
+          grep -qx 'cloudflare_builds=DISCONNECTED' "$RECEIPT"
+          grep -qx 'verdict=PASS' "$RECEIPT"
+          grep -qx "$EXPECTED_SHA  $APK_NAME" "$SUM"
+          grep -qi "Signer #1 certificate SHA-256 digest: $EXPECTED_SIGNER" "$SIGNER"
+          grep -q "package: name='$PACKAGE'" "$BADGING"
+          grep -q "versionCode='$VERSION_CODE'" "$BADGING"
+          grep -q "versionName='$VERSION'" "$BADGING"
+          echo "APK=$APK" >> "$GITHUB_ENV"
+          echo "RECEIPT=$RECEIPT" >> "$GITHUB_ENV"
+          echo "SUM=$SUM" >> "$GITHUB_ENV"
+          echo "SIGNER_FILE=$SIGNER" >> "$GITHUB_ENV"
+          echo "BADGING=$BADGING" >> "$GITHUB_ENV"
+          echo 'PASS exact candidate bytes + signer + package metadata.'
+
+      - name: Publish immutable Beta57 prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > /tmp/release-notes.txt <<EOF
+          Pick Pack 1291 Beta ${VERSION}
+
+          PP_CHANNEL=BETA
+          PP_VERSION=${VERSION}
+          PP_VERSION_CODE=${VERSION_CODE}
+          PP_SHA256=${EXPECTED_SHA}
+          PP_SIZE=${EXPECTED_SIZE}
+          PP_SIGNER_SHA256=${EXPECTED_SIGNER}
+          PP_APK_NAME=${APK_NAME}
+          PP_MANDATORY=false
+          PP_OTA_MODE=MANUAL_ONLY
+          PP_SOURCE_SHA=${SOURCE_SHA}
+          EOF
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            EXISTING_TARGET=$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$TAG" --jq '.target_commitish')
+            test "$EXISTING_TARGET" = "$SOURCE_SHA" || { echo "Existing release target mismatch: $EXISTING_TARGET" >&2; exit 1; }
+            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --title "Pick Pack 1291 $VERSION" --notes-file /tmp/release-notes.txt --prerelease
+          else
+            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --target "$SOURCE_SHA" --title "Pick Pack 1291 $VERSION" --notes-file /tmp/release-notes.txt --prerelease
+          fi
+          gh release upload "$TAG" \
+            "$APK#$APK_NAME" \
+            "$SUM#SHA256SUMS-$VERSION.txt" \
+            "$RECEIPT#BETA57_CANDIDATE_RECEIPT.txt" \
+            "$SIGNER_FILE#APK_SIGNER-$VERSION.txt" \
+            "$BADGING#APK_BADGING-$VERSION.txt" \
+            --repo "$GITHUB_REPOSITORY" --clobber
+          URL="https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/$APK_NAME"
+          curl -fL --retry 6 --retry-all-errors --retry-delay 2 --connect-timeout 20 --max-time 180 "$URL" -o /tmp/release.apk
+          test "$(sha256sum /tmp/release.apk | awk '{print $1}')" = "$EXPECTED_SHA"
+          test "$(stat -c '%s' /tmp/release.apk)" = "$EXPECTED_SIZE"
+          echo "RELEASE_URL=$URL" >> "$GITHUB_ENV"
+          echo 'PASS public GitHub Release exact bytes.'
+
+      - name: Probe live GAS manual OTA discovery
+        id: gas
+        shell: bash
+        run: |
+          set -euo pipefail
+          code=$(curl -sSL --connect-timeout 15 --max-time 60 -o /tmp/gas.json -w '%{http_code}' \
+            -H 'content-type: application/json' "$GAS_URL" \
+            -d '{"action":"update_check","channel":"BETA","current_version":"0.4.2-beta.55"}' || true)
+          echo "http=$code"
+          cat /tmp/gas.json || true
+          python3 - <<'PY'
+          import json
+          p='/tmp/gas.json'
+          try: j=json.load(open(p))
+          except Exception as e:
+              print('GAS_OTA_VERDICT=UNREADABLE')
+              raise SystemExit(0)
+          print('GAS_OTA_OK='+str(j.get('ok')))
+          print('GAS_OTA_AVAILABLE='+str(j.get('available')))
+          print('GAS_OTA_VERSION='+str(j.get('version_name')))
+          print('GAS_OTA_CODE='+str(j.get('version_code')))
+          print('GAS_OTA_SHA='+str(j.get('sha256')))
+          print('GAS_OTA_URL='+str(j.get('apk_url')))
+          good=(j.get('ok') is True and j.get('available') is True and j.get('version_name')=='0.4.2-beta.57' and int(j.get('version_code') or 0)==63 and str(j.get('sha256') or '').lower()=='ae060aaf96d47388d699577e6b1cd003229b6d7f35feb6da12f5b339cb1d2fcc' and str(j.get('apk_url') or '').endswith('/v0.4.2-beta.57-publicbeta/pick-pack-1291-public-beta-0.4.2-beta.57.apk'))
+          print('GAS_OTA_VERDICT='+('PASS' if good else 'NEEDS_UPDATE'))
+          PY
+
+      - name: Release summary
+        shell: bash
+        run: |
+          echo "source_sha=$SOURCE_SHA"
+          echo "candidate_run_id=$CANDIDATE_RUN_ID"
+          echo "artifact_id=$ARTIFACT_ID"
+          echo "version=$VERSION"
+          echo "version_code=$VERSION_CODE"
+          echo "apk_sha256=$EXPECTED_SHA"
+          echo "apk_size=$EXPECTED_SIZE"
+          echo "signer_sha256=$EXPECTED_SIGNER"
+          echo "release_tag=$TAG"
+          echo "release_url=$RELEASE_URL"
+          echo 'stable_publish=FORBIDDEN'
+          echo 'beta56=DENYLISTED'
+          echo 'ota_mode=MANUAL_ONLY'
+          echo 'cloudflare=UNTOUCHED'

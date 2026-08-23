@@ -1,0 +1,35 @@
+name: Beta57 Remaining Truth Apply
+
+on:
+  push:
+    branches: [ agent/beta57-reset-fence-20260823 ]
+    paths:
+      - 'ops/beta57-remaining-truth-trigger.txt'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/beta57-reset-fence-20260823
+          fetch-depth: 0
+      - name: Validate and apply remaining truth
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile tools/apply_beta57_remaining_truth.py tools/remove_beta57_dead_history_edit.py tools/fix_beta57_duplicate_audit.py
+          python3 tools/apply_beta57_remaining_truth.py
+          python3 tools/remove_beta57_dead_history_edit.py
+          python3 tools/fix_beta57_duplicate_audit.py
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt
+          if ! git diff --cached --quiet; then
+            git commit -m 'fix(beta57): clean final audit patch and handover truth'
+            git push origin HEAD:agent/beta57-reset-fence-20260823
+          fi

@@ -1,0 +1,124 @@
+from pathlib import Path
+
+p = Path('app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt')
+s = p.read_text()
+
+# Handover 5.3: canonical per-shift Vao/Ra/Chua-ra.
+if 'S58_BETA57_SHIFT_DISCREPANCY' not in s:
+    anchor = '''        body.addView(section("Phạm vi báo cáo"));body.addView(controls,matchWrap());body.addView(gap(7))
+        val box=column(bg);body.addView(box,matchWrap())'''
+    block = '''        body.addView(section("Phạm vi báo cáo"));body.addView(controls,matchWrap());body.addView(gap(7))
+        // S58_BETA57_SHIFT_DISCREPANCY: canonical selected-day Vao/Ra/Chua-ra drilldown.
+        val discrepancyBox=column(bg)
+        body.addView(section("ĐỐI SOÁT VÀO / RA"));body.addView(discrepancyBox,matchWrap());body.addView(gap(7))
+        fun renderShiftDiscrepancy(){
+            discrepancyBox.removeAllViews()
+            val day=operationalStore.loadDay(selectedDate)
+            if(day==null){discrepancyBox.addView(info("Chưa có snapshot canonical của ngày đã chọn. Bấm làm mới để đồng bộ."));return}
+            val sessions=day.optJSONArray("sessions")?:JSONArray()
+            val byShift=LinkedHashMap<String,MutableList<JSONObject>>()
+            listOf("Ca 1","Ca HC","Ca 2").forEach{byShift[it]=mutableListOf()}
+            for(i in 0 until sessions.length()){
+                val ses=sessions.optJSONObject(i)?:continue
+                val shift=ses.optString("shift").trim().ifBlank{"Chưa xác định"}
+                byShift.getOrPut(shift){mutableListOf()}.add(JSONObject(ses.toString()))
+            }
+            var pendingAll=0
+            byShift.forEach{(shift,rows)->
+                val entered=rows.filter{it.optString("enter_at").isNotBlank()||it.optString("state").uppercase() in setOf("ACTIVE","ENDED")}
+                val exited=entered.filter{it.optString("exit_at").isNotBlank()||it.optString("state").equals("ENDED",true)}
+                val pending=entered.filter{it.optString("state").equals("ACTIVE",true)&&it.optString("exit_at").isBlank()}
+                pendingAll+=pending.size
+                val button=smallButton("$shift  •  Vào ${entered.size}  •  Ra ${exited.size}  •  Chưa ra ${pending.size}",if(pending.isNotEmpty())orange else teal)
+                button.setOnClickListener{
+                    if(pending.isEmpty()){TopNotice.show(this,"$shift không có nhân sự đã vào nhưng chưa ra.",TopNotice.Kind.SUCCESS);return@setOnClickListener}
+                    val labels=pending.map{ses->
+                        val mnv=ses.optString("mnv").trim();val emp=MasterDataCache.employee(this,mnv)
+                        "$mnv • ${emp?.optString("full_name").orEmpty().ifBlank{"Chưa có họ tên"}}"
+                    }.toTypedArray()
+                    AlertDialog.Builder(this).setTitle("$shift • ${pending.size} chưa ra").setItems(labels){_,idx->
+                        val mnv=pending.getOrNull(idx)?.optString("mnv").orEmpty()
+                        if(mnv.isNotBlank())loadEmployee(mnv)
+                    }.setNegativeButton("Đóng",null).show()
+                }
+                discrepancyBox.addView(button,matchWrap());discrepancyBox.addView(gap(5))
+            }
+            if(pendingAll>0)discrepancyBox.addView(status("CẢNH BÁO • $pendingAll nhân sự đã VÀO nhưng CHƯA RA",orange,Color.rgb(255,247,230)))
+            else discrepancyBox.addView(status("Đã đối soát • không còn nhân sự CHƯA RA",green,Color.rgb(235,248,239)))
+        }
+        val box=column(bg);body.addView(box,matchWrap())'''
+    if anchor not in s:
+        raise SystemExit('report insertion anchor missing')
+    s = s.replace(anchor, block, 1)
+    refresh = '''runOnUiThread{if(serial==loadSerial&&screenState=="REPORT"){cachedDate=selectedDate;cachedEntries=out.values.toList();renderCached()}}'''
+    refresh2 = '''runOnUiThread{if(serial==loadSerial&&screenState=="REPORT"){cachedDate=selectedDate;cachedEntries=out.values.toList();renderCached();renderShiftDiscrepancy()}}'''
+    if refresh not in s:
+        raise SystemExit('report refresh anchor missing')
+    s = s.replace(refresh, refresh2, 1)
+
+# Handover 5.5: one audit item per Event ID, never group by employee/workflow.
+old_group = 'rows.groupBy{e->e.optString("mnv").ifBlank{e.optString("event_id")}}'
+new_group = 'rows.groupBy{e->e.optString("event_id").ifBlank{"${e.optString(\"mnv\")}|${e.optString(\"at_iso\")}|${e.optString(\"event_type\")}"}}'
+if old_group in s:
+    s = s.replace(old_group, new_group, 1)
+if old_group in s:
+    raise SystemExit('history employee grouping still present')
+
+# Explicit device identity in canonical/local audit rows.
+old = '.put("actor_role",e.optString("actor_role")).put("origin",e.optString("origin"))'
+new = '.put("actor_role",e.optString("actor_role")).put("device_id",e.optString("device_id")).put("origin",e.optString("origin"))'
+if old in s:
+    s = s.replace(old, new, 1)
+if new not in s:
+    raise SystemExit('canonical history device marker missing')
+
+old_local = '.put("actor",actor).put("detail",detail).put("business_date",d).put("history_source","LOCAL_PDA")'
+new_local = '.put("actor",actor).put("device_id",payload.optString("device_id").ifBlank{payload.optString("_device_id")}).put("detail",detail).put("business_date",d).put("history_source","LOCAL_PDA")'
+if old_local in s:
+    s = s.replace(old_local, new_local, 1)
+if new_local not in s:
+    raise SystemExit('local history device marker missing')
+
+# No attendance/labor edit from History.
+edit = '''if((e.optString("entity_type")=="ATTENDANCE_SESSION"||e.optString("entity_type")=="LABOR_SESSION")&&e.optString("entity_id").isNotBlank()&&historyCanEdit(e)){card.addView(gap(7));card.addView(smallButton("SỬA THÔNG TIN",teal).apply{setOnClickListener{historyEditDialog(e)}})};'''
+if edit in s:
+    s = s.replace(edit, '', 1)
+if 'setOnClickListener{historyEditDialog(e)}' in s:
+    raise SystemExit('History edit entry still reachable')
+
+# Actor/role/device/source/sync metadata in event detail.
+actor_line = '''val type=e.optString("event_type");val actor=e.optString("actor_id").ifBlank{e.optString("actor")}.ifBlank{"Hệ thống"};val status=historyGroupStatus(listOf(e));'''
+actor_new = '''val type=e.optString("event_type");val actor=e.optString("actor_id").ifBlank{e.optString("actor")}.ifBlank{"Hệ thống"};val status=historyGroupStatus(listOf(e));val auditRole=e.optString("actor_role").ifBlank{"—"};val auditDevice=e.optString("device_id").ifBlank{"—"};val auditSource=e.optString("history_source").ifBlank{e.optString("origin")}.ifBlank{"Service"};'''
+if actor_line in s:
+    s = s.replace(actor_line, actor_new, 1)
+if 'val auditDevice=' not in s:
+    raise SystemExit('History audit identity marker missing')
+
+card_line = '''card.addView(head,matchWrap());card.addView(txt("${historyEventTime(e)} • $actor",9.8f,muted,false));'''
+card_new = '''card.addView(head,matchWrap());card.addView(txt("${historyEventTime(e)} • $actor • $auditRole",9.8f,muted,false));card.addView(txt("Thiết bị: $auditDevice • Nguồn: $auditSource • Đồng bộ: $status",9.3f,muted,false));'''
+if card_line in s:
+    s = s.replace(card_line, card_new, 1)
+if 'Thiết bị: $auditDevice • Nguồn: $auditSource • Đồng bộ: $status' not in s:
+    raise SystemExit('History audit metadata line missing')
+
+# Preserve explicit before/after when server payload supplies them.
+pfx = '''val p=runCatching{JSONObject(e.optString("payload_json","{}"))}.getOrDefault(JSONObject());val after=p.optJSONObject("after");val src=after?:p;val d=mutableListOf<String>();'''
+pfx2 = '''val p=runCatching{JSONObject(e.optString("payload_json","{}"))}.getOrDefault(JSONObject());val before=p.optJSONObject("before");val after=p.optJSONObject("after");val src=after?:p;val d=mutableListOf<String>();'''
+if pfx in s:
+    s = s.replace(pfx, pfx2, 1)
+if 'val before=p.optJSONObject("before")' not in s:
+    raise SystemExit('History before marker missing')
+fields = '''listOf("shift","work_choice","pda_serial","user_pick","pack_table","user_pack","labor_type","time_marker","start_at","end_at","note","state").forEach{k->val v=src.optString(k);if(v.isNotBlank())d.add("$k: $v")}'''
+fields2 = fields + ''';if(before!=null)d.add("Trước: ${before.toString().take(500)}");if(after!=null)d.add("Sau: ${after.toString().take(500)}")'''
+if fields in s:
+    s = s.replace(fields, fields2, 1)
+if 'Trước: ${before.toString().take(500)}' not in s or 'Sau: ${after.toString().take(500)}' not in s:
+    raise SystemExit('History before/after lines missing')
+
+# Guard latest owner locks.
+assert 'Triple(R.drawable.ic_pp_staff,"Nhân sự","STAFF")' not in s
+assert 'setTitle("Xác nhận đăng xuất")' in s
+assert 'S58_BETA57_SHIFT_DISCREPANCY' in s
+
+p.write_text(s)
+print('PASS - Beta57 remaining handover truth applied')

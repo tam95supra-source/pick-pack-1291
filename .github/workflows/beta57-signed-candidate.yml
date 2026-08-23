@@ -1,0 +1,164 @@
+name: Beta57 Final Signed Candidate
+
+on:
+  pull_request:
+    branches: [ agent/beta57-reset-fence-20260823 ]
+    paths:
+      - 'ops/beta57-final-build-trigger.txt'
+
+permissions:
+  contents: read
+
+jobs:
+  candidate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      SOURCE_SHA: fc456fe4b830782b4d643ef004fa9d25fdc4e31c
+      EXPECTED_SIGNER_SHA256: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
+      SIGNING_KEY_B64: ${{ secrets.ANDROID_SIGNING_KEY_B64 }}
+      SIGNING_STORE_PASSWORD: ${{ secrets.ANDROID_SIGNING_STORE_PASSWORD }}
+      SIGNING_KEY_PASSWORD: ${{ secrets.ANDROID_SIGNING_KEY_PASSWORD }}
+      SIGNING_ALIAS: ${{ secrets.ANDROID_SIGNING_ALIAS }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          fetch-depth: 0
+
+      - name: Immutable source and owner-truth gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          G=app/build.gradle.kts
+          OP=app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt
+          RESET=app/src/main/java/vn/pickpack1291/app/beta/M2ResetFence.kt
+          UP=app/src/main/java/vn/pickpack1291/app/beta/UpdateManager.kt
+          FULL=app/src/main/java/vn/pickpack1291/app/beta/FullBetaActivity.kt
+          grep -q 'versionCode = 63' "$G"
+          grep -q 'versionName = "0.4.2-beta.57"' "$G"
+          grep -q 'versionCode = 1' "$G"
+          grep -q 'versionName = "0.1.0-stable"' "$G"
+          ! grep -q 'Triple(R.drawable.ic_pp_staff,"Nhân sự","STAFF")' "$OP"
+          grep -q 'setTitle("Xác nhận đăng xuất")' "$OP"
+          grep -q 'Quản lý biên bản' "$OP"
+          grep -q 'đang chờ xây dựng' "$OP"
+          ! grep -q 'Người dùng đang kết nối' "$OP"
+          grep -q 'S58_BETA57_SHIFT_DISCREPANCY' "$OP"
+          grep -q 'ĐỐI SOÁT VÀO / RA' "$OP"
+          grep -q 'Chưa ra' "$OP"
+          ! grep -q 'rows.groupBy{e->e.optString("mnv").ifBlank{e.optString("event_id")}}' "$OP"
+          ! grep -q 'historyEditDialog' "$OP"
+          grep -q 'val auditDevice=' "$OP"
+          grep -q 'Nguồn: $auditSource' "$OP"
+          grep -q 'Đồng bộ: $status' "$OP"
+          test "$(grep -o 'val auditRole=' "$OP" | wc -l)" -eq 1
+          test "$(grep -o 'Trước: ${before.toString().take(500)}' "$OP" | wc -l)" -eq 1
+          grep -q 'RESET_DISCARDED' "$RESET"
+          grep -q 'pp_beta57_outbox_authority_fence' "$RESET"
+          grep -q 'pp_beta57_generation_reset_fence' "$RESET"
+          test "$(grep -R --include='*.kt' -F 'UpdateManager.openManual(' app/src/main/java | wc -l)" -eq 1
+          grep -q 'UpdateManager.openManual(this)' "$OP"
+          grep -q 'ứng dụng sẽ không tự kiểm tra' "$UP"
+          ! grep -q 'UpdateManager' "$FULL"
+          echo 'PASS - immutable Beta57 truth + reset fence + manual-only OTA.'
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.4.1'
+          cache-read-only: true
+
+      - name: Resolve Android SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -n "${ANDROID_HOME:-}" && -f "$ANDROID_HOME/platforms/android-36/android.jar" && -x "$ANDROID_HOME/build-tools/36.0.0/apksigner" && -x "$ANDROID_HOME/build-tools/36.0.0/aapt" ]]; then
+            echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> "$GITHUB_ENV"; exit 0
+          fi
+          SDK="$RUNNER_TEMP/android-sdk"; ZIP="$RUNNER_TEMP/commandlinetools.zip"
+          curl -fsSL https://dl.google.com/android/repository/commandlinetools-linux-15859902_latest.zip -o "$ZIP"
+          echo "4e4c464f145a7512b57d088ac6c278c03c9eea610886b35a5e0804e74eedf583  $ZIP" | sha256sum -c -
+          mkdir -p "$SDK/cmdline-tools"; unzip -q "$ZIP" -d "$RUNNER_TEMP/android-cmdline"
+          mv "$RUNNER_TEMP/android-cmdline/cmdline-tools" "$SDK/cmdline-tools/latest"
+          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"; echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
+          yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
+          "$SDK/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-36' 'build-tools;36.0.0'
+
+      - name: Compile Beta57 and Stable isolation
+        shell: bash
+        run: |
+          set -euo pipefail
+          gradle --no-daemon --build-cache --parallel :app:assembleBetaRelease :app:assembleStableRelease
+          BT="$ANDROID_SDK_ROOT/build-tools/36.0.0"
+          BETA=app/build/outputs/apk/beta/release/app-beta-release-unsigned.apk
+          STABLE=app/build/outputs/apk/stable/release/app-stable-release-unsigned.apk
+          test -s "$BETA"; test -s "$STABLE"
+          "$BT/aapt" dump badging "$BETA" > /tmp/beta.txt
+          "$BT/aapt" dump badging "$STABLE" > /tmp/stable.txt
+          grep -q "package: name='vn.pickpack1291.app.beta.publicbeta'" /tmp/beta.txt
+          grep -q "versionCode='63'" /tmp/beta.txt
+          grep -q "versionName='0.4.2-beta.57'" /tmp/beta.txt
+          grep -q "package: name='vn.pickpack1291.app.stable'" /tmp/stable.txt
+          grep -q "versionCode='1'" /tmp/stable.txt
+          grep -q "versionName='0.1.0-stable'" /tmp/stable.txt
+
+      - name: Sign Beta57 only and verify identity
+        id: sign
+        shell: bash
+        run: |
+          set -euo pipefail
+          for v in SIGNING_KEY_B64 SIGNING_STORE_PASSWORD SIGNING_KEY_PASSWORD SIGNING_ALIAS; do [[ -n "${!v:-}" ]] || exit 1; done
+          KS="$RUNNER_TEMP/release.jks"; printf '%s' "$SIGNING_KEY_B64" | base64 -d > "$KS"
+          printf '%s' "$SIGNING_STORE_PASSWORD" > "$RUNNER_TEMP/store.pass"
+          printf '%s' "$SIGNING_KEY_PASSWORD" > "$RUNNER_TEMP/key.pass"
+          mkdir -p dist/beta
+          OUT=dist/beta/pick-pack-1291-public-beta-0.4.2-beta.57.apk
+          BT="$ANDROID_SDK_ROOT/build-tools/36.0.0"
+          "$BT/apksigner" sign --ks "$KS" --ks-key-alias "$SIGNING_ALIAS" --ks-pass "file:$RUNNER_TEMP/store.pass" --key-pass "file:$RUNNER_TEMP/key.pass" --out "$OUT" app/build/outputs/apk/beta/release/app-beta-release-unsigned.apk
+          "$BT/apksigner" verify --verbose --print-certs "$OUT" > /tmp/cert.txt
+          grep -qi "Signer #1 certificate SHA-256 digest: $EXPECTED_SIGNER_SHA256" /tmp/cert.txt
+          "$BT/aapt" dump badging "$OUT" > dist/beta/APK_BADGING-0.4.2-beta.57.txt
+          grep -q "package: name='vn.pickpack1291.app.beta.publicbeta'" dist/beta/APK_BADGING-0.4.2-beta.57.txt
+          grep -q "versionCode='63'" dist/beta/APK_BADGING-0.4.2-beta.57.txt
+          grep -q "versionName='0.4.2-beta.57'" dist/beta/APK_BADGING-0.4.2-beta.57.txt
+          SHA=$(sha256sum "$OUT" | awk '{print $1}'); SIZE=$(stat -c '%s' "$OUT")
+          printf '%s  %s\n' "$SHA" "$(basename "$OUT")" > dist/beta/SHA256SUMS-0.4.2-beta.57.txt
+          cp /tmp/cert.txt dist/beta/APK_SIGNER-0.4.2-beta.57.txt
+          cat > dist/beta/BETA57_CANDIDATE_RECEIPT.txt <<EOF
+          source_sha=$SOURCE_SHA
+          version_name=0.4.2-beta.57
+          version_code=63
+          package=vn.pickpack1291.app.beta.publicbeta
+          apk_file=$(basename "$OUT")
+          apk_sha256=$SHA
+          apk_size=$SIZE
+          signer_sha256=$EXPECTED_SIGNER_SHA256
+          stable_name=0.1.0-stable
+          stable_code=1
+          stable_publish=FORBIDDEN
+          beta56=DENYLISTED
+          ota_mode=MANUAL_ONLY
+          cloudflare_builds=DISCONNECTED
+          verdict=PASS
+          EOF
+          rm -f "$KS" "$RUNNER_TEMP/store.pass" "$RUNNER_TEMP/key.pass"
+
+      - name: Upload immutable signed Beta57 candidate
+        id: upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: pick-pack-1291-0.4.2-beta.57-final-signed
+          path: dist/beta/*
+          retention-days: 14
+          if-no-files-found: error
+
+      - name: Candidate summary
+        run: |
+          cat dist/beta/BETA57_CANDIDATE_RECEIPT.txt
+          echo "artifact_id=${{ steps.upload.outputs.artifact-id }}"
+          echo 'PASS - no OTA publication performed.'
