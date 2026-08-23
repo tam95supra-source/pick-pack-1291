@@ -1,0 +1,8 @@
+trigger=GAS_BETA59_DEPLOY
+source=ops/gas_beta59_deploy.py
+intent=deploy Beta59 manual-only OTA metadata and verify live gates
+from=0.4.2-beta.58
+target=0.4.2-beta.59
+version_code=65
+apk_sha256=55f6e3db521ee39dc5e58130a3444fee6ac1e936b38556f0ac281ea9e4212567
+stable=UNTOUCHED
