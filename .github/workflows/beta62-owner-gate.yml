@@ -26,8 +26,6 @@ jobs:
         run: |
           set -euo pipefail
           python3 -m py_compile tools/apply_beta62_owner_fixes.py tools/apply_beta62_owner_fixes_post.py tools/apply_beta62_compile_hotfix.py
-          # V1 contained one stale source anchor for the optimistic retry. Strip only that patch instruction;
-          # the exact current-source transformation is applied by the checked-in post patch below.
           python3 - <<'PY'
           from pathlib import Path
           p=Path('tools/apply_beta62_owner_fixes.py')
@@ -78,10 +76,15 @@ jobs:
           assert 'SESSION_WORK_CONFLICT' in api and 'result=request(bearer)' in api
           assert 'DirectOwnerDiagnostics.snapshotLines' in log
           assert 'resetAfterSuccessfulManualSend' in log
-          assert 'password' not in diag.lower() and 'token' not in diag.lower()
+          # Diagnostic must select only the explicit non-secret allowlist and redact any secret-like text appearing in errors.
+          for k in ['mnv','session_id','mutation_kind','resource_type','resource_id']:
+              assert f'payload.optString("{k}")' in diag
+          for forbidden in ['current_password','new_password','_token','authorization','bearer']:
+              assert f'payload.optString("{forbidden}")' not in diag.lower()
+          assert '(?i)(password|token|cookie|authorization|secret|verifier)' in diag
+          assert '[REDACTED]' in diag
           assert 'GOOGLE_RELAY_TEST' not in rb
           assert 'SERVICE_D1_BLOCKED_TEST' in rb
-          # GOOGLE_FALLBACK remains valid only when discovery explicitly assigns Google authority.
           assert 'if(discovery.optString("authority_mode")=="GOOGLE_FALLBACK")return flushFallbackItems(store.unresolvedMutations(100))' in tr
           assert 'failureCount()>=FALLBACK_PROBE_FAILURES)return flushFallbackItems' not in tr
           assert 'if(ServiceFaultInjection.cloudflareDisabled(app)){' in tr and 'return false' in tr[tr.index('if(ServiceFaultInjection.cloudflareDisabled(app)){'):tr.index('if(ServiceFaultInjection.cloudflareDisabled(app)){')+420]
