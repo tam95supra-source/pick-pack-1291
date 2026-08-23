@@ -1,0 +1,9 @@
+expected_deployed_version=133
+expected_pick_pack_api_sha256=d7a27bc6ba3fcf7daecc04ec54ade1937c2c498f9f186c07c811831eee7739b8
+target_version=0.4.2-beta.58
+target_code=64
+target_apk_sha256=1fb36447ea15a4f6a536814335acc4e693d85dc9b4de0b13e8fee5bdcffd475d
+patch_scope=ppUpdateCheck_ONLY
+ota_mode=MANUAL_ONLY
+stable=UNTOUCHED
+mode=IDEMPOTENT_EXACT_SOURCE
