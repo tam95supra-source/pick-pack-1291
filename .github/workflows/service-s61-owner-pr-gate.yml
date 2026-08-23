@@ -19,7 +19,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.ref }}
           fetch-depth: 0
 
-      - name: Apply exact S61 patch from head recipe
+      - name: Apply exact S61 patch recipes
         shell: bash
         run: |
           set -euo pipefail
@@ -27,14 +27,12 @@ jobs:
           from pathlib import Path
           import textwrap
           wf=Path('.github/workflows/_oneoff_service_s61_owner_session_resource_fix.yml')
-          if not wf.exists():
-              raise SystemExit('S61 patch recipe missing on head')
-          t=wf.read_text()
-          marker="          python3 - <<'PY'\n"
-          start=t.index(marker)+len(marker)
-          end=t.index("\n          PY",start)
-          code=textwrap.dedent(t[start:end])
-          exec(compile(code,str(wf),'exec'),{})
+          if not wf.exists(): raise SystemExit('S61 primary patch recipe missing on head')
+          t=wf.read_text();marker="          python3 - <<'PY'\n";start=t.index(marker)+len(marker);end=t.index("\n          PY",start)
+          exec(compile(textwrap.dedent(t[start:end]),str(wf),'exec'),{})
+          follow=Path('ops/s61-owner-followup-patch.py')
+          if not follow.exists(): raise SystemExit('S61 follow-up patch missing on head')
+          exec(compile(follow.read_text(),str(follow),'exec'),{})
           PY
 
       - name: Contract guards
@@ -43,10 +41,12 @@ jobs:
           set -euo pipefail
           grep -q 'const shift=own(b,"shift")' service/src/session_hotfix.ts
           grep -q 'ATTENDANCE_ENTER_DELETED' service/src/session_hotfix.ts
+          grep -q 'preserveWorkChoice=Boolean(b.preserve_work_choice)' service/src/session_hotfix.ts
           grep -q 'attendanceEnterDelete' service/src/entry_product.ts
           grep -q '/v1/session/delete-enter' service/src/entry_product.ts
           grep -q 'labels:Record<string,string>={shift:"Ca"' service/src/replication.ts
           grep -q 'THÔNG TIN USER CỦA NLĐ",`B${i+2}:B${i+2}`' service/src/replication.ts
+          grep -q 'leased_by_mnv' service/src/resource_admin.ts
 
       - uses: actions/setup-node@v4
         with:
@@ -76,12 +76,12 @@ jobs:
           TARGET_BRANCH: ${{ github.event.pull_request.head.ref }}
         run: |
           set -euo pipefail
-          rm -f .github/workflows/_oneoff_service_s61_owner_session_resource_fix.yml
+          rm -f .github/workflows/_oneoff_service_s61_owner_session_resource_fix.yml ops/s61-owner-followup-patch.py ops/service-s61-gate-trigger.txt
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add service/src/session_hotfix.ts service/src/entry_product.ts service/src/replication.ts ops/service-prod-bundle-s61-owner-session-resource .github/workflows/_oneoff_service_s61_owner_session_resource_fix.yml
+          git add service/src/session_hotfix.ts service/src/entry_product.ts service/src/replication.ts service/src/resource_admin.ts ops/service-prod-bundle-s61-owner-session-resource .github/workflows/_oneoff_service_s61_owner_session_resource_fix.yml ops/s61-owner-followup-patch.py ops/service-s61-gate-trigger.txt
           if ! git diff --cached --quiet; then
-            git commit -m 'feat(service): owner session edit delete and shift consistency'
+            git commit -m 'feat(service): owner session edit delete and live PDA consistency'
             git push origin HEAD:"$TARGET_BRANCH"
           fi
 
