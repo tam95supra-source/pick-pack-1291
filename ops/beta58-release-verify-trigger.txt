@@ -1,0 +1,6 @@
+tag=v0.4.2-beta.58-publicbeta
+source_sha=e5613161ab1cb513752a0383077afa96987a0bef
+apk_sha256=1fb36447ea15a4f6a536814335acc4e693d85dc9b4de0b13e8fee5bdcffd475d
+apk_size=13027947
+mode=READ_ONLY_VERIFY
+stable=UNTOUCHED
