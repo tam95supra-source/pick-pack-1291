@@ -51,14 +51,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: npm
-          cache-dependency-path: service/package-lock.json
 
-      - name: Typecheck Service
+      - name: Install and typecheck Service
         working-directory: service
         run: |
           set -euo pipefail
-          npm ci
+          npm install --ignore-scripts --no-audit --no-fund
           npm run typecheck
 
       - name: Wrangler dry-run only
@@ -76,10 +74,10 @@ jobs:
           TARGET_BRANCH: ${{ github.event.pull_request.head.ref }}
         run: |
           set -euo pipefail
-          rm -f .github/workflows/_oneoff_service_s61_owner_session_resource_fix.yml ops/s61-owner-followup-patch.py ops/service-s61-gate-trigger.txt ops/service-s61-gate-trigger2.txt
+          rm -f .github/workflows/_oneoff_service_s61_owner_session_resource_fix.yml ops/s61-owner-followup-patch.py ops/service-s61-gate-trigger.txt ops/service-s61-gate-trigger2.txt ops/service-s61-gate-trigger3.txt
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add service/src/session_hotfix.ts service/src/entry_product.ts service/src/replication.ts service/src/resource_admin.ts ops/service-prod-bundle-s61-owner-session-resource .github/workflows/_oneoff_service_s61_owner_session_resource_fix.yml ops/s61-owner-followup-patch.py ops/service-s61-gate-trigger.txt ops/service-s61-gate-trigger2.txt
+          git add service/src/session_hotfix.ts service/src/entry_product.ts service/src/replication.ts service/src/resource_admin.ts ops/service-prod-bundle-s61-owner-session-resource .github/workflows/_oneoff_service_s61_owner_session_resource_fix.yml ops/s61-owner-followup-patch.py ops/service-s61-gate-trigger.txt ops/service-s61-gate-trigger2.txt ops/service-s61-gate-trigger3.txt
           if ! git diff --cached --quiet; then
             git commit -m 'feat(service): owner session edit delete and live PDA consistency'
             git push origin HEAD:"$TARGET_BRANCH"
