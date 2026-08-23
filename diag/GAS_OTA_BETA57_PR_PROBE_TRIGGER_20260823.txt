@@ -1,0 +1,3 @@
+purpose=live_gas_ota_probe_only
+cloudflare=UNTOUCHED
+stable_publish=FORBIDDEN
