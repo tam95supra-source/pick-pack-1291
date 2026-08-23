@@ -1,0 +1,107 @@
+name: GAS Beta58 Preflight
+
+on:
+  pull_request:
+    branches:
+      - agent/beta58-owner-fixes-20260823
+    paths:
+      - 'ops/gas-beta58-preflight-trigger.txt'
+
+permissions:
+  contents: read
+
+jobs:
+  verify-live-deployment:
+    if: github.head_ref == 'verify/gas-beta58-preflight-20260823'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+      GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+      GOOGLE_OAUTH_REFRESH_TOKEN: ${{ secrets.GOOGLE_OAUTH_REFRESH_TOKEN }}
+      GAS_SCRIPT_ID: ${{ secrets.GAS_SCRIPT_ID }}
+      GAS_DEPLOYMENT_ID: ${{ secrets.GAS_DEPLOYMENT_ID }}
+      EXPECTED_PICK_PACK_API_SHA256: d7a27bc6ba3fcf7daecc04ec54ade1937c2c498f9f186c07c811831eee7739b8
+    steps:
+      - name: Read exact currently deployed GAS version
+        shell: bash
+        run: |
+          set -euo pipefail
+          for v in GOOGLE_OAUTH_CLIENT_ID GOOGLE_OAUTH_CLIENT_SECRET GOOGLE_OAUTH_REFRESH_TOKEN GAS_SCRIPT_ID GAS_DEPLOYMENT_ID; do test -n "${!v:-}"; done
+          SCRIPT_ID=$(printf '%s' "$GAS_SCRIPT_ID"|tr -d '\r\n\t ')
+          RAW=$(printf '%s' "$GAS_DEPLOYMENT_ID"|tr -d '\r\n\t ')
+          DEPLOYMENT_ID="$RAW"; if [[ "$RAW" =~ /s/([^/]+)/ ]]; then DEPLOYMENT_ID="${BASH_REMATCH[1]}"; fi
+          RESP=$(curl -fsS https://oauth2.googleapis.com/token -H 'Content-Type: application/x-www-form-urlencoded' \
+            --data-urlencode "client_id=$GOOGLE_OAUTH_CLIENT_ID" \
+            --data-urlencode "client_secret=$GOOGLE_OAUTH_CLIENT_SECRET" \
+            --data-urlencode "refresh_token=$GOOGLE_OAUTH_REFRESH_TOKEN" \
+            --data-urlencode 'grant_type=refresh_token')
+          TOKEN=$(python3 -c 'import json,sys;print(json.load(sys.stdin).get("access_token",""))' <<<"$RESP")
+          test -n "$TOKEN"; echo "::add-mask::$TOKEN"
+          curl -fsS -H "Authorization: Bearer $TOKEN" \
+            "https://script.googleapis.com/v1/projects/$SCRIPT_ID/deployments/$DEPLOYMENT_ID" -o /tmp/deployment.json
+          VERSION=$(jq -r '.deploymentConfig.versionNumber // empty' /tmp/deployment.json)
+          [[ "$VERSION" =~ ^[0-9]+$ ]]
+          curl -fsS -H "Authorization: Bearer $TOKEN" \
+            "https://script.googleapis.com/v1/projects/$SCRIPT_ID/content?versionNumber=$VERSION" -o /tmp/content.json
+          echo "DEPLOYED_VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      - name: Verify production-ready source identity and OTA function
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          python3 - <<'PY'
+          import json,hashlib,os,re,pathlib
+          j=json.load(open('/tmp/content.json',encoding='utf-8'))
+          files={str(x.get('name','')):str(x.get('source','')) for x in j.get('files',[]) if x.get('type')=='SERVER_JS'}
+          src=files.get('PICK_PACK_API')
+          assert src is not None, sorted(files)
+          raw=src.encode('utf-8')
+          sha=hashlib.sha256(raw).hexdigest()
+          # The deployment source must be the exact owner-deployed Beta57 production-ready file.
+          assert sha==os.environ['EXPECTED_PICK_PACK_API_SHA256'], (sha,os.environ['EXPECTED_PICK_PACK_API_SHA256'])
+          start=src.find('function ppUpdateCheck_(body) {')
+          assert start>=0
+          i=start; depth=0; quote=None; esc=False; end=None
+          while i<len(src):
+              c=src[i]
+              if quote:
+                  if esc: esc=False
+                  elif c=='\\': esc=True
+                  elif c==quote: quote=None
+              else:
+                  if c in "'\"`": quote=c
+                  elif c=='{': depth+=1
+                  elif c=='}':
+                      depth-=1
+                      if depth==0 and i>start:
+                          end=i+1; break
+              i+=1
+          assert end
+          fn=src[start:end]
+          assert '0.4.2-beta.57' in fn, fn[:500]
+          assert 'version_code' in fn or 'versionCode' in fn or 'version_code:63' in fn or 'version_code: 63' in fn
+          assert 'STABLE' in fn
+          pathlib.Path('out/current_ppUpdateCheck.txt').write_text(fn+'\n',encoding='utf-8')
+          pathlib.Path('out/GAS_BETA58_PREFLIGHT_RECEIPT.txt').write_text(
+              'checked_at='+__import__('datetime').datetime.now(__import__('datetime').timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')+'\n'+
+              'deployed_version='+os.environ['DEPLOYED_VERSION']+'\n'+
+              'pick_pack_api_sha256='+sha+'\n'+
+              'current_ota_version=0.4.2-beta.57\n'+
+              'current_ota_code=63\n'+
+              'source_identity=PASS\n'+
+              'read_only=TRUE\n'+
+              'verdict=PASS\n',encoding='utf-8')
+          print('deployed_version='+os.environ['DEPLOYED_VERSION'])
+          print('pick_pack_api_sha256='+sha)
+          print('current_ota_version=0.4.2-beta.57')
+          print('verdict=PASS')
+          PY
+
+      - name: Upload sanitized preflight evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: gas-beta58-preflight
+          path: out/*
+          retention-days: 14

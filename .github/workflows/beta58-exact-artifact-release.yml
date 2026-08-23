@@ -1,0 +1,162 @@
+name: Beta58 Exact Artifact Release
+
+on:
+  pull_request:
+    branches:
+      - agent/beta58-owner-fixes-20260823
+    paths:
+      - 'ops/beta58-exact-release-trigger.txt'
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: beta58-exact-artifact-release
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.head_ref == 'release/beta58-exact-artifact-trigger-20260823'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CANDIDATE_RUN_ID: '32627274455'
+      ARTIFACT_ID: '9490066608'
+      CANDIDATE_WORKFLOW_HEAD_SHA: '77eb9a0d54110ee39b4b53817e91e7eff714f888'
+      SOURCE_SHA: 'e5613161ab1cb513752a0383077afa96987a0bef'
+      BETA57_SOURCE_PIN: 'fc456fe4b830782b4d643ef004fa9d25fdc4e31c'
+      TARGET_VERSION: '0.4.2-beta.58'
+      TARGET_CODE: '64'
+      APK_NAME: 'pick-pack-1291-public-beta-0.4.2-beta.58.apk'
+      EXPECTED_SHA: '1fb36447ea15a4f6a536814335acc4e693d85dc9b4de0b13e8fee5bdcffd475d'
+      EXPECTED_SIZE: '13027947'
+      EXPECTED_SIGNER_SHA256: 'd180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e'
+      TAG: 'v0.4.2-beta.58-publicbeta'
+    steps:
+      - name: Checkout immutable Beta58 candidate source
+        uses: actions/checkout@v4
+        with:
+          ref: e5613161ab1cb513752a0383077afa96987a0bef
+          fetch-depth: 0
+
+      - name: Preflight immutable release locks
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          grep -q 'versionCode = 64' app/build.gradle.kts
+          grep -q 'versionName = "0.4.2-beta.58"' app/build.gradle.kts
+          grep -q 'versionCode = 1' app/build.gradle.kts
+          grep -q 'versionName = "0.1.0-stable"' app/build.gradle.kts
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "REFUSE: immutable Beta58 release/tag already exists"
+            exit 31
+          fi
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
+            echo "REFUSE: immutable Beta58 tag already exists"
+            exit 32
+          fi
+
+      - name: Download exact signed candidate artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          META=$(gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/$ARTIFACT_ID")
+          test "$(jq -r '.expired' <<<"$META")" = 'false'
+          test "$(jq -r '.workflow_run.id' <<<"$META")" = "$CANDIDATE_RUN_ID"
+          test "$(jq -r '.workflow_run.head_sha' <<<"$META")" = "$CANDIDATE_WORKFLOW_HEAD_SHA"
+          curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/artifacts/$ARTIFACT_ID/zip" -o /tmp/candidate.zip
+          rm -rf /tmp/candidate && mkdir -p /tmp/candidate
+          unzip -q /tmp/candidate.zip -d /tmp/candidate
+          APK="/tmp/candidate/$APK_NAME"
+          RECEIPT="/tmp/candidate/BETA58_RELEASE_CANDIDATE_RECEIPT.txt"
+          SUM="/tmp/candidate/SHA256SUMS-$TARGET_VERSION.txt"
+          test -s "$APK"; test -s "$RECEIPT"; test -s "$SUM"
+          grep -qx "source_sha=$SOURCE_SHA" "$RECEIPT"
+          grep -qx "beta57_source_pin=$BETA57_SOURCE_PIN" "$RECEIPT"
+          grep -qx "beta_name=$TARGET_VERSION" "$RECEIPT"
+          grep -qx "beta_code=$TARGET_CODE" "$RECEIPT"
+          grep -qx 'package=vn.pickpack1291.app.beta.publicbeta' "$RECEIPT"
+          grep -qx "apk_sha256=$EXPECTED_SHA" "$RECEIPT"
+          grep -qx "apk_size=$EXPECTED_SIZE" "$RECEIPT"
+          grep -qx "signer_sha256=$EXPECTED_SIGNER_SHA256" "$RECEIPT"
+          grep -qx 'stable_name=0.1.0-stable' "$RECEIPT"
+          grep -qx 'stable_code=1' "$RECEIPT"
+          grep -qx 'stable_publish=FORBIDDEN' "$RECEIPT"
+          grep -qx 'beta56_vc62=DENYLISTED' "$RECEIPT"
+          grep -qx 'ota_mode=MANUAL_ONLY_INHERITED_UNCHANGED' "$RECEIPT"
+          grep -qx 'verdict=PASS' "$RECEIPT"
+          test "$(sha256sum "$APK" | awk '{print $1}')" = "$EXPECTED_SHA"
+          test "$(stat -c '%s' "$APK")" = "$EXPECTED_SIZE"
+          grep -q "^$EXPECTED_SHA  $APK_NAME$" "$SUM"
+          echo "APK=$APK" >> "$GITHUB_ENV"
+          echo "SUM=$SUM" >> "$GITHUB_ENV"
+
+      - name: Publish exact Beta58 GitHub prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > /tmp/release-notes.txt <<EOF
+          Pick Pack 1291 Beta $TARGET_VERSION
+
+          PP_CHANNEL=BETA
+          PP_VERSION=$TARGET_VERSION
+          PP_VERSION_CODE=$TARGET_CODE
+          PP_SHA256=$EXPECTED_SHA
+          PP_SIZE=$EXPECTED_SIZE
+          PP_SIGNER_SHA256=$EXPECTED_SIGNER_SHA256
+          PP_APK_NAME=$APK_NAME
+          PP_MANDATORY=false
+          PP_OTA_MODE=MANUAL_ONLY
+          PP_STABLE=UNTOUCHED
+          PP_BETA56=DENYLISTED
+          EOF
+          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --target "$SOURCE_SHA" \
+            --title "Pick Pack 1291 $TARGET_VERSION" --notes-file /tmp/release-notes.txt --prerelease \
+            "$APK#$APK_NAME" "$SUM#SHA256SUMS-$TARGET_VERSION.txt"
+
+      - name: Verify published bytes from public release URL
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL="https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/$APK_NAME"
+          curl -fL --retry 6 --retry-all-errors --retry-delay 2 --connect-timeout 20 --max-time 180 "$URL" -o /tmp/released.apk
+          test "$(sha256sum /tmp/released.apk | awk '{print $1}')" = "$EXPECTED_SHA"
+          test "$(stat -c '%s' /tmp/released.apk)" = "$EXPECTED_SIZE"
+          mkdir -p out
+          cat > out/BETA58_EXACT_RELEASE_RECEIPT.txt <<EOF
+          checked_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          candidate_run_id=$CANDIDATE_RUN_ID
+          artifact_id=$ARTIFACT_ID
+          source_sha=$SOURCE_SHA
+          version=$TARGET_VERSION
+          version_code=$TARGET_CODE
+          package=vn.pickpack1291.app.beta.publicbeta
+          apk_name=$APK_NAME
+          apk_sha256=$EXPECTED_SHA
+          apk_size=$EXPECTED_SIZE
+          signer_sha256=$EXPECTED_SIGNER_SHA256
+          release_tag=$TAG
+          release_url=$URL
+          published_bytes=PASS
+          stable=UNTOUCHED
+          beta56_vc62=DENYLISTED
+          ota_mode=MANUAL_ONLY
+          cloudflare=UNTOUCHED
+          verdict=PASS
+          EOF
+
+      - name: Upload exact release receipt
+        uses: actions/upload-artifact@v4
+        with:
+          name: beta58-exact-release-receipt
+          path: out/BETA58_EXACT_RELEASE_RECEIPT.txt
+          retention-days: 30

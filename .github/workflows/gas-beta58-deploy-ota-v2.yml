@@ -1,0 +1,57 @@
+name: GAS Beta58 Deploy OTA V2
+
+on:
+  pull_request:
+    branches:
+      - agent/beta58-owner-fixes-20260823
+    paths:
+      - 'ops/gas-beta58-deploy-trigger-v2.txt'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gas-beta58-deploy-ota-v2
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.head_ref == 'release/gas-beta58-ota-v2-20260823'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+      GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+      GOOGLE_OAUTH_REFRESH_TOKEN: ${{ secrets.GOOGLE_OAUTH_REFRESH_TOKEN }}
+      GAS_SCRIPT_ID: ${{ secrets.GAS_SCRIPT_ID }}
+      GAS_DEPLOYMENT_ID: ${{ secrets.GAS_DEPLOYMENT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          fetch-depth: 0
+
+      - name: Resolve exact Beta58 release publication time
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          PUBLISHED_AT=$(gh release view v0.4.2-beta.58-publicbeta --repo "$GITHUB_REPOSITORY" --json publishedAt -q .publishedAt)
+          test -n "$PUBLISHED_AT"
+          echo "PUBLISHED_AT=$PUBLISHED_AT" >> "$GITHUB_ENV"
+
+      - name: Deploy exact-source Beta58 OTA and run live gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile ops/gas_beta58_deploy.py
+          python3 ops/gas_beta58_deploy.py
+
+      - name: Upload GAS production receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gas-beta58-deploy-ota-v2-receipt
+          path: out/*
+          retention-days: 30
