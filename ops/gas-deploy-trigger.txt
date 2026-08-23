@@ -1,1 +1,6 @@
-deploy=2026-08-20-finalize-staff-bridge-cleanup-r2
+deploy=2026-08-23-beta62-live-ota-google-drive
+source_sha=a1d351ef0448e824a1b08d0675da555bf0ede534
+beta_target=0.4.2-beta.62
+beta_version_code=68
+beta_sha256=5928520d6b22cf396c9ddef068616ea6cdb47110ea4b42cf9a85a3615dbfc694
+stable_publish=FORBIDDEN
