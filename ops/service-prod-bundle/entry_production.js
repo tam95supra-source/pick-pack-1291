@@ -5605,6 +5605,7 @@ async function resetFenceGate(request, env) {
 __name(resetFenceGate, "resetFenceGate");
 
 // src/entry_product.ts
+var REPLICATION_LEASE_MS = 9e4;
 async function historicalBusinessDates(request, env) {
   const auth4 = await authenticate(env.DB, env, request);
   if (!auth4) return apiError("UNAUTHORIZED", "AUTH", 401);
@@ -5615,13 +5616,40 @@ async function historicalBusinessDates(request, env) {
   return json({ ok: true, items: rows2, next_before_sequence: next, has_more: all.length > limit });
 }
 __name(historicalBusinessDates, "historicalBusinessDates");
-async function runProductionScheduled(env) {
-  try {
-    const replication = await replicatePending(env.DB, env);
-    console.log(JSON.stringify({ level: replication.ok ? "info" : "error", kind: "scheduled_replication_complete", ...replication }));
-  } catch (e) {
-    console.log(JSON.stringify({ level: "error", kind: "scheduled_replication_failed", error: String(e).slice(0, 500) }));
+async function recoverAbandonedReplicationClaims(env) {
+  const now = nowIso(), cutoff = new Date(Date.now() - REPLICATION_LEASE_MS).toISOString();
+  const r = await env.DB.prepare("UPDATE sheet_replication_outbox SET status='RETRY',claim_token=NULL,claimed_at=NULL,next_attempt_at=?1,last_error_class='STALE_INFLIGHT_RECOVERED',last_error='Recovered abandoned replication claim for canonical retry' WHERE status='INFLIGHT' AND (claimed_at IS NULL OR claimed_at<=?2)").bind(now, cutoff).run();
+  return Number(r.meta?.changes ?? 0);
+}
+__name(recoverAbandonedReplicationClaims, "recoverAbandonedReplicationClaims");
+async function runReplicationSerialized(env, source) {
+  const now = nowIso(), leaseCutoff = new Date(Date.now() - REPLICATION_LEASE_MS).toISOString();
+  const lock = await env.DB.prepare("UPDATE replication_status SET state='RUNNING',last_attempt_at=?1,updated_at=?1 WHERE singleton_id=1 AND (state<>'RUNNING' OR last_attempt_at IS NULL OR last_attempt_at<=?2)").bind(now, leaseCutoff).run();
+  if (Number(lock.meta?.changes ?? 0) === 0) {
+    console.log(JSON.stringify({ level: "info", kind: "replication_kick_skipped", source, reason: "ACTIVE_LEASE" }));
+    return;
   }
+  try {
+    const recovered = await recoverAbandonedReplicationClaims(env);
+    const replication = await replicatePending(env.DB, env);
+    if (replication.processed === 0) {
+      const state = replication.pending === 0 ? "HEALTHY" : "DEGRADED";
+      await env.DB.prepare("UPDATE replication_status SET state=?1,pending_count=?2,last_attempt_at=?3,last_success_at=CASE WHEN ?2=0 THEN ?3 ELSE last_success_at END,last_error_class=CASE WHEN ?2=0 THEN NULL ELSE last_error_class END,last_error=CASE WHEN ?2=0 THEN NULL ELSE last_error END,updated_at=?3 WHERE singleton_id=1").bind(state, replication.pending, nowIso()).run();
+    }
+    console.log(JSON.stringify({ level: replication.ok ? "info" : "error", kind: "replication_kick_complete", source, recovered, ...replication }));
+  } catch (e) {
+    const at = nowIso(), error = String(e).slice(0, 700);
+    await env.DB.prepare("UPDATE replication_status SET state='DEGRADED',last_attempt_at=?1,last_error_class='TRANSIENT',last_error=?2,updated_at=?1 WHERE singleton_id=1").bind(at, error).run();
+    console.log(JSON.stringify({ level: "error", kind: "replication_kick_failed", source, error }));
+  }
+}
+__name(runReplicationSerialized, "runReplicationSerialized");
+function kickReplication(ctx, env, source) {
+  ctx.waitUntil(runReplicationSerialized(env, source));
+}
+__name(kickReplication, "kickReplication");
+async function runProductionScheduled(env) {
+  await runReplicationSerialized(env, "CRON");
   try {
     const push = await flushPushOutbox(env.DB, env);
     console.log(JSON.stringify({ level: "info", kind: "scheduled_push_complete", ...push }));
@@ -5630,6 +5658,10 @@ async function runProductionScheduled(env) {
   }
 }
 __name(runProductionScheduled, "runProductionScheduled");
+function shouldKickAfterResponse(method, response) {
+  return method === "POST" && response.status >= 200 && response.status < 300;
+}
+__name(shouldKickAfterResponse, "shouldKickAfterResponse");
 var entry_product_default = {
   async fetch(request, env, ctx) {
     const u = new URL(request.url), method = request.method.toUpperCase();
@@ -5640,18 +5672,47 @@ var entry_product_default = {
     if (u.pathname === "/v1/mobile/read" && method === "POST") return mobileRead(request, env);
     if (u.pathname === "/v1/admin/business-dates" && method === "GET") return historicalBusinessDates(request, env);
     if (u.pathname === "/v1/service/connections" && method === "GET") return serviceConnectionsV47(request, env);
-    if (u.pathname === "/v1/admin/accounts/delete" && method === "POST") return superadminDeleteAccounts(request, env);
+    if (u.pathname === "/v1/admin/accounts/delete" && method === "POST") {
+      const response2 = await superadminDeleteAccounts(request, env);
+      if (shouldKickAfterResponse(method, response2)) kickReplication(ctx, env, u.pathname);
+      return response2;
+    }
     if (u.pathname === "/v1/admin/resources" && method === "GET") return resourceAdminList(request, env);
-    if (u.pathname === "/v1/admin/resources" && method === "POST") return resourceAdminMutate(request, env);
-    if (u.pathname === "/v1/history/delete" && method === "POST") return historyDelete(request, env);
-    if (u.pathname === "/v1/session/work" && method === "POST") return sessionWorkUpdate(request, env);
-    if (u.pathname === "/v1/session/exit" && method === "POST") return sessionExitGuarded(request, env);
-    if (u.pathname === "/v1/session/time-correction" && method === "POST") return attendanceTimeCorrect(request, env);
-    if (u.pathname === "/v1/session/delete-exit" && method === "POST") return attendanceExitDelete(request, env);
-    return entry_default.fetch(request, env, ctx);
+    if (u.pathname === "/v1/admin/resources" && method === "POST") {
+      const response2 = await resourceAdminMutate(request, env);
+      if (shouldKickAfterResponse(method, response2)) kickReplication(ctx, env, u.pathname);
+      return response2;
+    }
+    if (u.pathname === "/v1/history/delete" && method === "POST") {
+      const response2 = await historyDelete(request, env);
+      if (shouldKickAfterResponse(method, response2)) kickReplication(ctx, env, u.pathname);
+      return response2;
+    }
+    if (u.pathname === "/v1/session/work" && method === "POST") {
+      const response2 = await sessionWorkUpdate(request, env);
+      if (shouldKickAfterResponse(method, response2)) kickReplication(ctx, env, u.pathname);
+      return response2;
+    }
+    if (u.pathname === "/v1/session/exit" && method === "POST") {
+      const response2 = await sessionExitGuarded(request, env);
+      if (shouldKickAfterResponse(method, response2)) kickReplication(ctx, env, u.pathname);
+      return response2;
+    }
+    if (u.pathname === "/v1/session/time-correction" && method === "POST") {
+      const response2 = await attendanceTimeCorrect(request, env);
+      if (shouldKickAfterResponse(method, response2)) kickReplication(ctx, env, u.pathname);
+      return response2;
+    }
+    if (u.pathname === "/v1/session/delete-exit" && method === "POST") {
+      const response2 = await attendanceExitDelete(request, env);
+      if (shouldKickAfterResponse(method, response2)) kickReplication(ctx, env, u.pathname);
+      return response2;
+    }
+    const response = await entry_default.fetch(request, env, ctx);
+    if (shouldKickAfterResponse(method, response) && !u.pathname.startsWith("/v1/auth/")) kickReplication(ctx, env, u.pathname);
+    return response;
   },
-  // Production hot cron stays bounded on Workers Free. Replication is executed first and gets its own
-  // lifecycle so a broken FCM credential can never terminate Google operational replication early.
+  // Cron is now retry-only. Normal successful POST mutations kick projection immediately.
   async scheduled(_controller, env, ctx) {
     ctx.waitUntil(runProductionScheduled(env));
   }
