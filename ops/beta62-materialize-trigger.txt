@@ -3,4 +3,4 @@ version_code=68
 stable=UNTOUCHED
 source_base=c0faaf0ccb576f32d8285b1d93cc9319616e2e7e
 owner_scope=2026-08-23-ui-mutation-history-settings-login
-gate=v3-authority-only-google-fallback
+gate=v5-pda-find-binding-compile-fix
