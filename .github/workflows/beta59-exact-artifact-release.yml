@@ -3,7 +3,7 @@ name: Beta59 Exact Artifact Release
 on:
   pull_request:
     branches:
-      - ci/beta59-signed-gate-base-20260823
+      - ci/beta59-release-gate-base2-20260823
     paths:
       - 'ops/beta59-exact-release-trigger.txt'
 
@@ -12,12 +12,12 @@ permissions:
   actions: read
 
 concurrency:
-  group: beta59-exact-artifact-release
+  group: beta59-exact-artifact-release-v2
   cancel-in-progress: false
 
 jobs:
   publish:
-    if: github.head_ref == 'release/beta59-exact-artifact-20260823'
+    if: github.head_ref == 'release/beta59-exact-artifact-v2-20260823'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
@@ -62,11 +62,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          curl -fsSL \
-            -H "Authorization: Bearer $GH_TOKEN" \
-            -H 'Accept: application/vnd.github+json' \
-            "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/artifacts/$ARTIFACT_ID/zip" \
-            -o /tmp/candidate.zip
+          curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/artifacts/$ARTIFACT_ID/zip" -o /tmp/candidate.zip
           rm -rf /tmp/candidate && mkdir -p /tmp/candidate
           unzip -q /tmp/candidate.zip -d /tmp/candidate
           APK=$(find /tmp/candidate -type f -name "$APK_NAME" -print -quit)
@@ -87,10 +84,7 @@ jobs:
         run: |
           set -euo pipefail
           if [[ "$release_exists" == false ]]; then
-            gh release create "$TAG" "$APK#$APK_NAME" \
-              --repo "$GITHUB_REPOSITORY" \
-              --target "$SOURCE_SHA" \
-              --prerelease \
+            gh release create "$TAG" "$APK#$APK_NAME" --repo "$GITHUB_REPOSITORY" --target "$SOURCE_SHA" --prerelease \
               --title "$TARGET_VERSION" \
               --notes 'Beta59: hoàn thiện Quét QR nhân sự; tách Thêm/Sửa/Xóa/Ra ca; hiển thị tài nguyên PDA/User theo ca; đối soát Vào/Ra theo timestamp thực; lịch sử/audit chi tiết. OTA tiếp tục manual-only. Stable không thay đổi.'
           else
@@ -143,6 +137,6 @@ jobs:
       - name: Upload exact release receipt
         uses: actions/upload-artifact@v4
         with:
-          name: beta59-exact-release-receipt
+          name: beta59-exact-release-receipt-v2
           path: out/*
           retention-days: 30
