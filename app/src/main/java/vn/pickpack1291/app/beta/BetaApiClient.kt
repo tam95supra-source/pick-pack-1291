@@ -142,16 +142,20 @@ class BetaApiClient(context: Context) {
     }
 
     fun call(action: String, payload: JSONObject = JSONObject(), callback: (Result) -> Unit) {
+        val directOwnerActions=setOf("resource_master_list","resource_master_upsert","resource_master_delete","history_correction","session_work_update","session_exit_guarded","attendance_time_correct","attendance_exit_delete","attendance_session_delete","service_connections","account_delete","history_delete")
+        if(action in directOwnerActions){
+            localExecutor.execute {
+                try {
+                    val result=serviceOwnerCall(action,payload)
+                    if(action in setOf("resource_master_upsert","resource_master_delete","history_correction")) AppHistory.record(appContext,action,result.ok,result.error.orEmpty())
+                    callback(result)
+                } catch(t:Throwable){ callback(failure(t)) }
+            }
+            return
+        }
         if(action in M2ServiceTransport.OPERATIONAL){
             localExecutor.execute {
-                try {      if (action in setOf("resource_master_list","resource_master_upsert","resource_master_delete","history_correction","session_work_update","session_exit_guarded","attendance_time_correct","attendance_exit_delete","attendance_session_delete","service_connections","account_delete","history_delete")) {
-          val result=serviceOwnerCall(action,payload)
-          if(result.code==401) clearSession()
-          if(action in setOf("resource_master_upsert","resource_master_delete","history_correction")) AppHistory.record(appContext,action,result.ok,result.error.orEmpty())
-          callback(result)
-          return@execute
-      }
-
+                try {
                     val m2=m2Transport.operational(action,payload)
                     val result=Result(m2.ok,m2.code,m2.json,m2.error)
                     AppHistory.record(appContext,action,result.ok,result.error.orEmpty(),payload)
@@ -273,10 +277,53 @@ class BetaApiClient(context: Context) {
         if(ServiceFaultInjection.cloudflareDisabled(appContext))return Result(false,-1,null,"TEST_CLOUDFLARE_DISABLED")
         val d=m2Transport.discoverySnapshot()?:return Result(false,503,null,"SERVICE_DISCOVERY_UNAVAILABLE")
         if(d.optString("authority_mode")!="SERVICE_PRIMARY")return Result(false,409,d,"SERVICE_NOT_WRITE_AUTHORITY")
-        val base=d.optString("service_url").trimEnd('/');if(!base.startsWith("https://"))return Result(false,503,d,"SERVICE_URL_INVALID")
-        val bearer=appContext.getSharedPreferences("pp_m2_service_transport",Context.MODE_PRIVATE).getString("service_token",null).orEmpty();if(bearer.isBlank())return Result(false,401,null,"UNAUTHORIZED")
-        val path=when(action){"history_correction"->"/v1/corrections";"session_work_update"->"/v1/session/work";"session_exit_guarded"->"/v1/session/exit";"attendance_time_correct"->"/v1/session/time-correction";"attendance_exit_delete"->"/v1/session/delete-exit";"attendance_session_delete"->"/v1/session/delete-enter";"service_connections"->"/v1/service/connections";"account_delete"->"/v1/admin/accounts/delete";"history_delete"->"/v1/history/delete";else->"/v1/admin/resources"};val method=if(action in setOf("resource_master_list","service_connections"))"GET" else "POST";val body=JSONObject(payload.toString());if(action=="resource_master_upsert")body.put("operation","UPSERT");if(action=="resource_master_delete")body.put("operation","DELETE")
-        var conn:HttpURLConnection?=null;return try{conn=(URL(base+path).openConnection() as HttpURLConnection).apply{requestMethod=method;connectTimeout=6_000;readTimeout=12_000;setRequestProperty("Accept","application/json");setRequestProperty("Authorization","Bearer $bearer");if(method=="POST"){doOutput=true;setRequestProperty("Content-Type","application/json; charset=utf-8")}};if(method=="POST")conn!!.outputStream.use{it.write(body.toString().toByteArray(Charsets.UTF_8))};val http=conn!!.responseCode;val stream=if(http in 200..299)conn!!.inputStream else conn!!.errorStream;val text=stream?.bufferedReader(Charsets.UTF_8)?.use{it.readText()}.orEmpty();val j=if(text.isBlank())JSONObject() else JSONObject(text);val ok=http in 200..299&&j.optBoolean("ok",false);Result(ok,http,j,if(ok)null else (j.optJSONObject("error")?.optString("code")?.takeIf{it.isNotBlank()}?:j.optString("error","HTTP_$http")))}catch(t:Throwable){Result(false,-1,null,t.message?:"SERVICE_OWNER_CALL_FAILED")}finally{conn?.disconnect()}
+        val base=d.optString("service_url").trimEnd('/')
+        if(!base.startsWith("https://"))return Result(false,503,d,"SERVICE_URL_INVALID")
+        val path=when(action){
+            "history_correction"->"/v1/corrections"
+            "session_work_update"->"/v1/session/work"
+            "session_exit_guarded"->"/v1/session/exit"
+            "attendance_time_correct"->"/v1/session/time-correction"
+            "attendance_exit_delete"->"/v1/session/delete-exit"
+            "attendance_session_delete"->"/v1/session/delete-enter"
+            "service_connections"->"/v1/service/connections"
+            "account_delete"->"/v1/admin/accounts/delete"
+            "history_delete"->"/v1/history/delete"
+            else->"/v1/admin/resources"
+        }
+        val method=if(action in setOf("resource_master_list","service_connections"))"GET" else "POST"
+        val body=JSONObject(payload.toString())
+        if(action=="resource_master_upsert")body.put("operation","UPSERT")
+        if(action=="resource_master_delete")body.put("operation","DELETE")
+        fun request(bearer:String):Result{
+            var conn:HttpURLConnection?=null
+            return try{
+                conn=(URL(base+path).openConnection() as HttpURLConnection).apply{
+                    requestMethod=method;connectTimeout=6_000;readTimeout=12_000
+                    setRequestProperty("Accept","application/json")
+                    setRequestProperty("Authorization","Bearer $bearer")
+                    if(method=="POST"){doOutput=true;setRequestProperty("Content-Type","application/json; charset=utf-8")}
+                }
+                if(method=="POST")conn!!.outputStream.use{it.write(body.toString().toByteArray(Charsets.UTF_8))}
+                val http=conn!!.responseCode
+                val stream=if(http in 200..299)conn!!.inputStream else conn!!.errorStream
+                val text=stream?.bufferedReader(Charsets.UTF_8)?.use{it.readText()}.orEmpty()
+                val j=runCatching{if(text.isBlank())JSONObject() else JSONObject(text)}.getOrElse{JSONObject().put("error","HTTP_${http}_INVALID_JSON")}
+                val ok=http in 200..299&&j.optBoolean("ok",false)
+                val error=if(ok)null else (j.optJSONObject("error")?.optString("code")?.takeIf{it.isNotBlank()}?:j.optString("error","HTTP_$http"))
+                Result(ok,http,j,error)
+            }catch(t:Throwable){Result(false,-1,null,t.message?:"SERVICE_OWNER_CALL_FAILED")}finally{conn?.disconnect()}
+        }
+        var bearer=M2ServiceSessionManager.current(appContext).orEmpty()
+        if(bearer.isBlank())bearer=M2ServiceSessionManager.ensure(appContext,base,token,force=true).orEmpty()
+        if(bearer.isBlank())return Result(false,401,null,"SERVICE_SESSION_UNAVAILABLE")
+        var result=request(bearer)
+        if(result.code==401){
+            M2ServiceSessionManager.clearIfSame(appContext,bearer)
+            val fresh=M2ServiceSessionManager.ensure(appContext,base,token,force=true).orEmpty()
+            if(fresh.isNotBlank())result=request(fresh)
+        }
+        return result
     }
 
     private fun accountUpsert(payload: JSONObject): Result {
