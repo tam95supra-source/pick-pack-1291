@@ -1,4 +1,4 @@
-name: One-off Beta60 Pack Preserve Follow-up
+name: One-off Beta60 Pack Preserve Final Gate
 
 on:
   push:
@@ -11,21 +11,88 @@ permissions:
   contents: write
 
 jobs:
-  recipe-holder:
+  validate:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
-      - run: echo recipe-only
-      - name: Exact patch recipe
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/beta60-owner-ops-resource-fixes-20260823
+          fetch-depth: 0
+
+      - name: Apply Pack preserve fix
         shell: bash
         run: |
+          set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
           p=Path('app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt')
           s=p.read_text()
           old='''            if(packOn.isChecked){val row=selectedPack;if(row==null){showError("Chọn Bàn Pack + User Pack hợp lệ.");return@setPositiveButton};p.put("pack_table",row.optString("table")).put("user_pack",row.optString("user_pack"));reissue=reissue||row.optBoolean("duplicate_user")}else p.put("pack_table","").put("user_pack","")'''
           new='''            if(editMode=="ADD"&&hadPack){p.put("pack_table",ses.optString("pack_table")).put("user_pack",ses.optString("user_pack"))}else if(packOn.isChecked){val row=selectedPack;if(row==null){showError("Chọn Bàn Pack + User Pack hợp lệ.");return@setPositiveButton};p.put("pack_table",row.optString("table")).put("user_pack",row.optString("user_pack"));reissue=reissue||row.optBoolean("duplicate_user")}else p.put("pack_table","").put("user_pack","")'''
-          if old not in s: raise SystemExit('pack preserve anchor missing')
-          s=s.replace(old,new,1)
-          p.write_text(s)
+          if new not in s:
+              if old not in s: raise SystemExit('Pack preserve anchor missing and fixed form absent')
+              p.write_text(s.replace(old,new,1))
           PY
-      - run: echo final-gate-trigger
+
+      - name: Static release guards
+        shell: bash
+        run: |
+          set -euo pipefail
+          F=app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt
+          grep -Fq 'if(editMode=="ADD"&&hadPack){p.put("pack_table",ses.optString("pack_table")).put("user_pack",ses.optString("user_pack"))}' "$F"
+          grep -Fq 'Nhập mật khẩu thực tế' "$F"
+          grep -Fq 'Sửa giờ vào – ra ca' "$F"
+          grep -Fq 'preserve_work_choice' "$F"
+          grep -Fq 'attendance_session_delete' "$F"
+          grep -Fq 'leased_by_mnv' "$F"
+          grep -Fq 'versionCode = 66' app/build.gradle.kts
+          grep -Fq 'versionName = "0.4.2-beta.60"' app/build.gradle.kts
+          grep -Fq 'versionCode = 1' app/build.gradle.kts
+          grep -Fq 'versionName = "0.1.0-stable"' app/build.gradle.kts
+          echo 'PASS - Beta60 static guards'
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.4.1'
+
+      - name: Resolve Android SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -n "${ANDROID_HOME:-}" && -f "$ANDROID_HOME/platforms/android-36/android.jar" && -x "$ANDROID_HOME/build-tools/36.0.0/aapt" ]]; then
+            echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> "$GITHUB_ENV"
+            exit 0
+          fi
+          SDK="$RUNNER_TEMP/android-sdk"
+          ZIP="$RUNNER_TEMP/commandlinetools.zip"
+          curl -fsSL https://dl.google.com/android/repository/commandlinetools-linux-13114758_latest.zip -o "$ZIP"
+          mkdir -p "$SDK/cmdline-tools"
+          unzip -q "$ZIP" -d "$SDK/cmdline-tools"
+          mv "$SDK/cmdline-tools/cmdline-tools" "$SDK/cmdline-tools/latest"
+          yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
+          "$SDK/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-36' 'build-tools;36.0.0' 'platform-tools'
+          echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
+          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
+
+      - name: Compile Beta60 and Stable debug
+        shell: bash
+        run: |
+          set -euo pipefail
+          gradle --no-daemon :app:assembleBetaDebug :app:assembleStableDebug
+
+      - name: Commit validated source and remove one-off gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          rm -f .github/workflows/_oneoff_beta60_pack_preserve_followup.yml
+          git add app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt
+          git add -u .github/workflows/_oneoff_beta60_pack_preserve_followup.yml
+          git commit -m 'fix(beta60): preserve Pack when adding Pick'
+          git push origin HEAD:agent/beta60-owner-ops-resource-fixes-20260823
