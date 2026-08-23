@@ -1,0 +1,145 @@
+name: Oneoff Beta63 Exact Signed Candidate
+
+on:
+  pull_request:
+    branches:
+      - release/beta63-signed-candidate-base-20260824
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: oneoff-beta63-signed-candidate
+  cancel-in-progress: false
+
+jobs:
+  build-sign:
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'agent/beta63-login-perf-session-mutation-fix-20260824'
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      SIGNING_KEY_B64: ${{ secrets.ANDROID_SIGNING_KEY_B64 }}
+      SIGNING_STORE_PASSWORD: ${{ secrets.ANDROID_SIGNING_STORE_PASSWORD }}
+      SIGNING_KEY_PASSWORD: ${{ secrets.ANDROID_SIGNING_KEY_PASSWORD }}
+      SIGNING_ALIAS: ${{ secrets.ANDROID_SIGNING_ALIAS }}
+      EXPECTED_SIGNER_SHA256: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.4.1'
+          cache-read-only: true
+
+      - name: Exact source, Beta63 and Stable isolation guards
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha }}"
+          grep -F 'versionCode = 69' app/build.gradle.kts
+          grep -F 'versionName = "0.4.2-beta.63"' app/build.gradle.kts
+          grep -F 'versionCode = 1' app/build.gradle.kts
+          grep -F 'versionName = "0.1.0-stable"' app/build.gradle.kts
+          grep -F 'R.drawable.login_vietnam_bg' app/src/main/java/vn/pickpack1291/app/beta/FullBetaActivity.kt
+          grep -F 'R.drawable.login_supra_logo' app/src/main/java/vn/pickpack1291/app/beta/FullBetaActivity.kt
+          grep -F 'fun logoutFast()' app/src/main/java/vn/pickpack1291/app/beta/BetaApiClient.kt
+          grep -F 'm2Runtime.ensureServiceSession(newToken, force = false)' app/src/main/java/vn/pickpack1291/app/beta/BetaApiClient.kt
+          grep -F 'while(result.code==409 && result.error=="SESSION_WORK_CONFLICT" && retry<2)' app/src/main/java/vn/pickpack1291/app/beta/BetaApiClient.kt
+          ! grep -Fq 'm2Transport.loginFromPassword(login, password)' app/src/main/java/vn/pickpack1291/app/beta/BetaApiClient.kt
+
+      - name: Resolve Android SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -n "${ANDROID_HOME:-}" && -f "$ANDROID_HOME/platforms/android-36/android.jar" && -x "$ANDROID_HOME/build-tools/36.0.0/apksigner" && -x "$ANDROID_HOME/build-tools/36.0.0/aapt" ]]; then
+            echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> "$GITHUB_ENV"
+            exit 0
+          fi
+          SDK="$RUNNER_TEMP/android-sdk"; ZIP="$RUNNER_TEMP/commandlinetools.zip"
+          curl -fsSL https://dl.google.com/android/repository/commandlinetools-linux-15859902_latest.zip -o "$ZIP"
+          echo "4e4c464f145a7512b57d088ac6c278c03c9eea610886b35a5e0804e74eedf583  $ZIP" | sha256sum -c -
+          mkdir -p "$SDK/cmdline-tools"
+          unzip -q "$ZIP" -d "$RUNNER_TEMP/android-cmdline"
+          mv "$RUNNER_TEMP/android-cmdline/cmdline-tools" "$SDK/cmdline-tools/latest"
+          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
+          yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
+          "$SDK/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-36' 'build-tools;36.0.0'
+
+      - name: Build Beta63 release and Stable isolation release
+        shell: bash
+        run: gradle --no-daemon --build-cache --parallel :app:assembleBetaRelease :app:assembleStableRelease
+
+      - name: Verify package identities before signing
+        shell: bash
+        run: |
+          set -euo pipefail
+          BT="$ANDROID_SDK_ROOT/build-tools/36.0.0"
+          BETA=app/build/outputs/apk/beta/release/app-beta-release-unsigned.apk
+          STABLE=app/build/outputs/apk/stable/release/app-stable-release-unsigned.apk
+          test -s "$BETA"; test -s "$STABLE"
+          "$BT/aapt" dump badging "$BETA" > /tmp/beta-badging.txt
+          "$BT/aapt" dump badging "$STABLE" > /tmp/stable-badging.txt
+          grep -q "package: name='vn.pickpack1291.app.beta.publicbeta'" /tmp/beta-badging.txt
+          grep -q "versionCode='69'" /tmp/beta-badging.txt
+          grep -q "versionName='0.4.2-beta.63'" /tmp/beta-badging.txt
+          grep -q "package: name='vn.pickpack1291.app.stable'" /tmp/stable-badging.txt
+          grep -q "versionCode='1'" /tmp/stable-badging.txt
+          grep -q "versionName='0.1.0-stable'" /tmp/stable-badging.txt
+
+      - name: Sign Beta63 and verify canonical signer
+        shell: bash
+        run: |
+          set -euo pipefail
+          for v in SIGNING_KEY_B64 SIGNING_STORE_PASSWORD SIGNING_KEY_PASSWORD SIGNING_ALIAS; do test -n "${!v:-}"; done
+          KS="$RUNNER_TEMP/release.jks"
+          printf '%s' "$SIGNING_KEY_B64" | base64 -d > "$KS"
+          printf '%s' "$SIGNING_STORE_PASSWORD" > "$RUNNER_TEMP/store.pass"
+          printf '%s' "$SIGNING_KEY_PASSWORD" > "$RUNNER_TEMP/key.pass"
+          mkdir -p dist/beta63
+          OUT=dist/beta63/pick-pack-1291-public-beta-0.4.2-beta.63.apk
+          BT="$ANDROID_SDK_ROOT/build-tools/36.0.0"
+          "$BT/apksigner" sign --ks "$KS" --ks-key-alias "$SIGNING_ALIAS" --ks-pass "file:$RUNNER_TEMP/store.pass" --key-pass "file:$RUNNER_TEMP/key.pass" --out "$OUT" app/build/outputs/apk/beta/release/app-beta-release-unsigned.apk
+          "$BT/apksigner" verify --verbose --print-certs "$OUT" > dist/beta63/APK_CERT-0.4.2-beta.63.txt
+          grep -qi "Signer #1 certificate SHA-256 digest: $EXPECTED_SIGNER_SHA256" dist/beta63/APK_CERT-0.4.2-beta.63.txt
+          "$BT/aapt" dump badging "$OUT" > dist/beta63/APK_BADGING-0.4.2-beta.63.txt
+          grep -q "versionCode='69'" dist/beta63/APK_BADGING-0.4.2-beta.63.txt
+          grep -q "versionName='0.4.2-beta.63'" dist/beta63/APK_BADGING-0.4.2-beta.63.txt
+          sha=$(sha256sum "$OUT" | awk '{print $1}')
+          size=$(stat -c '%s' "$OUT")
+          printf '%s  %s\n' "$sha" "$(basename "$OUT")" > dist/beta63/SHA256SUMS-0.4.2-beta.63.txt
+          python3 - "$sha" "$size" <<'PY'
+          import json,sys,os
+          sha,size=sys.argv[1],int(sys.argv[2])
+          meta={
+            'source_sha':os.environ['GITHUB_SHA'],
+            'beta_name':'0.4.2-beta.63','beta_code':69,
+            'stable_name':'0.1.0-stable','stable_code':1,
+            'apk_file':'pick-pack-1291-public-beta-0.4.2-beta.63.apk',
+            'apk_sha256':sha,'apk_size':size,
+            'signer_sha256':os.environ['EXPECTED_SIGNER_SHA256'],
+            'stable_publish':'FORBIDDEN'
+          }
+          open('dist/beta63/release-meta.json','w').write(json.dumps(meta,indent=2)+'\n')
+          PY
+          cat dist/beta63/release-meta.json
+
+      - name: Upload exact signed Beta63 candidate
+        uses: actions/upload-artifact@v4
+        with:
+          name: pick-pack-1291-0.4.2-beta.63-signed
+          path: dist/beta63/*
+          retention-days: 14
+
+      - name: Cleanup signing material
+        if: always()
+        run: rm -f "$RUNNER_TEMP/release.jks" "$RUNNER_TEMP/store.pass" "$RUNNER_TEMP/key.pass"
