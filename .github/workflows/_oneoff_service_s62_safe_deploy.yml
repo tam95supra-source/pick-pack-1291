@@ -19,7 +19,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     env:
-      GAS_URL: https://script.google.com/macros/s/AKfycbzbEoGfbNg6s2HnP-gUpcBJ7mMIkVBtYuQKMndb9seDV2c55lQwSUO1GZ-LtQ2CxMCauA/exec
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
     steps:
@@ -45,28 +44,34 @@ jobs:
           npm install --no-audit --no-fund
           npm run typecheck
 
-      - name: Discover current production authority and Service URL
+      - name: Discover current workers.dev URL from Cloudflare account
         shell: bash
         run: |
           set -euo pipefail
-          code=$(curl -sSL --retry 5 --retry-all-errors --retry-delay 2 --connect-timeout 15 --max-time 60 -o /tmp/discovery.json -w '%{http_code}' -H 'content-type: application/json' "$GAS_URL" -d '{"action":"service_discovery"}')
+          test -n "${CLOUDFLARE_API_TOKEN:-}"
+          test -n "${CLOUDFLARE_ACCOUNT_ID:-}"
+          code=$(curl -sS --retry 4 --retry-all-errors --retry-delay 2 --connect-timeout 15 --max-time 60 \
+            -o /tmp/cf-subdomain.json -w '%{http_code}' \
+            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            -H 'Content-Type: application/json' \
+            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/subdomain")
           test "$code" = 200
           python3 - <<'PY' >> "$GITHUB_ENV"
           import json,re
-          j=json.load(open('/tmp/discovery.json'))
-          assert j.get('ok') is True,j
-          a=j.get('authority') if isinstance(j.get('authority'),dict) else {}
-          mode=j.get('authority_mode') or a.get('mode')
-          scope=j.get('authority_scope') or a.get('scope') or 'PRODUCTION'
-          url=str(j.get('service_url') or a.get('service_url') or '').rstrip('/')
-          assert mode=='SERVICE_PRIMARY',(mode,j)
-          assert scope=='PRODUCTION',(scope,j)
-          assert re.match(r'^https://[A-Za-z0-9._-]+\.workers\.dev$',url),url
+          j=json.load(open('/tmp/cf-subdomain.json'))
+          assert j.get('success') is True,j
+          r=j.get('result') or {}
+          sub=str(r.get('subdomain') or '').strip()
+          assert re.fullmatch(r'[A-Za-z0-9.-]+',sub),sub
+          url=f'https://pick-pack-1291-service.{sub}.workers.dev'
           print('SERVICE_URL='+url)
-          print('DISCOVERY_AUTHORITY_MODE='+mode)
-          print('DISCOVERY_AUTHORITY_SCOPE='+scope)
+          print('WORKERS_SUBDOMAIN='+sub)
           PY
-          cat /tmp/discovery.json
+          python3 - <<'PY'
+          import json
+          j=json.load(open('/tmp/cf-subdomain.json'))
+          print('Cloudflare workers subdomain discovered:',(j.get('result') or {}).get('subdomain',''))
+          PY
 
       - name: Pre-deploy production health fence
         shell: bash
@@ -127,8 +132,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test -n "${CLOUDFLARE_API_TOKEN:-}"
-          test -n "${CLOUDFLARE_ACCOUNT_ID:-}"
           npx wrangler deploy --config wrangler.prod.s62.jsonc --keep-vars 2>&1 | tee /tmp/deploy.log
           sed -n 's/.*Version ID: */worker_version_id=/p' /tmp/deploy.log | tail -1 > /tmp/version.txt || true
 
@@ -194,7 +197,6 @@ jobs:
           name: service-s62-production-deploy-evidence
           path: |
             /tmp/service-s62-deploy-receipt.txt
-            /tmp/discovery.json
             /tmp/pre-health.json
             /tmp/post-health.json
           retention-days: 14
