@@ -5615,6 +5615,21 @@ async function historicalBusinessDates(request, env) {
   return json({ ok: true, items: rows2, next_before_sequence: next, has_more: all.length > limit });
 }
 __name(historicalBusinessDates, "historicalBusinessDates");
+async function runProductionScheduled(env) {
+  try {
+    const replication = await replicatePending(env.DB, env);
+    console.log(JSON.stringify({ level: replication.ok ? "info" : "error", kind: "scheduled_replication_complete", ...replication }));
+  } catch (e) {
+    console.log(JSON.stringify({ level: "error", kind: "scheduled_replication_failed", error: String(e).slice(0, 500) }));
+  }
+  try {
+    const push = await flushPushOutbox(env.DB, env);
+    console.log(JSON.stringify({ level: "info", kind: "scheduled_push_complete", ...push }));
+  } catch (e) {
+    console.log(JSON.stringify({ level: "error", kind: "scheduled_push_failed", error: String(e).slice(0, 500) }));
+  }
+}
+__name(runProductionScheduled, "runProductionScheduled");
 var entry_product_default = {
   async fetch(request, env, ctx) {
     const u = new URL(request.url), method = request.method.toUpperCase();
@@ -5635,11 +5650,10 @@ var entry_product_default = {
     if (u.pathname === "/v1/session/delete-exit" && method === "POST") return attendanceExitDelete(request, env);
     return entry_default.fetch(request, env, ctx);
   },
-  // Production hot cron must stay bounded on Workers Free. Historical reconciliation,
-  // projection repair and history backfill are maintenance jobs and must never full-scan
-  // every minute. The base scheduled handler performs only bounded replication + push.
-  async scheduled(controller, env, ctx) {
-    return entry_default.scheduled(controller, env, ctx);
+  // Production hot cron stays bounded on Workers Free. Replication is executed first and gets its own
+  // lifecycle so a broken FCM credential can never terminate Google operational replication early.
+  async scheduled(_controller, env, ctx) {
+    ctx.waitUntil(runProductionScheduled(env));
   }
 };
 export {
