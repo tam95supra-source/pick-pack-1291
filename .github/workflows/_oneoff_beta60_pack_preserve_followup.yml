@@ -1,0 +1,30 @@
+name: One-off Beta60 Pack Preserve Follow-up
+
+on:
+  push:
+    branches:
+      - agent/beta60-owner-ops-resource-fixes-20260823
+    paths:
+      - '.github/workflows/_oneoff_beta60_pack_preserve_followup.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  recipe-holder:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo recipe-only
+      - name: Exact patch recipe
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt')
+          s=p.read_text()
+          old='''            if(packOn.isChecked){val row=selectedPack;if(row==null){showError("Chọn Bàn Pack + User Pack hợp lệ.");return@setPositiveButton};p.put("pack_table",row.optString("table")).put("user_pack",row.optString("user_pack"));reissue=reissue||row.optBoolean("duplicate_user")}else p.put("pack_table","").put("user_pack","")'''
+          new='''            if(editMode=="ADD"&&hadPack){p.put("pack_table",ses.optString("pack_table")).put("user_pack",ses.optString("user_pack"))}else if(packOn.isChecked){val row=selectedPack;if(row==null){showError("Chọn Bàn Pack + User Pack hợp lệ.");return@setPositiveButton};p.put("pack_table",row.optString("table")).put("user_pack",row.optString("user_pack"));reissue=reissue||row.optBoolean("duplicate_user")}else p.put("pack_table","").put("user_pack","")'''
+          if old not in s: raise SystemExit('pack preserve anchor missing')
+          s=s.replace(old,new,1)
+          p.write_text(s)
+          PY
