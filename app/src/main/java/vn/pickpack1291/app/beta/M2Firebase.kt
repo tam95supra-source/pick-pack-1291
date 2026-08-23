@@ -16,6 +16,7 @@ import java.util.concurrent.Executors
 class M2Application : Application() {
     override fun onCreate() {
         super.onCreate()
+        M2ResetFence.install(this)
         M2Firebase.bootstrap(this)
     }
 }
