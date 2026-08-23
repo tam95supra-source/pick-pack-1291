@@ -1,0 +1,5 @@
+target=0.4.2-beta.59
+version_code=65
+source_commit=95b4f590d3af5418cd32c9a29d5abac3a997ede4
+stable_publish=FORBIDDEN
+ota_publish=NOT_RUN
