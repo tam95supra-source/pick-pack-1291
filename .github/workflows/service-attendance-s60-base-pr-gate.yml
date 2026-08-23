@@ -14,47 +14,75 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout exact S60 branch
+        uses: actions/checkout@v4
         with:
           ref: agent/service-attendance-aggregate-audit-20260823
           fetch-depth: 0
-      - name: Apply S60 service patch
+
+      - name: Apply deterministic S60 service patch
         run: |
           set -euo pipefail
           python3 -m py_compile tools/apply_s60_service_attendance_aggregate_audit.py
           python3 tools/apply_s60_service_attendance_aggregate_audit.py
-      - name: Static guards
+
+      - name: Validate S60 source contract
         run: |
           set -euo pipefail
+          git diff --check
           grep -q 'mutation_kind:mutationKind' service/src/session_hotfix.ts
           grep -q 'audit_note:auditNote' service/src/session_hotfix.ts
           grep -q 'S60_RA_ENTER_AGGREGATE' service/src/replication.ts
           grep -q 'u.userPicks.join(", ")' service/src/replication.ts
           grep -q 'resourceCells=enter?' service/src/replication.ts
           grep -q 'THÔNG TIN USER CỦA NLĐ' service/src/replication.ts
-      - uses: actions/setup-node@v4
+          grep -q 'key=`${e.event_id}:${pos}`' service/src/replication.ts
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: npm
-          cache-dependency-path: service/package-lock.json
-      - name: Typecheck
+
+      - name: Install service dependencies
         working-directory: service
-        run: |
-          set -euo pipefail
-          npm ci
-          npm run typecheck
-      - name: Wrangler dry-run only
+        run: npm install --no-package-lock --ignore-scripts
+
+      - name: Generate Cloudflare types and typecheck
+        working-directory: service
+        run: npm run check
+
+      - name: Wrangler dry-run bundle only
         working-directory: service
         run: |
           set -euo pipefail
           rm -rf ../ops/service-prod-bundle-attendance-s60
-          npx wrangler deploy src/entry_product.ts --dry-run --name pickpack --compatibility-date 2025-08-01 --compatibility-flags nodejs_compat --outdir ../ops/service-prod-bundle-attendance-s60
-          sha256sum ../ops/service-prod-bundle-attendance-s60/* > ../ops/service-prod-bundle-attendance-s60/SHA256SUMS.txt
-      - name: Commit validated source and bundle
+          mkdir -p ../ops/service-prod-bundle-attendance-s60
+          npx wrangler deploy --dry-run --outdir ../ops/service-prod-bundle-attendance-s60
+          BUNDLE="$(find ../ops/service-prod-bundle-attendance-s60 -maxdepth 1 -type f -name '*.js' | head -n 1)"
+          test -n "$BUNDLE"
+          cp "$BUNDLE" ../ops/service-prod-bundle-attendance-s60/entry_production.js.tmp
+          mv ../ops/service-prod-bundle-attendance-s60/entry_production.js.tmp ../ops/service-prod-bundle-attendance-s60/entry_production.js
+          sha256sum ../ops/service-prod-bundle-attendance-s60/entry_production.js > ../ops/service-prod-bundle-attendance-s60/entry_production.sha256
+          stat -c '%s' ../ops/service-prod-bundle-attendance-s60/entry_production.js > ../ops/service-prod-bundle-attendance-s60/entry_production.size
+          {
+            echo "checked_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo "source_sha=$GITHUB_SHA"
+            echo "typecheck=PASS"
+            echo "wrangler_dry_run=PASS"
+            echo "production_deploy=NOT_RUN"
+            echo "stable=UNTOUCHED"
+            echo "scope=SERVICE_S60_ATTENDANCE_AGGREGATE_AUDIT"
+          } > ../ops/service-prod-bundle-attendance-s60/receipt.txt
+
+      - name: Persist verified source and bundle
         run: |
           set -euo pipefail
-          git config user.name github-actions[bot]
-          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git config user.name 'pick-pack-1291-bot'
+          git config user.email 'actions@users.noreply.github.com'
           git add service/src/session_hotfix.ts service/src/replication.ts ops/service-prod-bundle-attendance-s60
-          git commit -m 'feat(service): aggregate shift resources on attendance enter row'
-          git push origin HEAD:agent/service-attendance-aggregate-audit-20260823
+          if git diff --cached --quiet; then
+            echo 'No verified S60 source/bundle changes to commit.'
+          else
+            git commit -m 'feat(service): verify S60 attendance aggregate bundle'
+            git push origin HEAD:agent/service-attendance-aggregate-audit-20260823
+          fi
