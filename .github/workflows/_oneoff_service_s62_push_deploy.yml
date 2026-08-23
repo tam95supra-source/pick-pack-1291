@@ -1,0 +1,169 @@
+name: Oneoff Service S62 Direct Production Deploy
+
+on:
+  push:
+    branches:
+      - agent/service-s62-session-authority-cas-fix-20260824
+    paths:
+      - '.github/workflows/_oneoff_service_s62_push_deploy.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: oneoff-service-s62-production
+  cancel-in-progress: false
+
+jobs:
+  deploy-production:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      SERVICE_URL: https://pick-pack-1291-service.pp1291-d79b87776e86.workers.dev
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Lock exact S62 source and typecheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
+          git merge-base --is-ancestor bd498d305bf027622b9cda57fab027f410f50898 HEAD
+          python3 tools/apply_service_s62_session_authority_fix.py
+          grep -F 'aOverride?:Awaited<ReturnType<typeof currentAuthority>>' service/src/session_hotfix.ts
+          grep -F 'const a=aOverride??await currentAuthority(env.DB);' service/src/session_hotfix.ts
+          test "$(grep -o ',idem,newVersion,a);const stmts=eventStmts(env.DB,e,a.authority_seq' service/src/session_hotfix.ts | wc -l)" -ge 5
+          cd service
+          npm install --no-audit --no-fund
+          npm run typecheck
+
+      - name: Pre-deploy production health fence
+        shell: bash
+        run: |
+          set -euo pipefail
+          code=$(curl -sS --retry 4 --retry-all-errors --retry-delay 2 --connect-timeout 15 --max-time 60 -o /tmp/pre-health.json -w '%{http_code}' "$SERVICE_URL/health")
+          test "$code" = 200
+          python3 - <<'PY'
+          import json
+          j=json.load(open('/tmp/pre-health.json'))
+          assert j.get('ok') is True,j
+          a=j.get('authority') if isinstance(j.get('authority'),dict) else {}
+          mode=j.get('authority_mode') or a.get('mode')
+          scope=j.get('authority_scope') or a.get('scope')
+          assert mode=='SERVICE_PRIMARY',(mode,j)
+          assert scope=='PRODUCTION',(scope,j)
+          r=j.get('replication') if isinstance(j.get('replication'),dict) else {}
+          if 'state' in r: assert r.get('state')=='HEALTHY',r
+          if 'pending_count' in r: assert int(r.get('pending_count') or 0)==0,r
+          print('PREHEALTH_FENCE_PASS')
+          PY
+
+      - name: Generate locked production Wrangler config
+        working-directory: service
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > wrangler.prod.s62.jsonc <<'EOF'
+          {
+            "$schema":"./node_modules/wrangler/config-schema.json",
+            "name":"pick-pack-1291-service",
+            "main":"src/entry_product.ts",
+            "compatibility_date":"2026-08-08",
+            "compatibility_flags":["nodejs_compat"],
+            "workers_dev":true,
+            "placement":{"mode":"smart"},
+            "vars":{"SERVICE_GENERATION":"m2-prod-20260819-001","GOOGLE_SOURCE_SHEET_ID":"1E7ZWz-4eMcBliQxDYBVoogIoeSYyiaXGwj0I6mbMm78"},
+            "d1_databases":[{"binding":"DB","database_name":"pick-pack-1291-service-prod","database_id":"b619df89-528d-4126-a948-de0425037b11","migrations_dir":"migrations"}],
+            "durable_objects":{"bindings":[{"name":"REALTIME_HUB","class_name":"RealtimeHub"}]},
+            "migrations":[{"tag":"v1","new_sqlite_classes":["RealtimeHub"]}],
+            "assets":{"directory":"./public","binding":"ASSETS","not_found_handling":"single-page-application","run_worker_first":["/health","/v1/*","/internal/*"]},
+            "triggers":{"crons":["*/1 * * * *"]},
+            "observability":{"enabled":true,"head_sampling_rate":1}
+          }
+          EOF
+
+      - name: Deploy exact S62 source
+        working-directory: service
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${CLOUDFLARE_API_TOKEN:-}"
+          test -n "${CLOUDFLARE_ACCOUNT_ID:-}"
+          npx wrangler deploy --config wrangler.prod.s62.jsonc --keep-vars 2>&1 | tee /tmp/deploy.log
+          sed -n 's/.*Version ID: */worker_version_id=/p' /tmp/deploy.log | tail -1 > /tmp/version.txt || true
+
+      - name: Post-deploy authority, health and route probes
+        shell: bash
+        run: |
+          set -euo pipefail
+          ok=false
+          for n in 1 2 3 4 5 6; do
+            code=$(curl -sS --connect-timeout 15 --max-time 45 -o /tmp/post-health.json -w '%{http_code}' "$SERVICE_URL/health" || true)
+            if [[ "$code" == 200 ]] && python3 - <<'PY'
+          import json
+          try:
+              j=json.load(open('/tmp/post-health.json'))
+              a=j.get('authority') if isinstance(j.get('authority'),dict) else {}
+              mode=j.get('authority_mode') or a.get('mode')
+              scope=j.get('authority_scope') or a.get('scope')
+              good=j.get('ok') is True and mode=='SERVICE_PRIMARY' and scope=='PRODUCTION'
+              r=j.get('replication') if isinstance(j.get('replication'),dict) else {}
+              if 'state' in r and r.get('state')!='HEALTHY': good=False
+              if 'pending_count' in r and int(r.get('pending_count') or 0)!=0: good=False
+              raise SystemExit(0 if good else 1)
+          except Exception:
+              raise SystemExit(1)
+          PY
+            then ok=true; break; fi
+            sleep 3
+          done
+          test "$ok" = true
+          probe_post(){ curl -sS -o /tmp/probe.json -w '%{http_code}' -H 'content-type: application/json' -d '{}' "$SERVICE_URL$1"; }
+          r1=$(probe_post /v1/session/work)
+          r2=$(probe_post /v1/session/exit)
+          r3=$(probe_post /v1/session/time-correction)
+          r4=$(probe_post /v1/session/delete-exit)
+          r5=$(probe_post /v1/session/delete-enter)
+          test "$r1" = 401
+          test "$r2" = 401
+          test "$r3" = 401
+          test "$r4" = 401
+          test "$r5" = 401
+          {
+            echo "source_sha=${GITHUB_SHA}"
+            echo "service_fix_ancestor=bd498d305bf027622b9cda57fab027f410f50898"
+            echo "service_url=$SERVICE_URL"
+            cat /tmp/version.txt 2>/dev/null || true
+            echo "session_work_route=$r1"
+            echo "session_exit_route=$r2"
+            echo "time_correction_route=$r3"
+            echo "delete_exit_route=$r4"
+            echo "delete_enter_route=$r5"
+            echo "authority=SERVICE_PRIMARY/PRODUCTION"
+            echo "verdict=PASS"
+          } > /tmp/service-s62-deploy-receipt.txt
+          cat /tmp/service-s62-deploy-receipt.txt
+
+      - name: Upload sanitized deployment evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: service-s62-production-deploy-evidence
+          path: |
+            /tmp/service-s62-deploy-receipt.txt
+            /tmp/pre-health.json
+            /tmp/post-health.json
+          retention-days: 14
+
+      - name: Remove generated production config
+        if: always()
+        working-directory: service
+        run: rm -f wrangler.prod.s62.jsonc
