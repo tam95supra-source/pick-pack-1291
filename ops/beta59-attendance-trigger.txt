@@ -1,0 +1,3 @@
+trigger=2026-08-23T15:54:00+07:00
+baseline=e5613161ab1cb513752a0383077afa96987a0bef
+stable_publish=forbidden
