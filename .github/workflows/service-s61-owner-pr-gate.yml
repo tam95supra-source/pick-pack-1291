@@ -1,0 +1,89 @@
+name: Service S61 Owner PR Gate
+
+on:
+  pull_request:
+    branches:
+      - ci/service-s61-owner-gate-base-20260823
+
+permissions:
+  contents: write
+  pull-requests: read
+
+jobs:
+  apply-check-package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+
+      - name: Apply exact S61 patch from head recipe
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import textwrap
+          wf=Path('.github/workflows/_oneoff_service_s61_owner_session_resource_fix.yml')
+          if not wf.exists():
+              raise SystemExit('S61 patch recipe missing on head')
+          t=wf.read_text()
+          marker="          python3 - <<'PY'\n"
+          start=t.index(marker)+len(marker)
+          end=t.index("\n          PY",start)
+          code=textwrap.dedent(t[start:end])
+          exec(compile(code,str(wf),'exec'),{})
+          PY
+
+      - name: Contract guards
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'const shift=own(b,"shift")' service/src/session_hotfix.ts
+          grep -q 'ATTENDANCE_ENTER_DELETED' service/src/session_hotfix.ts
+          grep -q 'attendanceEnterDelete' service/src/entry_product.ts
+          grep -q '/v1/session/delete-enter' service/src/entry_product.ts
+          grep -q 'labels:Record<string,string>={shift:"Ca"' service/src/replication.ts
+          grep -q 'THÔNG TIN USER CỦA NLĐ",`B${i+2}:B${i+2}`' service/src/replication.ts
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: service/package-lock.json
+
+      - name: Typecheck Service
+        working-directory: service
+        run: |
+          set -euo pipefail
+          npm ci
+          npm run typecheck
+
+      - name: Wrangler dry-run only
+        working-directory: service
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf ../ops/service-prod-bundle-s61-owner-session-resource
+          npx wrangler deploy src/entry_product.ts --dry-run --name pickpack --compatibility-date 2025-08-01 --compatibility-flags nodejs_compat --outdir ../ops/service-prod-bundle-s61-owner-session-resource
+          sha256sum ../ops/service-prod-bundle-s61-owner-session-resource/* | tee ../ops/service-prod-bundle-s61-owner-session-resource/SHA256SUMS.txt
+
+      - name: Commit validated S61 source and exact bundle to head
+        shell: bash
+        env:
+          TARGET_BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          set -euo pipefail
+          rm -f .github/workflows/_oneoff_service_s61_owner_session_resource_fix.yml
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add service/src/session_hotfix.ts service/src/entry_product.ts service/src/replication.ts ops/service-prod-bundle-s61-owner-session-resource .github/workflows/_oneoff_service_s61_owner_session_resource_fix.yml
+          if ! git diff --cached --quiet; then
+            git commit -m 'feat(service): owner session edit delete and shift consistency'
+            git push origin HEAD:"$TARGET_BRANCH"
+          fi
+
+      - name: Result
+        run: echo 'PASS - S61 source typecheck and production-shape dry-run bundle.'
