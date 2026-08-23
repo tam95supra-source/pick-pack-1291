@@ -1,0 +1,62 @@
+name: Service Production Bundle
+
+on:
+  push:
+    branches: [ agent/service-prod-replication-fix-20260823 ]
+    paths:
+      - 'service/**'
+      - '.github/workflows/service-prod-bundle.yml'
+      - 'ops/service-prod-bundle-trigger.txt'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: service-prod-bundle
+  cancel-in-progress: true
+
+jobs:
+  bundle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install and typecheck Service
+        working-directory: service
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-audit --no-fund
+          npm run check
+      - name: Build exact Wrangler bundle without deploy
+        working-directory: service
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf ../ops/service-prod-bundle
+          mkdir -p ../ops/service-prod-bundle
+          npx wrangler deploy src/entry_product.ts \
+            --dry-run \
+            --outdir ../ops/service-prod-bundle \
+            --name pickpack \
+            --compatibility-date 2026-08-08 \
+            --compatibility-flag nodejs_compat
+          js=$(find ../ops/service-prod-bundle -maxdepth 1 -type f \( -name '*.js' -o -name '*.mjs' \) | head -n 1)
+          test -n "$js"
+          cp "$js" ../ops/service-prod-bundle/entry_production.js
+          sha256sum ../ops/service-prod-bundle/entry_production.js | tee ../ops/service-prod-bundle/entry_production.sha256
+          wc -c ../ops/service-prod-bundle/entry_production.js | tee ../ops/service-prod-bundle/entry_production.size
+          grep -q 'RESET_FENCE_REQUIRED' ../ops/service-prod-bundle/entry_production.js
+          grep -q 'm2_operational_reset_epoch' ../ops/service-prod-bundle/entry_production.js
+      - uses: actions/upload-artifact@v4
+        with:
+          name: service-production-bundle
+          path: |
+            ops/service-prod-bundle/entry_production.js
+            ops/service-prod-bundle/entry_production.sha256
+            ops/service-prod-bundle/entry_production.size
+          if-no-files-found: error
+          retention-days: 7
