@@ -1,0 +1,65 @@
+name: Beta57 Final Source Fix
+
+on:
+  pull_request:
+    branches: [ agent/beta57-reset-fence-20260823 ]
+    paths:
+      - 'ops/beta57-final-source-fix-trigger.txt'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/beta57-reset-fence-20260823
+          fetch-depth: 0
+      - name: Add owner-required logout confirmation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt')
+          s=p.read_text()
+          lines=s.splitlines()
+          hits=[i for i,l in enumerate(lines) if 'body.addView(primary("ĐĂNG XUẤT",red)' in l]
+          if len(hits)!=1:
+              raise SystemExit(f'logout anchor count={len(hits)}')
+          i=hits[0]
+          lines[i:i+1]=[
+          '        body.addView(primary("ĐĂNG XUẤT",red){',
+          '            AlertDialog.Builder(this)',
+          '                .setTitle("Xác nhận đăng xuất")',
+          '                .setMessage("Bạn có chắc muốn đăng xuất khỏi ứng dụng?")',
+          '                .setNegativeButton("Hủy",null)',
+          '                .setPositiveButton("ĐĂNG XUẤT"){_,_->',
+          '                    api.call("logout"){runOnUiThread{',
+          '                        api.clearSession()',
+          '                        startActivity(android.content.Intent(this,FullBetaActivity::class.java).apply{addFlags(android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP or android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK)})',
+          '                        finish()',
+          '                        overridePendingTransition(0,0)',
+          '                    }}',
+          '                }',
+          '                .show()',
+          '        },matchWrap())',
+          ]
+          out='\n'.join(lines)+'\n'
+          if 'setTitle("Xác nhận đăng xuất")' not in out:
+              raise SystemExit('logout confirmation missing after patch')
+          if 'Triple(R.drawable.ic_pp_staff,"Nhân sự","STAFF")' in out:
+              raise SystemExit('Staff bottom tab regressed')
+          p.write_text(out)
+          print('PASS - logout confirmation added; Staff bottom tab remains absent')
+          PY
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt
+          if ! git diff --cached --quiet; then
+            git commit -m 'fix(beta57): confirm before logout'
+            git push origin HEAD:agent/beta57-reset-fence-20260823
+          fi
