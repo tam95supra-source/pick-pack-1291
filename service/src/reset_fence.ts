@@ -1,3 +1,4 @@
+import { authenticate } from "./auth";
 import { currentAuthority } from "./core";
 import { apiError } from "./util";
 
@@ -19,6 +20,10 @@ function fenceValues(event: LegacyQueued): { epoch: number; generation: string }
  * After an owner-locked operational reset, legacy PDA queues must prove which authority
  * epoch/generation they were created under. This prevents an old Beta queue from being
  * re-stamped with the new authority and resurrecting pre-reset operational data.
+ *
+ * Authentication remains owned by the existing legacy route. An unauthenticated request is
+ * deliberately allowed to fall through so it preserves the pre-existing 401 contract and the
+ * reset fence does not disclose authority metadata to anonymous callers.
  */
 export async function resetFenceGate(request: Request, env: Env): Promise<Response | null> {
   const u = new URL(request.url);
@@ -27,6 +32,10 @@ export async function resetFenceGate(request: Request, env: Env): Promise<Respon
   const reset = await env.DB.prepare("SELECT value FROM system_meta WHERE key='m2_operational_reset_epoch'").first<{value:string}>();
   const resetEpoch = Number(reset?.value ?? 0);
   if (!Number.isInteger(resetEpoch) || resetEpoch <= 0) return null;
+
+  // Preserve the original authentication contract. Do not expose reset/authority state to
+  // callers that have not already authenticated as a legitimate Service client.
+  if (!await authenticate(env.DB, env, request)) return null;
 
   const authority = await currentAuthority(env.DB);
   if (authority.authority_epoch < resetEpoch) return null;
@@ -42,12 +51,7 @@ export async function resetFenceGate(request: Request, env: Env): Promise<Respon
     const event = raw && typeof raw === "object" ? raw as LegacyQueued : {};
     const { epoch, generation } = fenceValues(event);
     if (!Number.isInteger(epoch) || epoch !== authority.authority_epoch || generation !== authority.service_generation) {
-      return apiError("RESET_FENCE_REQUIRED","CONFLICT",409,false,undefined,{
-        current_epoch: authority.authority_epoch,
-        current_generation: authority.service_generation,
-        incoming_epoch: Number.isFinite(epoch) ? epoch : null,
-        incoming_generation: generation || null,
-      });
+      return apiError("RESET_FENCE_REQUIRED","CONFLICT",409,false);
     }
   }
   return null;
