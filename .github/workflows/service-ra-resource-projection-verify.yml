@@ -1,0 +1,80 @@
+name: Service RA Resource Projection Verify
+
+on:
+  pull_request:
+    branches:
+      - agent/service-prod-replication-fix-20260823
+
+permissions:
+  contents: write
+
+jobs:
+  patch-typecheck-dryrun:
+    if: github.head_ref == 'ci/service-ra-projection-gate-20260823'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Checkout exact gate branch
+        uses: actions/checkout@v4
+        with:
+          ref: ci/service-ra-projection-gate-20260823
+          fetch-depth: 0
+
+      - name: Apply deterministic projection patch
+        run: python3 ops/service_ra_resource_projection_patch.py
+
+      - name: Validate source contract
+        run: |
+          set -euo pipefail
+          git diff --check
+          grep -q 'S59_RA_RESOURCE_PROJECTION' service/src/replication.ts
+          grep -q 'workLabel(r.workChoice),r.pdaSerial,r.userPick,r.packTable,r.userPack' service/src/replication.ts
+          grep -q 'if(e.event_type==="RESOURCE_CHANGE")' service/src/replication.ts
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install service dependencies
+        working-directory: service
+        run: npm install --no-package-lock --ignore-scripts
+
+      - name: Generate Cloudflare types and typecheck
+        working-directory: service
+        run: npm run check
+
+      - name: Wrangler dry-run bundle only
+        working-directory: service
+        run: |
+          set -euo pipefail
+          rm -rf ../ops/service-prod-bundle-ra-projection
+          mkdir -p ../ops/service-prod-bundle-ra-projection
+          npx wrangler deploy --dry-run --outdir ../ops/service-prod-bundle-ra-projection
+          BUNDLE="$(find ../ops/service-prod-bundle-ra-projection -maxdepth 1 -type f -name '*.js' | head -n 1)"
+          test -n "$BUNDLE"
+          cp "$BUNDLE" ../ops/service-prod-bundle-ra-projection/entry_production.js.tmp
+          mv ../ops/service-prod-bundle-ra-projection/entry_production.js.tmp ../ops/service-prod-bundle-ra-projection/entry_production.js
+          sha256sum ../ops/service-prod-bundle-ra-projection/entry_production.js > ../ops/service-prod-bundle-ra-projection/entry_production.sha256
+          stat -c '%s' ../ops/service-prod-bundle-ra-projection/entry_production.js > ../ops/service-prod-bundle-ra-projection/entry_production.size
+          {
+            echo "checked_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo "source_sha=$GITHUB_SHA"
+            echo "typecheck=PASS"
+            echo "wrangler_dry_run=PASS"
+            echo "production_deploy=NOT_RUN"
+            echo "stable=UNTOUCHED"
+          } > ../ops/service-prod-bundle-ra-projection/receipt.txt
+
+      - name: Persist verified source and bundle
+        run: |
+          set -euo pipefail
+          git config user.name 'pick-pack-1291-bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add service/src/replication.ts ops/service-prod-bundle-ra-projection
+          if git diff --cached --quiet; then
+            echo 'No verified source/bundle changes to commit.'
+          else
+            git commit -m 'fix(service): verify RA resource projection bundle'
+            git push origin HEAD:ci/service-ra-projection-gate-20260823
+          fi

@@ -1,0 +1,6 @@
+checked_at=2026-08-23T09:20:24Z
+source_sha=d8b9f13939a3404d61ac782491ae4167236d61d1
+typecheck=PASS
+wrangler_dry_run=PASS
+production_deploy=NOT_RUN
+stable=UNTOUCHED
