@@ -25,7 +25,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python3 -m py_compile tools/apply_beta62_owner_fixes.py tools/apply_beta62_owner_fixes_post.py
+          python3 -m py_compile tools/apply_beta62_owner_fixes.py tools/apply_beta62_owner_fixes_post.py tools/apply_beta62_compile_hotfix.py
           # V1 contained one stale source anchor for the optimistic retry. Strip only that patch instruction;
           # the exact current-source transformation is applied by the checked-in post patch below.
           python3 - <<'PY'
@@ -37,6 +37,7 @@ jobs:
           PY
           python3 tools/apply_beta62_owner_fixes.py
           python3 tools/apply_beta62_owner_fixes_post.py
+          python3 tools/apply_beta62_compile_hotfix.py
       - name: Beta62 owner contracts
         shell: bash
         run: |
@@ -49,6 +50,7 @@ jobs:
           rb=Path('app/src/main/java/vn/pickpack1291/app/beta/M2RuntimeBridge.kt').read_text()
           api=Path('app/src/main/java/vn/pickpack1291/app/beta/BetaApiClient.kt').read_text()
           log=Path('app/src/main/java/vn/pickpack1291/app/beta/LocalLogManager.kt').read_text()
+          diag=Path('app/src/main/java/vn/pickpack1291/app/beta/DirectOwnerDiagnostics.kt').read_text()
           gradle=Path('app/build.gradle.kts').read_text()
           assert 'versionCode = 68' in gradle and 'versionName = "0.4.2-beta.62"' in gradle
           assert 'versionCode = 1' in gradle and 'versionName = "0.1.0-stable"' in gradle
@@ -59,6 +61,7 @@ jobs:
           assert 'Nhập 5 số cuối PDA' in op
           pda=op[op.index('private fun pdaExchangeScreen'):]
           assert 'val find=primary("TÌM PDA"' not in pda
+          assert 'find.performClick()' not in pda
           assert 'addTextChangedListener(object:TextWatcher' in pda
           assert 'Triple("PDA","DANH SÁCH PDA","")' in op
           assert 'Quản lý danh mục tài nguyên dùng chung' not in op
@@ -75,6 +78,7 @@ jobs:
           assert 'SESSION_WORK_CONFLICT' in api and 'result=request(bearer)' in api
           assert 'DirectOwnerDiagnostics.snapshotLines' in log
           assert 'resetAfterSuccessfulManualSend' in log
+          assert 'password' not in diag.lower() and 'token' not in diag.lower()
           assert 'GOOGLE_RELAY_TEST' not in rb
           assert 'SERVICE_D1_BLOCKED_TEST' in rb
           # GOOGLE_FALLBACK remains valid only when discovery explicitly assigns Google authority.
@@ -129,7 +133,8 @@ jobs:
             app/src/main/java/vn/pickpack1291/app/beta/M2ServiceTransport.kt \
             app/src/main/java/vn/pickpack1291/app/beta/BetaApiClient.kt \
             app/src/main/java/vn/pickpack1291/app/beta/LocalLogManager.kt \
-            app/src/main/java/vn/pickpack1291/app/beta/MasterDataCache.kt
+            app/src/main/java/vn/pickpack1291/app/beta/MasterDataCache.kt \
+            app/src/main/java/vn/pickpack1291/app/beta/DirectOwnerDiagnostics.kt
           git diff --cached --check
           if ! git diff --cached --quiet; then
             git commit -m 'feat: Beta62 owner UI mutation and fault-injection fixes [beta62-source]'
