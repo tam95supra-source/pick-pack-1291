@@ -1,0 +1,5 @@
+probe=production-health
+epoch=9
+generation=m2-prod-reset-20260823-001
+mode=SERVICE_PRIMARY
+mutation=NONE_READ_ONLY
