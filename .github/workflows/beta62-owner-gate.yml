@@ -77,7 +77,10 @@ jobs:
           assert 'resetAfterSuccessfulManualSend' in log
           assert 'GOOGLE_RELAY_TEST' not in rb
           assert 'SERVICE_D1_BLOCKED_TEST' in rb
-          assert 'return flushFallbackItems(store.unresolvedMutations(100))' not in tr
+          # GOOGLE_FALLBACK remains valid only when discovery explicitly assigns Google authority.
+          assert 'if(discovery.optString("authority_mode")=="GOOGLE_FALLBACK")return flushFallbackItems(store.unresolvedMutations(100))' in tr
+          assert 'failureCount()>=FALLBACK_PROBE_FAILURES)return flushFallbackItems' not in tr
+          assert 'if(ServiceFaultInjection.cloudflareDisabled(app)){' in tr and 'return false' in tr[tr.index('if(ServiceFaultInjection.cloudflareDisabled(app)){'):tr.index('if(ServiceFaultInjection.cloudflareDisabled(app)){')+420]
           assert 'Service OFFLINE (test)' in op
           assert 'Hiện mật khẩu' in fb and 'ĐĂNG KÝ' in fb
           login=fb[fb.index('private fun login()'):fb.index('private fun openMainShell()')]
