@@ -22,8 +22,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: npm
-          cache-dependency-path: service/package-lock.json
       - name: Materialize authority snapshot fix
         run: python3 tools/apply_service_s62_session_authority_fix.py
       - name: Static authority/CAS invariant
@@ -36,7 +34,7 @@ jobs:
       - name: Install and typecheck Service
         working-directory: service
         run: |
-          npm ci
+          npm install --no-audit --no-fund
           npm run typecheck
       - name: Commit exact Service source
         shell: bash
