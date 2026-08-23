@@ -1,0 +1,59 @@
+name: Service RA Resource Projection Verify
+
+on:
+  pull_request:
+    branches:
+      - agent/service-prod-replication-fix-20260823
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-typecheck:
+    if: github.head_ref == 'agent/service-ra-resource-projection-20260823'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout service fix branch
+        uses: actions/checkout@v4
+        with:
+          ref: agent/service-ra-resource-projection-20260823
+          fetch-depth: 0
+
+      - name: Apply deterministic projection patch
+        run: python3 ops/service_ra_resource_projection_patch.py
+
+      - name: Validate source contract
+        run: |
+          set -euo pipefail
+          git diff --check
+          grep -q 'S59_RA_RESOURCE_PROJECTION' service/src/replication.ts
+          grep -q 'workLabel(r.workChoice),r.pdaSerial,r.userPick,r.packTable,r.userPack' service/src/replication.ts
+          grep -q 'if(e.event_type==="RESOURCE_CHANGE")' service/src/replication.ts
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: service/package-lock.json
+
+      - name: Install service dependencies
+        working-directory: service
+        run: npm ci
+
+      - name: Typecheck service
+        working-directory: service
+        run: npm run typecheck
+
+      - name: Commit patched replication source
+        run: |
+          if git diff --quiet -- service/src/replication.ts; then
+            echo 'replication.ts already patched.'
+            exit 0
+          fi
+          git config user.name 'pick-pack-1291-bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add service/src/replication.ts
+          git commit -m 'fix(service): project attendance resources to daily sheet'
+          git push origin HEAD:agent/service-ra-resource-projection-20260823
