@@ -1,0 +1,5 @@
+source_sha=fc456fe4b830782b4d643ef004fa9d25fdc4e31c
+version=0.4.2-beta.57
+version_code=63
+stable_publish=FORBIDDEN
+cloudflare_builds=DISCONNECTED
