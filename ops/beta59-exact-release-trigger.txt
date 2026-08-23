@@ -1,0 +1,9 @@
+target=0.4.2-beta.59
+version_code=65
+source_sha=95b4f590d3af5418cd32c9a29d5abac3a997ede4
+candidate_run_id=32631001239
+artifact_id=9491064745
+apk_sha256=55f6e3db521ee39dc5e58130a3444fee6ac1e936b38556f0ac281ea9e4212567
+apk_size=13044331
+ota_mode=MANUAL_ONLY
+stable=UNTOUCHED
