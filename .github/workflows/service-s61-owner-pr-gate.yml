@@ -75,10 +75,13 @@ jobs:
           TARGET_BRANCH: ${{ github.event.pull_request.head.ref }}
         run: |
           set -euo pipefail
-          rm -f .github/workflows/_oneoff_service_s61_owner_session_resource_fix.yml ops/s61-owner-followup-patch.py ops/service-s61-gate-trigger.txt ops/service-s61-gate-trigger2.txt ops/service-s61-gate-trigger3.txt ops/service-s61-gate-trigger4.txt service/package-lock.json
+          rm -f .github/workflows/_oneoff_service_s61_owner_session_resource_fix.yml
+          rm -f ops/s61-owner-followup-patch.py ops/service-s61-gate-trigger*.txt
+          rm -f service/package-lock.json service/worker-configuration.d.ts
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add service/src/session_hotfix.ts service/src/entry_product.ts service/src/replication.ts service/src/resource_admin.ts service/worker-configuration.d.ts ops/service-prod-bundle-s61-owner-session-resource .github/workflows/_oneoff_service_s61_owner_session_resource_fix.yml ops/s61-owner-followup-patch.py ops/service-s61-gate-trigger.txt ops/service-s61-gate-trigger2.txt ops/service-s61-gate-trigger3.txt ops/service-s61-gate-trigger4.txt
+          git add service/src/session_hotfix.ts service/src/entry_product.ts service/src/replication.ts service/src/resource_admin.ts ops/service-prod-bundle-s61-owner-session-resource
+          git add -u
           if ! git diff --cached --quiet; then
             git commit -m 'feat(service): owner session edit delete and live PDA consistency'
             git push origin HEAD:"$TARGET_BRANCH"
