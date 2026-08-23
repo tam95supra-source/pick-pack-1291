@@ -1,0 +1,53 @@
+name: Oneoff Service S62 Authority Gate
+
+on:
+  pull_request:
+    branches:
+      - ci/service-s62-session-authority-gate-base-20260824
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: write
+
+jobs:
+  materialize-typecheck:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: service/package-lock.json
+      - name: Materialize authority snapshot fix
+        run: python3 tools/apply_service_s62_session_authority_fix.py
+      - name: Static authority/CAS invariant
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -F 'aOverride?:Awaited<ReturnType<typeof currentAuthority>>' service/src/session_hotfix.ts
+          grep -F 'const a=aOverride??await currentAuthority(env.DB);' service/src/session_hotfix.ts
+          test "$(grep -o ',idem,newVersion,a);const stmts=eventStmts(env.DB,e,a.authority_seq' service/src/session_hotfix.ts | wc -l)" -ge 5
+      - name: Install and typecheck Service
+        working-directory: service
+        run: |
+          npm ci
+          npm run typecheck
+      - name: Commit exact Service source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add service/src/session_hotfix.ts
+          if git diff --cached --quiet; then
+            echo 'Service source already materialized.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'fix(service-s62): fence session event and CAS to one authority snapshot [skip ci]'
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}
