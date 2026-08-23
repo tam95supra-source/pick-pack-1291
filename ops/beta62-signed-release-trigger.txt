@@ -1,0 +1,4 @@
+source_sha=a1d351ef0448e824a1b08d0675da555bf0ede534
+target=0.4.2-beta.62
+version_code=68
+stable_publish=FORBIDDEN
