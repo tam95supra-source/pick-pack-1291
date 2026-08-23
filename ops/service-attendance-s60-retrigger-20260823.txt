@@ -1,1 +1,2 @@
 Retrigger S60 PR validation after correcting the Node/npm gate. Production deploy remains NOT_RUN. Stable remains UNTOUCHED.
+Artifact packaging retrigger: exact entry_production.js must be uploaded from a PASS typecheck + Wrangler dry-run.
