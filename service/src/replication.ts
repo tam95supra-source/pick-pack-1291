@@ -9,7 +9,7 @@ interface AttendanceReplicaRow { session_id:string;mnv:string;business_date:stri
 interface LaborReplicaRow { labor_id:string;mnv:string;business_date:string;shift:string;labor_type:string;time_marker:string;start_at:string;end_at:string|null;note:string;deduct_staff:number;start_event_id:string;finish_event_id:string|null; }
 interface AttendanceOperationalRow extends AttendanceReplicaRow,EmployeeRow {}
 interface LaborOperationalRow extends LaborReplicaRow,EmployeeRow { attendance_session_id:string|null;attendance_work_choice:string|null; }
-interface OperationalIndex { raEvents:Set<string>;userEvents:Set<string>;laborStartRows:Map<string,number>;laborFinishEvents:Set<string>;historyEvents:Set<string>; }
+interface OperationalIndex { raEvents:Set<string>;raEventRows:Map<string,number>;userEvents:Set<string>;laborStartRows:Map<string,number>;laborFinishEvents:Set<string>;historyEvents:Set<string>; }
 
 const RA_HEADERS=["Ngày","Ca","Mã nhân viên","Họ và tên","Số điện thoại","Nhà cung cấp","Bộ phận","Site","Kho","Vị trí chính","Vị trí trong ca","Seri PDA","User Pick","Bàn Pack","User Pack","Loại thao tác","Ghi chú","Người cập nhật","Thời gian cập nhật","Event ID","App action","App revision"] as const;
 const USER_HEADERS=["Ngày","Ca","Mã nhân viên","Họ và tên","Nhà cung cấp","Bộ phận","Site","Vị trí trong ca","User","Người cập nhật","Event ID"] as const;
@@ -82,9 +82,10 @@ async function loadOperationalIndex(env:Env,token:string):Promise<OperationalInd
     ["RA - VÀO TRONG CA","T2:T"],["CÔNG NHẬT","T2:U"],["LỊCH SỬ NGHIỆP VỤ","K2:K"],["THÔNG TIN USER CỦA NLĐ","K2:K"],
   ],v=await batchGetValues(id,token,ranges);
   assertHeaderValues("RA - VÀO TRONG CA",v[0]??[],RA_HEADERS);assertHeaderValues("CÔNG NHẬT",v[1]??[],LABOR_HEADERS);assertHeaderValues("LỊCH SỬ NGHIỆP VỤ",v[2]??[],HISTORY_HEADERS);assertHeaderValues("THÔNG TIN USER CỦA NLĐ",v[3]??[],USER_HEADERS);
-  const raEvents=new Set((v[4]??[]).map(r=>String(r[0]??"")).filter(Boolean)),laborStartRows=new Map<string,number>(),laborFinishEvents=new Set<string>();
+  const raEvents=new Set<string>(),raEventRows=new Map<string,number>(),laborStartRows=new Map<string,number>(),laborFinishEvents=new Set<string>();
+  for(let i=0;i<(v[4]??[]).length;i++){const id=String((v[4]??[])[i]?.[0]??"");if(id){raEvents.add(id);raEventRows.set(id,i+2);}}
   for(let i=0;i<(v[5]??[]).length;i++){const r=(v[5]??[])[i]??[],start=String(r[0]??""),finish=String(r[1]??"");if(start)laborStartRows.set(start,i+2);if(finish)laborFinishEvents.add(finish);}
-  const historyEvents=new Set((v[6]??[]).map(r=>String(r[0]??"")).filter(Boolean)),userEvents=new Set((v[7]??[]).map(r=>String(r[0]??"")).filter(Boolean));return{raEvents,userEvents,laborStartRows,laborFinishEvents,historyEvents};
+  const historyEvents=new Set((v[6]??[]).map(r=>String(r[0]??"")).filter(Boolean)),userEvents=new Set((v[7]??[]).map(r=>String(r[0]??"")).filter(Boolean));return{raEvents,raEventRows,userEvents,laborStartRows,laborFinishEvents,historyEvents};
 }
 
 async function appendHistory(sheetId:string,token:string,index:OperationalIndex,e:EventRow,sessionId:string,mnv:string,name:string,shift:string,label:string,detail:string):Promise<void>{
@@ -111,30 +112,42 @@ function resourceChangeDetail(e:EventRow):string{
   const p=payload(e),before=pobj(p,"before"),after=pobj(p,"after"),labels:Record<string,string>={work_choice:"Vị trí",pda_serial:"PDA",user_pick:"User Pick",pack_table:"Bàn Pack",user_pack:"User Pack"},parts:string[]=[];
   if(Object.keys(after).length){for(const k of Object.keys(labels)){const a=ptext(before,k)||"—",b=ptext(after,k)||"—";if(a!==b)parts.push(`${labels[k]}: ${a} → ${b}`);}}
   if(!parts.length){for(const k of Object.keys(labels)){const v=ptext(p,k);if(v)parts.push(`${labels[k]}: ${v}`);}}
-  return parts.join(" • ")||"Cập nhật công việc / tài nguyên trong ca";
+  const kind=ptext(p,"mutation_kind").toUpperCase(),verb=kind==="ADD"?"Thêm":kind==="DELETE"?"Xóa":"Sửa",note=ptext(p,"audit_note");
+  return [verb,note,...parts].filter(Boolean).join(" • ")||"Cập nhật công việc / tài nguyên trong ca";
 }
 
-// S59_RA_RESOURCE_PROJECTION: preserve the resource snapshot carried by the canonical event.
-// If a legacy/exit event does not carry a resource field, fall back to the canonical D1 session.
+// S60_RA_ENTER_AGGREGATE: keep one VÀO row and accumulate all resource usage for that shift session.
+type AttendanceUsage={workChoices:string[];pdaSerials:string[];userPicks:string[];packTables:string[];userPacks:string[]};
+async function attendanceUsageThrough(db:D1Database,sessionId:string,throughSeq:number):Promise<AttendanceUsage>{
+  const r=await db.prepare("SELECT payload_json FROM events WHERE entity_id=?1 AND event_type IN ('ATTENDANCE_ENTER','RESOURCE_CHANGE') AND authority_seq<=?2 ORDER BY authority_seq,event_id").bind(sessionId,throughSeq).all<{payload_json:string}>();
+  const work:string[]=[],pdas:string[]=[],picks:string[]=[],tables:string[]=[],packs:string[]=[];const add=(a:string[],v:string)=>{const x=v.trim();if(x&&!a.includes(x))a.push(x);};
+  const snap=(x:Record<string,unknown>)=>{const w=ptext(x,"work_choice").toUpperCase();if(w==="PICK"||w==="PACK")add(work,w);add(pdas,ptext(x,"pda_serial"));add(picks,ptext(x,"user_pick"));add(tables,ptext(x,"pack_table"));add(packs,ptext(x,"user_pack"));};
+  for(const row of r.results??[]){let p:Record<string,unknown>={};try{p=JSON.parse(row.payload_json) as Record<string,unknown>;}catch{}snap(p);const before=pobj(p,"before"),after=pobj(p,"after");if(Object.keys(before).length)snap(before);if(Object.keys(after).length)snap(after);}
+  return{workChoices:work,pdaSerials:pdas,userPicks:picks,packTables:tables,userPacks:packs};
+}
+async function updateAttendanceEnterAggregate(db:D1Database,sheetId:string,token:string,index:OperationalIndex,e:EventRow):Promise<void>{
+  const enter=await db.prepare("SELECT event_id FROM events WHERE entity_id=?1 AND event_type='ATTENDANCE_ENTER' ORDER BY authority_seq,event_id LIMIT 1").bind(e.entity_id).first<{event_id:string}>();
+  if(!enter?.event_id)throw new Error(`RA_ENTER_EVENT_MISSING:${e.entity_id}`);const row=index.raEventRows.get(enter.event_id);if(!row)throw new Error(`RA_ENTER_ROW_MISSING:${enter.event_id}`);
+  const u=await attendanceUsageThrough(db,e.entity_id,e.authority_seq),positions=u.workChoices.map(workLabel).join(", ")||"Không";
+  await putValues(sheetId,token,"RA - VÀO TRONG CA",`K${row}:O${row}`,[[positions,u.pdaSerials.join(", "),u.userPicks.join(", "),u.packTables.join(", "),u.userPacks.join(", ")]]);
+}
+
 function attendanceResourceSnapshot(e:EventRow,s:AttendanceOperationalRow):{workChoice:string;pdaSerial:string;userPick:string;packTable:string;userPack:string}{
-  const p=payload(e),after=pobj(p,"after");
-  const value=(key:string,fallback:string|null):string=>ptext(after,key)||ptext(p,key)||fallback||"";
-  return{
-    workChoice:value("work_choice",s.work_choice),
-    pdaSerial:value("pda_serial",s.pda_serial),
-    userPick:value("user_pick",s.user_pick),
-    packTable:value("pack_table",s.pack_table),
-    userPack:value("user_pack",s.user_pack),
-  };
+  const p=payload(e),after=pobj(p,"after");const value=(key:string,fallback:string|null):string=>ptext(after,key)||ptext(p,key)||fallback||"";
+  return{workChoice:value("work_choice",s.work_choice),pdaSerial:value("pda_serial",s.pda_serial),userPick:value("user_pick",s.user_pick),packTable:value("pack_table",s.pack_table),userPack:value("user_pack",s.user_pack)};
 }
 
 async function replicateAttendanceEvent(db:D1Database,sheetId:string,token:string,index:OperationalIndex,e:EventRow):Promise<void>{
   const s=await attendanceOperational(db,e.entity_id);await replicateUserAssignments(db,sheetId,token,index,e,s);
-  if(e.event_type==="RESOURCE_CHANGE"){await appendHistory(sheetId,token,index,e,s.session_id,s.mnv,s.full_name,s.shift,"Cập nhật công việc / tài nguyên",resourceChangeDetail(e));return;}
+  if(e.event_type==="RESOURCE_CHANGE"){
+    const p=payload(e),kind=ptext(p,"mutation_kind").toUpperCase(),label=kind==="ADD"?"Thêm công việc / User":kind==="DELETE"?"Xóa công việc / tài nguyên":"Sửa công việc / tài nguyên";
+    await appendHistory(sheetId,token,index,e,s.session_id,s.mnv,s.full_name,s.shift,label,resourceChangeDetail(e));await updateAttendanceEnterAggregate(db,sheetId,token,index,e);return;
+  }
   if(index.raEvents.has(e.event_id))return;
-  const r=attendanceResourceSnapshot(e,s);
-  const enter=e.event_type==="ATTENDANCE_ENTER",action=enter?"VÀO":"RA",appAction=enter?"ENTER":"EXIT";
-  await appendValues(sheetId,token,"RA - VÀO TRONG CA","A:V",[[visibleDate(e.business_date),s.shift,s.mnv,s.full_name,s.phone,s.supplier,s.department,s.site,s.warehouse,s.main_position,workLabel(r.workChoice),r.pdaSerial,r.userPick,r.packTable,r.userPack,action,"",e.actor_id,visibleDateTime(e.occurred_at),e.event_id,appAction,e.authority_seq]]);index.raEvents.add(e.event_id);
+  const r=attendanceResourceSnapshot(e,s),enter=e.event_type==="ATTENDANCE_ENTER",action=enter?"VÀO":"RA",appAction=enter?"ENTER":"EXIT";
+  const resourceCells=enter?[r.pdaSerial,r.userPick,r.packTable,r.userPack]:["","","",""];
+  const updated=await appendValues(sheetId,token,"RA - VÀO TRONG CA","A:V",[[visibleDate(e.business_date),s.shift,s.mnv,s.full_name,s.phone,s.supplier,s.department,s.site,s.warehouse,s.main_position,workLabel(r.workChoice),...resourceCells,action,"",e.actor_id,visibleDateTime(e.occurred_at),e.event_id,appAction,e.authority_seq]]);index.raEvents.add(e.event_id);const row=appendRowNumber(updated);if(row!==null)index.raEventRows.set(e.event_id,row);
+  if(enter)await updateAttendanceEnterAggregate(db,sheetId,token,index,e);
   await appendHistory(sheetId,token,index,e,s.session_id,s.mnv,s.full_name,s.shift,enter?"Vào ca":"Ra ca",`${enter?"Bắt đầu":"Kết thúc"} phiên • Vị trí chính: ${s.main_position||"—"}`);
 }
 
