@@ -1,0 +1,152 @@
+name: One-off Service S61 Owner Session Resource Fix
+
+on:
+  push:
+    branches:
+      - agent/service-s61-owner-session-resource-fixes-20260823
+    paths:
+      - '.github/workflows/_oneoff_service_s61_owner_session_resource_fix.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch-check-commit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/service-s61-owner-session-resource-fixes-20260823
+          fetch-depth: 0
+
+      - name: Apply exact S61 Service patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          # 1) Session work update: allow shift edit while keeping resource mutation semantics.
+          p=Path('service/src/session_hotfix.ts');s=p.read_text()
+          old='''  const pda=own(b,"pda_serial")?text(b.pda_serial):text(s.pda_serial),pick=own(b,"user_pick")?text(b.user_pick):text(s.user_pick),table=own(b,"pack_table")?text(b.pack_table):text(s.pack_table),pack=own(b,"user_pack")?text(b.user_pack):text(s.user_pack);'''
+          new='''  const shift=own(b,"shift")?text(b.shift,40):s.shift;if(!["Ca 1","Ca HC","Ca 2"].includes(shift))return apiError("SHIFT_INVALID","VALIDATION",400);
+          const pda=own(b,"pda_serial")?text(b.pda_serial):text(s.pda_serial),pick=own(b,"user_pick")?text(b.user_pick):text(s.user_pick),table=own(b,"pack_table")?text(b.pack_table):text(s.pack_table),pack=own(b,"user_pack")?text(b.user_pack):text(s.user_pack);'''
+          if old not in s: raise SystemExit('session resource anchor missing')
+          s=s.replace(old,new,1)
+
+          old='''{mnv:s.mnv,shift:s.shift,work_choice:choice,pda_serial:pda,user_pick:pick,pack_table:table,user_pack:pack,pda_enter_status:pdaStatus||"",resource_note:note,duplicate_user:duplicateUser,mutation_kind:mutationKind,audit_note:auditNote,before:{work_choice:s.work_choice,pda_serial:s.pda_serial,user_pick:s.user_pick,pack_table:s.pack_table,user_pack:s.user_pack,pda_enter_status:s.pda_enter_status},after:{work_choice:choice,pda_serial:pda||null,user_pick:pick||null,pack_table:table||null,user_pack:pack||null,pda_enter_status:pdaStatus}}'''
+          new='''{mnv:s.mnv,shift,work_choice:choice,pda_serial:pda,user_pick:pick,pack_table:table,user_pack:pack,pda_enter_status:pdaStatus||"",resource_note:note,duplicate_user:duplicateUser,mutation_kind:mutationKind,audit_note:auditNote,before:{shift:s.shift,work_choice:s.work_choice,pda_serial:s.pda_serial,user_pick:s.user_pick,pack_table:s.pack_table,user_pack:s.user_pack,pda_enter_status:s.pda_enter_status},after:{shift,work_choice:choice,pda_serial:pda||null,user_pick:pick||null,pack_table:table||null,user_pack:pack||null,pda_enter_status:pdaStatus}}'''
+          if old not in s: raise SystemExit('session payload anchor missing')
+          s=s.replace(old,new,1)
+
+          old='''stmts.push(env.DB.prepare("UPDATE attendance_sessions SET work_choice=?1,pda_serial=?2,user_pick=?3,pack_table=?4,user_pack=?5,pda_enter_status=?6,pda_exit_status=NULL,resource_note=?7,version=?8,updated_at=?9 WHERE session_id=?10 AND version=?11 AND state='ACTIVE'").bind(choice,pda||null,pick||null,table||null,pack||null,pdaStatus,note,newVersion,e.committed_at,s.session_id,s.version));'''
+          new='''stmts.push(env.DB.prepare("UPDATE attendance_sessions SET shift=?1,work_choice=?2,pda_serial=?3,user_pick=?4,pack_table=?5,user_pack=?6,pda_enter_status=?7,pda_exit_status=NULL,resource_note=?8,version=?9,updated_at=?10 WHERE session_id=?11 AND version=?12 AND state='ACTIVE'").bind(shift,choice,pda||null,pick||null,table||null,pack||null,pdaStatus,note,newVersion,e.committed_at,s.session_id,s.version));'''
+          if old not in s: raise SystemExit('session update SQL anchor missing')
+          s=s.replace(old,new,1)
+
+          # 2) Special projection can project an enter deletion even after canonical session row is removed.
+          old='''async function projectSpecial(env:Env,e:EventRow):Promise<void>{const p=JSON.parse(e.payload_json) as Record<string,unknown>,s=await byId(env.DB,e.entity_id);if(!s)return;const t=await googleToken(env),rows=await raRows(env,t),date=visibleDate(e.business_date),wanted=e.event_type==="ATTENDANCE_EXIT_DELETED"?"EXIT":String(p.field)==="enter_at"?"ENTER":"EXIT";let row=-1;for(let i=rows.length-1;i>=0;i--){const r=rows[i]??[];if(String(r[0]??"")===date&&String(r[2]??"")===s.mnv&&String(r[20]??"").toUpperCase()===wanted){row=i+2;break;}}if(e.event_type==="ATTENDANCE_TIME_CORRECTED"){if(row>0)await updateRaTime(env,t,row,String(p.after_value||""));await appendHistory(env,t,e,s,"Sửa giờ "+(String(p.field)==="enter_at"?"vào ca":"ra ca"),`${visibleDateTime(String(p.before_value||""))} → ${visibleDateTime(String(p.after_value||""))} • Lý do: ${String(p.reason||"")}`);}else if(e.event_type==="ATTENDANCE_EXIT_DELETED"){if(row>0)await deleteRaRow(env,t,row);await appendHistory(env,t,e,s,"Xóa ghi nhận ra ca",`Đã xóa mốc ra ca ${visibleDateTime(String(p.before_exit_at||""))} khỏi dữ liệu RA/VÀO. Lý do: ${String(p.reason||"")}`);}}'''
+          new='''async function projectSpecial(env:Env,e:EventRow):Promise<void>{
+            const p=JSON.parse(e.payload_json) as Record<string,unknown>,live=await byId(env.DB,e.entity_id),rawBefore=p.before,bb=rawBefore&&typeof rawBefore==="object"&&!Array.isArray(rawBefore)?rawBefore as Record<string,unknown>:{};
+            const s=live??({session_id:e.entity_id,mnv:text(p.mnv)||text(bb.mnv),business_date:e.business_date,shift:text(p.shift)||text(bb.shift),work_choice:text(bb.work_choice)||"KHONG",state:"DELETED",pda_serial:null,user_pick:null,pack_table:null,user_pack:null,pda_enter_status:null,pda_exit_status:null,resource_note:"",enter_at:text(bb.enter_at)||null,exit_at:text(bb.exit_at)||null,entered_by:null,exited_by:null,version:e.new_version} as SessionRow);if(!s.mnv)return;
+            const t=await googleToken(env),rows=await raRows(env,t),date=visibleDate(e.business_date),wanted=e.event_type==="ATTENDANCE_EXIT_DELETED"?"EXIT":e.event_type==="ATTENDANCE_ENTER_DELETED"?"ENTER":String(p.field)==="enter_at"?"ENTER":"EXIT";let row=-1;
+            for(let i=rows.length-1;i>=0;i--){const r=rows[i]??[];if(String(r[0]??"")===date&&String(r[2]??"")===s.mnv&&String(r[20]??"").toUpperCase()===wanted){row=i+2;break;}}
+            if(e.event_type==="ATTENDANCE_TIME_CORRECTED"){if(row>0)await updateRaTime(env,t,row,String(p.after_value||""));await appendHistory(env,t,e,s,"Sửa giờ "+(String(p.field)==="enter_at"?"vào ca":"ra ca"),`${visibleDateTime(String(p.before_value||""))} → ${visibleDateTime(String(p.after_value||""))} • Lý do: ${String(p.reason||"")}`);}
+            else if(e.event_type==="ATTENDANCE_EXIT_DELETED"){if(row>0)await deleteRaRow(env,t,row);await appendHistory(env,t,e,s,"Xóa ghi nhận ra ca",`Đã xóa mốc ra ca ${visibleDateTime(String(p.before_exit_at||""))} khỏi dữ liệu RA/VÀO. Lý do: ${String(p.reason||"")}`);}
+            else if(e.event_type==="ATTENDANCE_ENTER_DELETED"){if(row>0)await deleteRaRow(env,t,row);await appendHistory(env,t,e,s,"Xóa phiên vào ca",`Đã xóa phiên vào ca ${visibleDateTime(String(p.before_enter_at||""))}. Lý do: ${String(p.reason||"")}`);}
+          }'''
+          if old not in s: raise SystemExit('projectSpecial anchor missing')
+          s=s.replace(old,new,1)
+
+          insert_anchor='''export async function flushSessionSpecialProjections(env:Env):Promise<number>{'''
+          if insert_anchor not in s: raise SystemExit('flush special anchor missing')
+          delete_fn='''export async function attendanceEnterDelete(request:Request,env:Env):Promise<Response>{
+            const auth=await authenticate(env.DB,env,request);if(!auth)return apiError("UNAUTHORIZED","AUTH",401);
+            const b=await readJsonBody<Record<string,unknown>>(request,64_000),id=text(b.session_id,220),reason=text(b.reason,500),idem=text(b.idempotency_key,220);if(!id||reason.length<3||!idem)return apiError("ENTER_DELETE_FIELDS_REQUIRED","VALIDATION",400);
+            const prior=await existing(env,idem);if(prior){try{await projectSpecial(env,prior);}catch{}return json({ok:true,duplicate:true,event:prior,deleted:true,session:null});}
+            const s=await byId(env.DB,id);if(!s||s.state!=="ACTIVE"||!s.enter_at)return apiError("ACTIVE_SESSION_REQUIRED","CONFLICT",409);
+            if(text(s.work_choice).toUpperCase()!=="KHONG"||text(s.pda_serial)||text(s.user_pick)||text(s.pack_table)||text(s.user_pack))return apiError("SESSION_HAS_WORK_RESOURCES","CONFLICT",409);
+            const open=(await env.DB.prepare("SELECT COUNT(*) n FROM labor_sessions WHERE mnv=?1 AND business_date=?2 AND state='OPEN'").bind(s.mnv,s.business_date).first<{n:number}>)?.n??0;if(open>0)return apiError("OPEN_LABOR_BLOCKS_DELETE","CONFLICT",409);
+            const newVersion=s.version+1;let e:EventRow;try{const a=await currentAuthority(env.DB);e=await sessionEvent(env,auth,s,"ATTENDANCE_ENTER_DELETED",{mnv:s.mnv,shift:s.shift,before_enter_at:s.enter_at,reason,before:{mnv:s.mnv,shift:s.shift,work_choice:s.work_choice,pda_serial:s.pda_serial,user_pick:s.user_pick,pack_table:s.pack_table,user_pack:s.user_pack,enter_at:s.enter_at,exit_at:s.exit_at,state:s.state}},idem,newVersion);const stmts=eventStmts(env.DB,e,a.authority_seq,false);stmts.push(env.DB.prepare("DELETE FROM resource_leases WHERE session_id=?1").bind(s.session_id));stmts.push(env.DB.prepare("DELETE FROM attendance_sessions WHERE session_id=?1 AND version=?2 AND state='ACTIVE'").bind(s.session_id,s.version));await env.DB.batch(stmts);}catch(x){return apiError("ENTER_DELETE_CONFLICT","CONFLICT",409,true,undefined,String(x).slice(0,180));}
+            await invalidate(env,e!);let pending=false;try{await projectSpecial(env,e!);}catch{pending=true;}return json({ok:true,event:e!,deleted:true,session:null,projection_pending:pending},201);
+          }
+
+          '''
+          s=s.replace(insert_anchor,delete_fn+insert_anchor,1)
+          s=s.replace('''event_type IN ('ATTENDANCE_TIME_CORRECTED','ATTENDANCE_EXIT_DELETED')''','''event_type IN ('ATTENDANCE_TIME_CORRECTED','ATTENDANCE_EXIT_DELETED','ATTENDANCE_ENTER_DELETED')''',1)
+          p.write_text(s)
+
+          # 3) Route the new delete-enter endpoint.
+          p=Path('service/src/entry_product.ts');s=p.read_text()
+          old='''import { attendanceExitDelete, attendanceTimeCorrect, sessionExitGuarded, sessionWorkUpdate } from "./session_hotfix";'''
+          new='''import { attendanceEnterDelete, attendanceExitDelete, attendanceTimeCorrect, sessionExitGuarded, sessionWorkUpdate } from "./session_hotfix";'''
+          if old not in s: raise SystemExit('entry import anchor missing')
+          s=s.replace(old,new,1)
+          anchor='''    if(u.pathname==="/v1/session/delete-exit"&&method==="POST"){
+      const response=await attendanceExitDelete(request,env);if(shouldKickAfterResponse(method,response))kickReplication(ctx,env,u.pathname);return response;
+    }'''
+          repl=anchor+'''\n    if(u.pathname==="/v1/session/delete-enter"&&method==="POST"){
+      const response=await attendanceEnterDelete(request,env);if(shouldKickAfterResponse(method,response))kickReplication(ctx,env,u.pathname);return response;
+    }'''
+          if anchor not in s: raise SystemExit('entry route anchor missing')
+          s=s.replace(anchor,repl,1);p.write_text(s)
+
+          # 4) Keep Google VÀO and User Info shift in sync when session shift is edited.
+          p=Path('service/src/replication.ts');s=p.read_text()
+          old='''const p=payload(e),before=pobj(p,"before"),after=pobj(p,"after"),labels:Record<string,string>={work_choice:"Vị trí",pda_serial:"PDA",user_pick:"User Pick",pack_table:"Bàn Pack",user_pack:"User Pack"},parts:string[]=[];'''
+          new='''const p=payload(e),before=pobj(p,"before"),after=pobj(p,"after"),labels:Record<string,string>={shift:"Ca",work_choice:"Vị trí",pda_serial:"PDA",user_pick:"User Pick",pack_table:"Bàn Pack",user_pack:"User Pack"},parts:string[]=[];'''
+          if old not in s: raise SystemExit('resource detail labels anchor missing')
+          s=s.replace(old,new,1)
+          old='''  const u=await attendanceUsageThrough(db,e.entity_id,e.authority_seq),positions=u.workChoices.map(workLabel).join(", ")||"Không";
+  await putValues(sheetId,token,"RA - VÀO TRONG CA",`K${row}:O${row}`,[[positions,u.pdaSerials.join(", "),u.userPicks.join(", "),u.packTables.join(", "),u.userPacks.join(", ")]]);'''
+          new='''  const u=await attendanceUsageThrough(db,e.entity_id,e.authority_seq),positions=u.workChoices.map(workLabel).join(", ")||"Không",current=await db.prepare("SELECT shift,mnv,business_date FROM attendance_sessions WHERE session_id=?1").bind(e.entity_id).first<{shift:string;mnv:string;business_date:string}>();
+  if(current?.shift){await putValues(sheetId,token,"RA - VÀO TRONG CA",`B${row}:B${row}`,[[current.shift]]);const userRows=await getValues(sheetId,token,"THÔNG TIN USER CỦA NLĐ","A2:C");const date=visibleDate(current.business_date);for(let i=0;i<userRows.length;i++){const r=userRows[i]??[];if(String(r[0]??"")===date&&String(r[2]??"")===current.mnv)await putValues(sheetId,token,"THÔNG TIN USER CỦA NLĐ",`B${i+2}:B${i+2}`,[[current.shift]]);}}
+  await putValues(sheetId,token,"RA - VÀO TRONG CA",`K${row}:O${row}`,[[positions,u.pdaSerials.join(", "),u.userPicks.join(", "),u.packTables.join(", "),u.userPacks.join(", ")]]);'''
+          if old not in s: raise SystemExit('aggregate update anchor missing')
+          s=s.replace(old,new,1);p.write_text(s)
+          PY
+
+      - name: Static S61 contract guards
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'const shift=own(b,"shift")' service/src/session_hotfix.ts
+          grep -q 'ATTENDANCE_ENTER_DELETED' service/src/session_hotfix.ts
+          grep -q 'attendanceEnterDelete' service/src/entry_product.ts
+          grep -q '/v1/session/delete-enter' service/src/entry_product.ts
+          grep -q 'labels:Record<string,string>={shift:"Ca"' service/src/replication.ts
+          grep -q 'THÔNG TIN USER CỦA NLĐ",`B${i+2}:B${i+2}`' service/src/replication.ts
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: service/package-lock.json
+
+      - name: Typecheck Service
+        working-directory: service
+        run: |
+          set -euo pipefail
+          npm ci
+          npm run typecheck
+
+      - name: Wrangler dry-run bundle only
+        working-directory: service
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf ../ops/service-prod-bundle-s61-owner-session-resource
+          npx wrangler deploy src/entry_product.ts --dry-run --name pickpack --compatibility-date 2025-08-01 --compatibility-flags nodejs_compat --outdir ../ops/service-prod-bundle-s61-owner-session-resource
+          sha256sum ../ops/service-prod-bundle-s61-owner-session-resource/* | tee ../ops/service-prod-bundle-s61-owner-session-resource/SHA256SUMS.txt
+
+      - name: Commit validated S61 source and bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm .github/workflows/_oneoff_service_s61_owner_session_resource_fix.yml
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add service/src/session_hotfix.ts service/src/entry_product.ts service/src/replication.ts ops/service-prod-bundle-s61-owner-session-resource .github/workflows/_oneoff_service_s61_owner_session_resource_fix.yml
+          git commit -m 'feat(service): owner session edit delete and shift consistency'
+          git push origin HEAD:agent/service-s61-owner-session-resource-fixes-20260823
