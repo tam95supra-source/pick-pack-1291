@@ -9,7 +9,7 @@ on:
       - 'ops/service-prod-bundle-trigger.txt'
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: service-prod-bundle
@@ -21,6 +21,8 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -44,13 +46,25 @@ jobs:
             --name pickpack \
             --compatibility-date 2026-08-08 \
             --compatibility-flag nodejs_compat
-          js=$(find ../ops/service-prod-bundle -maxdepth 1 -type f \( -name '*.js' -o -name '*.mjs' \) | head -n 1)
+          js=$(find ../ops/service-prod-bundle -maxdepth 1 -type f \( -name '*.js' -o -name '*.mjs' \) ! -name 'entry_production.js' | head -n 1)
           test -n "$js"
           cp "$js" ../ops/service-prod-bundle/entry_production.js
           sha256sum ../ops/service-prod-bundle/entry_production.js | tee ../ops/service-prod-bundle/entry_production.sha256
           wc -c ../ops/service-prod-bundle/entry_production.js | tee ../ops/service-prod-bundle/entry_production.size
           grep -q 'RESET_FENCE_REQUIRED' ../ops/service-prod-bundle/entry_production.js
           grep -q 'm2_operational_reset_epoch' ../ops/service-prod-bundle/entry_production.js
+      - name: Persist bundle receipt on fix branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf 'source_sha=%s\nchecked_at=%s\nproduction_deploy=NOT_RUN\n' "$GITHUB_SHA" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > ops/service-prod-bundle/receipt.txt
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add ops/service-prod-bundle/entry_production.js ops/service-prod-bundle/entry_production.sha256 ops/service-prod-bundle/entry_production.size ops/service-prod-bundle/receipt.txt
+          if ! git diff --cached --quiet; then
+            git commit -m 'build(service): persist verified Cloudflare production bundle'
+            git push origin HEAD:agent/service-prod-replication-fix-20260823
+          fi
       - uses: actions/upload-artifact@v4
         with:
           name: service-production-bundle
@@ -58,5 +72,6 @@ jobs:
             ops/service-prod-bundle/entry_production.js
             ops/service-prod-bundle/entry_production.sha256
             ops/service-prod-bundle/entry_production.size
+            ops/service-prod-bundle/receipt.txt
           if-no-files-found: error
           retention-days: 7
