@@ -28,3 +28,4 @@ jobs:
           s=s.replace(old,new,1)
           p.write_text(s)
           PY
+      - run: echo final-gate-trigger
