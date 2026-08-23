@@ -1,0 +1,101 @@
+name: Beta60 Owner Operations PR Gate
+
+on:
+  pull_request:
+    branches:
+      - ci/beta60-owner-gate-base-20260823
+
+permissions:
+  contents: write
+  pull-requests: read
+
+jobs:
+  apply-build-commit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 22
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+
+      - name: Apply exact Beta60 patch from head recipe
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import textwrap
+          wf=Path('.github/workflows/_oneoff_beta60_owner_ops_resource_fix.yml')
+          if not wf.exists(): raise SystemExit('Beta60 patch recipe missing on head')
+          t=wf.read_text();marker="          python3 - <<'PY'\n";start=t.index(marker)+len(marker);end=t.index("\n          PY",start)
+          exec(compile(textwrap.dedent(t[start:end]),str(wf),'exec'),{})
+          PY
+
+      - name: Beta60 static contract guards
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'versionCode = 66' app/build.gradle.kts
+          grep -q 'versionName = "0.4.2-beta.60"' app/build.gradle.kts
+          grep -q 'S61_BETA60_OWNER_OPS_RESOURCE_FIX' app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt
+          grep -q '"$shift – ${entered.size}/${exited.size}"' app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt
+          grep -q '"Công việc trong ca" to currentWork' app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt
+          grep -q 'Làm theo vị trí chính & Pick & Pack' app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt
+          grep -q 'smallButton("Sửa giờ vào – ra ca"' app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt
+          grep -q 'input("Nhập mật khẩu thực tế",true)' app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt
+          grep -q 'attendance_session_delete' app/src/main/java/vn/pickpack1291/app/beta/BetaApiClient.kt
+          grep -q 'PDA lỗi quét / không đọc mã' app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt
+          grep -q 'Đi công nhật' app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt
+          ! grep -q 'Logic thử nghiệm:' app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt
+          grep -q 'leased_by_mnv' app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt
+          grep -q 'preserve_work_choice' app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt
+          grep -q 'metadata_json' app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.4.1'
+
+      - name: Resolve Android SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -n "${ANDROID_HOME:-}" && -f "$ANDROID_HOME/platforms/android-36/android.jar" && -x "$ANDROID_HOME/build-tools/36.0.0/aapt" ]]; then
+            echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> "$GITHUB_ENV"
+            exit 0
+          fi
+          SDK="$RUNNER_TEMP/android-sdk";ZIP="$RUNNER_TEMP/commandlinetools.zip"
+          curl -fsSL https://dl.google.com/android/repository/commandlinetools-linux-15859902_latest.zip -o "$ZIP"
+          echo "4e4c464f145a7512b57d088ac6c278c03c9eea610886b35a5e0804e74eedf583  $ZIP" | sha256sum -c -
+          mkdir -p "$SDK/cmdline-tools";unzip -q "$ZIP" -d "$RUNNER_TEMP/android-cmdline";mv "$RUNNER_TEMP/android-cmdline/cmdline-tools" "$SDK/cmdline-tools/latest"
+          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV";echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
+          yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
+          "$SDK/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-36' 'build-tools;36.0.0'
+
+      - name: Compile Beta60 and Stable debug validation
+        shell: bash
+        run: |
+          set -euo pipefail
+          gradle --no-daemon --build-cache --parallel :app:assembleBetaDebug :app:assembleStableDebug
+
+      - name: Commit validated Beta60 source to head
+        shell: bash
+        env:
+          TARGET_BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          set -euo pipefail
+          rm -f .github/workflows/_oneoff_beta60_owner_ops_resource_fix.yml
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add app/build.gradle.kts app/src/main/java/vn/pickpack1291/app/beta/BetaApiClient.kt app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt .github/workflows/_oneoff_beta60_owner_ops_resource_fix.yml
+          if ! git diff --cached --quiet; then
+            git commit -m 'feat(beta60): owner operations resource workflow'
+            git push origin HEAD:"$TARGET_BRANCH"
+          fi
+
+      - name: Result
+        run: echo 'PASS - Beta60 owner operations/resource source compiled.'
