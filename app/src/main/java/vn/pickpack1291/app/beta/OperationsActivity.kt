@@ -1161,7 +1161,21 @@ class OperationsActivity : Activity() {
             body.addView(gap(7));body.addView(primary("CHỌN CHẾ ĐỘ THỬ NGHIỆM",orange){showServiceFaultModeDialog()},matchWrap())
         }
         body.addView(gap(14))
-        body.addView(primary("ĐĂNG XUẤT",red){api.call("logout"){runOnUiThread{api.clearSession();startActivity(android.content.Intent(this,FullBetaActivity::class.java).apply{addFlags(android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP or android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK)});finish();overridePendingTransition(0,0)}}},matchWrap())
+        body.addView(primary("ĐĂNG XUẤT",red){
+            AlertDialog.Builder(this)
+                .setTitle("Xác nhận đăng xuất")
+                .setMessage("Bạn có chắc muốn đăng xuất khỏi ứng dụng?")
+                .setNegativeButton("Hủy",null)
+                .setPositiveButton("ĐĂNG XUẤT"){_,_->
+                    api.call("logout"){runOnUiThread{
+                        api.clearSession()
+                        startActivity(android.content.Intent(this,FullBetaActivity::class.java).apply{addFlags(android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP or android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK)})
+                        finish()
+                        overridePendingTransition(0,0)
+                    }}
+                }
+                .show()
+        },matchWrap())
         attach(root,body)
     }
     private fun showServiceFaultModeDialog(){
