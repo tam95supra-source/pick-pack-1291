@@ -1,0 +1,52 @@
+name: GAS Beta57 PR Live Probe
+
+on:
+  pull_request:
+    branches:
+      - agent/beta57-reset-fence-20260823
+    paths:
+      - 'diag/GAS_OTA_BETA57_PR_PROBE_TRIGGER_20260823.txt'
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe live GAS OTA contract
+        shell: bash
+        env:
+          GAS_URL: https://script.google.com/macros/s/AKfycbzbEoGfbNg6s2HnP-gUpcBJ7mMIkVBtYuQKMndb9seDV2c55lQwSUO1GZ-LtQ2CxMCauA/exec
+          EXPECTED_SHA: ae060aaf96d47388d699577e6b1cd003229b6d7f35feb6da12f5b339cb1d2fcc
+          EXPECTED_URL: https://github.com/tam95supra-source/pick-pack-1291/releases/download/v0.4.2-beta.57-publicbeta/pick-pack-1291-public-beta-0.4.2-beta.57.apk
+        run: |
+          set -euo pipefail
+          post() {
+            local payload="$1" out="$2"
+            local code
+            code=$(curl -sSL --connect-timeout 15 --max-time 60 -o "$out" -w '%{http_code}' -H 'content-type: application/json' "$GAS_URL" -d "$payload")
+            test "$code" = "200"
+            cat "$out"
+            echo
+          }
+          post '{"action":"update_check","channel":"BETA","current_version":"0.4.2-beta.55"}' /tmp/from55.json
+          post '{"action":"update_check","channel":"BETA","current_version":"0.4.2-beta.57"}' /tmp/from57.json
+          post '{"action":"update_check","channel":"STABLE","current_version":"0.1.0-stable"}' /tmp/stable.json
+          python3 - <<'PY'
+          import json, os
+          a=json.load(open('/tmp/from55.json'))
+          b=json.load(open('/tmp/from57.json'))
+          s=json.load(open('/tmp/stable.json'))
+          assert a.get('ok') is True and a.get('channel')=='BETA' and a.get('available') is True, a
+          assert a.get('version_name')=='0.4.2-beta.57' and int(a.get('version_code') or 0)==63, a
+          assert str(a.get('sha256') or '').lower()==os.environ['EXPECTED_SHA'], a
+          assert a.get('apk_url')==os.environ['EXPECTED_URL'], a
+          assert int(a.get('size') or 0)==13027947 and a.get('mandatory') is False, a
+          assert b.get('ok') is True and b.get('channel')=='BETA' and b.get('available') is False, b
+          assert b.get('version_name')=='0.4.2-beta.57' and int(b.get('version_code') or 0)==63, b
+          assert s.get('ok') is True and s.get('channel')=='STABLE' and s.get('available') is False and s.get('reason')=='NO_RELEASE', s
+          print('GAS_OTA_BETA55_TO_BETA57=PASS')
+          print('GAS_OTA_BETA57_NO_UPDATE=PASS')
+          print('GAS_OTA_STABLE_LOCK=PASS')
+          PY
