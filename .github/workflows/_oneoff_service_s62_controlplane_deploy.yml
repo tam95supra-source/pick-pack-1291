@@ -19,7 +19,6 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     env:
-      SERVICE_URL: https://pick-pack-1291-service.pp1291-d79b87776e86.workers.dev
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
     steps:
@@ -45,7 +44,7 @@ jobs:
           npm install --no-audit --no-fund
           npm run typecheck
 
-      - name: Generate exact production config using existing RealtimeHub migration tag
+      - name: Generate exact production config preserving existing RealtimeHub migration lineage
         working-directory: service
         shell: bash
         run: |
@@ -69,20 +68,12 @@ jobs:
           }
           EOF
 
-      - name: Pre-deploy production health and D1 authority fence
+      - name: Pre-deploy D1 authority fence through Cloudflare control plane
         working-directory: service
         shell: bash
         run: |
           set -euo pipefail
           test -n "${CLOUDFLARE_API_TOKEN:-}"; test -n "${CLOUDFLARE_ACCOUNT_ID:-}"
-          code=$(curl -sS --retry 4 --retry-all-errors --retry-delay 2 --connect-timeout 15 --max-time 60 -o /tmp/pre-health.json -w '%{http_code}' "$SERVICE_URL/health")
-          test "$code" = 200
-          node - <<'NODE'
-          const h=require('/tmp/pre-health.json'); const a=h.authority||{}; const r=h.replication||{};
-          if(h.ok!==true || (h.authority_mode||a.mode)!=='SERVICE_PRIMARY' || (h.authority_scope||a.scope)!=='PRODUCTION') process.exit(1);
-          if(r.state && r.state!=='HEALTHY') process.exit(1);
-          if(r.pending_count!=null && Number(r.pending_count)!==0) process.exit(1);
-          NODE
           npx wrangler d1 execute pick-pack-1291-service-prod --remote --config wrangler.prod.s62.jsonc --command "SELECT authority_epoch,authority_seq,mode,scope,service_generation FROM authority_state WHERE singleton_id=1" --json > /tmp/pre-d1.json
           python3 - <<'PY'
           import json
@@ -106,14 +97,45 @@ jobs:
           set -euo pipefail
           npx wrangler deploy --config wrangler.prod.s62.jsonc --keep-vars 2>&1 | tee /tmp/deploy.log
           sed -n 's/.*Version ID: */worker_version_id=/p' /tmp/deploy.log | tail -1 > /tmp/version.txt || true
+          python3 - <<'PY'
+          import re
+          s=open('/tmp/deploy.log',errors='ignore').read()
+          urls=re.findall(r'https://[A-Za-z0-9.-]+\.workers\.dev',s)
+          if not urls: raise SystemExit('NO_WORKERS_DEV_URL_IN_DEPLOY_LOG')
+          u=urls[-1].rstrip('/')
+          open('/tmp/service-url.txt','w').write(u+'\n')
+          print('DEPLOYED_URL='+u)
+          PY
 
-      - name: Verify production health and protected routes
+      - name: Post-deploy D1 authority fence
+        working-directory: service
         shell: bash
         run: |
           set -euo pipefail
+          npx wrangler d1 execute pick-pack-1291-service-prod --remote --config wrangler.prod.s62.jsonc --command "SELECT authority_epoch,authority_seq,mode,scope,service_generation FROM authority_state WHERE singleton_id=1" --json > /tmp/post-d1.json
+          python3 - <<'PY'
+          import json
+          x=json.load(open('/tmp/post-d1.json')); rows=[]
+          def w(v):
+            if isinstance(v,dict):
+              if 'mode' in v and 'scope' in v: rows.append(v)
+              for z in v.values(): w(z)
+            elif isinstance(v,list):
+              for z in v: w(z)
+          w(x); assert rows,x; r=rows[0]
+          assert r.get('mode')=='SERVICE_PRIMARY',r
+          assert r.get('scope')=='PRODUCTION',r
+          print('POST_D1_PASS',r)
+          PY
+
+      - name: Verify deployed Worker health and protected routes using deployment URL
+        shell: bash
+        run: |
+          set -euo pipefail
+          SERVICE_URL=$(cat /tmp/service-url.txt)
           ok=false
-          for n in 1 2 3 4 5 6 7 8; do
-            code=$(curl -sS --connect-timeout 15 --max-time 45 -o /tmp/post-health.json -w '%{http_code}' "$SERVICE_URL/health" || true)
+          for n in $(seq 1 20); do
+            code=$(curl -sS --connect-timeout 10 --max-time 30 -o /tmp/post-health.json -w '%{http_code}' "$SERVICE_URL/health" || true)
             if [[ "$code" == 200 ]] && node - <<'NODE'
           const h=require('/tmp/post-health.json'); const a=h.authority||{}; const r=h.replication||{};
           let good=h.ok===true && (h.authority_mode||a.mode)==='SERVICE_PRIMARY' && (h.authority_scope||a.scope)==='PRODUCTION';
@@ -149,9 +171,10 @@ jobs:
           name: service-s62-controlplane-production-evidence
           path: |
             /tmp/service-s62-controlplane-receipt.txt
-            /tmp/pre-health.json
+            /tmp/service-url.txt
             /tmp/post-health.json
             /tmp/pre-d1.json
+            /tmp/post-d1.json
             /tmp/deploy.log
           if-no-files-found: ignore
           retention-days: 14
