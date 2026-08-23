@@ -1,0 +1,193 @@
+name: Beta61 Live GAS OTA Deploy
+
+on:
+  push:
+    branches:
+      - agent/beta61-owner-ui-pda-resource-fixes-20260823
+    paths:
+      - '.github/workflows/beta61-gas-ota-deploy.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: gas-live-deploy
+  cancel-in-progress: false
+
+env:
+  TARGET_VERSION: 0.4.2-beta.61
+  TARGET_CODE: '67'
+  TARGET_SHA256: 27116074689304c8a9b825fa4efa4308a32182a30802d23e91561e0e699adcda
+  TARGET_SIZE: '13060715'
+  TARGET_APK_URL: https://github.com/tam95supra-source/pick-pack-1291/releases/download/v0.4.2-beta.61-publicbeta/pick-pack-1291-public-beta-0.4.2-beta.61.apk
+  GAS_URL: https://script.google.com/macros/s/AKfycbzbEoGfbNg6s2HnP-gUpcBJ7mMIkVBtYuQKMndb9seDV2c55lQwSUO1GZ-LtQ2CxMCauA/exec
+
+jobs:
+  deploy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      GAS_SCRIPT_ID: ${{ secrets.GAS_SCRIPT_ID }}
+      GAS_DEPLOYMENT_ID: ${{ secrets.GAS_DEPLOYMENT_ID }}
+      GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+      GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+      GOOGLE_OAUTH_REFRESH_TOKEN: ${{ secrets.GOOGLE_OAUTH_REFRESH_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Fresh-read patch deploy and verify Beta61 OTA
+        id: deploy
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          OUT=/tmp/beta61-gas-result
+          : > "$OUT"
+          echo "checked_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$OUT"
+          echo "source_sha=$GITHUB_SHA" >> "$OUT"
+          echo "run_id=$GITHUB_RUN_ID" >> "$OUT"
+          echo "target_version=$TARGET_VERSION" >> "$OUT"
+          PHASE=CONFIG
+          trap 'rc=$?; echo "failed_phase=$PHASE" >> "$OUT"; echo "failed_rc=$rc" >> "$OUT"; echo "verdict=FAIL" >> "$OUT"; exit $rc' ERR
+          for v in GAS_SCRIPT_ID GAS_DEPLOYMENT_ID GOOGLE_OAUTH_CLIENT_ID GOOGLE_OAUTH_CLIENT_SECRET GOOGLE_OAUTH_REFRESH_TOKEN; do [[ -n "${!v:-}" ]] || { echo "missing_secret=$v" >> "$OUT"; false; }; done
+          SCRIPT_ID=$(printf '%s' "$GAS_SCRIPT_ID" | tr -d '\r\n\t ')
+          RAW=$(printf '%s' "$GAS_DEPLOYMENT_ID" | tr -d '\r\n\t ')
+          DEPLOYMENT_ID="$RAW"; if [[ "$RAW" =~ /s/([^/]+)/ ]]; then DEPLOYMENT_ID="${BASH_REMATCH[1]}"; fi
+          [[ -n "$SCRIPT_ID" && -n "$DEPLOYMENT_ID" ]]
+          echo "::add-mask::$SCRIPT_ID"; echo "::add-mask::$DEPLOYMENT_ID"
+          echo 'config=PASS' >> "$OUT"
+
+          PHASE=OAUTH
+          HTTP=$(curl -sS -o /tmp/token.json -w '%{http_code}' https://oauth2.googleapis.com/token -H 'Content-Type: application/x-www-form-urlencoded' \
+            --data-urlencode "client_id=$GOOGLE_OAUTH_CLIENT_ID" \
+            --data-urlencode "client_secret=$GOOGLE_OAUTH_CLIENT_SECRET" \
+            --data-urlencode "refresh_token=$GOOGLE_OAUTH_REFRESH_TOKEN" \
+            --data-urlencode 'grant_type=refresh_token')
+          if [[ "$HTTP" != 200 ]]; then
+            echo "oauth_http=$HTTP" >> "$OUT"
+            echo "oauth_error=$(jq -r '.error // "UNKNOWN"' /tmp/token.json | tr '\n' ' ' | cut -c1-120)" >> "$OUT"
+            echo "oauth_error_description=$(jq -r '.error_description // ""' /tmp/token.json | tr '\n' ' ' | cut -c1-240)" >> "$OUT"
+            false
+          fi
+          TOKEN=$(jq -r '.access_token // empty' /tmp/token.json)
+          [[ -n "$TOKEN" ]]; echo "::add-mask::$TOKEN"
+          echo 'oauth=PASS' >> "$OUT"
+
+          PHASE=FRESH_READ
+          curl -fsS -H "Authorization: Bearer $TOKEN" "https://script.googleapis.com/v1/projects/$SCRIPT_ID/deployments/$DEPLOYMENT_ID" > /tmp/dep.json
+          OLD=$(jq -r '.deploymentConfig.versionNumber' /tmp/dep.json)
+          [[ "$OLD" =~ ^[0-9]+$ ]]
+          curl -fsS -H "Authorization: Bearer $TOKEN" "https://script.googleapis.com/v1/projects/$SCRIPT_ID/content?versionNumber=$OLD" > /tmp/live.json
+          python3 - <<'PY'
+          import json
+          j=json.load(open('/tmp/live.json')); fs=j.get('files',[])
+          f=next((x for x in fs if x.get('name')=='PICK_PACK_API' and x.get('type')=='SERVER_JS'),None)
+          assert f, 'PICK_PACK_API_NOT_FOUND'
+          s=f.get('source','')
+          for marker in ["action === 'service_discovery'","function ppUpdateCheck_(body)"]:
+              assert marker in s, 'LIVE_GUARD:'+marker
+          open('/tmp/live-source.js','w').write(s)
+          PY
+          LIVE_VERSION=$(python3 - <<'PY'
+          import re
+          s=open('/tmp/live-source.js').read(); st=s.index('function ppUpdateCheck_(body) {'); en=s.index('\nfunction ppJson_',st); b=s[st:en]
+          m=re.search(r'const version=["\']([^"\']+)',b); print(m.group(1) if m else 'UNKNOWN')
+          PY
+          )
+          echo "old_script_version=$OLD" >> "$OUT"
+          echo "live_ota_version_before=$LIVE_VERSION" >> "$OUT"
+          echo 'fresh_read=PASS' >> "$OUT"
+
+          PHASE=PATCH
+          python3 - <<'PY'
+          import json,os
+          j=json.load(open('/tmp/live.json')); fs=j.get('files',[])
+          f=next(x for x in fs if x.get('name')=='PICK_PACK_API' and x.get('type')=='SERVER_JS')
+          s=f.get('source','')
+          st=s.index('function ppUpdateCheck_(body) {'); en=s.index('\nfunction ppJson_',st)
+          new='''// PP_BETA61_OTA_V137: exact signed Beta61 metadata; Stable remains unavailable/untouched.\nfunction ppUpdateCheck_(body) {\n  const channel=ppFold_(body.channel||body._app_channel)==='STABLE'?'STABLE':'BETA';\n  const current=String(body.current_version||body._app_version||'').trim();\n  if(channel==='STABLE') return {ok:true,source:'GITHUB_RELEASE',channel:'STABLE',available:false,reason:'NO_RELEASE'};\n  const version="0.4.2-beta.61", available=ppOtaCompare_(version,current)>0;\n  const out={ok:true,source:'GITHUB_RELEASE',channel:'BETA',available:available,version_name:version,version_code:67,size:13060715,published_at:"2026-08-23T13:16:00Z",notes:"Beta61: khôi phục mục Nhân sự; tối ưu bố cục quản trị; hiển thị PDA đang hoạt động; tinh chỉnh sửa công/ra-vào; quản trị tài nguyên trực tiếp qua Service. OTA manual-only; Stable không thay đổi.",mandatory:false};\n  if(!available)return out;\n  out.sha256="27116074689304c8a9b825fa4efa4308a32182a30802d23e91561e0e699adcda";\n  out.apk_url="https://github.com/tam95supra-source/pick-pack-1291/releases/download/v0.4.2-beta.61-publicbeta/pick-pack-1291-public-beta-0.4.2-beta.61.apk";\n  return out;\n}\n'''
+          current=s[st:en]
+          if 'PP_BETA61_OTA_V137' in current and os.environ['TARGET_SHA256'] in current:
+              open('/tmp/already','w').write('1')
+          else:
+              assert ('0.4.2-beta.60' in current or '0.4.2-beta.61' in current), 'EXPECTED_LIVE_BETA60_OR_BETA61'
+              f['source']=s[:st]+new+s[en:]
+              json.dump({'files':fs},open('/tmp/patched.json','w'),ensure_ascii=False)
+          PY
+          if [[ -f /tmp/already ]]; then echo 'patch=ALREADY_BETA61' >> "$OUT"; else echo 'patch=READY' >> "$OUT"; fi
+
+          if [[ ! -f /tmp/already ]]; then
+            PHASE=DEPLOY
+            node - <<'NODE'
+          const j=require('/tmp/patched.json'),fs=require('fs');const s=j.files.find(x=>x.name==='PICK_PACK_API').source;fs.writeFileSync('/tmp/PICK_PACK_API.js',s)
+          NODE
+            node --check /tmp/PICK_PACK_API.js
+            H=$(curl -sS -o /tmp/put.out -w '%{http_code}' -X PUT -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' --data-binary @/tmp/patched.json "https://script.googleapis.com/v1/projects/$SCRIPT_ID/content")
+            [[ "$H" == 200 ]] || { echo "content_put_http=$H" >> "$OUT"; cat /tmp/put.out >&2; false; }
+            H=$(curl -sS -o /tmp/ver.json -w '%{http_code}' -X POST -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d '{"description":"Pick Pack 1291 Beta61 OTA exact metadata"}' "https://script.googleapis.com/v1/projects/$SCRIPT_ID/versions")
+            [[ "$H" == 200 ]] || { echo "version_create_http=$H" >> "$OUT"; cat /tmp/ver.json >&2; false; }
+            V=$(jq -r '.versionNumber' /tmp/ver.json); [[ "$V" =~ ^[0-9]+$ && "$V" -gt "$OLD" ]]
+            python3 - "$SCRIPT_ID" "$V" <<'PY'
+          import json,sys
+          json.dump({'deploymentConfig':{'scriptId':sys.argv[1],'versionNumber':int(sys.argv[2]),'manifestFileName':'appsscript','description':'Pick Pack 1291 live API - Beta61 OTA'}},open('/tmp/dput.json','w'))
+          PY
+            H=$(curl -sS -o /tmp/dout -w '%{http_code}' -X PUT -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' --data-binary @/tmp/dput.json "https://script.googleapis.com/v1/projects/$SCRIPT_ID/deployments/$DEPLOYMENT_ID")
+            [[ "$H" == 200 ]] || { echo "deployment_put_http=$H" >> "$OUT"; cat /tmp/dout >&2; false; }
+            echo "deployed_script_version=$V" >> "$OUT"
+            echo 'deploy=PASS' >> "$OUT"
+          else
+            echo 'deploy=NOOP_ALREADY_LIVE_SOURCE' >> "$OUT"
+          fi
+
+          PHASE=LIVE_OTA_E2E
+          good=false
+          for n in $(seq 1 20); do
+            code=$(curl -sSL --connect-timeout 20 --max-time 90 -o /tmp/beta.json -w '%{http_code}' -H 'content-type: application/json' "$GAS_URL" -d '{"action":"update_check","channel":"BETA","current_version":"0.4.2-beta.60"}' || true)
+            if [[ "$code" == 200 ]] && TARGET_VERSION="$TARGET_VERSION" TARGET_SHA256="$TARGET_SHA256" TARGET_SIZE="$TARGET_SIZE" node - <<'NODE'
+          const fs=require('fs');try{const j=JSON.parse(fs.readFileSync('/tmp/beta.json'));process.exit(j.ok===true&&j.source==='GITHUB_RELEASE'&&j.channel==='BETA'&&j.available===true&&j.version_name===process.env.TARGET_VERSION&&String(j.version_code)==='67'&&String(j.size)===process.env.TARGET_SIZE&&String(j.sha256||'').toLowerCase()===process.env.TARGET_SHA256&&String(j.apk_url||'').includes('v0.4.2-beta.61-publicbeta')?0:1)}catch(e){process.exit(1)}
+          NODE
+            then good=true; break; fi
+            sleep 3
+          done
+          [[ "$good" == true ]] || { echo 'live_beta61_discovery=FAIL' >> "$OUT"; cat /tmp/beta.json >&2 || true; false; }
+          URL=$(jq -r '.apk_url' /tmp/beta.json)
+          curl -fL --retry 6 --retry-all-errors --retry-delay 2 --connect-timeout 20 --max-time 180 "$URL" -o /tmp/b61.apk
+          [[ "$(sha256sum /tmp/b61.apk | awk '{print $1}')" == "$TARGET_SHA256" ]]
+          [[ "$(stat -c '%s' /tmp/b61.apk)" == "$TARGET_SIZE" ]]
+          curl -fsSL -H 'content-type: application/json' "$GAS_URL" -d '{"action":"update_check","channel":"BETA","current_version":"0.4.2-beta.48"}' > /tmp/from48.json
+          curl -fsSL -H 'content-type: application/json' "$GAS_URL" -d '{"action":"update_check","channel":"BETA","current_version":"0.4.2-beta.61"}' > /tmp/self.json
+          curl -fsSL -H 'content-type: application/json' "$GAS_URL" -d '{"action":"update_check","channel":"STABLE","current_version":"0.1.0-stable"}' > /tmp/stable.json
+          curl -fsSL -H 'content-type: application/json' "$GAS_URL" -d '{"action":"service_discovery"}' > /tmp/discovery.json
+          node - <<'NODE'
+          const fs=require('fs'),f=JSON.parse(fs.readFileSync('/tmp/from48.json')),s=JSON.parse(fs.readFileSync('/tmp/self.json')),t=JSON.parse(fs.readFileSync('/tmp/stable.json')),d=JSON.parse(fs.readFileSync('/tmp/discovery.json'));
+          if(!(f.ok===true&&f.available===true&&f.version_name==='0.4.2-beta.61'))process.exit(1);
+          if(!(s.ok===true&&s.available===false&&s.version_name==='0.4.2-beta.61'))process.exit(2);
+          if(!(t.ok===true&&t.channel==='STABLE'&&t.available===false))process.exit(3);
+          if(!(d.ok===true&&d.authority_mode==='SERVICE_PRIMARY'))process.exit(4);
+          NODE
+          echo 'live_beta61_discovery=PASS' >> "$OUT"
+          echo 'live_exact_download=PASS' >> "$OUT"
+          echo 'upgrade_from_beta48=PASS' >> "$OUT"
+          echo 'self_update_false=PASS' >> "$OUT"
+          echo 'stable=UNTOUCHED' >> "$OUT"
+          echo 'service_authority=SERVICE_PRIMARY' >> "$OUT"
+          echo 'verdict=PASS' >> "$OUT"
+
+      - name: Persist GAS deployment result
+        if: always()
+        shell: bash
+        env:
+          DEPLOY_OUTCOME: ${{ steps.deploy.outcome }}
+        run: |
+          set -euo pipefail
+          mkdir -p ops
+          if [[ -f /tmp/beta61-gas-result ]]; then cp /tmp/beta61-gas-result ops/beta61-gas-ota-deploy-result.txt; else printf 'checked_at=%s\nrun_id=%s\nverdict=FAIL\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$GITHUB_RUN_ID" > ops/beta61-gas-ota-deploy-result.txt; fi
+          echo "deploy_outcome=$DEPLOY_OUTCOME" >> ops/beta61-gas-ota-deploy-result.txt
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add ops/beta61-gas-ota-deploy-result.txt
+          git diff --cached --quiet || git commit -m 'ops: record Beta61 live GAS OTA deploy result'
+          git push origin HEAD:agent/beta61-owner-ui-pda-resource-fixes-20260823 || true

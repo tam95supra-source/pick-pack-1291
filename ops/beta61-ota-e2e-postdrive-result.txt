@@ -1,0 +1,9 @@
+checked_at=2026-08-23T13:21:23Z
+source_sha=5e7a5614c540a891a834023050d5bfbf0a687aa0
+run_id=32642092105
+target_version=0.4.2-beta.61
+target_code=67
+failed_phase=DISCOVERY
+failed_rc=1
+verdict=FAIL
+verify_outcome=failure

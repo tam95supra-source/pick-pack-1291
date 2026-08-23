@@ -208,7 +208,7 @@ class OperationsActivity : Activity() {
 
     private fun businessHome(){
         module="BUSINESS";screenState="BUSINESS"
-        val root=baseRoot("NGHIỆP VỤ");val body=body()
+        val root=baseRoot("NGHIỆP VỤ");val body=body().apply{setPadding(dp(8),dp(6),dp(8),dp(76))}
         addBusinessShiftReconciliation(body)
         val cards=listOf(
             businessCard(R.drawable.ic_pp_scan,"Quét QR nhân sự","",true){employeeScan()},
@@ -220,9 +220,9 @@ class OperationsActivity : Activity() {
             businessCard(R.drawable.ic_pp_ccdc,"Quản lý CCDC","",isAdmin()){TopNotice.show(this,"Quản lý CCDC đang được chuẩn bị.",TopNotice.Kind.INFO)},
             businessCard(R.drawable.ic_pp_document,"Quản lý biên bản","",isAdmin()){TopNotice.show(this,"Quản lý biên bản đang chờ xây dựng.",TopNotice.Kind.INFO)}
         )
-        body.addView(businessRow(cards[0],cards[1]));body.addView(gap(5))
-        body.addView(businessRow(cards[2],cards[3]));body.addView(gap(5))
-        body.addView(businessRow(cards[4],cards[5]));body.addView(gap(5))
+        body.addView(businessRow(cards[0],cards[1]));body.addView(gap(4))
+        body.addView(businessRow(cards[2],cards[3]));body.addView(gap(4))
+        body.addView(businessRow(cards[4],cards[5]));body.addView(gap(4))
         body.addView(businessRow(cards[6],cards[7]))
         attach(root,body)
     }
@@ -468,7 +468,6 @@ class OperationsActivity : Activity() {
         val ses=ctx.optJSONObject("session")?:return;val mnv=ses.optString("mnv");val editMode=if(mode.uppercase()=="ADD")"ADD" else "EDIT"
         val hadPick=ses.optString("pda_serial").isNotBlank()||ses.optString("user_pick").isNotBlank()||ses.optString("work_choice").equals("PICK",true)
         val hadPack=ses.optString("pack_table").isNotBlank()||ses.optString("user_pack").isNotBlank()||ses.optString("work_choice").equals("PACK",true)
-        if(editMode=="ADD"&&hadPick&&hadPack){TopNotice.show(this,"Đã có đủ Pick & Pack trong ca.",TopNotice.Kind.INFO);return}
         if(ses.optString("state")!="ACTIVE"){showError("Phiên đã ra ca. ADMIN/SUPERADMIN hãy hủy ghi nhận ra ca trước khi sửa công việc.");return}
         val options=PdaLocalProjection.resourceOptions(this,mnv)
         val pdas=options.optJSONArray("pdas")?:JSONArray();val picks=options.optJSONArray("user_picks")?:JSONArray();val pickReissue=options.optJSONArray("user_picks_reissue")?:JSONArray()
@@ -476,22 +475,27 @@ class OperationsActivity : Activity() {
         val dialogBody=column(surface).apply{setPadding(dp(10),dp(4),dp(10),dp(8))}
         dialogBody.addView(gap(2))
         val shifts=listOf("Ca 1","Ca HC","Ca 2");val shiftSpinner=spinner(shifts.toTypedArray());selectByValue(shiftSpinner,shifts,ses.optString("shift"));if(editMode=="EDIT"){dialogBody.addView(labelled("Ca",shiftSpinner));dialogBody.addView(gap(7))}
-        val pickOn=CheckBox(this).apply{text="Có công việc PICK";isChecked=if(editMode=="ADD")!hadPick else hadPick;isEnabled=editMode=="EDIT"||!hadPick;setTextColor(if(isEnabled)ink else muted)}
-        val packOn=CheckBox(this).apply{text="Có công việc PACK";isChecked=if(editMode=="ADD")!hadPack else hadPack;isEnabled=editMode=="EDIT"||!hadPack;setTextColor(if(isEnabled)ink else muted)}
-        if(editMode=="ADD"&&!hadPick&&!hadPack){pickOn.isChecked=false;packOn.isChecked=false}
-        dialogBody.addView(pickOn,matchWrap());dialogBody.addView(packOn,matchWrap());dialogBody.addView(gap(7));val host=column(surface);dialogBody.addView(host,matchWrap())
+        val pickOn=CheckBox(this).apply{text="Có công việc PICK";isChecked=false;isEnabled=true;setTextColor(ink)}
+        val packOn=CheckBox(this).apply{text="Có công việc PACK";isChecked=false;isEnabled=true;setTextColor(ink)}
+        dialogBody.addView(pickOn,matchWrap());val pickHost=column(surface);dialogBody.addView(pickHost,matchWrap());dialogBody.addView(gap(5))
+        dialogBody.addView(packOn,matchWrap());val packHost=column(surface);dialogBody.addView(packHost,matchWrap());dialogBody.addView(gap(7))
         var pdaField:AutoCompleteTextView?=null;var selectedPda:JSONObject?=null
         var pickSpinner:Spinner?=null;var pickChoices=mutableListOf<Pair<String,Boolean>>()
         var selectedPack:JSONObject?=null;var allowPickReissue=false;var allowPackReissue=false
         fun rebuild(){
-            host.removeAllViews();pdaField=null;selectedPda=null;pickSpinner=null;pickChoices.clear();selectedPack=null
+            pickHost.removeAllViews();packHost.removeAllViews();pdaField=null;selectedPda=null;pickSpinner=null;pickChoices.clear();selectedPack=null
             if(pickOn.isChecked){
-                host.addView(section("PICK"))
-                pdaField=pdaInput(pdas,ses.optString("pda_serial")){selectedPda=it}
-                host.addView(labelled("PDA (có thể đổi / trả)",pdaField!!));host.addView(gap(4));host.addView(pdaSelectedPanel(pdas,pdaField!!),matchWrap());host.addView(gap(5))
-                host.addView(smallButton("TRẢ PDA",orange).apply{setOnClickListener{selectedPda=null;pdaField?.setText("",false)}},matchWrap());host.addView(gap(7))
+                pickHost.addView(section("PICK"))
+                if(editMode=="ADD"&&hadPick){
+                    pickHost.addView(details(listOf("PDA đang dùng" to dash(ses.optString("pda_serial")))))
+                    pickHost.addView(gap(7))
+                }else{
+                    pdaField=pdaInput(pdas,ses.optString("pda_serial")){selectedPda=it}
+                    pickHost.addView(labelled("PDA (có thể đổi / trả)",pdaField!!));pickHost.addView(gap(4));pickHost.addView(pdaSelectedPanel(pdas,pdaField!!),matchWrap());pickHost.addView(gap(5))
+                    pickHost.addView(smallButton("TRẢ PDA",orange).apply{setOnClickListener{selectedPda=null;pdaField?.setText("",false)}},matchWrap());pickHost.addView(gap(7))
+                }
                 val base=mutableListOf<String>();for(i in 0 until picks.length()){val id=picks.optString(i).trim();if(id.isNotBlank()&&!base.contains(id))base.add(id)}
-                val currentPick=ses.optString("user_pick").trim();if(currentPick.isNotBlank()&&!base.contains(currentPick))base.add(currentPick)
+                val currentPick=if(editMode=="EDIT")ses.optString("user_pick").trim() else "";if(currentPick.isNotBlank()&&!base.contains(currentPick))base.add(currentPick)
                 pickChoices=mutableListOf("" to false);val labels=mutableListOf("Không dùng")
                 sortedByNaturalUser(base){it}.forEach{pickChoices.add(it to false);labels.add(it)}
                 if(allowPickReissue){
@@ -502,18 +506,18 @@ class OperationsActivity : Activity() {
                 val userRow=row(surface).apply{gravity=Gravity.CENTER_VERTICAL}
                 userRow.addView(pickSpinner!!,LinearLayout.LayoutParams(0,dp(50),1.35f).apply{marginEnd=dp(5)})
                 userRow.addView(compactReissueButton("Phát lại user pick",pickReissue.length()>0&&!allowPickReissue){allowPickReissue=true;rebuild()},LinearLayout.LayoutParams(0,dp(46),.85f))
-                host.addView(labelled("User Pick hy1.outbound",userRow));host.addView(gap(9))
+                pickHost.addView(labelled("User Pick hy1.outbound",userRow));pickHost.addView(gap(9))
             }
             if(packOn.isChecked){
-                host.addView(section("PACK"))
+                packHost.addView(section("PACK"))
                 val rows=mutableListOf<JSONObject>()
                 fun addPack(a:JSONArray,duplicate:Boolean){for(i in 0 until a.length()){val o=a.optJSONObject(i)?:continue;val t=o.optString("table").trim();val u=o.optString("user_pack").trim();if(t.isBlank()||u.isBlank())continue;val existing=rows.indexOfFirst{it.optString("table")==t&&it.optString("user_pack")==u};if(existing>=0){if(!duplicate)rows[existing].put("duplicate_user",false);continue};rows.add(JSONObject(o.toString()).put("duplicate_user",duplicate))}}
                 addPack(packs,false);if(allowPackReissue)addPack(packReissue,true)
-                val currentTable=ses.optString("pack_table").trim();val currentUser=ses.optString("user_pack").trim()
+                val currentTable=if(editMode=="EDIT")ses.optString("pack_table").trim() else "";val currentUser=if(editMode=="EDIT")ses.optString("user_pack").trim() else ""
                 if(currentTable.isNotBlank()&&currentUser.isNotBlank()&&!rows.any{it.optString("table")==currentTable&&it.optString("user_pack")==currentUser})rows.add(JSONObject().put("table",currentTable).put("user_pack",currentUser).put("duplicate_user",false))
                 val tables=rows.map{it.optString("table")}.filter{it.isNotBlank()}.distinct().sortedWith(Comparator{a,b->naturalUserCompare(a,b)})
                 val tableSp=spinner((if(tables.isEmpty())listOf("Không có bàn Pack khả dụng")else tables).toTypedArray());val tableCur=tables.indexOf(currentTable);if(tableCur>=0)tableSp.setSelection(tableCur)
-                host.addView(labelled("Bàn Pack",tableSp));host.addView(gap(7));val userHost=column(surface);host.addView(userHost,matchWrap())
+                packHost.addView(labelled("Bàn Pack",tableSp));packHost.addView(gap(7));val userHost=column(surface);packHost.addView(userHost,matchWrap())
                 fun renderPackUsers(){
                     userHost.removeAllViews();selectedPack=null
                     if(tables.isEmpty()){userHost.addView(info("Không có User Pack khả dụng."));return}
@@ -525,24 +529,34 @@ class OperationsActivity : Activity() {
                     val userRow=row(surface).apply{gravity=Gravity.CENTER_VERTICAL};userRow.addView(userSp,LinearLayout.LayoutParams(0,dp(50),1.35f).apply{marginEnd=dp(5)})
                     userRow.addView(compactReissueButton("Phát lại user pack",packReissue.length()>0&&!allowPackReissue){allowPackReissue=true;rebuild()},LinearLayout.LayoutParams(0,dp(46),.85f));userHost.addView(labelled("User Pack",userRow))
                 }
-                tableSp.onItemSelectedListener=object:android.widget.AdapterView.OnItemSelectedListener{override fun onItemSelected(p:android.widget.AdapterView<*>?,v:View?,pos:Int,id:Long){renderPackUsers()};override fun onNothingSelected(p:android.widget.AdapterView<*>?)=Unit};renderPackUsers();host.addView(gap(7))
+                tableSp.onItemSelectedListener=object:android.widget.AdapterView.OnItemSelectedListener{override fun onItemSelected(p:android.widget.AdapterView<*>?,v:View?,pos:Int,id:Long){renderPackUsers()};override fun onNothingSelected(p:android.widget.AdapterView<*>?)=Unit};renderPackUsers();packHost.addView(gap(7))
             }
-            if(!pickOn.isChecked&&!packOn.isChecked)host.addView(info("Không gán công việc PICK/PACK. Lưu để trả toàn bộ tài nguyên đang giữ."))
         }
         var addToggleGuard=false
-        pickOn.setOnCheckedChangeListener{_,on->if(editMode=="ADD"&&!hadPick&&!hadPack&&on&&!addToggleGuard){addToggleGuard=true;packOn.isChecked=false;addToggleGuard=false};rebuild()}
-        packOn.setOnCheckedChangeListener{_,on->if(editMode=="ADD"&&!hadPick&&!hadPack&&on&&!addToggleGuard){addToggleGuard=true;pickOn.isChecked=false;addToggleGuard=false};rebuild()}
+        pickOn.setOnCheckedChangeListener{_,on->if(editMode=="ADD"&&on&&!addToggleGuard){addToggleGuard=true;packOn.isChecked=false;addToggleGuard=false};rebuild()}
+        packOn.setOnCheckedChangeListener{_,on->if(editMode=="ADD"&&on&&!addToggleGuard){addToggleGuard=true;pickOn.isChecked=false;addToggleGuard=false};rebuild()}
         rebuild()
         AlertDialog.Builder(this).setTitle(if(editMode=="ADD")"Thêm công việc / User trong ca" else "Sửa công việc trong ca").setView(ScrollView(this).apply{addView(dialogBody)}).setNegativeButton("Hủy",null).setPositiveButton("LƯU"){_,_->
             if(editMode=="ADD"&&!pickOn.isChecked&&!packOn.isChecked){showError("Chọn Pick hoặc Pack để thêm.");return@setPositiveButton}
             val p=JSONObject().put("session_id",ses.optString("session_id")).put("mnv",mnv).put("idempotency_key",UUID.randomUUID().toString()).put("shift",if(editMode=="EDIT")shiftSpinner.selectedItem.toString() else ses.optString("shift"))
-            val pickChoice=if(pickOn.isChecked)pickChoices.getOrNull(pickSpinner?.selectedItemPosition?:0) else null;val pick=if(editMode=="ADD"&&hadPick)ses.optString("user_pick") else pickChoice?.first.orEmpty();val pda=if(editMode=="ADD"&&hadPick)ses.optString("pda_serial") else if(pickOn.isChecked)(selectedPda?.optString("serial").orEmpty().ifBlank{resolvePda(pdas,pdaField?.text?.toString().orEmpty()).orEmpty()}) else ""
+            val pickChoice=if(pickOn.isChecked)pickChoices.getOrNull(pickSpinner?.selectedItemPosition?:0) else null
+            val pick=if(pickOn.isChecked)pickChoice?.first.orEmpty() else ses.optString("user_pick")
+            val pda=when{
+                !pickOn.isChecked->ses.optString("pda_serial")
+                editMode=="ADD"&&hadPick->ses.optString("pda_serial")
+                else->selectedPda?.optString("serial").orEmpty().ifBlank{resolvePda(pdas,pdaField?.text?.toString().orEmpty()).orEmpty()}
+            }
             p.put("pda_serial",pda).put("user_pick",pick)
             var reissue=pickChoice?.second==true
-            if(editMode=="ADD"&&hadPack){p.put("pack_table",ses.optString("pack_table")).put("user_pack",ses.optString("user_pack"))}else if(packOn.isChecked){val row=selectedPack;if(row==null){showError("Chọn Bàn Pack + User Pack hợp lệ.");return@setPositiveButton};p.put("pack_table",row.optString("table")).put("user_pack",row.optString("user_pack"));reissue=reissue||row.optBoolean("duplicate_user")}else p.put("pack_table","").put("user_pack","")
+            if(packOn.isChecked){
+                val row=selectedPack;if(row==null){showError("Chọn Bàn Pack + User Pack hợp lệ.");return@setPositiveButton}
+                p.put("pack_table",row.optString("table")).put("user_pack",row.optString("user_pack"));reissue=reissue||row.optBoolean("duplicate_user")
+            }else{
+                p.put("pack_table",ses.optString("pack_table")).put("user_pack",ses.optString("user_pack"))
+            }
             if(reissue)p.put("duplicate_user",true)
-            val current=ses.optString("work_choice");val primary=when{pickOn.isChecked&&packOn.isChecked&&current in setOf("PICK","PACK")->current;pickOn.isChecked->"PICK";packOn.isChecked->"PACK";else->"KHONG"}
-            val baseNote=when{pickOn.isChecked&&packOn.isChecked->"PICK + PACK";pickOn.isChecked->"PICK";packOn.isChecked->"PACK";else->"Không gán công việc"};p.put("work_choice",primary).put("resource_note",ses.optString("resource_note")).put("mutation_kind",editMode).put("audit_note",if(reissue)"$baseNote • PHÁT LẠI USER" else baseNote)
+            val current=ses.optString("work_choice").uppercase();val primary=if(current in setOf("PICK","PACK"))current else when{pickOn.isChecked->"PICK";packOn.isChecked->"PACK";else->"KHONG"}
+            val baseNote=when{pickOn.isChecked&&packOn.isChecked->"PICK + PACK";pickOn.isChecked->"PICK";packOn.isChecked->"PACK";else->"Điều chỉnh ca / thông tin"};p.put("work_choice",primary).put("resource_note",ses.optString("resource_note")).put("mutation_kind",editMode).put("audit_note",if(reissue)"$baseNote • PHÁT LẠI USER" else baseNote)
             api.call("session_work_update",p){r->runOnUiThread{if(handleAuth(r))return@runOnUiThread;if(!r.ok){showError(r.error?:"Không cập nhật được công việc");return@runOnUiThread};TopNotice.show(this,"Đã cập nhật công việc trong ca.",TopNotice.Kind.SUCCESS);foregroundSync.requestSync();val next=returnedSessionContext(ctx,r);if(next!=null)renderEmployee(next,PdaLocalProjection.resourceOptions(this,mnv))else loadEmployee(mnv)}}
         }.show()
     }
@@ -601,14 +615,14 @@ class OperationsActivity : Activity() {
         body.addView(status("ĐANG TRONG PHIÊN",green,Color.rgb(235,248,239)));body.addView(gap(7));body.addView(section("THỜI GIAN & CÔNG VIỆC TRONG CA"));body.addView(details(listOf("Ca" to dash(ses.optString("shift")),"Vào lúc" to formatIso(ses.optString("enter_at")),"Ra lúc" to "—","Công việc trong ca" to currentWork,"User Pick trong ca" to usage.userPicks.joinToString(", ").ifBlank{"—"},"User Pack trong ca" to usage.userPacks.joinToString(", ").ifBlank{"—"},"Ghi chú" to dash(ses.optString("resource_note")))));body.addView(gap(7))
         val exit=smallButton("Ra ca",red)
         fun doExit(statusNow:String){exit.isEnabled=false;exit.text="Đang ra...";val eventId=UUID.randomUUID().toString();api.call("exit",JSONObject().put("event_id",eventId).put("mnv",mnv).put("pda_exit_status",statusNow).put("note","RA CA")){r->runOnUiThread{exit.isEnabled=true;exit.text="Ra ca";if(handleAuth(r))return@runOnUiThread;if(!r.ok){showError(r.error?:"RA_CA_FAILED");return@runOnUiThread};TopNotice.show(this,if(r.code==202)"Đã ghi nhận ra ca trên PDA • đang đồng bộ" else "Đã ghi nhận ra ca.",TopNotice.Kind.SUCCESS);foregroundSync.requestSync();scheduleAttendanceAutoReset(mnv,employeeLookupGeneration)}}}
-        exit.setOnClickListener{if(activeLabor!=null){showError("Còn công nhật đang làm. Hoàn thành công nhật trước khi ra ca.");return@setOnClickListener};if(pda.isBlank()){AlertDialog.Builder(this).setTitle("Xác nhận RA CA").setMessage("Xác nhận kết thúc phiên?").setNegativeButton("Hủy",null).setPositiveButton("RA CA"){_,_->doExit("")}.show();return@setOnClickListener};val statuses=mutableListOf<String>();val arr=MasterDataCache.resourceOptions(this).optJSONArray("pda_statuses")?:JSONArray();for(i in 0 until arr.length()){val v=clean(arr.optString(i));if(v.isNotBlank()&&!statuses.contains(v))statuses.add(v)};if(expectedStatus.isNotBlank()&&!statuses.contains(expectedStatus))statuses.add(0,expectedStatus);if(statuses.isEmpty()){showError("Không có danh mục tình trạng PDA để đối chiếu.");return@setOnClickListener};val sp=spinner(statuses.toTypedArray());val wrap=column(surface).apply{setPadding(dp(16),dp(6),dp(16),dp(4));addView(txt("Seri PDA: $pda",12f,navy,true));addView(gap(5));addView(txt("Tình trạng khi nhận: ${expectedStatus.ifBlank{"—"}}",10.5f,muted,true));addView(gap(9));addView(labelled("Tình trạng PDA hiện tại",sp))};AlertDialog.Builder(this).setTitle("Đối chiếu PDA trước khi RA CA").setView(wrap).setNegativeButton("Hủy",null).setPositiveButton("KIỂM TRA & RA CA"){_,_->doExit(sp.selectedItem?.toString().orEmpty())}.show()}
+        exit.setOnClickListener{if(activeLabor!=null){showError("Còn công nhật đang làm. Hoàn thành công nhật trước khi ra ca.");return@setOnClickListener};if(pda.isBlank()){doExit("");return@setOnClickListener};val statuses=mutableListOf<String>();val arr=MasterDataCache.resourceOptions(this).optJSONArray("pda_statuses")?:JSONArray();for(i in 0 until arr.length()){val v=clean(arr.optString(i));if(v.isNotBlank()&&!statuses.contains(v))statuses.add(v)};if(expectedStatus.isNotBlank()&&!statuses.contains(expectedStatus))statuses.add(0,expectedStatus);if(statuses.isEmpty()){showError("Không có danh mục tình trạng PDA để đối chiếu.");return@setOnClickListener};val sp=spinner(statuses.toTypedArray());val wrap=column(surface).apply{setPadding(dp(16),dp(6),dp(16),dp(4));addView(txt("Seri PDA: $pda",12f,navy,true));addView(gap(5));addView(txt("Tình trạng khi nhận: ${expectedStatus.ifBlank{"—"}}",10.5f,muted,true));addView(gap(9));addView(labelled("Tình trạng PDA hiện tại",sp))};AlertDialog.Builder(this).setTitle("Đối chiếu PDA trước khi RA CA").setView(wrap).setNegativeButton("Hủy",null).setPositiveButton("KIỂM TRA & RA CA"){_,_->doExit(sp.selectedItem?.toString().orEmpty())}.show()}
         val actions=row(bg).apply{gravity=Gravity.CENTER_VERTICAL};actions.addView(smallButton("Thêm",teal).apply{setOnClickListener{sessionWorkEditor(ctx,"ADD")}},LinearLayout.LayoutParams(0,dp(40),1f).apply{marginEnd=dp(2)});actions.addView(smallButton("Sửa",navy).apply{setOnClickListener{sessionWorkEditor(ctx,"EDIT")}},LinearLayout.LayoutParams(0,dp(40),1f).apply{marginStart=dp(2);marginEnd=dp(2)});actions.addView(smallButton("Xóa",orange).apply{setOnClickListener{deleteSessionWork(ctx)}},LinearLayout.LayoutParams(0,dp(40),1f).apply{marginStart=dp(2)});body.addView(actions,matchWrap());body.addView(gap(5));body.addView(exit,matchWrap());body.addView(gap(7))
-        if(activeLabor!=null){body.addView(status("CÒN CÔNG NHẬT ĐANG LÀM",orange,Color.rgb(255,247,230)));body.addView(gap(5))};addPdaUsage(body,mnv,ses);body.addView(gap(6));addSessionTimeline(body,mnv);if(isAdmin()){body.addView(gap(7));body.addView(smallButton("Sửa giờ vào – ra ca",navy).apply{setOnClickListener{editAttendanceTimes(ctx)}},matchWrap())}
+        if(activeLabor!=null){body.addView(status("CÒN CÔNG NHẬT ĐANG LÀM",orange,Color.rgb(255,247,230)));body.addView(gap(5))};addPdaUsage(body,mnv,ses);body.addView(gap(6));addSessionTimeline(body,mnv);if(isAdmin()){body.addView(gap(7));val timeActions=row(bg);val editIn=smallButton("Sửa giờ vào",navy).apply{setOnClickListener{editAttendanceTime(ctx,"enter_at")}};val editOut=smallButton("Sửa giờ ra",teal).apply{isEnabled=ses.optString("exit_at").isNotBlank();alpha=if(isEnabled)1f else .42f;setOnClickListener{if(isEnabled)editAttendanceTime(ctx,"exit_at")}};timeActions.addView(editIn,LinearLayout.LayoutParams(0,dp(40),1f).apply{marginEnd=dp(3)});timeActions.addView(editOut,LinearLayout.LayoutParams(0,dp(40),1f).apply{marginStart=dp(3)});body.addView(timeActions,matchWrap())}
     }
 
     private fun renderEnded(body: LinearLayout, ctx: JSONObject) {
         val ses=ctx.optJSONObject("session")?:JSONObject();val mnv=ses.optString("mnv");body.addView(status("ĐÃ RA CA",teal,Color.rgb(232,248,245)));body.addView(gap(8));body.addView(section("PHIÊN HÔM NAY"));body.addView(details(listOf("Ca" to ses.optString("shift"),"Vào lúc" to formatIso(ses.optString("enter_at")),"Ra lúc" to formatIso(ses.optString("exit_at")),"Công việc PICK cuối" to pickSummary(ses),"Công việc PACK cuối" to packSummary(ses))));body.addView(gap(9));addPdaUsage(body,mnv,ses);body.addView(gap(9));addSessionTimeline(body,mnv)
-        if(isAdmin()){body.addView(gap(8));body.addView(section("ADMIN / SUPERADMIN"));body.addView(info("Phiên đã kết thúc chỉ ADMIN/SUPERADMIN được sửa dữ liệu. Mọi sửa/xóa đều có audit; xóa RA CA sẽ mở lại phiên để sửa công việc nếu cần."));body.addView(gap(7));body.addView(smallButton("SỬA GIỜ VÀO – RA CA",navy).apply{setOnClickListener{editAttendanceTimes(ctx)}},matchWrap());body.addView(gap(6));body.addView(gap(6));body.addView(primary("XÓA GHI NHẬN RA CA",red){deleteExitRecord(ctx)},matchWrap())}
+        if(isAdmin()){body.addView(gap(8));body.addView(section("ADMIN / SUPERADMIN"));body.addView(info("Phiên đã kết thúc chỉ ADMIN/SUPERADMIN được sửa dữ liệu. Mọi sửa/xóa đều có audit; xóa RA CA sẽ mở lại phiên để sửa công việc nếu cần."));body.addView(gap(7));val timeActions=row(bg);timeActions.addView(smallButton("SỬA GIỜ VÀO",navy).apply{setOnClickListener{editAttendanceTime(ctx,"enter_at")}},LinearLayout.LayoutParams(0,dp(40),1f).apply{marginEnd=dp(3)});timeActions.addView(smallButton("SỬA GIỜ RA",teal).apply{setOnClickListener{editAttendanceTime(ctx,"exit_at")}},LinearLayout.LayoutParams(0,dp(40),1f).apply{marginStart=dp(3)});body.addView(timeActions,matchWrap());body.addView(gap(6));body.addView(primary("XÓA GHI NHẬN RA CA",red){deleteExitRecord(ctx)},matchWrap())}
     }
 
     private fun renderEnter(body: LinearLayout, ctx: JSONObject, masters: JSONObject) {
@@ -714,7 +728,7 @@ class OperationsActivity : Activity() {
     private fun resourceListScreen(type:String,title:String){
         screenState="RESOURCE_LIST"
         val root=baseRoot(title);val body=body();val box=column(bg);val selected=linkedSetOf<String>();val checks=mutableListOf<CheckBox>()
-        body.addView(info("Danh mục dùng chung. Thay đổi được ghi nhận vào lịch sử; xóa yêu cầu xác thực lại mật khẩu."));body.addView(gap(8))
+        if(type!="PDA"){body.addView(info("Danh mục dùng chung. Thay đổi được ghi nhận vào lịch sử; xóa yêu cầu xác thực lại mật khẩu."));body.addView(gap(8))}
         if(isAdmin()){val actions=row(bg);actions.addView(smallButton("THÊM",teal).apply{setOnClickListener{resourceEditDialog(type,null,null,null)}},LinearLayout.LayoutParams(0,dp(42),1f).apply{marginEnd=dp(3)});actions.addView(smallButton("CHỌN TẤT CẢ",navy).apply{setOnClickListener{checks.forEach{it.isChecked=true}}},LinearLayout.LayoutParams(0,dp(42),1f).apply{marginStart=dp(3);marginEnd=dp(3)});actions.addView(smallButton("XÓA ĐÃ CHỌN",red).apply{setOnClickListener{deleteResourcesBulk(type,selected.toList(),title)}},LinearLayout.LayoutParams(0,dp(42),1f).apply{marginStart=dp(3)});body.addView(actions,matchWrap());body.addView(gap(8))}
         body.addView(box,matchWrap());box.addView(info("Đang tải danh sách..."))
         api.call("resource_master_list"){r->runOnUiThread{
@@ -974,9 +988,8 @@ class OperationsActivity : Activity() {
         fun updateSelectedCount(){selectionCount.text="Đã chọn ${selectedHistoryIds.size} lịch sử"}
         if(isSuper()){
             selectionBox.addView(gap(6));selectionBox.addView(selectionCount)
-            val choose=row(bg);val selectPage=smallButton("CHỌN TRANG",navy);val clear=smallButton("BỎ CHỌN",muted)
-            choose.addView(selectPage,LinearLayout.LayoutParams(0,dp(42),1f).apply{marginEnd=dp(3)});choose.addView(clear,LinearLayout.LayoutParams(0,dp(42),1f).apply{marginStart=dp(3)});selectionBox.addView(gap(5));selectionBox.addView(choose,matchWrap())
-            val deleteSelected=smallButton("XÓA ĐÃ CHỌN",red);selectionBox.addView(gap(5));selectionBox.addView(deleteSelected,matchWrap());selectionBox.addView(gap(8))
+            val choose=row(bg);val selectPage=smallButton("CHỌN TRANG",navy);val clear=smallButton("BỎ CHỌN",muted);val deleteSelected=smallButton("XÓA ĐÃ CHỌN",red)
+            choose.addView(selectPage,LinearLayout.LayoutParams(0,dp(40),1f).apply{marginEnd=dp(2)});choose.addView(clear,LinearLayout.LayoutParams(0,dp(40),1f).apply{marginStart=dp(2);marginEnd=dp(2)});choose.addView(deleteSelected,LinearLayout.LayoutParams(0,dp(40),1f).apply{marginStart=dp(2)});selectionBox.addView(gap(5));selectionBox.addView(choose,matchWrap());selectionBox.addView(gap(8))
             selectPage.setOnClickListener{selectedHistoryIds.addAll(currentPageDeleteIds);pageChecks.forEach{it.isChecked=true};updateSelectedCount()}
             clear.setOnClickListener{selectedHistoryIds.clear();pageChecks.forEach{it.isChecked=false};updateSelectedCount()}
             deleteSelected.setOnClickListener{deleteHistoryBulk(selectedHistoryIds.toList())}
@@ -1171,16 +1184,65 @@ class OperationsActivity : Activity() {
     }
 
     private fun pdaExchangeScreen(){
-        module="PDA_EXCHANGE";screenState="PDA_EXCHANGE";val root=baseRoot("ĐỔI / TRẢ PDA");val body=body();val serialField=input("Nhập Seri PDA / 5 số cuối",false).apply{setSingleLine(true)};val box=column(bg);body.addView(labelled("Seri PDA",serialField));body.addView(gap(7));body.addView(box,matchWrap())
+        module="PDA_EXCHANGE";screenState="PDA_EXCHANGE"
+        val root=baseRoot("ĐỔI / TRẢ PDA");val body=body()
+        val serialField=input("Nhập Seri PDA / 5 số cuối",false).apply{setSingleLine(true);imeOptions=EditorInfo.IME_ACTION_SEARCH}
+        body.addView(labelled("Seri PDA",serialField));body.addView(gap(6))
+        val find=primary("TÌM PDA",navy){};body.addView(find,matchWrap());body.addView(gap(7))
+        val listBox=column(bg);body.addView(listBox,matchWrap())
         val changeReasons=arrayOf("PDA lỗi quét / không đọc mã","PDA lỗi mạng / không đồng bộ","PDA yếu pin / hết pin","PDA lỗi phần cứng / hư hỏng","PDA treo / hoạt động không ổn định","Đổi theo điều phối vận hành","Khác")
         val returnReasons=arrayOf("Đi công nhật","Làm xong sớm","Về sớm","Chuyển sang Pack","Điều chuyển sang công việc / vị trí không cần PDA","Tạm dừng Pick theo điều phối","Khác")
         fun chooseReason(title:String,items:Array<String>,done:(String)->Unit){AlertDialog.Builder(this).setTitle(title).setItems(items){_,which->val chosen=items[which];if(chosen!="Khác"){done(chosen);return@setItems};val other=input("Nhập lý do",false);AlertDialog.Builder(this).setTitle("Lý do khác").setView(other).setNegativeButton("Hủy",null).setPositiveButton("XÁC NHẬN"){_,_->val v=other.text.toString().trim();if(v.isBlank())showError("Nhập lý do.")else done(v)}.show()}.setNegativeButton("Hủy",null).show()}
-        fun localMnvFor(serial:String):String{val day=operationalStore.loadDay(operationalStore.businessDate())?:return "";val a=day.optJSONArray("sessions")?:return "";for(i in 0 until a.length()){val x=a.optJSONObject(i)?:continue;if(x.optString("state").equals("ACTIVE",true)&&x.optString("pda_serial")==serial)return x.optString("mnv")};return ""}
-        fun load(){val typed=serialField.text.toString().trim();if(typed.isBlank()){showError("Nhập Seri PDA.");return};box.removeAllViews();box.addView(info("Đang tìm phiên đang sử dụng PDA..."));api.call("resource_master_list"){rr->runOnUiThread{if(handleAuth(rr))return@runOnUiThread;if(!rr.ok){box.removeAllViews();showError(rr.error?:"Không tải được tài nguyên");return@runOnUiThread};val resources=rr.json?.optJSONArray("resources")?:JSONArray();var row:JSONObject?=null;for(i in 0 until resources.length()){val x=resources.optJSONObject(i)?:continue;if(x.optString("resource_type")!="PDA")continue;val id=x.optString("resource_id");val last=runCatching{JSONObject(x.optString("metadata_json","{}"))}.getOrDefault(JSONObject()).optString("5 số cuối Seri");if(id.equals(typed,true)||last==typed||id.endsWith(typed)){row=x;break}};val serial=row?.optString("resource_id").orEmpty();if(serial.isBlank()){box.removeAllViews();showError("Không tìm thấy Seri PDA.");return@runOnUiThread};val mnv=row?.optString("leased_by_mnv").orEmpty().ifBlank{localMnvFor(serial)};if(mnv.isBlank()){box.removeAllViews();box.addView(info("PDA $serial hiện không được phiên ACTIVE nào giữ."));return@runOnUiThread};api.call("employee_context",JSONObject().put("mnv",mnv).put("include_options",true)){r->runOnUiThread{box.removeAllViews();if(handleAuth(r))return@runOnUiThread;if(!r.ok){showError(r.error?:"Không tải được phiên");return@runOnUiThread};if(r.json?.optString("state")!="ACTIVE"){box.addView(info("Phiên sử dụng PDA không còn ACTIVE."));return@runOnUiThread};val ctx=r.json?:JSONObject();val e=ctx.optJSONObject("employee")?:JSONObject();val ses=ctx.optJSONObject("session")?:JSONObject();if(ses.optString("pda_serial")!=serial){box.addView(info("PDA đã được thay đổi ở phiên khác. Đồng bộ lại rồi thử lại."));return@runOnUiThread};box.addView(employeeCard(e));box.addView(gap(6));box.addView(details(listOf("PDA hiện tại" to serial,"Ca" to dash(ses.optString("shift")),"Công việc trong ca" to workInShiftText(ctx))));box.addView(gap(7));val pdas=MasterDataCache.resourceOptions(this).optJSONArray("pdas")?:JSONArray();val newPda=pdaInput(pdas,serial);box.addView(labelled("PDA mới",newPda));box.addView(gap(7));val actions=row(bg);val change=smallButton("ĐỔI PDA",teal);val giveBack=smallButton("TRẢ PDA",orange);actions.addView(change,LinearLayout.LayoutParams(0,dp(44),1f).apply{marginEnd=dp(3)});actions.addView(giveBack,LinearLayout.LayoutParams(0,dp(44),1f).apply{marginStart=dp(3)});box.addView(actions,matchWrap())
-        fun mutate(nextPda:String,kind:String,why:String){val p=JSONObject().put("session_id",ses.optString("session_id")).put("mnv",mnv).put("shift",ses.optString("shift")).put("work_choice",ses.optString("work_choice")).put("pda_serial",nextPda).put("user_pick",ses.optString("user_pick")).put("pack_table",ses.optString("pack_table")).put("user_pack",ses.optString("user_pack")).put("resource_note",ses.optString("resource_note")).put("preserve_work_choice",true).put("mutation_kind","EDIT").put("audit_note","$kind PDA • $why").put("idempotency_key",UUID.randomUUID().toString());api.call("session_work_update",p){x->runOnUiThread{if(handleAuth(x))return@runOnUiThread;if(!x.ok)showError(x.error?:"Không cập nhật được PDA")else{TopNotice.show(this,"Đã ${if(kind=="Đổi")"đổi" else "trả"} PDA và lưu lịch sử.",TopNotice.Kind.SUCCESS);foregroundSync.requestSync();load()}}}}
-        change.setOnClickListener{val next=resolvePda(pdas,newPda.text.toString());if(next==null||next==serial){showError("Chọn PDA mới khác PDA hiện tại.");return@setOnClickListener};chooseReason("Lý do đổi PDA",changeReasons){mutate(next,"Đổi",it)}};giveBack.setOnClickListener{chooseReason("Lý do trả PDA",returnReasons){mutate("","Trả",it)}}
-        }}}}}
-        bindScannerEnter(serialField){load()};body.addView(gap(7));body.addView(primary("TÌM PDA",navy){load()},matchWrap());attach(root,body);serialField.requestFocus()
+        fun localMnvFor(serial:String):String{val day=operationalStore.loadDay(operationalStore.businessDate())?:return "";val a=day.optJSONArray("sessions")?:return "";for(i in 0 until a.length()){val x=a.optJSONObject(i)?:continue;if(x.optString("state").equals("ACTIVE",true)&&x.optString("pda_serial").equals(serial,true))return x.optString("mnv")};return ""}
+        fun matches(serial:String,typed:String):Boolean{val q=typed.trim();if(q.isBlank())return true;return if(q.length==5&&q.all{it.isDigit()})serial.takeLast(5)==q else serial.equals(q,true)}
+        fun refreshList(filter:String){
+            listBox.removeAllViews();listBox.addView(info("Đang tải PDA đang sử dụng..."))
+            api.call("resource_master_list"){rr->runOnUiThread{
+                listBox.removeAllViews();if(handleAuth(rr))return@runOnUiThread
+                if(!rr.ok){showError(rr.error?:"Không tải được tài nguyên");return@runOnUiThread}
+                val resources=rr.json?.optJSONArray("resources")?:JSONArray();val holders=mutableListOf<Pair<String,String>>();val seen=linkedSetOf<String>()
+                for(i in 0 until resources.length()){
+                    val x=resources.optJSONObject(i)?:continue;if(x.optString("resource_type")!="PDA")continue
+                    val serial=x.optString("resource_id").trim();if(serial.isBlank())continue
+                    val mnv=x.optString("leased_by_mnv").trim().ifBlank{localMnvFor(serial)}
+                    if(mnv.isBlank()||!matches(serial,filter)||!seen.add(serial))continue
+                    holders.add(serial to mnv)
+                }
+                val day=operationalStore.loadDay(operationalStore.businessDate());val sessions=day?.optJSONArray("sessions")?:JSONArray()
+                for(i in 0 until sessions.length()){
+                    val s=sessions.optJSONObject(i)?:continue;if(!s.optString("state").equals("ACTIVE",true))continue
+                    val serial=s.optString("pda_serial").trim();val mnv=s.optString("mnv").trim();if(serial.isBlank()||mnv.isBlank()||!matches(serial,filter)||!seen.add(serial))continue
+                    holders.add(serial to mnv)
+                }
+                holders.sortWith(compareBy<Pair<String,String>>{it.first.takeLast(5)}.thenBy{it.first})
+                if(holders.isEmpty()){listBox.addView(info(if(filter.isBlank())"Hiện không có PDA nào đang được sử dụng." else "Không có PDA đang dùng khớp Seri / 5 số cuối đã nhập."));return@runOnUiThread}
+                fun openHolder(serial:String,mnv:String){
+                    api.call("employee_context",JSONObject().put("mnv",mnv).put("include_options",true)){r->runOnUiThread{
+                        if(handleAuth(r))return@runOnUiThread;if(!r.ok){showError(r.error?:"Không tải được phiên");return@runOnUiThread}
+                        val ctx=r.json?:JSONObject();val ses=ctx.optJSONObject("session")?:JSONObject();if(!ctx.optString("state").equals("ACTIVE",true)||!ses.optString("pda_serial").equals(serial,true)){showError("PDA đã thay đổi người dùng hoặc phiên. Đồng bộ lại rồi thử lại.");foregroundSync.requestSync();refreshList(serialField.text.toString());return@runOnUiThread}
+                        val e=ctx.optJSONObject("employee")?:MasterDataCache.employee(this,mnv)?:JSONObject().put("mnv",mnv)
+                        val dialogBody=column(surface).apply{setPadding(dp(10),dp(4),dp(10),dp(8))}
+                        dialogBody.addView(txt(serial,16f,navy,true).apply{gravity=Gravity.CENTER_HORIZONTAL});dialogBody.addView(gap(6));dialogBody.addView(employeeCard(e));dialogBody.addView(gap(6));dialogBody.addView(details(listOf("Ca" to dash(ses.optString("shift")),"Công việc trong ca" to workInShiftText(ctx))));dialogBody.addView(gap(7))
+                        val pdas=MasterDataCache.resourceOptions(this).optJSONArray("pdas")?:JSONArray();val newPda=pdaInput(pdas,serial);dialogBody.addView(labelled("PDA mới khi đổi",newPda));dialogBody.addView(gap(7))
+                        val actions=row(surface);val change=smallButton("ĐỔI PDA",teal);val giveBack=smallButton("TRẢ PDA",orange);actions.addView(change,LinearLayout.LayoutParams(0,dp(44),1f).apply{marginEnd=dp(3)});actions.addView(giveBack,LinearLayout.LayoutParams(0,dp(44),1f).apply{marginStart=dp(3)});dialogBody.addView(actions,matchWrap())
+                        val dialog=AlertDialog.Builder(this).setTitle("Xác nhận Đổi / Trả PDA").setView(ScrollView(this).apply{addView(dialogBody)}).setNegativeButton("Đóng",null).create()
+                        fun mutate(nextPda:String,kind:String,why:String){val p=JSONObject().put("session_id",ses.optString("session_id")).put("mnv",mnv).put("shift",ses.optString("shift")).put("work_choice",ses.optString("work_choice")).put("pda_serial",nextPda).put("user_pick",ses.optString("user_pick")).put("pack_table",ses.optString("pack_table")).put("user_pack",ses.optString("user_pack")).put("resource_note",ses.optString("resource_note")).put("preserve_work_choice",true).put("mutation_kind","EDIT").put("audit_note","$kind PDA • $why").put("idempotency_key",UUID.randomUUID().toString());api.call("session_work_update",p){x->runOnUiThread{if(handleAuth(x))return@runOnUiThread;if(!x.ok)showError(x.error?:"Không cập nhật được PDA")else{dialog.dismiss();TopNotice.show(this,"Đã ${if(kind=="Đổi")"đổi" else "trả"} PDA và lưu lịch sử.",TopNotice.Kind.SUCCESS);foregroundSync.requestSync();refreshList(serialField.text.toString())}}}}
+                        change.setOnClickListener{val next=resolvePda(pdas,newPda.text.toString());if(next==null||next.equals(serial,true)){showError("Chọn PDA mới khác PDA hiện tại.");return@setOnClickListener};chooseReason("Lý do đổi PDA",changeReasons){mutate(next,"Đổi",it)}}
+                        giveBack.setOnClickListener{chooseReason("Lý do trả PDA",returnReasons){mutate("","Trả",it)}}
+                        dialog.show()
+                    }}
+                }
+                holders.forEach{(serial,mnv)->
+                    val e=MasterDataCache.employee(this,mnv)?:JSONObject().put("mnv",mnv)
+                    val card=column(surface).apply{setPadding(dp(10),dp(8),dp(10),dp(8));background=outlineBg(surface,12)}
+                    val serialView=txt(serial,15f,navy,true).apply{contentDescription="Mở xác nhận đổi hoặc trả PDA $serial";setPadding(0,dp(2),0,dp(4));setOnClickListener{openHolder(serial,mnv)}}
+                    card.addView(serialView,matchWrap());card.addView(employeeCard(e));card.setOnClickListener{openHolder(serial,mnv)}
+                    listBox.addView(card,matchWrap());listBox.addView(gap(6))
+                }
+            }}
+        }
+        find.setOnClickListener{hideSoftKeyboard(serialField);refreshList(serialField.text.toString())};bindScannerEnter(serialField){find.performClick()}
+        attach(root,body);refreshList("");serialField.requestFocus()
     }
 
     // S53_BETA47_SHEET_LOGIC_UI    // S53_BETA47_SHEET_LOGIC_UI
@@ -1517,15 +1579,41 @@ class OperationsActivity : Activity() {
     }
     private fun connectionSummary():String{val network=when(lastConnected){true->lastSyncLatencyMs?.let{"$it ms"}?:"Có mạng";false->"Mất kết nối";null->"Chưa kiểm tra"};val pending=runCatching{operationalStore.pendingMutationCount()}.getOrDefault(0);return "Mạng: $network | Đồng bộ: ${if(pending==0)"Hoàn tất" else "Đang chờ đồng bộ"} | Dịch vụ: ${serviceProviderFromRuntime()}"}
     private fun refreshHeaderConnection(){val pending=runCatching{operationalStore.pendingMutationCount()}.getOrDefault(lastProjectionPending);networkStatusText?.text=when(lastConnected){true->lastSyncLatencyMs?.let{"$it ms"}?:"Có mạng";false->"Mất mạng";null->"—"};syncStatusText?.text=if(pending>0)"Đang chờ" else if(lastConnected==true)"Hoàn tất" else "Đang chờ";serviceStatusText?.text=serviceProviderFromRuntime()}
-    private fun headerStatusChip(iconRes:Int,label:String,valueView:TextView,click:()->Unit)=row(Color.TRANSPARENT).apply{gravity=Gravity.CENTER_VERTICAL;setPadding(dp(6),dp(6),dp(6),dp(6));background=round(Color.argb(32,255,255,255),13);isClickable=true;isFocusable=true;setOnClickListener{click()};addView(ImageView(this@OperationsActivity).apply{setImageResource(iconRes);imageTintList=ColorStateList.valueOf(Color.WHITE);setPadding(dp(2),dp(2),dp(2),dp(2))},size(dp(22),dp(22)));addView(column(Color.TRANSPARENT).apply{addView(txt(label,7.2f,Color.argb(210,255,255,255),false).apply{maxLines=1;setAutoSizeTextTypeUniformWithConfiguration(6,8,1,android.util.TypedValue.COMPLEX_UNIT_SP)});addView(valueView.apply{maxLines=1;setAutoSizeTextTypeUniformWithConfiguration(6,10,1,android.util.TypedValue.COMPLEX_UNIT_SP)})},LinearLayout.LayoutParams(0,-2,1f).apply{marginStart=dp(4)})}
+    private fun headerStatusChip(iconRes:Int,label:String,valueView:TextView,click:()->Unit)=row(Color.TRANSPARENT).apply{
+        gravity=Gravity.CENTER_VERTICAL
+        setPadding(dp(5),dp(3),dp(5),dp(3))
+        background=round(Color.argb(32,255,255,255),12)
+        isClickable=true;isFocusable=true;setOnClickListener{click()}
+        addView(ImageView(this@OperationsActivity).apply{setImageResource(iconRes);imageTintList=ColorStateList.valueOf(Color.WHITE);setPadding(dp(1),dp(1),dp(1),dp(1))},size(dp(19),dp(19)))
+        addView(column(Color.TRANSPARENT).apply{
+            addView(txt(label,7f,Color.argb(210,255,255,255),false).apply{maxLines=1;setAutoSizeTextTypeUniformWithConfiguration(6,8,1,android.util.TypedValue.COMPLEX_UNIT_SP)})
+            addView(valueView.apply{maxLines=1;setAutoSizeTextTypeUniformWithConfiguration(6,9,1,android.util.TypedValue.COMPLEX_UNIT_SP)})
+        },LinearLayout.LayoutParams(0,-2,1f).apply{marginStart=dp(3)})
+    }
     private fun greetingText():String{val h=java.time.LocalTime.now(ZoneId.of("Asia/Ho_Chi_Minh")).hour;val part=when(h){in 5..10->"sáng";in 11..13->"trưa";in 14..17->"chiều";else->"tối"};return "Chào buổi $part, ${name.ifBlank{login}}"}
-    private fun appBar(title:String)=column(Color.TRANSPARENT).apply{setPadding(dp(16),dp(11),dp(16),dp(12));background=gradient(navy,accent,0);val identity=row(Color.TRANSPARENT).apply{gravity=Gravity.CENTER_VERTICAL};if(!isRootScreen())identity.addView(ImageView(this@OperationsActivity).apply{setImageResource(R.drawable.ic_pp_back);imageTintList=ColorStateList.valueOf(Color.WHITE);setPadding(dp(7),dp(7),dp(7),dp(7));setOnClickListener{navigateBack()}},size(dp(36),dp(36)));identity.addView(txt(greetingText(),16f,Color.WHITE,true).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END},LinearLayout.LayoutParams(0,-2,1f).apply{if(!isRootScreen())marginStart=dp(3)});identity.addView(ImageView(this@OperationsActivity).apply{contentDescription="Làm mới và đồng bộ dữ liệu";setImageResource(R.drawable.ic_pp_refresh_round);imageTintList=ColorStateList.valueOf(Color.WHITE);setPadding(dp(7),dp(7),dp(7),dp(7));setOnClickListener{manualRefreshFromHeader(this)}},size(dp(36),dp(36)));addView(identity,matchWrap());addView(gap(10));val statuses=row(Color.TRANSPARENT).apply{gravity=Gravity.CENTER};val net=txt("—",9f,Color.WHITE,true);networkStatusText=net;val syn=txt("—",9f,Color.WHITE,true);syncStatusText=syn;val svc=txt("—",9f,Color.WHITE,true);serviceStatusText=svc;statuses.addView(headerStatusChip(R.drawable.ic_pp_network,"Mạng",net){showHeaderStatusDetail("NETWORK")},LinearLayout.LayoutParams(0,dp(44),1f).apply{marginEnd=dp(3)});statuses.addView(headerStatusChip(R.drawable.ic_pp_sync,"Đồng bộ",syn){showHeaderStatusDetail("SYNC")},LinearLayout.LayoutParams(0,dp(44),1f).apply{marginStart=dp(2);marginEnd=dp(2)});statuses.addView(headerStatusChip(R.drawable.ic_pp_service,"Dịch vụ",svc){showHeaderStatusDetail("SERVICE")},LinearLayout.LayoutParams(0,dp(44),1f).apply{marginStart=dp(3)});addView(statuses,matchWrap());refreshHeaderConnection()}
+    private fun appBar(title:String)=column(Color.TRANSPARENT).apply{
+        setPadding(dp(12),dp(7),dp(12),dp(8));background=gradient(navy,accent,0)
+        val identity=row(Color.TRANSPARENT).apply{gravity=Gravity.CENTER_VERTICAL}
+        if(!isRootScreen())identity.addView(ImageView(this@OperationsActivity).apply{setImageResource(R.drawable.ic_pp_back);imageTintList=ColorStateList.valueOf(Color.WHITE);setPadding(dp(6),dp(6),dp(6),dp(6));setOnClickListener{navigateBack()}},size(dp(32),dp(32)))
+        identity.addView(txt(greetingText(),15.2f,Color.WHITE,true).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END},LinearLayout.LayoutParams(0,-2,1f).apply{if(!isRootScreen())marginStart=dp(2)})
+        identity.addView(ImageView(this@OperationsActivity).apply{contentDescription="Làm mới và đồng bộ dữ liệu";setImageResource(R.drawable.ic_pp_refresh_round);imageTintList=ColorStateList.valueOf(Color.WHITE);setPadding(dp(6),dp(6),dp(6),dp(6));setOnClickListener{manualRefreshFromHeader(this)}},size(dp(32),dp(32)))
+        addView(identity,matchWrap());addView(gap(6))
+        val statuses=row(Color.TRANSPARENT).apply{gravity=Gravity.CENTER}
+        val net=txt("—",8.8f,Color.WHITE,true);networkStatusText=net
+        val syn=txt("—",8.8f,Color.WHITE,true);syncStatusText=syn
+        val svc=txt("—",8.8f,Color.WHITE,true);serviceStatusText=svc
+        statuses.addView(headerStatusChip(R.drawable.ic_pp_network,"Mạng",net){showHeaderStatusDetail("NETWORK")},LinearLayout.LayoutParams(0,dp(38),1f).apply{marginEnd=dp(2)})
+        statuses.addView(headerStatusChip(R.drawable.ic_pp_sync,"Đồng bộ",syn){showHeaderStatusDetail("SYNC")},LinearLayout.LayoutParams(0,dp(38),1f).apply{marginStart=dp(1);marginEnd=dp(1)})
+        statuses.addView(headerStatusChip(R.drawable.ic_pp_service,"Dịch vụ",svc){showHeaderStatusDetail("SERVICE")},LinearLayout.LayoutParams(0,dp(38),1f).apply{marginStart=dp(2)})
+        addView(statuses,matchWrap());refreshHeaderConnection()
+    }
     private fun activeTab()=when(module){"STAFF"->"STAFF";"HISTORY"->"HISTORY";"SYNC"->"SYNC";"SETTINGS"->"SETTINGS";"ROLE_MODE"->"ROLE_MODE";else->"BUSINESS"}
 
     private fun bottomNav():LinearLayout=row(surface).apply{
         gravity=Gravity.CENTER;setPadding(dp(3),dp(5),dp(3),dp(5));background=outlineBg(surface,16);elevation=dp(8).toFloat();navRefs.clear()
         val items=mutableListOf(
             Triple(R.drawable.ic_pp_business,"Nghiệp vụ","BUSINESS"),
+            Triple(R.drawable.ic_pp_staff,"Nhân sự","STAFF"),
             Triple(R.drawable.ic_pp_history,"Lịch sử","HISTORY"),
             Triple(R.drawable.ic_pp_settings,"Cài đặt","SETTINGS")
         )
@@ -1632,23 +1720,23 @@ raw.contains("PDA_STATUS_MISMATCH_NOTIFY_SPECIALIST")->"Tình trạng PDA hiện
     }
     private fun businessCard(iconRes:Int,title:String,sub:String,enabled:Boolean=true,click:()->Unit)=column(surface).apply{
         gravity=Gravity.CENTER_HORIZONTAL
-        setPadding(dp(9),dp(10),dp(9),dp(9))
+        setPadding(dp(7),dp(7),dp(7),dp(7))
         background=outlineBg(surface,20)
         elevation=if(enabled)dp(5).toFloat() else 0f
         alpha=if(enabled)1f else .38f
         isEnabled=enabled
-        addView(businessIconBubble(iconRes),size(dp(58),dp(58)))
-        addView(gap(9))
-        addView(txt(title,13.5f,ink,true).apply{gravity=Gravity.CENTER;maxLines=2;ellipsize=android.text.TextUtils.TruncateAt.END})
-        addView(gap(5))
-        addView(View(this@OperationsActivity).apply{background=round(teal,2)},size(dp(28),dp(3)))
+        addView(businessIconBubble(iconRes),size(dp(52),dp(52)))
+        addView(gap(6))
+        addView(txt(title,13.1f,ink,true).apply{gravity=Gravity.CENTER;maxLines=2;ellipsize=android.text.TextUtils.TruncateAt.END})
+        addView(gap(3))
+        addView(View(this@OperationsActivity).apply{background=round(teal,2)},size(dp(26),dp(3)))
         if(sub.isNotBlank()){addView(gap(6));addView(txt(sub,9.8f,muted,false).apply{gravity=Gravity.CENTER;maxLines=3;ellipsize=android.text.TextUtils.TruncateAt.END;setAutoSizeTextTypeUniformWithConfiguration(8,10,1,android.util.TypedValue.COMPLEX_UNIT_SP)},matchWrap())}
         if(enabled)setOnClickListener{click()} else setOnClickListener(null)
     }
 
     private fun businessRow(a:View,b:View)=row(bg).apply{
-        addView(a,LinearLayout.LayoutParams(0,dp(132),1f).apply{marginEnd=dp(4)})
-        addView(b,LinearLayout.LayoutParams(0,dp(132),1f).apply{marginStart=dp(4)})
+        addView(a,LinearLayout.LayoutParams(0,dp(122),1f).apply{marginEnd=dp(3)})
+        addView(b,LinearLayout.LayoutParams(0,dp(122),1f).apply{marginStart=dp(3)})
     }
 
     private fun iconActionButton(res:Int,color:Int,desc:String,click:()->Unit)=FrameLayout(this).apply{

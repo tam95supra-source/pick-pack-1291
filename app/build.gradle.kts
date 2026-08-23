@@ -32,8 +32,8 @@ android {
         create("beta") {
             dimension = "channel"
             applicationId = "vn.pickpack1291.app.beta.publicbeta"
-            versionCode = 66
-            versionName = "0.4.2-beta.60"
+            versionCode = 67
+            versionName = "0.4.2-beta.61"
             manifestPlaceholders["appLabel"] = "Pick Pack 1291 Beta"
             buildConfigField("String", "CHANNEL", "\"BETA\"")
         }
@@ -73,7 +73,8 @@ dependencies {
 // Firebase client identifiers are injected at build time and default blank so source never contains project config.
 // GSHEET_API_URL remains public discovery/fallback configuration and manual update lookup path; no Service URL is compiled into APK.
 // Signing material remains outside this repository and the Android signer is owner-locked.
-// Beta60: owner operations UX, audited session edits/deletes, PDA exchange and live resource details.
+// Beta61: restored Staff tab, denser owner UI, active-PDA holder list, attendance editor refinements and direct Service resource admin.
+// Beta60 remains immutable and is the previous public baseline.
 // Beta59 remains immutable and is the previous public baseline.
 // Beta58 remains immutable historical evidence.
 // Beta57 remains immutable; Beta56 remains denylisted/cancelled and VC62 is intentionally skipped.
