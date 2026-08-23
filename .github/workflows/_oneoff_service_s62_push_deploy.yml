@@ -84,7 +84,7 @@ jobs:
             "vars":{"SERVICE_GENERATION":"m2-prod-20260819-001","GOOGLE_SOURCE_SHEET_ID":"1E7ZWz-4eMcBliQxDYBVoogIoeSYyiaXGwj0I6mbMm78"},
             "d1_databases":[{"binding":"DB","database_name":"pick-pack-1291-service-prod","database_id":"b619df89-528d-4126-a948-de0425037b11","migrations_dir":"migrations"}],
             "durable_objects":{"bindings":[{"name":"REALTIME_HUB","class_name":"RealtimeHub"}]},
-            "migrations":[{"tag":"v1","new_sqlite_classes":["RealtimeHub"]}],
+            "migrations":[{"tag":"v1-realtime-hub","new_sqlite_classes":["RealtimeHub"]}],
             "assets":{"directory":"./public","binding":"ASSETS","not_found_handling":"single-page-application","run_worker_first":["/health","/v1/*","/internal/*"]},
             "triggers":{"crons":["*/1 * * * *"]},
             "observability":{"enabled":true,"head_sampling_rate":1}
