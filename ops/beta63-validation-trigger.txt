@@ -1,5 +1,6 @@
-Beta63 validation trigger 2026-08-24T01:02+07
+Beta63 validation trigger 2026-08-24T01:13+07
 Base: Beta62 a1d351ef0448e824a1b08d0675da555bf0ede534
 Validation base: stabilization/beta63-materialize-base2-20260824
+Release gate: release/beta63-signed-candidate-base-20260824
 Scope: responsive login, auth performance, session mutation reliability
-Reason: compile corrections for minimumHeight and fully-qualified Intent
+Reason: exact signed Beta63 candidate and Stable isolation validation
