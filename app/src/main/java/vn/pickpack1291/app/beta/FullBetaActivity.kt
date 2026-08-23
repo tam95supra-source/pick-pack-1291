@@ -119,13 +119,22 @@ class FullBetaActivity : Activity() {
             elevation = 0f
             clipToOutline = true
         }
-        card.addView(ImageView(this).apply { setImageResource(R.drawable.owner_launcher); scaleType = ImageView.ScaleType.CENTER_CROP }, size(dp(92), dp(92)))
-        card.addView(gap(9))
-        card.addView(txt("PICK PACK 1291", 24f, navy, true).center())
-        card.addView(txt("SUPRA DC HƯNG YÊN", 10.5f, accent, true).center())
+        card.addView(txt("Pick Pack 1291", 25f, navy, true).center())
+        card.addView(txt("Supra DC Hưng Yên", 12f, accent, true).center())
+        card.addView(gap(5))
+        card.addView(txt("KHU VỰC ĐĂNG NHẬP", 10.2f, muted, true).center())
         card.addView(gap(20))
         card.addView(labelled("Tài khoản", user)); card.addView(gap(10))
-        card.addView(labelled("Mật khẩu", pass)); card.addView(gap(14))
+        card.addView(labelled("Mật khẩu", pass)); card.addView(gap(5))
+        val showPassword = CheckBox(this).apply {
+            text = "Hiện mật khẩu"; textSize = 10.8f; setTextColor(muted); setPadding(0,0,0,0)
+            setOnCheckedChangeListener { _, checked ->
+                val cursor=pass.selectionStart.coerceAtLeast(0)
+                pass.inputType=InputType.TYPE_CLASS_TEXT or if(checked) InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD else InputType.TYPE_TEXT_VARIATION_PASSWORD
+                pass.setSelection(cursor.coerceAtMost(pass.text.length))
+            }
+        }
+        card.addView(showPassword,matchWrap()); card.addView(gap(10))
 
         val button = primary("ĐĂNG NHẬP", teal) {}.apply{background=gradient(navy,accent,14)}
         fun submit() {
@@ -171,9 +180,14 @@ class FullBetaActivity : Activity() {
                 } }
             }
         }, matchWrap())
+        card.addView(gap(4))
+        card.addView(Button(this).apply {
+            text="ĐĂNG KÝ"; textSize=11.5f; setTextColor(navy); typeface=Typeface.DEFAULT_BOLD; isAllCaps=false; minHeight=dp(44); background=outlineBg(surface,12)
+            setOnClickListener{TopNotice.show(this@FullBetaActivity,"Tính năng đăng ký đang được xây dựng.",TopNotice.Kind.INFO)}
+        },matchWrap())
 
         val holder = FrameLayout(this).apply {
-            setBackgroundColor(surface)
+            background=GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,intArrayOf(Color.rgb(239,247,250),Color.WHITE))
             minimumHeight = (resources.displayMetrics.heightPixels - dp(70)).coerceAtLeast(dp(560))
             setPadding(dp(18), dp(18), dp(18), dp(18))
             addView(card, FrameLayout.LayoutParams(-1, -2, Gravity.CENTER))
@@ -272,7 +286,7 @@ class FullBetaActivity : Activity() {
         currentScreen = "SCAN"; liveEmployeeMnv = ""
         val root=column(bg);root.addView(appBar("QUÉT QR NHÂN SỰ",true))
         val body=column(bg).apply{setPadding(dp(16),dp(16),dp(16),dp(92))}
-        val mnv=mnvInput("Quét QR hoặc nhập MNV")
+        val mnv=mnvInput("Scan / Nhập mã nhân viên")
         body.addView(labelled("Mã nhân viên",mnv));body.addView(gap(6))
         body.addView(txt("Nhận Enter/OK từ PDA hoặc bàn phím để chạy ngay.",9.8f,muted,false))
         var busy=false
@@ -408,7 +422,7 @@ class FullBetaActivity : Activity() {
     private fun status(value:String,fg:Int,color:Int)=txt(value,11.5f,fg,true).apply{gravity=Gravity.CENTER;setPadding(dp(10),dp(10),dp(10),dp(10));background=round(color,9)}
     private fun info(value:String)=txt(value,10.5f,muted,false).apply{setPadding(dp(12),dp(10),dp(12),dp(10));background=outlineBg(Color.rgb(244,247,251),9)}
     private fun section(title:String)=txt(title,10.5f,navy,true).apply{setPadding(0,dp(5),0,dp(6))}
-    private fun mnvInput(hintValue:String)=input(hintValue,false).apply{setSingleLine(true);inputType=InputType.TYPE_CLASS_NUMBER;keyListener=DigitsKeyListener.getInstance("0123456789");imeOptions=EditorInfo.IME_ACTION_DONE}
+    private fun mnvInput(hintValue:String)=input(hintValue,false).apply{setSingleLine(true);minHeight=dp(50);setPadding(dp(12),dp(7),dp(12),dp(7));inputType=InputType.TYPE_CLASS_NUMBER;keyListener=DigitsKeyListener.getInstance("0123456789");imeOptions=EditorInfo.IME_ACTION_DONE}
     private fun bindScannerEnter(v:EditText, submit:()->Unit){v.setOnEditorActionListener{_,id,_->if(id==EditorInfo.IME_ACTION_DONE||id==EditorInfo.IME_ACTION_GO||id==EditorInfo.IME_ACTION_SEARCH){submit();true}else false};v.setOnKeyListener{_,key,event->if(key==KeyEvent.KEYCODE_ENTER&&event.action==KeyEvent.ACTION_UP){submit();true}else false}}
     private fun pdaInput(pdas:JSONArray,currentSerial:String=""):AutoCompleteTextView {
         val labels=mutableListOf<String>();var currentLast5=""

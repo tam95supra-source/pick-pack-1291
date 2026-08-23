@@ -54,7 +54,7 @@ object MasterDataCache {
             searchable += fold(mnv + " " + e.optString("full_name") + " " + e.optString("supplier") + " " + e.optString("main_position")) to e
         }
         staffByMnv = byMnv
-        searchableStaff = searchable
+        searchableStaff = searchable.sortedWith(Comparator { a,b -> naturalCompare(a.second.optString("mnv"),b.second.optString("mnv")) })
         memorySnapshot = snapshot
     }
 
@@ -116,6 +116,12 @@ object MasterDataCache {
             }
         }
         return out
+    }
+
+    private fun naturalCompare(aRaw:String,bRaw:String):Int{
+        val rx=Regex("\\d+|\\D+");val a=rx.findAll(aRaw.trim()).map{it.value}.toList();val b=rx.findAll(bRaw.trim()).map{it.value}.toList();val n=minOf(a.size,b.size)
+        for(i in 0 until n){val x=a[i];val y=b[i];val xn=x.toLongOrNull();val yn=y.toLongOrNull();val c=if(xn!=null&&yn!=null)xn.compareTo(yn) else x.compareTo(y,ignoreCase=true);if(c!=0)return c}
+        return if(a.size!=b.size)a.size.compareTo(b.size) else aRaw.compareTo(bRaw,ignoreCase=true)
     }
 
     private fun fold(v: String): String = Normalizer.normalize(v, Normalizer.Form.NFD)

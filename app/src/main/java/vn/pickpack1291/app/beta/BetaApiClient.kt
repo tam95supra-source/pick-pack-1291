@@ -147,9 +147,10 @@ class BetaApiClient(context: Context) {
             localExecutor.execute {
                 try {
                     val result=serviceOwnerCall(action,payload)
+                    DirectOwnerDiagnostics.record(appContext,action,payload,result)
                     if(action in setOf("resource_master_upsert","resource_master_delete","history_correction")) AppHistory.record(appContext,action,result.ok,result.error.orEmpty())
                     callback(result)
-                } catch(t:Throwable){ callback(failure(t)) }
+                } catch(t:Throwable){ val result=failure(t);DirectOwnerDiagnostics.record(appContext,action,payload,result);callback(result) }
             }
             return
         }
@@ -321,8 +322,10 @@ class BetaApiClient(context: Context) {
         if(result.code==401){
             M2ServiceSessionManager.clearIfSame(appContext,bearer)
             val fresh=M2ServiceSessionManager.ensure(appContext,base,token,force=true).orEmpty()
-            if(fresh.isNotBlank())result=request(fresh)
+            if(fresh.isNotBlank()){bearer=fresh;result=request(fresh)}
         }
+        // One same-idempotency retry is safe for an atomic optimistic race; deterministic lease/validation conflicts remain errors.
+        if(action=="session_work_update" && result.code==409 && result.error=="SESSION_WORK_CONFLICT") result=request(bearer)
         return result
     }
 

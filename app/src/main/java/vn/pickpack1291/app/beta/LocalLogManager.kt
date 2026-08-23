@@ -87,7 +87,13 @@ object LocalLogManager {
             appendLine("memory_total_mb=${Runtime.getRuntime().totalMemory() / 1024 / 1024}")
             appendLine("memory_free_mb=${Runtime.getRuntime().freeMemory() / 1024 / 1024}")
         })
-        uploadFile(api, file, "MANUAL") { r -> if (r.ok) file.delete(); callback(r) }
+        uploadFile(api, file, "MANUAL") { r -> if (r.ok) resetAfterSuccessfulManualSend(context); callback(r) }
+    }
+
+    @Synchronized private fun resetAfterSuccessfulManualSend(context:Context){
+        logDir(context).listFiles()?.filter{it.isFile}?.forEach{runCatching{it.delete()}}
+        context.getSharedPreferences(PREFS,Context.MODE_PRIVATE).edit().putBoolean(KEY_STATS_INIT,true).putLong(KEY_TOTAL_FILES,0L).putLong(KEY_TOTAL_BYTES,0L).putLong(KEY_LATEST_AT,0L).apply()
+        DirectOwnerDiagnostics.clear(context)
     }
 
     private fun uploadNext(api: BetaApiClient, files: List<File>, index: Int) {
@@ -128,6 +134,8 @@ object LocalLogManager {
         appendLine("diagnostics_begin=S44_V1")
         runCatching { M2TransportDiagnostics.snapshotLines(context).forEach { appendLine(it) } }
             .onFailure { appendLine("transport_diag_error=${safe(it.javaClass.simpleName+":"+(it.message?:""))}") }
+        runCatching { DirectOwnerDiagnostics.snapshotLines(context).forEach { appendLine(it) } }
+            .onFailure { appendLine("direct_owner_diag_error=${safe(it.javaClass.simpleName+":"+(it.message?:""))}") }
         runCatching {
             val arr=OperationalDataStore(context).diagnosticOutbox(50)
             appendLine("outbox_rows=${arr.length()}")
