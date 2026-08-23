@@ -1,0 +1,2 @@
+trigger=v5
+fix=cf-types-before-tsc
