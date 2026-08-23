@@ -70,6 +70,16 @@ class BetaApiClient(context: Context) {
         m2Runtime.clear()
     }
 
+    /** Clear local auth immediately; remote GAS logout is best-effort and never blocks navigation. */
+    fun logoutFast() {
+        val captured = synchronized(sessionLock) { sharedToken }
+        clearSession()
+        if (captured.isNullOrBlank()) return
+        executor.execute {
+            runCatching { post(JSONObject().put("action", "logout"), authenticated = true, authTokenOverride = captured) }
+        }
+    }
+
     fun runtimeStatus(): JSONObject = m2Runtime.status()
 
     fun restoredAccount(): JSONObject? {
@@ -131,8 +141,12 @@ class BetaApiClient(context: Context) {
                 val result = post(request, authenticated = false)
                 if (result.ok) {
                     val newToken = result.json?.optString("token")?.takeIf { it.isNotBlank() }
-                    if (newToken != null) persistSession(newToken, result.json.optJSONObject("account"))
-                    m2Transport.loginFromPassword(login, password)
+                    if (newToken != null) {
+                        persistSession(newToken, result.json.optJSONObject("account"))
+                        // Beta63: UI success is not blocked by a second PBKDF2/password login to Service.
+                        // Warm the Service bearer asynchronously via inherited GAS-session exchange.
+                        localExecutor.execute { runCatching { m2Runtime.ensureServiceSession(newToken, force = false) } }
+                    }
                 }
                 callback(result)
             } catch (t: Throwable) {
@@ -324,8 +338,16 @@ class BetaApiClient(context: Context) {
             val fresh=M2ServiceSessionManager.ensure(appContext,base,token,force=true).orEmpty()
             if(fresh.isNotBlank()){bearer=fresh;result=request(fresh)}
         }
-        // One same-idempotency retry is safe for an atomic optimistic race; deterministic lease/validation conflicts remain errors.
-        if(action=="session_work_update" && result.code==409 && result.error=="SESSION_WORK_CONFLICT") result=request(bearer)
+        // Beta63: bounded same-idempotency retries only for the optimistic authority/session race.
+        // Deterministic lease/resource/validation conflicts remain visible errors and are never coerced to success.
+        if(action=="session_work_update") {
+            var retry=0
+            while(result.code==409 && result.error=="SESSION_WORK_CONFLICT" && retry<2) {
+                Thread.sleep(if(retry==0) 40L else 120L)
+                result=request(bearer)
+                retry++
+            }
+        }
         return result
     }
 
@@ -340,7 +362,7 @@ class BetaApiClient(context: Context) {
         return post(copy, authenticated = true)
     }
 
-    private fun post(payload: JSONObject, authenticated: Boolean): Result {
+    private fun post(payload: JSONObject, authenticated: Boolean, authTokenOverride: String? = null): Result {
         val endpoint = BuildConfig.GSHEET_API_URL.trim()
         if (endpoint.isBlank() || !endpoint.startsWith("https://script.google.com/")) {
             return Result(false, -1, null, "GSHEET_API_NOT_CONFIGURED")
@@ -351,7 +373,7 @@ class BetaApiClient(context: Context) {
             put("_device_id", deviceId)
             put("_device_label", "${Build.MANUFACTURER} ${Build.MODEL}")
             if (authenticated) {
-                val t = sharedToken ?: return Result(false, 401, JSONObject().put("ok", false).put("error", "UNAUTHORIZED"), "UNAUTHORIZED")
+                val t = authTokenOverride ?: synchronized(sessionLock) { sharedToken } ?: return Result(false, 401, JSONObject().put("ok", false).put("error", "UNAUTHORIZED"), "UNAUTHORIZED")
                 put("_token", t)
             }
         }

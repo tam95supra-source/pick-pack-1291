@@ -37,7 +37,7 @@ LOGIN_FUNCTION = r'''    private fun login() {
 
         fun loginField(iconRes: Int, field: EditText, trailing: View? = null): LinearLayout = row(Color.WHITE).apply {
             gravity = Gravity.CENTER_VERTICAL
-            minHeight = dp(if(compact) 48 else 54)
+            minimumHeight = dp(if(compact) 48 else 54)
             setPadding(dp(12), dp(3), dp(8), dp(3))
             background = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
@@ -105,7 +105,7 @@ LOGIN_FUNCTION = r'''    private fun login() {
 
         val button = Button(this).apply {
             text = "Đăng nhập"; textSize = if(compact) 15f else 16f; setTextColor(Color.WHITE); typeface = Typeface.DEFAULT_BOLD
-            isAllCaps = false; minHeight = dp(if(compact) 49 else 54); background = gradient(Color.rgb(17, 84, 184), Color.rgb(6, 57, 137), 13)
+            isAllCaps = false; minimumHeight = dp(if(compact) 49 else 54); background = gradient(Color.rgb(17, 84, 184), Color.rgb(6, 57, 137), 13)
         }
         fun submit() {
             val login = user.text.toString().trim(); val password = pass.text.toString()
@@ -134,7 +134,7 @@ LOGIN_FUNCTION = r'''    private fun login() {
         card.addView(gap(if(compact) 8 else 10))
         card.addView(Button(this).apply {
             text = "Đăng ký"; textSize = if(compact) 13f else 14f; setTextColor(Color.rgb(13, 73, 155)); typeface = Typeface.DEFAULT_BOLD; isAllCaps = false
-            minHeight = dp(if(compact) 47 else 51)
+            minimumHeight = dp(if(compact) 47 else 51)
             background = GradientDrawable().apply { shape = GradientDrawable.RECTANGLE; cornerRadius = dp(12).toFloat(); setColor(Color.argb(246,255,255,255)); setStroke(dp(1), Color.rgb(22, 82, 168)) }
             setOnClickListener { TopNotice.show(this@FullBetaActivity,"Tính năng đăng ký đang được xây dựng.",TopNotice.Kind.INFO) }
         }, matchWrap())
@@ -276,13 +276,13 @@ API.write_text(api)
 ops = OPS.read_text()
 if 'api.logoutFast()' not in ops:
     replacement = '''api.logoutFast()
-            startActivity(Intent(this, FullBetaActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            startActivity(android.content.Intent(this, FullBetaActivity::class.java).apply {
+                flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK
             })
             finish()
             @Suppress("DEPRECATION")
             overridePendingTransition(0, 0)'''
-    ops = replace_first_call_block(ops, 'api.call("logout") {', replacement)
+    ops = replace_first_call_block(ops, 'api.call("logout"){', replacement)
 OPS.write_text(ops)
 
 gradle = GRADLE.read_text()
