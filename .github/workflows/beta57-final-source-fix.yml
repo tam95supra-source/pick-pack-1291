@@ -1,7 +1,7 @@
 name: Beta57 Final Functional Fix
 
 on:
-  pull_request:
+  push:
     branches: [ agent/beta57-reset-fence-20260823 ]
     paths:
       - 'ops/beta57-final-source-fix-trigger.txt'
@@ -27,7 +27,6 @@ jobs:
           p=Path('app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt')
           s=p.read_text()
 
-          # Handover 5.3 - per-shift Vao/Ra/Chua-ra from the selected canonical day snapshot.
           if 'S58_BETA57_SHIFT_DISCREPANCY' not in s:
               anchor='''        body.addView(section("Phạm vi báo cáo"));body.addView(controls,matchWrap());body.addView(gap(7))
         val box=column(bg);body.addView(box,matchWrap())'''
@@ -78,13 +77,11 @@ jobs:
               if refresh not in s: raise SystemExit('report refresh anchor missing')
               s=s.replace(refresh,refresh2,1)
 
-          # Handover 5.5 - History is pure audit: each event row stands alone, no workflow grouping.
           old_group='rows.groupBy{e->e.optString("mnv").ifBlank{e.optString("event_id")}}'
           new_group='rows.groupBy{e->e.optString("event_id").ifBlank{"${e.optString(\"mnv\")}|${e.optString(\"at_iso\")}|${e.optString(\"event_type\")}"}}'
           if old_group in s: s=s.replace(old_group,new_group,1)
           if old_group in s: raise SystemExit('history employee grouping still present')
 
-          # Preserve device identity for canonical and local audit rows.
           old='.put("actor_role",e.optString("actor_role")).put("origin",e.optString("origin"))'
           new='.put("actor_role",e.optString("actor_role")).put("device_id",e.optString("device_id")).put("origin",e.optString("origin"))'
           if old in s: s=s.replace(old,new,1)
@@ -95,12 +92,10 @@ jobs:
           if old_local in s: s=s.replace(old_local,new_local,1)
           if new_local not in s: raise SystemExit('local history device marker missing')
 
-          # History detail must not mutate attendance/labor. Edits live only in Vao-Ra flows.
           edit='''if((e.optString("entity_type")=="ATTENDANCE_SESSION"||e.optString("entity_type")=="LABOR_SESSION")&&e.optString("entity_id").isNotBlank()&&historyCanEdit(e)){card.addView(gap(7));card.addView(smallButton("SỬA THÔNG TIN",teal).apply{setOnClickListener{historyEditDialog(e)}})};'''
           if edit in s: s=s.replace(edit,'',1)
           if 'setOnClickListener{historyEditDialog(e)}' in s: raise SystemExit('History edit entry still reachable')
 
-          # Explicit actor / role / device / source / sync in each event detail.
           actor_line='''val type=e.optString("event_type");val actor=e.optString("actor_id").ifBlank{e.optString("actor")}.ifBlank{"Hệ thống"};val status=historyGroupStatus(listOf(e));'''
           actor_new='''val type=e.optString("event_type");val actor=e.optString("actor_id").ifBlank{e.optString("actor")}.ifBlank{"Hệ thống"};val status=historyGroupStatus(listOf(e));val auditRole=e.optString("actor_role").ifBlank{"—"};val auditDevice=e.optString("device_id").ifBlank{"—"};val auditSource=e.optString("history_source").ifBlank{e.optString("origin")}.ifBlank{"Service"};'''
           if actor_line in s: s=s.replace(actor_line,actor_new,1)
@@ -111,7 +106,6 @@ jobs:
           if card_line in s: s=s.replace(card_line,card_new,1)
           if 'Thiết bị: $auditDevice • Nguồn: $auditSource • Đồng bộ: $status' not in s: raise SystemExit('History audit metadata line missing')
 
-          # Show before/after when mutation payload provides them.
           pfx='''val p=runCatching{JSONObject(e.optString("payload_json","{}"))}.getOrDefault(JSONObject());val after=p.optJSONObject("after");val src=after?:p;val d=mutableListOf<String>();'''
           pfx2='''val p=runCatching{JSONObject(e.optString("payload_json","{}"))}.getOrDefault(JSONObject());val before=p.optJSONObject("before");val after=p.optJSONObject("after");val src=after?:p;val d=mutableListOf<String>();'''
           if pfx in s: s=s.replace(pfx,pfx2,1)
@@ -121,7 +115,6 @@ jobs:
           if fields in s: s=s.replace(fields,fields2,1)
           if 'Trước: ${before.toString().take(500)}' not in s or 'Sau: ${after.toString().take(500)}' not in s: raise SystemExit('History before/after lines missing')
 
-          # Latest Owner locks must remain intact.
           if 'Triple(R.drawable.ic_pp_staff,"Nhân sự","STAFF")' in s: raise SystemExit('Staff bottom tab regressed')
           if 'setTitle("Xác nhận đăng xuất")' not in s: raise SystemExit('logout confirmation regressed')
           if 'S58_BETA57_SHIFT_DISCREPANCY' not in s: raise SystemExit('shift discrepancy missing')
