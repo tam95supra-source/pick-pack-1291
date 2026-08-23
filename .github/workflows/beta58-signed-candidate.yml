@@ -1,0 +1,208 @@
+name: Beta58 Signed Candidate
+
+on:
+  pull_request:
+    branches:
+      - agent/beta58-owner-fixes-20260823
+    paths:
+      - 'ops/beta58-release-trigger.txt'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: beta58-signed-candidate
+  cancel-in-progress: false
+
+jobs:
+  build-sign-verify:
+    if: github.head_ref == 'release/beta58-signed-trigger-20260823'
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      SIGNING_KEY_B64: ${{ secrets.ANDROID_SIGNING_KEY_B64 }}
+      SIGNING_STORE_PASSWORD: ${{ secrets.ANDROID_SIGNING_STORE_PASSWORD }}
+      SIGNING_KEY_PASSWORD: ${{ secrets.ANDROID_SIGNING_KEY_PASSWORD }}
+      SIGNING_ALIAS: ${{ secrets.ANDROID_SIGNING_ALIAS }}
+      EXPECTED_SIGNER_SHA256: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
+      BETA57_SOURCE_PIN: fc456fe4b830782b4d643ef004fa9d25fdc4e31c
+      EXPECTED_BETA_NAME: 0.4.2-beta.58
+      EXPECTED_BETA_CODE: '64'
+      EXPECTED_STABLE_NAME: 0.1.0-stable
+      EXPECTED_STABLE_CODE: '1'
+    steps:
+      - name: Checkout exact Beta58 base source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          fetch-depth: 0
+
+      - name: Verify source scope and owner contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.base.sha }}"
+          changed=$(git diff --name-only "$BETA57_SOURCE_PIN" -- app | sort)
+          expected=$(printf '%s\n' \
+            'app/build.gradle.kts' \
+            'app/src/main/java/vn/pickpack1291/app/beta/LocalLogManager.kt' \
+            'app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt' | sort)
+          test "$changed" = "$expected"
+
+          grep -q 'versionCode = 64' app/build.gradle.kts
+          grep -q 'versionName = "0.4.2-beta.58"' app/build.gradle.kts
+          grep -q 'versionCode = 1' app/build.gradle.kts
+          grep -q 'versionName = "0.1.0-stable"' app/build.gradle.kts
+          grep -q 'S59_BETA58_LOG_ACCOUNTING' app/src/main/java/vn/pickpack1291/app/beta/LocalLogManager.kt
+          grep -q 'S59_BETA58_SHIFT_RECONCILIATION_HOME' app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt
+          ! grep -q 'renderShiftDiscrepancy' app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt
+          grep -Fq 'if(ServiceFaultInjection.cloudflareDisabled(this)){return if(!ServiceFaultInjection.googleDisabled(this))"Google Drive" else "OFFLINE"}' app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt
+
+          # OTA/manual-only implementation is inherited byte-for-byte because no other app source file changed from Beta57.
+          test -z "$(git diff --name-only "$BETA57_SOURCE_PIN" -- app | grep -v -E '^(app/build.gradle.kts|app/src/main/java/vn/pickpack1291/app/beta/LocalLogManager.kt|app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt)$' || true)"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.4.1'
+
+      - name: Resolve Android SDK 36
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -n "${ANDROID_HOME:-}" \
+             && -f "$ANDROID_HOME/platforms/android-36/android.jar" \
+             && -x "$ANDROID_HOME/build-tools/36.0.0/apksigner" \
+             && -x "$ANDROID_HOME/build-tools/36.0.0/aapt" ]]; then
+            echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> "$GITHUB_ENV"
+            exit 0
+          fi
+          SDK="$RUNNER_TEMP/android-sdk"
+          ZIP="$RUNNER_TEMP/commandlinetools.zip"
+          curl -fsSL https://dl.google.com/android/repository/commandlinetools-linux-15859902_latest.zip -o "$ZIP"
+          echo "4e4c464f145a7512b57d088ac6c278c03c9eea610886b35a5e0804e74eedf583  $ZIP" | sha256sum -c -
+          mkdir -p "$SDK/cmdline-tools"
+          unzip -q "$ZIP" -d "$RUNNER_TEMP/android-cmdline"
+          mv "$RUNNER_TEMP/android-cmdline/cmdline-tools" "$SDK/cmdline-tools/latest"
+          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
+          yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
+          "$SDK/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-36' 'build-tools;36.0.0'
+
+      - name: Build Beta58 and Stable validation artifacts exactly once
+        shell: bash
+        run: |
+          set -euo pipefail
+          gradle --no-daemon --build-cache --parallel :app:assembleBetaRelease :app:assembleStableRelease
+
+      - name: Verify unsigned package/version isolation
+        shell: bash
+        run: |
+          set -euo pipefail
+          BT="$ANDROID_SDK_ROOT/build-tools/36.0.0"
+          BETA=app/build/outputs/apk/beta/release/app-beta-release-unsigned.apk
+          STABLE=app/build/outputs/apk/stable/release/app-stable-release-unsigned.apk
+          test -f "$BETA"; test -f "$STABLE"
+          "$BT/aapt" dump badging "$BETA" > /tmp/beta.txt
+          "$BT/aapt" dump badging "$STABLE" > /tmp/stable.txt
+          grep -q "package: name='vn.pickpack1291.app.beta.publicbeta'" /tmp/beta.txt
+          grep -q "versionCode='$EXPECTED_BETA_CODE'" /tmp/beta.txt
+          grep -q "versionName='$EXPECTED_BETA_NAME'" /tmp/beta.txt
+          grep -q "package: name='vn.pickpack1291.app.stable'" /tmp/stable.txt
+          grep -q "versionCode='$EXPECTED_STABLE_CODE'" /tmp/stable.txt
+          grep -q "versionName='$EXPECTED_STABLE_NAME'" /tmp/stable.txt
+
+      - name: Sign Beta58 with locked production signer
+        id: sign
+        shell: bash
+        run: |
+          set -euo pipefail
+          for v in SIGNING_KEY_B64 SIGNING_STORE_PASSWORD SIGNING_KEY_PASSWORD SIGNING_ALIAS; do
+            [[ -n "${!v:-}" ]]
+          done
+          KS="$RUNNER_TEMP/release.jks"
+          printf '%s' "$SIGNING_KEY_B64" | base64 -d > "$KS"
+          printf '%s' "$SIGNING_STORE_PASSWORD" > "$RUNNER_TEMP/store.pass"
+          printf '%s' "$SIGNING_KEY_PASSWORD" > "$RUNNER_TEMP/key.pass"
+          mkdir -p dist/beta58
+          OUT="dist/beta58/pick-pack-1291-public-beta-${EXPECTED_BETA_NAME}.apk"
+          BT="$ANDROID_SDK_ROOT/build-tools/36.0.0"
+          "$BT/apksigner" sign \
+            --ks "$KS" \
+            --ks-key-alias "$SIGNING_ALIAS" \
+            --ks-pass "file:$RUNNER_TEMP/store.pass" \
+            --key-pass "file:$RUNNER_TEMP/key.pass" \
+            --out "$OUT" \
+            app/build/outputs/apk/beta/release/app-beta-release-unsigned.apk
+          "$BT/apksigner" verify --verbose --print-certs "$OUT" > /tmp/cert.txt
+          grep -qi "Signer #1 certificate SHA-256 digest: $EXPECTED_SIGNER_SHA256" /tmp/cert.txt
+          "$BT/aapt" dump badging "$OUT" > /tmp/signed.txt
+          grep -q "package: name='vn.pickpack1291.app.beta.publicbeta'" /tmp/signed.txt
+          grep -q "versionCode='$EXPECTED_BETA_CODE'" /tmp/signed.txt
+          grep -q "versionName='$EXPECTED_BETA_NAME'" /tmp/signed.txt
+          sha=$(sha256sum "$OUT" | awk '{print $1}')
+          size=$(stat -c '%s' "$OUT")
+          file=$(basename "$OUT")
+          printf '%s  %s\n' "$sha" "$file" > "dist/beta58/SHA256SUMS-${EXPECTED_BETA_NAME}.txt"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "size=$size" >> "$GITHUB_OUTPUT"
+          echo "file=$file" >> "$GITHUB_OUTPUT"
+
+      - name: Create immutable candidate receipt
+        shell: bash
+        env:
+          APK_SHA: ${{ steps.sign.outputs.sha }}
+          APK_SIZE: ${{ steps.sign.outputs.size }}
+          APK_FILE: ${{ steps.sign.outputs.file }}
+        run: |
+          set -euo pipefail
+          cat > dist/beta58/BETA58_RELEASE_CANDIDATE_RECEIPT.txt <<EOF
+          checked_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          source_sha=$(git rev-parse HEAD)
+          beta57_source_pin=$BETA57_SOURCE_PIN
+          beta_name=$EXPECTED_BETA_NAME
+          beta_code=$EXPECTED_BETA_CODE
+          package=vn.pickpack1291.app.beta.publicbeta
+          apk_file=$APK_FILE
+          apk_sha256=$APK_SHA
+          apk_size=$APK_SIZE
+          signer_sha256=$EXPECTED_SIGNER_SHA256
+          stable_name=$EXPECTED_STABLE_NAME
+          stable_code=$EXPECTED_STABLE_CODE
+          stable_publish=FORBIDDEN
+          beta56_vc62=DENYLISTED
+          ota_mode=MANUAL_ONLY_INHERITED_UNCHANGED
+          app_change_scope=build.gradle.kts,LocalLogManager.kt,OperationsActivity.kt
+          source_scope=PASS
+          build_beta=PASS
+          build_stable_validation=PASS
+          package_version=PASS
+          signer=PASS
+          verdict=PASS
+          EOF
+
+      - name: Upload exact signed Beta58 candidate and receipt
+        id: upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: pick-pack-1291-beta58-signed-candidate
+          path: dist/beta58/*
+          retention-days: 30
+
+      - name: Emit artifact ID
+        shell: bash
+        run: |
+          echo "artifact_id=${{ steps.upload.outputs.artifact-id }}"
+          echo "source_sha=$(git rev-parse HEAD)"
+          echo "apk_sha256=${{ steps.sign.outputs.sha }}"
+          echo "apk_size=${{ steps.sign.outputs.size }}"
+          echo "verdict=PASS"
+
+      - name: Cleanup signing material
+        if: always()
+        shell: bash
+        run: rm -f "$RUNNER_TEMP/release.jks" "$RUNNER_TEMP/store.pass" "$RUNNER_TEMP/key.pass"
