@@ -27,8 +27,8 @@ jobs:
       TARGET_VERSION: 0.4.2-beta.59
       TARGET_CODE: '65'
       APK_NAME: pick-pack-1291-public-beta-0.4.2-beta.59.apk
-      EXPECTED_SHA: 3138b3c6ac6890173c899894421d14e5a5defb9060957f8632d6028ca10102ab
-      EXPECTED_SIZE: '5756935'
+      EXPECTED_SHA: 55f6e3db521ee39dc5e58130a3444fee6ac1e936b38556f0ac281ea9e4212567
+      EXPECTED_SIZE: '13044331'
       EXPECTED_SIGNER_SHA256: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
       TAG: v0.4.2-beta.59-publicbeta
 
@@ -75,6 +75,8 @@ jobs:
           test "$(stat -c '%s' "$APK")" = "$EXPECTED_SIZE"
           grep -R -q "source_commit=$SOURCE_SHA" /tmp/candidate
           grep -R -q "signer_sha256=$EXPECTED_SIGNER_SHA256" /tmp/candidate
+          grep -R -q "apk_sha256=$EXPECTED_SHA" /tmp/candidate
+          grep -R -q "apk_size=$EXPECTED_SIZE" /tmp/candidate
           grep -R -q 'verdict=PASS' /tmp/candidate
           echo "APK=$APK" >> "$GITHUB_ENV"
 
@@ -92,6 +94,7 @@ jobs:
               --title "$TARGET_VERSION" \
               --notes 'Beta59: hoàn thiện Quét QR nhân sự; tách Thêm/Sửa/Xóa/Ra ca; hiển thị tài nguyên PDA/User theo ca; đối soát Vào/Ra theo timestamp thực; lịch sử/audit chi tiết. OTA tiếp tục manual-only. Stable không thay đổi.'
           else
+            rm -rf /tmp/existing-release && mkdir -p /tmp/existing-release
             gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern "$APK_NAME" --dir /tmp/existing-release
             test "$(sha256sum /tmp/existing-release/$APK_NAME | awk '{print $1}')" = "$EXPECTED_SHA"
             test "$(stat -c '%s' /tmp/existing-release/$APK_NAME)" = "$EXPECTED_SIZE"
