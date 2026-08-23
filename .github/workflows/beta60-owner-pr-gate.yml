@@ -19,7 +19,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.ref }}
           fetch-depth: 0
 
-      - name: Apply exact Beta60 patch from head recipe
+      - name: Apply exact Beta60 patch recipes
         shell: bash
         run: |
           set -euo pipefail
@@ -30,6 +30,9 @@ jobs:
           if not wf.exists(): raise SystemExit('Beta60 patch recipe missing on head')
           t=wf.read_text();marker="          python3 - <<'PY'\n";start=t.index(marker)+len(marker);end=t.index("\n          PY",start)
           exec(compile(textwrap.dedent(t[start:end]),str(wf),'exec'),{})
+          follow=Path('ops/beta60-owner-followup-patch.py')
+          if not follow.exists(): raise SystemExit('Beta60 follow-up patch missing on head')
+          exec(compile(follow.read_text(),str(follow),'exec'),{})
           PY
 
       - name: Beta60 static contract guards
@@ -51,6 +54,9 @@ jobs:
           grep -q 'leased_by_mnv' app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt
           grep -q 'preserve_work_choice' app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt
           grep -q 'metadata_json' app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt
+          test "$(grep -c 'private fun employeeScan()' app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt)" -eq 1
+          test "$(grep -c 'private fun sessionWorkEditor(ctx:JSONObject,mode:String)' app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt)" -eq 1
+          test "$(grep -c 'private fun editableTime(iso:String)' app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt)" -eq 1
 
       - uses: actions/setup-java@v4
         with:
@@ -88,10 +94,10 @@ jobs:
           TARGET_BRANCH: ${{ github.event.pull_request.head.ref }}
         run: |
           set -euo pipefail
-          rm -f .github/workflows/_oneoff_beta60_owner_ops_resource_fix.yml
+          rm -f .github/workflows/_oneoff_beta60_owner_ops_resource_fix.yml ops/beta60-owner-followup-patch.py ops/beta60-owner-gate-trigger.txt
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add app/build.gradle.kts app/src/main/java/vn/pickpack1291/app/beta/BetaApiClient.kt app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt .github/workflows/_oneoff_beta60_owner_ops_resource_fix.yml
+          git add app/build.gradle.kts app/src/main/java/vn/pickpack1291/app/beta/BetaApiClient.kt app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt .github/workflows/_oneoff_beta60_owner_ops_resource_fix.yml ops/beta60-owner-followup-patch.py ops/beta60-owner-gate-trigger.txt
           if ! git diff --cached --quiet; then
             git commit -m 'feat(beta60): owner operations resource workflow'
             git push origin HEAD:"$TARGET_BRANCH"
