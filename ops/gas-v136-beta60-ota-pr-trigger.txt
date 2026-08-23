@@ -1,0 +1,3 @@
+trigger=2026-08-23T18:59:20+07:00
+intent=BETA60_OTA_ONLY
+stable=UNTOUCHED
