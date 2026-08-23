@@ -1,0 +1,38 @@
+name: TEMP Persist Service Live Health Probe
+
+on:
+  push:
+    branches: [ agent/service-prod-replication-fix-20260823 ]
+    paths:
+      - '.github/workflows/service-live-health-probe-write-temp.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/service-prod-replication-fix-20260823
+      - name: Probe and persist production health read-only
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p ops
+          curl --fail-with-body --silent --show-error --max-time 20 'https://pickpack.1291.workers.dev/health' > ops/live-health-probe.json
+          printf '\n' >> ops/live-health-probe.json
+          cat ops/live-health-probe.json
+      - name: Commit probe result
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add ops/live-health-probe.json
+          if ! git diff --cached --quiet; then
+            git commit -m 'chore(diag): persist live service health result'
+            git push origin HEAD:agent/service-prod-replication-fix-20260823
+          fi
