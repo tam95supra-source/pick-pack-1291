@@ -1,0 +1,3 @@
+trigger=2026-08-23T10:19:00+07:00
+purpose=shift_discrepancy_and_pure_audit_history
+nonce=2
