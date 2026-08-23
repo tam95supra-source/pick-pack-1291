@@ -24,7 +24,6 @@ jobs:
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
-
           p=Path('app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt')
           s=p.read_text()
           staff='            Triple(R.drawable.ic_pp_staff,"Nhân sự","STAFF"),\n'
@@ -33,21 +32,11 @@ jobs:
           if 'Triple(R.drawable.ic_pp_staff,"Nhân sự","STAFF")' in s:
               raise SystemExit('STAFF bottom-nav still present')
           p.write_text(s)
-
-          w=Path('.github/workflows/app-fast-check.yml')
-          t=w.read_text()
-          old="          grep -q 'Triple(R.drawable.ic_pp_staff,\"Nhân sự\",\"STAFF\")' app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt\n"
-          new="          ! grep -q 'Triple(R.drawable.ic_pp_staff,\"Nhân sự\",\"STAFF\")' app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt\n"
-          if old in t:
-              t=t.replace(old,new,1)
-          elif new not in t:
-              raise SystemExit('STAFF static guard anchor missing')
-          w.write_text(t)
-          print('PASS owner truth patch')
+          print('PASS owner truth source patch')
           PY
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt .github/workflows/app-fast-check.yml
+          git add app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt
           if ! git diff --cached --quiet; then
             git commit -m 'fix(beta57): remove Staff bottom tab per owner truth'
             git push origin HEAD:agent/beta57-reset-fence-20260823
