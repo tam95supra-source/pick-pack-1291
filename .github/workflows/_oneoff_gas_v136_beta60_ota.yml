@@ -1,0 +1,205 @@
+name: One-off GAS v136 Beta60 OTA
+
+on:
+  push:
+    branches:
+      - ops/gas-v136-beta60-ota-20260823
+    paths:
+      - '.github/workflows/_oneoff_gas_v136_beta60_ota.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gas-live-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      TARGET_VERSION: 0.4.2-beta.60
+      TARGET_CODE: '66'
+      TARGET_SHA256: 40d7526cee2806a170f8726428753ed796419263ca47a8a7d9332756d61bbd68
+      TARGET_SIZE: '13044331'
+      TARGET_APK_NAME: pick-pack-1291-public-beta-0.4.2-beta.60.apk
+      TARGET_APK_URL: https://github.com/tam95supra-source/pick-pack-1291/releases/download/v0.4.2-beta.60-publicbeta/pick-pack-1291-public-beta-0.4.2-beta.60.apk
+      GAS_SCRIPT_ID: ${{ secrets.GAS_SCRIPT_ID }}
+      GAS_DEPLOYMENT_ID: ${{ secrets.GAS_DEPLOYMENT_ID }}
+      GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+      GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+      GOOGLE_OAUTH_REFRESH_TOKEN: ${{ secrets.GOOGLE_OAUTH_REFRESH_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Exchange OAuth and resolve deployment
+        id: auth
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          for v in GAS_SCRIPT_ID GAS_DEPLOYMENT_ID GOOGLE_OAUTH_CLIENT_ID GOOGLE_OAUTH_CLIENT_SECRET GOOGLE_OAUTH_REFRESH_TOKEN; do [[ -n "${!v:-}" ]]; done
+          SCRIPT_ID=$(printf '%s' "$GAS_SCRIPT_ID" | tr -d '\r\n\t ')
+          RAW=$(printf '%s' "$GAS_DEPLOYMENT_ID" | tr -d '\r\n\t ')
+          DEPLOYMENT_ID="$RAW"
+          if [[ "$RAW" =~ /s/([^/]+)/ ]]; then DEPLOYMENT_ID="${BASH_REMATCH[1]}"; fi
+          RESP=$(curl -fsS https://oauth2.googleapis.com/token \
+            -H 'Content-Type: application/x-www-form-urlencoded' \
+            --data-urlencode "client_id=$GOOGLE_OAUTH_CLIENT_ID" \
+            --data-urlencode "client_secret=$GOOGLE_OAUTH_CLIENT_SECRET" \
+            --data-urlencode "refresh_token=$GOOGLE_OAUTH_REFRESH_TOKEN" \
+            --data-urlencode 'grant_type=refresh_token')
+          TOKEN=$(python3 -c 'import json,sys;print(json.load(sys.stdin).get("access_token",""))' <<<"$RESP")
+          [[ -n "$SCRIPT_ID" && -n "$DEPLOYMENT_ID" && -n "$TOKEN" ]]
+          echo "::add-mask::$SCRIPT_ID"; echo "::add-mask::$DEPLOYMENT_ID"; echo "::add-mask::$TOKEN"
+          echo "script_id=$SCRIPT_ID" >> "$GITHUB_OUTPUT"
+          echo "deployment_id=$DEPLOYMENT_ID" >> "$GITHUB_OUTPUT"
+          echo "token=$TOKEN" >> "$GITHUB_OUTPUT"
+
+      - name: Fresh-read exact deployed GAS version and source
+        id: live
+        env:
+          SCRIPT_ID: ${{ steps.auth.outputs.script_id }}
+          DEPLOYMENT_ID: ${{ steps.auth.outputs.deployment_id }}
+          ACCESS_TOKEN: ${{ steps.auth.outputs.token }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          curl -fsS -H "Authorization: Bearer $ACCESS_TOKEN" "https://script.googleapis.com/v1/projects/$SCRIPT_ID/deployments/$DEPLOYMENT_ID" > /tmp/deployment-before.json
+          OLD_VERSION=$(python3 - <<'PY'
+          import json
+          j=json.load(open('/tmp/deployment-before.json'))
+          print(j['deploymentConfig']['versionNumber'])
+          PY
+          )
+          [[ "$OLD_VERSION" =~ ^[0-9]+$ ]]
+          curl -fsS -H "Authorization: Bearer $ACCESS_TOKEN" "https://script.googleapis.com/v1/projects/$SCRIPT_ID/content?versionNumber=$OLD_VERSION" > /tmp/live-content.json
+          python3 - <<'PY'
+          import json,hashlib
+          j=json.load(open('/tmp/live-content.json'))
+          fs=j.get('files',[])
+          assert fs, 'NO_LIVE_FILES'
+          target=[f for f in fs if f.get('name')=='PICK_PACK_API' and f.get('type')=='SERVER_JS']
+          assert len(target)==1, [f.get('name') for f in fs]
+          s=target[0].get('source','')
+          for needle in ["action === 'service_discovery'","function ppUpdateCheck_(body)","SERVICE_PRIMARY","PP_GITHUB_RELEASE_OTA_CANONICAL_V1"]:
+              assert needle in s, 'LIVE_SOURCE_GUARD_MISSING:'+needle
+          assert '0.4.2-beta.59' in s, 'LIVE_NOT_BETA59_OTA'
+          print('live_files='+str(len(fs)))
+          print('live_pick_pack_sha256='+hashlib.sha256(s.encode()).hexdigest())
+          PY
+          echo "old_version=$OLD_VERSION" >> "$GITHUB_OUTPUT"
+          echo "old_version=$OLD_VERSION" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Patch only Beta OTA function on fresh deployed source
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY'
+          import json,hashlib,difflib,os
+          path='/tmp/live-content.json'
+          j=json.load(open(path))
+          f=next(x for x in j['files'] if x.get('name')=='PICK_PACK_API' and x.get('type')=='SERVER_JS')
+          s=f['source']
+          start=s.index('function ppUpdateCheck_(body) {')
+          end=s.index('\nfunction ppJson_', start)
+          before=s[:start]; after=s[end:]
+          old=s[start:end]
+          new='''// PP_BETA60_OTA_V136: exact signed Beta60 metadata; Stable remains unavailable/untouched.\nfunction ppUpdateCheck_(body) {\n  const channel=ppFold_(body.channel||body._app_channel)==='STABLE'?'STABLE':'BETA';\n  const current=String(body.current_version||body._app_version||'').trim();\n  if(channel==='STABLE') return {ok:true,source:'GITHUB_RELEASE',channel:'STABLE',available:false,reason:'NO_RELEASE'};\n  const version="0.4.2-beta.60", available=ppOtaCompare_(version,current)>0;\n  const out={ok:true,source:'GITHUB_RELEASE',channel:'BETA',available:available,version_name:version,version_code:66,size:13044331,published_at:"2026-08-23T11:42:00Z",notes:"Beta60: tối ưu bố cục Nghiệp vụ; hoàn thiện Quét QR nhân sự, Thêm/Sửa/Xóa/Ra ca; sửa giờ vào-ra ca; đổi/trả PDA theo serial và lý do audit; đối soát ra-ca; hiển thị metadata tài nguyên; sửa Pack → Thêm Pick không làm mất Pack. OTA manual-only; Stable không thay đổi.",mandatory:false};\n  if(!available)return out;\n  out.sha256="40d7526cee2806a170f8726428753ed796419263ca47a8a7d9332756d61bbd68";\n  out.apk_url="https://github.com/tam95supra-source/pick-pack-1291/releases/download/v0.4.2-beta.60-publicbeta/pick-pack-1291-public-beta-0.4.2-beta.60.apk";\n  return out;\n}\n'''
+          patched=before+new+after
+          assert patched[:start]==before and patched.endswith(after)
+          assert '0.4.2-beta.59' not in new
+          assert '0.4.2-beta.60' in new and os.environ['TARGET_SHA256'] in new
+          f['source']=patched
+          open('/tmp/patched-content.json','w').write(json.dumps({'files':j['files']},ensure_ascii=False))
+          diff=list(difflib.unified_diff(old.splitlines(),new.splitlines(),lineterm=''))
+          open('/tmp/ota.diff','w').write('\n'.join(diff)+'\n')
+          print('old_ota_sha256='+hashlib.sha256(old.encode()).hexdigest())
+          print('new_ota_sha256='+hashlib.sha256(new.encode()).hexdigest())
+          print('ota_diff_lines='+str(len(diff)))
+          PY
+          grep -q 'PP_BETA60_OTA_V136' /tmp/patched-content.json
+          grep -q "$TARGET_SHA256" /tmp/patched-content.json
+          node - <<'NODE'
+          const fs=require('fs'),j=JSON.parse(fs.readFileSync('/tmp/patched-content.json','utf8'));
+          const s=j.files.find(x=>x.name==='PICK_PACK_API').source;
+          fs.writeFileSync('/tmp/PICK_PACK_API.js',s);
+          NODE
+          node --check /tmp/PICK_PACK_API.js
+          cat /tmp/ota.diff
+
+      - name: Update Apps Script source, create new version, preserve same deployment ID
+        id: deploy
+        env:
+          SCRIPT_ID: ${{ steps.auth.outputs.script_id }}
+          DEPLOYMENT_ID: ${{ steps.auth.outputs.deployment_id }}
+          ACCESS_TOKEN: ${{ steps.auth.outputs.token }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          H=$(curl -sS -o /tmp/content-put.out -w '%{http_code}' -X PUT \
+            -H "Authorization: Bearer $ACCESS_TOKEN" -H 'Content-Type: application/json' \
+            --data-binary @/tmp/patched-content.json "https://script.googleapis.com/v1/projects/$SCRIPT_ID/content")
+          [[ "$H" == 200 ]] || { cat /tmp/content-put.out; exit 1; }
+          H=$(curl -sS -o /tmp/version-new.json -w '%{http_code}' -X POST \
+            -H "Authorization: Bearer $ACCESS_TOKEN" -H 'Content-Type: application/json' \
+            -d '{"description":"Pick Pack 1291 Beta60 OTA exact metadata"}' \
+            "https://script.googleapis.com/v1/projects/$SCRIPT_ID/versions")
+          [[ "$H" == 200 ]] || { cat /tmp/version-new.json; exit 1; }
+          NEW_VERSION=$(python3 -c 'import json;print(json.load(open("/tmp/version-new.json"))["versionNumber"])')
+          OLD_VERSION='${{ steps.live.outputs.old_version }}'
+          [[ "$NEW_VERSION" =~ ^[0-9]+$ && "$NEW_VERSION" -gt "$OLD_VERSION" ]]
+          python3 - "$SCRIPT_ID" "$NEW_VERSION" <<'PY'
+          import json,sys
+          json.dump({'deploymentConfig':{'scriptId':sys.argv[1],'versionNumber':int(sys.argv[2]),'manifestFileName':'appsscript','description':'Pick Pack 1291 live API - Beta60 OTA'}},open('/tmp/deploy-put.json','w'))
+          PY
+          H=$(curl -sS -o /tmp/deploy-put.out -w '%{http_code}' -X PUT \
+            -H "Authorization: Bearer $ACCESS_TOKEN" -H 'Content-Type: application/json' \
+            --data-binary @/tmp/deploy-put.json "https://script.googleapis.com/v1/projects/$SCRIPT_ID/deployments/$DEPLOYMENT_ID")
+          [[ "$H" == 200 ]] || { cat /tmp/deploy-put.out; exit 1; }
+          echo "new_version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
+          echo "new_version=$NEW_VERSION" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Resolve production web URL and verify live Beta60 OTA end-to-end
+        env:
+          SCRIPT_ID: ${{ steps.auth.outputs.script_id }}
+          DEPLOYMENT_ID: ${{ steps.auth.outputs.deployment_id }}
+          ACCESS_TOKEN: ${{ steps.auth.outputs.token }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          curl -fsS -H "Authorization: Bearer $ACCESS_TOKEN" "https://script.googleapis.com/v1/projects/$SCRIPT_ID/deployments/$DEPLOYMENT_ID" > /tmp/deployment-after.json
+          WEB_URL=$(python3 - <<'PY'
+          import json
+          j=json.load(open('/tmp/deployment-after.json'))
+          eps=j.get('entryPoints',[])
+          web=[e.get('webApp',{}) for e in eps if e.get('entryPointType')=='WEB_APP']
+          assert web and web[0].get('url')
+          print(web[0]['url'])
+          PY
+          )
+          echo "::add-mask::$WEB_URL"
+          OK=false
+          for n in $(seq 1 20); do
+            B=$(curl -sSL --connect-timeout 20 --max-time 90 -H 'content-type: application/json' "$WEB_URL" -d '{"action":"update_check","channel":"BETA","current_version":"0.4.2-beta.59"}' || true)
+            if printf '%s' "$B" | TARGET_VERSION="$TARGET_VERSION" TARGET_SHA256="$TARGET_SHA256" TARGET_SIZE="$TARGET_SIZE" node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const j=JSON.parse(s);process.exit(j.ok===true&&j.source==="GITHUB_RELEASE"&&j.channel==="BETA"&&j.available===true&&j.version_name===process.env.TARGET_VERSION&&String(j.version_code)==="66"&&String(j.size)===process.env.TARGET_SIZE&&String(j.sha256).toLowerCase()===process.env.TARGET_SHA256&&String(j.apk_url||"").includes("v0.4.2-beta.60-publicbeta")?0:1)}catch(e){process.exit(1)}})'; then OK=true; printf '%s' "$B" >/tmp/beta-live.json; break; fi
+            sleep 3
+          done
+          [[ "$OK" == true ]] || { printf '%s\n' "$B"; exit 1; }
+          URL=$(python3 -c 'import json;print(json.load(open("/tmp/beta-live.json"))["apk_url"])')
+          curl -fL --retry 6 --retry-all-errors --retry-delay 2 --connect-timeout 20 --max-time 180 "$URL" -o /tmp/ota.apk
+          [[ "$(sha256sum /tmp/ota.apk | awk '{print $1}')" == "$TARGET_SHA256" ]]
+          [[ "$(stat -c '%s' /tmp/ota.apk)" == "$TARGET_SIZE" ]]
+          SELF=$(curl -fsSL -H 'content-type: application/json' "$WEB_URL" -d '{"action":"update_check","channel":"BETA","current_version":"0.4.2-beta.60"}')
+          STABLE=$(curl -fsSL -H 'content-type: application/json' "$WEB_URL" -d '{"action":"update_check","channel":"STABLE","current_version":"0.1.0-stable"}')
+          printf '%s' "$SELF" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const j=JSON.parse(s);process.exit(j.ok===true&&j.channel==="BETA"&&j.available===false&&j.version_name==="0.4.2-beta.60"?0:1)})'
+          printf '%s' "$STABLE" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const j=JSON.parse(s);process.exit(j.ok===true&&j.channel==="STABLE"&&j.available===false?0:1)})'
+          DISC=$(curl -fsSL -H 'content-type: application/json' "$WEB_URL" -d '{"action":"service_discovery"}')
+          printf '%s' "$DISC" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const j=JSON.parse(s);process.exit(j.ok===true&&j.authority_mode==="SERVICE_PRIMARY"?0:1)})'
+          echo "OTA Beta59 -> Beta60: PASS" >> "$GITHUB_STEP_SUMMARY"
+          echo "Beta60 self-check: PASS" >> "$GITHUB_STEP_SUMMARY"
+          echo "Stable untouched: PASS" >> "$GITHUB_STEP_SUMMARY"
+          echo "Service authority still SERVICE_PRIMARY: PASS" >> "$GITHUB_STEP_SUMMARY"
