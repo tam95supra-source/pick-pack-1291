@@ -1,0 +1,293 @@
+name: GAS Beta58 Deploy OTA
+
+on:
+  pull_request:
+    branches:
+      - agent/beta58-owner-fixes-20260823
+    paths:
+      - 'ops/gas-beta58-deploy-trigger.txt'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gas-beta58-deploy-ota
+  cancel-in-progress: false
+
+jobs:
+  deploy-verify:
+    if: github.head_ref == 'release/gas-beta58-ota-20260823'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+      GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+      GOOGLE_OAUTH_REFRESH_TOKEN: ${{ secrets.GOOGLE_OAUTH_REFRESH_TOKEN }}
+      GAS_SCRIPT_ID: ${{ secrets.GAS_SCRIPT_ID }}
+      GAS_DEPLOYMENT_ID: ${{ secrets.GAS_DEPLOYMENT_ID }}
+      GAS_URL: https://script.google.com/macros/s/AKfycbzbEoGfbNg6s2HnP-gUpcBJ7mMIkVBtYuQKMndb9seDV2c55lQwSUO1GZ-LtQ2CxMCauA/exec
+      EXPECTED_DEPLOYED_VERSION: '133'
+      EXPECTED_OLD_PICK_PACK_API_SHA256: d7a27bc6ba3fcf7daecc04ec54ade1937c2c498f9f186c07c811831eee7739b8
+      TAG: v0.4.2-beta.58-publicbeta
+      VERSION: 0.4.2-beta.58
+      VERSION_CODE: '64'
+      APK_NAME: pick-pack-1291-public-beta-0.4.2-beta.58.apk
+      EXPECTED_SHA: 1fb36447ea15a4f6a536814335acc4e693d85dc9b4de0b13e8fee5bdcffd475d
+      EXPECTED_SIZE: '13027947'
+      EXPECTED_PACKAGE: vn.pickpack1291.app.beta.publicbeta
+      EXPECTED_SIGNER_SHA256: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
+    steps:
+      - name: Resolve GitHub release publication metadata
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json tagName,isPrerelease,publishedAt,body > /tmp/release.json
+          test "$(jq -r '.tagName' /tmp/release.json)" = "$TAG"
+          test "$(jq -r '.isPrerelease' /tmp/release.json)" = 'true'
+          PUBLISHED_AT=$(jq -r '.publishedAt' /tmp/release.json)
+          test -n "$PUBLISHED_AT"; test "$PUBLISHED_AT" != null
+          BODY=$(jq -r '.body' /tmp/release.json)
+          grep -qx "PP_VERSION=$VERSION" <<<"$BODY"
+          grep -qx "PP_VERSION_CODE=$VERSION_CODE" <<<"$BODY"
+          grep -qx "PP_SHA256=$EXPECTED_SHA" <<<"$BODY"
+          grep -qx "PP_SIZE=$EXPECTED_SIZE" <<<"$BODY"
+          grep -qx "PP_SIGNER_SHA256=$EXPECTED_SIGNER_SHA256" <<<"$BODY"
+          grep -qx 'PP_OTA_MODE=MANUAL_ONLY' <<<"$BODY"
+          grep -qx 'PP_STABLE=UNTOUCHED' <<<"$BODY"
+          echo "PUBLISHED_AT=$PUBLISHED_AT" >> "$GITHUB_ENV"
+
+      - name: Read exact deployed GAS version and exchange OAuth
+        shell: bash
+        run: |
+          set -euo pipefail
+          for v in GOOGLE_OAUTH_CLIENT_ID GOOGLE_OAUTH_CLIENT_SECRET GOOGLE_OAUTH_REFRESH_TOKEN GAS_SCRIPT_ID GAS_DEPLOYMENT_ID; do test -n "${!v:-}"; done
+          SCRIPT_ID=$(printf '%s' "$GAS_SCRIPT_ID"|tr -d '\r\n\t ')
+          RAW=$(printf '%s' "$GAS_DEPLOYMENT_ID"|tr -d '\r\n\t ')
+          DEPLOYMENT_ID="$RAW"; if [[ "$RAW" =~ /s/([^/]+)/ ]]; then DEPLOYMENT_ID="${BASH_REMATCH[1]}"; fi
+          RESP=$(curl -fsS https://oauth2.googleapis.com/token -H 'Content-Type: application/x-www-form-urlencoded' \
+            --data-urlencode "client_id=$GOOGLE_OAUTH_CLIENT_ID" \
+            --data-urlencode "client_secret=$GOOGLE_OAUTH_CLIENT_SECRET" \
+            --data-urlencode "refresh_token=$GOOGLE_OAUTH_REFRESH_TOKEN" \
+            --data-urlencode 'grant_type=refresh_token')
+          TOKEN=$(python3 -c 'import json,sys;print(json.load(sys.stdin).get("access_token",""))' <<<"$RESP")
+          test -n "$TOKEN"; echo "::add-mask::$TOKEN"
+          curl -fsS -H "Authorization: Bearer $TOKEN" \
+            "https://script.googleapis.com/v1/projects/$SCRIPT_ID/deployments/$DEPLOYMENT_ID" -o /tmp/deployment-before.json
+          CURRENT_VERSION=$(jq -r '.deploymentConfig.versionNumber // empty' /tmp/deployment-before.json)
+          test "$CURRENT_VERSION" = "$EXPECTED_DEPLOYED_VERSION"
+          curl -fsS -H "Authorization: Bearer $TOKEN" \
+            "https://script.googleapis.com/v1/projects/$SCRIPT_ID/content?versionNumber=$CURRENT_VERSION" -o /tmp/content-before.json
+          echo "SCRIPT_ID=$SCRIPT_ID" >> "$GITHUB_ENV"
+          echo "DEPLOYMENT_ID=$DEPLOYMENT_ID" >> "$GITHUB_ENV"
+          echo "TOKEN=$TOKEN" >> "$GITHUB_ENV"
+
+      - name: Patch only ppUpdateCheck_ in exact production source
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          python3 - <<'PY'
+          import json,hashlib,os,pathlib
+          j=json.load(open('/tmp/content-before.json',encoding='utf-8'))
+          files=j.get('files',[])
+          idx=next((i for i,x in enumerate(files) if x.get('type')=='SERVER_JS' and x.get('name')=='PICK_PACK_API'),None)
+          assert idx is not None
+          src=str(files[idx].get('source',''))
+          old_sha=hashlib.sha256(src.encode()).hexdigest()
+          assert old_sha==os.environ['EXPECTED_OLD_PICK_PACK_API_SHA256'],(old_sha,os.environ['EXPECTED_OLD_PICK_PACK_API_SHA256'])
+          marker='function ppUpdateCheck_(body) {'
+          start=src.find(marker); assert start>=0
+          i=start; depth=0; quote=None; esc=False; end=None
+          while i<len(src):
+              c=src[i]
+              if quote:
+                  if esc: esc=False
+                  elif c=='\\': esc=True
+                  elif c==quote: quote=None
+              else:
+                  if c in "'\"`": quote=c
+                  elif c=='{': depth+=1
+                  elif c=='}':
+                      depth-=1
+                      if depth==0 and i>start: end=i+1; break
+              i+=1
+          assert end
+          old=src[start:end]
+          assert "const version = '0.4.2-beta.57';" in old
+          assert 'version_code: 63' in old
+          assert "ae060aaf96d47388d699577e6b1cd003229b6d7f35feb6da12f5b339cb1d2fcc" in old
+          assert 'v0.4.2-beta.57-publicbeta' in old
+          published=os.environ['PUBLISHED_AT']
+          new=f'''function ppUpdateCheck_(body) {{
+  const channel = ppFold_((body && (body.channel || body._app_channel)) || '') === 'STABLE'
+    ? 'STABLE'
+    : 'BETA';
+  const current = String((body && (body.current_version || body._app_version)) || '').trim();
+
+  // Stable remains intentionally locked/unpublished.
+  if (channel === 'STABLE') {{
+    return {{
+      ok: true,
+      source: 'GITHUB_RELEASE',
+      channel: 'STABLE',
+      available: false,
+      reason: 'NO_RELEASE'
+    }};
+  }}
+
+  const version = '0.4.2-beta.58';
+  const available = ppOtaCompare_(version, current) > 0;
+
+  const out = {{
+    ok: true,
+    source: 'GITHUB_RELEASE',
+    channel: 'BETA',
+    available: available,
+    version_name: version,
+    version_code: 64,
+    size: 13027947,
+    published_at: '{published}',
+    notes: 'Beta58: sửa thống kê Nhật ký không còn về 0 sau khi upload; hiển thị đúng Google Drive khi thử tắt Cloudflare; đưa Đối soát vào/ra ca lên đầu Nghiệp vụ và chỉ hiện ca có nhân sự. OTA tiếp tục manual-only; Stable không thay đổi.',
+    mandatory: false
+  }};
+
+  if (!available) return out;
+
+  out.sha256 = '1fb36447ea15a4f6a536814335acc4e693d85dc9b4de0b13e8fee5bdcffd475d';
+  out.apk_url = 'https://github.com/tam95supra-source/pick-pack-1291/releases/download/v0.4.2-beta.58-publicbeta/pick-pack-1291-public-beta-0.4.2-beta.58.apk';
+  return out;
+}}'''
+          patched=src[:start]+new+src[end:]
+          # Strong scope proof: exact prefix/suffix unchanged; only one function body replaced.
+          assert patched[:start]==src[:start]
+          assert patched[start+len(new):]==src[end:]
+          assert patched.count("function ppUpdateCheck_(body) {")==1
+          files[idx]['source']=patched
+          new_sha=hashlib.sha256(patched.encode()).hexdigest()
+          pathlib.Path('/tmp/content-patched.json').write_text(json.dumps({'files':files},ensure_ascii=False),encoding='utf-8')
+          pathlib.Path('/tmp/PICK_PACK_API_patched.js').write_text(patched,encoding='utf-8')
+          pathlib.Path('out/GAS_BETA58_PATCH_RECEIPT.txt').write_text(
+              'old_deployed_version='+os.environ['EXPECTED_DEPLOYED_VERSION']+'\n'+
+              'old_pick_pack_api_sha256='+old_sha+'\n'+
+              'new_pick_pack_api_sha256='+new_sha+'\n'+
+              'patch_scope=ppUpdateCheck_ONLY\n'+
+              'target_ota=0.4.2-beta.58/64\n'+
+              'stable=UNTOUCHED\n'+
+              'ota_mode=MANUAL_ONLY\n'+
+              'patch_verdict=PASS\n',encoding='utf-8')
+          print('old_sha='+old_sha)
+          print('new_sha='+new_sha)
+          PY
+          node --check /tmp/PICK_PACK_API_patched.js
+
+      - name: Update GAS head, create immutable version and move existing deployment
+        id: deploy
+        shell: bash
+        run: |
+          set -euo pipefail
+          H=$(curl -sS -o /tmp/content-put.out -w '%{http_code}' -X PUT \
+            -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+            --data-binary @/tmp/content-patched.json \
+            "https://script.googleapis.com/v1/projects/$SCRIPT_ID/content")
+          [[ "$H" == 200 ]] || { cat /tmp/content-put.out; exit 1; }
+          H=$(curl -sS -o /tmp/version.json -w '%{http_code}' -X POST \
+            -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+            -d '{"description":"Pick Pack 1291 Beta58 manual OTA metadata"}' \
+            "https://script.googleapis.com/v1/projects/$SCRIPT_ID/versions")
+          [[ "$H" == 200 ]] || { cat /tmp/version.json; exit 1; }
+          NEW_VERSION=$(jq -r '.versionNumber // empty' /tmp/version.json)
+          [[ "$NEW_VERSION" =~ ^[0-9]+$ ]]; test "$NEW_VERSION" -gt "$EXPECTED_DEPLOYED_VERSION"
+          jq -nc --arg sid "$SCRIPT_ID" --argjson v "$NEW_VERSION" \
+            '{deploymentConfig:{scriptId:$sid,versionNumber:$v,manifestFileName:"appsscript",description:"Pick Pack 1291 Beta58 manual OTA metadata"}}' > /tmp/deploy.json
+          H=$(curl -sS -o /tmp/deploy.out -w '%{http_code}' -X PUT \
+            -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+            --data-binary @/tmp/deploy.json \
+            "https://script.googleapis.com/v1/projects/$SCRIPT_ID/deployments/$DEPLOYMENT_ID")
+          [[ "$H" == 200 ]] || { cat /tmp/deploy.out; exit 1; }
+          echo "new_version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
+          echo "NEW_DEPLOYED_VERSION=$NEW_VERSION" >> "$GITHUB_ENV"
+
+      - name: Verify deployed source equals patched source
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsS -H "Authorization: Bearer $TOKEN" \
+            "https://script.googleapis.com/v1/projects/$SCRIPT_ID/deployments/$DEPLOYMENT_ID" -o /tmp/deployment-after.json
+          test "$(jq -r '.deploymentConfig.versionNumber' /tmp/deployment-after.json)" = "$NEW_DEPLOYED_VERSION"
+          curl -fsS -H "Authorization: Bearer $TOKEN" \
+            "https://script.googleapis.com/v1/projects/$SCRIPT_ID/content?versionNumber=$NEW_DEPLOYED_VERSION" -o /tmp/content-after.json
+          python3 - <<'PY'
+          import json,hashlib,pathlib
+          exp=[x.split('=',1)[1] for x in pathlib.Path('out/GAS_BETA58_PATCH_RECEIPT.txt').read_text().splitlines() if x.startswith('new_pick_pack_api_sha256=')][0]
+          j=json.load(open('/tmp/content-after.json'))
+          src=next(str(x.get('source','')) for x in j['files'] if x.get('type')=='SERVER_JS' and x.get('name')=='PICK_PACK_API')
+          got=hashlib.sha256(src.encode()).hexdigest()
+          assert got==exp,(got,exp)
+          print('deployed_pick_pack_api_sha256='+got)
+          PY
+
+      - name: Live OTA E2E Beta57 to Beta58, self and Stable
+        shell: bash
+        run: |
+          set -euo pipefail
+          post(){ curl -sSL --connect-timeout 20 --max-time 90 -H 'content-type: application/json' "$GAS_URL" -d "$1"; }
+          good=false
+          for n in $(seq 1 30); do
+            code=$(curl -sSL --connect-timeout 20 --max-time 90 -o /tmp/update.json -w '%{http_code}' \
+              -H 'content-type: application/json' "$GAS_URL" \
+              -d '{"action":"update_check","channel":"BETA","current_version":"0.4.2-beta.57"}' || true)
+            if [[ "$code" == 200 ]] && python3 - <<'PY'
+          import json,os
+          try:j=json.load(open('/tmp/update.json'))
+          except:raise SystemExit(1)
+          ok=(j.get('ok') is True and j.get('available') is True and j.get('source')=='GITHUB_RELEASE' and j.get('version_name')==os.environ['VERSION'] and int(j.get('version_code',-1))==int(os.environ['VERSION_CODE']) and str(j.get('sha256','')).lower()==os.environ['EXPECTED_SHA'] and int(j.get('size',-1))==int(os.environ['EXPECTED_SIZE']) and str(j.get('apk_url','')).endswith('/'+os.environ['APK_NAME']))
+          raise SystemExit(0 if ok else 1)
+          PY
+            then good=true; break; fi
+            sleep 4
+          done
+          [[ "$good" == true ]] || { cat /tmp/update.json || true; exit 44; }
+          URL=$(jq -r .apk_url /tmp/update.json)
+          curl -fL --retry 6 --retry-all-errors --retry-delay 2 --connect-timeout 20 --max-time 180 "$URL" -o /tmp/ota.apk
+          test "$(sha256sum /tmp/ota.apk|awk '{print $1}')" = "$EXPECTED_SHA"
+          test "$(stat -c '%s' /tmp/ota.apk)" = "$EXPECTED_SIZE"
+          BT="${ANDROID_HOME:-$ANDROID_SDK_ROOT}/build-tools/36.0.0"
+          if [[ ! -x "$BT/aapt" || ! -x "$BT/apksigner" ]]; then BT=$(dirname "$(find "${ANDROID_HOME:-$ANDROID_SDK_ROOT}/build-tools" -type f -name apksigner -perm -u+x|sort -V|tail -1)"); fi
+          test -x "$BT/aapt"; test -x "$BT/apksigner"
+          "$BT/aapt" dump badging /tmp/ota.apk >/tmp/badge.txt
+          grep -Fq "package: name='$EXPECTED_PACKAGE'" /tmp/badge.txt
+          grep -Fq "versionCode='$VERSION_CODE'" /tmp/badge.txt
+          grep -Fq "versionName='$VERSION'" /tmp/badge.txt
+          "$BT/apksigner" verify --verbose --print-certs /tmp/ota.apk >/tmp/cert.txt
+          grep -Fiq "Signer #1 certificate SHA-256 digest: $EXPECTED_SIGNER_SHA256" /tmp/cert.txt
+          post "{\"action\":\"update_check\",\"channel\":\"BETA\",\"current_version\":\"$VERSION\"}" >/tmp/self.json
+          post '{"action":"update_check","channel":"STABLE","current_version":"0.1.0-stable"}' >/tmp/stable.json
+          python3 - <<'PY'
+          import json,os
+          s=json.load(open('/tmp/self.json')); t=json.load(open('/tmp/stable.json'))
+          assert s.get('ok') is True and s.get('available') is False,s
+          assert s.get('version_name')==os.environ['VERSION'],s
+          assert t.get('ok') is True and t.get('available') is False,t
+          assert t.get('channel')=='STABLE',t
+          assert t.get('reason')=='NO_RELEASE',t
+          PY
+          cat >> out/GAS_BETA58_PATCH_RECEIPT.txt <<EOF
+          new_deployed_version=$NEW_DEPLOYED_VERSION
+          ota_beta57_to_beta58=PASS
+          ota_beta58_self_no_update=PASS
+          stable_no_update=PASS
+          public_apk_sha256=$EXPECTED_SHA
+          public_apk_size=$EXPECTED_SIZE
+          live_e2e=PASS
+          verdict=PASS
+          EOF
+
+      - name: Upload production GAS Beta58 receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gas-beta58-deploy-ota-receipt
+          path: out/*
+          retention-days: 30
