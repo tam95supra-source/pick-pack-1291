@@ -15,10 +15,11 @@ concurrency:
 
 jobs:
   deploy-production:
-    if: github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'agent/service-s62-session-authority-cas-fix-20260824'
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'deploy/service-s62-clean-exec-20260824'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     env:
+      SERVICE_URL: https://pick-pack-1291-service.pp1291-d79b87776e86.workers.dev
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
     steps:
@@ -44,49 +45,11 @@ jobs:
           npm install --no-audit --no-fund
           npm run typecheck
 
-      - name: Discover current workers.dev URL from Cloudflare account
-        shell: bash
-        run: |
-          set -euo pipefail
-          test -n "${CLOUDFLARE_API_TOKEN:-}"
-          test -n "${CLOUDFLARE_ACCOUNT_ID:-}"
-          code=$(curl -sS --retry 4 --retry-all-errors --retry-delay 2 --connect-timeout 15 --max-time 60 \
-            -o /tmp/cf-subdomain.json -w '%{http_code}' \
-            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
-            -H 'Content-Type: application/json' \
-            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/subdomain")
-          test "$code" = 200
-          python3 - <<'PY' >> "$GITHUB_ENV"
-          import json,re
-          j=json.load(open('/tmp/cf-subdomain.json'))
-          assert j.get('success') is True,j
-          r=j.get('result') or {}
-          sub=str(r.get('subdomain') or '').strip()
-          assert re.fullmatch(r'[A-Za-z0-9.-]+',sub),sub
-          url=f'https://pick-pack-1291-service.{sub}.workers.dev'
-          print('SERVICE_URL='+url)
-          print('WORKERS_SUBDOMAIN='+sub)
-          PY
-          python3 - <<'PY'
-          import json
-          j=json.load(open('/tmp/cf-subdomain.json'))
-          print('Cloudflare workers subdomain discovered:',(j.get('result') or {}).get('subdomain',''))
-          PY
-
       - name: Pre-deploy production health fence
         shell: bash
         run: |
           set -euo pipefail
-          fetch_health(){
-            local out="$1" code
-            code=$(curl -sS --retry 3 --retry-delay 2 --connect-timeout 15 --max-time 45 -o "$out" -w '%{http_code}' "$SERVICE_URL/health" 2>/tmp/curl.err || true)
-            if [[ "$code" != 200 ]]; then
-              code=$(curl --doh-url https://cloudflare-dns.com/dns-query -sS --retry 3 --retry-delay 2 --connect-timeout 15 --max-time 45 -o "$out" -w '%{http_code}' "$SERVICE_URL/health" 2>>/tmp/curl.err || true)
-            fi
-            echo "$code"
-          }
-          code=$(fetch_health /tmp/pre-health.json)
-          if [[ "$code" != 200 ]]; then cat /tmp/curl.err >&2 || true; fi
+          code=$(curl -sS --retry 4 --retry-all-errors --retry-delay 2 --connect-timeout 15 --max-time 60 -o /tmp/pre-health.json -w '%{http_code}' "$SERVICE_URL/health")
           test "$code" = 200
           python3 - <<'PY'
           import json
@@ -132,6 +95,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          test -n "${CLOUDFLARE_API_TOKEN:-}"
+          test -n "${CLOUDFLARE_ACCOUNT_ID:-}"
           npx wrangler deploy --config wrangler.prod.s62.jsonc --keep-vars 2>&1 | tee /tmp/deploy.log
           sed -n 's/.*Version ID: */worker_version_id=/p' /tmp/deploy.log | tail -1 > /tmp/version.txt || true
 
@@ -139,19 +104,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          curl_service(){
-            local method="$1" path="$2" out="$3" data="${4:-}" code
-            local args=(-sS --connect-timeout 15 --max-time 45 -o "$out" -w '%{http_code}')
-            if [[ "$method" == POST ]]; then args+=(-H 'content-type: application/json' -d "$data"); fi
-            code=$(curl "${args[@]}" "$SERVICE_URL$path" 2>/tmp/post-curl.err || true)
-            if [[ -z "$code" || "$code" == 000 ]]; then
-              code=$(curl --doh-url https://cloudflare-dns.com/dns-query "${args[@]}" "$SERVICE_URL$path" 2>>/tmp/post-curl.err || true)
-            fi
-            echo "$code"
-          }
           ok=false
           for n in 1 2 3 4 5 6; do
-            code=$(curl_service GET /health /tmp/post-health.json)
+            code=$(curl -sS --connect-timeout 15 --max-time 45 -o /tmp/post-health.json -w '%{http_code}' "$SERVICE_URL/health" || true)
             if [[ "$code" == 200 ]] && python3 - <<'PY'
           import json
           try:
@@ -168,13 +123,13 @@ jobs:
             then ok=true; break; fi
             sleep 3
           done
-          if [[ "$ok" != true ]]; then cat /tmp/post-curl.err >&2 || true; fi
           test "$ok" = true
-          r1=$(curl_service POST /v1/session/work /tmp/probe1.json '{}')
-          r2=$(curl_service POST /v1/session/exit /tmp/probe2.json '{}')
-          r3=$(curl_service POST /v1/session/time-correction /tmp/probe3.json '{}')
-          r4=$(curl_service POST /v1/session/delete-exit /tmp/probe4.json '{}')
-          r5=$(curl_service POST /v1/session/delete-enter /tmp/probe5.json '{}')
+          probe_post(){ curl -sS -o /tmp/probe.json -w '%{http_code}' -H 'content-type: application/json' -d '{}' "$SERVICE_URL$1"; }
+          r1=$(probe_post /v1/session/work)
+          r2=$(probe_post /v1/session/exit)
+          r3=$(probe_post /v1/session/time-correction)
+          r4=$(probe_post /v1/session/delete-exit)
+          r5=$(probe_post /v1/session/delete-enter)
           test "$r1" = 401; test "$r2" = 401; test "$r3" = 401; test "$r4" = 401; test "$r5" = 401
           {
             echo "source_sha=${{ github.event.pull_request.head.sha }}"
