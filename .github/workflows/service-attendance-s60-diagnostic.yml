@@ -1,0 +1,68 @@
+name: Service Attendance S60 Diagnostic
+
+on:
+  push:
+    branches:
+      - agent/service-attendance-aggregate-audit-20260823
+    paths:
+      - 'ops/service-attendance-s60-diagnostic-trigger.txt'
+
+permissions:
+  contents: write
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/service-attendance-aggregate-audit-20260823
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: service/package-lock.json
+      - name: Diagnose patch/typecheck/dryrun and persist receipt
+        shell: bash
+        run: |
+          set -u
+          mkdir -p ops/service-attendance-s60-diagnostic
+          : > ops/service-attendance-s60-diagnostic/receipt.txt
+          run_step() {
+            name="$1"; shift
+            echo "=== $name ===" | tee -a ops/service-attendance-s60-diagnostic/receipt.txt
+            set +e
+            "$@" >> ops/service-attendance-s60-diagnostic/receipt.txt 2>&1
+            rc=$?
+            set -e
+            echo "rc=$rc" | tee -a ops/service-attendance-s60-diagnostic/receipt.txt
+            return $rc
+          }
+          set +e
+          run_step PY_COMPILE python3 -m py_compile tools/apply_s60_service_attendance_aggregate_audit.py; RC1=$?
+          if [ "$RC1" -eq 0 ]; then run_step PATCH python3 tools/apply_s60_service_attendance_aggregate_audit.py; RC2=$?; else RC2=99; fi
+          if [ "$RC2" -eq 0 ]; then (cd service && npm ci) >> ops/service-attendance-s60-diagnostic/receipt.txt 2>&1; RCI=$?; else RCI=99; fi
+          if [ "$RCI" -eq 0 ]; then (cd service && npm run typecheck) >> ops/service-attendance-s60-diagnostic/receipt.txt 2>&1; RC3=$?; else RC3=99; fi
+          if [ "$RC3" -eq 0 ]; then
+            rm -rf ops/service-prod-bundle-attendance-s60
+            (cd service && npx wrangler deploy src/entry_product.ts --dry-run --name pickpack --compatibility-date 2025-08-01 --compatibility-flags nodejs_compat --outdir ../ops/service-prod-bundle-attendance-s60) >> ops/service-attendance-s60-diagnostic/receipt.txt 2>&1
+            RC4=$?
+          else RC4=99; fi
+          echo "SUMMARY py_compile=$RC1 patch=$RC2 npm_ci=$RCI typecheck=$RC3 dryrun=$RC4" | tee -a ops/service-attendance-s60-diagnostic/receipt.txt
+          if [ "$RC1" -eq 0 ] && [ "$RC2" -eq 0 ] && [ "$RCI" -eq 0 ] && [ "$RC3" -eq 0 ] && [ "$RC4" -eq 0 ]; then
+            sha256sum ops/service-prod-bundle-attendance-s60/* > ops/service-prod-bundle-attendance-s60/SHA256SUMS.txt
+            echo PASS > ops/service-attendance-s60-diagnostic/verdict.txt
+          else
+            rm -rf ops/service-prod-bundle-attendance-s60
+            echo FAIL > ops/service-attendance-s60-diagnostic/verdict.txt
+          fi
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add ops/service-attendance-s60-diagnostic
+          if grep -qx PASS ops/service-attendance-s60-diagnostic/verdict.txt; then
+            git add service/src/session_hotfix.ts service/src/replication.ts ops/service-prod-bundle-attendance-s60
+          fi
+          git commit -m 'ci: service attendance s60 diagnostic receipt'
+          git push origin HEAD:agent/service-attendance-aggregate-audit-20260823

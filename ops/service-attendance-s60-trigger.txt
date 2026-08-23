@@ -1,0 +1,3 @@
+trigger=2026-08-23T15:58:00+07:00
+baseline=ci/service-ra-projection-gate-20260823
+deploy=forbidden

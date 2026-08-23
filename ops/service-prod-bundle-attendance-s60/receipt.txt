@@ -1,0 +1,7 @@
+checked_at=2026-08-23T09:17:54Z
+source_sha=637f8e61c49dfcf4c4b9d1dde8d0052da567243f
+typecheck=PASS
+wrangler_dry_run=PASS
+production_deploy=NOT_RUN
+stable=UNTOUCHED
+scope=SERVICE_S60_ATTENDANCE_AGGREGATE_AUDIT
