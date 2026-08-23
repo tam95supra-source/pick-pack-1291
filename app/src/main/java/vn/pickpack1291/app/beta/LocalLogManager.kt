@@ -14,6 +14,10 @@ object LocalLogManager {
     // S44_SESSION_SINGLEFLIGHT_OBSERVABILITY
     private const val PREFS = "pp1291_log_state"
     private const val KEY_DAILY = "last_daily_log"
+    private const val KEY_STATS_INIT = "log_stats_init_v58"
+    private const val KEY_TOTAL_FILES = "log_total_files_v58"
+    private const val KEY_TOTAL_BYTES = "log_total_bytes_v58"
+    private const val KEY_LATEST_AT = "log_latest_at_v58"
 
     fun installCrashHandler(context: Context) {
         val previous = Thread.getDefaultUncaughtExceptionHandler()
@@ -33,13 +37,14 @@ object LocalLogManager {
 
     fun createDailyIfNeeded(context: Context): File? {
         val day = SimpleDateFormat("yyyyMMdd", Locale.US).format(Date())
+        val dailyMarker = "$day|${BuildConfig.VERSION_NAME}"
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        if (prefs.getString(KEY_DAILY, null) == day) return null
+        if (prefs.getString(KEY_DAILY, null) == dailyMarker) return null
         val file = write(context, "ANDROID_DAILY", buildString {
             appendLine("type=DAILY"); appendCommon(context)
             appendLine("uptime_ms=${SystemClock.elapsedRealtime()}")
         })
-        prefs.edit().putString(KEY_DAILY, day).apply()
+        prefs.edit().putString(KEY_DAILY, dailyMarker).apply()
         return file
     }
 
@@ -59,12 +64,17 @@ object LocalLogManager {
 
     fun pendingCount(context: Context): Int = logDir(context).listFiles()?.count { it.isFile } ?: 0
 
-    // S54_BETA48_OWNER_10_FIXES
+    // S59_BETA58_LOG_ACCOUNTING: uploaded files may be deleted locally, but journal totals remain visible.
     fun summary(context:Context):String{
-        val files=logDir(context).listFiles()?.filter{it.isFile}.orEmpty();val bytes=files.sumOf{it.length()};val latest=files.maxOfOrNull{it.lastModified()}?:0L
+        ensureStats(context)
+        val files=logDir(context).listFiles()?.filter{it.isFile}.orEmpty()
+        val prefs=context.getSharedPreferences(PREFS,Context.MODE_PRIVATE)
+        val total=prefs.getLong(KEY_TOTAL_FILES,files.size.toLong()).coerceAtLeast(files.size.toLong())
+        val bytes=prefs.getLong(KEY_TOTAL_BYTES,files.sumOf{it.length()}).coerceAtLeast(files.sumOf{it.length()})
+        val latest=maxOf(prefs.getLong(KEY_LATEST_AT,0L),files.maxOfOrNull{it.lastModified()}?:0L)
         fun size(v:Long)=when{v<1024L->"$v B";v<1024L*1024L->String.format(Locale.US,"%.1f KB",v/1024.0);else->String.format(Locale.US,"%.1f MB",v/(1024.0*1024.0))}
         val at=if(latest<=0L)"—" else SimpleDateFormat("HH:mm:ss dd/MM/yyyy",Locale.US).format(Date(latest))
-        return "${files.size} tệp • ${size(bytes)} • mới nhất $at"
+        return "$total tệp • ${size(bytes)} • còn trên máy ${files.size} • mới nhất $at"
     }
 
     fun sendManualReport(context: Context, api: BetaApiClient, screen: String, syncState: String, callback: (BetaApiClient.Result) -> Unit) {
@@ -138,9 +148,43 @@ object LocalLogManager {
     }
 
     private fun logDir(context: Context) = File(context.filesDir, "diagnostic_logs").apply { mkdirs() }
+
+    @Synchronized private fun ensureStats(context:Context){
+        val prefs=context.getSharedPreferences(PREFS,Context.MODE_PRIVATE)
+        if(prefs.getBoolean(KEY_STATS_INIT,false))return
+        val files=logDir(context).listFiles()?.filter{it.isFile}.orEmpty()
+        prefs.edit()
+            .putBoolean(KEY_STATS_INIT,true)
+            .putLong(KEY_TOTAL_FILES,files.size.toLong())
+            .putLong(KEY_TOTAL_BYTES,files.sumOf{it.length()})
+            .putLong(KEY_LATEST_AT,files.maxOfOrNull{it.lastModified()}?:0L)
+            .commit()
+    }
+
+    @Synchronized private fun recordCreated(context:Context,file:File){
+        val prefs=context.getSharedPreferences(PREFS,Context.MODE_PRIVATE)
+        if(!prefs.getBoolean(KEY_STATS_INIT,false)){
+            val files=logDir(context).listFiles()?.filter{it.isFile}.orEmpty()
+            prefs.edit()
+                .putBoolean(KEY_STATS_INIT,true)
+                .putLong(KEY_TOTAL_FILES,files.size.toLong())
+                .putLong(KEY_TOTAL_BYTES,files.sumOf{it.length()})
+                .putLong(KEY_LATEST_AT,files.maxOfOrNull{it.lastModified()}?:file.lastModified())
+                .commit()
+            return
+        }
+        prefs.edit()
+            .putLong(KEY_TOTAL_FILES,prefs.getLong(KEY_TOTAL_FILES,0L)+1L)
+            .putLong(KEY_TOTAL_BYTES,prefs.getLong(KEY_TOTAL_BYTES,0L)+file.length())
+            .putLong(KEY_LATEST_AT,maxOf(prefs.getLong(KEY_LATEST_AT,0L),file.lastModified()))
+            .commit()
+    }
+
     private fun write(context: Context, prefix: String, content: String): File {
         val stamp = SimpleDateFormat("yyyyMMdd_HHmmss_SSS", Locale.US).format(Date())
-        return File(logDir(context), "${prefix}_${stamp}.log").apply { writeText(content) }
+        val file=File(logDir(context), "${prefix}_${stamp}.log").apply { writeText(content) }
+        recordCreated(context,file)
+        return file
     }
     private fun safe(value: String?): String = value.orEmpty().replace("\n", " ").replace("\r", " ").take(300)
 }
