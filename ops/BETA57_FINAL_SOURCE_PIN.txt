@@ -1,0 +1,4 @@
+purpose=immutable Beta57 final source after reset-fence, shift discrepancy, pure-audit History, logout confirmation, Staff-tab removal, manual-only OTA
+cloudflare_builds=DISCONNECTED
+stable_publish=FORBIDDEN
+beta56=DENYLISTED
