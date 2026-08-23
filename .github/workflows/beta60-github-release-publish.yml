@@ -1,0 +1,102 @@
+name: Beta60 Exact GitHub Prerelease Publisher
+
+on:
+  pull_request:
+    branches:
+      - ci/beta60-release-gate-base-20260823
+
+permissions:
+  contents: write
+
+env:
+  SOURCE_SHA: db3d751988f52f93fc6957d7582fa9db0c151da0
+  TAG: v0.4.2-beta.60-publicbeta
+  TARGET_VERSION: 0.4.2-beta.60
+  TARGET_CODE: '66'
+  EXPECTED_PACKAGE: vn.pickpack1291.app.beta.publicbeta
+  EXPECTED_SHA256: 40d7526cee2806a170f8726428753ed796419263ca47a8a7d9332756d61bbd68
+  EXPECTED_SIZE: '13044331'
+  EXPECTED_SIGNER_SHA256: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
+  ARTIFACT_ID: '9492593126'
+
+jobs:
+  publish:
+    if: github.event.pull_request.head.ref == 'release/beta60-signed-20260823'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Lock exact source and absence of Beta60 tag
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          [[ "$(git rev-parse HEAD)" == "$SOURCE_SHA" ]]
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists; refusing ambiguous re-publish." >&2
+            exit 1
+          fi
+
+      - name: Download exact signed Actions artifact
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${ARTIFACT_ID}/zip" -o /tmp/beta60-artifact.zip
+          mkdir -p /tmp/beta60
+          unzip -q /tmp/beta60-artifact.zip -d /tmp/beta60
+          APK=/tmp/beta60/pick-pack-1291-public-beta-0.4.2-beta.60.apk
+          SUM=/tmp/beta60/SHA256SUMS-0.4.2-beta.60.txt
+          [[ -f "$APK" && -f "$SUM" ]]
+          [[ "$(sha256sum "$APK" | awk '{print $1}')" == "$EXPECTED_SHA256" ]]
+          [[ "$(stat -c '%s' "$APK")" == "$EXPECTED_SIZE" ]]
+          grep -Fxq "$EXPECTED_SHA256  pick-pack-1291-public-beta-0.4.2-beta.60.apk" "$SUM"
+
+      - name: Verify APK metadata and canonical signer
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          BT="$ANDROID_HOME/build-tools/36.0.0"
+          [[ -x "$BT/aapt" && -x "$BT/apksigner" ]]
+          APK=/tmp/beta60/pick-pack-1291-public-beta-0.4.2-beta.60.apk
+          "$BT/aapt" dump badging "$APK" >/tmp/badge
+          grep -q "package: name='$EXPECTED_PACKAGE'" /tmp/badge
+          grep -q "versionCode='$TARGET_CODE'" /tmp/badge
+          grep -q "versionName='$TARGET_VERSION'" /tmp/badge
+          "$BT/apksigner" verify --verbose --print-certs "$APK" >/tmp/cert
+          CERT=$(grep -m1 'Signer #1 certificate SHA-256 digest:' /tmp/cert | sed 's/.*digest: //' | tr 'A-F' 'a-f' | tr -d ':[:space:]')
+          [[ "$CERT" == "$EXPECTED_SIGNER_SHA256" ]]
+
+      - name: Create exact Beta60 GitHub prerelease
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          gh release create "$TAG" \
+            /tmp/beta60/pick-pack-1291-public-beta-0.4.2-beta.60.apk \
+            /tmp/beta60/SHA256SUMS-0.4.2-beta.60.txt \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$SOURCE_SHA" \
+            --prerelease \
+            --title "$TARGET_VERSION" \
+            --notes 'Beta60: cập nhật nghiệp vụ nhân sự/PDA/tài nguyên; bổ sung sửa/xóa phiên, sửa giờ vào-ra, phát lại user trong ngày, đổi-trả PDA theo serial và đối soát Ra ca. Service S61 đã được live-gate trước phát hành. OTA Beta giữ manual-only; Stable không thay đổi.'
+
+      - name: Verify immutable release marker and release asset bytes
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git fetch --force --tags origin
+          [[ "$(git rev-list -n 1 "$TAG")" == "$SOURCE_SHA" ]]
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json tagName,isPrerelease,name > /tmp/release.json
+          node - <<'NODE'
+          const j=require('/tmp/release.json'); if(j.tagName!==process.env.TAG||j.isPrerelease!==true||j.name!==process.env.TARGET_VERSION) throw Error('RELEASE_METADATA');
+          NODE
+          mkdir -p /tmp/release-download
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern 'pick-pack-1291-public-beta-0.4.2-beta.60.apk' --dir /tmp/release-download
+          APK=/tmp/release-download/pick-pack-1291-public-beta-0.4.2-beta.60.apk
+          [[ "$(sha256sum "$APK" | awk '{print $1}')" == "$EXPECTED_SHA256" ]]
+          [[ "$(stat -c '%s' "$APK")" == "$EXPECTED_SIZE" ]]
+          echo "verdict=PASS tag=$TAG source=$SOURCE_SHA sha256=$EXPECTED_SHA256 signer=$EXPECTED_SIGNER_SHA256 stable=UNTOUCHED" >> "$GITHUB_STEP_SUMMARY"
