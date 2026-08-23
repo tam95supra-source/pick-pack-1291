@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 from pathlib import Path
+import re
 
 ROOT=Path(__file__).resolve().parents[1]
 p=ROOT/'service/src/session_hotfix.ts'
@@ -17,9 +18,9 @@ replacement=',idem,newVersion,a);const stmts=eventStmts(env.DB,e,a.authority_seq
 if needle in s:
     count=s.count(needle)
     s=s.replace(needle,replacement)
-    if count < 4:
+    if count < 5:
         raise SystemExit(f'unexpectedly few authority-fenced callers: {count}')
-elif replacement not in s:
+elif s.count(replacement) < 5:
     raise SystemExit('sessionEvent caller shape drift')
 
 p.write_text(s)
@@ -27,12 +28,12 @@ p.write_text(s)
 out=p.read_text()
 assert 'aOverride?:Awaited<ReturnType<typeof currentAuthority>>' in out
 assert 'const a=aOverride??await currentAuthority(env.DB);' in out
-# The hot paths must no longer capture one authority seq for CAS and a second one for event construction.
+# Validate the actual sessionEvent invocation, not an earlier projection/reference to the same event type.
 for marker in ['RESOURCE_CHANGE','ATTENDANCE_EXIT','ATTENDANCE_TIME_CORRECTED','ATTENDANCE_EXIT_DELETED','ATTENDANCE_ENTER_DELETED']:
-    idx=out.find(f'"{marker}"')
-    if idx < 0:
-        raise SystemExit(f'missing marker {marker}')
-    tail=out[idx:idx+1800]
-    if ',idem,newVersion,a);const stmts=eventStmts(env.DB,e,a.authority_seq' not in tail:
+    pattern=re.compile(
+        r'sessionEvent\(env,auth,s,"'+re.escape(marker)+r'".*?,idem,newVersion,a\);const stmts=eventStmts\(env\.DB,e,a\.authority_seq',
+        re.S,
+    )
+    if not pattern.search(out):
         raise SystemExit(f'{marker} is not authority-snapshot fenced')
 print('Service S62 authority snapshot materialization PASS')
