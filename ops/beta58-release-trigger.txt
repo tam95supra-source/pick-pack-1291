@@ -1,0 +1,6 @@
+target=0.4.2-beta.58
+version_code=64
+source_base=e5613161ab1cb513752a0383077afa96987a0bef
+stable_publish=FORBIDDEN
+beta56_vc62=DENYLISTED
+ota=MANUAL_ONLY
