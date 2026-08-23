@@ -42,6 +42,9 @@ jobs:
           p=Path('tools/apply_beta63_login_perf_session.py')
           s=p.read_text()
           s=s.replace("replace_first_call_block(ops, 'api.call(\"logout\") {', replacement)", "replace_first_call_block(ops, 'api.call(\"logout\"){', replacement)")
+          s=s.replace('minHeight = dp(', 'minimumHeight = dp(')
+          s=s.replace('startActivity(Intent(this, FullBetaActivity::class.java).apply {', 'startActivity(android.content.Intent(this, FullBetaActivity::class.java).apply {')
+          s=s.replace('flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK', 'flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK')
           p.write_text(s)
           PY
           python3 tools/apply_beta63_login_perf_session.py
@@ -58,7 +61,11 @@ jobs:
           grep -F 'versionCode = 1' app/build.gradle.kts
           grep -F 'versionName = "0.1.0-stable"' app/build.gradle.kts
           grep -F 'R.drawable.login_vietnam_bg' app/src/main/java/vn/pickpack1291/app/beta/FullBetaActivity.kt
+          grep -F 'R.drawable.login_supra_logo' app/src/main/java/vn/pickpack1291/app/beta/FullBetaActivity.kt
+          grep -F 'minimumHeight = dp(' app/src/main/java/vn/pickpack1291/app/beta/FullBetaActivity.kt
+          ! grep -Fq 'minHeight = dp(' app/src/main/java/vn/pickpack1291/app/beta/FullBetaActivity.kt
           grep -F 'fun logoutFast()' app/src/main/java/vn/pickpack1291/app/beta/BetaApiClient.kt
+          grep -F 'android.content.Intent(this, FullBetaActivity::class.java)' app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt
           grep -F 'm2Runtime.ensureServiceSession(newToken, force = false)' app/src/main/java/vn/pickpack1291/app/beta/BetaApiClient.kt
           grep -F 'retry<2' app/src/main/java/vn/pickpack1291/app/beta/BetaApiClient.kt
           ! grep -Fq 'm2Transport.loginFromPassword(login, password)' app/src/main/java/vn/pickpack1291/app/beta/BetaApiClient.kt
@@ -68,6 +75,7 @@ jobs:
         run: |
           set -euo pipefail
           git add \
+            tools/apply_beta63_login_perf_session.py \
             app/build.gradle.kts \
             app/src/main/java/vn/pickpack1291/app/beta/FullBetaActivity.kt \
             app/src/main/java/vn/pickpack1291/app/beta/BetaApiClient.kt \
