@@ -32,8 +32,8 @@ android {
         create("beta") {
             dimension = "channel"
             applicationId = "vn.pickpack1291.app.beta.publicbeta"
-            versionCode = 64
-            versionName = "0.4.2-beta.58"
+            versionCode = 65
+            versionName = "0.4.2-beta.59"
             manifestPlaceholders["appLabel"] = "Pick Pack 1291 Beta"
             buildConfigField("String", "CHANNEL", "\"BETA\"")
         }
@@ -73,7 +73,8 @@ dependencies {
 // Firebase client identifiers are injected at build time and default blank so source never contains project config.
 // GSHEET_API_URL remains public discovery/fallback configuration and manual update lookup path; no Service URL is compiled into APK.
 // Signing material remains outside this repository and the Android signer is owner-locked.
-// Beta58: owner fixes for log accounting, fallback provider label, and shift reconciliation placement.
+// Beta59: attendance card/session UX, exact shift reconciliation, compact history metrics and audit semantics.
+// Beta58 remains immutable and is the previous public baseline.
 // Beta57 remains immutable; Beta56 remains denylisted/cancelled and VC62 is intentionally skipped.
 // Legacy Beta44 candidate-workflow compatibility markers only; actual beta metadata above is authoritative:
 // versionCode = 50
