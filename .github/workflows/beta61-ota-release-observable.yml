@@ -1,0 +1,337 @@
+name: Beta61 OTA Release Observable
+
+on:
+  push:
+    branches:
+      - agent/beta61-owner-ui-pda-resource-fixes-20260823
+    paths:
+      - '.github/workflows/beta61-ota-release-observable.yml'
+      - 'ops/beta61-ota-release-observable-trigger.txt'
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: beta61-signed-ota-release
+  cancel-in-progress: false
+
+env:
+  TARGET_VERSION: 0.4.2-beta.61
+  TARGET_CODE: '67'
+  FROM_VERSION: 0.4.2-beta.60
+  VALIDATED_SOURCE_SHA: c0faaf0ccb576f32d8285b1d93cc9319616e2e7e
+  EXPECTED_PACKAGE: vn.pickpack1291.app.beta.publicbeta
+  EXPECTED_SIGNER_SHA256: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
+  GAS_URL: https://script.google.com/macros/s/AKfycbzbEoGfbNg6s2HnP-gUpcBJ7mMIkVBtYuQKMndb9seDV2c55lQwSUO1GZ-LtQ2CxMCauA/exec
+  BETA_FOLDER_ID: 1WMXI-8-Z1mbY2v11noYFHe_eoMNiNZXg
+  STABLE_FOLDER_ID: 1kxTd2rFfWutc2KWDwqgK8WYWDmSygIN4
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      SIGNING_KEY_B64: ${{ secrets.ANDROID_SIGNING_KEY_B64 }}
+      SIGNING_STORE_PASSWORD: ${{ secrets.ANDROID_SIGNING_STORE_PASSWORD }}
+      SIGNING_KEY_PASSWORD: ${{ secrets.ANDROID_SIGNING_KEY_PASSWORD }}
+      SIGNING_ALIAS: ${{ secrets.ANDROID_SIGNING_ALIAS }}
+      GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+      GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+      GOOGLE_OAUTH_REFRESH_TOKEN: ${{ secrets.GOOGLE_OAUTH_REFRESH_TOKEN }}
+    steps:
+      - name: Checkout exact branch head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle 9.4.1
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.4.1'
+
+      - name: Execute signed Beta61 publish and live OTA E2E
+        id: publish
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          OUT=/tmp/beta61-result
+          : > "$OUT"
+          echo "checked_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$OUT"
+          echo "source_sha=$GITHUB_SHA" >> "$OUT"
+          echo "run_id=$GITHUB_RUN_ID" >> "$OUT"
+          echo "version=$TARGET_VERSION" >> "$OUT"
+          echo "version_code=$TARGET_CODE" >> "$OUT"
+          PHASE=SOURCE_LOCK
+          trap 'rc=$?; echo "failed_phase=$PHASE" >> "$OUT"; echo "failed_rc=$rc" >> "$OUT"; echo "verdict=FAIL" >> "$OUT"; exit $rc' ERR
+
+          git cat-file -e "$VALIDATED_SOURCE_SHA^{commit}"
+          git diff --quiet "$VALIDATED_SOURCE_SHA"..HEAD -- app
+          grep -F 'versionCode = 67' app/build.gradle.kts
+          grep -F 'versionName = "0.4.2-beta.61"' app/build.gradle.kts
+          grep -F 'versionCode = 1' app/build.gradle.kts
+          grep -F 'versionName = "0.1.0-stable"' app/build.gradle.kts
+          echo 'source_lock=PASS' >> "$OUT"
+
+          PHASE=SECRETS
+          for v in SIGNING_KEY_B64 SIGNING_STORE_PASSWORD SIGNING_KEY_PASSWORD SIGNING_ALIAS GOOGLE_OAUTH_CLIENT_ID GOOGLE_OAUTH_CLIENT_SECRET GOOGLE_OAUTH_REFRESH_TOKEN; do
+            [[ -n "${!v:-}" ]] || { echo "missing_secret=$v" >> "$OUT"; false; }
+          done
+          echo 'required_secrets=PRESENT' >> "$OUT"
+
+          PHASE=ANDROID_SDK
+          if [[ -n "${ANDROID_HOME:-}" && -x "$ANDROID_HOME/build-tools/36.0.0/aapt" && -x "$ANDROID_HOME/build-tools/36.0.0/apksigner" ]]; then
+            SDK="$ANDROID_HOME"
+          else
+            SDK="$RUNNER_TEMP/android-sdk"; ZIP="$RUNNER_TEMP/commandlinetools.zip"
+            curl -fsSL https://dl.google.com/android/repository/commandlinetools-linux-15859902_latest.zip -o "$ZIP"
+            echo "4e4c464f145a7512b57d088ac6c278c03c9eea610886b35a5e0804e74eedf583  $ZIP" | sha256sum -c -
+            mkdir -p "$SDK/cmdline-tools"; unzip -q "$ZIP" -d "$RUNNER_TEMP/android-cmdline"
+            mv "$RUNNER_TEMP/android-cmdline/cmdline-tools" "$SDK/cmdline-tools/latest"
+            yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
+            "$SDK/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-36' 'build-tools;36.0.0'
+          fi
+          export ANDROID_HOME="$SDK" ANDROID_SDK_ROOT="$SDK"
+          BT="$SDK/build-tools/36.0.0"
+          echo 'android_sdk=PASS' >> "$OUT"
+
+          PHASE=BUILD
+          gradle --no-daemon --build-cache --parallel :app:assembleBetaRelease :app:assembleStableRelease
+          BETA_UNSIGNED=app/build/outputs/apk/beta/release/app-beta-release-unsigned.apk
+          STABLE_UNSIGNED=app/build/outputs/apk/stable/release/app-stable-release-unsigned.apk
+          test -s "$BETA_UNSIGNED"; test -s "$STABLE_UNSIGNED"
+          "$BT/aapt" dump badging "$BETA_UNSIGNED" > /tmp/beta.badge
+          "$BT/aapt" dump badging "$STABLE_UNSIGNED" > /tmp/stable.badge
+          grep -q "package: name='$EXPECTED_PACKAGE'" /tmp/beta.badge
+          grep -q "versionCode='$TARGET_CODE'" /tmp/beta.badge
+          grep -q "versionName='$TARGET_VERSION'" /tmp/beta.badge
+          grep -q "package: name='vn.pickpack1291.app.stable'" /tmp/stable.badge
+          grep -q "versionCode='1'" /tmp/stable.badge
+          grep -q "versionName='0.1.0-stable'" /tmp/stable.badge
+          echo 'build_and_identity=PASS' >> "$OUT"
+
+          PHASE=SIGN
+          KS="$RUNNER_TEMP/release.jks"
+          printf '%s' "$SIGNING_KEY_B64" | base64 -d > "$KS"
+          printf '%s' "$SIGNING_STORE_PASSWORD" > "$RUNNER_TEMP/store.pass"
+          printf '%s' "$SIGNING_KEY_PASSWORD" > "$RUNNER_TEMP/key.pass"
+          mkdir -p dist/beta
+          APK_NAME="pick-pack-1291-public-beta-$TARGET_VERSION.apk"
+          APK="dist/beta/$APK_NAME"
+          "$BT/apksigner" sign --ks "$KS" --ks-key-alias "$SIGNING_ALIAS" --ks-pass "file:$RUNNER_TEMP/store.pass" --key-pass "file:$RUNNER_TEMP/key.pass" --out "$APK" "$BETA_UNSIGNED"
+          "$BT/apksigner" verify --verbose --print-certs "$APK" > /tmp/cert.txt
+          grep -qi "Signer #1 certificate SHA-256 digest: $EXPECTED_SIGNER_SHA256" /tmp/cert.txt
+          APK_SHA=$(sha256sum "$APK" | awk '{print $1}')
+          APK_SIZE=$(stat -c '%s' "$APK")
+          SUM_NAME="SHA256SUMS-$TARGET_VERSION.txt"
+          printf '%s  %s\n' "$APK_SHA" "$APK_NAME" > "dist/beta/$SUM_NAME"
+          echo "apk_name=$APK_NAME" >> "$OUT"
+          echo "apk_sha256=$APK_SHA" >> "$OUT"
+          echo "apk_size=$APK_SIZE" >> "$OUT"
+          echo "signer_sha256=$EXPECTED_SIGNER_SHA256" >> "$OUT"
+          echo 'signer_verify=PASS' >> "$OUT"
+
+          PHASE=GITHUB_RELEASE
+          TAG="v${TARGET_VERSION}-publicbeta"
+          cat > /tmp/notes.txt <<EOF
+          Pick Pack 1291 Beta $TARGET_VERSION
+
+          PP_CHANNEL=BETA
+          PP_VERSION=$TARGET_VERSION
+          PP_VERSION_CODE=$TARGET_CODE
+          PP_SHA256=$APK_SHA
+          PP_SIZE=$APK_SIZE
+          PP_SIGNER_SHA256=$EXPECTED_SIGNER_SHA256
+          PP_APK_NAME=$APK_NAME
+          PP_MANDATORY=false
+          EOF
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --title "Pick Pack 1291 $TARGET_VERSION" --notes-file /tmp/notes.txt --prerelease
+          else
+            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --target "$VALIDATED_SOURCE_SHA" --title "Pick Pack 1291 $TARGET_VERSION" --notes-file /tmp/notes.txt --prerelease
+          fi
+          gh release upload "$TAG" "$APK#$APK_NAME" "dist/beta/$SUM_NAME#$SUM_NAME" --repo "$GITHUB_REPOSITORY" --clobber
+          RELEASE_URL="https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/$APK_NAME"
+          curl -fL --retry 6 --retry-all-errors --retry-delay 2 --connect-timeout 20 --max-time 180 "$RELEASE_URL" -o /tmp/github-live.apk
+          test "$(sha256sum /tmp/github-live.apk | awk '{print $1}')" = "$APK_SHA"
+          test "$(stat -c '%s' /tmp/github-live.apk)" = "$APK_SIZE"
+          echo "release_tag=$TAG" >> "$OUT"
+          echo "release_url=$RELEASE_URL" >> "$OUT"
+          echo 'github_release=PASS' >> "$OUT"
+
+          PHASE=GOOGLE_DRIVE_TOKEN
+          TOKEN=$(curl -fsSL https://oauth2.googleapis.com/token \
+            --data-urlencode "client_id=$GOOGLE_OAUTH_CLIENT_ID" \
+            --data-urlencode "client_secret=$GOOGLE_OAUTH_CLIENT_SECRET" \
+            --data-urlencode "refresh_token=$GOOGLE_OAUTH_REFRESH_TOKEN" \
+            --data-urlencode 'grant_type=refresh_token' | jq -r '.access_token // empty')
+          [[ -n "$TOKEN" ]]
+          echo "::add-mask::$TOKEN"
+
+          drive_query(){ python3 - "$1" "$2" <<'PY'
+          import sys,urllib.parse
+          folder=sys.argv[1]; name=sys.argv[2]
+          if name:
+              name=name.replace("'","\\'")
+              q="'%s' in parents and trashed=false and name='%s'"%(folder,name)
+          else:
+              q="'%s' in parents and trashed=false"%folder
+          print(urllib.parse.quote(q))
+          PY
+          }
+          QST=$(drive_query "$STABLE_FOLDER_ID" '')
+          curl -fsSL -H "Authorization: Bearer $TOKEN" "https://www.googleapis.com/drive/v3/files?q=$QST&fields=files(id,name,size)&pageSize=1000" > /tmp/stable-before.json
+          STABLE_BEFORE=$(jq '.files|length' /tmp/stable-before.json)
+
+          upload_exact(){
+            local file="$1" name="$2" mime="$3" q id size meta hdr loc
+            q=$(drive_query "$BETA_FOLDER_ID" "$name")
+            curl -fsSL -H "Authorization: Bearer $TOKEN" "https://www.googleapis.com/drive/v3/files?q=$q&fields=files(id,name,size)&pageSize=100" > /tmp/existing.json
+            while read -r id; do
+              [[ -z "$id" ]] || curl -fsSL -X DELETE -H "Authorization: Bearer $TOKEN" "https://www.googleapis.com/drive/v3/files/$id" >/dev/null
+            done < <(jq -r '.files[].id' /tmp/existing.json)
+            size=$(stat -c '%s' "$file")
+            meta=$(jq -nc --arg n "$name" --arg p "$BETA_FOLDER_ID" --arg m "$mime" '{name:$n,parents:[$p],mimeType:$m}')
+            hdr=$(mktemp)
+            curl -fsS -D "$hdr" -o /tmp/upload-init -X POST 'https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&fields=id,name,size,mimeType,parents' \
+              -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json; charset=UTF-8' \
+              -H "X-Upload-Content-Type: $mime" -H "X-Upload-Content-Length: $size" --data "$meta"
+            loc=$(awk 'BEGIN{IGNORECASE=1}/^location:/{sub(/\r$/,"");sub(/^location:[[:space:]]*/,"");print;exit}' "$hdr")
+            [[ -n "$loc" ]]
+            curl -fsSL -X PUT "$loc" -H "Content-Type: $mime" --data-binary @"$file"
+          }
+
+          PHASE=GOOGLE_DRIVE_BETA
+          APK_JSON=$(upload_exact "$APK" "$APK_NAME" 'application/vnd.android.package-archive')
+          APK_ID=$(printf '%s' "$APK_JSON" | jq -r '.id // empty')
+          [[ -n "$APK_ID" ]]
+          upload_exact "dist/beta/$SUM_NAME" "$SUM_NAME" 'text/plain' >/tmp/sum-upload.json
+          curl -sS -X POST -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+            "https://www.googleapis.com/drive/v3/files/$APK_ID/permissions?supportsAllDrives=true&fields=id,type,role" \
+            -d '{"type":"anyone","role":"reader"}' >/tmp/permission.json || true
+          curl -fsSL -H "Authorization: Bearer $TOKEN" "https://www.googleapis.com/drive/v3/files/$APK_ID?alt=media" -o /tmp/drive-live.apk
+          test "$(sha256sum /tmp/drive-live.apk | awk '{print $1}')" = "$APK_SHA"
+          test "$(stat -c '%s' /tmp/drive-live.apk)" = "$APK_SIZE"
+          QST2=$(drive_query "$STABLE_FOLDER_ID" '')
+          curl -fsSL -H "Authorization: Bearer $TOKEN" "https://www.googleapis.com/drive/v3/files?q=$QST2&fields=files(id,name,size)&pageSize=1000" > /tmp/stable-after.json
+          test "$(jq '.files|length' /tmp/stable-after.json)" = "$STABLE_BEFORE"
+          echo "drive_apk_id=$APK_ID" >> "$OUT"
+          echo 'drive_beta_publish=PASS' >> "$OUT"
+          echo 'stable_drive=UNTOUCHED' >> "$OUT"
+
+          PHASE=OTA_DISCOVERY
+          good=false
+          for n in $(seq 1 30); do
+            code=$(curl -sSL --connect-timeout 20 --max-time 90 -o /tmp/update.json -w '%{http_code}' -H 'content-type: application/json' "$GAS_URL" \
+              -d "{\"action\":\"update_check\",\"channel\":\"BETA\",\"current_version\":\"$FROM_VERSION\"}" || true)
+            if [[ "$code" == 200 ]] && python3 - <<'PY'
+          import json,os
+          j=json.load(open('/tmp/update.json'))
+          available=j.get('available',j.get('update_available'))
+          version=str(j.get('version_name',j.get('version','')))
+          sha=str(j.get('sha256','')).lower()
+          url=str(j.get('apk_url') or j.get('download_url') or j.get('url') or '')
+          ok=(j.get('ok') is True and available is True and str(j.get('channel',''))=='BETA' and version==os.environ['TARGET_VERSION'] and sha==os.environ['APK_SHA'].lower() and bool(url))
+          raise SystemExit(0 if ok else 1)
+          PY
+            then good=true; break; fi
+            echo "OTA discovery retry $n/30 HTTP=$code" >&2
+            cat /tmp/update.json >&2 || true
+            sleep 5
+          done
+          [[ "$good" == true ]]
+          OTA_SOURCE=$(jq -r '.source // "UNKNOWN"' /tmp/update.json)
+          OTA_URL=$(jq -r '.apk_url // .download_url // .url // empty' /tmp/update.json)
+          [[ -n "$OTA_URL" ]]
+          curl -fL --retry 6 --retry-all-errors --retry-delay 2 --connect-timeout 20 --max-time 180 "$OTA_URL" -o /tmp/ota.apk
+          test "$(sha256sum /tmp/ota.apk | awk '{print $1}')" = "$APK_SHA"
+          test "$(stat -c '%s' /tmp/ota.apk)" = "$APK_SIZE"
+          "$BT/aapt" dump badging /tmp/ota.apk > /tmp/ota.badge
+          grep -q "package: name='$EXPECTED_PACKAGE'" /tmp/ota.badge
+          grep -q "versionCode='$TARGET_CODE'" /tmp/ota.badge
+          grep -q "versionName='$TARGET_VERSION'" /tmp/ota.badge
+          "$BT/apksigner" verify --verbose --print-certs /tmp/ota.apk > /tmp/ota.cert
+          grep -qi "Signer #1 certificate SHA-256 digest: $EXPECTED_SIGNER_SHA256" /tmp/ota.cert
+          echo "ota_source=$OTA_SOURCE" >> "$OUT"
+          echo "ota_url=$OTA_URL" >> "$OUT"
+          echo 'ota_exact_bytes=PASS' >> "$OUT"
+          echo 'ota_package_signer=PASS' >> "$OUT"
+
+          PHASE=OTA_ISOLATION
+          curl -fsSL -H 'content-type: application/json' "$GAS_URL" -d "{\"action\":\"update_check\",\"channel\":\"BETA\",\"current_version\":\"$TARGET_VERSION\"}" > /tmp/self.json
+          curl -fsSL -H 'content-type: application/json' "$GAS_URL" -d '{"action":"update_check","channel":"BETA","current_version":"0.4.2-beta.48"}' > /tmp/from48.json
+          curl -fsSL -H 'content-type: application/json' "$GAS_URL" -d '{"action":"update_check","channel":"STABLE","current_version":"999.999.999"}' > /tmp/stable.json
+          python3 - <<'PY'
+          import json,os
+          s=json.load(open('/tmp/self.json')); f=json.load(open('/tmp/from48.json')); t=json.load(open('/tmp/stable.json'))
+          avail=lambda x:x.get('available',x.get('update_available'))
+          ver=lambda x:str(x.get('version_name',x.get('version','')))
+          assert s.get('ok') is True and avail(s) is False, s
+          assert f.get('ok') is True and avail(f) is True and ver(f)==os.environ['TARGET_VERSION'], f
+          assert str(f.get('sha256','')).lower()==os.environ['APK_SHA'].lower(), f
+          assert t.get('ok') is True and avail(t) is False and ver(t)!=os.environ['TARGET_VERSION'], t
+          PY
+          echo 'self_update_false=PASS' >> "$OUT"
+          echo 'beta48_upgrade_path=PASS' >> "$OUT"
+          echo 'stable_ota=UNTOUCHED' >> "$OUT"
+
+          PHASE=RETENTION
+          gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" > /tmp/releases.json
+          python3 - <<'PY' > /tmp/delete.tsv
+          import json,re
+          rows=[]
+          for r in json.load(open('/tmp/releases.json')):
+              m=re.fullmatch(r'v0\.4\.2-beta\.(\d+)-publicbeta',str(r.get('tag_name','')))
+              if m: rows.append((int(m.group(1)),int(r['id']),r['tag_name']))
+          rows.sort(reverse=True)
+          for _,rid,tag in rows[10:]: print(f'{rid}\t{tag}')
+          PY
+          while IFS=$'\t' read -r rid tag; do
+            [[ -z "${rid:-}" ]] && continue
+            gh api -X DELETE "repos/$GITHUB_REPOSITORY/releases/$rid"
+            gh api -X DELETE "repos/$GITHUB_REPOSITORY/git/refs/tags/$tag" || true
+          done < /tmp/delete.tsv
+          echo 'beta_release_retention=10' >> "$OUT"
+          echo 'stable_publish=FORBIDDEN_UNTOUCHED' >> "$OUT"
+          echo 'verdict=PASS' >> "$OUT"
+
+      - name: Persist release result to branch
+        if: always()
+        shell: bash
+        env:
+          PUBLISH_OUTCOME: ${{ steps.publish.outcome }}
+        run: |
+          set -euo pipefail
+          mkdir -p ops receipt
+          if [[ -f /tmp/beta61-result ]]; then cp /tmp/beta61-result ops/beta61-ota-release-result.txt; else printf 'checked_at=%s\nsource_sha=%s\nrun_id=%s\npublish_outcome=%s\nverdict=FAIL\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$GITHUB_SHA" "$GITHUB_RUN_ID" "$PUBLISH_OUTCOME" > ops/beta61-ota-release-result.txt; fi
+          if ! grep -q '^publish_outcome=' ops/beta61-ota-release-result.txt; then echo "publish_outcome=$PUBLISH_OUTCOME" >> ops/beta61-ota-release-result.txt; fi
+          cp ops/beta61-ota-release-result.txt receipt/beta61-ota-release-result.txt
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add ops/beta61-ota-release-result.txt
+          git diff --cached --quiet || git commit -m 'ops: record Beta61 signed OTA release result'
+          git push origin HEAD:agent/beta61-owner-ui-pda-resource-fixes-20260823 || true
+
+      - name: Upload signed APK and release evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: beta61-signed-ota-release-observable
+          path: |
+            dist/beta/*
+            receipt/*
+          retention-days: 30
+
+      - name: Cleanup signing material
+        if: always()
+        shell: bash
+        run: rm -f "$RUNNER_TEMP/release.jks" "$RUNNER_TEMP/store.pass" "$RUNNER_TEMP/key.pass"
