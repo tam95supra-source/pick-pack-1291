@@ -31,7 +31,17 @@ jobs:
           cache: gradle
 
       - name: Materialize exact Beta63 source
-        run: python3 tools/apply_beta63_login_perf_session.py
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('tools/apply_beta63_login_perf_session.py')
+          s=p.read_text()
+          s=s.replace("replace_first_call_block(ops, 'api.call(\"logout\") {', replacement)", "replace_first_call_block(ops, 'api.call(\"logout\"){', replacement)")
+          p.write_text(s)
+          PY
+          python3 tools/apply_beta63_login_perf_session.py
 
       - name: Compile Beta and Stable isolation
         run: |
