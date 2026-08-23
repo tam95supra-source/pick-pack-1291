@@ -1,0 +1,10 @@
+source_sha=fc456fe4b830782b4d643ef004fa9d25fdc4e31c
+candidate_run_id=32615808723
+artifact_id=9486928648
+version=0.4.2-beta.57
+version_code=63
+apk_sha256=ae060aaf96d47388d699577e6b1cd003229b6d7f35feb6da12f5b339cb1d2fcc
+stable_publish=FORBIDDEN
+beta56=DENYLISTED
+ota_mode=MANUAL_ONLY
+cloudflare=UNTOUCHED
