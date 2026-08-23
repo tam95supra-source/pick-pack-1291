@@ -6,6 +6,7 @@ import { attendanceExitDelete, attendanceTimeCorrect, sessionExitGuarded, sessio
 import { superadminDeleteAccounts } from "./beta44_owner";
 import { serviceConnectionsV47 } from "./beta47_connections";
 import { historyDelete } from "./history_delete";
+import { resetFenceGate } from "./reset_fence";
 import { apiError, json } from "./util";
 
 export { RealtimeHub };
@@ -23,6 +24,7 @@ async function historicalBusinessDates(request:Request,env:Env):Promise<Response
 export default {
   async fetch(request:Request,env:Env,ctx:ExecutionContext):Promise<Response>{
     const u=new URL(request.url),method=request.method.toUpperCase();
+    const fence=await resetFenceGate(request,env);if(fence)return fence;
     if(u.pathname==="/v1/auth/gas-session"&&method==="POST")return exchangeGasSession(request,env);
     if(u.pathname==="/v1/mobile/read"&&method==="POST")return mobileRead(request,env);
     if(u.pathname==="/v1/admin/business-dates"&&method==="GET")return historicalBusinessDates(request,env);
