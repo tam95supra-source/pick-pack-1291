@@ -1,0 +1,145 @@
+name: Beta59 Exact Artifact Release
+
+on:
+  pull_request:
+    branches:
+      - ci/beta59-signed-gate-base-20260823
+    paths:
+      - 'ops/beta59-exact-release-trigger.txt'
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: beta59-exact-artifact-release
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.head_ref == 'release/beta59-exact-artifact-20260823'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      SOURCE_SHA: 95b4f590d3af5418cd32c9a29d5abac3a997ede4
+      CANDIDATE_RUN_ID: '32631001239'
+      ARTIFACT_ID: '9491064745'
+      TARGET_VERSION: 0.4.2-beta.59
+      TARGET_CODE: '65'
+      APK_NAME: pick-pack-1291-public-beta-0.4.2-beta.59.apk
+      EXPECTED_SHA: 3138b3c6ac6890173c899894421d14e5a5defb9060957f8632d6028ca10102ab
+      EXPECTED_SIZE: '5756935'
+      EXPECTED_SIGNER_SHA256: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
+      TAG: v0.4.2-beta.59-publicbeta
+
+    steps:
+      - name: Checkout immutable Beta59 source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          fetch-depth: 0
+
+      - name: Preflight immutable release locks
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          grep -q 'versionCode = 65' app/build.gradle.kts
+          grep -q 'versionName = "0.4.2-beta.59"' app/build.gradle.kts
+          grep -q 'versionCode = 1' app/build.gradle.kts
+          grep -q 'versionName = "0.1.0-stable"' app/build.gradle.kts
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo 'release_exists=true' >> "$GITHUB_ENV"
+          else
+            echo 'release_exists=false' >> "$GITHUB_ENV"
+          fi
+
+      - name: Download exact signed candidate artifact
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          curl -fsSL \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H 'Accept: application/vnd.github+json' \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/artifacts/$ARTIFACT_ID/zip" \
+            -o /tmp/candidate.zip
+          rm -rf /tmp/candidate && mkdir -p /tmp/candidate
+          unzip -q /tmp/candidate.zip -d /tmp/candidate
+          APK=$(find /tmp/candidate -type f -name "$APK_NAME" -print -quit)
+          test -n "$APK" && test -s "$APK"
+          test "$(sha256sum "$APK" | awk '{print $1}')" = "$EXPECTED_SHA"
+          test "$(stat -c '%s' "$APK")" = "$EXPECTED_SIZE"
+          grep -R -q "source_commit=$SOURCE_SHA" /tmp/candidate
+          grep -R -q "signer_sha256=$EXPECTED_SIGNER_SHA256" /tmp/candidate
+          grep -R -q 'verdict=PASS' /tmp/candidate
+          echo "APK=$APK" >> "$GITHUB_ENV"
+
+      - name: Publish exact Beta59 GitHub prerelease
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if [[ "$release_exists" == false ]]; then
+            gh release create "$TAG" "$APK#$APK_NAME" \
+              --repo "$GITHUB_REPOSITORY" \
+              --target "$SOURCE_SHA" \
+              --prerelease \
+              --title "$TARGET_VERSION" \
+              --notes 'Beta59: hoàn thiện Quét QR nhân sự; tách Thêm/Sửa/Xóa/Ra ca; hiển thị tài nguyên PDA/User theo ca; đối soát Vào/Ra theo timestamp thực; lịch sử/audit chi tiết. OTA tiếp tục manual-only. Stable không thay đổi.'
+          else
+            gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern "$APK_NAME" --dir /tmp/existing-release
+            test "$(sha256sum /tmp/existing-release/$APK_NAME | awk '{print $1}')" = "$EXPECTED_SHA"
+            test "$(stat -c '%s' /tmp/existing-release/$APK_NAME)" = "$EXPECTED_SIZE"
+          fi
+
+      - name: Verify published bytes from public release URL
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isPrerelease,targetCommitish,tagName,publishedAt > /tmp/release.json
+          python3 - <<'PY'
+          import json, os
+          j=json.load(open('/tmp/release.json'))
+          assert j['tagName']==os.environ['TAG']
+          assert j['isPrerelease'] is True
+          assert j['publishedAt']
+          PY
+          URL="https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/$APK_NAME"
+          curl -fL --retry 5 --retry-delay 2 "$URL" -o /tmp/public.apk
+          test "$(stat -c '%s' /tmp/public.apk)" = "$EXPECTED_SIZE"
+          test "$(sha256sum /tmp/public.apk | awk '{print $1}')" = "$EXPECTED_SHA"
+          mkdir -p out
+          PUBLISHED_AT=$(python3 -c "import json; print(json.load(open('/tmp/release.json'))['publishedAt'])")
+          cat > out/BETA59_EXACT_RELEASE_RECEIPT.txt <<EOF
+          checked_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          source_sha=$SOURCE_SHA
+          candidate_run_id=$CANDIDATE_RUN_ID
+          artifact_id=$ARTIFACT_ID
+          tag=$TAG
+          beta_name=$TARGET_VERSION
+          beta_code=$TARGET_CODE
+          apk_file=$APK_NAME
+          apk_sha256=$EXPECTED_SHA
+          apk_size=$EXPECTED_SIZE
+          signer_sha256=$EXPECTED_SIGNER_SHA256
+          published_at=$PUBLISHED_AT
+          public_bytes=PASS
+          ota_mode=MANUAL_ONLY
+          stable=UNTOUCHED
+          verdict=PASS
+          EOF
+          cat out/BETA59_EXACT_RELEASE_RECEIPT.txt
+
+      - name: Upload exact release receipt
+        uses: actions/upload-artifact@v4
+        with:
+          name: beta59-exact-release-receipt
+          path: out/*
+          retention-days: 30
