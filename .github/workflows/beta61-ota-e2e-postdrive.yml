@@ -1,0 +1,139 @@
+name: Beta61 OTA E2E Post-Drive
+
+on:
+  push:
+    branches:
+      - agent/beta61-owner-ui-pda-resource-fixes-20260823
+    paths:
+      - '.github/workflows/beta61-ota-e2e-postdrive.yml'
+      - 'ops/beta61-ota-e2e-postdrive-trigger.txt'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: beta61-ota-e2e-postdrive
+  cancel-in-progress: true
+
+env:
+  TARGET_VERSION: 0.4.2-beta.61
+  TARGET_CODE: '67'
+  EXPECTED_PACKAGE: vn.pickpack1291.app.beta.publicbeta
+  EXPECTED_SHA: 27116074689304c8a9b825fa4efa4308a32182a30802d23e91561e0e699adcda
+  EXPECTED_SIZE: '13060715'
+  EXPECTED_SIGNER_SHA256: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
+  GAS_URL: https://script.google.com/macros/s/AKfycbzbEoGfbNg6s2HnP-gUpcBJ7mMIkVBtYuQKMndb9seDV2c55lQwSUO1GZ-LtQ2CxMCauA/exec
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Verify live OTA exact bytes package signer and isolation
+        id: verify
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          OUT=/tmp/beta61-e2e
+          : > "$OUT"
+          echo "checked_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$OUT"
+          echo "source_sha=$GITHUB_SHA" >> "$OUT"
+          echo "run_id=$GITHUB_RUN_ID" >> "$OUT"
+          echo "target_version=$TARGET_VERSION" >> "$OUT"
+          echo "target_code=$TARGET_CODE" >> "$OUT"
+          PHASE=DISCOVERY
+          trap 'rc=$?; echo "failed_phase=$PHASE" >> "$OUT"; echo "failed_rc=$rc" >> "$OUT"; echo "verdict=FAIL" >> "$OUT"; exit $rc' ERR
+
+          good=false
+          for n in $(seq 1 30); do
+            code=$(curl -sSL --connect-timeout 20 --max-time 90 -o /tmp/from60.json -w '%{http_code}' -H 'content-type: application/json' "$GAS_URL" -d '{"action":"update_check","channel":"BETA","current_version":"0.4.2-beta.60"}' || true)
+            if [[ "$code" == 200 ]] && python3 - <<'PY'
+          import json,os
+          j=json.load(open('/tmp/from60.json'))
+          avail=j.get('available',j.get('update_available'))
+          ver=str(j.get('version_name',j.get('version','')))
+          sha=str(j.get('sha256','')).lower()
+          url=str(j.get('apk_url') or j.get('download_url') or j.get('url') or '')
+          ok=(j.get('ok') is True and avail is True and str(j.get('channel',''))=='BETA' and ver==os.environ['TARGET_VERSION'] and sha==os.environ['EXPECTED_SHA'] and str(j.get('size',''))==os.environ['EXPECTED_SIZE'] and bool(url))
+          raise SystemExit(0 if ok else 1)
+          PY
+            then good=true; break; fi
+            echo "retry=$n http=$code" >&2; cat /tmp/from60.json >&2 || true; sleep 5
+          done
+          [[ "$good" == true ]]
+          OTA_SOURCE=$(jq -r '.source // "UNKNOWN"' /tmp/from60.json)
+          OTA_URL=$(jq -r '.apk_url // .download_url // .url // empty' /tmp/from60.json)
+          echo "ota_source=$OTA_SOURCE" >> "$OUT"
+          echo "ota_url=$OTA_URL" >> "$OUT"
+          echo 'discovery_from_beta60=PASS' >> "$OUT"
+
+          PHASE=DOWNLOAD
+          curl -fL --retry 6 --retry-all-errors --retry-delay 2 --connect-timeout 20 --max-time 180 "$OTA_URL" -o /tmp/ota.apk
+          ACTUAL_SHA=$(sha256sum /tmp/ota.apk | awk '{print $1}')
+          ACTUAL_SIZE=$(stat -c '%s' /tmp/ota.apk)
+          [[ "$ACTUAL_SHA" == "$EXPECTED_SHA" ]]
+          [[ "$ACTUAL_SIZE" == "$EXPECTED_SIZE" ]]
+          echo "download_sha256=$ACTUAL_SHA" >> "$OUT"
+          echo "download_size=$ACTUAL_SIZE" >> "$OUT"
+          echo 'public_download=PASS' >> "$OUT"
+
+          PHASE=IDENTITY
+          BT="${ANDROID_HOME:-}/build-tools/36.0.0"
+          if [[ ! -x "$BT/aapt" || ! -x "$BT/apksigner" ]]; then
+            SDK="$RUNNER_TEMP/android-sdk"; ZIP="$RUNNER_TEMP/commandlinetools.zip"
+            curl -fsSL https://dl.google.com/android/repository/commandlinetools-linux-15859902_latest.zip -o "$ZIP"
+            echo "4e4c464f145a7512b57d088ac6c278c03c9eea610886b35a5e0804e74eedf583  $ZIP" | sha256sum -c -
+            mkdir -p "$SDK/cmdline-tools"; unzip -q "$ZIP" -d "$RUNNER_TEMP/android-cmdline"
+            mv "$RUNNER_TEMP/android-cmdline/cmdline-tools" "$SDK/cmdline-tools/latest"
+            yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
+            "$SDK/cmdline-tools/latest/bin/sdkmanager" 'build-tools;36.0.0'
+            BT="$SDK/build-tools/36.0.0"
+          fi
+          "$BT/aapt" dump badging /tmp/ota.apk > /tmp/badge.txt
+          grep -q "package: name='$EXPECTED_PACKAGE'" /tmp/badge.txt
+          grep -q "versionCode='$TARGET_CODE'" /tmp/badge.txt
+          grep -q "versionName='$TARGET_VERSION'" /tmp/badge.txt
+          "$BT/apksigner" verify --verbose --print-certs /tmp/ota.apk > /tmp/cert.txt
+          grep -qi "Signer #1 certificate SHA-256 digest: $EXPECTED_SIGNER_SHA256" /tmp/cert.txt
+          echo 'package_version_signer=PASS' >> "$OUT"
+
+          PHASE=ISOLATION
+          curl -fsSL -H 'content-type: application/json' "$GAS_URL" -d '{"action":"update_check","channel":"BETA","current_version":"0.4.2-beta.48"}' > /tmp/from48.json
+          curl -fsSL -H 'content-type: application/json' "$GAS_URL" -d "{\"action\":\"update_check\",\"channel\":\"BETA\",\"current_version\":\"$TARGET_VERSION\"}" > /tmp/self.json
+          curl -fsSL -H 'content-type: application/json' "$GAS_URL" -d '{"action":"update_check","channel":"STABLE","current_version":"999.999.999"}' > /tmp/stable.json
+          python3 - <<'PY'
+          import json,os
+          f=json.load(open('/tmp/from48.json')); s=json.load(open('/tmp/self.json')); t=json.load(open('/tmp/stable.json'))
+          av=lambda x:x.get('available',x.get('update_available'))
+          ver=lambda x:str(x.get('version_name',x.get('version','')))
+          assert f.get('ok') is True and av(f) is True and ver(f)==os.environ['TARGET_VERSION'], f
+          assert str(f.get('sha256','')).lower()==os.environ['EXPECTED_SHA'], f
+          assert s.get('ok') is True and av(s) is False, s
+          assert t.get('ok') is True and av(t) is False and ver(t)!=os.environ['TARGET_VERSION'], t
+          PY
+          echo 'upgrade_from_beta48=PASS' >> "$OUT"
+          echo 'self_update_false=PASS' >> "$OUT"
+          echo 'stable_isolation=PASS' >> "$OUT"
+          echo 'stable=UNTOUCHED' >> "$OUT"
+          echo 'verdict=PASS' >> "$OUT"
+
+      - name: Persist E2E result
+        if: always()
+        shell: bash
+        env:
+          VERIFY_OUTCOME: ${{ steps.verify.outcome }}
+        run: |
+          set -euo pipefail
+          mkdir -p ops
+          if [[ -f /tmp/beta61-e2e ]]; then cp /tmp/beta61-e2e ops/beta61-ota-e2e-postdrive-result.txt; else printf 'checked_at=%s\nsource_sha=%s\nrun_id=%s\nverdict=FAIL\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$GITHUB_SHA" "$GITHUB_RUN_ID" > ops/beta61-ota-e2e-postdrive-result.txt; fi
+          echo "verify_outcome=$VERIFY_OUTCOME" >> ops/beta61-ota-e2e-postdrive-result.txt
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add ops/beta61-ota-e2e-postdrive-result.txt
+          git diff --cached --quiet || git commit -m 'ops: record Beta61 post-Drive OTA E2E result'
+          git push origin HEAD:agent/beta61-owner-ui-pda-resource-fixes-20260823 || true
