@@ -1,0 +1,1 @@
+Trigger repaired S62 control-plane deployment after removing stale workers.dev preflight dependency. No application or service source changes in this commit.
