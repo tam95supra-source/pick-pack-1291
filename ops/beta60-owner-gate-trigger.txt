@@ -1,0 +1,2 @@
+trigger=v2
+reason=corrected-static-guard
