@@ -20,11 +20,15 @@ jobs:
           ref: agent/service-attendance-aggregate-audit-20260823
           fetch-depth: 0
 
-      - name: Apply deterministic S60 service patch
+      - name: Ensure deterministic S60 service patch
         run: |
           set -euo pipefail
-          python3 -m py_compile tools/apply_s60_service_attendance_aggregate_audit.py
-          python3 tools/apply_s60_service_attendance_aggregate_audit.py
+          if grep -q 'S60_RA_ENTER_AGGREGATE' service/src/replication.ts && grep -q 'mutation_kind:mutationKind' service/src/session_hotfix.ts; then
+            echo 'S60 service patch already applied; validating committed source.'
+          else
+            python3 -m py_compile tools/apply_s60_service_attendance_aggregate_audit.py
+            python3 tools/apply_s60_service_attendance_aggregate_audit.py
+          fi
 
       - name: Validate S60 source contract
         run: |
