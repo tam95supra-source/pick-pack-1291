@@ -3,7 +3,7 @@ name: Oneoff Beta63 Materialize Compile
 on:
   pull_request:
     branches:
-      - stabilization/beta63-materialize-base-20260824
+      - stabilization/beta63-materialize-base2-20260824
     types: [opened, synchronize, reopened]
 
 permissions:
