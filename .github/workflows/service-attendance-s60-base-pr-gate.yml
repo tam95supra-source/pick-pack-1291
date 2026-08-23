@@ -1,0 +1,60 @@
+name: Service Attendance S60 Base PR Gate
+
+on:
+  pull_request:
+    branches:
+      - ci/service-ra-projection-gate-20260823
+
+permissions:
+  contents: write
+
+jobs:
+  apply-check-commit:
+    if: github.event.pull_request.head.ref == 'agent/service-attendance-aggregate-audit-20260823'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/service-attendance-aggregate-audit-20260823
+          fetch-depth: 0
+      - name: Apply S60 service patch
+        run: |
+          set -euo pipefail
+          python3 -m py_compile tools/apply_s60_service_attendance_aggregate_audit.py
+          python3 tools/apply_s60_service_attendance_aggregate_audit.py
+      - name: Static guards
+        run: |
+          set -euo pipefail
+          grep -q 'mutation_kind:mutationKind' service/src/session_hotfix.ts
+          grep -q 'audit_note:auditNote' service/src/session_hotfix.ts
+          grep -q 'S60_RA_ENTER_AGGREGATE' service/src/replication.ts
+          grep -q 'u.userPicks.join(", ")' service/src/replication.ts
+          grep -q 'resourceCells=enter?' service/src/replication.ts
+          grep -q 'THÔNG TIN USER CỦA NLĐ' service/src/replication.ts
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: service/package-lock.json
+      - name: Typecheck
+        working-directory: service
+        run: |
+          set -euo pipefail
+          npm ci
+          npm run typecheck
+      - name: Wrangler dry-run only
+        working-directory: service
+        run: |
+          set -euo pipefail
+          rm -rf ../ops/service-prod-bundle-attendance-s60
+          npx wrangler deploy src/entry_product.ts --dry-run --name pickpack --compatibility-date 2025-08-01 --compatibility-flags nodejs_compat --outdir ../ops/service-prod-bundle-attendance-s60
+          sha256sum ../ops/service-prod-bundle-attendance-s60/* > ../ops/service-prod-bundle-attendance-s60/SHA256SUMS.txt
+      - name: Commit validated source and bundle
+        run: |
+          set -euo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add service/src/session_hotfix.ts service/src/replication.ts ops/service-prod-bundle-attendance-s60
+          git commit -m 'feat(service): aggregate shift resources on attendance enter row'
+          git push origin HEAD:agent/service-attendance-aggregate-audit-20260823
