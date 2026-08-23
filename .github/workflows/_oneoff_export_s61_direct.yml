@@ -1,0 +1,27 @@
+name: Export S61 Direct Bundle
+
+on:
+  push:
+    branches:
+      - temp/export-s61-direct-20260823
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify exact S61 bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo '94de72c09a6d2a7c502f22c1ccb23beabb43551a133b2e2f37f2c18f8d1a03a9  ops/service-prod-bundle-s61-owner-session-resource/entry_product.js' | sha256sum -c -
+      - name: Upload exact deploy file
+        uses: actions/upload-artifact@v4
+        with:
+          name: pickpack-1291-service-s61-entry_product
+          path: ops/service-prod-bundle-s61-owner-session-resource/entry_product.js
+          if-no-files-found: error
+          retention-days: 1
