@@ -1,0 +1,4 @@
+trigger=2026-08-23T11:11:00+07:00
+purpose=probe_live_gas_ota_only
+cloudflare=UNTOUCHED
+stable_publish=FORBIDDEN
