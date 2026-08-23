@@ -35,13 +35,13 @@ jobs:
       - name: Beta60 static contract guards
         shell: bash
         run: |
-          set -euo pipefail
+          set -euxo pipefail
           grep -q 'versionCode = 66' app/build.gradle.kts
           grep -q 'versionName = "0.4.2-beta.60"' app/build.gradle.kts
           grep -q 'S61_BETA60_OWNER_OPS_RESOURCE_FIX' app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt
           grep -q '"$shift – ${entered.size}/${exited.size}"' app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt
           grep -q '"Công việc trong ca" to currentWork' app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt
-          grep -q 'Làm theo vị trí chính & Pick & Pack' app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt
+          grep -q 'extraPick&&extraPack->" & Pick & Pack"' app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt
           grep -q 'smallButton("Sửa giờ vào – ra ca"' app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt
           grep -q 'input("Nhập mật khẩu thực tế",true)' app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt
           grep -q 'attendance_session_delete' app/src/main/java/vn/pickpack1291/app/beta/BetaApiClient.kt
