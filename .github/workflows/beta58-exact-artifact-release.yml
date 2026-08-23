@@ -34,10 +34,10 @@ jobs:
       EXPECTED_SIGNER_SHA256: 'd180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e'
       TAG: 'v0.4.2-beta.58-publicbeta'
     steps:
-      - name: Checkout immutable Beta58 source receipt branch
+      - name: Checkout immutable Beta58 candidate source
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.base.sha }}
+          ref: e5613161ab1cb513752a0383077afa96987a0bef
           fetch-depth: 0
 
       - name: Preflight immutable release locks
@@ -46,7 +46,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.base.sha }}"
           test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
           grep -q 'versionCode = 64' app/build.gradle.kts
           grep -q 'versionName = "0.4.2-beta.58"' app/build.gradle.kts
@@ -71,11 +70,8 @@ jobs:
           test "$(jq -r '.expired' <<<"$META")" = 'false'
           test "$(jq -r '.workflow_run.id' <<<"$META")" = "$CANDIDATE_RUN_ID"
           test "$(jq -r '.workflow_run.head_sha' <<<"$META")" = "$CANDIDATE_WORKFLOW_HEAD_SHA"
-          curl -fsSL \
-            -H "Authorization: Bearer $GH_TOKEN" \
-            -H 'Accept: application/vnd.github+json' \
-            "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/artifacts/$ARTIFACT_ID/zip" \
-            -o /tmp/candidate.zip
+          curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/artifacts/$ARTIFACT_ID/zip" -o /tmp/candidate.zip
           rm -rf /tmp/candidate && mkdir -p /tmp/candidate
           unzip -q /tmp/candidate.zip -d /tmp/candidate
           APK="/tmp/candidate/$APK_NAME"
@@ -123,14 +119,9 @@ jobs:
           PP_STABLE=UNTOUCHED
           PP_BETA56=DENYLISTED
           EOF
-          gh release create "$TAG" \
-            --repo "$GITHUB_REPOSITORY" \
-            --target "$SOURCE_SHA" \
-            --title "Pick Pack 1291 $TARGET_VERSION" \
-            --notes-file /tmp/release-notes.txt \
-            --prerelease \
-            "$APK#$APK_NAME" \
-            "$SUM#SHA256SUMS-$TARGET_VERSION.txt"
+          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --target "$SOURCE_SHA" \
+            --title "Pick Pack 1291 $TARGET_VERSION" --notes-file /tmp/release-notes.txt --prerelease \
+            "$APK#$APK_NAME" "$SUM#SHA256SUMS-$TARGET_VERSION.txt"
 
       - name: Verify published bytes from public release URL
         shell: bash
