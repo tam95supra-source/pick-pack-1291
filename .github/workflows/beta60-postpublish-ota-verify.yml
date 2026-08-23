@@ -1,0 +1,105 @@
+name: Beta60 Post-publish OTA Exact-byte Gate
+
+on:
+  pull_request:
+    branches:
+      - ci/beta60-release-gate-base-20260823
+
+permissions:
+  contents: read
+
+concurrency:
+  group: beta60-postpublish-ota
+  cancel-in-progress: true
+
+env:
+  SERVICE_URL: https://pickpack.1291.workers.dev
+  GAS_URL: https://script.google.com/macros/s/AKfycbzbEoGfbNg6s2HnP-gUpcBJ7mMIkVBtYuQKMndb9seDV2c55lQwSUO1GZ-LtQ2CxMCauA/exec
+  EXPECTED_SOURCE: db3d751988f52f93fc6957d7582fa9db0c151da0
+  EXPECTED_PACKAGE: vn.pickpack1291.app.beta.publicbeta
+  EXPECTED_SIGNER_SHA256: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
+  EXPECTED_SHA256: 40d7526cee2806a170f8726428753ed796419263ca47a8a7d9332756d61bbd68
+  EXPECTED_SIZE: '13044331'
+  TARGET_VERSION: 0.4.2-beta.60
+  TARGET_CODE: '66'
+  FROM_VERSION: 0.4.2-beta.59
+
+jobs:
+  verify:
+    if: github.event.pull_request.head.ref == 'release/beta60-signed-20260823'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Exact source and deployed S61 live gate
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          [[ "$(git rev-parse HEAD)" == "$EXPECTED_SOURCE" ]]
+          hc=$(curl -sSL --connect-timeout 15 --max-time 45 -o /tmp/health.json -w '%{http_code}' "$SERVICE_URL/health")
+          gc=$(curl -sSL --connect-timeout 15 --max-time 60 -o /tmp/discovery.json -w '%{http_code}' -H 'content-type: application/json' "$GAS_URL" -d '{"action":"service_discovery"}')
+          [[ "$hc" == 200 && "$gc" == 200 ]]
+          node - <<'NODE'
+          const h=require('/tmp/health.json'),g=require('/tmp/discovery.json'); const a=h.authority||{},r=h.replication||{},ga=g.authority||{};
+          const se=Number(a.authority_epoch), ge=Number(g.authority_epoch??ga.authority_epoch);
+          if(!(h.ok===true&&a.mode==='SERVICE_PRIMARY'&&a.scope==='PRODUCTION'&&r.state==='HEALTHY'&&Number(r.pending_count)===0&&g.ok===true&&g.authority_mode==='SERVICE_PRIMARY'&&ge===se)) throw Error('S61_LIVE_GATE');
+          NODE
+
+      - name: Resolve Android verification tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -x "$ANDROID_HOME/build-tools/36.0.0/aapt" && -x "$ANDROID_HOME/build-tools/36.0.0/apksigner" ]]; then
+            echo "BT=$ANDROID_HOME/build-tools/36.0.0" >> "$GITHUB_ENV"; exit 0
+          fi
+          SDK="$RUNNER_TEMP/android-sdk"; ZIP="$RUNNER_TEMP/cmd.zip"
+          curl -fsSL https://dl.google.com/android/repository/commandlinetools-linux-15859902_latest.zip -o "$ZIP"
+          echo '4e4c464f145a7512b57d088ac6c278c03c9eea610886b35a5e0804e74eedf583  '"$ZIP" | sha256sum -c -
+          mkdir -p "$SDK/cmdline-tools"; unzip -q "$ZIP" -d "$RUNNER_TEMP/cmd"; mv "$RUNNER_TEMP/cmd/cmdline-tools" "$SDK/cmdline-tools/latest"
+          yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
+          "$SDK/cmdline-tools/latest/bin/sdkmanager" 'build-tools;36.0.0'
+          echo "BT=$SDK/build-tools/36.0.0" >> "$GITHUB_ENV"
+
+      - name: Beta OTA discovery and exact downloaded bytes
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          good=false
+          for n in 1 2 3 4 5 6 7 8 9 10; do
+            code=$(curl -sSL --connect-timeout 20 --max-time 90 -o /tmp/update.json -w '%{http_code}' -H 'content-type: application/json' "$GAS_URL" -d "{\"action\":\"update_check\",\"channel\":\"BETA\",\"current_version\":\"$FROM_VERSION\"}" || true)
+            if [[ "$code" == 200 ]] && node - <<'NODE'
+          const j=require('/tmp/update.json'); const a=j.available??j.update_available; const v=j.version_name??j.version??''; const u=j.apk_url||j.download_url||j.url||'';
+          if(j.ok===true&&a===true&&String(j.channel||'')==='BETA'&&String(v)===process.env.TARGET_VERSION&&String(j.sha256||'').toLowerCase()===process.env.EXPECTED_SHA256&&String(j.size||'')===process.env.EXPECTED_SIZE&&u) process.exit(0); process.exit(1);
+          NODE
+            then good=true; break; fi
+            sleep 3
+          done
+          if [[ "$good" != true ]]; then cat /tmp/update.json >&2 || true; exit 1; fi
+          URL=$(node -e "const j=require('/tmp/update.json'); process.stdout.write(j.apk_url||j.download_url||j.url||'')")
+          curl -fsSL --retry 5 --retry-all-errors --retry-delay 2 --connect-timeout 20 --max-time 180 "$URL" -o /tmp/beta60.apk
+          [[ "$(sha256sum /tmp/beta60.apk|awk '{print $1}')" == "$EXPECTED_SHA256" ]]
+          [[ "$(stat -c '%s' /tmp/beta60.apk)" == "$EXPECTED_SIZE" ]]
+          "$BT/aapt" dump badging /tmp/beta60.apk >/tmp/badge
+          grep -q "package: name='$EXPECTED_PACKAGE'" /tmp/badge
+          grep -q "versionCode='$TARGET_CODE'" /tmp/badge
+          grep -q "versionName='$TARGET_VERSION'" /tmp/badge
+          "$BT/apksigner" verify --verbose --print-certs /tmp/beta60.apk >/tmp/cert
+          CERT=$(grep -m1 'Signer #1 certificate SHA-256 digest:' /tmp/cert | sed 's/.*digest: //' | tr 'A-F' 'a-f' | tr -d ':[:space:]')
+          [[ "$CERT" == "$EXPECTED_SIGNER_SHA256" ]]
+
+      - name: Current Beta self-check and Stable isolation
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          curl -fsSL -H 'content-type: application/json' "$GAS_URL" -d "{\"action\":\"update_check\",\"channel\":\"BETA\",\"current_version\":\"$TARGET_VERSION\"}" >/tmp/self.json
+          curl -fsSL -H 'content-type: application/json' "$GAS_URL" -d '{"action":"update_check","channel":"STABLE","current_version":"0.1.0-stable"}' >/tmp/stable.json
+          node - <<'NODE'
+          const b=require('/tmp/self.json'),s=require('/tmp/stable.json'); const ba=b.available??b.update_available, sa=s.available??s.update_available;
+          if(!(b.ok===true&&String(b.channel||'')==='BETA'&&ba===false)) throw Error('BETA_SELF_UPDATE');
+          if(!(s.ok===true&&String(s.channel||'')==='STABLE'&&sa===false)) throw Error('STABLE_ISOLATION');
+          NODE
+          echo "verdict=PASS beta=$TARGET_VERSION code=$TARGET_CODE sha=$EXPECTED_SHA256 signer=$EXPECTED_SIGNER_SHA256 stable=UNCHANGED" >> "$GITHUB_STEP_SUMMARY"
