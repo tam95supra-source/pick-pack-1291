@@ -1,0 +1,5 @@
+mode=READ_ONLY
+expected_pick_pack_api_sha256=d7a27bc6ba3fcf7daecc04ec54ade1937c2c498f9f186c07c811831eee7739b8
+expected_current_ota=0.4.2-beta.57
+next_ota=0.4.2-beta.58
+stable=UNTOUCHED
