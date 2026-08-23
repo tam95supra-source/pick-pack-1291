@@ -1,0 +1,90 @@
+name: Oneoff Service S62 Export Exact Production Bundle
+
+on:
+  pull_request:
+    branches:
+      - deploy/service-s62-safe-base-20260824
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  export-bundle:
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'deploy/service-s62-clean-exec-20260824'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Materialize and typecheck exact S62
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha }}"
+          python3 tools/apply_service_s62_session_authority_fix.py
+          grep -F 'aOverride?:Awaited<ReturnType<typeof currentAuthority>>' service/src/session_hotfix.ts
+          grep -F 'const a=aOverride??await currentAuthority(env.DB);' service/src/session_hotfix.ts
+          test "$(grep -o ',idem,newVersion,a);const stmts=eventStmts(env.DB,e,a.authority_seq' service/src/session_hotfix.ts | wc -l)" -ge 5
+          cd service
+          npm install --no-audit --no-fund
+          npm run typecheck
+
+      - name: Export exact deployable Worker JavaScript bundle
+        working-directory: service
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf out
+          mkdir -p out
+          cat > wrangler.export.s62.jsonc <<'EOF'
+          {
+            "$schema":"./node_modules/wrangler/config-schema.json",
+            "name":"pickpack",
+            "main":"src/entry_product.ts",
+            "compatibility_date":"2026-08-08",
+            "compatibility_flags":["nodejs_compat"],
+            "workers_dev":true,
+            "vars":{"SERVICE_GENERATION":"m2-prod-reset-20260823-001","GOOGLE_SOURCE_SHEET_ID":"1E7ZWz-4eMcBliQxDYBVoogIoeSYyiaXGwj0I6mbMm78"},
+            "durable_objects":{"bindings":[{"name":"REALTIME_HUB","class_name":"RealtimeHub"}]},
+            "assets":{"directory":"./public","binding":"ASSETS","not_found_handling":"single-page-application","run_worker_first":["/health","/v1/*","/internal/*"]},
+            "triggers":{"crons":["*/1 * * * *"]},
+            "observability":{"enabled":true,"head_sampling_rate":1}
+          }
+          EOF
+          npx wrangler deploy --dry-run --config wrangler.export.s62.jsonc --outdir out 2>&1 | tee /tmp/s62-dryrun.log
+          test -f out/entry_product.js
+          cp out/entry_product.js /tmp/PICK_PACK_1291_SERVICE_S62_ENTRY_PRODUCT.js
+          sha256sum /tmp/PICK_PACK_1291_SERVICE_S62_ENTRY_PRODUCT.js | tee /tmp/s62-bundle.sha256
+          stat -c 'size=%s' /tmp/PICK_PACK_1291_SERVICE_S62_ENTRY_PRODUCT.js | tee /tmp/s62-bundle-size.txt
+          {
+            echo "source_pr_head=${{ github.event.pull_request.head.sha }}"
+            echo "materializer=tools/apply_service_s62_session_authority_fix.py"
+            echo "worker=pickpack"
+            echo "endpoint=https://pickpack.1291.workers.dev"
+            echo "authority_expected=SERVICE_PRIMARY/PRODUCTION"
+            cat /tmp/s62-bundle.sha256
+            cat /tmp/s62-bundle-size.txt
+            echo "verdict=EXPORT_PASS"
+          } > /tmp/s62-bundle-receipt.txt
+          cat /tmp/s62-bundle-receipt.txt
+          rm -f wrangler.export.s62.jsonc
+
+      - name: Upload exact S62 manual Cloudflare deploy bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: pickpack-1291-service-s62-entry-product
+          path: |
+            /tmp/PICK_PACK_1291_SERVICE_S62_ENTRY_PRODUCT.js
+            /tmp/s62-bundle.sha256
+            /tmp/s62-bundle-size.txt
+            /tmp/s62-bundle-receipt.txt
+            /tmp/s62-dryrun.log
+          retention-days: 14
