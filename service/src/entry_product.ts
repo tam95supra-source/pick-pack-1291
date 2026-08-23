@@ -2,7 +2,7 @@ import current, { RealtimeHub } from "./entry";
 import { authenticate } from "./auth";
 import { exchangeGasSession, mobileRead } from "./mobile_hotfix";
 import { resourceAdminList, resourceAdminMutate } from "./resource_admin";
-import { attendanceExitDelete, attendanceTimeCorrect, sessionExitGuarded, sessionWorkUpdate } from "./session_hotfix";
+import { attendanceEnterDelete, attendanceExitDelete, attendanceTimeCorrect, sessionExitGuarded, sessionWorkUpdate } from "./session_hotfix";
 import { superadminDeleteAccounts } from "./beta44_owner";
 import { serviceConnectionsV47 } from "./beta47_connections";
 import { historyDelete } from "./history_delete";
@@ -101,6 +101,9 @@ export default {
     }
     if(u.pathname==="/v1/session/delete-exit"&&method==="POST"){
       const response=await attendanceExitDelete(request,env);if(shouldKickAfterResponse(method,response))kickReplication(ctx,env,u.pathname);return response;
+    }
+    if(u.pathname==="/v1/session/delete-enter"&&method==="POST"){
+      const response=await attendanceEnterDelete(request,env);if(shouldKickAfterResponse(method,response))kickReplication(ctx,env,u.pathname);return response;
     }
     const response=await current.fetch(request,env,ctx);
     if(shouldKickAfterResponse(method,response)&&!u.pathname.startsWith("/v1/auth/"))kickReplication(ctx,env,u.pathname);
