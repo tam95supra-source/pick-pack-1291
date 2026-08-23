@@ -6,6 +6,7 @@ on:
       - agent/service-attendance-aggregate-audit-20260823
     paths:
       - '.github/workflows/_oneoff_service_attendance_aggregate_audit.yml'
+      - 'ops/service-attendance-*.txt'
 
 permissions:
   contents: write
