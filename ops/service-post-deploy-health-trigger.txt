@@ -1,0 +1,7 @@
+probe=production-health-after-s60
+epoch=9
+generation=m2-prod-reset-20260823-001
+mode=SERVICE_PRIMARY
+mutation=NONE_READ_ONLY
+expected_pending=0
+trigger=2026-08-23T16:23+07:00
