@@ -1,4 +1,4 @@
-deploy=2026-08-23-beta62-live-ota-google-drive
+deploy=2026-08-23-beta62-live-ota-google-drive-observable
 source_sha=a1d351ef0448e824a1b08d0675da555bf0ede534
 beta_target=0.4.2-beta.62
 beta_version_code=68
