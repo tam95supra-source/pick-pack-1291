@@ -1,0 +1,95 @@
+name: Beta58 Release Verify
+
+on:
+  pull_request:
+    branches:
+      - agent/beta58-owner-fixes-20260823
+    paths:
+      - 'ops/beta58-release-verify-trigger.txt'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    if: github.head_ref == 'verify/beta58-release-20260823'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      TAG: 'v0.4.2-beta.58-publicbeta'
+      SOURCE_SHA: 'e5613161ab1cb513752a0383077afa96987a0bef'
+      TARGET_VERSION: '0.4.2-beta.58'
+      TARGET_CODE: '64'
+      APK_NAME: 'pick-pack-1291-public-beta-0.4.2-beta.58.apk'
+      EXPECTED_SHA: '1fb36447ea15a4f6a536814335acc4e693d85dc9b4de0b13e8fee5bdcffd475d'
+      EXPECTED_SIZE: '13027947'
+      EXPECTED_SIGNER_SHA256: 'd180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Verify immutable tag and release metadata
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --force --tags origin
+          test "$(git rev-list -n1 "$TAG")" = "$SOURCE_SHA"
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json tagName,isPrerelease,name,body > /tmp/release.json
+          test "$(jq -r '.tagName' /tmp/release.json)" = "$TAG"
+          test "$(jq -r '.isPrerelease' /tmp/release.json)" = 'true'
+          BODY=$(jq -r '.body' /tmp/release.json)
+          grep -qx "PP_CHANNEL=BETA" <<<"$BODY"
+          grep -qx "PP_VERSION=$TARGET_VERSION" <<<"$BODY"
+          grep -qx "PP_VERSION_CODE=$TARGET_CODE" <<<"$BODY"
+          grep -qx "PP_SHA256=$EXPECTED_SHA" <<<"$BODY"
+          grep -qx "PP_SIZE=$EXPECTED_SIZE" <<<"$BODY"
+          grep -qx "PP_SIGNER_SHA256=$EXPECTED_SIGNER_SHA256" <<<"$BODY"
+          grep -qx "PP_APK_NAME=$APK_NAME" <<<"$BODY"
+          grep -qx 'PP_MANDATORY=false' <<<"$BODY"
+          grep -qx 'PP_OTA_MODE=MANUAL_ONLY' <<<"$BODY"
+          grep -qx 'PP_STABLE=UNTOUCHED' <<<"$BODY"
+          grep -qx 'PP_BETA56=DENYLISTED' <<<"$BODY"
+
+      - name: Download and verify exact public release bytes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/release
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --dir /tmp/release --pattern "$APK_NAME" --pattern "SHA256SUMS-$TARGET_VERSION.txt"
+          APK="/tmp/release/$APK_NAME"
+          SUM="/tmp/release/SHA256SUMS-$TARGET_VERSION.txt"
+          test -s "$APK"; test -s "$SUM"
+          test "$(sha256sum "$APK" | awk '{print $1}')" = "$EXPECTED_SHA"
+          test "$(stat -c '%s' "$APK")" = "$EXPECTED_SIZE"
+          grep -q "^$EXPECTED_SHA  $APK_NAME$" "$SUM"
+          mkdir -p out
+          cat > out/BETA58_RELEASE_VERIFY_RECEIPT.txt <<EOF
+          checked_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          tag=$TAG
+          source_sha=$SOURCE_SHA
+          version=$TARGET_VERSION
+          version_code=$TARGET_CODE
+          apk_name=$APK_NAME
+          apk_sha256=$EXPECTED_SHA
+          apk_size=$EXPECTED_SIZE
+          signer_sha256=$EXPECTED_SIGNER_SHA256
+          prerelease=true
+          published_bytes=PASS
+          stable=UNTOUCHED
+          beta56_vc62=DENYLISTED
+          ota_mode=MANUAL_ONLY
+          verdict=PASS
+          EOF
+
+      - name: Upload verification receipt
+        uses: actions/upload-artifact@v4
+        with:
+          name: beta58-release-verify-receipt
+          path: out/BETA58_RELEASE_VERIFY_RECEIPT.txt
+          retention-days: 30
