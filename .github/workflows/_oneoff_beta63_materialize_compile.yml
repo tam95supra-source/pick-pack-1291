@@ -28,7 +28,10 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-          cache: gradle
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.4.1'
 
       - name: Materialize exact Beta63 source
         shell: bash
@@ -44,9 +47,7 @@ jobs:
           python3 tools/apply_beta63_login_perf_session.py
 
       - name: Compile Beta and Stable isolation
-        run: |
-          chmod +x gradlew
-          ./gradlew --no-daemon assembleBetaDebug assembleStableDebug
+        run: gradle --no-daemon --build-cache --parallel :app:assembleBetaDebug :app:assembleStableDebug
 
       - name: Guard source identity
         shell: bash
