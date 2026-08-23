@@ -40,9 +40,9 @@ jobs:
         working-directory: service
         run: npm install --no-package-lock --ignore-scripts
 
-      - name: Typecheck service
+      - name: Generate Cloudflare types and typecheck
         working-directory: service
-        run: npm run typecheck
+        run: npm run check
 
       - name: Commit patched replication source
         run: |
