@@ -4,3 +4,4 @@ source_gate_run=32697993454
 version_name=0.4.2-beta.65
 version_code=71
 stable_publish=FORBIDDEN
+retry=materialize-fix-20260824T1414+0700
