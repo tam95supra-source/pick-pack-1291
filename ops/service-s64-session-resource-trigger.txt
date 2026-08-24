@@ -1,0 +1,4 @@
+trigger=2026-08-24T11:xx:xx+07:00
+source=S64_SESSION_MULTI_POSITION_MULTI_RESOURCE
+base_service_source=02eebdba7674d053c92f667bbb2d5e4efc492f0b
+stable_publish=FORBIDDEN

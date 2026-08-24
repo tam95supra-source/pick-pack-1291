@@ -1,0 +1,195 @@
+name: Oneoff Service S64 Session Resource Model
+
+on:
+  push:
+    branches: [ agent/service-s64-session-resource-model-20260824 ]
+    paths:
+      - 'ops/service-s64-session-resource-trigger.txt'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: service-s64-session-resource-production
+  cancel-in-progress: false
+
+jobs:
+  verify-migrate-deploy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      SERVICE_URL: https://pickpack1291.cc.cd
+      CANONICAL_WORKERS_URL: https://pickpack.1291.workers.dev
+      WORKER_NAME: pickpack
+      PROD_DB_NAME: pick-pack-1291-service-prod
+      PROD_DB_ID: b619df89-528d-4126-a948-de0425037b11
+      EXPECTED_GENERATION: m2-prod-reset-20260823-001
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Materialize S62 + S63 + S64 and typecheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/apply_service_s62_session_authority_fix.py
+          python3 tools/apply_service_s63_resource_owner_lease_fix.py
+          python3 tools/apply_service_s64_session_resource_model.py
+          grep -F 'S63_RESOURCE_OWNER_LEASE_VALIDATION' service/src/session_hotfix.ts
+          grep -F '/v1/session/resources/mutate' service/src/entry_product.ts
+          grep -F 'session_resource_assignments' service/src/session_resources_v64.ts
+          cd service
+          npm install --no-audit --no-fund
+          npm run typecheck
+
+      - name: Fresh production authority and binding fence
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${CLOUDFLARE_API_TOKEN:-}"
+          test -n "${CLOUDFLARE_ACCOUNT_ID:-}"
+          code=$(curl -sS --retry 4 --retry-all-errors --retry-delay 2 --connect-timeout 12 --max-time 50 -o /tmp/pre-health.json -w '%{http_code}' "$SERVICE_URL/health")
+          test "$code" = 200
+          H=(-H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" -H 'Content-Type: application/json')
+          curl -fsS "${H[@]}" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/domains" > /tmp/pre-domains.json
+          curl -fsS "${H[@]}" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/$WORKER_NAME/settings" > /tmp/pre-settings.json
+          python3 - <<'PY'
+          import json,os
+          h=json.load(open('/tmp/pre-health.json')); assert h.get('ok') is True,h
+          a=h.get('authority') if isinstance(h.get('authority'),dict) else {}
+          assert (h.get('authority_mode') or a.get('mode'))=='SERVICE_PRIMARY',h
+          assert (h.get('authority_scope') or a.get('scope'))=='PRODUCTION',h
+          assert (h.get('service_generation') or h.get('generation') or a.get('service_generation'))==os.environ['EXPECTED_GENERATION'],h
+          r=h.get('replication') if isinstance(h.get('replication'),dict) else {}
+          if 'state' in r: assert r.get('state')=='HEALTHY',r
+          if 'pending_count' in r: assert int(r.get('pending_count') or 0)==0,r
+          d=json.load(open('/tmp/pre-domains.json')); rows=d.get('result') or []
+          owned=[x for x in rows if str(x.get('hostname') or x.get('domain') or '')=='pickpack1291.cc.cd']
+          assert owned and any(str(x.get('service') or x.get('script') or x.get('script_name') or '')=='pickpack' for x in owned),owned
+          s=json.load(open('/tmp/pre-settings.json')); rr=s.get('result') or {}; bindings=rr.get('bindings') or []
+          db=[b for b in bindings if b.get('name')=='DB']; assert db,bindings
+          dbid=str(db[0].get('id') or db[0].get('database_id') or db[0].get('namespace_id') or ''); assert dbid==os.environ['PROD_DB_ID'],db[0]
+          hub=[b for b in bindings if b.get('name')=='REALTIME_HUB']; assert hub and str(hub[0].get('class_name') or '')=='RealtimeHub',hub
+          safe={'compatibility_date':rr.get('compatibility_date'),'compatibility_flags':rr.get('compatibility_flags'),'placement':rr.get('placement'),'bindings':[{'name':b.get('name'),'type':b.get('type'),'id':(b.get('id') if b.get('name')=='DB' else None),'class_name':b.get('class_name'),'script_name':b.get('script_name')} for b in bindings]}
+          json.dump(safe,open('/tmp/pre-settings-sanitized.json','w'),ensure_ascii=False,indent=2)
+          print('S64_PRE_DEPLOY_FENCE_PASS')
+          PY
+
+      - name: Generate production config
+        working-directory: service
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > wrangler.prod.s64.jsonc <<'EOF'
+          {
+            "$schema":"./node_modules/wrangler/config-schema.json",
+            "name":"pickpack",
+            "main":"src/entry_product.ts",
+            "compatibility_date":"2026-08-08",
+            "compatibility_flags":["nodejs_compat"],
+            "workers_dev":true,
+            "placement":{"mode":"smart"},
+            "d1_databases":[{"binding":"DB","database_name":"pick-pack-1291-service-prod","database_id":"b619df89-528d-4126-a948-de0425037b11","migrations_dir":"migrations"}],
+            "durable_objects":{"bindings":[{"name":"REALTIME_HUB","class_name":"RealtimeHub"}]},
+            "assets":{"directory":"./public","binding":"ASSETS","not_found_handling":"single-page-application","run_worker_first":["/health","/v1/*","/internal/*"]},
+            "triggers":{"crons":["*/1 * * * *"]},
+            "observability":{"enabled":true,"head_sampling_rate":1}
+          }
+          EOF
+          ! grep -q 'SERVICE_GENERATION' wrangler.prod.s64.jsonc
+
+      - name: Inspect and apply additive D1 migration
+        working-directory: service
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx wrangler d1 migrations list "$PROD_DB_NAME" --remote --config wrangler.prod.s64.jsonc | tee /tmp/migrations-before.txt
+          npx wrangler d1 migrations apply "$PROD_DB_NAME" --remote --config wrangler.prod.s64.jsonc | tee /tmp/migrations-apply.txt
+          npx wrangler d1 execute "$PROD_DB_NAME" --remote --config wrangler.prod.s64.jsonc --command "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('session_positions','session_resource_assignments','session_version_claims') ORDER BY name;" | tee /tmp/schema-evidence.txt
+          grep -F 'session_resource_assignments' /tmp/schema-evidence.txt
+          grep -F 'session_positions' /tmp/schema-evidence.txt
+          grep -F 'session_version_claims' /tmp/schema-evidence.txt
+
+      - name: Deploy exact S64 code to canonical Worker
+        working-directory: service
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx wrangler deploy --config wrangler.prod.s64.jsonc --keep-vars 2>&1 | tee /tmp/deploy.log
+          grep -E 'Version ID|Current Version ID|Uploaded pickpack|Deployed pickpack' /tmp/deploy.log | tail -20 > /tmp/deploy-summary.txt || true
+
+      - name: Post-deploy health, route, schema and compatibility gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          good=false
+          for n in 1 2 3 4 5 6 7 8; do
+            code=$(curl -sS --connect-timeout 12 --max-time 45 -o /tmp/post-health.json -w '%{http_code}' "$SERVICE_URL/health" || true)
+            if [[ "$code" == 200 ]] && python3 - <<'PY'
+          import json,os
+          h=json.load(open('/tmp/post-health.json')); a=h.get('authority') if isinstance(h.get('authority'),dict) else {}; r=h.get('replication') if isinstance(h.get('replication'),dict) else {}
+          ok=h.get('ok') is True and (h.get('authority_mode') or a.get('mode'))=='SERVICE_PRIMARY' and (h.get('authority_scope') or a.get('scope'))=='PRODUCTION' and (h.get('service_generation') or h.get('generation') or a.get('service_generation'))==os.environ['EXPECTED_GENERATION']
+          if 'state' in r and r.get('state')!='HEALTHY': ok=False
+          if 'pending_count' in r and int(r.get('pending_count') or 0)!=0: ok=False
+          raise SystemExit(0 if ok else 1)
+          PY
+            then good=true; break; fi
+            sleep 3
+          done
+          test "$good" = true
+          test "$(curl -sS -o /tmp/compat-health.json -w '%{http_code}' "$CANONICAL_WORKERS_URL/health")" = 200
+          probe(){ curl -sS -o /tmp/probe.json -w '%{http_code}' -H 'content-type: application/json' -d '{}' "$SERVICE_URL$1"; }
+          old1=$(probe /v1/session/work); old2=$(probe /v1/session/exit)
+          new1=$(probe /v1/session/enter-v2); new2=$(probe /v1/session/resources/snapshot); new3=$(probe /v1/session/resources/mutate); new4=$(probe /v1/session/exit-v2)
+          test "$old1" = 401; test "$old2" = 401; test "$new1" = 401; test "$new2" = 401; test "$new3" = 401; test "$new4" = 401
+          cd service
+          npx wrangler d1 execute "$PROD_DB_NAME" --remote --config wrangler.prod.s64.jsonc --command "SELECT COUNT(*) assignments, SUM(CASE WHEN state='ACTIVE' THEN 1 ELSE 0 END) active FROM session_resource_assignments; SELECT COUNT(*) positions FROM session_positions;" | tee /tmp/post-db-evidence.txt
+          cd ..
+          cat > /tmp/service-s64-receipt.txt <<EOF
+          source_sha=$GITHUB_SHA
+          worker=pickpack
+          custom_domain=pickpack1291.cc.cd
+          generation=$EXPECTED_GENERATION
+          feature=S64_SESSION_MULTI_POSITION_MULTI_RESOURCE
+          old_session_work=$old1
+          old_session_exit=$old2
+          new_enter=$new1
+          new_snapshot=$new2
+          new_mutate=$new3
+          new_exit=$new4
+          authority=SERVICE_PRIMARY/PRODUCTION
+          stable_publish=FORBIDDEN
+          verdict=PASS
+          EOF
+          cat /tmp/service-s64-receipt.txt
+
+      - name: Upload sanitized S64 evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: service-s64-session-resource-evidence
+          path: |
+            /tmp/service-s64-receipt.txt
+            /tmp/pre-health.json
+            /tmp/post-health.json
+            /tmp/compat-health.json
+            /tmp/pre-settings-sanitized.json
+            /tmp/migrations-before.txt
+            /tmp/migrations-apply.txt
+            /tmp/schema-evidence.txt
+            /tmp/post-db-evidence.txt
+            /tmp/deploy-summary.txt
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Remove generated config
+        if: always()
+        working-directory: service
+        run: rm -f wrangler.prod.s64.jsonc

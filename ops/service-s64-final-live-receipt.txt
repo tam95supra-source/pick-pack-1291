@@ -1,0 +1,9 @@
+source_sha=11008a747b54bcc80e09ec13fb674be37efd831b
+cloudflare_version=78d832e7-bbc6-4d34-8562-19aa32d2493c
+worker=pickpack
+custom_domain=pickpack1291.cc.cd
+model=S64_SESSION_MULTI_POSITION_MULTI_RESOURCE
+authority=SERVICE_PRIMARY/PRODUCTION
+replication=HEALTHY
+stable_publish=FORBIDDEN
+verdict=PASS
