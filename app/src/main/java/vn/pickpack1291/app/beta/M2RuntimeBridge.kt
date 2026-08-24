@@ -224,7 +224,7 @@ class M2RuntimeBridge(context: Context) {
     private fun validServiceUrl(raw: String): Boolean = runCatching {
         val url = URL(raw)
         url.protocol == "https" && url.host.isNotBlank() &&
-            (url.host.endsWith(".workers.dev") || url.host.endsWith(".pages.dev"))
+            (url.host == "pickpack1291.cc.cd" || url.host.endsWith(".workers.dev") || url.host.endsWith(".pages.dev"))
     }.getOrDefault(false)
 
     companion object {
