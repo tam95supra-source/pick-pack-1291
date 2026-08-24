@@ -27,6 +27,7 @@ jobs:
           python3 tools/apply_beta64_owner_seven_fixes.py
           python3 tools/apply_beta64_compile_fix.py
           python3 tools/apply_beta65_session_resource_login_parity.py
+          python3 tools/apply_beta65_behavior_compile_fix.py
       - name: Static finalized-logic assertions
         run: |
           python3 - <<'PY'
@@ -42,9 +43,10 @@ jobs:
           assert 'XÓA TOÀN BỘ PHIÊN' in o
           assert 'Cấp nhầm / chưa sử dụng' in o and 'Đã sử dụng / có sản lượng' in o
           assert 'rows.filter{it.optString("table")==table}' not in o
-          assert 'CENTER_CROP' not in f[f.index('private fun login()'):f.index('private fun openMainShell()')]
-          assert 'FIT_XY' not in f[f.index('private fun login()'):f.index('private fun openMainShell()')]
+          login=f[f.index('private fun login()'):f.index('private fun openMainShell()')]
+          assert 'CENTER_CROP' not in login and 'FIT_XY' not in login
           assert 'Reference-stage layout' in f
+          assert 'rebuildResources()' in o
           print('BETA65_FINALIZED_LOGIC_STATIC_PASS')
           PY
       - name: Compile Beta and Stable isolation
