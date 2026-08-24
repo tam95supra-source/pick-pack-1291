@@ -1,0 +1,4 @@
+fingerprint=Settings app storage rows: anchor missing
+root_cause=Beta65 materialized settings block already has a different trailing comma/row shape
+fix=replace brittle multi-line anchor with semantic single-row insertion
+run=1
