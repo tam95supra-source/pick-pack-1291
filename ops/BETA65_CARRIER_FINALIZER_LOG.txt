@@ -1,0 +1,8 @@
+PHASE=CANDIDATE_VERIFY
+PHASE=FINAL_LIVE_GATES
+PHASE=TAG_CARRIER
+To https://github.com/tam95supra-source/pick-pack-1291
+ * [new tag]         v0.4.2-beta.65-publicbeta -> v0.4.2-beta.65-publicbeta
+PHASE=GITHUB_PRERELEASE
+PHASE=RECEIPT
+PHASE=DONE
