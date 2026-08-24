@@ -1,0 +1,45 @@
+name: Beta68 v2 observer
+on:
+  push:
+    branches: [ diag/beta68-v2-observer-20260824 ]
+    paths: [ '.github/workflows/_diag_beta68_v2_observer.yml', 'ops/beta68-v2-observer-trigger.txt' ]
+permissions:
+  contents: write
+  actions: read
+jobs:
+  observe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - name: Observe target run
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: afd320af178ed36e67ace7f435d881b0c853c468
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs?head_sha=$TARGET_SHA&per_page=100" > /tmp/runs.json
+          python3 - <<'PY' > ops/beta68-v2-observer-result.txt
+          import json
+          rows=json.load(open('/tmp/runs.json')).get('workflow_runs',[])
+          rows=[r for r in rows if r.get('name')=='Beta68 candidate v2 exact build visual']
+          if not rows:
+              print('found=false')
+          else:
+              r=sorted(rows,key=lambda x:x.get('id',0),reverse=True)[0]
+              print('found=true')
+              print('run_id='+str(r.get('id','')))
+              print('status='+str(r.get('status','')))
+              print('conclusion='+str(r.get('conclusion','')))
+              print('head_sha='+str(r.get('head_sha','')))
+              print('created_at='+str(r.get('created_at','')))
+              print('updated_at='+str(r.get('updated_at','')))
+          PY
+          cat ops/beta68-v2-observer-result.txt
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add ops/beta68-v2-observer-result.txt
+          git commit -m 'diag: record Beta68 v2 run state'
+          git push origin HEAD:diag/beta68-v2-observer-20260824
