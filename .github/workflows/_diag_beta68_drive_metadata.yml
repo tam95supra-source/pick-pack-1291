@@ -1,0 +1,52 @@
+name: Beta68 Drive metadata diagnostic
+on:
+  push:
+    branches: [ diag/beta68-v2-observer-20260824 ]
+    paths: [ '.github/workflows/_diag_beta68_drive_metadata.yml' ]
+permissions:
+  contents: write
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    env:
+      GDRIVE_CLIENT_ID: ${{ secrets.GDRIVE_CLIENT_ID }}
+      GDRIVE_CLIENT_SECRET: ${{ secrets.GDRIVE_CLIENT_SECRET }}
+      GDRIVE_REFRESH_TOKEN: ${{ secrets.GDRIVE_REFRESH_TOKEN }}
+      BETA_FOLDER_ID: 1lLgsozdpt4GYfPdEMlUB1R1M80lltyDJ
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - name: Inspect Beta folder metadata read-only
+        shell: bash
+        run: |
+          set -euo pipefail
+          for v in GDRIVE_CLIENT_ID GDRIVE_CLIENT_SECRET GDRIVE_REFRESH_TOKEN; do test -n "${!v:-}"; done
+          TOK=$(curl -fsSL -X POST https://oauth2.googleapis.com/token \
+            -d client_id="$GDRIVE_CLIENT_ID" -d client_secret="$GDRIVE_CLIENT_SECRET" \
+            -d refresh_token="$GDRIVE_REFRESH_TOKEN" -d grant_type=refresh_token | python3 -c 'import sys,json; print(json.load(sys.stdin)["access_token"])')
+          Q=$(python3 - <<'PY'
+          import urllib.parse
+          print(urllib.parse.quote("'1lLgsozdpt4GYfPdEMlUB1R1M80lltyDJ' in parents and trashed=false"))
+          PY
+          )
+          curl -fsSL -H "Authorization: Bearer $TOK" "https://www.googleapis.com/drive/v3/files?q=$Q&fields=files(id,name,size,description,appProperties,properties,createdTime,modifiedTime,mimeType)&orderBy=modifiedTime%20desc&pageSize=50" > /tmp/files.json
+          mkdir -p ops
+          python3 - <<'PY' > ops/beta68-drive-metadata-before.txt
+          import json
+          rows=json.load(open('/tmp/files.json')).get('files',[])
+          print('count='+str(len(rows)))
+          for f in rows:
+              n=f.get('name','')
+              if 'beta.66' in n.lower() or '0.4.2-beta.66' in n.lower() or n.lower().endswith('.apk'):
+                  print('---')
+                  for k in ('id','name','size','description','appProperties','properties','createdTime','modifiedTime','mimeType'):
+                      print(f'{k}={f.get(k)}')
+          PY
+          cat ops/beta68-drive-metadata-before.txt
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add ops/beta68-drive-metadata-before.txt
+          git commit -m 'diag: record Beta Drive metadata'
+          git pull --rebase origin diag/beta68-v2-observer-20260824
+          git push origin HEAD:diag/beta68-v2-observer-20260824
