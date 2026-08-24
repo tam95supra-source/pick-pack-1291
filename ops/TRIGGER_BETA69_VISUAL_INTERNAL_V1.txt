@@ -1,0 +1,4 @@
+Trigger Beta69 locked-candidate visual internal v1.
+Candidate release artifact remains LOCKED: 9533366227
+Debug visual artifact: 9533367580
+No rebuild/resign of release APK.
