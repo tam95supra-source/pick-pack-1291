@@ -29,11 +29,11 @@ jobs:
           mkdir -p visual-input
           unzip -q /tmp/debug.zip -d visual-input
           test -s visual-input/app-beta-debug.apk
-      - name: Capture login matrix API29
+      - name: Capture login matrix API29 ARM64
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 29
-          arch: x86_64
+          arch: arm64-v8a
           profile: pixel_2
           disable-animations: true
           emulator-boot-timeout: 600
@@ -86,7 +86,7 @@ jobs:
           debug_artifact_id=$DEBUG_ARTIFACT_ID
           visual_artifact_id=$VISUAL_ARTIFACT_ID
           matrix=320x568,360x640,480x800
-          runtime=macos-14_api29_x86_64
+          runtime=macos-14_api29_arm64-v8a
           human_inspection=PENDING
           EOF
           git config user.name github-actions[bot]
