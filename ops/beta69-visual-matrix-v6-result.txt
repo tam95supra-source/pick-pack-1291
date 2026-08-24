@@ -1,0 +1,14 @@
+status=FAIL
+run_id=32789465965
+candidate_artifact=9533366227
+candidate_sha256=251530388165c7a9a8572053238b5d44b47a6747c5e94f270230e65ce68d4cda
+candidate_size=13114245
+version=0.4.2-beta.69
+version_code=75
+package=vn.pickpack1291.app.beta.publicbeta
+matrix=320x568@160,360x640@160,480x800@240
+failure:
+RuntimeError("uiautomator hierarchy unavailable after retries: 'ERROR: could not get idle state.\\n'")
+
+UI:
+<ui unavailable: RuntimeError("uiautomator hierarchy unavailable after retries: 'ERROR: could not get idle state.\\n'")>
