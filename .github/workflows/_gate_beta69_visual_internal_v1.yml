@@ -1,0 +1,176 @@
+name: Beta69 internal visual gate exact debug
+on:
+  push:
+    branches: [ release/beta69-owner-six-fixes-20260825 ]
+    paths: [ '.github/workflows/_gate_beta69_visual_internal_v1.yml' ]
+permissions:
+  contents: write
+  actions: read
+jobs:
+  visual:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      SOURCE_RUN_ID: '32762628534'
+      DEBUG_ARTIFACT_ID: '9533367580'
+      SOURCE_SHA: '789abcecbc5934d5fe13277202b1f0053029dfde'
+      PACKAGE: 'vn.pickpack1291.app.beta.publicbeta'
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+      - name: Enable KVM
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -e /dev/kvm
+          sudo chmod 666 /dev/kvm
+          test -r /dev/kvm && test -w /dev/kvm
+      - name: Download exact locked debug artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/artifacts/$DEBUG_ARTIFACT_ID/zip" -o /tmp/debug.zip
+          echo '3177e266cea469f018deb55c272a773ad4a35a3edff1c50302ec2eb33df94c79  /tmp/debug.zip' | sha256sum -c -
+          mkdir -p visual-input
+          unzip -q /tmp/debug.zip -d visual-input
+          test -s visual-input/app-beta-debug.apk
+      - name: Capture affected internal screens on API29
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 29
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: false
+          emulator-boot-timeout: 600
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot-save
+          script: |
+            set -euo pipefail
+            mkdir -p visual
+            adb install -r visual-input/app-beta-debug.apk >/dev/null
+            adb shell wm size 360x640
+            adb shell wm density 160
+            # Seed only a local debug session so the already-built APK can open its internal shell.
+            adb shell "run-as $PACKAGE sh -c 'mkdir -p shared_prefs && cat > shared_prefs/pick_pack_auth_session_v2.xml <<\"EOF\"
+            <?xml version=\"1.0\" encoding=\"utf-8\" standalone=\"yes\" ?>
+            <map>
+              <string name=\"token\">visual-fixture-token</string>
+              <string name=\"login_id\">visual_admin</string>
+              <string name=\"display_name\">Kiểm tra giao diện</string>
+              <string name=\"role\">SUPERADMIN</string>
+              <string name=\"position\">ADMIN</string>
+              <string name=\"email\">visual@example.invalid</string>
+            </map>
+            EOF'"
+            adb shell am force-stop $PACKAGE
+            adb shell am start -W -n $PACKAGE/vn.pickpack1291.app.beta.FullBetaActivity >/dev/null
+            sleep 3
+            adb exec-out screencap -p > visual/01-business-home.png
+            adb shell uiautomator dump /sdcard/ui.xml >/dev/null || true
+            adb pull /sdcard/ui.xml visual/01-business-home.xml >/dev/null || true
+            python3 - <<'PY'
+            import re,subprocess,time
+            def dump():
+              subprocess.run(['adb','shell','uiautomator','dump','/sdcard/ui.xml'],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+              subprocess.run(['adb','pull','/sdcard/ui.xml','/tmp/ui.xml'],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+              return open('/tmp/ui.xml',errors='ignore').read()
+            def tap_text(text):
+              x=dump()
+              # exact or containing text/content-desc
+              pat=re.compile(r'<node[^>]*(?:text|content-desc)="[^"]*'+re.escape(text)+r'[^"]*"[^>]*bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"')
+              m=pat.search(x)
+              if not m:
+                # bounds may occur before text
+                for n in re.findall(r'<node[^>]*/>',x):
+                  if text.lower() in n.lower():
+                    b=re.search(r'bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"',n)
+                    if b: m=b; break
+              if not m: raise SystemExit('UI_TEXT_NOT_FOUND:'+text)
+              a=list(map(int,m.groups())); subprocess.check_call(['adb','shell','input','tap',str((a[0]+a[2])//2),str((a[1]+a[3])//2)]); time.sleep(2)
+            tap_text('Mạng')
+            PY
+            adb exec-out screencap -p > visual/02-network-detail.png
+            adb shell input keyevent KEYCODE_BACK; sleep 1
+            python3 - <<'PY'
+            import re,subprocess,time
+            subprocess.run(['adb','shell','uiautomator','dump','/sdcard/ui.xml'],stdout=subprocess.DEVNULL);subprocess.run(['adb','pull','/sdcard/ui.xml','/tmp/ui.xml'],stdout=subprocess.DEVNULL)
+            x=open('/tmp/ui.xml',errors='ignore').read()
+            def tap(q):
+              for n in re.findall(r'<node[^>]*/>',x):
+                if q.lower() in n.lower():
+                  b=re.search(r'bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"',n)
+                  if b:
+                    a=list(map(int,b.groups()));subprocess.check_call(['adb','shell','input','tap',str((a[0]+a[2])//2),str((a[1]+a[3])//2)]);time.sleep(2);return
+              raise SystemExit('UI_TEXT_NOT_FOUND:'+q)
+            tap('Đổi / trả PDA')
+            PY
+            adb exec-out screencap -p > visual/03-pda-exchange.png
+            # System back must return to previous in-app Business screen, not exit the app.
+            adb shell input keyevent KEYCODE_BACK; sleep 2
+            adb shell uiautomator dump /sdcard/back.xml >/dev/null
+            adb pull /sdcard/back.xml /tmp/back.xml >/dev/null
+            grep -qi 'Quét QR nhân sự' /tmp/back.xml
+            adb exec-out screencap -p > visual/04-back-returned-business.png
+            # Open History from visible bottom navigation.
+            python3 - <<'PY'
+            import re,subprocess,time
+            subprocess.run(['adb','shell','uiautomator','dump','/sdcard/ui.xml'],stdout=subprocess.DEVNULL);subprocess.run(['adb','pull','/sdcard/ui.xml','/tmp/ui.xml'],stdout=subprocess.DEVNULL)
+            x=open('/tmp/ui.xml',errors='ignore').read()
+            for n in re.findall(r'<node[^>]*/>',x):
+              if 'lịch sử' in n.lower():
+                b=re.search(r'bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"',n)
+                if b:
+                  a=list(map(int,b.groups()));subprocess.check_call(['adb','shell','input','tap',str((a[0]+a[2])//2),str((a[1]+a[3])//2)]);time.sleep(2);break
+            else: raise SystemExit('UI_TEXT_NOT_FOUND:Lịch sử')
+            PY
+            adb exec-out screencap -p > visual/05-history.png
+      - name: Validate screenshot evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import struct
+          names=['01-business-home.png','02-network-detail.png','03-pda-exchange.png','04-back-returned-business.png','05-history.png']
+          for n in names:
+            b=(Path('visual')/n).read_bytes()
+            assert len(b)>5000,(n,len(b)); assert b[:8]==b'\x89PNG\r\n\x1a\n',n
+            got=struct.unpack('>II',b[16:24]); assert got==(360,640),(n,got)
+            print(n,got,len(b))
+          print('BETA69_INTERNAL_VISUAL_FILES_PASS')
+          PY
+      - uses: actions/upload-artifact@v4
+        id: upload
+        with:
+          name: beta69-internal-visual-v1
+          path: visual/*
+          retention-days: 30
+          if-no-files-found: error
+      - name: Persist visual receipt
+        shell: bash
+        env:
+          VISUAL_ARTIFACT_ID: ${{ steps.upload.outputs.artifact-id }}
+        run: |
+          set -euo pipefail
+          cat > /tmp/receipt <<EOF
+          verdict=PASS_FILES
+          run_id=$GITHUB_RUN_ID
+          source_run_id=$SOURCE_RUN_ID
+          source_sha=$SOURCE_SHA
+          debug_artifact_id=$DEBUG_ARTIFACT_ID
+          visual_artifact_id=$VISUAL_ARTIFACT_ID
+          matrix=360x640
+          screens=business_home,network_detail,pda_exchange,back_returned_business,history
+          system_back_regression=PASS
+          human_inspection=PENDING
+          EOF
+          # Avoid push races: use contents API through gh against latest branch.
+          python3 - <<'PY'
+          import base64,json,os,subprocess
+          p='/tmp/receipt'; content=base64.b64encode(open(p,'rb').read()).decode()
+          payload={'message':'ops: record Beta69 internal visual files PASS','content':content,'branch':'release/beta69-owner-six-fixes-20260825'}
+          subprocess.check_call(['gh','api','--method','PUT',f"repos/{os.environ['GITHUB_REPOSITORY']}/contents/ops/beta69-internal-visual-v1-result.txt",'--input','-'],input=json.dumps(payload).encode())
+          PY
