@@ -1,0 +1,10 @@
+BETA65_EXACT_PUBLISH_E2E
+product_source_sha=1e8fb8255f26ad58c9719d99c27c08ef5d597cbf
+candidate_run_id=32701275784
+candidate_job_id=97353121085
+candidate_artifact_id=9510636863
+apk_sha256=be728eeaf49e5e86246254003b490453722da98237112ddaac2c27c66de87c2e
+from_version=0.4.2-beta.64
+target_version=0.4.2-beta.65
+stable_publish=FORBIDDEN
+trigger=2026-08-24T14:14:00+07:00
