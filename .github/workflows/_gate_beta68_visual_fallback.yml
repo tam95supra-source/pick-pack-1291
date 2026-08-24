@@ -12,7 +12,7 @@ jobs:
     timeout-minutes: 30
     env:
       SOURCE_RUN_ID: '32748150618'
-      DEBUG_ARTIFACT_ID: '9527993510'
+      DEBUG_ARTIFACT_ID: '9527993589'
       SOURCE_SHA: afd320af178ed36e67ace7f435d881b0c853c468
     steps:
       - uses: actions/checkout@v4
