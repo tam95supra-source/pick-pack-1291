@@ -1,0 +1,5 @@
+trigger=2026-08-24T15:08+07:00
+trusted_target_base=b0749fbb817dc414a1fcf3df4a54e5c25aee91db
+artifact_id=9510636863
+apk_sha256=be728cd8d20d6033becbfb169db89565f6078a681d47bc9079f98f9f5758e1da
+stable_publish=FORBIDDEN
