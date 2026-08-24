@@ -1,0 +1,14 @@
+product_source_sha=1e8fb8255f26ad58c9719d99c27c08ef5d597cbf
+source_gate_run=32697993454
+run_id=32701275784
+version_name=0.4.2-beta.65
+version_code=71
+package=vn.pickpack1291.app.beta.publicbeta
+signer_sha256=d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
+artifact_id=9510636863
+apk_file=pick-pack-1291-public-beta-0.4.2-beta.65.apk
+apk_sha256=be728cd8d20d6033becbfb169db89565f6078a681d47bc9079f98f9f5758e1da
+apk_size=13097861
+stable_identity=0.1.0-stable/VC1
+stable_publish=FORBIDDEN
+verdict=PASS
