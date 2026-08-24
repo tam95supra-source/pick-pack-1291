@@ -94,7 +94,7 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
           disable-animations: true
           script: |
-            set -Eeuo pipefail
+            set -eu
             adb install /tmp/beta65.apk
             adb shell dumpsys package "$EXPECTED_PACKAGE" >/tmp/F-before.txt
             grep -q 'versionName=0.4.2-beta.65' /tmp/F-before.txt
