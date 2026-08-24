@@ -6,6 +6,9 @@ on:
 permissions:
   contents: write
   actions: read
+concurrency:
+  group: beta68-exact-source-visual-arm64
+  cancel-in-progress: true
 jobs:
   visual:
     runs-on: macos-14
@@ -16,6 +19,23 @@ jobs:
       SOURCE_SHA: afd320af178ed36e67ace7f435d881b0c853c468
     steps:
       - uses: actions/checkout@v4
+      - name: Persist start receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > ops/beta68-visual-arm64-start.txt <<EOF
+          run_id=$GITHUB_RUN_ID
+          source_run_id=$SOURCE_RUN_ID
+          source_sha=$SOURCE_SHA
+          debug_artifact_id=$DEBUG_ARTIFACT_ID
+          runtime=macos-14_api29_arm64-v8a
+          state=STARTED
+          EOF
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add ops/beta68-visual-arm64-start.txt
+          git commit -m 'ops: record Beta68 ARM64 visual run start'
+          git push origin HEAD:agent/beta68-from-beta66-20260824
       - name: Download exact debug APK from locked candidate run
         env:
           GH_TOKEN: ${{ github.token }}
@@ -78,6 +98,7 @@ jobs:
           set -euo pipefail
           cat > ops/beta68-visual-arm64-result.txt <<EOF
           verdict=PASS_FILES
+          run_id=$GITHUB_RUN_ID
           source_run_id=$SOURCE_RUN_ID
           source_sha=$SOURCE_SHA
           debug_artifact_id=$DEBUG_ARTIFACT_ID
