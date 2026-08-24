@@ -1,0 +1,2 @@
+trigger=2026-08-25T00:46+07
+purpose=session_work_detail_current_usage_v2
