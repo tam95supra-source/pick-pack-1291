@@ -38,7 +38,7 @@ replacement = r'''        // Beta66 full-frame reference: one logical 2:3 design
         }
         val designW=dp(360);val designH=dp(540)
         val stage=FrameLayout(this).apply{
-            background=ColorDrawable(Color.rgb(247,238,214));clipChildren=true;clipToPadding=true
+            setBackgroundColor(Color.rgb(247,238,214));clipChildren=true;clipToPadding=true
             pivotX=designW/2f;pivotY=designH/2f
         }
         root.addView(stage,FrameLayout.LayoutParams(designW,designH,Gravity.CENTER))
