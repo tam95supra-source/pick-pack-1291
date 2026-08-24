@@ -5,3 +5,4 @@ apk_sha256=34554a19621be73ebc1e3bd64bef547959f5843f8d0fc902b5bcc8d573cf4641
 visual_inspection=PASS
 login_model=SIMPLE_APP_THEME_V1
 release_script=tools/release_beta68_v4_final_exact.sh
+observable_retry=1
