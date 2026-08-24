@@ -1,0 +1,139 @@
+=== occurrences ===
+374:    private fun sessionWorkDetail(payload:JSONObject):String{
+375:        val ops=payload.optJSONArray("operations")
+394:        val allowed=setOf("ATTENDANCE_ENTER","ENTER","RESOURCE_CHANGE","RESOURCE","LABOR_START","LABOR_FINISH","ATTENDANCE_EXIT","EXIT","ATTENDANCE_TIME_CORRECTED","ATTENDANCE_EXIT_DELETED")
+399:            if(type=="RESOURCE_CHANGE"){val before=p.optJSONObject("before")?:JSONObject();val after=p.optJSONObject("after")?:JSONObject();val kind=p.optString("mutation_kind").uppercase();val verb=when(kind){"ADD"->"Thêm";"DELETE"->"Xóa";else->"Sửa"};return "$verb • Trước: ${sessionWorkDetail(before).ifBlank{"—"}} • Sau: ${sessionWorkDetail(after).ifBlank{"—"}}"}
+400:            return e.optString("detail").ifBlank{sessionWorkDetail(p)}
+412:            val action=body.optString("action").trim();val type=when(action){"enter"->"ATTENDANCE_ENTER";"resource_change"->"RESOURCE_CHANGE";"labor_start"->"LABOR_START";"labor_finish"->"LABOR_FINISH";"exit"->"ATTENDANCE_EXIT";else->""};if(type.isBlank())continue
+414:            val label=when(type){"ATTENDANCE_ENTER"->"Vào ca";"RESOURCE_CHANGE"->"Cập nhật công việc";"LABOR_START"->"Bắt đầu công nhật";"LABOR_FINISH"->"Hoàn thành công nhật";"ATTENDANCE_EXIT"->"Ra ca";else->action}
+415:            merged[id]=JSONObject().put("event_id",id).put("event_type",type).put("label",label).put("mnv",mnv).put("actor","Thiết bị này").put("detail",sessionWorkDetail(p)).put("timeline_source","LOCAL_PDA").put("local_status",local.optString("status")).put("local_error",local.optString("error")).put("local_queued_at",local.optLong("queued_at",0L))
+421:        "ATTENDANCE_ENTER","ENTER"->"VÀO CA";"RESOURCE_CHANGE","RESOURCE"->"CẬP NHẬT CÔNG VIỆC";"LABOR_START"->"BẮT ĐẦU CÔNG NHẬT";"LABOR_FINISH"->"HOÀN THÀNH CÔNG NHẬT";"ATTENDANCE_EXIT","EXIT"->"RA CA";"ATTENDANCE_TIME_CORRECTED"->"SỬA THỜI GIAN VÀO / RA";"ATTENDANCE_EXIT_DELETED"->"XÓA GHI NHẬN RA CA";else->label.ifBlank{"THAO TÁC"}.uppercase()
+498:        val p=JSONObject().put("session_id",s.optString("session_id")).put("mnv",mnv).put("expected_version",s.optInt("version")).put("idempotency_key",UUID.randomUUID().toString()).put("audit_note",note).put("operations",ops)
+499:        api.call("session_resource_mutate",p){r->runOnUiThread{if(handleAuth(r))return@runOnUiThread;if(!r.ok){if(r.error=="SESSION_CHANGED")loadEmployee(mnv) else showError(r.error?:"Không cập nhật được phiên");return@runOnUiThread};TopNotice.show(this,"Đã cập nhật tài nguyên trong ca.",TopNotice.Kind.SUCCESS);foregroundSync.requestSync();if(generation==employeeLookupGeneration&&liveEmployeeMnv==mnv)renderEmployee(mergeResourceSnapshot(ctx,r.json?:JSONObject()),null)}}
+937:        fun friendly(type:String,label:String):String=when(type.uppercase()){ "ATTENDANCE_ENTER","ENTER"->"Vào ca";"ATTENDANCE_EXIT","EXIT"->"Ra ca";"RESOURCE_CHANGE"->"Đổi tài nguyên";"LABOR_START"->"Bắt đầu công nhật";"LABOR_FINISH"->"Hoàn thành công nhật";"ADMIN_AUDIT"->"Thao tác quản trị";"MASTER_STAFF_UPSERT"->"Cập nhật nhân sự";"MASTER_STAFF_DELETE"->"Xóa nhân sự";"ACCOUNT_UPSERT"->"Tạo / sửa tài khoản";"ACCOUNT_STATUS"->"Đổi trạng thái tài khoản";"ACCOUNT_EMAIL"->"Đổi email tài khoản";"ACCOUNT_PASSWORD"->"Đổi mật khẩu";else->label.ifBlank{type.ifBlank{"Thao tác"}} }
+1034:        fun label(type:String)=when(type){"ATTENDANCE_ENTER"->"Vào ca";"ATTENDANCE_EXIT"->"Ra ca";"RESOURCE_CHANGE"->"Đổi tài nguyên / vị trí";"LABOR_START"->"Bắt đầu công nhật";"LABOR_FINISH"->"Hoàn thành công nhật";"HISTORICAL_CORRECTION"->"Sửa lịch sử";else->type.ifBlank{"Thao tác"}}
+=== context around sessionWorkDetail calls ===
+--- line 374 ---
+362:         when(state){"ACTIVE"->renderActive(body,ctx);"ENDED"->renderEnded(body,ctx);else->renderEnter(body,ctx,masters?:JSONObject())}
+363:         root.addView(ScrollView(this).apply{addView(body)},LinearLayout.LayoutParams(-1,0,1f));setScreen(root);hideKeyboardForResult(root,scan)
+364:     }
+365: 
+366: 
+367:     private fun sameEmployeeContext(mnv:String,generation:Long):Boolean = screenState=="EMPLOYEE" && liveEmployeeMnv.trim()==mnv.trim() && employeeLookupGeneration==generation
+368:     private fun scheduleAttendanceAutoReset(mnv:String,generation:Long){
+369:         val expected=mnv.trim()
+370:         android.os.Handler(mainLooper).postDelayed({ if(sameEmployeeContext(expected,generation))employeeScan() },650L)
+371:     }
+372: 
+373:     // S48_BETA42_SHIFT_WORK_SUMMARY: local-first shift timeline + explicit PDA identity.
+374:     private fun sessionWorkDetail(payload:JSONObject):String{
+375:         val ops=payload.optJSONArray("operations")
+376:         if(ops!=null&&ops.length()>0){
+377:             val out=mutableListOf<String>()
+378:             for(i in 0 until ops.length()){
+379:                 val x=ops.optJSONObject(i)?:continue;val op=x.optString("op").uppercase();val t=x.optString("resource_type");val id=x.optString("resource_id");val key=x.optString("position_label").ifBlank{x.optString("position_key")}
+380:                 val s=when(op){"ADD_RESOURCE"->"Thêm $t $id";"REMOVE_RESOURCE"->"Xóa $t $id • ${x.optString("reason")}";"ADD_POSITION"->"Thêm vị trí $key";"REMOVE_POSITION"->"Xóa vị trí $key";"UPDATE_SHIFT"->"Sửa ca ${x.optString("shift")}";else->op}
+381:                 if(s.isNotBlank())out.add(s)
+382:             }
+383:             if(out.isNotEmpty())return out.joinToString(" • ")
+384:         }
+385:         val parts=mutableListOf<String>();payload.optString("work_choice").trim().takeIf{it.isNotBlank()}?.let{parts.add(it)}
+386:         payload.optString("pda_serial").trim().takeIf{it.isNotBlank()}?.let{parts.add("PDA $it")};payload.optString("user_pick").trim().takeIf{it.isNotBlank()}?.let{parts.add("User Pick $it")};payload.optString("pack_table").trim().takeIf{it.isNotBlank()}?.let{parts.add("Bàn $it")};payload.optString("user_pack").trim().takeIf{it.isNotBlank()}?.let{parts.add("User Pack $it")}
+387:         payload.optString("labor_type").trim().takeIf{it.isNotBlank()}?.let{parts.add("Công nhật: $it")};return parts.joinToString(" • ")
+388:     }
+389: 
+390: 
+391:     private fun sessionTimelineItems(mnv:String,ses:JSONObject):MutableList<JSONObject>{
+--- line 399 ---
+387:         payload.optString("labor_type").trim().takeIf{it.isNotBlank()}?.let{parts.add("Công nhật: $it")};return parts.joinToString(" • ")
+388:     }
+389: 
+390: 
+391:     private fun sessionTimelineItems(mnv:String,ses:JSONObject):MutableList<JSONObject>{
+392:         val merged=LinkedHashMap<String,JSONObject>();val date=ses.optString("business_date").ifBlank{operationalStore.businessDate()};val currentSessionId=ses.optString("session_id").trim();val enterMs=runCatching{Instant.parse(ses.optString("enter_at")).toEpochMilli()}.getOrDefault(0L);val exitMs=runCatching{Instant.parse(ses.optString("exit_at")).toEpochMilli()}.getOrDefault(Long.MAX_VALUE)
+393:         fun sameSession(e:JSONObject,p:JSONObject,localAt:Long=0L):Boolean{val sid=e.optString("session_id").ifBlank{p.optString("session_id")}.trim();if(currentSessionId.isNotBlank()&&sid.isNotBlank())return sid==currentSessionId;val ms=if(localAt>0L)localAt else runCatching{Instant.parse(e.optString("committed_at").ifBlank{e.optString("occurred_at").ifBlank{e.optString("at_iso").ifBlank{e.optString("at")}}}).toEpochMilli()}.getOrDefault(0L);return enterMs>0L&&ms>=enterMs&&ms<=exitMs}
+394:         val allowed=setOf("ATTENDANCE_ENTER","ENTER","RESOURCE_CHANGE","RESOURCE","LABOR_START","LABOR_FINISH","ATTENDANCE_EXIT","EXIT","ATTENDANCE_TIME_CORRECTED","ATTENDANCE_EXIT_DELETED")
+395:         fun payload(e:JSONObject):JSONObject{val raw=e.optString("payload_json");if(raw.isNotBlank())return runCatching{JSONObject(raw)}.getOrDefault(JSONObject());return e.optJSONObject("payload")?:JSONObject()}
+396:         fun detail(type:String,e:JSONObject,p:JSONObject):String{
+397:             if(type=="ATTENDANCE_TIME_CORRECTED"){val field=if(p.optString("field")=="enter_at")"Giờ vào" else "Giờ ra";return "$field: ${formatIso(p.optString("before_value"))} → ${formatIso(p.optString("after_value"))} • Lý do: ${p.optString("reason").ifBlank{"—"}}"}
+398:             if(type=="ATTENDANCE_EXIT_DELETED")return "Xóa mốc ra ca ${formatIso(p.optString("before_exit_at"))} • Lý do: ${p.optString("reason").ifBlank{"—"}}"
+399:             if(type=="RESOURCE_CHANGE"){val before=p.optJSONObject("before")?:JSONObject();val after=p.optJSONObject("after")?:JSONObject();val kind=p.optString("mutation_kind").uppercase();val verb=when(kind){"ADD"->"Thêm";"DELETE"->"Xóa";else->"Sửa"};return "$verb • Trước: ${sessionWorkDetail(before).ifBlank{"—"}} • Sau: ${sessionWorkDetail(after).ifBlank{"—"}}"}
+400:             return e.optString("detail").ifBlank{sessionWorkDetail(p)}
+401:         }
+402:         val day=operationalStore.loadDay(date);val events=day?.optJSONArray("events")?:JSONArray()
+403:         for(i in 0 until events.length()){
+404:             val e=events.optJSONObject(i)?:continue;val p=payload(e);val who=e.optString("mnv").ifBlank{p.optString("mnv")}.trim();if(who!=mnv||!sameSession(e,p))continue
+405:             val type=e.optString("event_type").uppercase();if(type !in allowed)continue
+406:             val copy=JSONObject(e.toString()).put("timeline_source","CANONICAL").put("mnv",mnv).put("detail",detail(type,e,p)).put("actor",e.optString("actor").ifBlank{e.optString("actor_id")})
+407:             if(copy.optString("at_iso").isBlank())copy.put("at_iso",e.optString("committed_at").ifBlank{e.optString("occurred_at")})
+408:             val id=copy.optString("event_id").ifBlank{"canonical:$date:$i:${copy.optString("at_iso")}"};merged[id]=copy
+409:         }
+410:         for(local in operationalStore.localHistoryAll()){
+411:             val id=local.optString("event_id").trim();if(id.isBlank())continue;val body=local.optJSONObject("body")?:JSONObject();val p=body.optJSONObject("payload")?:body;if(p.optString("mnv").trim()!=mnv||!sameSession(body,p,local.optLong("queued_at",0L)))continue
+412:             val action=body.optString("action").trim();val type=when(action){"enter"->"ATTENDANCE_ENTER";"resource_change"->"RESOURCE_CHANGE";"labor_start"->"LABOR_START";"labor_finish"->"LABOR_FINISH";"exit"->"ATTENDANCE_EXIT";else->""};if(type.isBlank())continue
+413:             val existing=merged[id];if(existing!=null){existing.put("local_status",local.optString("status")).put("local_error",local.optString("error")).put("local_queued_at",local.optLong("queued_at",0L));continue}
+414:             val label=when(type){"ATTENDANCE_ENTER"->"Vào ca";"RESOURCE_CHANGE"->"Cập nhật công việc";"LABOR_START"->"Bắt đầu công nhật";"LABOR_FINISH"->"Hoàn thành công nhật";"ATTENDANCE_EXIT"->"Ra ca";else->action}
+415:             merged[id]=JSONObject().put("event_id",id).put("event_type",type).put("label",label).put("mnv",mnv).put("actor","Thiết bị này").put("detail",sessionWorkDetail(p)).put("timeline_source","LOCAL_PDA").put("local_status",local.optString("status")).put("local_error",local.optString("error")).put("local_queued_at",local.optLong("queued_at",0L))
+416:         }
+--- line 400 ---
+388:     }
+389: 
+390: 
+391:     private fun sessionTimelineItems(mnv:String,ses:JSONObject):MutableList<JSONObject>{
+392:         val merged=LinkedHashMap<String,JSONObject>();val date=ses.optString("business_date").ifBlank{operationalStore.businessDate()};val currentSessionId=ses.optString("session_id").trim();val enterMs=runCatching{Instant.parse(ses.optString("enter_at")).toEpochMilli()}.getOrDefault(0L);val exitMs=runCatching{Instant.parse(ses.optString("exit_at")).toEpochMilli()}.getOrDefault(Long.MAX_VALUE)
+393:         fun sameSession(e:JSONObject,p:JSONObject,localAt:Long=0L):Boolean{val sid=e.optString("session_id").ifBlank{p.optString("session_id")}.trim();if(currentSessionId.isNotBlank()&&sid.isNotBlank())return sid==currentSessionId;val ms=if(localAt>0L)localAt else runCatching{Instant.parse(e.optString("committed_at").ifBlank{e.optString("occurred_at").ifBlank{e.optString("at_iso").ifBlank{e.optString("at")}}}).toEpochMilli()}.getOrDefault(0L);return enterMs>0L&&ms>=enterMs&&ms<=exitMs}
+394:         val allowed=setOf("ATTENDANCE_ENTER","ENTER","RESOURCE_CHANGE","RESOURCE","LABOR_START","LABOR_FINISH","ATTENDANCE_EXIT","EXIT","ATTENDANCE_TIME_CORRECTED","ATTENDANCE_EXIT_DELETED")
+395:         fun payload(e:JSONObject):JSONObject{val raw=e.optString("payload_json");if(raw.isNotBlank())return runCatching{JSONObject(raw)}.getOrDefault(JSONObject());return e.optJSONObject("payload")?:JSONObject()}
+396:         fun detail(type:String,e:JSONObject,p:JSONObject):String{
+397:             if(type=="ATTENDANCE_TIME_CORRECTED"){val field=if(p.optString("field")=="enter_at")"Giờ vào" else "Giờ ra";return "$field: ${formatIso(p.optString("before_value"))} → ${formatIso(p.optString("after_value"))} • Lý do: ${p.optString("reason").ifBlank{"—"}}"}
+398:             if(type=="ATTENDANCE_EXIT_DELETED")return "Xóa mốc ra ca ${formatIso(p.optString("before_exit_at"))} • Lý do: ${p.optString("reason").ifBlank{"—"}}"
+399:             if(type=="RESOURCE_CHANGE"){val before=p.optJSONObject("before")?:JSONObject();val after=p.optJSONObject("after")?:JSONObject();val kind=p.optString("mutation_kind").uppercase();val verb=when(kind){"ADD"->"Thêm";"DELETE"->"Xóa";else->"Sửa"};return "$verb • Trước: ${sessionWorkDetail(before).ifBlank{"—"}} • Sau: ${sessionWorkDetail(after).ifBlank{"—"}}"}
+400:             return e.optString("detail").ifBlank{sessionWorkDetail(p)}
+401:         }
+402:         val day=operationalStore.loadDay(date);val events=day?.optJSONArray("events")?:JSONArray()
+403:         for(i in 0 until events.length()){
+404:             val e=events.optJSONObject(i)?:continue;val p=payload(e);val who=e.optString("mnv").ifBlank{p.optString("mnv")}.trim();if(who!=mnv||!sameSession(e,p))continue
+405:             val type=e.optString("event_type").uppercase();if(type !in allowed)continue
+406:             val copy=JSONObject(e.toString()).put("timeline_source","CANONICAL").put("mnv",mnv).put("detail",detail(type,e,p)).put("actor",e.optString("actor").ifBlank{e.optString("actor_id")})
+407:             if(copy.optString("at_iso").isBlank())copy.put("at_iso",e.optString("committed_at").ifBlank{e.optString("occurred_at")})
+408:             val id=copy.optString("event_id").ifBlank{"canonical:$date:$i:${copy.optString("at_iso")}"};merged[id]=copy
+409:         }
+410:         for(local in operationalStore.localHistoryAll()){
+411:             val id=local.optString("event_id").trim();if(id.isBlank())continue;val body=local.optJSONObject("body")?:JSONObject();val p=body.optJSONObject("payload")?:body;if(p.optString("mnv").trim()!=mnv||!sameSession(body,p,local.optLong("queued_at",0L)))continue
+412:             val action=body.optString("action").trim();val type=when(action){"enter"->"ATTENDANCE_ENTER";"resource_change"->"RESOURCE_CHANGE";"labor_start"->"LABOR_START";"labor_finish"->"LABOR_FINISH";"exit"->"ATTENDANCE_EXIT";else->""};if(type.isBlank())continue
+413:             val existing=merged[id];if(existing!=null){existing.put("local_status",local.optString("status")).put("local_error",local.optString("error")).put("local_queued_at",local.optLong("queued_at",0L));continue}
+414:             val label=when(type){"ATTENDANCE_ENTER"->"Vào ca";"RESOURCE_CHANGE"->"Cập nhật công việc";"LABOR_START"->"Bắt đầu công nhật";"LABOR_FINISH"->"Hoàn thành công nhật";"ATTENDANCE_EXIT"->"Ra ca";else->action}
+415:             merged[id]=JSONObject().put("event_id",id).put("event_type",type).put("label",label).put("mnv",mnv).put("actor","Thiết bị này").put("detail",sessionWorkDetail(p)).put("timeline_source","LOCAL_PDA").put("local_status",local.optString("status")).put("local_error",local.optString("error")).put("local_queued_at",local.optLong("queued_at",0L))
+416:         }
+417:         val out=merged.values.toMutableList();fun atMillis(e:JSONObject):Long{val q=e.optLong("local_queued_at",0L);if(q>0L)return q;return runCatching{Instant.parse(e.optString("at_iso").ifBlank{e.optString("at")}).toEpochMilli()}.getOrDefault(0L)};out.sortBy{atMillis(it)};return out
+--- line 415 ---
+403:         for(i in 0 until events.length()){
+404:             val e=events.optJSONObject(i)?:continue;val p=payload(e);val who=e.optString("mnv").ifBlank{p.optString("mnv")}.trim();if(who!=mnv||!sameSession(e,p))continue
+405:             val type=e.optString("event_type").uppercase();if(type !in allowed)continue
+406:             val copy=JSONObject(e.toString()).put("timeline_source","CANONICAL").put("mnv",mnv).put("detail",detail(type,e,p)).put("actor",e.optString("actor").ifBlank{e.optString("actor_id")})
+407:             if(copy.optString("at_iso").isBlank())copy.put("at_iso",e.optString("committed_at").ifBlank{e.optString("occurred_at")})
+408:             val id=copy.optString("event_id").ifBlank{"canonical:$date:$i:${copy.optString("at_iso")}"};merged[id]=copy
+409:         }
+410:         for(local in operationalStore.localHistoryAll()){
+411:             val id=local.optString("event_id").trim();if(id.isBlank())continue;val body=local.optJSONObject("body")?:JSONObject();val p=body.optJSONObject("payload")?:body;if(p.optString("mnv").trim()!=mnv||!sameSession(body,p,local.optLong("queued_at",0L)))continue
+412:             val action=body.optString("action").trim();val type=when(action){"enter"->"ATTENDANCE_ENTER";"resource_change"->"RESOURCE_CHANGE";"labor_start"->"LABOR_START";"labor_finish"->"LABOR_FINISH";"exit"->"ATTENDANCE_EXIT";else->""};if(type.isBlank())continue
+413:             val existing=merged[id];if(existing!=null){existing.put("local_status",local.optString("status")).put("local_error",local.optString("error")).put("local_queued_at",local.optLong("queued_at",0L));continue}
+414:             val label=when(type){"ATTENDANCE_ENTER"->"Vào ca";"RESOURCE_CHANGE"->"Cập nhật công việc";"LABOR_START"->"Bắt đầu công nhật";"LABOR_FINISH"->"Hoàn thành công nhật";"ATTENDANCE_EXIT"->"Ra ca";else->action}
+415:             merged[id]=JSONObject().put("event_id",id).put("event_type",type).put("label",label).put("mnv",mnv).put("actor","Thiết bị này").put("detail",sessionWorkDetail(p)).put("timeline_source","LOCAL_PDA").put("local_status",local.optString("status")).put("local_error",local.optString("error")).put("local_queued_at",local.optLong("queued_at",0L))
+416:         }
+417:         val out=merged.values.toMutableList();fun atMillis(e:JSONObject):Long{val q=e.optLong("local_queued_at",0L);if(q>0L)return q;return runCatching{Instant.parse(e.optString("at_iso").ifBlank{e.optString("at")}).toEpochMilli()}.getOrDefault(0L)};out.sortBy{atMillis(it)};return out
+418:     }
+419: 
+420:     private fun sessionEventTitle(typeRaw:String,label:String):String=when(typeRaw.uppercase()){
+421:         "ATTENDANCE_ENTER","ENTER"->"VÀO CA";"RESOURCE_CHANGE","RESOURCE"->"CẬP NHẬT CÔNG VIỆC";"LABOR_START"->"BẮT ĐẦU CÔNG NHẬT";"LABOR_FINISH"->"HOÀN THÀNH CÔNG NHẬT";"ATTENDANCE_EXIT","EXIT"->"RA CA";"ATTENDANCE_TIME_CORRECTED"->"SỬA THỜI GIAN VÀO / RA";"ATTENDANCE_EXIT_DELETED"->"XÓA GHI NHẬN RA CA";else->label.ifBlank{"THAO TÁC"}.uppercase()
+422:     }
+423: 
+424:     private fun sessionEventTime(e:JSONObject):String{
+425:         val local=e.optLong("local_queued_at",0L)
+426:         if(local>0L)return Instant.ofEpochMilli(local).atZone(ZoneId.of("Asia/Ho_Chi_Minh")).format(DateTimeFormatter.ofPattern("HH:mm:ss"))
+427:         return formatIso(e.optString("at_iso").ifBlank{e.optString("at")})
+428:     }
+429: 
+430:     private data class ShiftResourceUsage(val pdas:LinkedHashMap<String,String>,val userPicks:LinkedHashSet<String>,val userPacks:LinkedHashSet<String>)
+431:     private fun shiftResourceUsage(mnv:String,ses:JSONObject):ShiftResourceUsage{
+432:         val pdas=linkedMapOf<String,String>();val picks=linkedSetOf<String>();val packs=linkedSetOf<String>()
