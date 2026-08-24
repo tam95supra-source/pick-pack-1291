@@ -1,0 +1,42 @@
+name: Beta68 compile fingerprint repair
+
+on:
+  push:
+    branches: [ agent/beta68-from-beta66-20260824 ]
+    paths:
+      - '.github/workflows/_maintenance_beta68_compile_fix.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+      - name: Repair TextView minimumHeight compile fingerprint
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('tools/apply_beta68_owner_five_fixes.py')
+          s=p.read_text()
+          old='minHeight=dp('
+          if old not in s:
+              raise SystemExit('expected minHeight fingerprint missing')
+          s=s.replace(old,'minimumHeight=dp(')
+          p.write_text(s)
+          PY
+          python3 -m py_compile tools/apply_beta68_owner_five_fixes.py
+          grep -q 'minimumHeight=dp(48)' tools/apply_beta68_owner_five_fixes.py
+          ! grep -q 'minHeight=dp(' tools/apply_beta68_owner_five_fixes.py
+          git diff --check
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add tools/apply_beta68_owner_five_fixes.py
+          git commit -m 'Beta68: fix login minimumHeight compile error'
+          git push origin HEAD:agent/beta68-from-beta66-20260824
