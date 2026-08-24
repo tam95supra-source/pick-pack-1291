@@ -1,3 +1,4 @@
 candidate_run_id=32754196617
 reason=current_ota_source_is_github_release_not_drive
 mode=read_only_drive_discovery
+observable_retry=1
