@@ -1,0 +1,62 @@
+name: Beta69 visual fixture storage diagnostic
+on:
+  push:
+    branches: [ release/beta69-owner-six-fixes-20260825 ]
+    paths: [ '.github/workflows/_diag_beta69_visual_fixture_storage.yml' ]
+permissions:
+  contents: write
+jobs:
+  diag:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+      - name: Materialize exact Beta69 source and extract storage/runtime anchors
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/apply_beta64_owner_seven_fixes.py
+          python3 tools/apply_beta64_compile_fix.py
+          python3 tools/apply_beta65_session_resource_login_parity.py
+          python3 tools/apply_beta65_behavior_compile_fix.py
+          python3 tools/apply_beta65_scope_compile_fix.py
+          python3 tools/apply_beta65_login_reference_finish.py
+          python3 tools/apply_beta66_login_fullframe.py
+          python3 tools/apply_beta68_owner_five_fixes.py
+          python3 tools/apply_beta69_owner_six_fixes_v5.py
+          python3 - <<'PY'
+          from pathlib import Path
+          keys=['class OperationalLocalStore','fun businessDate','fun loadDay','fun saveDay','private fun addBusinessShiftReconciliation','private fun historyScreen','private fun historyTimeline','private fun addSessionTimeline','private fun sessionWorkDetail','private fun pdaExchangeScreen']
+          files=list(Path('app/src/main/java').rglob('*.kt'))
+          out=[]
+          for k in keys:
+            out.append('\n===== '+k+' =====')
+            found=False
+            for p in files:
+              s=p.read_text(errors='ignore')
+              i=s.find(k)
+              if i>=0:
+                found=True
+                a=max(0,s.rfind('\n',0,max(0,i-2500)))
+                b=min(len(s),i+6500)
+                out.append('FILE='+str(p))
+                out.append(s[a:b])
+                break
+            if not found: out.append('MISSING')
+          Path('/tmp/diag.txt').write_text('\n'.join(out))
+          PY
+          cat /tmp/diag.txt
+      - name: Persist diagnostic
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import base64,json,os,subprocess
+          content=base64.b64encode(open('/tmp/diag.txt','rb').read()).decode()
+          payload={'message':'ops: record Beta69 visual fixture storage diagnostic','content':content,'branch':'release/beta69-owner-six-fixes-20260825'}
+          subprocess.check_call(['gh','api','--method','PUT',f"repos/{os.environ['GITHUB_REPOSITORY']}/contents/ops/beta69-visual-fixture-storage.txt",'--input','-'],input=json.dumps(payload).encode())
+          PY
