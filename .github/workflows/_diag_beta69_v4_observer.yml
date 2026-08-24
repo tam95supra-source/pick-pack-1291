@@ -1,0 +1,42 @@
+name: Beta69 visual v4 observer
+on:
+  push:
+    branches: [ release/beta69-owner-six-fixes-20260825 ]
+    paths: [ 'ops/TRIGGER_BETA69_V4_OBSERVER.txt' ]
+permissions:
+  contents: write
+  actions: read
+jobs:
+  observe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+      - name: Wait for visual v4 terminal state and persist exact run
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: release/beta69-owner-six-fixes-20260825
+        run: |
+          set -euo pipefail
+          OUT=/tmp/observer.txt
+          : > "$OUT"
+          for i in $(seq 1 150); do
+            J=$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/_gate_beta69_visual_matrix_v4.yml/runs?branch=${BRANCH}&per_page=5")
+            ID=$(printf '%s' "$J" | jq -r '.workflow_runs[0].id // empty')
+            STATUS=$(printf '%s' "$J" | jq -r '.workflow_runs[0].status // empty')
+            CONCLUSION=$(printf '%s' "$J" | jq -r '.workflow_runs[0].conclusion // empty')
+            SHA=$(printf '%s' "$J" | jq -r '.workflow_runs[0].head_sha // empty')
+            if test -n "$ID"; then
+              printf 'run_id=%s\nstatus=%s\nconclusion=%s\nhead_sha=%s\n' "$ID" "$STATUS" "$CONCLUSION" "$SHA" > "$OUT"
+              if test "$STATUS" = completed; then break; fi
+            fi
+            sleep 10
+          done
+          cat "$OUT"
+          test -s "$OUT"
+          CONTENT=$(base64 -w0 "$OUT")
+          gh api --method PUT "repos/${GITHUB_REPOSITORY}/contents/ops/beta69-visual-v4-observer.txt" -f message='ops: record Beta69 visual v4 observed run' -f content="$CONTENT" -f branch="$BRANCH" >/dev/null
