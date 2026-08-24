@@ -52,7 +52,7 @@ login = r'''    private fun login() {
         val user = EditText(this).apply {
             hint = "Tài khoản"; setSingleLine(true); textSize = 14f
             setTextColor(ink); setHintTextColor(Color.rgb(148,163,184)); imeOptions = EditorInfo.IME_ACTION_NEXT
-            setPadding(dp(13),dp(8),dp(13),dp(8)); minHeight=dp(48)
+            setPadding(dp(13),dp(8),dp(13),dp(8)); minimumHeight=dp(48)
             background = GradientDrawable().apply { setColor(Color.WHITE); cornerRadius=dp(13).toFloat(); setStroke(dp(1),line) }
         }
         val saved = getPreferences(MODE_PRIVATE).getString("last_login", "").orEmpty()
@@ -61,7 +61,7 @@ login = r'''    private fun login() {
             hint = "Mật khẩu"; setSingleLine(true); textSize = 14f
             setTextColor(ink); setHintTextColor(Color.rgb(148,163,184)); imeOptions = EditorInfo.IME_ACTION_DONE
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
-            setPadding(dp(13),dp(8),dp(13),dp(8)); minHeight=dp(48); background=null
+            setPadding(dp(13),dp(8),dp(13),dp(8)); minimumHeight=dp(48); background=null
         }
         var passwordVisible=false
         val eye=ImageButton(this).apply {
@@ -76,7 +76,7 @@ login = r'''    private fun login() {
             }
         }
         val passWrap=row(Color.WHITE).apply {
-            gravity=Gravity.CENTER_VERTICAL; minHeight=dp(48); setPadding(0,0,dp(5),0)
+            gravity=Gravity.CENTER_VERTICAL; minimumHeight=dp(48); setPadding(0,0,dp(5),0)
             background=GradientDrawable().apply{setColor(Color.WHITE);cornerRadius=dp(13).toFloat();setStroke(dp(1),line)}
             addView(pass,LinearLayout.LayoutParams(0,dp(48),1f));addView(eye,size(dp(44),dp(44)))
         }
@@ -113,7 +113,7 @@ login = r'''    private fun login() {
         }
         card.addView(forgot,matchWrap())
         val button=Button(this).apply {
-            text="Đăng nhập";textSize=14.5f;setTextColor(Color.WHITE);typeface=Typeface.DEFAULT_BOLD;isAllCaps=false;minHeight=dp(50)
+            text="Đăng nhập";textSize=14.5f;setTextColor(Color.WHITE);typeface=Typeface.DEFAULT_BOLD;isAllCaps=false;minimumHeight=dp(50)
             background=gradient(teal,navy,13);elevation=0f
         }
         fun submit(){
