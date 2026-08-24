@@ -1,0 +1,51 @@
+name: Beta65 Session Resource Login Validation
+
+on:
+  pull_request:
+    branches: [ agent/beta64-owner-seven-fixes-20260824 ]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    if: github.head_ref == 'agent/beta65-session-resource-login-parity-20260824'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Materialize Beta64 baseline then Beta65
+        run: |
+          set -euo pipefail
+          python3 tools/apply_beta64_owner_seven_fixes.py
+          python3 tools/apply_beta64_compile_fix.py
+          python3 tools/apply_beta65_session_resource_login_parity.py
+      - name: Static finalized-logic assertions
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          o=Path('app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt').read_text()
+          a=Path('app/src/main/java/vn/pickpack1291/app/beta/BetaApiClient.kt').read_text()
+          f=Path('app/src/main/java/vn/pickpack1291/app/beta/FullBetaActivity.kt').read_text()
+          g=Path('app/build.gradle.kts').read_text()
+          assert '0.4.2-beta.65' in g and 'versionCode = 71' in g
+          assert 'session_resource_mutate' in a and 'attendance_enter_v2' in a and 'session_exit_v2' in a
+          assert 'resource_assignments_v64' in o
+          assert 'User Pack — độc lập với bàn' in o
+          assert 'XÓA TOÀN BỘ PHIÊN' in o
+          assert 'Cấp nhầm / chưa sử dụng' in o and 'Đã sử dụng / có sản lượng' in o
+          assert 'rows.filter{it.optString("table")==table}' not in o
+          assert 'CENTER_CROP' not in f[f.index('private fun login()'):f.index('private fun openMainShell()')]
+          assert 'FIT_XY' not in f[f.index('private fun login()'):f.index('private fun openMainShell()')]
+          assert 'Reference-stage layout' in f
+          print('BETA65_FINALIZED_LOGIC_STATIC_PASS')
+          PY
+      - name: Compile Beta and Stable isolation
+        run: ./gradlew --no-daemon clean compileBetaDebugKotlin compileStableDebugKotlin
