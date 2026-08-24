@@ -5,3 +5,4 @@ apk_sha256=34554a19621be73ebc1e3bd64bef547959f5843f8d0fc902b5bcc8d573cf4641
 visual_inspection=PASS
 login_model=SIMPLE_APP_THEME_V1
 transport=SIGNED_ARTIFACT_URL_TO_APPROVED_BETA_DRIVE_FOLDER
+observable_retry=1
