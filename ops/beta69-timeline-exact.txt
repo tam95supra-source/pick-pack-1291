@@ -1,0 +1,35 @@
+    private fun addSessionTimeline(body:LinearLayout,mnv:String,ses:JSONObject){
+        body.addView(section("DIỄN BIẾN CÔNG VIỆC TRONG CA"))
+        val items=sessionTimelineItems(mnv,ses)
+        if(items.isEmpty()){body.addView(txt("—",10.5f,muted,true).apply{setPadding(dp(10),dp(5),dp(10),dp(5))});return}
+        for(e in items){
+            val title=sessionEventTitle(e.optString("event_type"),e.optString("label"));val detail=e.optString("detail").trim();val actor=e.optString("actor").ifBlank{"Hệ thống"};val localStatus=e.optString("local_status")
+            val card=column(surface).apply{
+                setPadding(dp(12),dp(10),dp(12),dp(10));background=outlineBg(surface,14)
+                val top=row(surface).apply{gravity=Gravity.CENTER_VERTICAL;addView(txt(title,10.7f,navy,true),LinearLayout.LayoutParams(0,-2,1f));addView(txt(sessionEventTime(e),9.4f,muted,true))};addView(top,matchWrap())
+                if(detail.isNotBlank()){addView(gap(4));addView(txt(detail,10f,ink,false))}
+                addView(gap(4));val statusText=when(localStatus){"LOCAL_PENDING","PENDING","OFFLINE_PROVISIONAL"->" • Chờ đồng bộ";"RETRY"->" • Chờ gửi lại";"REVIEW_REQUIRED","CONFLICT"->" • Cần kiểm tra";"REJECTED"->" • Bị từ chối";else->""};addView(txt("Người thực hiện: $actor$statusText",9.2f,muted,false))
+            }
+            body.addView(card,matchWrap());body.addView(gap(6))
+        }
+    }
+
+    private fun sessionWorkDetail(payload:JSONObject):String{
+        val ops=payload.optJSONArray("operations")
+        if(ops!=null&&ops.length()>0){
+            val out=mutableListOf<String>()
+            for(i in 0 until ops.length()){
+                val x=ops.optJSONObject(i)?:continue;val op=x.optString("op").uppercase();val t=x.optString("resource_type");val id=x.optString("resource_id");val key=x.optString("position_label").ifBlank{x.optString("position_key")}
+                val s=when(op){"ADD_RESOURCE"->"Thêm $t $id";"REMOVE_RESOURCE"->"Xóa $t $id • ${x.optString("reason")}";"ADD_POSITION"->"Thêm vị trí $key";"REMOVE_POSITION"->"Xóa vị trí $key";"UPDATE_SHIFT"->"Sửa ca ${x.optString("shift")}";else->op}
+                if(s.isNotBlank())out.add(s)
+            }
+            if(out.isNotEmpty())return out.joinToString(" • ")
+        }
+        val parts=mutableListOf<String>();payload.optString("work_choice").trim().takeIf{it.isNotBlank()}?.let{parts.add(it)}
+        payload.optString("pda_serial").trim().takeIf{it.isNotBlank()}?.let{parts.add("PDA $it")};payload.optString("user_pick").trim().takeIf{it.isNotBlank()}?.let{parts.add("User Pick $it")};payload.optString("pack_table").trim().takeIf{it.isNotBlank()}?.let{parts.add("Bàn $it")};payload.optString("user_pack").trim().takeIf{it.isNotBlank()}?.let{parts.add("User Pack $it")}
+        payload.optString("labor_type").trim().takeIf{it.isNotBlank()}?.let{parts.add("Công nhật: $it")};return parts.joinToString(" • ")
+    }
+
+    private fun sessionEventTitle(typeRaw:String,label:String):String=when(typeRaw.uppercase()){
+        "ATTENDANCE_ENTER","ENTER"->"VÀO CA";"RESOURCE_CHANGE","RESOURCE"->"CẬP NHẬT CÔNG VIỆC";"LABOR_START"->"BẮT ĐẦU CÔNG NHẬT";"LABOR_FINISH"->"HOÀN THÀNH CÔNG NHẬT";"ATTENDANCE_EXIT","EXIT"->"RA CA";"ATTENDANCE_TIME_CORRECTED"->"SỬA THỜI GIAN VÀO / RA";"ATTENDANCE_EXIT_DELETED"->"XÓA GHI NHẬN RA CA";else->label.ifBlank{"THAO TÁC"}.uppercase()
+    }
