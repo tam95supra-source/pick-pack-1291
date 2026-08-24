@@ -15,6 +15,7 @@ jobs:
     timeout-minutes: 35
     env:
       PRODUCT_SOURCE_SHA: 1e8fb8255f26ad58c9719d99c27c08ef5d597cbf
+      SOURCE_GATE_RUN: '32697993454'
       EXPECTED_SIGNER_SHA256: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
       SIGNING_KEY_B64: ${{ secrets.ANDROID_SIGNING_KEY_B64 }}
       SIGNING_STORE_PASSWORD: ${{ secrets.ANDROID_SIGNING_STORE_PASSWORD }}
@@ -25,6 +26,15 @@ jobs:
         with:
           ref: ${{ env.PRODUCT_SOURCE_SHA }}
           fetch-depth: 0
+      - name: Materialize exact validated Beta65 source
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$PRODUCT_SOURCE_SHA"
+          python3 tools/apply_beta64_owner_seven_fixes.py
+          python3 tools/apply_beta64_compile_fix.py
+          python3 tools/apply_beta65_session_resource_login_parity.py
+          python3 tools/apply_beta65_behavior_compile_fix.py
+          python3 tools/apply_beta65_scope_compile_fix.py
       - name: Lock identities
         run: |
           set -euo pipefail
@@ -70,6 +80,7 @@ jobs:
           sha=$(sha256sum "$OUT" | awk '{print $1}'); size=$(stat -c '%s' "$OUT"); printf '%s  %s\n' "$sha" "$(basename "$OUT")" > dist/beta/SHA256SUMS-0.4.2-beta.65.txt
           cat > dist/beta/BETA65_CANDIDATE_RECEIPT.txt <<EOF
           product_source_sha=$PRODUCT_SOURCE_SHA
+          source_gate_run=$SOURCE_GATE_RUN
           run_id=$GITHUB_RUN_ID
           version_name=0.4.2-beta.65
           version_code=71
@@ -90,6 +101,7 @@ jobs:
           name: pick-pack-1291-0.4.2-beta.65-signed
           path: dist/beta/*
           retention-days: 14
+          if-no-files-found: error
       - name: Persist signed receipt to evidence branch
         env:
           ARTIFACT_ID: ${{ steps.upload.outputs.artifact-id }}
@@ -101,6 +113,7 @@ jobs:
           git checkout -B agent/beta65-session-resource-login-parity-20260824 origin/agent/beta65-session-resource-login-parity-20260824
           cat > ops/beta65-exact-candidate-result.txt <<EOF
           product_source_sha=$PRODUCT_SOURCE_SHA
+          source_gate_run=$SOURCE_GATE_RUN
           run_id=$GITHUB_RUN_ID
           version_name=0.4.2-beta.65
           version_code=71
