@@ -59,4 +59,19 @@ jobs:
           print('BETA65_FINALIZED_LOGIC_STATIC_PASS')
           PY
       - name: Compile Beta and Stable isolation
-        run: gradle --no-daemon --build-cache --parallel :app:compileBetaDebugKotlin :app:compileStableDebugKotlin
+        id: compile
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          gradle --no-daemon --build-cache --parallel :app:compileBetaDebugKotlin :app:compileStableDebugKotlin 2>&1 | tee compile.log
+      - name: Upload compile diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: beta65-compile-diagnostics
+          path: compile.log
+          if-no-files-found: error
+      - name: Enforce compile gate
+        if: steps.compile.outcome == 'failure'
+        run: exit 1
