@@ -1,0 +1,78 @@
+name: Beta65 Tag Release Permission Probe
+
+on:
+  push:
+    branches: [ ci/beta65-final-release-base-20260824 ]
+    paths:
+      - 'ops/beta65-tag-release-probe-trigger.txt'
+
+permissions:
+  contents: write
+
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: v0.4.2-beta.65-publicbeta
+      PRODUCT_SOURCE_SHA: 1e8fb8255f26ad58c9719d99c27c08ef5d597cbf
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ci/beta65-final-release-base-20260824
+          fetch-depth: 0
+      - name: Probe exact tag and Release API, persist result
+        shell: bash
+        run: |
+          set -uo pipefail
+          STATUS=ops/BETA65_TAG_RELEASE_PROBE_STATUS.txt
+          BODY=ops/BETA65_TAG_RELEASE_PROBE_BODY.txt
+          TAG_RESULT=UNKNOWN
+          RELEASE_GET=000
+          RELEASE_POST=SKIPPED
+          REMOTE=$(git ls-remote --tags origin "refs/tags/$TAG" | awk '{print $1}')
+          if test -n "$REMOTE"; then
+            if test "$REMOTE" = "$PRODUCT_SOURCE_SHA"; then TAG_RESULT=EXISTS_EXACT; else TAG_RESULT="EXISTS_MISMATCH_$REMOTE"; fi
+          else
+            git tag "$TAG" "$PRODUCT_SOURCE_SHA"
+            if git push origin "refs/tags/$TAG" >/tmp/tag-push.out 2>/tmp/tag-push.err; then
+              REMOTE=$(git ls-remote --tags origin "refs/tags/$TAG" | awk '{print $1}')
+              if test "$REMOTE" = "$PRODUCT_SOURCE_SHA"; then TAG_RESULT=CREATED_EXACT; else TAG_RESULT="CREATE_READBACK_MISMATCH_$REMOTE"; fi
+            else
+              TAG_RESULT=CREATE_FAILED
+            fi
+          fi
+          RELEASE_GET=$(curl -sS -o /tmp/release-get.json -w '%{http_code}' -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/$GITHUB_REPOSITORY/releases/tags/$TAG" || true)
+          if test "$RELEASE_GET" != 200; then
+            python3 - <<'PY' > /tmp/release-payload.json
+          import json,os
+          print(json.dumps({'tag_name':os.environ['TAG'],'target_commitish':os.environ['PRODUCT_SOURCE_SHA'],'name':'Pick Pack 1291 0.4.2-beta.65','body':'Beta65 exact immutable release permission probe. Stable publish FORBIDDEN.','draft':False,'prerelease':True},separators=(',',':')))
+          PY
+            RELEASE_POST=$(curl -sS -o /tmp/release-post.json -w '%{http_code}' -X POST -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' -H 'Content-Type: application/json' "https://api.github.com/repos/$GITHUB_REPOSITORY/releases" --data-binary @/tmp/release-payload.json || true)
+          fi
+          MSG=$(python3 - <<'PY'
+          import json
+          for p in ['/tmp/release-post.json','/tmp/release-get.json']:
+              try:
+                  j=json.load(open(p));
+                  if isinstance(j,dict) and j.get('message'):
+                      print(str(j.get('message')).replace('\n',' ')[:500]); break
+              except Exception: pass
+          PY
+          )
+          {
+            echo "tag_result=$TAG_RESULT"
+            echo "tag_sha=${REMOTE:-NONE}"
+            echo "release_get_http=$RELEASE_GET"
+            echo "release_post_http=$RELEASE_POST"
+            echo "release_message=$MSG"
+            echo "product_source_sha=$PRODUCT_SOURCE_SHA"
+            echo 'stable_publish=FORBIDDEN'
+          } > "$STATUS"
+          { cat /tmp/tag-push.out 2>/dev/null || true; cat /tmp/tag-push.err 2>/dev/null || true; } > "$BODY"
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add "$STATUS" "$BODY"
+          git diff --cached --quiet || git commit -m 'release: record Beta65 tag/release permission probe'
+          git push origin HEAD:ci/beta65-final-release-base-20260824
