@@ -1,4 +1,6 @@
 BETA65_FINALIZED_SESSION_RESOURCE_CANDIDATE
+product_source_sha=1e8fb8255f26ad58c9719d99c27c08ef5d597cbf
 source_gate_run=32697993454
 source_gate=PASS
+retry=2026-08-24T13:50:00+07:00
 stable_publish=FORBIDDEN
