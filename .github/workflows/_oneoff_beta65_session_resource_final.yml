@@ -7,7 +7,7 @@ on:
       - 'ops/beta65-session-resource-final-trigger.txt'
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: beta65-finalized-session-resource-candidate
@@ -18,21 +18,23 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 35
     env:
+      PRODUCT_SOURCE_SHA: 1e8fb8255f26ad58c9719d99c27c08ef5d597cbf
       EXPECTED_SIGNER_SHA256: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
       SIGNING_KEY_B64: ${{ secrets.ANDROID_SIGNING_KEY_B64 }}
       SIGNING_STORE_PASSWORD: ${{ secrets.ANDROID_SIGNING_STORE_PASSWORD }}
       SIGNING_KEY_PASSWORD: ${{ secrets.ANDROID_SIGNING_KEY_PASSWORD }}
       SIGNING_ALIAS: ${{ secrets.ANDROID_SIGNING_ALIAS }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout exact validated product source
+        uses: actions/checkout@v4
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ env.PRODUCT_SOURCE_SHA }}
           fetch-depth: 0
-      - name: Pin and materialize exact Beta65
+      - name: Pin and verify exact Beta65 source
         shell: bash
         run: |
           set -euo pipefail
-          echo "checkout_product_source_sha=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+          test "$(git rev-parse HEAD)" = "$PRODUCT_SOURCE_SHA"
           python3 -m py_compile tools/apply_beta64_owner_seven_fixes.py tools/apply_beta64_compile_fix.py tools/apply_beta65_session_resource_login_parity.py tools/apply_beta65_behavior_compile_fix.py tools/apply_beta65_scope_compile_fix.py
           python3 tools/apply_beta64_owner_seven_fixes.py
           python3 tools/apply_beta64_compile_fix.py
@@ -98,22 +100,47 @@ jobs:
           SHA=$(sha256sum "$OUT" | awk '{print $1}'); SIZE=$(stat -c '%s' "$OUT")
           printf '%s  %s\n' "$SHA" "$(basename "$OUT")" > dist/beta65/SHA256SUMS-0.4.2-beta.65.txt
           cat > dist/beta65/release-meta.json <<EOF
-          {"version_name":"0.4.2-beta.65","version_code":71,"package":"vn.pickpack1291.app.beta.publicbeta","checkout_product_source_sha":"$checkout_product_source_sha","workflow_event_sha":"$GITHUB_SHA","apk_sha256":"$SHA","apk_size":$SIZE,"signer_sha256":"$EXPECTED_SIGNER_SHA256","stable_version":"0.1.0-stable","stable_code":1,"stable_publish":"FORBIDDEN"}
+          {"version_name":"0.4.2-beta.65","version_code":71,"package":"vn.pickpack1291.app.beta.publicbeta","product_source_sha":"$PRODUCT_SOURCE_SHA","workflow_event_sha":"$GITHUB_SHA","apk_sha256":"$SHA","apk_size":$SIZE,"signer_sha256":"$EXPECTED_SIGNER_SHA256","stable_version":"0.1.0-stable","stable_code":1,"stable_publish":"FORBIDDEN"}
           EOF
           echo "sha=$SHA" >> "$GITHUB_OUTPUT"; echo "size=$SIZE" >> "$GITHUB_OUTPUT"
-          rm -f "$KS" "$RUNNER_TEMP/store.pass" "$RUNNER_TEMP/key.pass"
-      - uses: actions/upload-artifact@v4
+      - name: Upload exact signed candidate
         id: upload
+        uses: actions/upload-artifact@v4
         with:
           name: pick-pack-1291-0.4.2-beta.65-signed
           path: dist/beta65/*
           retention-days: 30
-      - name: Candidate receipt
+      - name: Persist candidate receipt to evidence branch
+        env:
+          ARTIFACT_ID: ${{ steps.upload.outputs.artifact-id }}
+          APK_SHA: ${{ steps.sign.outputs.sha }}
+          APK_SIZE: ${{ steps.sign.outputs.size }}
         shell: bash
         run: |
-          echo "BETA65_CANDIDATE_PASS"
-          echo "source=$checkout_product_source_sha"
-          echo "sha=${{ steps.sign.outputs.sha }}"
-          echo "size=${{ steps.sign.outputs.size }}"
-          echo "artifact_id=${{ steps.upload.outputs.artifact-id }}"
-          echo "stable_publish=FORBIDDEN"
+          set -euo pipefail
+          git fetch origin agent/beta65-session-resource-login-parity-20260824
+          git checkout -B agent/beta65-session-resource-login-parity-20260824 origin/agent/beta65-session-resource-login-parity-20260824
+          cat > ops/beta65-exact-candidate-result.txt <<EOF
+          product_source_sha=$PRODUCT_SOURCE_SHA
+          run_id=$GITHUB_RUN_ID
+          version_name=0.4.2-beta.65
+          version_code=71
+          package=vn.pickpack1291.app.beta.publicbeta
+          signer_sha256=$EXPECTED_SIGNER_SHA256
+          artifact_id=$ARTIFACT_ID
+          apk_file=pick-pack-1291-public-beta-0.4.2-beta.65.apk
+          apk_sha256=$APK_SHA
+          apk_size=$APK_SIZE
+          stable_identity=0.1.0-stable/VC1
+          stable_publish=FORBIDDEN
+          verdict=PASS
+          EOF
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add ops/beta65-exact-candidate-result.txt
+          git commit -m 'ops: record Beta65 exact signed candidate' || true
+          git pull --rebase origin agent/beta65-session-resource-login-parity-20260824
+          git push origin HEAD:agent/beta65-session-resource-login-parity-20260824
+      - name: Cleanup signing material
+        if: always()
+        run: rm -f "$RUNNER_TEMP/release.jks" "$RUNNER_TEMP/store.pass" "$RUNNER_TEMP/key.pass"
