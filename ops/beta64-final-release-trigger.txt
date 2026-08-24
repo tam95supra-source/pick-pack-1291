@@ -1,0 +1,9 @@
+trigger=2026-08-24T09:35+07:00
+target=0.4.2-beta.64
+version_code=70
+candidate_source_sha=a5905203cbca35faa35a6dc9de7e644edcfbb22c
+candidate_run_id=32681279306
+candidate_artifact_id=9504284569
+service_fix_run_id=32684102289
+service_fix=S63_RESOURCE_OWNER_LEASE_VALIDATION
+stable_publish=FORBIDDEN
