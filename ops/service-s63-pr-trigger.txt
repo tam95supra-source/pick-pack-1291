@@ -1,0 +1,5 @@
+trigger=2026-08-24T09:35+07:00
+source_branch=agent/service-s63-resource-owner-lease-fix-20260824
+target_worker=pickpack
+custom_domain=pickpack1291.cc.cd
+stable_publish=FORBIDDEN
