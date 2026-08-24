@@ -7,9 +7,11 @@ function ppM2Props_(){return PropertiesService.getScriptProperties();}
 function ppM2Mode_(){return String(ppM2Props_().getProperty('PP_M2_AUTHORITY_MODE')||'GOOGLE_FALLBACK');}
 function ppM2Epoch_(){return Number(ppM2Props_().getProperty('PP_M2_AUTHORITY_EPOCH')||'1');}
 function ppM2Generation_(){return String(ppM2Props_().getProperty('PP_M2_SERVICE_GENERATION')||'legacy-gas-production');}
-function ppM2ServiceUrl_(){return String(ppM2Props_().getProperty('PP_M2_SERVICE_URL')||'').replace(/\/+$/,'');}
+// PP_M2_CUSTOM_DOMAIN_V140: canonical Service endpoint is the approved custom domain.
+function ppM2CanonicalServiceUrl_(v){const raw=String(v||'').replace(/\/+$/,'');return (raw==='https://pickpack.1291.workers.dev'||raw==='https://pickpack1291.cc.cd')?'https://pickpack1291.cc.cd':raw;}
+function ppM2ServiceUrl_(){return ppM2CanonicalServiceUrl_(ppM2Props_().getProperty('PP_M2_SERVICE_URL')||'');}
 function ppM2BridgeSecret_(){return String(ppM2Props_().getProperty('PP_M2_GAS_BRIDGE_SECRET')||'');}
-function ppM2ValidServiceUrl_(v){return /^https:\/\/[A-Za-z0-9._-]+(?:\.workers\.dev|\.pages\.dev)(?:\/.*)?$/.test(String(v||''));}
+function ppM2ValidServiceUrl_(v){const raw=String(v||'').replace(/\/+$/,'');return raw==='https://pickpack1291.cc.cd'||/^https:\/\/[A-Za-z0-9._-]+(?:\.workers\.dev|\.pages\.dev)(?:\/.*)?$/.test(raw);}
 
 function ppM2StateSnapshot_(){
   const all=ppM2Props_().getProperties();
@@ -17,7 +19,7 @@ function ppM2StateSnapshot_(){
     mode:String(all.PP_M2_AUTHORITY_MODE||'GOOGLE_FALLBACK'),
     epoch:Number(all.PP_M2_AUTHORITY_EPOCH||'1'),
     generation:String(all.PP_M2_SERVICE_GENERATION||'legacy-gas-production'),
-    serviceUrl:String(all.PP_M2_SERVICE_URL||'').replace(/\/+$/,''),
+    serviceUrl:ppM2CanonicalServiceUrl_(all.PP_M2_SERVICE_URL||''),
     fallbackSeq:Number(all.PP_M2_FALLBACK_SEQ||'0'),
     scope:String(all.PP_M2_AUTHORITY_SCOPE||'PRODUCTION'),
     bridgeConfigured:!!String(all.PP_M2_GAS_BRIDGE_SECRET||''),
@@ -139,7 +141,7 @@ function ppM2FlushFallbackInbox_(){
 function ppM2CompleteFailback_(auth,body){
   if(!auth||String(auth.role)!=='SUPERADMIN')return {ok:false,error:'SUPERADMIN_REQUIRED'};
   if(String(body.confirmation||'')!=='OWNER_LOCKED_M2_FAILBACK')return {ok:false,error:'FAILBACK_CONFIRMATION_REQUIRED'};
-  const nextEpoch=Number(body.authority_epoch||0),generation=String(body.service_generation||''),url=String(body.service_url||ppM2ServiceUrl_());
+  const nextEpoch=Number(body.authority_epoch||0),generation=String(body.service_generation||''),url=ppM2CanonicalServiceUrl_(String(body.service_url||ppM2ServiceUrl_()));
   if(ppM2Mode_()!=='RECONCILING')return {ok:false,error:'FAILBACK_COMPLETE_REQUIRES_RECONCILING',mode:ppM2Mode_()};
   if(nextEpoch<=ppM2Epoch_()||!generation||!ppM2ValidServiceUrl_(url)||!ppM2BridgeSecret_())return {ok:false,error:'FAILBACK_TARGET_INVALID'};
   const sh=ppM2FallbackSheet_(),last=sh.getLastRow();if(last>=2){const statuses=sh.getRange(2,13,last-1,1).getDisplayValues().flat();if(statuses.some(function(x){return String(x)==='PENDING';}))return {ok:false,error:'FALLBACK_EVENTS_NOT_INGESTED'};}
