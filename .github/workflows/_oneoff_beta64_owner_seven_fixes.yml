@@ -10,6 +10,7 @@ on:
     paths:
       - 'app/build.gradle.kts'
       - 'tools/apply_beta64_owner_seven_fixes.py'
+      - 'tools/apply_beta64_compile_fix.py'
       - 'ops/beta64-owner-seven-fixes-trigger.txt'
       - '.github/workflows/_oneoff_beta64_owner_seven_fixes.yml'
 
@@ -40,8 +41,9 @@ jobs:
         run: |
           set -euo pipefail
           echo "checkout_product_source_sha=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
-          python3 -m py_compile tools/apply_beta64_owner_seven_fixes.py
+          python3 -m py_compile tools/apply_beta64_owner_seven_fixes.py tools/apply_beta64_compile_fix.py
           python3 tools/apply_beta64_owner_seven_fixes.py
+          python3 tools/apply_beta64_compile_fix.py
           grep -q 'versionCode = 70' app/build.gradle.kts
           grep -q 'versionName = "0.4.2-beta.64"' app/build.gradle.kts
           grep -q 'versionCode = 1' app/build.gradle.kts
@@ -49,6 +51,8 @@ jobs:
           grep -q 'sameEmployeeContext' app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt
           grep -q 'Dung lượng cache ứng dụng' app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt
           grep -q 'Chọn User Pick đã dùng' app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt
+          grep -q 'Chọn User Pack đã dùng' app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt
+          ! grep -q 'allowPickReissue\|allowPackReissue' app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt
           grep -q 'sessionTimelineItems(mnv:String,ses:JSONObject)' app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt
           grep -q 'designH=designW\*1.5f' app/src/main/java/vn/pickpack1291/app/beta/FullBetaActivity.kt
       - uses: actions/setup-java@v4
