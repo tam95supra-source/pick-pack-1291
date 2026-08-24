@@ -1,5 +1,6 @@
-Trigger locked Beta69 visual matrix v5.
+Trigger locked Beta69 visual matrix v5 retry after harness-only animation idle fix.
 Artifact 9533366227
 SHA256 251530388165c7a9a8572053238b5d44b47a6747c5e94f270230e65ce68d4cda
 Size 13114245
-No rebuild/resign.
+APK unchanged. No rebuild/resign/version bump.
+Retry 2026-08-25T06:29:00+07:00
