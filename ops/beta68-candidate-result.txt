@@ -1,13 +1,13 @@
 verdict=failure
-run_id=32745528565
-source_sha=4560ce07113900d962d680b212a6b3d6c1c37975
+run_id=32746120210
+source_sha=d4ff912e45d2b6c30e06bf00f1a9a212a55221e8
 branch=agent/beta68-from-beta66-20260824
 beta_name=0.4.2-beta.68
 beta_code=74
 package=vn.pickpack1291.app.beta.publicbeta
 apk_file=pick-pack-1291-public-beta-0.4.2-beta.68.apk
-apk_sha256=
-apk_size=
+apk_sha256=ef71e4f93313ad9e7b8571c17421f691428a4a368856f8fd8457fbd2cc234871
+apk_size=13097861
 artifact_id=
 signer_sha256=d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
 stable_name=0.1.0-stable
