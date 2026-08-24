@@ -1,0 +1,142 @@
+name: Oneoff Service S63 PR Deploy Gate
+
+on:
+  pull_request:
+    branches: [ agent/service-s62-session-authority-cas-fix-20260824 ]
+    paths:
+      - 'ops/service-s63-pr-trigger.txt'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: service-s63-resource-owner-lease-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      SERVICE_URL: https://pickpack1291.cc.cd
+      CANONICAL_URL: https://pickpack.1291.workers.dev
+      WORKER_NAME: pickpack
+      PROD_DB_ID: b619df89-528d-4126-a948-de0425037b11
+      EXPECTED_GENERATION: m2-prod-reset-20260823-001
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Materialize and typecheck exact S63 fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha }}"
+          python3 tools/apply_service_s62_session_authority_fix.py
+          python3 tools/apply_service_s63_resource_owner_lease_fix.py
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('service/src/session_hotfix.ts').read_text(); p=s.index('S63_RESOURCE_OWNER_LEASE_VALIDATION'); q=s.index('async function sessionWorkUpdate',p); f=s[p:q]
+          a=f.index('if(holder===sessionId)return'); b=f.index('if(holder)throw new Error(`${type}_IN_USE`)'); c=f.index('if(!available)throw new Error(`${type}_UNAVAILABLE`)')
+          assert a < b < c
+          assert 'aOverride?:Awaited<ReturnType<typeof currentAuthority>>' in s
+          print('S63_CODE_GATE_PASS')
+          PY
+          cd service && npm install --no-audit --no-fund && npm run typecheck
+
+      - name: Canonical production preflight and settings audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$CLOUDFLARE_API_TOKEN"; test -n "$CLOUDFLARE_ACCOUNT_ID"
+          test "$(curl -sS --retry 3 --retry-all-errors -o /tmp/pre.json -w '%{http_code}' "$SERVICE_URL/health")" = 200
+          H=(-H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" -H 'Content-Type: application/json')
+          curl -fsS "${H[@]}" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/domains" > /tmp/domains.json
+          curl -fsS "${H[@]}" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/$WORKER_NAME/settings" > /tmp/settings.json
+          python3 - <<'PY'
+          import json,os
+          h=json.load(open('/tmp/pre.json')); a=h.get('authority') if isinstance(h.get('authority'),dict) else {}
+          assert h.get('ok') is True
+          assert (h.get('authority_mode') or a.get('mode'))=='SERVICE_PRIMARY'
+          assert (h.get('authority_scope') or a.get('scope'))=='PRODUCTION'
+          assert (h.get('service_generation') or h.get('generation') or a.get('service_generation'))==os.environ['EXPECTED_GENERATION']
+          r=h.get('replication') if isinstance(h.get('replication'),dict) else {}
+          if 'state' in r: assert r.get('state')=='HEALTHY',r
+          if 'pending_count' in r: assert int(r.get('pending_count') or 0)==0,r
+          d=json.load(open('/tmp/domains.json')); rows=d.get('result') or []
+          own=[x for x in rows if str(x.get('hostname') or x.get('domain') or '')=='pickpack1291.cc.cd']
+          assert own and any(str(x.get('service') or x.get('script') or x.get('script_name') or '')=='pickpack' for x in own),own
+          s=json.load(open('/tmp/settings.json')); assert s.get('success') is True,s; rr=s.get('result') or {}; bs=rr.get('bindings') or []
+          db=[x for x in bs if x.get('name')=='DB']; assert db,bs
+          assert str(db[0].get('id') or db[0].get('database_id') or db[0].get('namespace_id') or '')==os.environ['PROD_DB_ID'],db[0]
+          hub=[x for x in bs if x.get('name')=='REALTIME_HUB']; assert hub and str(hub[0].get('class_name') or '')=='RealtimeHub',hub
+          safe={'compatibility_date':rr.get('compatibility_date'),'compatibility_flags':rr.get('compatibility_flags'),'placement':rr.get('placement'),'bindings':[{'name':x.get('name'),'type':x.get('type'),'id':x.get('id') if x.get('name')=='DB' else None,'class_name':x.get('class_name')} for x in bs]}
+          json.dump(safe,open('/tmp/settings-safe.json','w'),indent=2)
+          print('S63_PRE_DEPLOY_PASS')
+          PY
+
+      - name: Deploy to canonical pickpack Worker with remote vars preserved
+        working-directory: service
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > wrangler.s63.prod.jsonc <<'EOF'
+          {"$schema":"./node_modules/wrangler/config-schema.json","name":"pickpack","main":"src/entry_product.ts","compatibility_date":"2026-08-08","compatibility_flags":["nodejs_compat"],"workers_dev":true,"placement":{"mode":"smart"},"d1_databases":[{"binding":"DB","database_name":"pick-pack-1291-service-prod","database_id":"b619df89-528d-4126-a948-de0425037b11","migrations_dir":"migrations"}],"durable_objects":{"bindings":[{"name":"REALTIME_HUB","class_name":"RealtimeHub"}]},"assets":{"directory":"./public","binding":"ASSETS","not_found_handling":"single-page-application","run_worker_first":["/health","/v1/*","/internal/*"]},"triggers":{"crons":["*/1 * * * *"]},"observability":{"enabled":true,"head_sampling_rate":1}}
+          EOF
+          ! grep -q SERVICE_GENERATION wrangler.s63.prod.jsonc
+          npx wrangler deploy --config wrangler.s63.prod.jsonc --keep-vars 2>&1 | tee /tmp/deploy.log
+
+      - name: Verify live custom domain after deployment
+        shell: bash
+        run: |
+          set -euo pipefail
+          ok=false
+          for n in 1 2 3 4 5 6 7 8; do
+            c=$(curl -sS --connect-timeout 12 --max-time 45 -o /tmp/post.json -w '%{http_code}' "$SERVICE_URL/health" || true)
+            if [[ "$c" == 200 ]] && python3 - <<'PY'
+          import json,os
+          h=json.load(open('/tmp/post.json')); a=h.get('authority') if isinstance(h.get('authority'),dict) else {}
+          good=h.get('ok') is True and (h.get('authority_mode') or a.get('mode'))=='SERVICE_PRIMARY' and (h.get('authority_scope') or a.get('scope'))=='PRODUCTION' and (h.get('service_generation') or h.get('generation') or a.get('service_generation'))==os.environ['EXPECTED_GENERATION']
+          r=h.get('replication') if isinstance(h.get('replication'),dict) else {}
+          if 'state' in r and r.get('state')!='HEALTHY': good=False
+          if 'pending_count' in r and int(r.get('pending_count') or 0)!=0: good=False
+          raise SystemExit(0 if good else 1)
+          PY
+            then ok=true; break; fi
+            sleep 3
+          done
+          test "$ok" = true
+          test "$(curl -sS -o /tmp/canonical.json -w '%{http_code}' "$CANONICAL_URL/health")" = 200
+          probe(){ curl -sS -o /tmp/p.json -w '%{http_code}' -H 'content-type: application/json' -d '{}' "$SERVICE_URL$1"; }
+          a=$(probe /v1/session/work); b=$(probe /v1/session/exit); c=$(probe /v1/session/time-correction); d=$(probe /v1/session/delete-exit); e=$(probe /v1/session/delete-enter)
+          test "$a" = 401; test "$b" = 401; test "$c" = 401; test "$d" = 401; test "$e" = 401
+          H=(-H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" -H 'Content-Type: application/json')
+          curl -fsS "${H[@]}" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/domains" > /tmp/domains-post.json
+          python3 - <<'PY'
+          import json
+          rows=(json.load(open('/tmp/domains-post.json')).get('result') or []); own=[x for x in rows if str(x.get('hostname') or x.get('domain') or '')=='pickpack1291.cc.cd']; assert own and any(str(x.get('service') or x.get('script') or x.get('script_name') or '')=='pickpack' for x in own),own
+          PY
+          printf 'source_sha=%s\nworker=pickpack\ncustom_domain=pickpack1291.cc.cd\nfix=S63_RESOURCE_OWNER_LEASE_VALIDATION\nauthority=SERVICE_PRIMARY/PRODUCTION\nsession_work=%s\nsession_exit=%s\ntime_correction=%s\ndelete_exit=%s\ndelete_enter=%s\nstable_publish=FORBIDDEN\nverdict=PASS\n' "${{ github.event.pull_request.head.sha }}" "$a" "$b" "$c" "$d" "$e" > /tmp/receipt.txt
+          cat /tmp/receipt.txt
+
+      - name: Upload S63 evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: service-s63-pr-deploy-evidence
+          path: |
+            /tmp/receipt.txt
+            /tmp/pre.json
+            /tmp/post.json
+            /tmp/canonical.json
+            /tmp/settings-safe.json
+            /tmp/deploy.log
+          if-no-files-found: ignore
+          retention-days: 14
