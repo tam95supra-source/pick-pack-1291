@@ -1,0 +1,47 @@
+name: Beta68 v4 final exact OTA v2
+on:
+  push:
+    branches: [ release/beta68-exact-20260824 ]
+    paths: [ 'ops/TRIGGER_BETA68_V4_FINAL_RELEASE_V2.txt' ]
+permissions:
+  contents: write
+  actions: read
+concurrency:
+  group: beta68-v4-final-exact-release-v2
+  cancel-in-progress: false
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+      GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+      GOOGLE_OAUTH_REFRESH_TOKEN: ${{ secrets.GOOGLE_OAUTH_REFRESH_TOKEN }}
+      GAS_SCRIPT_ID: ${{ secrets.GAS_SCRIPT_ID }}
+      GAS_DEPLOYMENT_ID: ${{ secrets.GAS_DEPLOYMENT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+      - name: Persist final v2 start receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > ops/beta68-v4-final-v2-start.txt <<EOF
+          run_id=$GITHUB_RUN_ID
+          source_sha=63917d672aeced142cacda925300978deef65277
+          candidate_run_id=32754196617
+          candidate_artifact_id=9530301628
+          apk_sha256=34554a19621be73ebc1e3bd64bef547959f5843f8d0fc902b5bcc8d573cf4641
+          state=STARTED
+          EOF
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add ops/beta68-v4-final-v2-start.txt
+          git commit -m 'ops: record Beta68 v4 final v2 start'
+          git push origin HEAD:release/beta68-exact-20260824
+      - name: Release exact locked Beta68 v4
+        shell: bash
+        run: bash tools/release_beta68_v4_final_exact.sh
