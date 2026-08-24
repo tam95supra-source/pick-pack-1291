@@ -1,0 +1,9 @@
+tag_result=EXISTS_CARRIER_EXACT
+tag_sha=9692bf0631a58b3949427c91d1286837d4d008af
+release_get_http=200
+release_post_http=SKIPPED
+release_id=375548474
+release_message=
+product_source_sha=1e8fb8255f26ad58c9719d99c27c08ef5d597cbf
+release_carrier_sha=9692bf0631a58b3949427c91d1286837d4d008af
+stable_publish=FORBIDDEN
