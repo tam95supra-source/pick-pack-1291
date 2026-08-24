@@ -1,0 +1,496 @@
+name: Beta66 Exact Locked Release
+
+on:
+  push:
+    branches: [ release/beta66-final-exact-20260824 ]
+    paths:
+      - 'ops/beta66-final-exact-trigger.txt'
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: beta66-exact-release
+  cancel-in-progress: false
+
+env:
+  PRODUCT_SOURCE_SHA: f8f0f599f7a1d1dc74cc36ee4cb5110d6cf10d1a
+  CANDIDATE_ARTIFACT_ID: '9516611098'
+  PREVIOUS_ARTIFACT_ID: '9510636863'
+  TARGET_VERSION: 0.4.2-beta.66
+  TARGET_CODE: '72'
+  FROM_VERSION: 0.4.2-beta.65
+  FROM_CODE: '71'
+  APK_NAME: pick-pack-1291-public-beta-0.4.2-beta.66.apk
+  EXPECTED_SHA: 9a4520fab3e46abc4757838c58fc05b00274bbc98a060b82dc5389f943517a68
+  EXPECTED_SIZE: '13097861'
+  EXPECTED_PACKAGE: vn.pickpack1291.app.beta.publicbeta
+  EXPECTED_SIGNER_SHA256: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
+  BETA_FOLDER_ID: 1WMXI-8-Z1mbY2v11noYFHe_eoMNiNZXg
+  TRANSPORT_ZIP_ID: 1DK6kTOfixgRxvIVxIVuYLhPQb6FoEvAG
+  OLD_BETA_APK_ID: 1F2Xu0PQ7tiIWcNDlz9yUTsXBee6RWP39
+  OLD_BETA_SUM_ID: 12iSOQ-AwToKY74ylGa4Wb5iVnQXdF8RC
+  OLD_BETA_SHA: be728cd8d20d6033becbfb169db89565f6078a681d47bc9079f98f9f5758e1da
+  GAS_URL: https://script.google.com/macros/s/AKfycbzbEoGfbNg6s2HnP-gUpcBJ7mMIkVBtYuQKMndb9seDV2c55lQwSUO1GZ-LtQ2CxMCauA/exec
+  SERVICE_URL: https://pickpack1291.cc.cd
+  CANONICAL_SERVICE_URL: https://pickpack.1291.workers.dev
+  TAG: v0.4.2-beta.66-publicbeta
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+      GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+      GOOGLE_OAUTH_REFRESH_TOKEN: ${{ secrets.GOOGLE_OAUTH_REFRESH_TOKEN }}
+      GAS_SCRIPT_ID: ${{ secrets.GAS_SCRIPT_ID }}
+      GAS_DEPLOYMENT_ID: ${{ secrets.GAS_DEPLOYMENT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: A - recover and verify exact locked candidate
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          mkdir -p /tmp/evidence /tmp/beta66 /tmp/beta65
+          curl -fLsS --retry 4 -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/artifacts/$CANDIDATE_ARTIFACT_ID/zip" -o /tmp/beta66.zip
+          unzip -q /tmp/beta66.zip -d /tmp/beta66
+          test -s "/tmp/beta66/$APK_NAME"
+          ACTUAL=$(sha256sum "/tmp/beta66/$APK_NAME" | awk '{print $1}')
+          SIZE=$(stat -c%s "/tmp/beta66/$APK_NAME")
+          [[ "$ACTUAL" == "$EXPECTED_SHA" && "$SIZE" == "$EXPECTED_SIZE" ]]
+          grep -q "$EXPECTED_SHA" /tmp/beta66/SHA256SUMS-0.4.2-beta.66.txt
+          python3 - <<'PY'
+          import json,os
+          j=json.load(open('/tmp/beta66/release-meta.json'))
+          assert j['versionName']==os.environ['TARGET_VERSION'],j
+          assert str(j['versionCode'])==os.environ['TARGET_CODE'],j
+          assert j['package']==os.environ['EXPECTED_PACKAGE'],j
+          assert j['sha256']==os.environ['EXPECTED_SHA'],j
+          assert str(j['size'])==os.environ['EXPECTED_SIZE'],j
+          assert j['signer_sha256']==os.environ['EXPECTED_SIGNER_SHA256'],j
+          assert j['source_sha']==os.environ['PRODUCT_SOURCE_SHA'],j
+          assert j['stable_publish']=='FORBIDDEN',j
+          assert j['service_line']=='S64_UNCHANGED',j
+          PY
+          cp /tmp/beta66/release-meta.json /tmp/evidence/candidate-meta.json
+          printf 'A=PASS\nartifact_id=%s\nsha256=%s\nsize=%s\n' "$CANDIDATE_ARTIFACT_ID" "$EXPECTED_SHA" "$EXPECTED_SIZE" > /tmp/evidence/A-candidate.txt
+
+      - name: Acquire Apps Script authority and fresh live source
+        id: auth
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          for n in GOOGLE_OAUTH_CLIENT_ID GOOGLE_OAUTH_CLIENT_SECRET GOOGLE_OAUTH_REFRESH_TOKEN GAS_SCRIPT_ID GAS_DEPLOYMENT_ID; do test -n "${!n:-}" || { echo "missing $n" >&2; exit 10; }; done
+          RESP=$(curl -fsS https://oauth2.googleapis.com/token -H 'Content-Type: application/x-www-form-urlencoded' \
+            --data-urlencode "client_id=$GOOGLE_OAUTH_CLIENT_ID" --data-urlencode "client_secret=$GOOGLE_OAUTH_CLIENT_SECRET" \
+            --data-urlencode "refresh_token=$GOOGLE_OAUTH_REFRESH_TOKEN" --data-urlencode 'grant_type=refresh_token')
+          TOKEN=$(python3 -c 'import json,sys; print(json.load(sys.stdin).get("access_token",""))' <<<"$RESP")
+          test -n "$TOKEN"
+          SCRIPT_ID=$(printf '%s' "$GAS_SCRIPT_ID" | tr -d '\r\n\t ')
+          RAW=$(printf '%s' "$GAS_DEPLOYMENT_ID" | tr -d '\r\n\t ')
+          DEPLOYMENT_ID="$RAW"; if [[ "$RAW" =~ /s/([^/]+)/ ]]; then DEPLOYMENT_ID="${BASH_REMATCH[1]}"; fi
+          echo "::add-mask::$TOKEN"; echo "::add-mask::$SCRIPT_ID"; echo "::add-mask::$DEPLOYMENT_ID"
+          echo "token=$TOKEN" >> "$GITHUB_OUTPUT"; echo "script_id=$SCRIPT_ID" >> "$GITHUB_OUTPUT"; echo "deployment_id=$DEPLOYMENT_ID" >> "$GITHUB_OUTPUT"
+          curl -fsS -H "Authorization: Bearer $TOKEN" "https://script.googleapis.com/v1/projects/$SCRIPT_ID/content" > /tmp/live-original.json
+          curl -fsS -H "Authorization: Bearer $TOKEN" "https://script.googleapis.com/v1/projects/$SCRIPT_ID/deployments/$DEPLOYMENT_ID" > /tmp/deployment-before.json
+          cp /tmp/deployment-before.json /tmp/evidence/deployment-before.json
+          python3 - <<'PY'
+          import json,os,re
+          j=json.load(open('/tmp/live-original.json'))
+          f=next((x for x in j.get('files',[]) if x.get('name')=='PICK_PACK_API'),None)
+          assert f and f.get('source'), 'live PICK_PACK_API missing'
+          s=f['source']
+          assert os.environ['FROM_VERSION'] in s, 'live GAS is not Beta65 target'
+          assert os.environ['OLD_BETA_APK_ID'] in s, 'live Beta65 APK id missing'
+          assert os.environ['OLD_BETA_SUM_ID'] in s, 'live Beta65 checksum id missing'
+          assert '0.1.0-stable' in s, 'stable identity marker missing'
+          open('/tmp/live-source-before.gs','w').write(s)
+          PY
+          sha256sum /tmp/live-source-before.gs > /tmp/evidence/gas-source-before.sha256
+
+      - name: Install one-time private Drive unzip transport helper
+        id: helper
+        shell: bash
+        env:
+          ACCESS_TOKEN: ${{ steps.auth.outputs.token }}
+          SCRIPT_ID: ${{ steps.auth.outputs.script_id }}
+          DEPLOYMENT_ID: ${{ steps.auth.outputs.deployment_id }}
+        run: |
+          set -Eeuo pipefail
+          NONCE=$(openssl rand -hex 32); echo "::add-mask::$NONCE"; echo "nonce=$NONCE" >> "$GITHUB_OUTPUT"
+          python3 - "$NONCE" <<'PY'
+          import json,sys
+          nonce=sys.argv[1]
+          j=json.load(open('/tmp/live-original.json'))
+          f=next(x for x in j['files'] if x.get('name')=='PICK_PACK_API')
+          s=f['source']
+          anchor="    if (action === 'health') return ppJson_(ppHealth_());"
+          assert anchor in s
+          route=anchor+"\n    if (action === '__beta66_locked_transport') return ppJson_(ppBeta66LockedTransportTmp_(body));"
+          s=s.replace(anchor,route,1)
+          helper=r'''
+function ppBeta66LockedTransportTmp_(body) {
+  if (String(body.transport_token||'') !== '__NONCE__') return {ok:false,error:'FORBIDDEN'};
+  const folderId=String(body.folder_id||'');
+  const zipId=String(body.zip_id||'');
+  const expected=String(body.expected_sha||'').toLowerCase();
+  const apkName=String(body.apk_name||'');
+  if(folderId!=='1WMXI-8-Z1mbY2v11noYFHe_eoMNiNZXg' || zipId!=='1DK6kTOfixgRxvIVxIVuYLhPQb6FoEvAG') return {ok:false,error:'TARGET_MISMATCH'};
+  const folder=DriveApp.getFolderById(folderId);
+  const zip=DriveApp.getFileById(zipId).getBlob();
+  const blobs=Utilities.unzip(zip);
+  let apk=null,sum=null;
+  blobs.forEach(function(b){ const n=String(b.getName()||''); if(/\.apk$/i.test(n)) apk=b; if(/^SHA256SUMS-.*\.txt$/i.test(n)) sum=b; });
+  if(!apk || !sum) return {ok:false,error:'ARTIFACT_CONTENT_MISSING'};
+  const dig=Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256,apk.getBytes());
+  const sha=dig.map(function(b){return ('0'+((b+256)%256).toString(16)).slice(-2);}).join('');
+  if(sha!==expected) return {ok:false,error:'SHA_MISMATCH',sha256:sha};
+  let apkFile=null; const ai=folder.getFilesByName(apkName);
+  while(ai.hasNext()){ const x=ai.next(); if(x.getSize()===apk.getBytes().length && ppOtaSha256_(x)===expected){ apkFile=x; break; } }
+  if(!apkFile){ apkFile=folder.createFile(apk.copyBlob().setName(apkName)); }
+  const sumName='SHA256SUMS-0.4.2-beta.66.txt';
+  let sumFile=null; const si=folder.getFilesByName(sumName); if(si.hasNext()) sumFile=si.next();
+  if(!sumFile) sumFile=folder.createFile(sum.copyBlob().setName(sumName));
+  try { apkFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK,DriveApp.Permission.VIEW); } catch(_) {}
+  try { sumFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK,DriveApp.Permission.VIEW); } catch(_) {}
+  return {ok:true,apk_file_id:apkFile.getId(),sum_file_id:sumFile.getId(),sha256:sha,size:apkFile.getSize(),apk_name:apkFile.getName(),sum_name:sumFile.getName()};
+}
+'''.replace('__NONCE__',nonce)
+          f['source']=s+'\n'+helper+'\n'
+          open('/tmp/helper-content.json','w').write(json.dumps({'files':j['files']},ensure_ascii=False))
+          PY
+          H=$(curl -sS -o /tmp/helper-put.out -w '%{http_code}' -X PUT -H "Authorization: Bearer $ACCESS_TOKEN" -H 'Content-Type: application/json' --data-binary @/tmp/helper-content.json "https://script.googleapis.com/v1/projects/$SCRIPT_ID/content")
+          [[ "$H" == 200 ]] || { cat /tmp/helper-put.out; exit 1; }
+          H=$(curl -sS -o /tmp/helper-version.json -w '%{http_code}' -X POST -H "Authorization: Bearer $ACCESS_TOKEN" -H 'Content-Type: application/json' -d '{"description":"TEMP Beta66 exact Drive transport helper"}' "https://script.googleapis.com/v1/projects/$SCRIPT_ID/versions")
+          [[ "$H" == 200 ]] || { cat /tmp/helper-version.json; exit 1; }
+          V=$(python3 -c 'import json;print(json.load(open("/tmp/helper-version.json"))["versionNumber"])')
+          python3 - "$SCRIPT_ID" "$V" <<'PY'
+          import json,sys
+          open('/tmp/helper-deploy.json','w').write(json.dumps({'deploymentConfig':{'scriptId':sys.argv[1],'versionNumber':int(sys.argv[2]),'manifestFileName':'appsscript','description':'TEMP Beta66 exact Drive transport'}}))
+          PY
+          H=$(curl -sS -o /tmp/helper-deploy.out -w '%{http_code}' -X PUT -H "Authorization: Bearer $ACCESS_TOKEN" -H 'Content-Type: application/json' --data-binary @/tmp/helper-deploy.json "https://script.googleapis.com/v1/projects/$SCRIPT_ID/deployments/$DEPLOYMENT_ID")
+          [[ "$H" == 200 ]] || { cat /tmp/helper-deploy.out; exit 1; }
+          echo "helper_version=$V" >> "$GITHUB_OUTPUT"
+
+      - name: B - materialize exact APK bytes inside approved Beta Drive folder
+        id: drive
+        shell: bash
+        env:
+          TRANSPORT_TOKEN: ${{ steps.helper.outputs.nonce }}
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY' > /tmp/transport-request.json
+          import json,os
+          print(json.dumps({'action':'__beta66_locked_transport','transport_token':os.environ['TRANSPORT_TOKEN'],'folder_id':os.environ['BETA_FOLDER_ID'],'zip_id':os.environ['TRANSPORT_ZIP_ID'],'expected_sha':os.environ['EXPECTED_SHA'],'apk_name':os.environ['APK_NAME']}))
+          PY
+          OK=false
+          for i in $(seq 1 18); do
+            curl -fsSL --retry 2 -H 'content-type: application/json' "$GAS_URL" --data-binary @/tmp/transport-request.json > /tmp/transport.json || true
+            if python3 - <<'PY'
+          import json,os,sys
+          try:j=json.load(open('/tmp/transport.json'))
+          except:sys.exit(1)
+          ok=j.get('ok') is True and j.get('sha256')==os.environ['EXPECTED_SHA'] and str(j.get('size'))==os.environ['EXPECTED_SIZE']
+          sys.exit(0 if ok else 1)
+          PY
+            then OK=true; break; fi
+            sleep 4
+          done
+          [[ "$OK" == true ]] || { cat /tmp/transport.json; exit 1; }
+          APK_ID=$(python3 -c 'import json;print(json.load(open("/tmp/transport.json"))["apk_file_id"])')
+          SUM_ID=$(python3 -c 'import json;print(json.load(open("/tmp/transport.json"))["sum_file_id"])')
+          echo "apk_id=$APK_ID" >> "$GITHUB_OUTPUT"; echo "sum_id=$SUM_ID" >> "$GITHUB_OUTPUT"
+          cp /tmp/transport.json /tmp/evidence/B-drive-create.json
+
+      - name: D - remove helper and activate Beta66 in fresh live GAS source
+        id: deploy
+        shell: bash
+        env:
+          ACCESS_TOKEN: ${{ steps.auth.outputs.token }}
+          SCRIPT_ID: ${{ steps.auth.outputs.script_id }}
+          DEPLOYMENT_ID: ${{ steps.auth.outputs.deployment_id }}
+          NEW_APK_ID: ${{ steps.drive.outputs.apk_id }}
+          NEW_SUM_ID: ${{ steps.drive.outputs.sum_id }}
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY'
+          import json,os,re,difflib,hashlib
+          j=json.load(open('/tmp/live-original.json'))
+          f=next(x for x in j['files'] if x.get('name')=='PICK_PACK_API')
+          before=f['source']; after=before
+          reps=[
+            (os.environ['OLD_BETA_APK_ID'],os.environ['NEW_APK_ID']),
+            (os.environ['OLD_BETA_SUM_ID'],os.environ['NEW_SUM_ID']),
+            (os.environ['FROM_VERSION'],os.environ['TARGET_VERSION']),
+            ('v0.4.2-beta.65-publicbeta','v0.4.2-beta.66-publicbeta'),
+            (os.environ['OLD_BETA_SHA'],os.environ['EXPECTED_SHA']),
+          ]
+          for a,b in reps:
+            if a in after: after=after.replace(a,b)
+          # OTA version code only: replace numeric 71 adjacent to beta version_code/versionCode markers.
+          after=re.sub(r'((?:version_code|versionCode)\s*[:=]\s*)71\b',r'\g<1>72',after)
+          assert os.environ['TARGET_VERSION'] in after
+          assert os.environ['NEW_APK_ID'] in after and os.environ['NEW_SUM_ID'] in after
+          assert os.environ['EXPECTED_SHA'] in after
+          assert '__beta66_locked_transport' not in after
+          # Stable routing/identity must be byte-identical across all lines carrying STABLE markers.
+          sb='\n'.join(x for x in before.splitlines() if 'STABLE' in x or '0.1.0-stable' in x)
+          sa='\n'.join(x for x in after.splitlines() if 'STABLE' in x or '0.1.0-stable' in x)
+          assert hashlib.sha256(sb.encode()).hexdigest()==hashlib.sha256(sa.encode()).hexdigest(), 'stable lines changed'
+          # Every changed line must be OTA Beta metadata only.
+          changed=[]
+          for x in difflib.ndiff(before.splitlines(),after.splitlines()):
+            if x.startswith('- ') or x.startswith('+ '): changed.append(x[2:])
+          allowed=('beta.65','beta.66',os.environ['OLD_BETA_APK_ID'],os.environ['NEW_APK_ID'],os.environ['OLD_BETA_SUM_ID'],os.environ['NEW_SUM_ID'],os.environ['OLD_BETA_SHA'],os.environ['EXPECTED_SHA'],'version_code','versionCode')
+          assert changed and all(any(t in line for t in allowed) for line in changed), changed[:20]
+          f['source']=after
+          open('/tmp/final-content.json','w').write(json.dumps({'files':j['files']},ensure_ascii=False))
+          open('/tmp/live-source-after.gs','w').write(after)
+          open('/tmp/evidence/gas-diff.txt','w').write('\n'.join(changed)+'\n')
+          PY
+          H=$(curl -sS -o /tmp/final-put.out -w '%{http_code}' -X PUT -H "Authorization: Bearer $ACCESS_TOKEN" -H 'Content-Type: application/json' --data-binary @/tmp/final-content.json "https://script.googleapis.com/v1/projects/$SCRIPT_ID/content")
+          [[ "$H" == 200 ]] || { cat /tmp/final-put.out; exit 1; }
+          H=$(curl -sS -o /tmp/final-version.json -w '%{http_code}' -X POST -H "Authorization: Bearer $ACCESS_TOKEN" -H 'Content-Type: application/json' -d '{"description":"Pick Pack 1291 Beta66 exact OTA target"}' "https://script.googleapis.com/v1/projects/$SCRIPT_ID/versions")
+          [[ "$H" == 200 ]] || { cat /tmp/final-version.json; exit 1; }
+          V=$(python3 -c 'import json;print(json.load(open("/tmp/final-version.json"))["versionNumber"])')
+          python3 - "$SCRIPT_ID" "$V" <<'PY'
+          import json,sys
+          open('/tmp/final-deploy.json','w').write(json.dumps({'deploymentConfig':{'scriptId':sys.argv[1],'versionNumber':int(sys.argv[2]),'manifestFileName':'appsscript','description':'Pick Pack 1291 Beta66 exact OTA target'}}))
+          PY
+          H=$(curl -sS -o /tmp/final-deploy.out -w '%{http_code}' -X PUT -H "Authorization: Bearer $ACCESS_TOKEN" -H 'Content-Type: application/json' --data-binary @/tmp/final-deploy.json "https://script.googleapis.com/v1/projects/$SCRIPT_ID/deployments/$DEPLOYMENT_ID")
+          [[ "$H" == 200 ]] || { cat /tmp/final-deploy.out; exit 1; }
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+          sha256sum /tmp/live-source-after.gs > /tmp/evidence/gas-source-after.sha256
+          cp /tmp/final-deploy.out /tmp/evidence/D-deployment-update.json
+
+      - name: C E G H - Drive exact readback and live OTA contract
+        id: live
+        shell: bash
+        env:
+          APK_ID: ${{ steps.drive.outputs.apk_id }}
+          SUM_ID: ${{ steps.drive.outputs.sum_id }}
+        run: |
+          set -Eeuo pipefail
+          # Public exact readback. First direct usercontent route; if Google emits HTML, OTA URL below is the second independent readback.
+          curl -fLsS --retry 5 --retry-delay 2 "https://drive.usercontent.google.com/download?id=$APK_ID&export=download&confirm=t" -o /tmp/drive.apk
+          ACTUAL=$(sha256sum /tmp/drive.apk | awk '{print $1}'); SIZE=$(stat -c%s /tmp/drive.apk)
+          [[ "$ACTUAL" == "$EXPECTED_SHA" && "$SIZE" == "$EXPECTED_SIZE" ]] || { file /tmp/drive.apk || true; head -c 300 /tmp/drive.apk || true; exit 1; }
+          curl -fLsS --retry 5 --retry-delay 2 "https://drive.usercontent.google.com/download?id=$SUM_ID&export=download&confirm=t" -o /tmp/drive.sum
+          grep -q "$EXPECTED_SHA" /tmp/drive.sum
+          printf 'C=PASS\napk_file_id=%s\nsum_file_id=%s\nsha256=%s\nsize=%s\n' "$APK_ID" "$SUM_ID" "$ACTUAL" "$SIZE" > /tmp/evidence/C-drive-readback.txt
+          OK=false
+          for i in $(seq 1 18); do
+            curl -fsSL --retry 2 -H 'content-type: application/json' "$GAS_URL" -d "{\"action\":\"update_check\",\"channel\":\"BETA\",\"current_version\":\"$FROM_VERSION\"}" > /tmp/from.json || true
+            if python3 - <<'PY'
+          import json,os,sys
+          try:j=json.load(open('/tmp/from.json'))
+          except:sys.exit(1)
+          avail=j.get('available',j.get('update_available'))
+          ver=j.get('version_name',j.get('versionName',j.get('version','')))
+          sha=str(j.get('sha256','')).lower(); url=j.get('apk_url') or j.get('download_url') or j.get('url') or ''
+          ok=j.get('ok') is True and avail is True and str(ver)==os.environ['TARGET_VERSION'] and sha==os.environ['EXPECTED_SHA'] and url
+          sys.exit(0 if ok else 1)
+          PY
+            then OK=true; break; fi
+            sleep 4
+          done
+          [[ "$OK" == true ]] || { cat /tmp/from.json; exit 1; }
+          python3 -c 'import json; j=json.load(open("/tmp/from.json")); print(j.get("apk_url") or j.get("download_url") or j.get("url"))' > /tmp/ota-url.txt
+          curl -fLsS --retry 5 --retry-delay 2 "$(cat /tmp/ota-url.txt)" -o /tmp/ota-live.apk
+          [[ "$(sha256sum /tmp/ota-live.apk|awk '{print $1}')" == "$EXPECTED_SHA" && "$(stat -c%s /tmp/ota-live.apk)" == "$EXPECTED_SIZE" ]]
+          curl -fsSL -H 'content-type: application/json' "$GAS_URL" -d "{\"action\":\"update_check\",\"channel\":\"BETA\",\"current_version\":\"$TARGET_VERSION\"}" > /tmp/self.json
+          curl -fsSL -H 'content-type: application/json' "$GAS_URL" -d '{"action":"update_check","channel":"STABLE","current_version":"0.1.0-stable"}' > /tmp/stable.json
+          python3 - <<'PY'
+          import json,os
+          f=json.load(open('/tmp/from.json')); s=json.load(open('/tmp/self.json')); t=json.load(open('/tmp/stable.json'))
+          assert s.get('ok') is True and s.get('available',s.get('update_available')) is False,s
+          assert t.get('ok') is True and t.get('available',t.get('update_available')) is False,t
+          tv=t.get('version_name',t.get('versionName',t.get('version','0.1.0-stable')))
+          assert str(tv)!='0.4.2-beta.66',t
+          PY
+          cp /tmp/from.json /tmp/evidence/E-beta65-to-beta66.json; cp /tmp/self.json /tmp/evidence/G-beta66-self.json; cp /tmp/stable.json /tmp/evidence/H-stable-isolation.json
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Verify downloaded OTA APK package/version/signer
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          BT=$(find "${ANDROID_HOME:-/usr/local/lib/android/sdk}/build-tools" -maxdepth 1 -mindepth 1 -type d | sort -V | tail -1)
+          test -x "$BT/aapt"; test -x "$BT/apksigner"
+          "$BT/aapt" dump badging /tmp/ota-live.apk > /tmp/evidence/ota-badging.txt
+          grep -q "package: name='$EXPECTED_PACKAGE'" /tmp/evidence/ota-badging.txt
+          grep -q "versionName='$TARGET_VERSION'" /tmp/evidence/ota-badging.txt
+          "$BT/apksigner" verify --verbose --print-certs /tmp/ota-live.apk > /tmp/evidence/ota-cert.txt
+          CERT=$(grep -m1 'Signer #1 certificate SHA-256 digest:' /tmp/evidence/ota-cert.txt | sed 's/.*digest: //' | tr 'A-F' 'a-f' | tr -d ':[:space:]')
+          [[ "$CERT" == "$EXPECTED_SIGNER_SHA256" ]]
+          curl -fLsS --retry 4 -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/artifacts/$PREVIOUS_ARTIFACT_ID/zip" -o /tmp/beta65.zip
+          unzip -q /tmp/beta65.zip -d /tmp/beta65
+          PREV=$(find /tmp/beta65 -maxdepth 1 -type f -name '*.apk' | head -1); test -s "$PREV"; cp "$PREV" /tmp/beta65.apk
+
+      - name: F - actual signed package upgrade Beta65 to live OTA Beta66
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_2
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          disable-animations: true
+          script: |
+            set -Eeuo pipefail
+            adb install /tmp/beta65.apk
+            adb shell dumpsys package "$EXPECTED_PACKAGE" > /tmp/before-package.txt
+            grep -q 'versionName=0.4.2-beta.65' /tmp/before-package.txt
+            grep -Eq 'versionCode=71([^0-9]|$)' /tmp/before-package.txt
+            adb install -r /tmp/ota-live.apk
+            adb shell dumpsys package "$EXPECTED_PACKAGE" > /tmp/after-package.txt
+            grep -q 'versionName=0.4.2-beta.66' /tmp/after-package.txt
+            grep -Eq 'versionCode=72([^0-9]|$)' /tmp/after-package.txt
+            adb shell monkey -p "$EXPECTED_PACKAGE" -c android.intent.category.LAUNCHER 1 >/tmp/launch.txt 2>&1 || true
+            sleep 2
+            adb shell dumpsys activity activities | grep -q "$EXPECTED_PACKAGE"
+            cp /tmp/before-package.txt /tmp/evidence/F-before-package.txt
+            cp /tmp/after-package.txt /tmp/evidence/F-after-package.txt
+            cp /tmp/launch.txt /tmp/evidence/F-launch.txt
+            printf 'F=PASS\nfrom=0.4.2-beta.65/71\nto=0.4.2-beta.66/72\nsource=LIVE_OTA_EXACT_BYTES\n' > /tmp/evidence/F-upgrade.txt
+
+      - name: I - publish exact GitHub prerelease and read back
+        id: release
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          API="https://api.github.com/repos/$GITHUB_REPOSITORY"
+          CODE=$(curl -sS -o /tmp/release-get.json -w '%{http_code}' -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' "$API/releases/tags/$TAG")
+          if [[ "$CODE" == 404 ]]; then
+            python3 - <<'PY' > /tmp/release-create.json
+          import json,os
+          print(json.dumps({'tag_name':os.environ['TAG'],'target_commitish':os.environ['PRODUCT_SOURCE_SHA'],'name':'Pick Pack 1291 '+os.environ['TARGET_VERSION']+' Public Beta','body':'Beta66 exact locked candidate. Login full-frame parity release. Stable untouched; Service S64 unchanged.','draft':False,'prerelease':True}))
+          PY
+            curl -fsS -X POST -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' -H 'Content-Type: application/json' --data-binary @/tmp/release-create.json "$API/releases" > /tmp/release.json
+          elif [[ "$CODE" == 200 ]]; then cp /tmp/release-get.json /tmp/release.json; else cat /tmp/release-get.json; exit 1; fi
+          RID=$(python3 -c 'import json;print(json.load(open("/tmp/release.json"))["id"])')
+          # Reuse exact asset if already correct; replace only a same-name mismatched release asset.
+          python3 - "$APK_NAME" <<'PY' > /tmp/asset-id
+          import json,sys
+          j=json.load(open('/tmp/release.json')); name=sys.argv[1]
+          a=next((x for x in j.get('assets',[]) if x.get('name')==name),None)
+          print(a.get('id','') if a else '')
+          PY
+          AID=$(cat /tmp/asset-id)
+          if [[ -n "$AID" ]]; then
+            curl -fLsS -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/octet-stream' "$API/releases/assets/$AID" -o /tmp/existing-asset.apk
+            if [[ "$(sha256sum /tmp/existing-asset.apk|awk '{print $1}')" != "$EXPECTED_SHA" ]]; then
+              curl -fsS -X DELETE -H "Authorization: Bearer $GH_TOKEN" "$API/releases/assets/$AID" >/dev/null; AID=''
+            fi
+          fi
+          if [[ -z "$AID" ]]; then
+            UPLOAD="https://uploads.github.com/repos/$GITHUB_REPOSITORY/releases/$RID/assets?name=$APK_NAME"
+            curl -fsS -X POST -H "Authorization: Bearer $GH_TOKEN" -H 'Content-Type: application/vnd.android.package-archive' --data-binary "@/tmp/beta66/$APK_NAME" "$UPLOAD" > /tmp/asset.json
+            AID=$(python3 -c 'import json;print(json.load(open("/tmp/asset.json"))["id"])')
+          fi
+          curl -fLsS -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/octet-stream' "$API/releases/assets/$AID" -o /tmp/release-readback.apk
+          [[ "$(sha256sum /tmp/release-readback.apk|awk '{print $1}')" == "$EXPECTED_SHA" && "$(stat -c%s /tmp/release-readback.apk)" == "$EXPECTED_SIZE" ]]
+          echo "release_id=$RID" >> "$GITHUB_OUTPUT"; echo "asset_id=$AID" >> "$GITHUB_OUTPUT"
+          printf 'I=PASS\nrelease_id=%s\nasset_id=%s\ntag=%s\nsha256=%s\n' "$RID" "$AID" "$TAG" "$EXPECTED_SHA" > /tmp/evidence/I-github-prerelease.txt
+
+      - name: J - final S64 service health authority and replication
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          curl -fsSL --retry 5 "$SERVICE_URL/api/v1/health" > /tmp/service-health.json
+          curl -fsSL --retry 5 "$SERVICE_URL/api/v1/s1/health" > /tmp/service-s1.json
+          curl -fsSL --retry 5 "$CANONICAL_SERVICE_URL/api/v1/health" > /tmp/service-canonical.json
+          python3 - <<'PY'
+          import json
+          h=json.load(open('/tmp/service-health.json')); s=json.load(open('/tmp/service-s1.json')); c=json.load(open('/tmp/service-canonical.json'))
+          assert h.get('ok') is True,h
+          assert h.get('service')=='PICK_PACK_EDGE_S64',h
+          assert c.get('ok') is True and c.get('service')=='PICK_PACK_EDGE_S64',c
+          text=str(h).upper(); assert 'SERVICE_PRIMARY' in text or h.get('authority') in ('SERVICE_PRIMARY','PRODUCTION'),h
+          # S1 endpoint must itself be healthy; preserve exact evidence for detailed replication fields.
+          assert s.get('ok') is True,s
+          PY
+          cp /tmp/service-health.json /tmp/evidence/J-service-health.json; cp /tmp/service-s1.json /tmp/evidence/J-service-s1.json; cp /tmp/service-canonical.json /tmp/evidence/J-service-canonical.json
+          printf 'J=PASS\nservice=S64\n' > /tmp/evidence/J-pass.txt
+
+      - name: K - persist complete final release receipt
+        id: receipt
+        shell: bash
+        env:
+          APK_ID: ${{ steps.drive.outputs.apk_id }}
+          SUM_ID: ${{ steps.drive.outputs.sum_id }}
+          GAS_VERSION: ${{ steps.deploy.outputs.version }}
+          DEPLOYMENT_ID: ${{ steps.auth.outputs.deployment_id }}
+          RELEASE_ID: ${{ steps.release.outputs.release_id }}
+          RELEASE_ASSET_ID: ${{ steps.release.outputs.asset_id }}
+        run: |
+          set -Eeuo pipefail
+          cat > ops/BETA66_FINAL_RELEASE_RECEIPT.txt <<EOF
+          PICK_PACK_1291 BETA66 FINAL RELEASE RECEIPT
+          RELEASE_STATE=PASS
+          RUN_ID=$GITHUB_RUN_ID
+          RUN_ATTEMPT=$GITHUB_RUN_ATTEMPT
+          PRODUCT_SOURCE_SHA=$PRODUCT_SOURCE_SHA
+          CANDIDATE_ARTIFACT_ID=$CANDIDATE_ARTIFACT_ID
+          VERSION=$TARGET_VERSION
+          VERSION_CODE=$TARGET_CODE
+          PACKAGE=$EXPECTED_PACKAGE
+          SIGNER_SHA256=$EXPECTED_SIGNER_SHA256
+          APK_SHA256=$EXPECTED_SHA
+          APK_SIZE=$EXPECTED_SIZE
+          DRIVE_FOLDER_ID=$BETA_FOLDER_ID
+          DRIVE_APK_ID=$APK_ID
+          DRIVE_CHECKSUM_ID=$SUM_ID
+          GAS_URL=$GAS_URL
+          GAS_DEPLOYMENT_ID=$DEPLOYMENT_ID
+          GAS_VERSION=$GAS_VERSION
+          OTA_FROM=$FROM_VERSION
+          OTA_TO=$TARGET_VERSION
+          OTA_UPGRADE=PASS_ACTUAL_EMULATOR
+          BETA_SELF_UPDATE=PASS_NO_UPDATE
+          STABLE=0.1.0-stable/VC1_UNTOUCHED
+          STABLE_UPDATE=PASS_NO_UPDATE
+          GITHUB_TAG=$TAG
+          GITHUB_RELEASE_ID=$RELEASE_ID
+          GITHUB_ASSET_ID=$RELEASE_ASSET_ID
+          GITHUB_READBACK_SHA256=$EXPECTED_SHA
+          SERVICE=S64
+          SERVICE_URL=$SERVICE_URL
+          SERVICE_CANONICAL=$CANONICAL_SERVICE_URL
+          SERVICE_HEALTH=PASS
+          A=PASS
+          B=PASS
+          C=PASS
+          D=PASS
+          E=PASS
+          F=PASS
+          G=PASS
+          H=PASS
+          I=PASS
+          J=PASS
+          K=PASS
+          EOF
+          git config user.name 'github-actions[bot]'; git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add ops/BETA66_FINAL_RELEASE_RECEIPT.txt
+          git commit -m 'release: persist Beta66 exact final receipt'
+          git push origin HEAD:release/beta66-final-exact-20260824
+          cp ops/BETA66_FINAL_RELEASE_RECEIPT.txt /tmp/evidence/K-final-receipt.txt
+
+      - name: Upload A-K final evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: beta66-exact-final-release-evidence
+          path: /tmp/evidence
+          retention-days: 30
+          if-no-files-found: warn
