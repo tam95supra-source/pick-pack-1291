@@ -1,0 +1,14 @@
+run_id=32760649134
+source_sha=ee3d7678b8764bcc0b0d354b00e992bbfb7dc69e
+outcome=failure
+rc=1
+--- exact_tail ---
+Beta64 owner seven fixes materialization PASS
+Beta64 residual reissue compile fix PASS
+BETA65_SESSION_RESOURCE_LOGIN_PARITY_MATERIALIZE_PASS
+BETA65_BEHAVIOR_COMPILE_FIX_PASS
+BETA65_SCOPE_COMPILE_FIX_PASS
+BETA65_LOGIN_REFERENCE_FINISH_PASS
+BETA66_LOGIN_FULLFRAME_PASS
+BETA68_OWNER_FIVE_FIXES_PASS
+Session change helper marker missing
