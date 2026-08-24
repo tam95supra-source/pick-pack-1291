@@ -1,0 +1,82 @@
+name: Beta69 locked candidate visual matrix v5
+on:
+  push:
+    branches: [ release/beta69-owner-six-fixes-20260825 ]
+    paths: [ 'ops/TRIGGER_BETA69_VISUAL_MATRIX_V5.txt' ]
+permissions:
+  contents: write
+  actions: read
+jobs:
+  visual:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    env:
+      ARTIFACT_ID: '9533366227'
+      EXPECTED_SHA: 251530388165c7a9a8572053238b5d44b47a6747c5e94f270230e65ce68d4cda
+      EXPECTED_SIZE: '13114245'
+      BRANCH: release/beta69-owner-six-fixes-20260825
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: '${{ github.sha }}', fetch-depth: 0}
+      - name: Fetch exact locked candidate
+        shell: bash
+        env: {GH_TOKEN: '${{ github.token }}'}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/beta69 /tmp/visual
+          gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${ARTIFACT_ID}/zip" > /tmp/beta69/candidate.zip
+          unzip -q /tmp/beta69/candidate.zip -d /tmp/beta69/artifact
+          APK=$(find /tmp/beta69/artifact -type f -name 'pick-pack-1291-public-beta-0.4.2-beta.69.apk' | head -1)
+          test -n "$APK"
+          test "$(sha256sum "$APK" | awk '{print $1}')" = "$EXPECTED_SHA"
+          test "$(stat -c '%s' "$APK")" = "$EXPECTED_SIZE"
+          echo "APK=$APK" >> "$GITHUB_ENV"
+      - name: Enable KVM
+        shell: bash
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules >/dev/null
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm || true
+          sudo chmod 666 /dev/kvm || true
+      - name: Run real locked APK visual matrix
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 29
+          target: default
+          arch: x86_64
+          profile: pixel_2
+          emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-metrics
+          script: |
+            adb install -r "$APK"
+            python3 tools/run_beta69_locked_visual_v5.py
+      - name: Upload visual evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: beta69-locked-candidate-visual-matrix-v5
+          path: /tmp/visual
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Persist receipt
+        if: always()
+        shell: bash
+        env: {GH_TOKEN: '${{ github.token }}'}
+        run: |
+          STATUS=FAIL
+          test -f /tmp/visual/runtime-summary.txt && STATUS=RUNTIME_PASS_AWAITING_HUMAN_INSPECTION
+          {
+            echo "status=$STATUS"
+            echo "run_id=$GITHUB_RUN_ID"
+            echo "candidate_artifact=$ARTIFACT_ID"
+            echo "candidate_sha256=$EXPECTED_SHA"
+            echo "candidate_size=$EXPECTED_SIZE"
+            echo "version=0.4.2-beta.69"
+            echo "version_code=75"
+            echo "package=vn.pickpack1291.app.beta.publicbeta"
+            echo "matrix=320x568@160,360x640@160,480x800@240"
+            test -f /tmp/visual/runtime-summary.txt && cat /tmp/visual/runtime-summary.txt || true
+            test -f /tmp/visual/failure.txt && { echo failure:; cat /tmp/visual/failure.txt; } || true
+          } > /tmp/receipt.txt
+          CONTENT=$(base64 -w0 /tmp/receipt.txt)
+          gh api --method PUT "repos/${GITHUB_REPOSITORY}/contents/ops/beta69-visual-matrix-v5-result.txt" -f message='ops: record Beta69 visual matrix v5' -f content="$CONTENT" -f branch="$BRANCH" >/dev/null || true
+          cat /tmp/receipt.txt
