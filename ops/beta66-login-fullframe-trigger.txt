@@ -5,3 +5,4 @@ target_beta=0.4.2-beta.66
 target_code=72
 stable_publish=FORBIDDEN
 service_change=NONE_KEEP_S64
+revision=2-full-responsive-fit
