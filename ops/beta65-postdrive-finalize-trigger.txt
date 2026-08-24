@@ -1,0 +1,4 @@
+trigger=2026-08-24T14:52+07:00
+drive_apk_id=1F2Xu0PQ7tiIWcNDlz9yUTsXBee6RWP39
+drive_checksum_id=12iSOQ-AwToKY74ylGa4Wb5iVnQXdF8RC
+apk_sha256=be728cd8d20d6033becbfb169db89565f6078a681d47bc9079f98f9f5758e1da
