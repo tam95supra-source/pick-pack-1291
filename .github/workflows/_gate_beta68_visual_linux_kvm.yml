@@ -70,20 +70,26 @@ jobs:
           emulator-boot-timeout: 600
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot-save
           script: |
-            set -eu
             mkdir -p visual
             adb install -r visual-input/app-beta-debug.apk >/dev/null
-            for spec in '320x568:160:login-320x568.png' '360x640:160:login-360x640.png' '480x800:240:login-480x800.png'; do
-              IFS=: read -r size density name <<EOF
-            $spec
-            EOF
-              adb shell wm size "$size"
-              adb shell wm density "$density"
-              adb shell am force-stop vn.pickpack1291.app.beta.publicbeta
-              adb shell am start -W -n vn.pickpack1291.app.beta.publicbeta/vn.pickpack1291.app.beta.FullBetaActivity >/dev/null
-              sleep 2
-              adb exec-out screencap -p > "visual/$name"
-            done
+            adb shell wm size 320x568
+            adb shell wm density 160
+            adb shell am force-stop vn.pickpack1291.app.beta.publicbeta
+            adb shell am start -W -n vn.pickpack1291.app.beta.publicbeta/vn.pickpack1291.app.beta.FullBetaActivity >/dev/null
+            sleep 2
+            adb exec-out screencap -p > visual/login-320x568.png
+            adb shell wm size 360x640
+            adb shell wm density 160
+            adb shell am force-stop vn.pickpack1291.app.beta.publicbeta
+            adb shell am start -W -n vn.pickpack1291.app.beta.publicbeta/vn.pickpack1291.app.beta.FullBetaActivity >/dev/null
+            sleep 2
+            adb exec-out screencap -p > visual/login-360x640.png
+            adb shell wm size 480x800
+            adb shell wm density 240
+            adb shell am force-stop vn.pickpack1291.app.beta.publicbeta
+            adb shell am start -W -n vn.pickpack1291.app.beta.publicbeta/vn.pickpack1291.app.beta.FullBetaActivity >/dev/null
+            sleep 2
+            adb exec-out screencap -p > visual/login-480x800.png
       - name: Enforce screenshot evidence
         shell: bash
         run: |
