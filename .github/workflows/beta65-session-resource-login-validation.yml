@@ -43,6 +43,7 @@ jobs:
           python3 tools/apply_beta64_compile_fix.py
           python3 tools/apply_beta65_session_resource_login_parity.py
           python3 tools/apply_beta65_behavior_compile_fix.py
+          python3 tools/apply_beta65_scope_compile_fix.py
       - name: Static finalized-logic assertions
         run: |
           python3 - <<'PY'
@@ -56,6 +57,7 @@ jobs:
           login=f[f.index('private fun login()'):f.index('private fun openMainShell()')]
           assert 'CENTER_CROP' not in login and 'FIT_XY' not in login and 'Reference-stage layout' in login
           assert 'rebuildResources()' in o
+          assert o.count('private fun editableTime(iso:String):String') == 1
           print('BETA65_FINALIZED_LOGIC_STATIC_PASS')
           PY
       - name: Compile Beta and Stable isolation
