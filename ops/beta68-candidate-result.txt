@@ -1,6 +1,6 @@
 verdict=failure
-run_id=32745197733
-source_sha=67ea10ed9db70ff405e993ab1664915424707044
+run_id=32745528565
+source_sha=4560ce07113900d962d680b212a6b3d6c1c37975
 branch=agent/beta68-from-beta66-20260824
 beta_name=0.4.2-beta.68
 beta_code=74
