@@ -107,42 +107,105 @@ class FullBetaActivity : Activity() {
         currentScreen = "LOGIN"
         accountLogin = ""; accountName = ""; accountRole = ""; accountPosition = ""; accountEmail = ""
 
-        val user = input("Nhập tài khoản", false)
+        window.statusBarColor = Color.rgb(218, 29, 22)
+        window.navigationBarColor = Color.rgb(5, 45, 91)
+        @Suppress("DEPRECATION")
+        window.decorView.systemUiVisibility = 0
+
+        val compact = resources.configuration.screenHeightDp < 690 || resources.configuration.screenWidthDp < 360
+        val veryCompact = resources.configuration.screenHeightDp < 590
+        val user = EditText(this).apply {
+            hint = "Tài khoản"; setSingleLine(true); textSize = if(compact) 14f else 15f
+            setTextColor(Color.rgb(28, 50, 77)); setHintTextColor(Color.rgb(145, 155, 170)); background = null
+            setPadding(dp(6), 0, dp(4), 0); imeOptions = EditorInfo.IME_ACTION_NEXT
+        }
         val saved = getPreferences(MODE_PRIVATE).getString("last_login", "").orEmpty()
         if (saved.isNotBlank()) user.setText(saved)
-        val pass = input("Nhập mật khẩu", true).apply { imeOptions = EditorInfo.IME_ACTION_DONE }
-
-        val card = column(surface).apply {
-            gravity = Gravity.CENTER_HORIZONTAL
-            setPadding(dp(24), dp(24), dp(24), dp(24))
-            background = round(surface, 20) // S34_OWNER_SIX_REQUESTS: clean solid rounded login card
-            elevation = 0f
-            clipToOutline = true
+        val pass = EditText(this).apply {
+            hint = "Mật khẩu"; setSingleLine(true); textSize = if(compact) 14f else 15f
+            setTextColor(Color.rgb(28, 50, 77)); setHintTextColor(Color.rgb(145, 155, 170)); background = null
+            setPadding(dp(6), 0, dp(4), 0); imeOptions = EditorInfo.IME_ACTION_DONE
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
         }
-        card.addView(txt("Pick Pack 1291", 25f, navy, true).center())
-        card.addView(txt("Supra DC Hưng Yên", 12f, accent, true).center())
-        card.addView(gap(5))
-        card.addView(txt("KHU VỰC ĐĂNG NHẬP", 10.2f, muted, true).center())
-        card.addView(gap(20))
-        card.addView(labelled("Tài khoản", user)); card.addView(gap(10))
-        card.addView(labelled("Mật khẩu", pass)); card.addView(gap(5))
-        val showPassword = CheckBox(this).apply {
-            text = "Hiện mật khẩu"; textSize = 10.8f; setTextColor(muted); setPadding(0,0,0,0)
-            setOnCheckedChangeListener { _, checked ->
-                val cursor=pass.selectionStart.coerceAtLeast(0)
-                pass.inputType=InputType.TYPE_CLASS_TEXT or if(checked) InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD else InputType.TYPE_TEXT_VARIATION_PASSWORD
-                pass.setSelection(cursor.coerceAtMost(pass.text.length))
+
+        fun loginField(iconRes: Int, field: EditText, trailing: View? = null): LinearLayout = row(Color.WHITE).apply {
+            gravity = Gravity.CENTER_VERTICAL
+            minimumHeight = dp(if(compact) 48 else 54)
+            setPadding(dp(12), dp(3), dp(8), dp(3))
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = dp(11).toFloat()
+                setColor(Color.argb(248, 255, 255, 255))
+                setStroke(dp(1), Color.rgb(187, 198, 212))
+            }
+            addView(ImageView(this@FullBetaActivity).apply {
+                setImageResource(iconRes); scaleType = ImageView.ScaleType.CENTER_INSIDE
+            }, size(dp(27), dp(27)))
+            addView(field, LinearLayout.LayoutParams(0, dp(if(compact) 44 else 48), 1f))
+            if (trailing != null) addView(trailing, size(dp(42), dp(42)))
+        }
+
+        var passwordVisible = false
+        val eye = ImageButton(this).apply {
+            setImageResource(R.drawable.ic_login_eye); setBackgroundColor(Color.TRANSPARENT); contentDescription = "Hiện mật khẩu"
+            setPadding(dp(8), dp(8), dp(8), dp(8)); alpha = 0.82f
+            setOnClickListener {
+                passwordVisible = !passwordVisible
+                val cursor = pass.selectionStart.coerceAtLeast(0)
+                pass.inputType = InputType.TYPE_CLASS_TEXT or if(passwordVisible) InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD else InputType.TYPE_TEXT_VARIATION_PASSWORD
+                pass.setSelection(cursor.coerceAtMost(pass.text.length)); alpha = if(passwordVisible) 1f else 0.82f
+                contentDescription = if(passwordVisible) "Ẩn mật khẩu" else "Hiện mật khẩu"
             }
         }
-        card.addView(showPassword,matchWrap()); card.addView(gap(10))
 
-        val button = primary("ĐĂNG NHẬP", teal) {}.apply{background=gradient(navy,accent,14)}
+        val card = column(Color.WHITE).apply {
+            gravity = Gravity.CENTER_HORIZONTAL
+            setPadding(dp(if(compact) 18 else 24), dp(if(compact) 16 else 22), dp(if(compact) 18 else 24), dp(if(compact) 17 else 22))
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE; cornerRadius = dp(24).toFloat(); setColor(Color.argb(250,255,255,255))
+                setStroke(dp(1), Color.argb(70, 114, 139, 170))
+            }
+            elevation = dp(11).toFloat()
+            clipToOutline = false
+        }
+
+        card.addView(ImageView(this).apply {
+            setImageResource(R.drawable.login_supra_logo); adjustViewBounds = true; scaleType = ImageView.ScaleType.FIT_CENTER
+        }, size(dp(if(compact) 122 else 142), dp(if(compact) 140 else 164)))
+        card.addView(txt("Supra DC Hưng Yên", if(compact) 17f else 19f, Color.rgb(17, 75, 151), true).center())
+        card.addView(gap(if(compact) 13 else 17))
+        card.addView(loginField(R.drawable.ic_login_user, user), matchWrap())
+        card.addView(gap(if(compact) 8 else 10))
+        card.addView(loginField(R.drawable.ic_login_lock, pass, eye), matchWrap())
+        card.addView(gap(4))
+
+        val forgot = TextView(this).apply {
+            text = "Quên mật khẩu?"; textSize = if(compact) 11.5f else 12f; setTextColor(Color.rgb(12, 72, 156)); typeface = Typeface.DEFAULT_BOLD
+            gravity = Gravity.END; setPadding(dp(6), dp(6), 0, dp(7))
+            setOnClickListener {
+                val loginId = user.text.toString().trim()
+                if (loginId.isBlank()) { toast("Nhập đúng tài khoản trước khi chọn Quên mật khẩu."); return@setOnClickListener }
+                isEnabled = false; text = "Đang gửi yêu cầu..."
+                api.forgotPassword(loginId) { r -> runOnUiThread {
+                    isEnabled = true; text = "Quên mật khẩu?"
+                    if (!r.ok) { showError(r.error ?: "Không gửi được yêu cầu đặt lại mật khẩu"); return@runOnUiThread }
+                    TopNotice.show(this@FullBetaActivity,"Nếu tài khoản hợp lệ, mật khẩu mới đã được gửi tới mail đã cấu hình.",TopNotice.Kind.SUCCESS)
+                } }
+            }
+        }
+        card.addView(forgot, matchWrap())
+        card.addView(gap(if(compact) 5 else 7))
+
+        val button = Button(this).apply {
+            text = "Đăng nhập"; textSize = if(compact) 15f else 16f; setTextColor(Color.WHITE); typeface = Typeface.DEFAULT_BOLD
+            isAllCaps = false; minimumHeight = dp(if(compact) 49 else 54); background = gradient(Color.rgb(17, 84, 184), Color.rgb(6, 57, 137), 13)
+        }
         fun submit() {
             val login = user.text.toString().trim(); val password = pass.text.toString()
             if (login.isBlank() || password.isBlank()) { toast("Nhập tài khoản và mật khẩu."); return }
-            button.isEnabled = false; button.text = "ĐANG XÁC THỰC..."
+            button.isEnabled = false; button.text = "Đang xác thực..."
             api.login(login, password) { result -> runOnUiThread {
-                button.isEnabled = true; button.text = "ĐĂNG NHẬP"
+                button.isEnabled = true; button.text = "Đăng nhập"
                 if (!result.ok) { showError(result.error ?: "Đăng nhập thất bại"); return@runOnUiThread }
                 val a = result.json?.optJSONObject("account") ?: JSONObject()
                 accountLogin = a.optString("login_id", login)
@@ -152,47 +215,40 @@ class FullBetaActivity : Activity() {
                 accountEmail = a.optString("email", "")
                 getPreferences(MODE_PRIVATE).edit().putString("last_login", accountLogin).apply()
                 pass.setText("")
+                openMainShell()
                 if (MasterDataCache.revision(this@FullBetaActivity) == 0L) refreshMasterCache()
                 LocalLogManager.uploadAutomaticPending(this@FullBetaActivity, api)
-                openMainShell()
             } }
         }
         button.setOnClickListener { submit() }
+        user.setOnEditorActionListener { _, actionId, _ -> if(actionId == EditorInfo.IME_ACTION_NEXT){ pass.requestFocus(); true } else false }
         pass.setOnEditorActionListener { _, actionId, _ -> if (actionId == EditorInfo.IME_ACTION_DONE) { submit(); true } else false }
         card.addView(button, matchWrap())
-        card.addView(gap(9))
-        card.addView(TextView(this).apply {
-            text = "QUÊN MẬT KHẨU?"
-            textSize = 11.5f
-            setTextColor(teal)
-            typeface = Typeface.DEFAULT_BOLD
-            gravity = Gravity.CENTER
-            setPadding(dp(8), dp(8), dp(8), dp(8))
-            setOnClickListener {
-                val loginId = user.text.toString().trim()
-                if (loginId.isBlank()) { toast("Nhập đúng tài khoản trước khi chọn Quên mật khẩu."); return@setOnClickListener }
-                isEnabled = false
-                text = "ĐANG GỬI YÊU CẦU..."
-                api.forgotPassword(loginId) { r -> runOnUiThread {
-                    isEnabled = true; text = "QUÊN MẬT KHẨU?"
-                    if (!r.ok) { showError(r.error ?: "Không gửi được yêu cầu đặt lại mật khẩu"); return@runOnUiThread }
-                    TopNotice.show(this@FullBetaActivity,"Nếu tài khoản hợp lệ, mật khẩu mới đã được gửi tới mail đã cấu hình.",TopNotice.Kind.SUCCESS)
-                } }
-            }
-        }, matchWrap())
-        card.addView(gap(4))
+        card.addView(gap(if(compact) 8 else 10))
         card.addView(Button(this).apply {
-            text="ĐĂNG KÝ"; textSize=11.5f; setTextColor(navy); typeface=Typeface.DEFAULT_BOLD; isAllCaps=false; minHeight=dp(44); background=outlineBg(surface,12)
-            setOnClickListener{TopNotice.show(this@FullBetaActivity,"Tính năng đăng ký đang được xây dựng.",TopNotice.Kind.INFO)}
-        },matchWrap())
+            text = "Đăng ký"; textSize = if(compact) 13f else 14f; setTextColor(Color.rgb(13, 73, 155)); typeface = Typeface.DEFAULT_BOLD; isAllCaps = false
+            minimumHeight = dp(if(compact) 47 else 51)
+            background = GradientDrawable().apply { shape = GradientDrawable.RECTANGLE; cornerRadius = dp(12).toFloat(); setColor(Color.argb(246,255,255,255)); setStroke(dp(1), Color.rgb(22, 82, 168)) }
+            setOnClickListener { TopNotice.show(this@FullBetaActivity,"Tính năng đăng ký đang được xây dựng.",TopNotice.Kind.INFO) }
+        }, matchWrap())
 
-        val holder = FrameLayout(this).apply {
-            background=GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,intArrayOf(Color.rgb(239,247,250),Color.WHITE))
-            minimumHeight = (resources.displayMetrics.heightPixels - dp(70)).coerceAtLeast(dp(560))
-            setPadding(dp(18), dp(18), dp(18), dp(18))
-            addView(card, FrameLayout.LayoutParams(-1, -2, Gravity.CENTER))
+        val root = FrameLayout(this).apply {
+            setBackgroundColor(Color.rgb(247, 238, 214))
+            addView(ImageView(this@FullBetaActivity).apply {
+                setImageResource(R.drawable.login_vietnam_bg); scaleType = ImageView.ScaleType.CENTER_CROP
+            }, FrameLayout.LayoutParams(-1, -1))
         }
-        setScreen(ScrollView(this).apply { isFillViewport = true; addView(holder) })
+        val scroll = ScrollView(this).apply { isFillViewport = true; isVerticalScrollBarEnabled = false }
+        val stage = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL
+            val top = when { veryCompact -> dp(72); compact -> dp(105); else -> dp(155) }
+            val bottom = if(veryCompact) dp(28) else dp(88)
+            setPadding(dp(16), top, dp(16), bottom)
+            addView(card, LinearLayout.LayoutParams(minOf(dp(430), resources.displayMetrics.widthPixels - dp(32)), -2))
+        }
+        scroll.addView(stage, ViewGroup.LayoutParams(-1, -2)); root.addView(scroll, FrameLayout.LayoutParams(-1, -1))
+        setScreen(root)
+        user.requestFocus()
     }
 
     private fun openMainShell() {
