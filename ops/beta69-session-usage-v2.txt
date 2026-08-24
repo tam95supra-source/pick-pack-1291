@@ -1,0 +1,167 @@
+360-            }};return
+361-        }
+362-        when(state){"ACTIVE"->renderActive(body,ctx);"ENDED"->renderEnded(body,ctx);else->renderEnter(body,ctx,masters?:JSONObject())}
+363-        root.addView(ScrollView(this).apply{addView(body)},LinearLayout.LayoutParams(-1,0,1f));setScreen(root);hideKeyboardForResult(root,scan)
+364-    }
+365-
+366-
+367-    private fun sameEmployeeContext(mnv:String,generation:Long):Boolean = screenState=="EMPLOYEE" && liveEmployeeMnv.trim()==mnv.trim() && employeeLookupGeneration==generation
+368-    private fun scheduleAttendanceAutoReset(mnv:String,generation:Long){
+369-        val expected=mnv.trim()
+370-        android.os.Handler(mainLooper).postDelayed({ if(sameEmployeeContext(expected,generation))employeeScan() },650L)
+371-    }
+372-
+373-    // S48_BETA42_SHIFT_WORK_SUMMARY: local-first shift timeline + explicit PDA identity.
+374:    private fun sessionWorkDetail(payload:JSONObject):String{
+375:        val ops=payload.optJSONArray("operations")
+376-        if(ops!=null&&ops.length()>0){
+377-            val out=mutableListOf<String>()
+378-            for(i in 0 until ops.length()){
+379-                val x=ops.optJSONObject(i)?:continue;val op=x.optString("op").uppercase();val t=x.optString("resource_type");val id=x.optString("resource_id");val key=x.optString("position_label").ifBlank{x.optString("position_key")}
+380-                val s=when(op){"ADD_RESOURCE"->"Thêm $t $id";"REMOVE_RESOURCE"->"Xóa $t $id • ${x.optString("reason")}";"ADD_POSITION"->"Thêm vị trí $key";"REMOVE_POSITION"->"Xóa vị trí $key";"UPDATE_SHIFT"->"Sửa ca ${x.optString("shift")}";else->op}
+381-                if(s.isNotBlank())out.add(s)
+382-            }
+383-            if(out.isNotEmpty())return out.joinToString(" • ")
+384-        }
+385-        val parts=mutableListOf<String>();payload.optString("work_choice").trim().takeIf{it.isNotBlank()}?.let{parts.add(it)}
+386-        payload.optString("pda_serial").trim().takeIf{it.isNotBlank()}?.let{parts.add("PDA $it")};payload.optString("user_pick").trim().takeIf{it.isNotBlank()}?.let{parts.add("User Pick $it")};payload.optString("pack_table").trim().takeIf{it.isNotBlank()}?.let{parts.add("Bàn $it")};payload.optString("user_pack").trim().takeIf{it.isNotBlank()}?.let{parts.add("User Pack $it")}
+387-        payload.optString("labor_type").trim().takeIf{it.isNotBlank()}?.let{parts.add("Công nhật: $it")};return parts.joinToString(" • ")
+388-    }
+389-
+390-
+391-    private fun sessionTimelineItems(mnv:String,ses:JSONObject):MutableList<JSONObject>{
+392-        val merged=LinkedHashMap<String,JSONObject>();val date=ses.optString("business_date").ifBlank{operationalStore.businessDate()};val currentSessionId=ses.optString("session_id").trim();val enterMs=runCatching{Instant.parse(ses.optString("enter_at")).toEpochMilli()}.getOrDefault(0L);val exitMs=runCatching{Instant.parse(ses.optString("exit_at")).toEpochMilli()}.getOrDefault(Long.MAX_VALUE)
+393-        fun sameSession(e:JSONObject,p:JSONObject,localAt:Long=0L):Boolean{val sid=e.optString("session_id").ifBlank{p.optString("session_id")}.trim();if(currentSessionId.isNotBlank()&&sid.isNotBlank())return sid==currentSessionId;val ms=if(localAt>0L)localAt else runCatching{Instant.parse(e.optString("committed_at").ifBlank{e.optString("occurred_at").ifBlank{e.optString("at_iso").ifBlank{e.optString("at")}}}).toEpochMilli()}.getOrDefault(0L);return enterMs>0L&&ms>=enterMs&&ms<=exitMs}
+394:        val allowed=setOf("ATTENDANCE_ENTER","ENTER","RESOURCE_CHANGE","RESOURCE","LABOR_START","LABOR_FINISH","ATTENDANCE_EXIT","EXIT","ATTENDANCE_TIME_CORRECTED","ATTENDANCE_EXIT_DELETED")
+395-        fun payload(e:JSONObject):JSONObject{val raw=e.optString("payload_json");if(raw.isNotBlank())return runCatching{JSONObject(raw)}.getOrDefault(JSONObject());return e.optJSONObject("payload")?:JSONObject()}
+396-        fun detail(type:String,e:JSONObject,p:JSONObject):String{
+397-            if(type=="ATTENDANCE_TIME_CORRECTED"){val field=if(p.optString("field")=="enter_at")"Giờ vào" else "Giờ ra";return "$field: ${formatIso(p.optString("before_value"))} → ${formatIso(p.optString("after_value"))} • Lý do: ${p.optString("reason").ifBlank{"—"}}"}
+398-            if(type=="ATTENDANCE_EXIT_DELETED")return "Xóa mốc ra ca ${formatIso(p.optString("before_exit_at"))} • Lý do: ${p.optString("reason").ifBlank{"—"}}"
+399:            if(type=="RESOURCE_CHANGE"){val before=p.optJSONObject("before")?:JSONObject();val after=p.optJSONObject("after")?:JSONObject();val kind=p.optString("mutation_kind").uppercase();val verb=when(kind){"ADD"->"Thêm";"DELETE"->"Xóa";else->"Sửa"};return "$verb • Trước: ${sessionWorkDetail(before).ifBlank{"—"}} • Sau: ${sessionWorkDetail(after).ifBlank{"—"}}"}
+400:            return e.optString("detail").ifBlank{sessionWorkDetail(p)}
+401-        }
+402-        val day=operationalStore.loadDay(date);val events=day?.optJSONArray("events")?:JSONArray()
+403-        for(i in 0 until events.length()){
+404-            val e=events.optJSONObject(i)?:continue;val p=payload(e);val who=e.optString("mnv").ifBlank{p.optString("mnv")}.trim();if(who!=mnv||!sameSession(e,p))continue
+405-            val type=e.optString("event_type").uppercase();if(type !in allowed)continue
+406-            val copy=JSONObject(e.toString()).put("timeline_source","CANONICAL").put("mnv",mnv).put("detail",detail(type,e,p)).put("actor",e.optString("actor").ifBlank{e.optString("actor_id")})
+407-            if(copy.optString("at_iso").isBlank())copy.put("at_iso",e.optString("committed_at").ifBlank{e.optString("occurred_at")})
+408-            val id=copy.optString("event_id").ifBlank{"canonical:$date:$i:${copy.optString("at_iso")}"};merged[id]=copy
+409-        }
+410-        for(local in operationalStore.localHistoryAll()){
+411-            val id=local.optString("event_id").trim();if(id.isBlank())continue;val body=local.optJSONObject("body")?:JSONObject();val p=body.optJSONObject("payload")?:body;if(p.optString("mnv").trim()!=mnv||!sameSession(body,p,local.optLong("queued_at",0L)))continue
+412:            val action=body.optString("action").trim();val type=when(action){"enter"->"ATTENDANCE_ENTER";"resource_change"->"RESOURCE_CHANGE";"labor_start"->"LABOR_START";"labor_finish"->"LABOR_FINISH";"exit"->"ATTENDANCE_EXIT";else->""};if(type.isBlank())continue
+413-            val existing=merged[id];if(existing!=null){existing.put("local_status",local.optString("status")).put("local_error",local.optString("error")).put("local_queued_at",local.optLong("queued_at",0L));continue}
+414:            val label=when(type){"ATTENDANCE_ENTER"->"Vào ca";"RESOURCE_CHANGE"->"Cập nhật công việc";"LABOR_START"->"Bắt đầu công nhật";"LABOR_FINISH"->"Hoàn thành công nhật";"ATTENDANCE_EXIT"->"Ra ca";else->action}
+415:            merged[id]=JSONObject().put("event_id",id).put("event_type",type).put("label",label).put("mnv",mnv).put("actor","Thiết bị này").put("detail",sessionWorkDetail(p)).put("timeline_source","LOCAL_PDA").put("local_status",local.optString("status")).put("local_error",local.optString("error")).put("local_queued_at",local.optLong("queued_at",0L))
+416-        }
+417-        val out=merged.values.toMutableList();fun atMillis(e:JSONObject):Long{val q=e.optLong("local_queued_at",0L);if(q>0L)return q;return runCatching{Instant.parse(e.optString("at_iso").ifBlank{e.optString("at")}).toEpochMilli()}.getOrDefault(0L)};out.sortBy{atMillis(it)};return out
+418-    }
+419-
+420-    private fun sessionEventTitle(typeRaw:String,label:String):String=when(typeRaw.uppercase()){
+421:        "ATTENDANCE_ENTER","ENTER"->"VÀO CA";"RESOURCE_CHANGE","RESOURCE"->"CẬP NHẬT CÔNG VIỆC";"LABOR_START"->"BẮT ĐẦU CÔNG NHẬT";"LABOR_FINISH"->"HOÀN THÀNH CÔNG NHẬT";"ATTENDANCE_EXIT","EXIT"->"RA CA";"ATTENDANCE_TIME_CORRECTED"->"SỬA THỜI GIAN VÀO / RA";"ATTENDANCE_EXIT_DELETED"->"XÓA GHI NHẬN RA CA";else->label.ifBlank{"THAO TÁC"}.uppercase()
+422-    }
+423-
+424-    private fun sessionEventTime(e:JSONObject):String{
+425-        val local=e.optLong("local_queued_at",0L)
+426-        if(local>0L)return Instant.ofEpochMilli(local).atZone(ZoneId.of("Asia/Ho_Chi_Minh")).format(DateTimeFormatter.ofPattern("HH:mm:ss"))
+427-        return formatIso(e.optString("at_iso").ifBlank{e.optString("at")})
+428-    }
+429-
+430-    private data class ShiftResourceUsage(val pdas:LinkedHashMap<String,String>,val userPicks:LinkedHashSet<String>,val userPacks:LinkedHashSet<String>)
+431-    private fun shiftResourceUsage(mnv:String,ses:JSONObject):ShiftResourceUsage{
+432-        val pdas=linkedMapOf<String,String>();val picks=linkedSetOf<String>();val packs=linkedSetOf<String>()
+433-        fun clean(v:String)=v.trim().takeUnless{it.isBlank()||it.equals("null",true)||it=="—"}.orEmpty()
+434-        fun addSnapshot(x:JSONObject){
+435-            val serial=clean(x.optString("pda_serial"));val status=clean(x.optString("pda_enter_status")).ifBlank{clean(x.optString("pda_status_at_enter"))}
+--
+484-    private fun assignmentArray(s:JSONObject):JSONArray=s.optJSONArray("resource_assignments_v64")?:JSONArray()
+485-    private fun positionArray(s:JSONObject):JSONArray=s.optJSONArray("positions_v64")?:JSONArray()
+486-    private fun activeAssignments(s:JSONObject,type:String=""):List<JSONObject>{val out=mutableListOf<JSONObject>();val a=assignmentArray(s);for(i in 0 until a.length()){val x=a.optJSONObject(i)?:continue;if(!x.optString("state").equals("ACTIVE",true))continue;if(type.isNotBlank()&&!x.optString("resource_type").equals(type,true))continue;out.add(x)};return out}
+487-    private fun visibleAssignments(s:JSONObject,type:String=""):List<JSONObject>{val out=mutableListOf<JSONObject>();val a=assignmentArray(s);for(i in 0 until a.length()){val x=a.optJSONObject(i)?:continue;if(x.optString("state").uppercase() !in setOf("ACTIVE","USED"))continue;if(type.isNotBlank()&&!x.optString("resource_type").equals(type,true))continue;out.add(x)};return out}
+488-    private fun activePositionLabels(s:JSONObject):List<String>{val out=mutableListOf<String>();val a=positionArray(s);for(i in 0 until a.length()){val x=a.optJSONObject(i)?:continue;if(x.optString("state").equals("ACTIVE",true)){val v=x.optString("position_label").ifBlank{x.optString("position_key")};if(v.isNotBlank()&&!out.contains(v))out.add(v)}};return out}
+489-    private fun allPositionLabels(s:JSONObject):List<String>{val out=mutableListOf<String>();val a=positionArray(s);for(i in 0 until a.length()){val x=a.optJSONObject(i)?:continue;if(x.optString("state").uppercase() !in setOf("ACTIVE","USED"))continue;val v=x.optString("position_label").ifBlank{x.optString("position_key")};if(v.isNotBlank()&&!out.contains(v))out.add(v)};return out}
+490-    private fun optionIds(a:JSONArray?):MutableList<String>{val out=mutableListOf<String>();if(a==null)return out;for(i in 0 until a.length()){val v=when(val x=a.opt(i)){is JSONObject->x.optString("id").ifBlank{x.optString("resource_id")};else->a.optString(i)}.trim();if(v.isNotBlank()&&!out.contains(v))out.add(v)};out.sortWith(Comparator{a,b->naturalUserCompare(a,b)});return out}
+491-    private fun chooseUsed(title:String,a:JSONArray?,onPick:(String)->Unit){val ids=optionIds(a);if(ids.isEmpty()){showError("Không có tài nguyên đã dùng khả dụng.");return};AlertDialog.Builder(this).setTitle(title).setItems(ids.toTypedArray()){_,w->onPick(ids[w])}.setNegativeButton("Hủy",null).show()}
+492-    private fun resourceLabel(t:String)=when(t.uppercase()){"PDA"->"PDA";"USER_PICK"->"User Pick";"PACK_TABLE"->"Bàn Pack";"USER_PACK"->"User Pack";else->t}
+493-    private fun resourceListText(s:JSONObject):List<Pair<String,String>>{
+494-        val rows=mutableListOf<Pair<String,String>>();for(t in listOf("PDA","USER_PICK","PACK_TABLE","USER_PACK")){for(x in visibleAssignments(s,t)){val state=if(x.optString("state").equals("ACTIVE",true))"Đang dùng" else "Đã dùng";rows.add(resourceLabel(t) to "${x.optString("resource_id")} • $state")}};return rows
+495-    }
+496-    private fun submitResourceMutation(ctx:JSONObject,ops:JSONArray,note:String){
+497-        val s=ctx.optJSONObject("session")?:return;val mnv=s.optString("mnv");val generation=employeeLookupGeneration
+498:        val p=JSONObject().put("session_id",s.optString("session_id")).put("mnv",mnv).put("expected_version",s.optInt("version")).put("idempotency_key",UUID.randomUUID().toString()).put("audit_note",note).put("operations",ops)
+499:        api.call("session_resource_mutate",p){r->runOnUiThread{if(handleAuth(r))return@runOnUiThread;if(!r.ok){if(r.error=="SESSION_CHANGED")loadEmployee(mnv) else showError(r.error?:"Không cập nhật được phiên");return@runOnUiThread};TopNotice.show(this,"Đã cập nhật tài nguyên trong ca.",TopNotice.Kind.SUCCESS);foregroundSync.requestSync();if(generation==employeeLookupGeneration&&liveEmployeeMnv==mnv)renderEmployee(mergeResourceSnapshot(ctx,r.json?:JSONObject()),null)}}
+500-    }
+501-    private fun sessionWorkEditor(ctx:JSONObject,mode:String){
+502-        val s=ctx.optJSONObject("session")?:return;if(!s.optString("state").equals("ACTIVE",true)){showError("Phiên không còn hoạt động.");return};val edit=mode.equals("EDIT",true);val options=s.optJSONObject("resource_options_v64")?:JSONObject();val box=column(surface).apply{setPadding(dp(10),dp(5),dp(10),dp(8))};val ops=JSONArray()
+503-        val shifts=listOf("Ca 1","Ca HC","Ca 2");val shift=spinner(shifts.toTypedArray());selectByValue(shift,shifts,s.optString("shift"));if(edit){box.addView(labelled("Ca",shift));box.addView(gap(7))}
+504-        val normalPick=optionIds(options.optJSONArray("user_picks"));val usedPick=options.optJSONArray("user_picks_reissue");val normalPack=optionIds(options.optJSONArray("user_packs"));val usedPack=options.optJSONArray("user_packs_reissue");val pdaIds=optionIds(options.optJSONArray("pdas"));val tableIds=optionIds(options.optJSONArray("pack_tables"))
+505-        class AddCtl(val type:String,val check:CheckBox,val spin:Spinner,val normal:List<String>){var used:String=""}
+506-        val adds=mutableListOf<AddCtl>()
+507-        fun addUser(type:String,title:String,normal:List<String>,used:JSONArray?){val check=CheckBox(this).apply{text="Thêm $title";setTextColor(ink)};val spin=spinner((listOf("Chọn $title")+normal).toTypedArray());val ctl=AddCtl(type,check,spin,normal);adds.add(ctl);box.addView(check);val rr=row(surface).apply{gravity=Gravity.CENTER_VERTICAL;addView(spin,LinearLayout.LayoutParams(0,dp(48),1.3f));addView(compactReissueButton("Chọn đã dùng",(used?.length()?:0)>0){chooseUsed("Chọn $title đã dùng",used){id->ctl.used=id;spin.setSelection(0);TopNotice.show(this@OperationsActivity,"Đã chọn $title $id để phát lại.",TopNotice.Kind.INFO)}},LinearLayout.LayoutParams(0,dp(44),.8f).apply{marginStart=dp(5)})};box.addView(rr,matchWrap());box.addView(gap(5))}
+508-        if(!edit||true){addUser("USER_PICK","User Pick",normalPick,usedPick);addUser("USER_PACK","User Pack",normalPack,usedPack)}
+509-        if(!edit&&activeAssignments(s,"PDA").isEmpty()){val c=CheckBox(this).apply{text="Thêm PDA";setTextColor(ink)};val sp=spinner((listOf("Chọn PDA")+pdaIds).toTypedArray());adds.add(AddCtl("PDA",c,sp,pdaIds));box.addView(c);box.addView(sp,matchWrap());box.addView(gap(5))}
+510-        if(edit){
+511-            box.addView(section("SỬA / XÓA THÔNG TIN ĐANG CÓ"))
+512-            class E(val a:JSONObject,val check:CheckBox,val action:Spinner,val next:Spinner,val normal:List<String>,val used:JSONArray?,val disp:Spinner,val reason:EditText){var usedId:String=""}
+513-            val edits=mutableListOf<E>()
+--
+923-        val metrics=row(bg);val allBtn=metric("Tổng","0",navy);val pendingBtn=metric("Chờ","0",Color.rgb(217,119,6));val failBtn=metric("Cần xử lí","0",red);metrics.addView(allBtn,LinearLayout.LayoutParams(0,-2,1f).apply{marginEnd=dp(2)});metrics.addView(pendingBtn,LinearLayout.LayoutParams(0,-2,1f).apply{setMargins(dp(2),0,dp(2),0)});metrics.addView(failBtn,LinearLayout.LayoutParams(0,-2,1f).apply{marginStart=dp(2)});body.addView(metrics,matchWrap());body.addView(gap(7))
+924-        val selectionBox=column(bg)
+925-        val selectionCount=txt("Đã chọn 0 lịch sử",10f,muted,true)
+926-        fun updateSelectedCount(){selectionCount.text="Đã chọn ${selectedHistoryIds.size} lịch sử"}
+927-        if(isSuper()){
+928-            selectionBox.addView(gap(6));selectionBox.addView(selectionCount)
+929-            val choose=row(bg);val selectPage=smallButton("CHỌN TRANG",navy);val clear=smallButton("BỎ CHỌN",muted);val deleteSelected=smallButton("XÓA ĐÃ CHỌN",red)
+930-            choose.addView(selectPage,LinearLayout.LayoutParams(0,dp(40),1f).apply{marginEnd=dp(2)});choose.addView(clear,LinearLayout.LayoutParams(0,dp(40),1f).apply{marginStart=dp(2);marginEnd=dp(2)});choose.addView(deleteSelected,LinearLayout.LayoutParams(0,dp(40),1f).apply{marginStart=dp(2)});selectionBox.addView(gap(5));selectionBox.addView(choose,matchWrap());selectionBox.addView(gap(8))
+931-            selectPage.setOnClickListener{selectedHistoryIds.addAll(currentPageDeleteIds);pageChecks.forEach{it.isChecked=true};updateSelectedCount()}
+932-            clear.setOnClickListener{selectedHistoryIds.clear();pageChecks.forEach{it.isChecked=false};updateSelectedCount()}
+933-            deleteSelected.setOnClickListener{deleteHistoryBulk(selectedHistoryIds.toList())}
+934-            body.addView(selectionBox,matchWrap())
+935-        }
+936-        val box=column(bg);body.addView(box,matchWrap())
+937:        fun friendly(type:String,label:String):String=when(type.uppercase()){ "ATTENDANCE_ENTER","ENTER"->"Vào ca";"ATTENDANCE_EXIT","EXIT"->"Ra ca";"RESOURCE_CHANGE"->"Đổi tài nguyên";"LABOR_START"->"Bắt đầu công nhật";"LABOR_FINISH"->"Hoàn thành công nhật";"ADMIN_AUDIT"->"Thao tác quản trị";"MASTER_STAFF_UPSERT"->"Cập nhật nhân sự";"MASTER_STAFF_DELETE"->"Xóa nhân sự";"ACCOUNT_UPSERT"->"Tạo / sửa tài khoản";"ACCOUNT_STATUS"->"Đổi trạng thái tài khoản";"ACCOUNT_EMAIL"->"Đổi email tài khoản";"ACCOUNT_PASSWORD"->"Đổi mật khẩu";else->label.ifBlank{type.ifBlank{"Thao tác"}} }
+938-        fun statusOf(e:JSONObject):String{val s=e.optString("local_status").uppercase();return when{s in setOf("REJECTED","REVIEW_REQUIRED","CONFLICT","FAILED","ERROR")->"FAILED";s in setOf("LOCAL_PENDING","PENDING","RETRY","OFFLINE_PROVISIONAL")->"PENDING";else->"SYNCED"}}
+939-        fun eventDate(e:JSONObject,fallback:String):String=e.optString("business_date").ifBlank{e.optString("cache_business_date")}.ifBlank{runCatching{java.time.Instant.parse(e.optString("at_iso").ifBlank{e.optString("at")}).atZone(ZoneId.of("Asia/Ho_Chi_Minh")).toLocalDate().toString()}.getOrDefault(fallback)}
+940-        fun scanDate(date:String,needle:String,remaining:Int,out:MutableList<JSONObject>){
+941-            if(remaining<=0)return;val day=operationalStore.loadDay(date)?:return;val events=day.optJSONArray("events")?:JSONArray();val n=needle.uppercase()
+942-            // First pass: collect tombstones before considering older target events in the same day snapshot.
+943-            for(i in 0 until events.length()){
+944-                val e=events.optJSONObject(i)?:continue;if(e.optString("event_type").uppercase()!="HISTORY_DELETE")continue
+945-                val p=runCatching{JSONObject(e.optString("payload_json","{}"))}.getOrDefault(JSONObject());val ids=p.optJSONArray("target_event_ids")?:JSONArray();for(j in 0 until ids.length()){val id=ids.optString(j);if(id.isNotBlank())hiddenHistoryIds.add(id)}
+946-            }
+947-            for(i in 0 until events.length()){
+948-                if(out.size>=remaining)return;val e=events.optJSONObject(i)?:continue;val type=e.optString("event_type");val realId=e.optString("event_id");if(type.uppercase()!="HISTORY_DELETE"&&realId in hiddenHistoryIds)continue
+949-                var mnv=e.optString("mnv");var full=e.optString("full_name");var actor=e.optString("actor").ifBlank{e.optString("actor_id")};var detail=e.optString("detail");var shift=e.optString("shift")
+950-                var p:JSONObject?=null;if(mnv.isBlank()||full.isBlank()||actor.isBlank()||detail.isBlank()||n.isNotBlank()){p=runCatching{JSONObject(e.optString("payload_json","{}"))}.getOrNull();mnv=mnv.ifBlank{p?.optString("mnv").orEmpty()};full=full.ifBlank{p?.optString("full_name").orEmpty()};actor=actor.ifBlank{p?.optString("actor").orEmpty()};detail=detail.ifBlank{p?.optString("detail").orEmpty().ifBlank{p?.optString("labor_type").orEmpty()}};shift=shift.ifBlank{p?.optString("shift").orEmpty()}}
+951-                if(full.isBlank()&&mnv.isNotBlank())full=MasterDataCache.employee(this,mnv)?.optString("full_name").orEmpty();val label=if(type.uppercase()=="HISTORY_DELETE")"Xóa lịch sử" else friendly(type,e.optString("label"));if(type.uppercase()=="HISTORY_DELETE"&&detail.isBlank()){val hp=p?:runCatching{JSONObject(e.optString("payload_json","{}"))}.getOrNull();detail="Đã xóa ${hp?.optInt("deleted_count",0)?:0} mục; dữ liệu gốc và dấu vết kiểm toán được giữ."};if(n.isNotBlank()&&!listOf(mnv,full,label,actor,detail,shift).any{it.uppercase().contains(n)})continue
+--
+1020-            verifyDeletePassword("xóa ${clean.size} lịch sử"){
+1021-                val prefs=getSharedPreferences("pp_history_delete_ui",MODE_PRIVATE)
+1022-                val hidden=(prefs.getStringSet("hidden_ids",emptySet())?:emptySet()).toMutableSet();hidden.addAll(clean)
+1023-                val deferred=(prefs.getStringSet("deferred_ids",emptySet())?:emptySet()).toMutableSet();deferred.addAll(clean)
+1024-                prefs.edit().putStringSet("hidden_ids",hidden).putStringSet("deferred_ids",deferred).apply()
+1025-                TopNotice.show(this,"Đã ghi nhận xóa ${clean.size} lịch sử.",TopNotice.Kind.SUCCESS)
+1026-                foregroundSync.requestSync();historyScreen()
+1027-                android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({flushDeferredHistoryDeletes()},1400L)
+1028-            }
+1029-        }.show()
+1030-    }
+1031-
+1032-    private fun historyTimeline(items:List<JSONObject>){
+1033-        screenState="HISTORY_DETAIL";val root=baseRoot("LỊCH SỬ");val body=body();val first=items.firstOrNull()?:return;val mnv=first.optString("mnv");val full=first.optString("full_name").ifBlank{MasterDataCache.employee(this,mnv)?.optString("full_name").orEmpty()};val detailTitle=if(mnv.isBlank())"Chi tiết thao tác" else listOf(mnv,full).filter{it.isNotBlank()}.joinToString(" – ");body.addView(section(detailTitle));body.addView(gap(8))
+1034:        fun label(type:String)=when(type){"ATTENDANCE_ENTER"->"Vào ca";"ATTENDANCE_EXIT"->"Ra ca";"RESOURCE_CHANGE"->"Đổi tài nguyên / vị trí";"LABOR_START"->"Bắt đầu công nhật";"LABOR_FINISH"->"Hoàn thành công nhật";"HISTORICAL_CORRECTION"->"Sửa lịch sử";else->type.ifBlank{"Thao tác"}}
+1035-        items.sortedBy{historyEventTime(it)}.forEach{e->
+1036-            val type=e.optString("event_type");val actor=e.optString("actor_id").ifBlank{e.optString("actor")}.ifBlank{"Hệ thống"};val status=historyGroupStatus(listOf(e));val auditRole=e.optString("actor_role").ifBlank{"—"};val auditDevice=e.optString("device_id").ifBlank{"—"};val auditSource=e.optString("history_source").ifBlank{e.optString("origin")}.ifBlank{"Service"};val statusColor=when(status){"Đã đồng bộ"->green;"Lỗi đồng bộ"->red;else->orange};val fill=when(status){"Đã đồng bộ"->android.graphics.Color.rgb(239,250,244);"Lỗi đồng bộ"->android.graphics.Color.rgb(255,239,239);else->android.graphics.Color.rgb(255,248,230)}
+1037-            val p=runCatching{JSONObject(e.optString("payload_json","{}"))}.getOrDefault(JSONObject());val d=mutableListOf<String>();fun addJson(prefix:String,j:JSONObject?){if(j==null)return;val keys=j.keys().asSequence().toList().sortedWith(Comparator{a,b->naturalUserCompare(a,b)});for(k in keys){val raw=j.opt(k);val v=when(raw){is JSONObject,is JSONArray->raw.toString();else->raw?.toString().orEmpty()};if(v.isNotBlank()&&v!="null")d.add("$prefix$k: $v")}};addJson("",p);listOf("business_date","entity_id","actor_id","actor_role","device_id","origin","history_source","event_id").forEach{k->val v=e.optString(k);if(v.isNotBlank())d.add("$k: $v")};e.optString("detail").takeIf{it.isNotBlank()}?.let{d.add("detail: $it")};e.optString("local_error").takeIf{it.isNotBlank()}?.let{d.add("local_error: $it")}
+1038-            val card=column(fill).apply{setPadding(dp(13),dp(11),dp(13),dp(11));background=android.graphics.drawable.GradientDrawable().apply{setColor(fill);cornerRadius=dp(14).toFloat();setStroke(dp(1),statusColor)}}
+1039-            val head=row(android.graphics.Color.TRANSPARENT).apply{gravity=Gravity.CENTER_VERTICAL};head.addView(txt(label(type),12.5f,navy,true),LinearLayout.LayoutParams(0,-2,1f).apply{marginEnd=dp(6)});head.addView(txt(status,8.9f,statusColor,true).apply{setPadding(dp(7),dp(4),dp(7),dp(4));background=round(fill,9)})
+1040-            card.addView(head,matchWrap());card.addView(txt("${historyEventTime(e)} • $actor • $auditRole",9.8f,muted,false));card.addView(txt("Thiết bị: $auditDevice • Nguồn: $auditSource • Đồng bộ: $status",9.3f,muted,false));if(d.isNotEmpty())card.addView(txt(d.joinToString("\n"),9.8f,ink,false));val err=e.optString("local_error");if(err.isNotBlank())card.addView(txt("Lỗi: $err",9.5f,red,true));card.addView(txt("Event ID: ${e.optString("event_id")}",8.7f,muted,false));body.addView(card,matchWrap());body.addView(gap(7))
+1041-        };attach(root,body)
+1042-    }
+1043-
+1044-
+1045-    // S51B_BETA45_COMPILE_GUARD
+1046-    // S51_BETA45_MANUAL_UPDATE_SYNC_DETAIL_VI: detailed Vietnamese sync view shared by all roles.
+1047-    // S53_BETA47_SHEET_LOGIC_UI: concise sync screen + unified APP/WEB presence.
+1048-    private fun syncScreen(){
