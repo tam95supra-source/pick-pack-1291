@@ -1,0 +1,6 @@
+signed_candidate=2026-08-24T07:24+07:00
+source_requires=custom-domain-materialized
+service_url=https://pickpack1291.cc.cd
+beta=0.4.2-beta.63
+version_code=69
+stable_publish=FORBIDDEN
