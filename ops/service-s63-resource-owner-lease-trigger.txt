@@ -1,0 +1,5 @@
+trigger=2026-08-24T09:35+07:00
+worker=pickpack
+custom_domain=pickpack1291.cc.cd
+fix=S63_RESOURCE_OWNER_LEASE_VALIDATION
+stable_publish=FORBIDDEN
