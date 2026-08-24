@@ -1,0 +1,87 @@
+name: Beta65 PostDrive Finalize V2
+
+on:
+  pull_request:
+    branches: [ agent/beta64-owner-seven-fixes-20260824 ]
+    paths:
+      - 'ops/beta65-postdrive-finalize-v2-trigger.txt'
+
+permissions:
+  contents: write
+  actions: read
+  pull-requests: read
+
+concurrency:
+  group: beta65-postdrive-finalize-v2
+  cancel-in-progress: false
+
+env:
+  PRODUCT_SOURCE_SHA: 1e8fb8255f26ad58c9719d99c27c08ef5d597cbf
+  SOURCE_GATE_RUN: '32697993454'
+  CANDIDATE_RUN_ID: '32701275784'
+  CANDIDATE_JOB_ID: '97353121085'
+  CANDIDATE_ARTIFACT_ID: '9510636863'
+  TARGET_VERSION: 0.4.2-beta.65
+  TARGET_CODE: '71'
+  FROM_VERSION: 0.4.2-beta.64
+  APK_NAME: pick-pack-1291-public-beta-0.4.2-beta.65.apk
+  EXPECTED_SHA: be728cd8d20d6033becbfb169db89565f6078a681d47bc9079f98f9f5758e1da
+  EXPECTED_SIZE: '13097861'
+  EXPECTED_PACKAGE: vn.pickpack1291.app.beta.publicbeta
+  EXPECTED_SIGNER_SHA256: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
+  DRIVE_APK_ID: 1F2Xu0PQ7tiIWcNDlz9yUTsXBee6RWP39
+  DRIVE_SUM_ID: 12iSOQ-AwToKY74ylGa4Wb5iVnQXdF8RC
+  GAS_URL: https://script.google.com/macros/s/AKfycbzbEoGfbNg6s2HnP-gUpcBJ7mMIkVBtYuQKMndb9seDV2c55lQwSUO1GZ-LtQ2CxMCauA/exec
+  SERVICE_URL: https://pickpack1291.cc.cd
+  CANONICAL_SERVICE_URL: https://pickpack.1291.workers.dev
+  TAG: v0.4.2-beta.65-publicbeta
+
+jobs:
+  finalize:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+      - name: Execute corrected canonical post-Drive finalizer
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          SRC=.github/workflows/_oneoff_beta65_postdrive_finalize.yml
+          python3 - "$SRC" /tmp/finalize.sh <<'PY'
+          import sys
+          src,out=sys.argv[1:]
+          lines=open(src,encoding='utf-8').read().splitlines()
+          marker='      - name: Finalize exact Beta65 release'
+          i=lines.index(marker)
+          while i < len(lines) and lines[i].strip() != 'run: |': i+=1
+          assert i < len(lines)
+          i+=1; body=[]
+          while i < len(lines):
+              line=lines[i]
+              if line.startswith('      - name:'): break
+              if line.startswith('          '): body.append(line[10:])
+              elif line.strip()=='': body.append('')
+              else: raise AssertionError(repr(line))
+              i+=1
+          text='\n'.join(body)+'\n'
+          old='local id="$1" out="$2" first="${out}.first" confirm'
+          new='local id="$1"\n  local out="$2"\n  local first="${out}.first"\n  local confirm'
+          assert old in text
+          text=text.replace(old,new,1)
+          open(out,'w',encoding='utf-8').write(text)
+          PY
+          chmod +x /tmp/finalize.sh
+          bash /tmp/finalize.sh
+      - name: Upload final evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: beta65-postdrive-final-evidence-v2
+          path: /tmp/evidence
+          retention-days: 14
+          if-no-files-found: warn
