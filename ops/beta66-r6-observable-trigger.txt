@@ -1,0 +1,3 @@
+artifact_id=9516611098
+sha256=9a4520fab3e46abc4757838c58fc05b00274bbc98a060b82dc5389f943517a68
+mode=immutable_transport_resume
