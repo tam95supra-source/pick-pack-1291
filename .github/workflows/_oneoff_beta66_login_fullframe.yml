@@ -7,9 +7,10 @@ on:
       - 'tools/apply_beta66_login_fullframe.py'
       - 'ops/beta66-login-fullframe-trigger.txt'
       - '.github/workflows/_oneoff_beta66_login_fullframe.yml'
+  workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   actions: read
 
 concurrency:
@@ -158,3 +159,40 @@ jobs:
           echo "artifact_id=${{ steps.upload.outputs.artifact-id }}"
           echo "signer=$EXPECTED_SIGNER_SHA256"
           echo "stable_publish=FORBIDDEN"
+
+      - name: Persist candidate result
+        if: always()
+        shell: bash
+        env:
+          JOB_STATUS: ${{ job.status }}
+          APK_SHA: ${{ steps.sign.outputs.sha }}
+          APK_SIZE: ${{ steps.sign.outputs.size }}
+          ARTIFACT_ID: ${{ steps.upload.outputs.artifact-id }}
+        run: |
+          set -u
+          mkdir -p ops
+          cat > ops/beta66-candidate-result.txt <<EOF
+          verdict=$JOB_STATUS
+          run_id=$GITHUB_RUN_ID
+          source_sha=$GITHUB_SHA
+          branch=$GITHUB_REF_NAME
+          beta_name=0.4.2-beta.66
+          beta_code=72
+          package=vn.pickpack1291.app.beta.publicbeta
+          apk_file=pick-pack-1291-public-beta-0.4.2-beta.66.apk
+          apk_sha256=$APK_SHA
+          apk_size=$APK_SIZE
+          artifact_id=$ARTIFACT_ID
+          signer_sha256=$EXPECTED_SIGNER_SHA256
+          stable_name=0.1.0-stable
+          stable_code=1
+          stable_publish=FORBIDDEN
+          service_change=NONE_KEEP_S64
+          EOF
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add ops/beta66-candidate-result.txt
+          if ! git diff --cached --quiet; then
+            git commit -m "ops: record Beta66 candidate result"
+            git push origin HEAD:"$GITHUB_REF_NAME"
+          fi
