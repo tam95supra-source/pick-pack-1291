@@ -1,0 +1,14 @@
+Root cause confirmed from latest Android logs:
+- session_work_update -> 409 PDA_UNAVAILABLE
+- session_work_update -> 409 PACK_TABLE_UNAVAILABLE
+
+Service validation checked resources.available before accepting a resource lease already owned by the exact same active attendance session. Production free-list projection legitimately marks leased resources unavailable, so ADD/EDIT/DELETE that retained another current resource was rejected.
+
+S63 fix order:
+1. holder === sessionId -> valid, return
+2. holder exists and differs -> *_IN_USE
+3. no holder and !available -> *_UNAVAILABLE
+
+Target production worker: pickpack
+Custom domain: https://pickpack1291.cc.cd
+Stable publish: FORBIDDEN
