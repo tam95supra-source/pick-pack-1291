@@ -48,6 +48,8 @@ jobs:
           p.write_text(s)
           PY
           python3 tools/apply_beta63_login_perf_session.py
+          python3 -m py_compile tools/apply_beta63_custom_domain.py
+          python3 tools/apply_beta63_custom_domain.py
 
       - name: Compile Beta and Stable isolation
         run: gradle --no-daemon --build-cache --parallel :app:assembleBetaDebug :app:assembleStableDebug
@@ -69,6 +71,8 @@ jobs:
           grep -F 'm2Runtime.ensureServiceSession(newToken, force = false)' app/src/main/java/vn/pickpack1291/app/beta/BetaApiClient.kt
           grep -F 'retry<2' app/src/main/java/vn/pickpack1291/app/beta/BetaApiClient.kt
           ! grep -Fq 'm2Transport.loginFromPassword(login, password)' app/src/main/java/vn/pickpack1291/app/beta/BetaApiClient.kt
+          grep -F 'url.host == "pickpack1291.cc.cd"' app/src/main/java/vn/pickpack1291/app/beta/M2RuntimeBridge.kt
+          grep -F 'u.host == "pickpack1291.cc.cd"' app/src/main/java/vn/pickpack1291/app/beta/M2ServiceTransport.kt
 
       - name: Commit materialized product source to feature branch
         shell: bash
@@ -76,15 +80,18 @@ jobs:
           set -euo pipefail
           git add \
             tools/apply_beta63_login_perf_session.py \
+            tools/apply_beta63_custom_domain.py \
             app/build.gradle.kts \
             app/src/main/java/vn/pickpack1291/app/beta/FullBetaActivity.kt \
             app/src/main/java/vn/pickpack1291/app/beta/BetaApiClient.kt \
-            app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt
+            app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt \
+            app/src/main/java/vn/pickpack1291/app/beta/M2RuntimeBridge.kt \
+            app/src/main/java/vn/pickpack1291/app/beta/M2ServiceTransport.kt
           if git diff --cached --quiet; then
             echo 'No materialization diff.'
             exit 0
           fi
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git commit -m 'feat(beta63): materialize login perf and session mutation fixes [skip ci]'
+          git commit -m 'feat(beta63): materialize login perf, session fix and custom Service domain [skip ci]'
           git push origin HEAD:${{ github.event.pull_request.head.ref }}
