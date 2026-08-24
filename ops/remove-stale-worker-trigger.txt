@@ -1,0 +1,4 @@
+remove=2026-08-24T07:07+07:00
+service=pick-pack-1291-service
+condition=script_null_and_no_domain_and_runtime_refs_zero
+owner_authorized=true
