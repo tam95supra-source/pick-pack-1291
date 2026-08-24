@@ -1,0 +1,7 @@
+base=v0.4.2-beta.66-publicbeta
+base_sha=f8f0f599f7a1d1dc74cc36ee4cb5110d6cf10d1a
+target=0.4.2-beta.68
+target_code=74
+beta67=ABANDONED_RESERVED
+stable_publish=FORBIDDEN
+revision=2-after-materializer-anchor-fix
