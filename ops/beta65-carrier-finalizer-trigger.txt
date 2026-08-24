@@ -1,0 +1,6 @@
+trigger=2026-08-24T15:16+07:00
+product_source_sha=1e8fb8255f26ad58c9719d99c27c08ef5d597cbf
+release_carrier_sha=9692bf0631a58b3949427c91d1286837d4d008af
+artifact_id=9510636863
+apk_sha256=be728cd8d20d6033becbfb169db89565f6078a681d47bc9079f98f9f5758e1da
+stable_publish=FORBIDDEN
