@@ -1,0 +1,93 @@
+name: Beta65 Locked Publish E2E
+
+on:
+  pull_request:
+    branches: [ agent/beta64-owner-seven-fixes-20260824 ]
+    paths:
+      - 'ops/beta65-publish-e2e-locked-trigger.txt'
+
+permissions:
+  contents: write
+  actions: read
+  pull-requests: read
+
+concurrency:
+  group: beta65-locked-publish-e2e
+  cancel-in-progress: false
+
+env:
+  PRODUCT_SOURCE_SHA: 1e8fb8255f26ad58c9719d99c27c08ef5d597cbf
+  SOURCE_GATE_RUN: '32697993454'
+  CANDIDATE_RUN_ID: '32701275784'
+  CANDIDATE_JOB_ID: '97353121085'
+  CANDIDATE_ARTIFACT_ID: '9510636863'
+  TARGET_VERSION: 0.4.2-beta.65
+  TARGET_CODE: '71'
+  FROM_VERSION: 0.4.2-beta.64
+  APK_NAME: pick-pack-1291-public-beta-0.4.2-beta.65.apk
+  EXPECTED_SHA: be728cd8d20d6033becbfb169db89565f6078a681d47bc9079f98f9f5758e1da
+  EXPECTED_SIZE: '13097861'
+  EXPECTED_PACKAGE: vn.pickpack1291.app.beta.publicbeta
+  EXPECTED_SIGNER_SHA256: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
+  BETA_FOLDER_ID: 1WMXI-8-Z1mbY2v11noYFHe_eoMNiNZXg
+  STABLE_FOLDER_ID: 1kxTd2rFfWutc2KWDwqgK8WYWDmSygIN4
+  GAS_URL: https://script.google.com/macros/s/AKfycbzbEoGfbNg6s2HnP-gUpcBJ7mMIkVBtYuQKMndb9seDV2c55lQwSUO1GZ-LtQ2CxMCauA/exec
+  SERVICE_URL: https://pickpack1291.cc.cd
+  CANONICAL_SERVICE_URL: https://pickpack.1291.workers.dev
+  TAG: v0.4.2-beta.65-publicbeta
+
+jobs:
+  publish-e2e:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+      GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+      GOOGLE_OAUTH_REFRESH_TOKEN: ${{ secrets.GOOGLE_OAUTH_REFRESH_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Execute canonical E2E script with locked immutable identity
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          SRC=.github/workflows/_oneoff_beta65_publish_e2e.yml
+          test -s "$SRC"
+          python3 - "$SRC" /tmp/beta65-e2e.sh <<'PY'
+          import sys
+          src,out=sys.argv[1:]
+          lines=open(src,encoding='utf-8').read().splitlines()
+          marker='      - name: Reuse immutable candidate and complete Beta65 E2E'
+          i=lines.index(marker)
+          while i < len(lines) and lines[i].strip() != 'run: |': i += 1
+          assert i < len(lines), 'run block not found'
+          i += 1
+          body=[]
+          while i < len(lines):
+              line=lines[i]
+              if line.startswith('      - name:'):
+                  break
+              if line.startswith('          '): body.append(line[10:])
+              elif line.strip()=='': body.append('')
+              else: raise AssertionError('unexpected indentation: '+repr(line))
+              i += 1
+          assert body and any('DRIVE EXACT PUBLISH' in x for x in body)
+          assert any('OTA' in x for x in body)
+          assert any('BETA65_RELEASE_RECEIPT.txt' in x for x in body)
+          open(out,'w',encoding='utf-8').write('\n'.join(body)+'\n')
+          PY
+          chmod +x /tmp/beta65-e2e.sh
+          bash /tmp/beta65-e2e.sh
+
+      - name: Upload Beta65 locked E2E evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: beta65-locked-final-e2e-evidence
+          path: /tmp/evidence
+          retention-days: 14
+          if-no-files-found: warn

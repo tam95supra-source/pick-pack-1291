@@ -1,0 +1,4 @@
+trigger=2026-08-24T14:55+07:00
+resume_from=DRIVE_READBACK
+artifact_id=9510636863
+drive_apk_id=1F2Xu0PQ7tiIWcNDlz9yUTsXBee6RWP39

@@ -1,0 +1,146 @@
+name: Beta65 finalized session resource candidate
+
+on:
+  push:
+    branches: [ agent/beta65-session-resource-login-parity-20260824 ]
+    paths:
+      - 'ops/beta65-session-resource-final-trigger.txt'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: beta65-finalized-session-resource-candidate
+  cancel-in-progress: false
+
+jobs:
+  build-sign:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      PRODUCT_SOURCE_SHA: 1e8fb8255f26ad58c9719d99c27c08ef5d597cbf
+      EXPECTED_SIGNER_SHA256: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
+      SIGNING_KEY_B64: ${{ secrets.ANDROID_SIGNING_KEY_B64 }}
+      SIGNING_STORE_PASSWORD: ${{ secrets.ANDROID_SIGNING_STORE_PASSWORD }}
+      SIGNING_KEY_PASSWORD: ${{ secrets.ANDROID_SIGNING_KEY_PASSWORD }}
+      SIGNING_ALIAS: ${{ secrets.ANDROID_SIGNING_ALIAS }}
+    steps:
+      - name: Checkout exact validated product source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.PRODUCT_SOURCE_SHA }}
+          fetch-depth: 0
+      - name: Pin and verify exact Beta65 source
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$PRODUCT_SOURCE_SHA"
+          python3 -m py_compile tools/apply_beta64_owner_seven_fixes.py tools/apply_beta64_compile_fix.py tools/apply_beta65_session_resource_login_parity.py tools/apply_beta65_behavior_compile_fix.py tools/apply_beta65_scope_compile_fix.py
+          python3 tools/apply_beta64_owner_seven_fixes.py
+          python3 tools/apply_beta64_compile_fix.py
+          python3 tools/apply_beta65_session_resource_login_parity.py
+          python3 tools/apply_beta65_behavior_compile_fix.py
+          python3 tools/apply_beta65_scope_compile_fix.py
+          grep -q 'versionCode = 71' app/build.gradle.kts
+          grep -q 'versionName = "0.4.2-beta.65"' app/build.gradle.kts
+          grep -q 'versionCode = 1' app/build.gradle.kts
+          grep -q 'versionName = "0.1.0-stable"' app/build.gradle.kts
+          grep -q 'attendance_enter_v2' app/src/main/java/vn/pickpack1291/app/beta/BetaApiClient.kt
+          grep -q 'session_resource_mutate' app/src/main/java/vn/pickpack1291/app/beta/BetaApiClient.kt
+          grep -q 'Cấp nhầm / chưa sử dụng' app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt
+          grep -q 'Đã sử dụng / có sản lượng' app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt
+          grep -q 'User Pack — độc lập với bàn' app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt
+          grep -q 'sameEmployeeContext' app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt
+          grep -q 'sessionTimelineItems(mnv:String,ses:JSONObject)' app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt
+          grep -q 'Reference-stage layout' app/src/main/java/vn/pickpack1291/app/beta/FullBetaActivity.kt
+          ! grep -q 'rows.filter{it.optString("table")==table}' app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.4.1'
+      - name: Resolve Android SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -n "${ANDROID_HOME:-}" && -f "$ANDROID_HOME/platforms/android-36/android.jar" && -x "$ANDROID_HOME/build-tools/36.0.0/apksigner" && -x "$ANDROID_HOME/build-tools/36.0.0/aapt" ]]; then
+            echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> "$GITHUB_ENV"; exit 0
+          fi
+          SDK="$RUNNER_TEMP/android-sdk"; ZIP="$RUNNER_TEMP/commandlinetools.zip"
+          curl -fsSL https://dl.google.com/android/repository/commandlinetools-linux-15859902_latest.zip -o "$ZIP"
+          echo "4e4c464f145a7512b57d088ac6c278c03c9eea610886b35a5e0804e74eedf583  $ZIP" | sha256sum -c -
+          mkdir -p "$SDK/cmdline-tools"; unzip -q "$ZIP" -d "$RUNNER_TEMP/android-cmdline"; mv "$RUNNER_TEMP/android-cmdline/cmdline-tools" "$SDK/cmdline-tools/latest"
+          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"; echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
+          yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
+          "$SDK/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-36' 'build-tools;36.0.0'
+      - name: Assemble Beta and Stable isolation
+        shell: bash
+        run: gradle --no-daemon --build-cache --parallel :app:assembleBetaDebug :app:assembleStableDebug :app:assembleBetaRelease
+      - name: Sign exact Beta65 and verify identity
+        id: sign
+        shell: bash
+        run: |
+          set -euo pipefail
+          for v in SIGNING_KEY_B64 SIGNING_STORE_PASSWORD SIGNING_KEY_PASSWORD SIGNING_ALIAS; do [[ -n "${!v:-}" ]]; done
+          BT="$ANDROID_SDK_ROOT/build-tools/36.0.0"
+          UNSIGNED=app/build/outputs/apk/beta/release/app-beta-release-unsigned.apk
+          "$BT/aapt" dump badging "$UNSIGNED" > /tmp/beta.txt
+          grep -q "package: name='vn.pickpack1291.app.beta.publicbeta'" /tmp/beta.txt
+          grep -q "versionCode='71'" /tmp/beta.txt
+          grep -q "versionName='0.4.2-beta.65'" /tmp/beta.txt
+          KS="$RUNNER_TEMP/release.jks"; printf '%s' "$SIGNING_KEY_B64" | base64 -d > "$KS"
+          printf '%s' "$SIGNING_STORE_PASSWORD" > "$RUNNER_TEMP/store.pass"; printf '%s' "$SIGNING_KEY_PASSWORD" > "$RUNNER_TEMP/key.pass"
+          mkdir -p dist/beta65
+          OUT=dist/beta65/pick-pack-1291-public-beta-0.4.2-beta.65.apk
+          "$BT/apksigner" sign --ks "$KS" --ks-key-alias "$SIGNING_ALIAS" --ks-pass "file:$RUNNER_TEMP/store.pass" --key-pass "file:$RUNNER_TEMP/key.pass" --out "$OUT" "$UNSIGNED"
+          "$BT/apksigner" verify --verbose --print-certs "$OUT" > /tmp/cert.txt
+          grep -qi "Signer #1 certificate SHA-256 digest: $EXPECTED_SIGNER_SHA256" /tmp/cert.txt
+          SHA=$(sha256sum "$OUT" | awk '{print $1}'); SIZE=$(stat -c '%s' "$OUT")
+          printf '%s  %s\n' "$SHA" "$(basename "$OUT")" > dist/beta65/SHA256SUMS-0.4.2-beta.65.txt
+          cat > dist/beta65/release-meta.json <<EOF
+          {"version_name":"0.4.2-beta.65","version_code":71,"package":"vn.pickpack1291.app.beta.publicbeta","product_source_sha":"$PRODUCT_SOURCE_SHA","workflow_event_sha":"$GITHUB_SHA","apk_sha256":"$SHA","apk_size":$SIZE,"signer_sha256":"$EXPECTED_SIGNER_SHA256","stable_version":"0.1.0-stable","stable_code":1,"stable_publish":"FORBIDDEN"}
+          EOF
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"; echo "size=$SIZE" >> "$GITHUB_OUTPUT"
+      - name: Upload exact signed candidate
+        id: upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: pick-pack-1291-0.4.2-beta.65-signed
+          path: dist/beta65/*
+          retention-days: 30
+      - name: Persist candidate receipt to evidence branch
+        env:
+          ARTIFACT_ID: ${{ steps.upload.outputs.artifact-id }}
+          APK_SHA: ${{ steps.sign.outputs.sha }}
+          APK_SIZE: ${{ steps.sign.outputs.size }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin agent/beta65-session-resource-login-parity-20260824
+          git checkout -B agent/beta65-session-resource-login-parity-20260824 origin/agent/beta65-session-resource-login-parity-20260824
+          cat > ops/beta65-exact-candidate-result.txt <<EOF
+          product_source_sha=$PRODUCT_SOURCE_SHA
+          run_id=$GITHUB_RUN_ID
+          version_name=0.4.2-beta.65
+          version_code=71
+          package=vn.pickpack1291.app.beta.publicbeta
+          signer_sha256=$EXPECTED_SIGNER_SHA256
+          artifact_id=$ARTIFACT_ID
+          apk_file=pick-pack-1291-public-beta-0.4.2-beta.65.apk
+          apk_sha256=$APK_SHA
+          apk_size=$APK_SIZE
+          stable_identity=0.1.0-stable/VC1
+          stable_publish=FORBIDDEN
+          verdict=PASS
+          EOF
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add ops/beta65-exact-candidate-result.txt
+          git commit -m 'ops: record Beta65 exact signed candidate' || true
+          git pull --rebase origin agent/beta65-session-resource-login-parity-20260824
+          git push origin HEAD:agent/beta65-session-resource-login-parity-20260824
+      - name: Cleanup signing material
+        if: always()
+        run: rm -f "$RUNNER_TEMP/release.jks" "$RUNNER_TEMP/store.pass" "$RUNNER_TEMP/key.pass"

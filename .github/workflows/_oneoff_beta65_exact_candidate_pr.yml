@@ -1,0 +1,23 @@
+name: Beta65 Exact Candidate PR Gate — IMMUTABLE LOCKED
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  immutable-lock:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Preserve locked Beta65 candidate
+        run: |
+          echo 'Beta65 signed candidate is immutable-locked.'
+          echo 'run_id=32701275784'
+          echo 'job_id=97353121085'
+          echo 'artifact_id=9510636863'
+          echo 'apk_sha256=be728eeaf49e5e86246254003b490453722da98237112ddaac2c27c66de87c2e'
+          echo 'apk_size=13097861'
+          echo 'signer_sha256=d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e'
+          echo 'product_source_sha=1e8fb8255f26ad58c9719d99c27c08ef5d597cbf'
+          echo 'No rebuild/resign is permitted for downstream transport failures.'
