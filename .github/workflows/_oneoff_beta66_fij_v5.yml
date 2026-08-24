@@ -1,4 +1,4 @@
-name: Beta66 F-I-J Final Verification V5
+name: Beta66 F-I-J Final Verification V5 Recovery
 
 on:
   pull_request:
@@ -23,6 +23,7 @@ env:
   FROM_VERSION: 0.4.2-beta.65
   FROM_CODE: '71'
   APK_NAME: pick-pack-1291-public-beta-0.4.2-beta.66.apk
+  CHECKSUM_NAME: SHA256SUMS-0.4.2-beta.66.txt
   EXPECTED_SHA: 9a4520fab3e46abc4757838c58fc05b00274bbc98a060b82dc5389f943517a68
   EXPECTED_SIZE: '13097861'
   BETA65_SHA: be728cd8d20d6033becbfb169db89565f6078a681d47bc9079f98f9f5758e1da
@@ -33,6 +34,7 @@ env:
   SERVICE_URL: https://pickpack1291.cc.cd
   CANONICAL_SERVICE_URL: https://pickpack.1291.workers.dev
   TAG: v0.4.2-beta.66-publicbeta
+  RELEASE_NAME: Beta 0.4.2-beta.66
 
 jobs:
   final_verify:
@@ -58,6 +60,7 @@ jobs:
           cp "$B65" /tmp/beta65.apk
           curl -fLsS --retry 5 --retry-delay 2 "https://drive.usercontent.google.com/download?id=$DRIVE_APK_ID&export=download&confirm=t" -o /tmp/beta66-live.apk
           [[ "$(sha256sum /tmp/beta66-live.apk|awk '{print $1}')" == "$EXPECTED_SHA" && "$(stat -c%s /tmp/beta66-live.apk)" == "$EXPECTED_SIZE" ]]
+          printf '%s  %s\n' "$EXPECTED_SHA" "$APK_NAME" >/tmp/$CHECKSUM_NAME
           printf 'INPUTS=PASS\nbeta65_artifact=%s\nbeta65_sha=%s\nbeta66_drive_id=%s\nbeta66_sha=%s\n' "$BETA65_ARTIFACT_ID" "$BETA65_SHA" "$DRIVE_APK_ID" "$EXPECTED_SHA" >/tmp/evidence/inputs.txt
 
       - uses: actions/setup-java@v4
@@ -72,13 +75,15 @@ jobs:
           BT=$(find "${ANDROID_HOME:-/usr/local/lib/android/sdk}/build-tools" -maxdepth 1 -mindepth 1 -type d | sort -V | tail -1); test -x "$BT/aapt"; test -x "$BT/apksigner"
           "$BT/aapt" dump badging /tmp/beta65.apk >/tmp/evidence/b65-badging.txt
           "$BT/aapt" dump badging /tmp/beta66-live.apk >/tmp/evidence/b66-badging.txt
-          grep -q "package: name='$EXPECTED_PACKAGE'" /tmp/evidence/b65-badging.txt; grep -q "versionName='$FROM_VERSION'" /tmp/evidence/b65-badging.txt
-          grep -q "package: name='$EXPECTED_PACKAGE'" /tmp/evidence/b66-badging.txt; grep -q "versionName='$TARGET_VERSION'" /tmp/evidence/b66-badging.txt
+          grep -q "package: name='$EXPECTED_PACKAGE'" /tmp/evidence/b65-badging.txt; grep -q "versionName='$FROM_VERSION'" /tmp/evidence/b65-badging.txt; grep -q "versionCode='$FROM_CODE'" /tmp/evidence/b65-badging.txt
+          grep -q "package: name='$EXPECTED_PACKAGE'" /tmp/evidence/b66-badging.txt; grep -q "versionName='$TARGET_VERSION'" /tmp/evidence/b66-badging.txt; grep -q "versionCode='$TARGET_CODE'" /tmp/evidence/b66-badging.txt
           "$BT/apksigner" verify --verbose --print-certs /tmp/beta65.apk >/tmp/evidence/b65-cert.txt
           "$BT/apksigner" verify --verbose --print-certs /tmp/beta66-live.apk >/tmp/evidence/b66-cert.txt
-          C65=$(grep -m1 'Signer #1 certificate SHA-256 digest:' /tmp/evidence/b65-cert.txt|sed 's/.*digest: //'|tr 'A-F' 'a-f'|tr -d ':[:space:]')
-          C66=$(grep -m1 'Signer #1 certificate SHA-256 digest:' /tmp/evidence/b66-cert.txt|sed 's/.*digest: //'|tr 'A-F' 'a-f'|tr -d ':[:space:]')
-          [[ "$C65" == "$EXPECTED_SIGNER_SHA256" && "$C66" == "$EXPECTED_SIGNER_SHA256" ]]
+          mapfile -t C65S < <(grep -E 'certificate SHA-256 digest:' /tmp/evidence/b65-cert.txt | sed 's/.*digest: //' | tr 'A-F' 'a-f' | tr -d ':[:space:]' | sort -u)
+          mapfile -t C66S < <(grep -E 'certificate SHA-256 digest:' /tmp/evidence/b66-cert.txt | sed 's/.*digest: //' | tr 'A-F' 'a-f' | tr -d ':[:space:]' | sort -u)
+          [[ ${#C65S[@]} -eq 1 && ${#C66S[@]} -eq 1 ]]
+          [[ "${C65S[0]}" == "$EXPECTED_SIGNER_SHA256" && "${C66S[0]}" == "$EXPECTED_SIGNER_SHA256" ]]
+          printf 'SIGNER=PASS\nbeta65=%s\nbeta66=%s\n' "${C65S[0]}" "${C66S[0]}" >/tmp/evidence/signer.txt
 
       - name: F actual signed Android package upgrade from Beta65 to exact live OTA Beta66
         uses: reactivecircus/android-emulator-runner@v2
@@ -118,53 +123,89 @@ jobs:
           if [[ "$CODE" == 404 ]]; then
             python3 - <<'PY' >/tmp/create.json
           import json,os
-          print(json.dumps({'tag_name':os.environ['TAG'],'target_commitish':os.environ['PRODUCT_SOURCE_SHA'],'name':'Pick Pack 1291 '+os.environ['TARGET_VERSION']+' Public Beta','body':'Exact locked Beta66 login full-frame release. Stable untouched. Service S64 unchanged.','draft':False,'prerelease':True}))
+          print(json.dumps({'tag_name':os.environ['TAG'],'target_commitish':os.environ['PRODUCT_SOURCE_SHA'],'name':os.environ['RELEASE_NAME'],'body':'Exact locked Beta66 login full-frame release. Stable untouched. Service S64 unchanged.','draft':False,'prerelease':True}))
           PY
             curl -fsS -X POST -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' -H 'Content-Type: application/json' --data-binary @/tmp/create.json "$API/releases" >/tmp/release.json
-          elif [[ "$CODE" == 200 ]]; then cp /tmp/release-get.json /tmp/release.json; else cat /tmp/release-get.json; exit 1; fi
+          elif [[ "$CODE" == 200 ]]; then cp /tmp/release-get.json /tmp/release.json
+          else cat /tmp/release-get.json; exit 1
+          fi
           RID=$(python3 -c 'import json;print(json.load(open("/tmp/release.json"))["id"])')
-          python3 - <<'PY' >/tmp/aid
+          python3 - <<'PY' >/tmp/meta-patch.json
           import json,os
-          j=json.load(open('/tmp/release.json')); a=next((x for x in j.get('assets',[]) if x.get('name')==os.environ['APK_NAME']),None); print(a.get('id','') if a else '')
+          print(json.dumps({'name':os.environ['RELEASE_NAME'],'draft':False,'prerelease':True}))
           PY
-          AID=$(cat /tmp/aid)
-          if [[ -n "$AID" ]]; then
-            curl -fLsS -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/octet-stream' "$API/releases/assets/$AID" -o /tmp/existing.apk
-            if [[ "$(sha256sum /tmp/existing.apk|awk '{print $1}')" != "$EXPECTED_SHA" || "$(stat -c%s /tmp/existing.apk)" != "$EXPECTED_SIZE" ]]; then
-              curl -fsS -X DELETE -H "Authorization: Bearer $GH_TOKEN" "$API/releases/assets/$AID" >/dev/null; AID=''
+          curl -fsS -X PATCH -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' -H 'Content-Type: application/json' --data-binary @/tmp/meta-patch.json "$API/releases/$RID" >/tmp/release-normalized.json
+          cp /tmp/release-normalized.json /tmp/release.json
+          ensure_asset() {
+            local NAME="$1" FILE="$2" EXPECT_SHA="$3" EXPECT_SIZE="$4" CONTENT_TYPE="$5" AID
+            AID=$(python3 - "$NAME" <<'PY'
+          import json,sys
+          j=json.load(open('/tmp/release.json')); name=sys.argv[1]
+          a=next((x for x in j.get('assets',[]) if x.get('name')==name),None)
+          print(a.get('id','') if a else '')
+          PY
+          )
+            if [[ -n "$AID" ]]; then
+              curl -fLsS -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/octet-stream' "$API/releases/assets/$AID" -o /tmp/existing-asset
+              if [[ "$(sha256sum /tmp/existing-asset|awk '{print $1}')" != "$EXPECT_SHA" || "$(stat -c%s /tmp/existing-asset)" != "$EXPECT_SIZE" ]]; then
+                curl -fsS -X DELETE -H "Authorization: Bearer $GH_TOKEN" "$API/releases/assets/$AID" >/dev/null; AID=''
+              fi
             fi
-          fi
-          if [[ -z "$AID" ]]; then
-            curl -fsS -X POST -H "Authorization: Bearer $GH_TOKEN" -H 'Content-Type: application/vnd.android.package-archive' --data-binary @/tmp/beta66-live.apk "https://uploads.github.com/repos/$GITHUB_REPOSITORY/releases/$RID/assets?name=$APK_NAME" >/tmp/asset.json
-            AID=$(python3 -c 'import json;print(json.load(open("/tmp/asset.json"))["id"])')
-          fi
-          curl -fLsS -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/octet-stream' "$API/releases/assets/$AID" -o /tmp/release-readback.apk
+            if [[ -z "$AID" ]]; then
+              curl -fsS -X POST -H "Authorization: Bearer $GH_TOKEN" -H "Content-Type: $CONTENT_TYPE" --data-binary @"$FILE" "https://uploads.github.com/repos/$GITHUB_REPOSITORY/releases/$RID/assets?name=$NAME" >/tmp/asset.json
+              AID=$(python3 -c 'import json;print(json.load(open("/tmp/asset.json"))["id"])')
+            fi
+            printf '%s' "$AID"
+          }
+          APK_AID=$(ensure_asset "$APK_NAME" /tmp/beta66-live.apk "$EXPECTED_SHA" "$EXPECTED_SIZE" application/vnd.android.package-archive)
+          CHECKSUM_SHA=$(sha256sum /tmp/$CHECKSUM_NAME|awk '{print $1}'); CHECKSUM_SIZE=$(stat -c%s /tmp/$CHECKSUM_NAME)
+          SUM_AID=$(ensure_asset "$CHECKSUM_NAME" /tmp/$CHECKSUM_NAME "$CHECKSUM_SHA" "$CHECKSUM_SIZE" text/plain)
+          curl -fLsS -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/octet-stream' "$API/releases/assets/$APK_AID" -o /tmp/release-readback.apk
           [[ "$(sha256sum /tmp/release-readback.apk|awk '{print $1}')" == "$EXPECTED_SHA" && "$(stat -c%s /tmp/release-readback.apk)" == "$EXPECTED_SIZE" ]]
+          curl -fLsS -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/octet-stream' "$API/releases/assets/$SUM_AID" -o /tmp/release-readback-sums.txt
+          cmp -s /tmp/$CHECKSUM_NAME /tmp/release-readback-sums.txt
           curl -fsS -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' "$API/releases/$RID" >/tmp/release-final.json
           python3 - <<'PY'
           import json,os
-          j=json.load(open('/tmp/release-final.json')); assert j.get('draft') is False and j.get('prerelease') is True,j; assert j.get('tag_name')==os.environ['TAG'],j
+          j=json.load(open('/tmp/release-final.json'))
+          assert j.get('draft') is False and j.get('prerelease') is True,j
+          assert j.get('tag_name')==os.environ['TAG'],j
+          assert j.get('name')==os.environ['RELEASE_NAME'],j
+          names={a.get('name') for a in j.get('assets',[])}
+          assert os.environ['APK_NAME'] in names and os.environ['CHECKSUM_NAME'] in names,(names,j)
           PY
-          echo "release_id=$RID" >> "$GITHUB_OUTPUT"; echo "asset_id=$AID" >> "$GITHUB_OUTPUT"
-          printf 'I=PASS\nrelease_id=%s\nasset_id=%s\ntag=%s\nsha256=%s\nsize=%s\n' "$RID" "$AID" "$TAG" "$EXPECTED_SHA" "$EXPECTED_SIZE" >/tmp/evidence/I.txt
-          cp /tmp/release-final.json /tmp/evidence/I-release.json
+          echo "release_id=$RID" >> "$GITHUB_OUTPUT"; echo "apk_asset_id=$APK_AID" >> "$GITHUB_OUTPUT"; echo "checksum_asset_id=$SUM_AID" >> "$GITHUB_OUTPUT"
+          printf 'I=PASS\nrelease_id=%s\napk_asset_id=%s\nchecksum_asset_id=%s\ntag=%s\nsha256=%s\nsize=%s\n' "$RID" "$APK_AID" "$SUM_AID" "$TAG" "$EXPECTED_SHA" "$EXPECTED_SIZE" >/tmp/evidence/I.txt
+          cp /tmp/release-final.json /tmp/evidence/I-release.json; cp /tmp/release-readback-sums.txt /tmp/evidence/I-checksum.txt
 
-      - name: J fresh S64 final service health verification
+      - name: J fresh S64 final service health authority and replication verification
         shell: bash
         run: |
           set -Eeuo pipefail
           curl -fsSL --retry 5 --retry-delay 2 "$SERVICE_URL/api/v1/health" >/tmp/health.json
           curl -fsSL --retry 5 --retry-delay 2 "$SERVICE_URL/api/v1/s1/health" >/tmp/s1.json
           curl -fsSL --retry 5 --retry-delay 2 "$CANONICAL_SERVICE_URL/api/v1/health" >/tmp/canonical.json
+          curl -fsSL --retry 5 --retry-delay 2 -H 'content-type: application/json' "$GAS_URL" -d '{"action":"service_discovery"}' >/tmp/service-discovery.json
           python3 - <<'PY'
           import json
-          h=json.load(open('/tmp/health.json')); s=json.load(open('/tmp/s1.json')); c=json.load(open('/tmp/canonical.json'))
+          h=json.load(open('/tmp/health.json')); s=json.load(open('/tmp/s1.json')); c=json.load(open('/tmp/canonical.json')); d=json.load(open('/tmp/service-discovery.json'))
           assert h.get('ok') is True,h; assert h.get('service')=='PICK_PACK_EDGE_S64',h
           assert s.get('ok') is True,s
           assert c.get('ok') is True,c; assert c.get('service')=='PICK_PACK_EDGE_S64',c
+          blob=json.dumps(d,sort_keys=True)
+          assert d.get('ok') is True,d; assert 'SERVICE_PRIMARY' in blob,d; assert 'https://pickpack1291.cc.cd' in blob,d
+          def walk(x):
+            if isinstance(x,dict):
+              for k,v in x.items(): yield k,v; yield from walk(v)
+            elif isinstance(x,list):
+              for v in x: yield from walk(v)
+          for k,v in list(walk(h))+list(walk(s))+list(walk(d)):
+            lk=str(k).lower()
+            if 'replication' in lk and 'status' in lk: assert str(v).upper()=='HEALTHY',(k,v)
+            if 'pending' in lk and isinstance(v,(int,float)): assert v==0,(k,v)
           PY
-          cp /tmp/health.json /tmp/evidence/J-health.json; cp /tmp/s1.json /tmp/evidence/J-s1.json; cp /tmp/canonical.json /tmp/evidence/J-canonical.json
-          printf 'J=PASS\nservice=PICK_PACK_EDGE_S64\nprimary=%s\ncanonical=%s\n' "$SERVICE_URL" "$CANONICAL_SERVICE_URL" >/tmp/evidence/J.txt
+          cp /tmp/health.json /tmp/evidence/J-health.json; cp /tmp/s1.json /tmp/evidence/J-s1.json; cp /tmp/canonical.json /tmp/evidence/J-canonical.json; cp /tmp/service-discovery.json /tmp/evidence/J-service-discovery.json
+          printf 'J=PASS\nservice=PICK_PACK_EDGE_S64\nauthority=SERVICE_PRIMARY\nprimary=%s\ncanonical=%s\n' "$SERVICE_URL" "$CANONICAL_SERVICE_URL" >/tmp/evidence/J.txt
 
       - name: Final fresh OTA sanity after prerelease and emulator upgrade
         shell: bash
@@ -177,16 +218,18 @@ jobs:
           import json,os
           a=json.load(open('/tmp/final-ota.json')); b=json.load(open('/tmp/final-self.json')); c=json.load(open('/tmp/final-stable.json'))
           assert a.get('ok') is True and a.get('available') is True and a.get('version_name')==os.environ['TARGET_VERSION'] and a.get('sha256')==os.environ['EXPECTED_SHA'],a
+          assert int(a.get('size'))==int(os.environ['EXPECTED_SIZE']),a
           assert b.get('ok') is True and b.get('available') is False and b.get('version_name')==os.environ['TARGET_VERSION'],b
           assert c.get('ok') is True and c.get('available') is False and c.get('channel')=='STABLE',c
           PY
           cp /tmp/final-ota.json /tmp/evidence/final-ota.json; cp /tmp/final-self.json /tmp/evidence/final-self.json; cp /tmp/final-stable.json /tmp/evidence/final-stable.json
+          printf 'FINAL_OTA=PASS\nrun_id=%s\nrun_attempt=%s\n' "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" >/tmp/evidence/final.txt
 
       - name: Upload F-I-J evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: beta66-fij-final-evidence
+          name: beta66-fij-final-evidence-recovery
           path: /tmp/evidence
           retention-days: 30
           if-no-files-found: warn
