@@ -1,0 +1,5 @@
+Trigger locked Beta69 visual matrix v4.
+Candidate artifact: 9533366227
+SHA256: 251530388165c7a9a8572053238b5d44b47a6747c5e94f270230e65ce68d4cda
+Size: 13114245
+No rebuild/resign.
