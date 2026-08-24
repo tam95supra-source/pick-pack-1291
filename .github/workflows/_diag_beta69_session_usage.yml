@@ -1,0 +1,48 @@
+name: Beta69 session detail usage diagnostic
+on:
+  push:
+    branches: [ release/beta69-owner-six-fixes-20260825 ]
+    paths: [ 'ops/TRIGGER_BETA69_SESSION_USAGE.txt' ]
+permissions:
+  contents: write
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+      - name: Materialize through Beta68 and inspect current session flow
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/apply_beta64_owner_seven_fixes.py
+          python3 tools/apply_beta64_compile_fix.py
+          python3 tools/apply_beta65_session_resource_login_parity.py
+          python3 tools/apply_beta65_behavior_compile_fix.py
+          python3 tools/apply_beta65_scope_compile_fix.py
+          python3 tools/apply_beta65_login_reference_finish.py
+          python3 tools/apply_beta66_login_fullframe.py
+          python3 tools/apply_beta68_owner_five_fixes.py
+          OPS=app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt
+          {
+            echo '=== occurrences ==='
+            grep -n -E 'sessionWorkDetail|Diễn biến|operations|RESOURCE_CHANGE|session_resource_mutate' "$OPS" | head -n 160 || true
+            echo '=== context around sessionWorkDetail calls ==='
+            python3 - <<'PY'
+          from pathlib import Path
+          s=Path('app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt').read_text().splitlines()
+          for i,line in enumerate(s):
+              if 'sessionWorkDetail(' in line:
+                  a=max(0,i-12);b=min(len(s),i+18)
+                  print(f'--- line {i+1} ---')
+                  print('\n'.join(f'{j+1}: {s[j]}' for j in range(a,b)))
+          PY
+          } > ops/beta69-session-usage.txt
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add ops/beta69-session-usage.txt
+          git commit -m 'ops: capture Beta69 session detail usage'
+          git push origin HEAD:release/beta69-owner-six-fixes-20260825
