@@ -11,7 +11,7 @@ jobs:
   validate:
     if: github.head_ref == 'agent/beta65-session-resource-login-parity-20260824'
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
         with:
@@ -21,6 +21,21 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.4.1'
+      - name: Resolve Android SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -n "${ANDROID_HOME:-}" && -f "$ANDROID_HOME/platforms/android-36/android.jar" ]]; then echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> "$GITHUB_ENV"; exit 0; fi
+          SDK="$RUNNER_TEMP/android-sdk"; ZIP="$RUNNER_TEMP/commandlinetools.zip"
+          curl -fsSL https://dl.google.com/android/repository/commandlinetools-linux-15859902_latest.zip -o "$ZIP"
+          echo "4e4c464f145a7512b57d088ac6c278c03c9eea610886b35a5e0804e74eedf583  $ZIP" | sha256sum -c -
+          mkdir -p "$SDK/cmdline-tools"; unzip -q "$ZIP" -d "$RUNNER_TEMP/android-cmdline"; mv "$RUNNER_TEMP/android-cmdline/cmdline-tools" "$SDK/cmdline-tools/latest"
+          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"; echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
+          yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
+          "$SDK/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-36' 'build-tools;36.0.0'
       - name: Materialize Beta64 baseline then Beta65
         run: |
           set -euo pipefail
@@ -32,22 +47,16 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          o=Path('app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt').read_text()
-          a=Path('app/src/main/java/vn/pickpack1291/app/beta/BetaApiClient.kt').read_text()
-          f=Path('app/src/main/java/vn/pickpack1291/app/beta/FullBetaActivity.kt').read_text()
-          g=Path('app/build.gradle.kts').read_text()
+          o=Path('app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt').read_text();a=Path('app/src/main/java/vn/pickpack1291/app/beta/BetaApiClient.kt').read_text();f=Path('app/src/main/java/vn/pickpack1291/app/beta/FullBetaActivity.kt').read_text();g=Path('app/build.gradle.kts').read_text()
           assert '0.4.2-beta.65' in g and 'versionCode = 71' in g
           assert 'session_resource_mutate' in a and 'attendance_enter_v2' in a and 'session_exit_v2' in a
-          assert 'resource_assignments_v64' in o
-          assert 'User Pack — độc lập với bàn' in o
-          assert 'XÓA TOÀN BỘ PHIÊN' in o
+          assert 'resource_assignments_v64' in o and 'User Pack — độc lập với bàn' in o and 'XÓA TOÀN BỘ PHIÊN' in o
           assert 'Cấp nhầm / chưa sử dụng' in o and 'Đã sử dụng / có sản lượng' in o
           assert 'rows.filter{it.optString("table")==table}' not in o
           login=f[f.index('private fun login()'):f.index('private fun openMainShell()')]
-          assert 'CENTER_CROP' not in login and 'FIT_XY' not in login
-          assert 'Reference-stage layout' in f
+          assert 'CENTER_CROP' not in login and 'FIT_XY' not in login and 'Reference-stage layout' in login
           assert 'rebuildResources()' in o
           print('BETA65_FINALIZED_LOGIC_STATIC_PASS')
           PY
       - name: Compile Beta and Stable isolation
-        run: ./gradlew --no-daemon clean compileBetaDebugKotlin compileStableDebugKotlin
+        run: gradle --no-daemon --build-cache --parallel :app:compileBetaDebugKotlin :app:compileStableDebugKotlin
