@@ -1,0 +1,6 @@
+BETA65_EXACT_SIGNED_CANDIDATE
+product_source_sha=1e8fb8255f26ad58c9719d99c27c08ef5d597cbf
+source_gate_run=32697993454
+version_name=0.4.2-beta.65
+version_code=71
+stable_publish=FORBIDDEN
