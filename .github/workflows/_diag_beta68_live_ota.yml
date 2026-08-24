@@ -1,0 +1,45 @@
+name: Beta68 live OTA diagnostic
+on:
+  push:
+    branches: [ diag/beta68-v2-observer-20260824 ]
+    paths: [ '.github/workflows/_diag_beta68_live_ota.yml' ]
+permissions:
+  contents: write
+jobs:
+  read-live:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - name: Fresh-read live OTA
+        shell: bash
+        env:
+          GAS_URL: https://script.google.com/macros/s/AKfycbzbEoGfbNg6s2HnP-gUpcBJ7mMIkVBtYuQKMndb9seDV2c55lQwSUO1GZ-LtQ2CxMCauA/exec
+          SERVICE_URL: https://pickpack1291.cc.cd
+        run: |
+          set -euo pipefail
+          curl -fsSL --connect-timeout 15 --max-time 60 -H 'content-type: application/json' "$GAS_URL" -d '{"action":"update_check","channel":"BETA","current_version":"0.4.2-beta.65"}' > /tmp/ota.json
+          curl -fsSL --connect-timeout 15 --max-time 45 "$SERVICE_URL/health" > /tmp/health.json || printf '{}' > /tmp/health.json
+          python3 - <<'PY' > ops/beta68-live-ota-before.txt
+          import json,urllib.parse
+          j=json.load(open('/tmp/ota.json'))
+          h=json.load(open('/tmp/health.json'))
+          u=j.get('apk_url') or j.get('download_url') or j.get('url') or ''
+          a=h.get('authority') or {}; r=h.get('replication') or {}
+          for k,v in [
+            ('ota_ok',j.get('ok')),('ota_source',j.get('source')),('ota_channel',j.get('channel')),
+            ('ota_available',j.get('available',j.get('update_available'))),('ota_version',j.get('version_name',j.get('version'))),
+            ('ota_code',j.get('version_code')),('ota_sha256',j.get('sha256')),('ota_size',j.get('size')),
+            ('ota_notes',str(j.get('notes','')).replace('\n','\\n')),('ota_mandatory',j.get('mandatory')),
+            ('ota_url_host',urllib.parse.urlparse(str(u)).netloc),
+            ('service_ok',h.get('ok')),('authority_mode',a.get('mode')),('authority_scope',a.get('scope')),
+            ('authority_epoch',a.get('authority_epoch')),('replication_state',r.get('state')),('replication_pending',r.get('pending_count'))]:
+              print(f'{k}={v}')
+          PY
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add ops/beta68-live-ota-before.txt
+          git commit -m 'diag: record live OTA pre-Beta68'
+          git pull --rebase origin diag/beta68-v2-observer-20260824
+          git push origin HEAD:diag/beta68-v2-observer-20260824
