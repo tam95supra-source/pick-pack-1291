@@ -1,0 +1,7 @@
+BETA66_LOGIN_FULLFRAME_BUILD_SIGN
+baseline_beta=0.4.2-beta.65
+baseline_code=71
+target_beta=0.4.2-beta.66
+target_code=72
+stable_publish=FORBIDDEN
+service_change=NONE_KEEP_S64
