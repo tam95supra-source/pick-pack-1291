@@ -1,0 +1,130 @@
+name: Oneoff Cloudflare Domain Cutover Audit
+
+on:
+  pull_request:
+    branches: [ ci/domain-cutover-audit-base-20260824 ]
+    paths:
+      - 'ops/domain-cutover-audit-trigger.txt'
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CUSTOM_URL: https://pickpack1291.cc.cd
+      CANONICAL_WORKERS_URL: https://pickpack.1291.workers.dev
+      OLD_WORKERS_URL: https://pick-pack-1291-service.pp1291-d79b87776e86.workers.dev
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Probe live custom domain and Worker endpoints
+        shell: bash
+        run: |
+          set -euo pipefail
+          probe(){
+            local name="$1" url="$2"
+            local code
+            code=$(curl -sS --retry 3 --retry-all-errors --retry-delay 2 --connect-timeout 10 --max-time 40 -o "/tmp/${name}.json" -w '%{http_code}' "$url/health" || true)
+            echo "${name}_http=$code" | tee -a /tmp/domain-audit.txt
+            echo "$code" > "/tmp/${name}.code"
+          }
+          probe custom "$CUSTOM_URL"
+          probe canonical "$CANONICAL_WORKERS_URL"
+          probe old "$OLD_WORKERS_URL"
+          python3 - <<'PY'
+          import json, pathlib
+          def load(name):
+              p=pathlib.Path('/tmp/'+name+'.json')
+              try:return json.loads(p.read_text())
+              except Exception:return None
+          custom=load('custom'); canonical=load('canonical'); old=load('old')
+          assert custom and custom.get('ok') is True, custom
+          a=custom.get('authority') if isinstance(custom.get('authority'),dict) else {}
+          mode=custom.get('authority_mode') or a.get('mode')
+          scope=custom.get('authority_scope') or a.get('scope')
+          assert mode=='SERVICE_PRIMARY',(mode,custom)
+          assert scope=='PRODUCTION',(scope,custom)
+          if canonical:
+              assert canonical.get('ok') is True,canonical
+              ac=canonical.get('authority') if isinstance(canonical.get('authority'),dict) else {}
+              assert (canonical.get('authority_mode') or ac.get('mode'))=='SERVICE_PRIMARY',canonical
+              assert (canonical.get('authority_scope') or ac.get('scope'))=='PRODUCTION',canonical
+              gc=custom.get('service_generation') or custom.get('generation') or a.get('service_generation')
+              gw=canonical.get('service_generation') or canonical.get('generation') or ac.get('service_generation')
+              if gc and gw: assert gc==gw,(gc,gw)
+          print('CUSTOM_DOMAIN_HEALTH_PASS')
+          print('custom_generation=',custom.get('service_generation') or custom.get('generation') or a.get('service_generation'))
+          print('old_health_present=',bool(old and old.get('ok') is True))
+          PY
+
+      - name: Inspect Cloudflare Workers domain ownership and stale Worker
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${CLOUDFLARE_API_TOKEN:-}"
+          test -n "${CLOUDFLARE_ACCOUNT_ID:-}"
+          H=(-H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" -H 'Content-Type: application/json')
+          curl -sS "${H[@]}" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/domains" > /tmp/cf-domains.json
+          curl -sS "${H[@]}" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/services" > /tmp/cf-services.json || true
+          curl -sS -o /tmp/cf-pickpack-settings.json -w '%{http_code}' "${H[@]}" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/pickpack/settings" > /tmp/cf-pickpack-settings.code || true
+          curl -sS -o /tmp/cf-old-settings.json -w '%{http_code}' "${H[@]}" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/pick-pack-1291-service/settings" > /tmp/cf-old-settings.code || true
+          python3 - <<'PY'
+          import json,pathlib
+          d=json.load(open('/tmp/cf-domains.json'))
+          assert d.get('success') is True,d
+          rows=d.get('result') or []
+          custom=[]; old=[]
+          for x in rows:
+              host=str(x.get('hostname') or x.get('domain') or '')
+              service=str(x.get('service') or x.get('script') or x.get('script_name') or '')
+              if host=='pickpack1291.cc.cd': custom.append((host,service,x.get('environment')))
+              if service=='pick-pack-1291-service': old.append((host,service,x.get('environment')))
+          print('custom_domain_rows=',custom)
+          print('old_worker_domain_rows=',old)
+          assert custom, rows
+          assert any(r[1]=='pickpack' for r in custom),custom
+          assert not old,old
+          pathlib.Path('/tmp/domain-audit.txt').open('a').write('custom_domain_owner=pickpack\nold_worker_custom_domains=0\n')
+          PY
+          echo "pickpack_settings_http=$(cat /tmp/cf-pickpack-settings.code)" | tee -a /tmp/domain-audit.txt
+          echo "old_settings_http=$(cat /tmp/cf-old-settings.code)" | tee -a /tmp/domain-audit.txt
+
+      - name: Check active runtime refs do not depend on stale Worker
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin agent/beta63-login-perf-session-mutation-fix-20260824 fix/gas-v140-restore-m2-discovery-20260824 agent/service-s62-session-authority-cas-fix-20260824
+          OLD='pick-pack-1291-service.pp1291-d79b87776e86.workers.dev'
+          bad=0
+          for spec in \
+            'origin/agent/beta63-login-perf-session-mutation-fix-20260824:app/src/main' \
+            'origin/fix/gas-v140-restore-m2-discovery-20260824:google-apps-script' \
+            'origin/agent/service-s62-session-authority-cas-fix-20260824:service/src'; do
+            if git grep -n -F "$OLD" "$spec"; then bad=1; fi
+          done
+          test "$bad" = 0
+          echo 'active_runtime_old_worker_refs=0' | tee -a /tmp/domain-audit.txt
+
+      - name: Upload audit evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: domain-cutover-audit-evidence
+          path: |
+            /tmp/domain-audit.txt
+            /tmp/custom.json
+            /tmp/canonical.json
+            /tmp/old.json
+            /tmp/cf-domains.json
+            /tmp/cf-services.json
+            /tmp/cf-pickpack-settings.code
+            /tmp/cf-old-settings.code
+          if-no-files-found: ignore
+          retention-days: 14
