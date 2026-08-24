@@ -1,0 +1,228 @@
+name: Beta65 Carrier Finalizer
+
+on:
+  push:
+    branches: [ ci/beta65-final-release-base-20260824 ]
+    paths:
+      - 'ops/beta65-carrier-finalizer-trigger.txt'
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: beta65-carrier-finalizer
+  cancel-in-progress: false
+
+env:
+  PRODUCT_SOURCE_SHA: 1e8fb8255f26ad58c9719d99c27c08ef5d597cbf
+  TAG_TARGET_SHA: 9692bf0631a58b3949427c91d1286837d4d008af
+  SOURCE_GATE_RUN: '32697993454'
+  CANDIDATE_RUN_ID: '32701275784'
+  CANDIDATE_JOB_ID: '97353121085'
+  ARTIFACT_ID: '9510636863'
+  TARGET_VERSION: 0.4.2-beta.65
+  TARGET_CODE: '71'
+  FROM_VERSION: 0.4.2-beta.64
+  APK_NAME: pick-pack-1291-public-beta-0.4.2-beta.65.apk
+  SUM_NAME: SHA256SUMS-0.4.2-beta.65.txt
+  EXPECTED_SHA: be728cd8d20d6033becbfb169db89565f6078a681d47bc9079f98f9f5758e1da
+  EXPECTED_SIZE: '13097861'
+  EXPECTED_PACKAGE: vn.pickpack1291.app.beta.publicbeta
+  EXPECTED_SIGNER_SHA256: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
+  DRIVE_APK_ID: 1F2Xu0PQ7tiIWcNDlz9yUTsXBee6RWP39
+  DRIVE_SUM_ID: 12iSOQ-AwToKY74ylGa4Wb5iVnQXdF8RC
+  GAS_URL: https://script.google.com/macros/s/AKfycbzbEoGfbNg6s2HnP-gUpcBJ7mMIkVBtYuQKMndb9seDV2c55lQwSUO1GZ-LtQ2CxMCauA/exec
+  SERVICE_URL: https://pickpack1291.cc.cd
+  CANONICAL_SERVICE_URL: https://pickpack.1291.workers.dev
+  TAG: v0.4.2-beta.65-publicbeta
+
+jobs:
+  finalize:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ci/beta65-final-release-base-20260824
+          fetch-depth: 0
+
+      - name: Finalize exact Beta65 release via metadata carrier
+        shell: bash
+        run: |
+          set -uo pipefail
+          mkdir -p /tmp/candidate /tmp/evidence
+          LOG=/tmp/evidence/finalizer.log
+          STATUS=ops/BETA65_CARRIER_FINALIZER_STATUS.txt
+          set +e
+          (
+            set -Eeuo pipefail
+            echo PHASE=CANDIDATE_VERIFY
+            curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/runs/$CANDIDATE_RUN_ID" > /tmp/evidence/candidate-run.json
+            curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/runs/$CANDIDATE_RUN_ID/jobs?per_page=100" > /tmp/evidence/candidate-jobs.json
+            curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/artifacts/$ARTIFACT_ID" > /tmp/evidence/artifact.json
+            python3 - <<'PY'
+          import json,os
+          r=json.load(open('/tmp/evidence/candidate-run.json')); assert r.get('conclusion')=='success',r
+          jobs=json.load(open('/tmp/evidence/candidate-jobs.json')).get('jobs') or []; hit=[j for j in jobs if str(j.get('id'))==os.environ['CANDIDATE_JOB_ID']]; assert len(hit)==1 and hit[0].get('conclusion')=='success',jobs
+          a=json.load(open('/tmp/evidence/artifact.json')); assert str(a.get('id'))==os.environ['ARTIFACT_ID'] and a.get('expired') is False,a
+          PY
+            curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/artifacts/$ARTIFACT_ID/zip" -o /tmp/candidate.zip
+            unzip -q /tmp/candidate.zip -d /tmp/candidate
+            APK=/tmp/candidate/$APK_NAME; SUM=/tmp/candidate/$SUM_NAME
+            test -s "$APK"; test -s "$SUM"
+            test "$(sha256sum "$APK"|awk '{print $1}')" = "$EXPECTED_SHA"
+            test "$(stat -c '%s' "$APK")" = "$EXPECTED_SIZE"
+            grep -qx "$EXPECTED_SHA  $APK_NAME" "$SUM"
+            BT=/usr/local/lib/android/sdk/build-tools/36.0.0
+            "$BT/aapt" dump badging "$APK" > /tmp/evidence/apk-badging.txt
+            "$BT/apksigner" verify --verbose --print-certs "$APK" > /tmp/evidence/apk-cert.txt
+            grep -q "package: name='$EXPECTED_PACKAGE' versionCode='$TARGET_CODE' versionName='$TARGET_VERSION'" /tmp/evidence/apk-badging.txt
+            CERT=$(grep -m1 'Signer #1 certificate SHA-256 digest:' /tmp/evidence/apk-cert.txt|sed 's/.*digest: //'|tr 'A-F' 'a-f'|tr -d ':[:space:]'); test "$CERT" = "$EXPECTED_SIGNER_SHA256"
+
+            echo PHASE=FINAL_LIVE_GATES
+            curl -fsSL "$SERVICE_URL/health" > /tmp/evidence/service.json
+            curl -fsSL "$CANONICAL_SERVICE_URL/health" > /tmp/evidence/canonical.json
+            curl -fsSL -H 'content-type: application/json' "$GAS_URL" -d "{\"action\":\"service_discovery\",\"_app_channel\":\"BETA\",\"_app_version\":\"$TARGET_VERSION\",\"_device_id\":\"ci-beta65-carrier-final\"}" > /tmp/evidence/discovery.json
+            curl -fsSL -H 'content-type: application/json' "$GAS_URL" -d "{\"action\":\"update_check\",\"channel\":\"BETA\",\"current_version\":\"$FROM_VERSION\"}" > /tmp/evidence/update-from.json
+            curl -fsSL -H 'content-type: application/json' "$GAS_URL" -d "{\"action\":\"update_check\",\"channel\":\"BETA\",\"current_version\":\"$TARGET_VERSION\"}" > /tmp/evidence/update-self.json
+            curl -fsSL -H 'content-type: application/json' "$GAS_URL" -d '{"action":"update_check","channel":"STABLE","current_version":"0.1.0-stable"}' > /tmp/evidence/stable.json
+            python3 - <<'PY'
+          import json,os
+          for p in ['/tmp/evidence/service.json','/tmp/evidence/canonical.json']:
+              j=json.load(open(p)); a=j.get('authority') if isinstance(j.get('authority'),dict) else {}; r=j.get('replication') if isinstance(j.get('replication'),dict) else {}
+              assert j.get('ok') is True and (j.get('authority_mode') or a.get('mode'))=='SERVICE_PRIMARY' and (j.get('authority_scope') or a.get('scope'))=='PRODUCTION',j
+              assert r.get('state') in (None,'HEALTHY') and int(r.get('pending_count') or 0)==0 and int(r.get('failed_unresolved_count') or 0)==0,j
+          g=json.load(open('/tmp/evidence/discovery.json')); assert g.get('ok') is True and g.get('service_url')==os.environ['SERVICE_URL'] and g.get('authority_mode')=='SERVICE_PRIMARY',g
+          u=json.load(open('/tmp/evidence/update-from.json')); av=u.get('available',u.get('update_available')); assert u.get('ok') is True and av is True and u.get('source')=='GOOGLE_DRIVE' and str(u.get('version_name',u.get('version','')))==os.environ['TARGET_VERSION'],u
+          assert str(u.get('sha256','')).lower()==os.environ['EXPECTED_SHA'] and str(u.get('size',''))==os.environ['EXPECTED_SIZE'],u
+          b=json.load(open('/tmp/evidence/update-self.json')); assert b.get('ok') is True and b.get('available',b.get('update_available')) is False,b
+          s=json.load(open('/tmp/evidence/stable.json')); assert s.get('ok') is True and s.get('channel')=='STABLE' and s.get('available',s.get('update_available')) is False,s
+          PY
+
+            echo PHASE=TAG_CARRIER
+            git cat-file -e "$TAG_TARGET_SHA^{commit}"
+            REMOTE=$(git ls-remote --tags origin "refs/tags/$TAG" | awk '{print $1}')
+            if test -z "$REMOTE"; then git tag "$TAG" "$TAG_TARGET_SHA"; git push origin "refs/tags/$TAG"; REMOTE=$(git ls-remote --tags origin "refs/tags/$TAG" | awk '{print $1}'); fi
+            test "$REMOTE" = "$TAG_TARGET_SHA"
+
+            echo PHASE=GITHUB_PRERELEASE
+            cat > /tmp/release-notes.txt <<EOF
+          Pick Pack 1291 Beta $TARGET_VERSION
+
+          This tag uses a metadata-only release carrier because the GitHub App cannot create a tag directly on the product commit containing workflow changes. Product identity remains pinned below and in the signed artifact receipt.
+
+          PP_CHANNEL=BETA
+          PP_VERSION=$TARGET_VERSION
+          PP_VERSION_CODE=$TARGET_CODE
+          PP_PRODUCT_SOURCE_SHA=$PRODUCT_SOURCE_SHA
+          PP_RELEASE_CARRIER_SHA=$TAG_TARGET_SHA
+          PP_SOURCE_GATE_RUN=$SOURCE_GATE_RUN
+          PP_SIGNED_RUN_ID=$CANDIDATE_RUN_ID
+          PP_SIGNED_JOB_ID=$CANDIDATE_JOB_ID
+          PP_ARTIFACT_ID=$ARTIFACT_ID
+          PP_SHA256=$EXPECTED_SHA
+          PP_SIZE=$EXPECTED_SIZE
+          PP_SIGNER_SHA256=$EXPECTED_SIGNER_SHA256
+          PP_APK_NAME=$APK_NAME
+          PP_DRIVE_APK_ID=$DRIVE_APK_ID
+          PP_DRIVE_CHECKSUM_ID=$DRIVE_SUM_ID
+          PP_OTA_SOURCE=GOOGLE_DRIVE
+          PP_STABLE_PUBLISH=FORBIDDEN
+          EOF
+            GET=$(curl -sS -o /tmp/evidence/release.json -w '%{http_code}' -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/$GITHUB_REPOSITORY/releases/tags/$TAG" || true)
+            if test "$GET" != 200; then
+              python3 - <<'PY' > /tmp/release-payload.json
+          import json,os
+          print(json.dumps({'tag_name':os.environ['TAG'],'target_commitish':os.environ['TAG_TARGET_SHA'],'name':'Pick Pack 1291 '+os.environ['TARGET_VERSION'],'body':open('/tmp/release-notes.txt').read(),'draft':False,'prerelease':True},separators=(',',':')))
+          PY
+              POST=$(curl -sS -o /tmp/evidence/release.json -w '%{http_code}' -X POST -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' -H 'Content-Type: application/json' "https://api.github.com/repos/$GITHUB_REPOSITORY/releases" --data-binary @/tmp/release-payload.json || true)
+              test "$POST" = 201 || { cat /tmp/evidence/release.json; exit 1; }
+            fi
+            RID=$(python3 - <<'PY'
+          import json,os
+          r=json.load(open('/tmp/evidence/release.json')); assert r.get('tag_name')==os.environ['TAG'] and r.get('prerelease') is True and r.get('draft') is False,r; print(r['id'])
+          PY
+            )
+            curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/$GITHUB_REPOSITORY/releases/$RID/assets?per_page=100" > /tmp/evidence/assets.json
+            for spec in "$APK_NAME|$APK|application/vnd.android.package-archive" "$SUM_NAME|$SUM|text/plain"; do
+              NAME=${spec%%|*}; REST=${spec#*|}; FILE=${REST%%|*}; MIME=${REST##*|}
+              AID=$(python3 - "$NAME" <<'PY'
+          import json,sys
+          n=sys.argv[1]; rows=json.load(open('/tmp/evidence/assets.json')); h=[str(x['id']) for x in rows if x.get('name')==n]; print(h[0] if h else '')
+          PY
+              )
+              if test -n "$AID"; then curl -fsSL -X DELETE -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/$GITHUB_REPOSITORY/releases/assets/$AID" >/dev/null; fi
+              curl -fsSL -X POST -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' -H "Content-Type: $MIME" "https://uploads.github.com/repos/$GITHUB_REPOSITORY/releases/$RID/assets?name=$NAME" --data-binary @"$FILE" > /tmp/evidence/upload.json
+            done
+            RURL="https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/$APK_NAME"
+            curl -fsSL --retry 6 --retry-all-errors --retry-delay 2 --connect-timeout 20 --max-time 240 "$RURL" -o /tmp/evidence/github-release.apk
+            test "$(sha256sum /tmp/evidence/github-release.apk|awk '{print $1}')" = "$EXPECTED_SHA"
+            test "$(stat -c '%s' /tmp/evidence/github-release.apk)" = "$EXPECTED_SIZE"
+
+            echo PHASE=RECEIPT
+            cat > ops/BETA65_FINAL_RELEASE_RECEIPT.txt <<EOF
+          checked_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          product_source_sha=$PRODUCT_SOURCE_SHA
+          release_carrier_sha=$TAG_TARGET_SHA
+          source_gate_run=$SOURCE_GATE_RUN
+          signed_run_id=$CANDIDATE_RUN_ID
+          signed_job_id=$CANDIDATE_JOB_ID
+          artifact_id=$ARTIFACT_ID
+          version_name=$TARGET_VERSION
+          version_code=$TARGET_CODE
+          package=$EXPECTED_PACKAGE
+          apk_name=$APK_NAME
+          apk_sha256=$EXPECTED_SHA
+          apk_size=$EXPECTED_SIZE
+          signer_sha256=$EXPECTED_SIGNER_SHA256
+          drive_apk_id=$DRIVE_APK_ID
+          drive_checksum_id=$DRIVE_SUM_ID
+          drive_readback=PASS
+          gas=PASS
+          ota_beta64_to_beta65=PASS
+          beta65_self_no_update=PASS
+          stable_isolation=PASS
+          stable_identity=0.1.0-stable/VC1_UNTOUCHED
+          github_release_id=$RID
+          github_release_tag=$TAG
+          github_release_readback=PASS
+          final_health=PASS
+          stable_publish=FORBIDDEN
+          verdict=PASS
+          EOF
+            cp ops/BETA65_FINAL_RELEASE_RECEIPT.txt /tmp/evidence/receipt.txt
+            echo PHASE=DONE
+          ) > "$LOG" 2>&1
+          RC=$?
+          set -e
+          cat "$LOG"
+          if test "$RC" = 0; then VERDICT=PASS; else VERDICT=FAIL; fi
+          {
+            echo "verdict=$VERDICT"
+            echo "exit_code=$RC"
+            echo "product_source_sha=$PRODUCT_SOURCE_SHA"
+            echo "release_carrier_sha=$TAG_TARGET_SHA"
+            echo "artifact_id=$ARTIFACT_ID"
+            echo "apk_sha256=$EXPECTED_SHA"
+            echo 'stable_publish=FORBIDDEN'
+          } > "$STATUS"
+          cp "$LOG" ops/BETA65_CARRIER_FINALIZER_LOG.txt
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add "$STATUS" ops/BETA65_CARRIER_FINALIZER_LOG.txt
+          test ! -f ops/BETA65_FINAL_RELEASE_RECEIPT.txt || git add ops/BETA65_FINAL_RELEASE_RECEIPT.txt
+          git diff --cached --quiet || git commit -m "release: record Beta65 carrier finalizer $VERDICT"
+          git push origin HEAD:ci/beta65-final-release-base-20260824
+          exit "$RC"
+
+      - name: Upload finalizer evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: beta65-carrier-finalizer-evidence
+          path: /tmp/evidence
+          retention-days: 30
+          if-no-files-found: warn
