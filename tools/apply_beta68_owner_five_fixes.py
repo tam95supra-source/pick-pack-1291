@@ -321,16 +321,33 @@ ops = replace_once(
     '        val deviceName="${Build.MANUFACTURER} ${Build.MODEL}".trim()\n        val storageUsage=appStorageUsage()\n        body.addView(details(listOf(',
     'Settings storage snapshot',
 )
-ops = replace_once(
+def insert_detail_rows(text: str, anchor: str, rows: list[str], label: str) -> str:
+    if all(row.split(' to ')[0].strip() in text for row in rows):
+        return text
+    pattern = re.compile(re.escape(anchor) + r',?')
+    m = pattern.search(text)
+    if not m:
+        raise SystemExit(f'{label}: anchor missing')
+    indent = '            '
+    block = anchor + ',\n' + ',\n'.join(indent + row for row in rows)
+    return text[:m.start()] + block + text[m.end():]
+
+ops = insert_detail_rows(
     ops,
-    '            "Mã phiên bản" to BuildConfig.VERSION_CODE.toString()\n        )))\n        body.addView(section("CẬP NHẬT PHIÊN BẢN"))',
-    '            "Mã phiên bản" to BuildConfig.VERSION_CODE.toString(),\n            "Dữ liệu người dùng" to humanBytes(storageUsage.userDataBytes),\n            "Bộ nhớ đệm" to humanBytes(storageUsage.cacheBytes)\n        )))\n        body.addView(section("CẬP NHẬT PHIÊN BẢN"))',
+    '"Mã phiên bản" to BuildConfig.VERSION_CODE.toString()',
+    [
+        '"Dữ liệu người dùng" to humanBytes(storageUsage.userDataBytes)',
+        '"Bộ nhớ đệm" to humanBytes(storageUsage.cacheBytes)',
+    ],
     'Settings app storage rows',
 )
-ops = replace_once(
+ops = insert_detail_rows(
     ops,
-    '            "Kiểm tra APK" to "SHA-256 + chữ ký ứng dụng"\n        )))',
-    '            "Kiểm tra APK" to "SHA-256 + chữ ký ứng dụng",\n            "Tự động kiểm tra OTA" to "Khi mở / quay lại ứng dụng",\n            "Nội dung cập nhật" to "Hiển thị từng mục dạng gạch đầu dòng"\n        )))',
+    '"Kiểm tra APK" to "SHA-256 + chữ ký ứng dụng"',
+    [
+        '"Tự động kiểm tra OTA" to "Khi mở / quay lại ứng dụng"',
+        '"Nội dung cập nhật" to "Hiển thị từng mục dạng gạch đầu dòng"',
+    ],
     'Settings OTA mode rows',
 )
 
