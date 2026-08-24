@@ -1,0 +1,6 @@
+run_id=32754196617
+source_sha=63917d672aeced142cacda925300978deef65277
+version=0.4.2-beta.68
+version_code=74
+login_model=SIMPLE_APP_THEME
+state=STARTED
