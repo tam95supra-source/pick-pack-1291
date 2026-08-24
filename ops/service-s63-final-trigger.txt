@@ -1,0 +1,3 @@
+head_ready=true
+fix=S63_RESOURCE_OWNER_LEASE_VALIDATION
+beta64_waits_for_service_gate=true
