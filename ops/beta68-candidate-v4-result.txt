@@ -1,0 +1,16 @@
+verdict=PASS_FILES
+run_id=32754196617
+source_sha=63917d672aeced142cacda925300978deef65277
+version=0.4.2-beta.68
+version_code=74
+package=vn.pickpack1291.app.beta.publicbeta
+apk_sha256=34554a19621be73ebc1e3bd64bef547959f5843f8d0fc902b5bcc8d573cf4641
+apk_size=13097861
+signer_sha256=d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
+candidate_artifact_id=9530301628
+debug_artifact_id=9530303059
+visual_artifact_id=9530360441
+matrix=320x568,360x640,480x800
+login_model=SIMPLE_APP_THEME_V1
+human_inspection=PENDING
+stable_publish=FORBIDDEN
