@@ -1,0 +1,4 @@
+target=0.4.2-beta.64
+version_code=70
+stable_publish=FORBIDDEN
+triggered_at=2026-08-24T08:39:00+07:00
