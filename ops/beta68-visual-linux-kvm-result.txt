@@ -1,0 +1,9 @@
+verdict=PASS_FILES
+run_id=32752840101
+source_run_id=32748150618
+source_sha=afd320af178ed36e67ace7f435d881b0c853c468
+debug_artifact_id=9527993589
+visual_artifact_id=9529737684
+matrix=320x568,360x640,480x800
+runtime=ubuntu-24.04_api29_x86_64_kvm
+human_inspection=PENDING
