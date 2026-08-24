@@ -1,0 +1,138 @@
+name: Oneoff Beta63 Final Domain Live Verify
+
+on:
+  pull_request:
+    branches:
+      - ci/beta63-final-domain-live-verify-base-20260824
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: beta63-final-domain-live-verify
+  cancel-in-progress: true
+
+env:
+  TARGET_VERSION: 0.4.2-beta.63
+  TARGET_CODE: '69'
+  FROM_VERSION: 0.4.2-beta.62
+  EXPECTED_SHA: 015fce6bb3045b3d426bedb4ec35439dbd54a26a0130d612e9c3a9f50f0035a8
+  EXPECTED_SIZE: '13097861'
+  EXPECTED_APK_NAME: pick-pack-1291-public-beta-0.4.2-beta.63.apk
+  SERVICE_URL: https://pickpack1291.cc.cd
+  GAS_URL: https://script.google.com/macros/s/AKfycbzbEoGfbNg6s2HnP-gUpcBJ7mMIkVBtYuQKMndb9seDV2c55lQwSUO1GZ-LtQ2CxMCauA/exec
+  RELEASE_URL: https://github.com/tam95supra-source/pick-pack-1291/releases/download/v0.4.2-beta.63-publicbeta/pick-pack-1291-public-beta-0.4.2-beta.63.apk
+
+jobs:
+  verify:
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'release/beta63-final-domain-20260824'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Verify production custom-domain authority
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          mkdir -p /tmp/evidence
+          ok=false
+          for i in $(seq 1 15); do
+            sc=$(curl -sSL --connect-timeout 15 --max-time 45 -o /tmp/evidence/service-health.json -w '%{http_code}' "$SERVICE_URL/health" || true)
+            gc=$(curl -sSL --connect-timeout 15 --max-time 60 -o /tmp/evidence/discovery.json -w '%{http_code}' -H 'content-type: application/json' "$GAS_URL" -d '{"action":"service_discovery","_app_channel":"BETA","_app_version":"0.4.2-beta.63","_device_id":"ci-final-live-verify"}' || true)
+            if test "$sc" = 200 && test "$gc" = 200 && python3 - <<'PY'
+          import json,os
+          h=json.load(open('/tmp/evidence/service-health.json')); g=json.load(open('/tmp/evidence/discovery.json'))
+          a=h.get('authority') or {}; r=h.get('replication') or {}; ga=g.get('authority') or {}
+          good=(h.get('ok') is True and a.get('mode')=='SERVICE_PRIMARY' and a.get('scope')=='PRODUCTION' and
+                r.get('state') in (None,'HEALTHY') and int(r.get('pending_count') or 0)==0 and
+                g.get('ok') is True and g.get('service_url')==os.environ['SERVICE_URL'] and g.get('authority_mode')=='SERVICE_PRIMARY' and
+                ga.get('mode')=='SERVICE_PRIMARY' and ga.get('scope')=='PRODUCTION')
+          raise SystemExit(0 if good else 1)
+          PY
+            then ok=true; break; fi
+            sleep 4
+          done
+          test "$ok" = true || { echo SERVICE; cat /tmp/evidence/service-health.json; echo GAS; cat /tmp/evidence/discovery.json; exit 1; }
+          echo CUSTOM_DOMAIN_AUTHORITY_PASS
+
+      - name: Verify live OTA Beta62 to exact Beta63
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          good=false
+          for i in $(seq 1 15); do
+            code=$(curl -sSL --connect-timeout 20 --max-time 90 -o /tmp/evidence/from.json -w '%{http_code}' -H 'content-type: application/json' "$GAS_URL" -d "{\"action\":\"update_check\",\"channel\":\"BETA\",\"current_version\":\"$FROM_VERSION\"}" || true)
+            if test "$code" = 200 && python3 - <<'PY'
+          import json,os
+          j=json.load(open('/tmp/evidence/from.json')); a=j.get('available',j.get('update_available'))
+          good=(j.get('ok') is True and a is True and j.get('source')=='GOOGLE_DRIVE' and j.get('channel')=='BETA' and
+                str(j.get('version_name',j.get('version','')))==os.environ['TARGET_VERSION'] and
+                str(j.get('sha256','')).lower()==os.environ['EXPECTED_SHA'] and str(j.get('size',''))==os.environ['EXPECTED_SIZE'])
+          raise SystemExit(0 if good else 1)
+          PY
+            then good=true; break; fi
+            sleep 4
+          done
+          test "$good" = true || { cat /tmp/evidence/from.json; exit 1; }
+          URL=$(python3 - <<'PY'
+          import json
+          j=json.load(open('/tmp/evidence/from.json')); print(j.get('apk_url') or j.get('download_url') or j.get('url') or '')
+          PY
+          )
+          test -n "$URL"
+          curl -fsSL --retry 6 --retry-all-errors --retry-delay 2 --connect-timeout 20 --max-time 240 "$URL" -o /tmp/evidence/ota.apk
+          test "$(sha256sum /tmp/evidence/ota.apk|awk '{print $1}')" = "$EXPECTED_SHA"
+          test "$(stat -c '%s' /tmp/evidence/ota.apk)" = "$EXPECTED_SIZE"
+          echo OTA_BETA62_TO_BETA63_EXACT_PASS
+
+      - name: Verify Beta63 self-check and Stable isolation
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          curl -fsSL -H 'content-type: application/json' "$GAS_URL" -d "{\"action\":\"update_check\",\"channel\":\"BETA\",\"current_version\":\"$TARGET_VERSION\"}" > /tmp/evidence/self.json
+          curl -fsSL -H 'content-type: application/json' "$GAS_URL" -d '{"action":"update_check","channel":"STABLE","current_version":"999.999.999"}' > /tmp/evidence/stable.json
+          python3 - <<'PY'
+          import json
+          s=json.load(open('/tmp/evidence/self.json')); t=json.load(open('/tmp/evidence/stable.json'))
+          sa=s.get('available',s.get('update_available')); ta=t.get('available',t.get('update_available'))
+          assert s.get('ok') is True and s.get('channel')=='BETA' and sa is False,s
+          assert t.get('ok') is True and t.get('channel')=='STABLE' and ta is False,t
+          PY
+          echo BETA63_SELF_PASS
+          echo STABLE_OTA_ISOLATION_PASS
+
+      - name: Verify exact public GitHub prerelease asset
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          ok=false
+          for i in $(seq 1 15); do
+            if curl -fsSL --retry 2 --retry-all-errors --connect-timeout 20 --max-time 240 "$RELEASE_URL" -o /tmp/evidence/release.apk; then
+              if test "$(sha256sum /tmp/evidence/release.apk|awk '{print $1}')" = "$EXPECTED_SHA" && test "$(stat -c '%s' /tmp/evidence/release.apk)" = "$EXPECTED_SIZE"; then ok=true; break; fi
+            fi
+            sleep 4
+          done
+          test "$ok" = true
+          echo GITHUB_PUBLIC_BETA63_EXACT_PASS
+
+      - name: Final verdict
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          printf '%s\n' \
+            'custom_domain_authority=PASS' \
+            'ota_beta62_to_beta63_exact=PASS' \
+            'beta63_self_update=PASS' \
+            'stable_ota_isolation=PASS' \
+            'github_public_beta63_exact=PASS' \
+            'verdict=PASS' | tee /tmp/evidence/verdict.txt
+
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: beta63-final-domain-live-verify-evidence
+          path: /tmp/evidence
+          if-no-files-found: ignore
+          retention-days: 30
