@@ -1,0 +1,1 @@
+Deploy current validated GAS source with restored M2 service discovery/authority routing to the existing live GAS deployment. Do not merge this branch to main as part of the deployment.
