@@ -1,0 +1,88 @@
+name: Beta65 Carrier Release Probe
+
+on:
+  push:
+    branches: [ ci/beta65-final-release-base-20260824 ]
+    paths:
+      - 'ops/beta65-carrier-release-probe-trigger.txt'
+
+permissions:
+  contents: write
+
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: v0.4.2-beta.65-publicbeta
+      PRODUCT_SOURCE_SHA: 1e8fb8255f26ad58c9719d99c27c08ef5d597cbf
+      TAG_TARGET_SHA: 9692bf0631a58b3949427c91d1286837d4d008af
+      RESULT_BRANCH: diag/beta65-release-result-20260824
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ci/beta65-final-release-base-20260824
+          fetch-depth: 0
+      - name: Probe carrier tag and release API
+        shell: bash
+        run: |
+          set -uo pipefail
+          mkdir -p /tmp/probe
+          TAG_RESULT=UNKNOWN; GET=000; POST=SKIPPED; REMOTE=''
+          REMOTE=$(git ls-remote --tags origin "refs/tags/$TAG" | awk '{print $1}')
+          if test -n "$REMOTE"; then
+            if test "$REMOTE" = "$TAG_TARGET_SHA"; then TAG_RESULT=EXISTS_CARRIER_EXACT; else TAG_RESULT="EXISTS_MISMATCH_$REMOTE"; fi
+          else
+            git tag "$TAG" "$TAG_TARGET_SHA"
+            if git push origin "refs/tags/$TAG" >/tmp/probe/tag.out 2>/tmp/probe/tag.err; then
+              REMOTE=$(git ls-remote --tags origin "refs/tags/$TAG" | awk '{print $1}')
+              if test "$REMOTE" = "$TAG_TARGET_SHA"; then TAG_RESULT=CREATED_CARRIER_EXACT; else TAG_RESULT="CREATE_READBACK_MISMATCH_$REMOTE"; fi
+            else TAG_RESULT=CREATE_FAILED; fi
+          fi
+          GET=$(curl -sS -o /tmp/probe/get.json -w '%{http_code}' -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/$GITHUB_REPOSITORY/releases/tags/$TAG" || true)
+          if test "$GET" != 200 && { test "$TAG_RESULT" = CREATED_CARRIER_EXACT || test "$TAG_RESULT" = EXISTS_CARRIER_EXACT; }; then
+            python3 - <<'PY' > /tmp/probe/payload.json
+          import json,os
+          print(json.dumps({'tag_name':os.environ['TAG'],'target_commitish':os.environ['TAG_TARGET_SHA'],'name':'Pick Pack 1291 0.4.2-beta.65','body':'Beta65 immutable binary release. Product source SHA: '+os.environ['PRODUCT_SOURCE_SHA']+'; release carrier SHA: '+os.environ['TAG_TARGET_SHA']+'; Stable publish FORBIDDEN.','draft':False,'prerelease':True},separators=(',',':')))
+          PY
+            POST=$(curl -sS -o /tmp/probe/post.json -w '%{http_code}' -X POST -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' -H 'Content-Type: application/json' "https://api.github.com/repos/$GITHUB_REPOSITORY/releases" --data-binary @/tmp/probe/payload.json || true)
+          fi
+          MSG=$(python3 - <<'PY'
+          import json
+          for p in ['/tmp/probe/post.json','/tmp/probe/get.json']:
+              try:
+                  j=json.load(open(p));
+                  if isinstance(j,dict) and j.get('message'): print(str(j['message']).replace('\n',' ')[:500]); break
+              except Exception: pass
+          PY
+          )
+          RID=$(python3 - <<'PY'
+          import json
+          for p in ['/tmp/probe/post.json','/tmp/probe/get.json']:
+              try:
+                  j=json.load(open(p));
+                  if isinstance(j,dict) and j.get('id'): print(j['id']); break
+              except Exception: pass
+          PY
+          )
+          cat > /tmp/probe/status.txt <<EOF
+          tag_result=$TAG_RESULT
+          tag_sha=${REMOTE:-NONE}
+          release_get_http=$GET
+          release_post_http=$POST
+          release_id=${RID:-NONE}
+          release_message=$MSG
+          product_source_sha=$PRODUCT_SOURCE_SHA
+          release_carrier_sha=$TAG_TARGET_SHA
+          stable_publish=FORBIDDEN
+          EOF
+          git fetch origin "$RESULT_BRANCH:$RESULT_BRANCH"
+          git checkout "$RESULT_BRANCH"
+          cp /tmp/probe/status.txt ops/BETA65_CARRIER_RELEASE_PROBE_STATUS.txt
+          { cat /tmp/probe/tag.out 2>/dev/null || true; cat /tmp/probe/tag.err 2>/dev/null || true; } > ops/BETA65_CARRIER_RELEASE_PROBE_TAG_LOG.txt
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add ops/BETA65_CARRIER_RELEASE_PROBE_STATUS.txt ops/BETA65_CARRIER_RELEASE_PROBE_TAG_LOG.txt
+          git diff --cached --quiet || git commit -m 'release: record isolated Beta65 carrier release probe'
+          git push origin HEAD:"$RESULT_BRANCH"
