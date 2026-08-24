@@ -1,0 +1,4 @@
+Service S62 guarded production deploy trigger
+requested_at=2026-08-24T01:19+07:00
+scope=session authority snapshot CAS fix only
+resume=Cloudflare account workers.dev subdomain discovery + guarded health/deploy/postcheck
