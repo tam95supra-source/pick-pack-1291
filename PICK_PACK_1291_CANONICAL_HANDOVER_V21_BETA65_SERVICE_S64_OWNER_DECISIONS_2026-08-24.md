@@ -466,6 +466,11 @@ Used users MUST NOT be appended into the normal unused list.
 
 Only the explicitly selected used user is reapplied.
 
+UI details retained:
+- `Phát lại user pick` and `Phát lại user pack` remain separate actions and should fit cleanly without overflow;
+- User lists use natural numeric sorting rather than lexicographic anomalies;
+- keep the approved normal/none labels such as `User Pick hy1.outbound` and `Không dùng` where those labels apply.
+
 Preserve reissue semantics:
 - `duplicate_user`
 - `PHÁT LẠI USER`
@@ -505,7 +510,9 @@ PDA selection/lookup uses serial identity and validated last-5-digit support.
 
 The screen should immediately show currently-used PDA under the PDA search area.
 
-Search rules:
+Search UX:
+- remove the separate `Tìm` button;
+- typing/input must filter automatically;
 - empty search → show all current holders;
 - exactly 5 digits → match `serial.takeLast(5) == query`;
 - otherwise → full serial exact, case-insensitive;
@@ -535,6 +542,10 @@ The card/serial area is actionable:
 `Trả PDA`:
 - release/clear only PDA resource;
 - preserve unrelated session/work/resources.
+
+Exit edge case:
+- if the employee is exiting and does not currently hold a PDA, do not force a PDA-return step; continue the normal exit flow.
+- do not add redundant explanatory caption text under the current-PDA list if the list/cards already communicate the state.
 
 ---
 
@@ -624,7 +635,8 @@ Authenticated shell:
 - compact spacing;
 - user greeting/account area must not waste vertical space;
 - Mạng / Đồng bộ / Dịch vụ status remains user-facing and compact;
-- refresh action at top-right may be used to trigger a fresh sync/read according to the approved sync model.
+- include the refresh icon at the top-right, horizontally aligned with the greeting/account area;
+- tapping refresh triggers a fresh sync/read according to the approved sync/authority model.
 
 ## 16.2 Reconciliation card placement
 
@@ -677,6 +689,12 @@ Google Sheet area:
 `Thông tin ứng dụng` belongs under `Cài đặt`, not under `Tài nguyên`.
 
 App information must show real app cache size calculated from `cacheDir + codeCacheDir` using the human-readable formatter; never substitute APK file size.
+
+## 16.7 QR interaction details
+
+- `Sửa giờ` is a separate action from SỬA công việc/resource; do not conflate time correction with assignment editing.
+- Where the existing history view exposes three primary history actions/filters, keep them on one balanced row when screen width allows rather than wasting vertical space.
+- Resource/UI errors must not be collapsed to an unhelpful generic `UNKNOWN` when a concrete service/business error is available; surface a user-safe specific result while preserving technical detail in logs.
 
 ---
 
@@ -913,6 +931,11 @@ DONE only when:
 24. Reconciliation placement/visibility/summary requirements.
 25. Google Sheet presentation formatting requirement.
 26. Strict definition-of-DONE for source/service/release/handover work.
+27. PDA search is automatic with no separate Tìm button; exact last-5/full-serial matching retained.
+28. Exit does not force PDA-return workflow when employee holds no PDA.
+29. Top-right refresh icon is an explicit requirement, not an optional suggestion.
+30. `Sửa giờ` remains separate from work/resource Edit.
+31. User/reissue lists retain natural numeric sorting and separate non-overflow reissue actions.
 
 ---
 
