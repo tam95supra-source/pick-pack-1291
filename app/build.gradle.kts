@@ -32,8 +32,8 @@ android {
         create("beta") {
             dimension = "channel"
             applicationId = "vn.pickpack1291.app.beta.publicbeta"
-            versionCode = 69
-            versionName = "0.4.2-beta.63"
+            versionCode = 70
+            versionName = "0.4.2-beta.64"
             manifestPlaceholders["appLabel"] = "Pick Pack 1291 Beta"
             buildConfigField("String", "CHANNEL", "\"BETA\"")
         }
@@ -73,11 +73,13 @@ dependencies {
 // Firebase client identifiers are injected at build time and default blank so source never contains project config.
 // GSHEET_API_URL remains public discovery/fallback configuration and manual update lookup path; no Service URL is compiled into APK.
 // Signing material remains outside this repository and the Android signer is owner-locked.
-// Beta63: responsive Vietnam/Supra login, non-blocking auth teardown/warm-up, bounded session-work conflict recovery.
-// Beta62 remains immutable and is the previous public baseline.
-// Beta61 remains immutable and is the previous public baseline.
-// Beta60 remains immutable and is the previous public baseline.
-// Beta59 remains immutable and is the previous public baseline.
+// Beta64: exact-fit Vietnam/Supra login, MNV callback fencing, separate user reissue chooser,
+// current-session timeline filtering, accurate work display, and app cache storage visibility.
+// Beta63 remains immutable and is the previous public baseline.
+// Beta62 remains immutable and is historical evidence.
+// Beta61 remains immutable and is historical evidence.
+// Beta60 remains immutable and is historical evidence.
+// Beta59 remains immutable and is historical evidence.
 // Beta58 remains immutable historical evidence.
 // Beta57 remains immutable; Beta56 remains denylisted/cancelled and VC62 is intentionally skipped.
 // Legacy Beta44 candidate-workflow compatibility markers only; actual beta metadata above is authoritative:
