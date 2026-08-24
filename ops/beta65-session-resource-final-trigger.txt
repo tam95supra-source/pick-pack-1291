@@ -1,0 +1,4 @@
+BETA65_FINALIZED_SESSION_RESOURCE_CANDIDATE
+source_gate_run=32697993454
+source_gate=PASS
+stable_publish=FORBIDDEN
