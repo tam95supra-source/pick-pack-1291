@@ -18,6 +18,19 @@ jobs:
         with:
           ref: ${{ github.sha }}
           fetch-depth: 0
+      - name: Persist Drive discovery start
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > ops/beta68-v4-drive-discovery-start.txt <<EOF
+          run_id=$GITHUB_RUN_ID
+          state=STARTED
+          EOF
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add ops/beta68-v4-drive-discovery-start.txt
+          git commit -m 'ops: record Beta68 Drive discovery start'
+          git push origin HEAD:release/beta68-exact-20260824
       - name: Discover newest Beta APK parent
         shell: bash
         run: |
