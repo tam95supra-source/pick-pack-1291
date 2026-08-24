@@ -1,7 +1,7 @@
-Trigger locked Beta69 visual matrix v5 retry with raw-screenshot harness.
+Trigger locked Beta69 visual matrix v5 complete owner-evidence pass.
 Artifact 9533366227
 SHA256 251530388165c7a9a8572053238b5d44b47a6747c5e94f270230e65ce68d4cda
 Size 13114245
 APK unchanged. No rebuild/resign/version bump.
-Reason: uiautomator idle defect isolated from APK; navigation now uses deterministic coordinates and human screenshot inspection.
-Retry 2026-08-25T06:34:00+07:00
+Coverage: blink, network/sync/service detail, PDA layout + swipe back, history list/detail + swipe back, session work-change timeline.
+Retry 2026-08-25T06:39:00+07:00
