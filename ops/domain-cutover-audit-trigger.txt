@@ -1,0 +1,5 @@
+audit=2026-08-24T07:07+07:00
+custom_domain=pickpack1291.cc.cd
+production_worker=pickpack
+stale_worker_candidate=pick-pack-1291-service
+owner_authorized_delete_if_redundant=true
