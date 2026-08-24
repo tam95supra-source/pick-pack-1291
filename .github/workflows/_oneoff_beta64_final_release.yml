@@ -1,0 +1,370 @@
+name: Oneoff Beta64 Final Release
+
+on:
+  pull_request:
+    branches: [ ci/beta64-final-release-base-20260824 ]
+    paths:
+      - 'ops/beta64-final-release-trigger.txt'
+
+permissions:
+  contents: write
+  actions: read
+  pull-requests: read
+
+concurrency:
+  group: beta64-final-release
+  cancel-in-progress: false
+
+env:
+  CANDIDATE_SOURCE_SHA: a5905203cbca35faa35a6dc9de7e644edcfbb22c
+  CANDIDATE_PR: '119'
+  CANDIDATE_RUN_ID: '32681279306'
+  CANDIDATE_ARTIFACT_ID: '9504284569'
+  SERVICE_FIX_RUN_ID: '32684102289'
+  SERVICE_FIX_ARTIFACT_ID: '9505077719'
+  SERVICE_FIX_SOURCE_SHA: 02eebdba7674d053c92f667bbb2d5e4efc492f0b
+  TARGET_VERSION: 0.4.2-beta.64
+  TARGET_CODE: '70'
+  FROM_VERSION: 0.4.2-beta.63
+  APK_NAME: pick-pack-1291-public-beta-0.4.2-beta.64.apk
+  EXPECTED_SHA: 2ada1cb8cedf680da3eace3cfda8df2215ca62428c5b8525cefbcd1427d112d6
+  EXPECTED_SIZE: '13097861'
+  EXPECTED_PACKAGE: vn.pickpack1291.app.beta.publicbeta
+  EXPECTED_SIGNER_SHA256: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
+  SERVICE_URL: https://pickpack1291.cc.cd
+  CANONICAL_SERVICE_URL: https://pickpack.1291.workers.dev
+  EXPECTED_SERVICE_GENERATION: m2-prod-reset-20260823-001
+  GAS_URL: https://script.google.com/macros/s/AKfycbzbEoGfbNg6s2HnP-gUpcBJ7mMIkVBtYuQKMndb9seDV2c55lQwSUO1GZ-LtQ2CxMCauA/exec
+  BETA_FOLDER_ID: 1WMXI-8-Z1mbY2v11noYFHe_eoMNiNZXg
+  STABLE_FOLDER_ID: 1kxTd2rFfWutc2KWDwqgK8WYWDmSygIN4
+  TAG: v0.4.2-beta.64-publicbeta
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+      GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+      GOOGLE_OAUTH_REFRESH_TOKEN: ${{ secrets.GOOGLE_OAUTH_REFRESH_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Lock Beta64 candidate and deployed S63 service fix
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          mkdir -p /tmp/evidence /tmp/candidate /tmp/service-fix
+          git cat-file -e "$CANDIDATE_SOURCE_SHA^{commit}"
+          curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/pulls/$CANDIDATE_PR" > /tmp/evidence/candidate-pr.json
+          curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/runs/$CANDIDATE_RUN_ID" > /tmp/evidence/candidate-run.json
+          curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/artifacts/$CANDIDATE_ARTIFACT_ID" > /tmp/evidence/candidate-artifact.json
+          curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/runs/$SERVICE_FIX_RUN_ID" > /tmp/evidence/service-fix-run.json
+          curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/artifacts/$SERVICE_FIX_ARTIFACT_ID" > /tmp/evidence/service-fix-artifact.json
+          python3 - <<'PY'
+          import json,os
+          p=json.load(open('/tmp/evidence/candidate-pr.json'))
+          assert p['state']=='open' and p.get('merged_at') is None,p
+          assert p['head']['sha']==os.environ['CANDIDATE_SOURCE_SHA'],(p['head']['sha'],os.environ['CANDIDATE_SOURCE_SHA'])
+          cr=json.load(open('/tmp/evidence/candidate-run.json'))
+          assert cr.get('conclusion')=='success',cr
+          ca=json.load(open('/tmp/evidence/candidate-artifact.json'))
+          assert str(ca.get('id'))==os.environ['CANDIDATE_ARTIFACT_ID'] and ca.get('expired') is False,ca
+          cwr=ca.get('workflow_run') or {}
+          assert str(cwr.get('id'))==os.environ['CANDIDATE_RUN_ID'],cwr
+          assert cwr.get('head_sha')==os.environ['CANDIDATE_SOURCE_SHA'],cwr
+          sr=json.load(open('/tmp/evidence/service-fix-run.json'))
+          assert sr.get('conclusion')=='success',sr
+          sa=json.load(open('/tmp/evidence/service-fix-artifact.json'))
+          assert str(sa.get('id'))==os.environ['SERVICE_FIX_ARTIFACT_ID'] and sa.get('expired') is False,sa
+          swr=sa.get('workflow_run') or {}
+          assert str(swr.get('id'))==os.environ['SERVICE_FIX_RUN_ID'],swr
+          assert swr.get('head_sha')==os.environ['SERVICE_FIX_SOURCE_SHA'],swr
+          print('SOURCE_ARTIFACT_SERVICE_FIX_GATE_PASS')
+          PY
+          curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/artifacts/$SERVICE_FIX_ARTIFACT_ID/zip" -o /tmp/service-fix.zip
+          unzip -q /tmp/service-fix.zip -d /tmp/service-fix
+          test -f /tmp/service-fix/receipt.txt
+          grep -qx 'worker=pickpack' /tmp/service-fix/receipt.txt
+          grep -qx 'custom_domain=pickpack1291.cc.cd' /tmp/service-fix/receipt.txt
+          grep -qx 'fix=S63_RESOURCE_OWNER_LEASE_VALIDATION' /tmp/service-fix/receipt.txt
+          grep -qx 'authority=SERVICE_PRIMARY/PRODUCTION' /tmp/service-fix/receipt.txt
+          grep -qx 'verdict=PASS' /tmp/service-fix/receipt.txt
+          grep -qx 'stable_publish=FORBIDDEN' /tmp/service-fix/receipt.txt
+          printf 'candidate_source_sha=%s\ncandidate_run_id=%s\ncandidate_artifact_id=%s\nservice_fix_run_id=%s\nservice_fix_source_sha=%s\nsource_artifact_service_fix_gate=PASS\n' \
+            "$CANDIDATE_SOURCE_SHA" "$CANDIDATE_RUN_ID" "$CANDIDATE_ARTIFACT_ID" "$SERVICE_FIX_RUN_ID" "$SERVICE_FIX_SOURCE_SHA" > /tmp/evidence/receipt.txt
+
+      - name: Download and verify exact signed Beta64 candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/artifacts/$CANDIDATE_ARTIFACT_ID/zip" -o /tmp/candidate.zip
+          unzip -q /tmp/candidate.zip -d /tmp/candidate
+          APK=/tmp/candidate/$APK_NAME
+          SUM=/tmp/candidate/SHA256SUMS-$TARGET_VERSION.txt
+          META=/tmp/candidate/release-meta.json
+          test -s "$APK"; test -s "$SUM"; test -s "$META"
+          test "$(sha256sum "$APK" | awk '{print $1}')" = "$EXPECTED_SHA"
+          test "$(stat -c '%s' "$APK")" = "$EXPECTED_SIZE"
+          grep -qx "$EXPECTED_SHA  $APK_NAME" "$SUM"
+          python3 - <<'PY'
+          import json,os
+          m=json.load(open('/tmp/candidate/release-meta.json'))
+          assert m['version_name']==os.environ['TARGET_VERSION'],m
+          assert str(m['version_code'])==os.environ['TARGET_CODE'],m
+          assert m['package']==os.environ['EXPECTED_PACKAGE'],m
+          assert m['checkout_product_source_sha']==os.environ['CANDIDATE_SOURCE_SHA'],m
+          assert m['apk_sha256']==os.environ['EXPECTED_SHA'],m
+          assert str(m['apk_size'])==os.environ['EXPECTED_SIZE'],m
+          assert m['signer_sha256']==os.environ['EXPECTED_SIGNER_SHA256'],m
+          assert m['stable_version']=='0.1.0-stable' and int(m['stable_code'])==1,m
+          assert m['stable_publish']=='FORBIDDEN',m
+          PY
+          BT=/usr/local/lib/android/sdk/build-tools/36.0.0
+          if [[ ! -x "$BT/aapt" || ! -x "$BT/apksigner" ]]; then
+            SDK="$RUNNER_TEMP/android-sdk"; ZIP="$RUNNER_TEMP/commandlinetools.zip"
+            curl -fsSL https://dl.google.com/android/repository/commandlinetools-linux-15859902_latest.zip -o "$ZIP"
+            echo '4e4c464f145a7512b57d088ac6c278c03c9eea610886b35a5e0804e74eedf583  '$ZIP | sha256sum -c -
+            mkdir -p "$SDK/cmdline-tools"; unzip -q "$ZIP" -d "$RUNNER_TEMP/android-cmdline"; mv "$RUNNER_TEMP/android-cmdline/cmdline-tools" "$SDK/cmdline-tools/latest"
+            yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
+            "$SDK/cmdline-tools/latest/bin/sdkmanager" 'build-tools;36.0.0'
+            BT="$SDK/build-tools/36.0.0"
+          fi
+          "$BT/aapt" dump badging "$APK" > /tmp/evidence/apk-badging.txt
+          "$BT/apksigner" verify --verbose --print-certs "$APK" > /tmp/evidence/apk-cert.txt
+          grep -q "package: name='$EXPECTED_PACKAGE' versionCode='$TARGET_CODE' versionName='$TARGET_VERSION'" /tmp/evidence/apk-badging.txt
+          CERT=$(grep -m1 'Signer #1 certificate SHA-256 digest:' /tmp/evidence/apk-cert.txt | sed 's/.*digest: //' | tr 'A-F' 'a-f' | tr -d ':[:space:]')
+          test "$CERT" = "$EXPECTED_SIGNER_SHA256"
+          printf 'apk_name=%s\napk_sha256=%s\napk_size=%s\nsigner_sha256=%s\nidentity_gate=PASS\n' "$APK_NAME" "$EXPECTED_SHA" "$EXPECTED_SIZE" "$CERT" >> /tmp/evidence/receipt.txt
+          echo "APK=$APK" >> "$GITHUB_ENV"
+          echo "SUM=$SUM" >> "$GITHUB_ENV"
+
+      - name: Verify live production service and GAS discovery before OTA publish
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          ok=false
+          for i in $(seq 1 12); do
+            sc=$(curl -sSL --connect-timeout 15 --max-time 45 -o /tmp/evidence/service-health.json -w '%{http_code}' "$SERVICE_URL/health" || true)
+            cc=$(curl -sSL --connect-timeout 15 --max-time 45 -o /tmp/evidence/canonical-health.json -w '%{http_code}' "$CANONICAL_SERVICE_URL/health" || true)
+            gc=$(curl -sSL --connect-timeout 15 --max-time 60 -o /tmp/evidence/discovery.json -w '%{http_code}' -H 'content-type: application/json' "$GAS_URL" -d "{\"action\":\"service_discovery\",\"_app_channel\":\"BETA\",\"_app_version\":\"$TARGET_VERSION\",\"_device_id\":\"ci-beta64-release\"}" || true)
+            if test "$sc" = 200 && test "$cc" = 200 && test "$gc" = 200 && python3 - <<'PY'
+          import json,os
+          h=json.load(open('/tmp/evidence/service-health.json')); c=json.load(open('/tmp/evidence/canonical-health.json')); g=json.load(open('/tmp/evidence/discovery.json'))
+          a=h.get('authority') if isinstance(h.get('authority'),dict) else {}; ca=c.get('authority') if isinstance(c.get('authority'),dict) else {}; r=h.get('replication') if isinstance(h.get('replication'),dict) else {}; ga=g.get('authority') if isinstance(g.get('authority'),dict) else {}
+          generation=h.get('service_generation') or h.get('generation') or a.get('service_generation')
+          cg=c.get('service_generation') or c.get('generation') or ca.get('service_generation')
+          good=(h.get('ok') is True and c.get('ok') is True and
+                (h.get('authority_mode') or a.get('mode'))=='SERVICE_PRIMARY' and (h.get('authority_scope') or a.get('scope'))=='PRODUCTION' and
+                (c.get('authority_mode') or ca.get('mode'))=='SERVICE_PRIMARY' and (c.get('authority_scope') or ca.get('scope'))=='PRODUCTION' and
+                generation==os.environ['EXPECTED_SERVICE_GENERATION'] and cg==os.environ['EXPECTED_SERVICE_GENERATION'] and
+                (r.get('state') in (None,'HEALTHY')) and int(r.get('pending_count') or 0)==0 and
+                g.get('ok') is True and g.get('service_url')==os.environ['SERVICE_URL'] and g.get('authority_mode')=='SERVICE_PRIMARY' and
+                ga.get('mode')=='SERVICE_PRIMARY' and ga.get('scope')=='PRODUCTION')
+          raise SystemExit(0 if good else 1)
+          PY
+            then ok=true; break; fi
+            sleep 4
+          done
+          test "$ok" = true || { cat /tmp/evidence/service-health.json; cat /tmp/evidence/discovery.json; exit 1; }
+          echo 'production_service_discovery_gate=PASS' >> /tmp/evidence/receipt.txt
+
+      - name: Exchange Google OAuth and snapshot Stable folder
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          for v in GOOGLE_OAUTH_CLIENT_ID GOOGLE_OAUTH_CLIENT_SECRET GOOGLE_OAUTH_REFRESH_TOKEN; do test -n "${!v:-}"; done
+          TOKEN=$(curl -fsSL https://oauth2.googleapis.com/token \
+            --data-urlencode "client_id=$GOOGLE_OAUTH_CLIENT_ID" \
+            --data-urlencode "client_secret=$GOOGLE_OAUTH_CLIENT_SECRET" \
+            --data-urlencode "refresh_token=$GOOGLE_OAUTH_REFRESH_TOKEN" \
+            --data-urlencode 'grant_type=refresh_token' | jq -r '.access_token // empty')
+          test -n "$TOKEN"; echo "::add-mask::$TOKEN"; echo "GOOGLE_ACCESS_TOKEN=$TOKEN" >> "$GITHUB_ENV"
+          q=$(python3 - "$STABLE_FOLDER_ID" <<'PY'
+          import sys,urllib.parse
+          print(urllib.parse.quote("'%s' in parents and trashed=false"%sys.argv[1]))
+          PY
+          )
+          curl -fsSL -H "Authorization: Bearer $TOKEN" "https://www.googleapis.com/drive/v3/files?q=$q&fields=files(id,name,size,md5Checksum,modifiedTime)&pageSize=1000" > /tmp/evidence/stable-before-raw.json
+          jq -cS '[.files[]|{id,name,size,md5Checksum,modifiedTime}]|sort_by(.id)' /tmp/evidence/stable-before-raw.json > /tmp/evidence/stable-before.json
+          sha256sum /tmp/evidence/stable-before.json | awk '{print "stable_before_sha256="$1}' >> /tmp/evidence/receipt.txt
+
+      - name: Publish exact Beta64 APK and checksum to Google Drive Beta OTA
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          list_name(){
+            local name="$1" out="$2" q
+            q=$(python3 - "$BETA_FOLDER_ID" "$name" <<'PY'
+          import sys,urllib.parse
+          folder,name=sys.argv[1],sys.argv[2].replace("'","\\'")
+          print(urllib.parse.quote("'%s' in parents and trashed=false and name='%s'"%(folder,name)))
+          PY
+          )
+            curl -fsSL -H "Authorization: Bearer $GOOGLE_ACCESS_TOKEN" "https://www.googleapis.com/drive/v3/files?q=$q&fields=files(id,name,size,md5Checksum,modifiedTime)&pageSize=100" > "$out"
+          }
+          upload_new(){
+            local file="$1" name="$2" mime="$3" size meta hdr loc
+            size=$(stat -c '%s' "$file")
+            meta=$(jq -nc --arg n "$name" --arg p "$BETA_FOLDER_ID" --arg m "$mime" '{name:$n,parents:[$p],mimeType:$m}')
+            hdr=$(mktemp)
+            curl -fsS -D "$hdr" -o /tmp/upload-init -X POST 'https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&fields=id,name,size' \
+              -H "Authorization: Bearer $GOOGLE_ACCESS_TOKEN" -H 'Content-Type: application/json; charset=UTF-8' -H "X-Upload-Content-Type: $mime" -H "X-Upload-Content-Length: $size" --data "$meta"
+            loc=$(awk 'BEGIN{IGNORECASE=1}/^location:/{sub(/\r$/,"");sub(/^location:[[:space:]]*/,"");print;exit}' "$hdr"); test -n "$loc"
+            curl -fsSL -X PUT "$loc" -H "Content-Type: $mime" --data-binary @"$file" | jq -r '.id'
+          }
+          exact_file(){
+            local file="$1" name="$2" mime="$3" sha="$4" size="$5" listing="$6" id count cursha cursize
+            list_name "$name" "$listing"; count=$(jq '.files|length' "$listing"); test "$count" -le 1
+            if test "$count" = 0; then id=$(upload_new "$file" "$name" "$mime"); else
+              id=$(jq -r '.files[0].id' "$listing")
+              curl -fsSL -H "Authorization: Bearer $GOOGLE_ACCESS_TOKEN" "https://www.googleapis.com/drive/v3/files/$id?alt=media" -o /tmp/existing.bin
+              cursha=$(sha256sum /tmp/existing.bin | awk '{print $1}'); cursize=$(stat -c '%s' /tmp/existing.bin)
+              if test "$cursha" != "$sha" || test "$cursize" != "$size"; then
+                curl -fsSL -X PATCH -H "Authorization: Bearer $GOOGLE_ACCESS_TOKEN" -H "Content-Type: $mime" --data-binary @"$file" "https://www.googleapis.com/upload/drive/v3/files/$id?uploadType=media&fields=id,name,size" >/tmp/replace.json
+              fi
+            fi
+            test -n "$id"; echo "$id"
+          }
+          APK_ID=$(exact_file "$APK" "$APK_NAME" 'application/vnd.android.package-archive' "$EXPECTED_SHA" "$EXPECTED_SIZE" /tmp/evidence/apk-list.json)
+          SUM_NAME=$(basename "$SUM"); SUM_SHA=$(sha256sum "$SUM"|awk '{print $1}'); SUM_SIZE=$(stat -c '%s' "$SUM")
+          SUM_ID=$(exact_file "$SUM" "$SUM_NAME" 'text/plain' "$SUM_SHA" "$SUM_SIZE" /tmp/evidence/sum-list.json)
+          echo "APK_ID=$APK_ID" >> "$GITHUB_ENV"; echo "SUM_ID=$SUM_ID" >> "$GITHUB_ENV"
+          curl -fsSL -H "Authorization: Bearer $GOOGLE_ACCESS_TOKEN" "https://www.googleapis.com/drive/v3/files/$APK_ID?alt=media" -o /tmp/evidence/drive-readback.apk
+          test "$(sha256sum /tmp/evidence/drive-readback.apk|awk '{print $1}')" = "$EXPECTED_SHA"; test "$(stat -c '%s' /tmp/evidence/drive-readback.apk)" = "$EXPECTED_SIZE"
+          curl -fsSL -H "Authorization: Bearer $GOOGLE_ACCESS_TOKEN" "https://www.googleapis.com/drive/v3/files/$APK_ID/permissions?fields=permissions(id,type,role)&supportsAllDrives=true" > /tmp/evidence/perms.json
+          if ! jq -e '[.permissions[]|select(.type=="anyone" and .role=="reader")]|length>=1' /tmp/evidence/perms.json >/dev/null; then
+            curl -fsSL -X POST -H "Authorization: Bearer $GOOGLE_ACCESS_TOKEN" -H 'Content-Type: application/json' "https://www.googleapis.com/drive/v3/files/$APK_ID/permissions?supportsAllDrives=true&fields=id,type,role" -d '{"type":"anyone","role":"reader"}' > /tmp/evidence/permission-created.json
+            jq -e '.type=="anyone" and .role=="reader"' /tmp/evidence/permission-created.json >/dev/null
+          fi
+          printf 'drive_apk_id=%s\ndrive_checksum_id=%s\ndrive_readback=PASS\n' "$APK_ID" "$SUM_ID" >> /tmp/evidence/receipt.txt
+
+      - name: Verify live OTA Beta63 to Beta64 exact bytes and Beta64 self-check
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          good=false
+          for i in $(seq 1 18); do
+            code=$(curl -sSL --connect-timeout 20 --max-time 90 -o /tmp/evidence/update-from.json -w '%{http_code}' -H 'content-type: application/json' "$GAS_URL" -d "{\"action\":\"update_check\",\"channel\":\"BETA\",\"current_version\":\"$FROM_VERSION\"}" || true)
+            if test "$code" = 200 && python3 - <<'PY'
+          import json,os
+          j=json.load(open('/tmp/evidence/update-from.json')); avail=j.get('available',j.get('update_available'))
+          good=(j.get('ok') is True and avail is True and j.get('source')=='GOOGLE_DRIVE' and j.get('channel')=='BETA' and str(j.get('version_name',j.get('version','')))==os.environ['TARGET_VERSION'] and str(j.get('sha256','')).lower()==os.environ['EXPECTED_SHA'] and str(j.get('size',''))==os.environ['EXPECTED_SIZE'] and bool(j.get('apk_url') or j.get('download_url') or j.get('url')))
+          raise SystemExit(0 if good else 1)
+          PY
+            then good=true; break; fi
+            sleep 4
+          done
+          test "$good" = true || { cat /tmp/evidence/update-from.json; exit 1; }
+          URL=$(python3 - <<'PY'
+          import json
+          j=json.load(open('/tmp/evidence/update-from.json')); print(j.get('apk_url') or j.get('download_url') or j.get('url') or '')
+          PY
+          )
+          curl -fsSL --retry 6 --retry-all-errors --retry-delay 2 --connect-timeout 20 --max-time 240 "$URL" -o /tmp/evidence/ota-download.apk
+          test "$(sha256sum /tmp/evidence/ota-download.apk|awk '{print $1}')" = "$EXPECTED_SHA"; test "$(stat -c '%s' /tmp/evidence/ota-download.apk)" = "$EXPECTED_SIZE"
+          curl -fsSL -H 'content-type: application/json' "$GAS_URL" -d "{\"action\":\"update_check\",\"channel\":\"BETA\",\"current_version\":\"$TARGET_VERSION\"}" > /tmp/evidence/update-self.json
+          python3 - <<'PY'
+          import json
+          j=json.load(open('/tmp/evidence/update-self.json')); a=j.get('available',j.get('update_available')); assert j.get('ok') is True and j.get('channel')=='BETA' and a is False,j
+          PY
+          echo 'ota_beta63_to_beta64=PASS' >> /tmp/evidence/receipt.txt; echo 'beta64_self_update=PASS' >> /tmp/evidence/receipt.txt
+
+      - name: Verify Stable channel isolation byte-for-byte
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          curl -fsSL -H 'content-type: application/json' "$GAS_URL" -d '{"action":"update_check","channel":"STABLE","current_version":"999.999.999"}' > /tmp/evidence/stable-ota.json
+          python3 - <<'PY'
+          import json
+          j=json.load(open('/tmp/evidence/stable-ota.json')); a=j.get('available',j.get('update_available')); assert j.get('ok') is True and j.get('channel')=='STABLE' and a is False,j
+          PY
+          q=$(python3 - "$STABLE_FOLDER_ID" <<'PY'
+          import sys,urllib.parse
+          print(urllib.parse.quote("'%s' in parents and trashed=false"%sys.argv[1]))
+          PY
+          )
+          curl -fsSL -H "Authorization: Bearer $GOOGLE_ACCESS_TOKEN" "https://www.googleapis.com/drive/v3/files?q=$q&fields=files(id,name,size,md5Checksum,modifiedTime)&pageSize=1000" > /tmp/evidence/stable-after-raw.json
+          jq -cS '[.files[]|{id,name,size,md5Checksum,modifiedTime}]|sort_by(.id)' /tmp/evidence/stable-after-raw.json > /tmp/evidence/stable-after.json
+          cmp -s /tmp/evidence/stable-before.json /tmp/evidence/stable-after.json
+          echo 'stable_channel_isolation=PASS' >> /tmp/evidence/receipt.txt; echo 'stable_identity=0.1.0-stable/VC1_UNTOUCHED' >> /tmp/evidence/receipt.txt
+
+      - name: Publish exact GitHub Beta64 prerelease backup
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git fetch --tags --force
+          REMOTE_TAG=$(git ls-remote --tags origin "refs/tags/$TAG" | awk '{print $1}')
+          if test -n "$REMOTE_TAG"; then TAG_SHA=$(git rev-list -n1 "$TAG" 2>/dev/null || true); test "$TAG_SHA" = "$CANDIDATE_SOURCE_SHA"; fi
+          cat > /tmp/release-notes.txt <<EOF
+          Pick Pack 1291 Beta ${TARGET_VERSION}
+
+          PP_CHANNEL=BETA
+          PP_VERSION=${TARGET_VERSION}
+          PP_VERSION_CODE=${TARGET_CODE}
+          PP_SHA256=${EXPECTED_SHA}
+          PP_SIZE=${EXPECTED_SIZE}
+          PP_SIGNER_SHA256=${EXPECTED_SIGNER_SHA256}
+          PP_APK_NAME=${APK_NAME}
+          PP_SERVICE_DOMAIN=${SERVICE_URL}
+          PP_SERVICE_FIX=S63_RESOURCE_OWNER_LEASE_VALIDATION
+          PP_OTA_SOURCE=GOOGLE_DRIVE
+          PP_MANDATORY=false
+          EOF
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --title "Pick Pack 1291 $TARGET_VERSION" --notes-file /tmp/release-notes.txt --prerelease
+          else
+            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --target "$CANDIDATE_SOURCE_SHA" --title "Pick Pack 1291 $TARGET_VERSION" --notes-file /tmp/release-notes.txt --prerelease
+          fi
+          gh release upload "$TAG" "$APK#$APK_NAME" "$SUM#$(basename "$SUM")" --repo "$GITHUB_REPOSITORY" --clobber
+          RURL="https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/$APK_NAME"
+          curl -fsSL --retry 6 --retry-all-errors --retry-delay 2 --connect-timeout 20 --max-time 240 "$RURL" -o /tmp/evidence/github-release.apk
+          test "$(sha256sum /tmp/evidence/github-release.apk|awk '{print $1}')" = "$EXPECTED_SHA"; test "$(stat -c '%s' /tmp/evidence/github-release.apk)" = "$EXPECTED_SIZE"
+          printf 'github_release_tag=%s\ngithub_release_readback=PASS\n' "$TAG" >> /tmp/evidence/receipt.txt
+
+      - name: Final live domain, discovery and release receipt
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          curl -fsSL "$SERVICE_URL/health" > /tmp/evidence/service-health-final.json
+          curl -fsSL "$CANONICAL_SERVICE_URL/health" > /tmp/evidence/canonical-health-final.json
+          curl -fsSL -H 'content-type: application/json' "$GAS_URL" -d "{\"action\":\"service_discovery\",\"_app_channel\":\"BETA\",\"_app_version\":\"$TARGET_VERSION\",\"_device_id\":\"ci-beta64-final-post\"}" > /tmp/evidence/discovery-final.json
+          python3 - <<'PY'
+          import json,os
+          h=json.load(open('/tmp/evidence/service-health-final.json')); c=json.load(open('/tmp/evidence/canonical-health-final.json')); g=json.load(open('/tmp/evidence/discovery-final.json'))
+          a=h.get('authority') if isinstance(h.get('authority'),dict) else {}; ca=c.get('authority') if isinstance(c.get('authority'),dict) else {}; r=h.get('replication') if isinstance(h.get('replication'),dict) else {}; ga=g.get('authority') if isinstance(g.get('authority'),dict) else {}
+          assert h.get('ok') is True and c.get('ok') is True,h
+          assert (h.get('authority_mode') or a.get('mode'))=='SERVICE_PRIMARY' and (h.get('authority_scope') or a.get('scope'))=='PRODUCTION',h
+          assert (c.get('authority_mode') or ca.get('mode'))=='SERVICE_PRIMARY' and (c.get('authority_scope') or ca.get('scope'))=='PRODUCTION',c
+          assert (h.get('service_generation') or h.get('generation') or a.get('service_generation'))==os.environ['EXPECTED_SERVICE_GENERATION'],h
+          assert r.get('state') in (None,'HEALTHY') and int(r.get('pending_count') or 0)==0,r
+          assert g.get('ok') is True and g.get('service_url')==os.environ['SERVICE_URL'] and g.get('authority_mode')=='SERVICE_PRIMARY',g
+          assert ga.get('mode')=='SERVICE_PRIMARY' and ga.get('scope')=='PRODUCTION',g
+          PY
+          echo 'final_domain_discovery_health=PASS' >> /tmp/evidence/receipt.txt; echo 'stable_publish=FORBIDDEN' >> /tmp/evidence/receipt.txt; echo 'verdict=PASS' >> /tmp/evidence/receipt.txt
+          cat /tmp/evidence/receipt.txt
+
+      - name: Upload final Beta64 release evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: beta64-final-release-evidence
+          path: /tmp/evidence
+          if-no-files-found: ignore
+          retention-days: 30
