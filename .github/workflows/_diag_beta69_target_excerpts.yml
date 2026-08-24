@@ -1,0 +1,60 @@
+name: Beta69 exact target source diagnostic
+on:
+  push:
+    branches: [ release/beta69-owner-six-fixes-20260825 ]
+    paths: [ 'ops/TRIGGER_BETA69_TARGET_EXCERPTS.txt' ]
+permissions:
+  contents: write
+jobs:
+  excerpt:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+      - name: Materialize through Beta68
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/apply_beta64_owner_seven_fixes.py
+          python3 tools/apply_beta64_compile_fix.py
+          python3 tools/apply_beta65_session_resource_login_parity.py
+          python3 tools/apply_beta65_behavior_compile_fix.py
+          python3 tools/apply_beta65_scope_compile_fix.py
+          python3 tools/apply_beta65_login_reference_finish.py
+          python3 tools/apply_beta66_login_fullframe.py
+          python3 tools/apply_beta68_owner_five_fixes.py
+      - name: Capture target functions
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt').read_text()
+          sigs=[
+            '    private fun refreshHeaderConnection()',
+            '    private fun showHeaderStatusDetail(kind:String)',
+            '    private fun historyTimeline(items:List<JSONObject>)',
+            '    private fun addBusinessShiftReconciliation(body:LinearLayout)',
+            '    private fun pdaExchangeScreen()',
+            '    private fun navigateBack()',
+            '    private fun sessionWorkDetail(payload:JSONObject)',
+            '    private fun sessionTimelineItems(mnv:String)',
+          ]
+          out=[]
+          for sig in sigs:
+              a=s.find(sig)
+              if a<0:
+                  out.append('=== MISSING '+sig.strip()+' ===\n')
+                  continue
+              b=s.find('\n    private fun ',a+len(sig))
+              if b<0:b=len(s)
+              out.append('=== '+sig.strip()+' ===\n'+s[a:b]+'\n')
+          Path('ops/beta69-target-excerpts.txt').write_text('\n'.join(out))
+          PY
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add ops/beta69-target-excerpts.txt
+          git commit -m 'ops: capture exact Beta68 target functions for Beta69'
+          git push origin HEAD:release/beta69-owner-six-fixes-20260825
