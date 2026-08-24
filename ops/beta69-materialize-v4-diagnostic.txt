@@ -1,0 +1,21 @@
+run_id=32761916800
+source_sha=b58bec488b8fc2f5685eae47c73938e4aed3c750
+outcome=failure
+rc=1
+--- exact_tail ---
+  File "tools/apply_beta69_owner_six_fixes_v4.py", line 38
+    "REMOVE_RESOURCE"->{val old=assignmentById(before,x.optString("assignment_id"));val t=old?.optString("resource_type").orEmpty().ifBlank{x.optString("resource_type")};val id=old?.optString("resource_id").orEmpty().ifBlank{x.optString("resource_id")};changes.add("Xóa ${resName(t)}: ${id.ifBlank{"—"}}${x.optString("reason").takeIf{it.isNotBlank()}?.let{" • Lý do: $it"}.orEmpty()}")}
+                                                                                                                                                                                                                                                                                                           ^
+SyntaxError: invalid character '—' (U+2014)
+Beta64 owner seven fixes materialization PASS
+Beta64 residual reissue compile fix PASS
+BETA65_SESSION_RESOURCE_LOGIN_PARITY_MATERIALIZE_PASS
+BETA65_BEHAVIOR_COMPILE_FIX_PASS
+BETA65_SCOPE_COMPILE_FIX_PASS
+BETA65_LOGIN_REFERENCE_FINISH_PASS
+BETA66_LOGIN_FULLFRAME_PASS
+BETA68_OWNER_FIVE_FIXES_PASS
+  File "/home/runner/work/pick-pack-1291/pick-pack-1291/tools/apply_beta69_owner_six_fixes_v4.py", line 38
+    "REMOVE_RESOURCE"->{val old=assignmentById(before,x.optString("assignment_id"));val t=old?.optString("resource_type").orEmpty().ifBlank{x.optString("resource_type")};val id=old?.optString("resource_id").orEmpty().ifBlank{x.optString("resource_id")};changes.add("Xóa ${resName(t)}: ${id.ifBlank{"—"}}${x.optString("reason").takeIf{it.isNotBlank()}?.let{" • Lý do: $it"}.orEmpty()}")}
+                                                                                                                                                                                                                                                                                                           ^
+SyntaxError: invalid character '—' (U+2014)
