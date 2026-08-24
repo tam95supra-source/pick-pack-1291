@@ -1,0 +1,132 @@
+name: Oneoff Service S64 Final Deploy V2
+
+on:
+  push:
+    branches: [ agent/service-s64-session-resource-model-20260824 ]
+    paths: [ 'ops/service-s64-final-trigger.txt' ]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: service-s64-session-resource-production-final
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      SERVICE_URL: https://pickpack1291.cc.cd
+      WORKERS_URL: https://pickpack.1291.workers.dev
+      WORKER: pickpack
+      DB_NAME: pick-pack-1291-service-prod
+      DB_ID: b619df89-528d-4126-a948-de0425037b11
+      GENERATION: m2-prod-reset-20260823-001
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Materialize and typecheck exact final S64
+        run: |
+          set -euo pipefail
+          python3 tools/apply_service_s62_session_authority_fix.py
+          python3 tools/apply_service_s63_resource_owner_lease_fix.py
+          python3 tools/apply_service_s64_session_resource_model.py
+          python3 tools/apply_service_s64_finalize.py
+          grep -F 'S64_SESSION_MULTI_POSITION_MULTI_RESOURCE' service/src/entry_product.ts
+          cd service
+          npm install --no-audit --no-fund
+          npm run typecheck
+      - name: Fresh production safety fence
+        run: |
+          set -euo pipefail
+          test -n "${CLOUDFLARE_API_TOKEN:-}"; test -n "${CLOUDFLARE_ACCOUNT_ID:-}"
+          curl -fsS --retry 4 --retry-all-errors --retry-delay 2 "$SERVICE_URL/health" > /tmp/pre.json
+          python3 - <<'PY'
+          import json,os
+          h=json.load(open('/tmp/pre.json')); a=h.get('authority') if isinstance(h.get('authority'),dict) else {}; r=h.get('replication') if isinstance(h.get('replication'),dict) else {}
+          assert h.get('ok') is True,h
+          assert (h.get('authority_mode') or a.get('mode'))=='SERVICE_PRIMARY',h
+          assert (h.get('authority_scope') or a.get('scope'))=='PRODUCTION',h
+          assert (h.get('service_generation') or h.get('generation') or a.get('service_generation'))==os.environ['GENERATION'],h
+          if 'state' in r: assert r['state']=='HEALTHY',r
+          if 'pending_count' in r: assert int(r.get('pending_count') or 0)==0,r
+          PY
+          H=(-H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" -H 'Content-Type: application/json')
+          curl -fsS "${H[@]}" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/domains" > /tmp/domains.json
+          curl -fsS "${H[@]}" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/$WORKER/settings" > /tmp/settings.json
+          python3 - <<'PY'
+          import json,os
+          d=json.load(open('/tmp/domains.json')).get('result') or []
+          x=[r for r in d if str(r.get('hostname') or r.get('domain') or '')=='pickpack1291.cc.cd'];assert x,x
+          assert any(str(r.get('service') or r.get('script') or r.get('script_name') or '')=='pickpack' for r in x),x
+          b=(json.load(open('/tmp/settings.json')).get('result') or {}).get('bindings') or []
+          db=[x for x in b if x.get('name')=='DB'];assert db and str(db[0].get('id') or db[0].get('database_id') or '')==os.environ['DB_ID'],db
+          hub=[x for x in b if x.get('name')=='REALTIME_HUB'];assert hub and str(hub[0].get('class_name') or '')=='RealtimeHub',hub
+          PY
+      - name: Configure, migrate, deploy
+        working-directory: service
+        run: |
+          set -euo pipefail
+          cat > wrangler.s64.final.jsonc <<'EOF'
+          {"$schema":"./node_modules/wrangler/config-schema.json","name":"pickpack","main":"src/entry_product.ts","compatibility_date":"2026-08-08","compatibility_flags":["nodejs_compat"],"workers_dev":true,"placement":{"mode":"smart"},"d1_databases":[{"binding":"DB","database_name":"pick-pack-1291-service-prod","database_id":"b619df89-528d-4126-a948-de0425037b11","migrations_dir":"migrations"}],"durable_objects":{"bindings":[{"name":"REALTIME_HUB","class_name":"RealtimeHub"}]},"assets":{"directory":"./public","binding":"ASSETS","not_found_handling":"single-page-application","run_worker_first":["/health","/v1/*","/internal/*"]},"triggers":{"crons":["*/1 * * * *"]},"observability":{"enabled":true,"head_sampling_rate":1}}
+          EOF
+          npx wrangler d1 migrations list "$DB_NAME" --remote --config wrangler.s64.final.jsonc | tee /tmp/migrations-before.txt
+          npx wrangler d1 migrations apply "$DB_NAME" --remote --config wrangler.s64.final.jsonc | tee /tmp/migrations-apply.txt
+          npx wrangler d1 execute "$DB_NAME" --remote --config wrangler.s64.final.jsonc --command "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('session_positions','session_resource_assignments','session_version_claims') ORDER BY name;" | tee /tmp/schema.txt
+          grep -F session_positions /tmp/schema.txt; grep -F session_resource_assignments /tmp/schema.txt; grep -F session_version_claims /tmp/schema.txt
+          npx wrangler deploy --config wrangler.s64.final.jsonc --keep-vars 2>&1 | tee /tmp/deploy.log
+      - name: Exact live verification
+        run: |
+          set -euo pipefail
+          for i in 1 2 3 4 5 6 7 8; do curl -fsS "$SERVICE_URL/v1/session/model-version" > /tmp/model.json && grep -q 'S64_SESSION_MULTI_POSITION_MULTI_RESOURCE' /tmp/model.json && break || sleep 3; done
+          grep -q 'S64_SESSION_MULTI_POSITION_MULTI_RESOURCE' /tmp/model.json
+          curl -fsS "$SERVICE_URL/health" > /tmp/post.json
+          curl -fsS "$WORKERS_URL/health" > /tmp/compat.json
+          python3 - <<'PY'
+          import json,os
+          for p in ['/tmp/post.json','/tmp/compat.json']:
+            h=json.load(open(p)); assert h.get('ok') is True,h
+          h=json.load(open('/tmp/post.json'));a=h.get('authority') if isinstance(h.get('authority'),dict) else {};r=h.get('replication') if isinstance(h.get('replication'),dict) else {}
+          assert (h.get('authority_mode') or a.get('mode'))=='SERVICE_PRIMARY',h
+          assert (h.get('authority_scope') or a.get('scope'))=='PRODUCTION',h
+          if 'state' in r: assert r['state']=='HEALTHY',r
+          if 'pending_count' in r: assert int(r.get('pending_count') or 0)==0,r
+          m=json.load(open('/tmp/model.json'));assert m.get('multi_user') is True and m.get('pack_user_table_independent') is True,m
+          PY
+          probe(){ curl -sS -o /tmp/p -w '%{http_code}' -H 'content-type: application/json' -d '{}' "$SERVICE_URL$1"; }
+          test "$(probe /v1/session/enter-v2)" = 401
+          test "$(probe /v1/session/resources/snapshot)" = 401
+          test "$(probe /v1/session/resources/mutate)" = 401
+          test "$(probe /v1/session/exit-v2)" = 401
+          cd service
+          npx wrangler d1 execute "$DB_NAME" --remote --config wrangler.s64.final.jsonc --command "SELECT COUNT(*) assignments,SUM(CASE WHEN state='ACTIVE' THEN 1 ELSE 0 END) active FROM session_resource_assignments; SELECT COUNT(*) positions FROM session_positions;" > /tmp/db.txt
+          cd ..
+          ver=$(grep -Eo '[0-9a-f]{8}-[0-9a-f-]{27,}' /tmp/deploy.log | tail -1 || true)
+          cat > ops/service-s64-final-live-receipt.txt <<EOF
+          source_sha=$GITHUB_SHA
+          cloudflare_version=$ver
+          worker=pickpack
+          custom_domain=pickpack1291.cc.cd
+          model=S64_SESSION_MULTI_POSITION_MULTI_RESOURCE
+          authority=SERVICE_PRIMARY/PRODUCTION
+          replication=HEALTHY
+          stable_publish=FORBIDDEN
+          verdict=PASS
+          EOF
+          cat ops/service-s64-final-live-receipt.txt
+      - name: Commit observable receipt
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add ops/service-s64-final-live-receipt.txt
+          git commit -m 'evidence: Service S64 final production PASS'
+          git push origin HEAD:agent/service-s64-session-resource-model-20260824
