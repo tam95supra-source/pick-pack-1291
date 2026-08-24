@@ -1,0 +1,17 @@
+ota_ok=True
+ota_source=GOOGLE_DRIVE
+ota_channel=BETA
+ota_available=True
+ota_version=0.4.2-beta.66
+ota_code=None
+ota_sha256=9a4520fab3e46abc4757838c58fc05b00274bbc98a060b82dc5389f943517a68
+ota_size=13097861
+ota_notes=Phát hành từ BẢN THỬ NGHIỆM
+ota_mandatory=False
+ota_url_host=drive.usercontent.google.com
+service_ok=True
+authority_mode=SERVICE_PRIMARY
+authority_scope=PRODUCTION
+authority_epoch=9
+replication_state=HEALTHY
+replication_pending=0
