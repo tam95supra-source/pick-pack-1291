@@ -86,6 +86,10 @@ replacement = r'''        // Beta66 full-frame reference: one logical 2:3 design
 '''
 
 seg = seg[:anchor_start] + replacement + seg[anchor_end:]
+# The Beta65 materialization chain historically emitted an unimported ColorDrawable in
+# the login function on some paths. Fully qualify any residual reference in the effective
+# compiled login segment so Beta66 does not depend on a fragile import side effect.
+seg = seg.replace('ColorDrawable(', 'android.graphics.drawable.ColorDrawable(')
 text = text[:start] + seg + text[end:]
 FULL.write_text(text)
 
@@ -98,6 +102,7 @@ assert 'FIT_XY' not in seg
 assert 'setOnApplyWindowInsetsListener' in seg
 assert 'availableW/designW.toFloat()' in seg and 'availableH/designH.toFloat()' in seg
 assert 'minOf(availableW/designW.toFloat(),availableH/designH.toFloat())' in seg
+assert 'background=ColorDrawable(' not in seg
 assert 'Ghi nhớ đăng nhập' not in seg
 assert 'Đăng nhập bằng tài khoản khác' not in seg
 for required in ('Đăng nhập','Quên mật khẩu','Hiện mật khẩu','Đăng ký'):
