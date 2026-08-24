@@ -1,1 +1,11 @@
-INVALID
+canonical_handover=PICK_PACK_1291_CANONICAL_HANDOVER_V20_BETA65_SERVICE_S64_2026-08-24.md
+canonical_branch=release-carrier/beta65-20260824
+handover_commit=af285aa951c7cf7a3dfa6a56f6853cc4b67f1d85
+completion_receipt=ops/BETA65_COMPLETION_RECEIPT.txt
+completion_receipt_commit=6dfe56770e6f9d70eb5593edf923def307a503de
+product_source_sha=1e8fb8255f26ad58c9719d99c27c08ef5d597cbf
+artifact_id=9510636863
+github_release_id=375548474
+github_release_tag=v0.4.2-beta.65-publicbeta
+stable_publish=FORBIDDEN
+verdict=PASS
