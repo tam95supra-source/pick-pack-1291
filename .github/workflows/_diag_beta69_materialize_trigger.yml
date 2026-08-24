@@ -1,0 +1,65 @@
+name: Beta69 materializer diagnostic trigger
+on:
+  push:
+    branches: [ release/beta69-owner-six-fixes-20260825 ]
+    paths: [ 'ops/TRIGGER_BETA69_DIAG.txt' ]
+permissions:
+  contents: write
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+      - name: Run materializers
+        id: mat
+        continue-on-error: true
+        shell: bash
+        run: |
+          set +e
+          {
+            python3 -m py_compile tools/apply_beta69_owner_six_fixes.py
+            python3 tools/apply_beta64_owner_seven_fixes.py
+            python3 tools/apply_beta64_compile_fix.py
+            python3 tools/apply_beta65_session_resource_login_parity.py
+            python3 tools/apply_beta65_behavior_compile_fix.py
+            python3 tools/apply_beta65_scope_compile_fix.py
+            python3 tools/apply_beta65_login_reference_finish.py
+            python3 tools/apply_beta66_login_fullframe.py
+            python3 tools/apply_beta68_owner_five_fixes.py
+            python3 tools/apply_beta69_owner_six_fixes.py
+          } > /tmp/materialize.log 2>&1
+          rc=$?
+          echo "rc=$rc" >> "$GITHUB_OUTPUT"
+          tail -n 30 /tmp/materialize.log > /tmp/materialize-tail.log
+          exit $rc
+      - name: Persist diagnostic
+        if: always()
+        shell: bash
+        env:
+          OUTCOME: ${{ steps.mat.outcome }}
+          RC: ${{ steps.mat.outputs.rc }}
+        run: |
+          set -euo pipefail
+          {
+            echo "run_id=$GITHUB_RUN_ID"
+            echo "source_sha=$GITHUB_SHA"
+            echo "outcome=$OUTCOME"
+            echo "rc=${RC:-UNKNOWN}"
+            echo "--- exact_tail ---"
+            cat /tmp/materialize-tail.log 2>/dev/null || true
+          } > ops/beta69-materialize-diagnostic.txt
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add ops/beta69-materialize-diagnostic.txt
+          git commit -m 'ops: Beta69 materializer diagnostic result' || true
+          git push origin HEAD:release/beta69-owner-six-fixes-20260825
+      - name: Enforce PASS
+        if: always()
+        shell: bash
+        env:
+          OUTCOME: ${{ steps.mat.outcome }}
+        run: test "$OUTCOME" = success
