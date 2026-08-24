@@ -26,7 +26,9 @@ jobs:
           python3 tools/apply_service_s62_session_authority_fix.py
           python3 tools/apply_service_s63_resource_owner_lease_fix.py
           python3 tools/apply_service_s64_session_resource_model.py
+          python3 tools/apply_service_s64_finalize.py
           grep -F '/v1/session/resources/mutate' service/src/entry_product.ts
+          grep -F '/v1/session/model-version' service/src/entry_product.ts
           grep -F 'session_resource_assignments' service/src/session_resources_v64.ts
       - name: Typecheck
         working-directory: service
@@ -48,5 +50,10 @@ jobs:
           assert 'session_resource_assignments' in m
           assert 'session_positions' in m
           assert 'session_version_claims' in m
+          h=Path('service/src/session_hotfix.ts').read_text()
+          assert 'ATTENDANCE_SESSION_REQUIRED' in h
+          assert 'deletedResources' in h and 'deletedPositions' in h
+          e=Path('service/src/entry_product.ts').read_text()
+          assert 'S64_SESSION_MULTI_POSITION_MULTI_RESOURCE' in e
           print('S64_BUSINESS_RULE_STATIC_PASS')
           PY
