@@ -1,6 +1,6 @@
 verdict=failure
-run_id=32716502033
-source_sha=c50a75a285075e6309f78b3cc50f9a15fbf71869
+run_id=32716810662
+source_sha=aee332ce45a48dd947ba4d9d3c547221f0a6f097
 branch=agent/beta66-login-fullframe-20260824
 beta_name=0.4.2-beta.66
 beta_code=72
