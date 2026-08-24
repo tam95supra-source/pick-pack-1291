@@ -1,0 +1,5 @@
+cutover=2026-08-24T07:07+07:00
+service_url=https://pickpack1291.cc.cd
+worker=pickpack
+old_worker_removed=true
+stable_publish=FORBIDDEN
