@@ -1,0 +1,67 @@
+name: Beta68 resolve live Drive parent v2
+on:
+  push:
+    branches: [ diag/beta68-v2-observer-20260824 ]
+    paths: [ '.github/workflows/_diag_beta68_live_drive_parent_v2.yml' ]
+permissions:
+  contents: write
+jobs:
+  resolve:
+    runs-on: ubuntu-latest
+    env:
+      GAS_URL: https://script.google.com/macros/s/AKfycbzbEoGfbNg6s2HnP-gUpcBJ7mMIkVBtYuQKMndb9seDV2c55lQwSUO1GZ-LtQ2CxMCauA/exec
+      GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+      GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+      GOOGLE_OAUTH_REFRESH_TOKEN: ${{ secrets.GOOGLE_OAUTH_REFRESH_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - name: Resolve live Beta66 file and parent read-only
+        shell: bash
+        run: |
+          set -euo pipefail
+          for v in GOOGLE_OAUTH_CLIENT_ID GOOGLE_OAUTH_CLIENT_SECRET GOOGLE_OAUTH_REFRESH_TOKEN; do test -n "${!v:-}"; done
+          curl -fsSL --connect-timeout 15 --max-time 60 -H 'content-type: application/json' "$GAS_URL" -d '{"action":"update_check","channel":"BETA","current_version":"0.4.2-beta.65"}' > /tmp/ota.json
+          FILE_ID=$(python3 - <<'PY'
+          import json,re
+          j=json.load(open('/tmp/ota.json'))
+          u=str(j.get('apk_url') or j.get('download_url') or j.get('url') or '')
+          pats=[r'/d/([A-Za-z0-9_-]+)',r'[?&]id=([A-Za-z0-9_-]+)']
+          for p in pats:
+            m=re.search(p,u)
+            if m:
+              print(m.group(1)); break
+          else: raise SystemExit('NO_DRIVE_FILE_ID')
+          PY
+          )
+          TOK=$(curl -fsSL -X POST https://oauth2.googleapis.com/token \
+            --data-urlencode "client_id=$GOOGLE_OAUTH_CLIENT_ID" \
+            --data-urlencode "client_secret=$GOOGLE_OAUTH_CLIENT_SECRET" \
+            --data-urlencode "refresh_token=$GOOGLE_OAUTH_REFRESH_TOKEN" \
+            --data-urlencode grant_type=refresh_token | python3 -c 'import sys,json; print(json.load(sys.stdin)["access_token"])')
+          curl -fsSL -H "Authorization: Bearer $TOK" "https://www.googleapis.com/drive/v3/files/$FILE_ID?fields=id,name,size,md5Checksum,parents,description,appProperties,properties,createdTime,modifiedTime" > /tmp/meta.json
+          mkdir -p ops
+          python3 - <<'PY' > ops/beta68-live-drive-parent-v2.txt
+          import json
+          o=json.load(open('/tmp/ota.json')); m=json.load(open('/tmp/meta.json'))
+          print('ota_version='+str(o.get('version_name',o.get('version'))))
+          print('ota_code='+str(o.get('version_code')))
+          print('ota_sha256='+str(o.get('sha256')))
+          print('ota_size='+str(o.get('size')))
+          print('ota_notes='+str(o.get('notes','')).replace('\n','\\n'))
+          print('file_id='+str(m.get('id')))
+          print('file_name='+str(m.get('name')))
+          print('file_size='+str(m.get('size')))
+          print('parents='+','.join(m.get('parents') or []))
+          print('description='+str(m.get('description','')).replace('\n','\\n'))
+          print('appProperties='+json.dumps(m.get('appProperties') or {},sort_keys=True,separators=(',',':')))
+          print('properties='+json.dumps(m.get('properties') or {},sort_keys=True,separators=(',',':')))
+          PY
+          cat ops/beta68-live-drive-parent-v2.txt
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add ops/beta68-live-drive-parent-v2.txt
+          git commit -m 'diag: record live Beta Drive parent v2'
+          git pull --rebase origin diag/beta68-v2-observer-20260824
+          git push origin HEAD:diag/beta68-v2-observer-20260824
