@@ -1,0 +1,11 @@
+triggered_at=2026-08-24T07:43:00+07:00
+candidate_source_sha=5f1876849aff4e292ab827773e3b9e285857086a
+candidate_run_id=32676593866
+artifact_id=9502889009
+version=0.4.2-beta.63
+version_code=69
+apk_sha256=015fce6bb3045b3d426bedb4ec35439dbd54a26a0130d612e9c3a9f50f0035a8
+apk_size=13097861
+service_domain=https://pickpack1291.cc.cd
+from_version=0.4.2-beta.62
+stable=FORBIDDEN_UNTOUCHED
