@@ -1,0 +1,3 @@
+To https://github.com/tam95supra-source/pick-pack-1291
+ ! [remote rejected] v0.4.2-beta.65-publicbeta -> v0.4.2-beta.65-publicbeta (refusing to allow a GitHub App to create or update workflow `.github/workflows/_oneoff_beta65_session_resource_final.yml` without `workflows` permission)
+error: failed to push some refs to 'https://github.com/tam95supra-source/pick-pack-1291'

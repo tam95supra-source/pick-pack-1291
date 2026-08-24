@@ -1,0 +1,7 @@
+tag_result=CREATE_FAILED
+tag_sha=NONE
+release_get_http=404
+release_post_http=403
+release_message=Resource not accessible by integration
+product_source_sha=1e8fb8255f26ad58c9719d99c27c08ef5d597cbf
+stable_publish=FORBIDDEN
