@@ -70,11 +70,13 @@ jobs:
           emulator-boot-timeout: 600
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot-save
           script: |
-            set -euo pipefail
+            set -eu
             mkdir -p visual
             adb install -r visual-input/app-beta-debug.apk >/dev/null
             for spec in '320x568:160:login-320x568.png' '360x640:160:login-360x640.png' '480x800:240:login-480x800.png'; do
-              IFS=: read -r size density name <<< "$spec"
+              IFS=: read -r size density name <<EOF
+            $spec
+            EOF
               adb shell wm size "$size"
               adb shell wm density "$density"
               adb shell am force-stop vn.pickpack1291.app.beta.publicbeta
