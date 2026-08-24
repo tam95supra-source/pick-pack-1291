@@ -68,7 +68,7 @@ replacement = r'''        // Beta66 full-frame reference: one logical 2:3 design
         fun fitReferenceStage(){
             val availableW=(root.width-root.paddingLeft-root.paddingRight).coerceAtLeast(1)
             val availableH=(root.height-root.paddingTop-root.paddingBottom).coerceAtLeast(1)
-            val scale=minOf(availableW/designW.toFloat(),availableH/designH.toFloat()).coerceAtMost(1f)
+            val scale=minOf(availableW/designW.toFloat(),availableH/designH.toFloat())
             if(scale>0f && kotlin.math.abs(scale-lastFit)>.001f){stage.scaleX=scale;stage.scaleY=scale;lastFit=scale}
         }
         root.setOnApplyWindowInsetsListener{_,wi->
