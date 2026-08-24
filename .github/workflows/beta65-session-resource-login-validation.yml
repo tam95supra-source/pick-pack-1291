@@ -70,7 +70,11 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: beta65-compile-diagnostics
-          path: compile.log
+          path: |
+            compile.log
+            app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt
+            app/src/main/java/vn/pickpack1291/app/beta/BetaApiClient.kt
+            app/src/main/java/vn/pickpack1291/app/beta/FullBetaActivity.kt
           if-no-files-found: error
       - name: Enforce compile gate
         if: steps.compile.outcome == 'failure'
