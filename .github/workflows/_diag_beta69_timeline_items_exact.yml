@@ -1,0 +1,58 @@
+name: Beta69 timeline items exact diagnostic
+on:
+  push:
+    branches: [ release/beta69-owner-six-fixes-20260825 ]
+    paths: [ '.github/workflows/_diag_beta69_timeline_items_exact.yml' ]
+permissions:
+  contents: write
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+      - name: Materialize Beta68 exact source
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/apply_beta64_owner_seven_fixes.py
+          python3 tools/apply_beta64_compile_fix.py
+          python3 tools/apply_beta65_session_resource_login_parity.py
+          python3 tools/apply_beta65_behavior_compile_fix.py
+          python3 tools/apply_beta65_scope_compile_fix.py
+          python3 tools/apply_beta65_login_reference_finish.py
+          python3 tools/apply_beta66_login_fullframe.py
+          python3 tools/apply_beta68_owner_five_fixes.py
+      - name: Extract exact timeline items function
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt')
+          s=p.read_text();sig='    private fun sessionTimelineItems(mnv:String,ses:JSONObject)'
+          i=s.find(sig)
+          if i<0: raise SystemExit('exact sessionTimelineItems signature missing')
+          b=s.find('{',i);d=0;q=None;esc=False;j=b
+          while j<len(s):
+              c=s[j]
+              if q:
+                  if esc:esc=False
+                  elif c=='\\':esc=True
+                  elif c==q:q=None
+              else:
+                  if c in ('"',"'"):q=c
+                  elif c=='{':d+=1
+                  elif c=='}':
+                      d-=1
+                      if d==0:break
+              j+=1
+          Path('ops/beta69-timeline-items-exact.txt').write_text(s[i:j+1]+'\n')
+          PY
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add ops/beta69-timeline-items-exact.txt
+          git commit -m 'ops: capture Beta69 exact timeline items function'
+          git push origin HEAD:release/beta69-owner-six-fixes-20260825
