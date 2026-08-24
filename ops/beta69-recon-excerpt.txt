@@ -1,0 +1,27 @@
+    private fun addBusinessShiftReconciliation(body:LinearLayout){
+        val day=operationalStore.loadDay(operationalStore.businessDate())?:return
+        val sessions=day.optJSONArray("sessions")?:JSONArray()
+        val byShift=linkedMapOf<String,MutableList<JSONObject>>("Ca 1" to mutableListOf(),"Ca HC" to mutableListOf(),"Ca 2" to mutableListOf())
+        for(i in 0 until sessions.length()){val ses=sessions.optJSONObject(i)?:continue;val shift=ses.optString("shift").trim();if(shift in byShift.keys)byShift.getValue(shift).add(JSONObject(ses.toString()))}
+        val bar=row(bg).apply{gravity=Gravity.CENTER_VERTICAL}
+        byShift.forEach{(shift,raw)->
+            val rows=raw.distinctBy{it.optString("session_id").ifBlank{"${it.optString("mnv")}|${it.optString("enter_at")}"}}
+            val entered=rows.filter{dash(it.optString("enter_at"))!="—"};val exited=entered.filter{dash(it.optString("exit_at"))!="—"};val pending=entered.filter{dash(it.optString("exit_at"))=="—"}
+            val button=reconciliationButton("$shift – ${entered.size}/${exited.size}",entered.size==exited.size)
+            button.setOnClickListener{
+                if(pending.isEmpty())TopNotice.show(this,"$shift – ${entered.size}/${exited.size} • đã đối soát đủ.",TopNotice.Kind.SUCCESS) else {
+                    val list=column(surface).apply{setPadding(dp(10),dp(4),dp(10),dp(6))};var dialog:AlertDialog?=null
+                    pending.forEach{ses->
+                        val mnv=ses.optString("mnv").trim();val emp=MasterDataCache.employee(this,mnv);val display=emp?.optString("full_name").orEmpty().ifBlank{ses.optJSONObject("employee_snapshot")?.optString("full_name").orEmpty()}
+                        val line=row(surface).apply{gravity=Gravity.CENTER_VERTICAL;setPadding(dp(4),dp(3),dp(4),dp(3))}
+                        line.addView(txt("$mnv • ${display.ifBlank{"—"}}",11f,ink,true),LinearLayout.LayoutParams(0,-2,1f))
+                        line.addView(smallButton("RA CA",red).apply{setOnClickListener{dialog?.dismiss();loadEmployee(mnv)}},LinearLayout.LayoutParams(dp(78),dp(38)))
+                        list.addView(line,matchWrap());list.addView(gap(3))
+                    }
+                    dialog=AlertDialog.Builder(this).setTitle("$shift • ${pending.size} nhân sự chưa ra").setView(ScrollView(this).apply{addView(list)}).setNegativeButton("Đóng",null).create();dialog.show()
+                }
+            }
+            bar.addView(button,LinearLayout.LayoutParams(0,dp(38),1f).apply{marginStart=dp(2);marginEnd=dp(2)})
+        }
+        body.addView(bar,matchWrap());body.addView(gap(4))
+    }
