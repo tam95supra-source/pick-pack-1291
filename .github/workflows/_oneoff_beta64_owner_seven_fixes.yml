@@ -5,12 +5,19 @@ on:
     branches: [ agent/beta64-owner-seven-fixes-20260824 ]
     paths:
       - 'ops/beta64-owner-seven-fixes-trigger.txt'
+  pull_request:
+    branches: [ agent/beta63-login-perf-session-mutation-fix-20260824 ]
+    paths:
+      - 'app/build.gradle.kts'
+      - 'tools/apply_beta64_owner_seven_fixes.py'
+      - 'ops/beta64-owner-seven-fixes-trigger.txt'
+      - '.github/workflows/_oneoff_beta64_owner_seven_fixes.yml'
 
 permissions:
   contents: read
 
 concurrency:
-  group: beta64-owner-seven-fixes-candidate
+  group: beta64-owner-seven-fixes-candidate-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -26,6 +33,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
       - name: Pin and materialize Beta64
         shell: bash
