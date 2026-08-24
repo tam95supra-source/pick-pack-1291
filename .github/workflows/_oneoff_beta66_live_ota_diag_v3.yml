@@ -1,0 +1,94 @@
+name: Beta66 Live OTA Diagnostic V3
+
+on:
+  pull_request:
+    branches: [ ci/beta66-r6-observable-base-20260824 ]
+    paths:
+      - 'ops/beta66-live-ota-diag-v3-trigger.txt'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: beta66-ota-diagnostic
+  cancel-in-progress: false
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+      GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+      GOOGLE_OAUTH_REFRESH_TOKEN: ${{ secrets.GOOGLE_OAUTH_REFRESH_TOKEN }}
+      GAS_SCRIPT_ID: ${{ secrets.GAS_SCRIPT_ID }}
+      GAS_DEPLOYMENT_ID: ${{ secrets.GAS_DEPLOYMENT_ID }}
+      GAS_URL: https://script.google.com/macros/s/AKfycbzbEoGfbNg6s2HnP-gUpcBJ7mMIkVBtYuQKMndb9seDV2c55lQwSUO1GZ-LtQ2CxMCauA/exec
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fresh-read live Apps Script and sanitize OTA topology
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          mkdir -p /tmp/evidence
+          RESP=$(curl -fsS https://oauth2.googleapis.com/token -H 'Content-Type: application/x-www-form-urlencoded' \
+            --data-urlencode "client_id=$GOOGLE_OAUTH_CLIENT_ID" --data-urlencode "client_secret=$GOOGLE_OAUTH_CLIENT_SECRET" \
+            --data-urlencode "refresh_token=$GOOGLE_OAUTH_REFRESH_TOKEN" --data-urlencode 'grant_type=refresh_token')
+          TOKEN=$(python3 -c 'import json,sys;print(json.load(sys.stdin).get("access_token",""))' <<<"$RESP"); test -n "$TOKEN"
+          SCRIPT_ID=$(printf '%s' "$GAS_SCRIPT_ID"|tr -d '\r\n\t '); RAW=$(printf '%s' "$GAS_DEPLOYMENT_ID"|tr -d '\r\n\t '); DEPLOYMENT_ID="$RAW"; if [[ "$RAW" =~ /s/([^/]+)/ ]]; then DEPLOYMENT_ID="${BASH_REMATCH[1]}"; fi
+          echo "::add-mask::$TOKEN"; echo "::add-mask::$SCRIPT_ID"; echo "::add-mask::$DEPLOYMENT_ID"
+          curl -fsS -H "Authorization: Bearer $TOKEN" "https://script.googleapis.com/v1/projects/$SCRIPT_ID/content" > /tmp/live.json
+          curl -fsS -H "Authorization: Bearer $TOKEN" "https://script.googleapis.com/v1/projects/$SCRIPT_ID/deployments/$DEPLOYMENT_ID" > /tmp/deployment.json
+          python3 - <<'PY'
+          import json,re
+          j=json.load(open('/tmp/live.json'))
+          needles=('update_check','ppUpdateCheck','GOOGLE_DRIVE','OTA_','beta.65','beta.64','1F2Xu0PQ7tiIWcNDlz9yUTsXBee6RWP39','12iSOQ-AwToKY74ylGa4Wb5iVnQXdF8RC','Phát hành từ BẢN THỬ NGHIỆM')
+          out=[]
+          for f in j.get('files',[]):
+              if f.get('type')!='SERVER_JS': continue
+              src=f.get('source',''); lines=src.splitlines(); hits=[]
+              for i,line in enumerate(lines):
+                  if any(n.lower() in line.lower() for n in needles): hits.append(i)
+              if not hits: continue
+              out.append('### FILE '+f.get('name',''))
+              ranges=[]
+              for i in hits:
+                  a=max(0,i-5); b=min(len(lines),i+12)
+                  if ranges and a<=ranges[-1][1]+1: ranges[-1]=(ranges[-1][0],max(ranges[-1][1],b))
+                  else:ranges.append((a,b))
+              for a,b in ranges:
+                  for k in range(a,b):
+                      line=lines[k]
+                      # redact likely auth/email/secret literals while preserving OTA metadata and control flow
+                      if re.search(r'(password|secret|token|authorization|hmac|oauth)',line,re.I) and not re.search(r'(update|ota)',line,re.I):
+                          line='[REDACTED NON-OTA SENSITIVE LINE]'
+                      out.append(f'{k+1}: {line}')
+                  out.append('---')
+          text='\n'.join(out)
+          open('/tmp/evidence/live-ota-snippets.txt','w').write(text+'\n')
+          print(text)
+          dep=json.load(open('/tmp/deployment.json'))
+          safe={'deploymentId':dep.get('deploymentId'),'updateTime':dep.get('updateTime'),'entryPoints':dep.get('entryPoints'),'deploymentConfig':{k:v for k,v in dep.get('deploymentConfig',{}).items() if k in ('versionNumber','description')}}
+          open('/tmp/evidence/deployment-safe.json','w').write(json.dumps(safe,ensure_ascii=False,indent=2))
+          print('SAFE_DEPLOYMENT',json.dumps(safe,ensure_ascii=False))
+          PY
+
+      - name: Fresh-read live OTA responses
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          for pair in 'b65|BETA|0.4.2-beta.65' 'b64|BETA|0.4.2-beta.64' 'b66|BETA|0.4.2-beta.66' 'stable|STABLE|0.1.0-stable'; do
+            IFS='|' read -r name channel current <<<"$pair"
+            curl -fsSL --retry 4 --retry-delay 2 -H 'content-type: application/json' "$GAS_URL" -d "{\"action\":\"update_check\",\"channel\":\"$channel\",\"current_version\":\"$current\"}" > "/tmp/evidence/$name.json"
+            echo "$name=$(cat /tmp/evidence/$name.json)"
+          done
+
+      - name: Upload diagnostic evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: beta66-live-ota-diagnostic-v3
+          path: /tmp/evidence
+          retention-days: 30
+          if-no-files-found: warn
