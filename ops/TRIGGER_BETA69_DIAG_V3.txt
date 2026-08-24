@@ -1,0 +1,2 @@
+trigger=2026-08-25T00:46+07
+purpose=beta69_owner_six_materialize_v3
