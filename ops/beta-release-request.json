@@ -1,5 +1,5 @@
 {
-  "stage": "probe",
+  "stage": "visual",
   "version_name": "0.4.2-beta.75",
   "version_code": 81,
   "base_version": "0.4.2-beta.74",
@@ -16,8 +16,9 @@
   "gas_change": "NONE",
   "authority_change": "NONE",
   "scope": "owner-contextual-pda-user-session-ui",
-  "probe": "480x800-add-dialog",
-  "requested_at": "2026-08-25T21:25:00+07:00",
+  "probe_human_pass_run": 32859450233,
+  "probe_artifact_id": 9567602636,
+  "requested_at": "2026-08-25T21:29:00+07:00",
   "owner": "Nguyen Van Tam",
-  "visual_retry_reason": "probe-scroll-start-moved-inside-scrollable-content"
+  "visual_retry_reason": "final-full-matrix-after-isolated-probe-human-pass"
 }
