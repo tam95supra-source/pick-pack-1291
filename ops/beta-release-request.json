@@ -1,0 +1,10 @@
+{
+  "stage": "candidate",
+  "version_name": "0.4.2-beta.71",
+  "version_code": 77,
+  "base_version": "0.4.2-beta.68",
+  "base_version_code": 74,
+  "stable_publish": "FORBIDDEN",
+  "service_change": "NONE",
+  "requested_at": "2026-08-25T07:45:00+07:00"
+}

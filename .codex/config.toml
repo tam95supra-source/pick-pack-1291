@@ -1,0 +1,23 @@
+model_reasoning_effort = "medium"
+plan_mode_reasoning_effort = "medium"
+model_reasoning_summary = "concise"
+model_verbosity = "low"
+web_search = "cached"
+project_doc_max_bytes = 32768
+
+[agents]
+enabled = true
+max_concurrent_threads_per_session = 2
+default_subagent_reasoning_effort = "medium"
+
+[agents.android_engineer]
+description = "Kotlin/Android/UI/local-state specialist for bounded implementation or compile failures."
+config_file = "agents/android-engineer.toml"
+
+[agents.release_engineer]
+description = "GitHub Actions, signing, immutable artifacts, Drive OTA and readback specialist."
+config_file = "agents/release-engineer.toml"
+
+[agents.qa_forensics]
+description = "Root-cause, deterministic regression and visual-evidence specialist."
+config_file = "agents/qa-forensics.toml"

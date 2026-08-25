@@ -1,20 +1,28 @@
-# PICK PACK 1291 — CURRENT STATE
+# CURRENT STATE — 2026-08-25
 
-Fresh checkpoint: 2026-08-23 Asia/Ho_Chi_Minh.
+## LIVE
 
-- LIVE/GOLDEN: `0.4.2-beta.55` / versionCode `61`.
-- Android source restored to the exact pre-Beta56 PR64 base: `fb30b63358e112e74249530ca905702766c03313`.
-- Beta package: `vn.pickpack1291.app.beta.publicbeta`.
-- OTA behavior: MANUAL ONLY. User must press the update check/update control in the app. No automatic foreground/startup OTA check is allowed.
-- Live OTA metadata remains Beta55 and points to GitHub Release `v0.4.2-beta.55-publicbeta`.
-- Live Beta55 APK SHA-256: `6428d934a3a86b55c0c3107840e211c6841f82e875b975510174e44e63045c85`.
-- Live Beta55 APK size: `13027947` bytes.
-- GAS OTA production receipt: manual check PASS, automatic check DISABLED_IN_APP, target self update FALSE, verdict PASS.
-- ABANDONED/DENYLIST: `0.4.2-beta.56` / versionCode `62`. Do not release, publish, restore, or use as a baseline. The attempted automatic OTA implementation from PR #64 is explicitly rejected by OWNER.
-- Historical ABANDONED/DENYLIST remains: `0.4.2-beta.49` / versionCode `55`; never reuse or publish.
-- Stable: `0.1.0-stable` / versionCode `1`, untouched.
-- Stabilization branch: `stabilization/beta48-golden-reset-beta50-20260822`.
-- Service branch: `agent/service-migration-m2`.
-- Protected: do not merge PR #38, PR #52, or PR #63 unless OWNER explicitly changes that decision. Do not touch `main` for this rollback.
+- Beta68 OTA LIVE PASS
+- Version: 0.4.2-beta.68
+- versionCode: 74
+- Package: vn.pickpack1291.app.beta.publicbeta
+- Source: 63917d672aeced142cacda925300978deef65277
+- Artifact: 9530301628
+- Stable: unchanged
+- main: a8c0c0d92522c7173230d4175b4f0d3a4906c8bb, locked
 
-Execution rule from this checkpoint: treat Beta55 as the newest approved golden baseline. Any next beta must start from Beta55 and must preserve manual-only OTA unless OWNER explicitly requests a different update mechanism.
+## SUPERSEDED / ABANDONED
+
+- Beta69: do not release or use as base.
+- Beta70: do not release or use as base.
+- Their workflow branches are historical failure evidence only.
+
+## ACTIVE TARGET
+
+- Beta71 from exact Beta68 behavior.
+- Branch: release/beta71-clean-from-beta68-20260825
+- Version: 0.4.2-beta.71
+- versionCode: 77
+- Includes OWNER six requests plus PDA local-holder correctness.
+- Service/GAS business source change: NONE.
+- Stable publish: FORBIDDEN.

@@ -1,0 +1,5 @@
+model_reasoning_effort = "medium"
+model_verbosity = "low"
+developer_instructions = """
+Work only on root-cause verification and regression evidence. Distinguish app, harness, transport and authority failures. Read the first exact failing step, avoid log dumps, never rebuild a locked candidate for a harness/transport defect, and require human inspection of mandatory screenshots.
+"""

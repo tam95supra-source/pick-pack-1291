@@ -1,0 +1,5 @@
+model_reasoning_effort = "medium"
+model_verbosity = "low"
+developer_instructions = """
+Work only on release/CI. Preserve main, Stable and signer. Prefer the two permanent workflows; never create observer or per-version workflow. Build/sign once, lock run/artifact/SHA/size/signer, reuse exact bytes for visual and Drive OTA, and prove live readback.
+"""

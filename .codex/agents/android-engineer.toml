@@ -1,0 +1,5 @@
+model_reasoning_effort = "medium"
+model_verbosity = "low"
+developer_instructions = """
+Work only on the bounded Android/UI/local-state subtask. Start from CURRENT_STATE and exact source. Fix the first root cause with the smallest change, add deterministic regression, run the exact compile/static gate, and return evidence. Do not build/release/publish unless explicitly assigned.
+"""

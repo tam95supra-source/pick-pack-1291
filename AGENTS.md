@@ -1,131 +1,64 @@
-# AGENTS.md — Pick Pack 1291 mandatory project rules
+# AGENTS.md — PICK PACK 1291
 
-These rules are authoritative for any agent, coding assistant, CI automation, or future handover working in this repository.
+OWNER: Nguyễn Văn Tâm. Ngôn ngữ làm việc: tiếng Việt, ngắn, rõ, không kể lể.
 
-## 1. Owner requirements override inherited implementation
+## 1. Nguồn sự thật và định tuyến bắt buộc
 
-- Do not infer a new architecture from existing code, handovers, migrations, or deployed infrastructure.
-- Do not treat an inherited implementation as permission to change the project purpose.
-- If existing code conflicts with an explicit owner requirement, correct the code toward the explicit requirement.
-- Never silently reinterpret or expand the requested purpose.
+Thứ tự ưu tiên: lệnh OWNER mới nhất → `CURRENT_STATE.md` → handover canonical mới nhất → live readback → receipt/artifact/hash → tài liệu lịch sử.
 
-## 2. Approved operational architecture
+- Đầu mỗi task chỉ đọc `CURRENT_STATE.md`, file do OWNER chỉ định và đúng failure domain.
+- Không crawl lại toàn repo; không chạy lại gate đã PASS nếu đầu vào/bytes không đổi.
+- ACTIVE thắng SUPERSEDED. TARGET/CANDIDATE không phải LIVE.
+- Beta69 và Beta70 là SUPERSEDED/ABANDONED; không dùng làm base, không phát hành, không khôi phục workflow của chúng.
+- Golden base cho Beta71 là Beta68 OTA LIVE PASS. Stable và `main` bị khóa nếu OWNER chưa cho phép.
 
-`Android / Web-PWA ↔ Cloudflare Worker Service ↔ D1`
+## 2. Vai trò chuyên môn
 
-with:
+Agent chính điều phối và tự chuyển vai theo phạm vi; không tạo nhiều agent khi việc tuần tự hoặc không giảm critical path.
 
-- Cloudflare Worker as the production API/runtime;
-- Cloudflare D1 as the normal-mode operational primary datastore;
-- Durable Objects + WebSocket/Hibernation for realtime coordination/fanout;
-- Google Sheets as operational replica/compatibility/fallback/DR according to authority state;
-- Google Apps Script as discovery/compatibility/fallback bridge and OTA `update_check` authority;
-- Android SQLite/cache as local projection/offline state;
-- GitHub as source/CI/release infrastructure only.
+- Android/UI: Kotlin, trạng thái local, giao diện PDA, gesture, accessibility, build Android.
+- Data/Sync: authority, fencing, idempotency, outbox, D1/Service/GAS/Drive; không đổi kiến trúc.
+- Release/CI: version, signer, workflow, artifact, OTA, readback.
+- QA/Forensics: root cause đầu tiên, deterministic regression, visual matrix, receipt.
+- Owner Liaison: chỉ hỏi OWNER khi thiếu quyền/MFA, quyết định mâu thuẫn hoặc hành động production/destructive chưa được duyệt.
 
-`ARCHITECTURE_GUARDRAILS.md` records the OWNER-approved 2026-08-18 supersession of the earlier GAS-only architecture. Older handovers may describe `Android ↔ GAS ↔ Google Sheets` as a historical state; they must not be used to roll production authority back implicitly.
+Nếu dùng chuyên gia phụ: tối đa 2 luồng, chỉ cho phần độc lập; agent chính vẫn chịu trách nhiệm tích hợp và PASS cuối.
 
-## 3. No unauthorized service/backend changes
+## 3. Chu trình thực thi
 
-The Service-first stack above is already OWNER-approved. Do not add, replace, or migrate authority to a different backend, datastore, queue, auth authority, or synchronization authority without a new explicit owner instruction.
+Với yêu cầu sửa/build/phát hành: `OBSERVE → CHANGE → VERIFY → RECOVER`.
 
-In particular, do not introduce or migrate to:
+- Sửa nhỏ nhất đúng root cause; không thêm tính năng/refactor ngoài scope.
+- Deterministic failure: dùng ngay đường PASS đã ghi trong `docs/AI_EXECUTION_STANDARD.md`; cấm thử lại cách đã biết sai.
+- Transient failure: retry giới hạn tối đa 2 lần với backoff, giữ nguyên artifact/bytes.
+- Đọc lỗi gốc đầu tiên và đúng job/step; cấm dump log hoặc xử lý lỗi dây chuyền trước lỗi gốc.
+- Không dừng ở plan, commit, PR, build, candidate, artifact hay pending. Chỉ kết thúc khi DoD yêu cầu đã PASS hoặc có blocker OWNER thật.
 
-- Supabase;
-- Firebase;
-- Neon/Postgres;
-- another Cloudflare datastore/service beyond the approved Worker/D1/Durable Objects design;
-- Queue, KV, R2, or another new infrastructure component;
-- another database/server/backend/service;
-- another auth authority;
-- another synchronization authority.
+## 4. Kiến trúc và khóa an toàn
 
-If a technical limitation appears to require such a change, keep the approved Service-first architecture unchanged, document the blocker precisely, and require explicit owner authorization before changing architecture.
+Kiến trúc đã duyệt: Android/Web-PWA ↔ Cloudflare Worker ↔ D1; Durable Objects/WebSocket cho realtime; Google Sheets/GAS là replica, compatibility, fallback, DR và OTA update_check; Android local là projection/offline.
 
-## 4. Do not act contrary to the stated goal
+- Không thêm Supabase/Firebase DB/Neon/provider/authority mới. Firebase chỉ được phép cho FCM wake/invalidation đã duyệt.
+- Một official write authority, fencing/idempotency/anti-duplicate/audit.
+- Không lộ secret; không đổi signer.
+- BETA chỉ từ Drive `BẢN THỬ NGHIỆM`; STABLE chỉ từ `BẢN ỔN ĐỊNH`.
+- Source change Android phải có Beta mới. Stable chỉ khi OWNER explicit và Beta đã nghiệm thu.
 
-Before a material implementation change, verify that it directly serves the latest explicit owner requirements. Do not add infrastructure merely because it is convenient, familiar, already present elsewhere, or inherited from a previous session.
+## 5. Release chuẩn
 
-## 5. Data and release safety
+Chỉ hai workflow trên nhánh sạch:
 
-- Reconcile existing business data before deleting/replacing an implementation.
-- Do not commit secrets, plaintext passwords, Google credentials, Android signing keys, or private tokens to the public repository.
-- Beta must exercise the real business functions needed for testing.
-- Preserve Android signing identity for in-place updates.
-- Starting with the OTA-enabled Android 0.4.2 build (`0.4.2-beta.2` for Beta), runtime update discovery must call the approved Google Apps Script `update_check` route.
-- `BETA` must read release APKs only from Google Drive folder `BẢN THỬ NGHIỆM`.
-- `STABLE` must read release APKs only from Google Drive folder `BẢN ỔN ĐỊNH`.
-- Do not restore GitHub Releases as the steady-state OTA authority for 0.4.2+ unless the owner explicitly changes this requirement.
-- GitHub prerelease `v0.4.2-beta.2-publicbeta` is only a one-time compatibility bridge so legacy Beta clients that still check GitHub can migrate to the Drive-OTA build.
-- OTA APK downloads must be SHA-256 verified before the Android installer is launched.
-- OTA checks remain foreground-oriented: check on app open/foreground opportunities; do not introduce background/screen-off polling.
-- Launcher icon artwork must use the exact owner-provided artwork without redesign, replacement, decorative inset, or alternate artwork.
-- Login session must survive app/process closure on the same installation. The active account session remains valid until explicit logout, account/security change, or a successful login for that same account from a different app installation/device replaces the active server session.
+- `app-fast-check.yml`: debug/static cho feature/agent branch.
+- `beta-release.yml`: candidate hoặc publish theo `ops/beta-release-request.json`.
 
-## 6. Architecture enforcement
+Cấm tạo workflow per-version, observer, status writer, materializer lặp, workflow tự sửa workflow, hoặc trigger file mới. Workflow YAML chỉ orchestration; biến đổi lớn nằm trong script.
 
-Read and obey `ARCHITECTURE_GUARDRAILS.md`, `docs/UI_UX_SYSTEM.md`, `docs/BUILD_RELEASE_PLAYBOOK.md`, `docs/ADMIN_ACCOUNT_RULES.md` and `README.md` before material runtime/release changes. CI architecture/UX/release gates are intentional and must not be bypassed to make a build pass.
+Release Beta: source canonical → static regression → Beta+Stable debug isolation → Beta release build/sign một lần → visual matrix → human inspection → khóa exact artifact → upload đúng bytes lên Drive → OTA readback → Stable/main unchanged.
 
-## 7. Owner workstation constraint — no local command line
+## 6. Evidence
 
-- The owner's company-managed computer cannot run CMD, PowerShell, Terminal, shell scripts, or other local command-line workflows.
-- Do not instruct the owner to execute `cmd`, PowerShell, `bash`, `clasp`, `git`, `gh`, `adb`, Gradle, Node/npm/npx, Java/keytool, OpenSSL, or similar local CLI commands.
-- Owner-facing setup and administration must preferentially use browser/UI workflows such as GitHub web UI, Google Workspace/Apps Script UI, Drive UI, or repository-hosted CI/automation.
-- If a required task normally needs a local CLI, redesign it so CI/automation performs the command-line portion and the owner only performs browser-based authorization, secret entry, or explicit approval.
-- If a browser-only path is genuinely impossible, state the blocker explicitly instead of giving unusable local terminal instructions.
+Phân biệt rõ: source changed ≠ compile PASS ≠ signed candidate ≠ visual PASS ≠ OTA LIVE.
 
-## 8. UI / UX lock — current owner-approved system
+Chỉ ghi PASS/LIVE khi có exact: versionName, versionCode, package, source SHA, artifact/run ID, APK SHA256, size, signer, visual evidence, Drive/public bytes và OTA readback.
 
-This section **SUPERSEDES** the old fixed `Minimal Teal Corporate / Mẫu 2` lock.
-
-Authoritative detail is in `docs/UI_UX_SYSTEM.md`.
-
-Mandatory rules:
-
-- Official design family is the owner-approved modern enterprise blue/indigo/violet system with centralized 7-color theming.
-- The 7 theme choices stay on one row, equal-width, without color-name labels.
-- Work cards use one equal component; do not mix hero-card and unrelated card geometries.
-- The authenticated app uses one persistent five-tab shell in this order: `Nghiệp vụ – Nhân sự – Lịch sử – Đồng bộ – Cài đặt`.
-- Switching those five tabs must not start/finish another Activity and must not add an artificial fade/cross-fade delay.
-- The top authenticated header shows user name, position and account on separate constrained lines; do not use `PICK PACK 1291` as the normal tab title.
-- Reserve the compact header status area for user-facing Mạng / Đồng bộ / Service status.
-- Use semantic icons appropriate to each tab/card/title/action; production UI should prefer stable Android vector/icon resources over arbitrary font glyphs.
-- Settings must not duplicate a `Đồng bộ dữ liệu` section because synchronization has its own tab.
-- UI copy is for ordinary users only. Do not expose implementation commentary such as server/API revision, ACK, request/cache architecture, AI/designer notes or instructions explaining implementation decisions.
-- Routine notices use the project top-notification queue: about 3 seconds, maximum 3 visible/queued items; avoid blocking OK dialogs for routine state/not-found/success messages.
-- Manual diagnostic-log sending and consequential/destructive actions may use explicit confirmation dialogs according to project rules.
-- MNV/PDA scanner flows trigger on hardware/keyboard Enter/OK; do not add redundant `Kiểm tra` buttons merely to trigger the same operation.
-- The approved visual language applies to inner workflows (QR, Công nhật, Tài nguyên, Báo cáo, Nhân sự, Lịch sử, Đồng bộ, Settings/admin), not only the dashboard.
-- Login remains centered, without beta/version marketing text, and includes `QUÊN MẬT KHẨU?`.
-- PICK requires PDA; User Pick is optional. PDA selection uses the last 5 serial digits with validated suggestions.
-- Reports keep operational matrices but suppress redundant section-title rows; support table is hidden when deducted support count is zero; Phúc Long precedes Kéo hàng; avoid heavy rounded borders around every table.
-
-## 9. Build / release operating rules
-
-Authoritative detail is in `docs/BUILD_RELEASE_PLAYBOOK.md`.
-
-Mandatory rules:
-
-- Ordinary app/source changes use a fast Beta+Stable debug validation pipeline with static guards; do not run live GAS/Drive release probes for every small edit.
-- Full Beta+Stable release assemble, live API/Drive probes, package metadata and signing validation run only in an explicit Release Preflight before OTA/release work.
-- VersionCode/versionName are read from source; do not hardcode an old Beta version in CI.
-- Use the exact preinstalled Android SDK when it contains the required platform/build-tools; use the pinned verified SDK bootstrap only as fallback.
-- Permanent CI validates but does not commit source/status/observer receipt files back to `main`.
-- Do not create observer workflows that write run status into `main`.
-- Do not make CI self-edit `.github/workflows`.
-- Complex source transformations belong in standalone scripts with exact unique markers; do not embed large multiline Kotlin/Python transformations directly in workflow YAML.
-- Preserve the fixed Android signer. Never generate a replacement signing identity to make a release pass.
-- Release Preflight does not itself publish to Google Drive. OTA publish is a separate deliberate step with signer, SHA-256, channel isolation and E2E update checks.
-- Stable requires owner-approved Beta soak/business acceptance; successful compilation alone is not permission to promote Stable.
-
-## 10. Admin account namespace — OWNER LOCK
-
-Authoritative detail is in `docs/ADMIN_ACCOUNT_RULES.md`.
-
-- `Danh sách Admin` is a specialized account namespace, not an employee-position catalog.
-- The `Vị trí` field in `Danh sách Admin` is fixed system-wide to exactly: `superadmin`, `admin`, `user`.
-- Do **not** populate or infer Admin `Vị trí` from `Danh mục`, `DANH SÁCH NHÂN SỰ_Vị trí chính`, or any other sheet/catalog.
-- Similar field names across sheets do not authorize cross-sheet fallback.
-- Android and GAS must derive/validate Admin position from the Admin role; arbitrary client-supplied values are invalid.
-- Normal app account creation must not create a new `SUPERADMIN` unless the owner explicitly authorizes that capability later.
-- This allowed set and its role-position mapping may change **only after an explicit owner instruction**. No developer, agent, migration, UI redesign, or implementation convenience may alter it autonomously.
+Đọc thêm: `ARCHITECTURE_GUARDRAILS.md`, `docs/UI_UX_SYSTEM.md`, `docs/BUILD_RELEASE_PLAYBOOK.md`, `docs/AI_EXECUTION_STANDARD.md`.
