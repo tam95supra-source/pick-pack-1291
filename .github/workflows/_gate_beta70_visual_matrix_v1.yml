@@ -28,15 +28,15 @@ jobs:
           gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${ARTIFACT_ID}/zip" > /tmp/beta70/candidate.zip
           unzip -q /tmp/beta70/candidate.zip -d /tmp/beta70/artifact
           APK=$(find /tmp/beta70/artifact -type f -name 'pick-pack-1291-public-beta-0.4.2-beta.70.apk' | head -1)
-          test -n "$APK"
+          META=$(find /tmp/beta70/artifact -type f -name 'release-meta.json' | head -1)
+          test -n "$APK" && test -n "$META"
           test "$(sha256sum "$APK" | awk '{print $1}')" = "$EXPECTED_SHA"
           test "$(stat -c '%s' "$APK")" = "$EXPECTED_SIZE"
           AAPT=$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)
           BADGING=$($AAPT dump badging "$APK" | head -1)
           grep -F "versionCode='76'" <<<"$BADGING"
           grep -F "versionName='0.4.2-beta.70'" <<<"$BADGING"
-          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)
-          SIGNER=$($APKSIGNER verify --print-certs "$APK" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | tr '[:upper:]' '[:lower:]' | head -1)
+          SIGNER=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["signer_sha256"].lower())' "$META")
           test "$SIGNER" = "$EXPECTED_SIGNER"
           echo "APK=$APK" >> "$GITHUB_ENV"
           printf 'artifact=%s\nsha256=%s\nsize=%s\nsigner=%s\n%s\n' "$ARTIFACT_ID" "$EXPECTED_SHA" "$EXPECTED_SIZE" "$SIGNER" "$BADGING" > /tmp/visual/candidate-identity.txt
@@ -88,5 +88,8 @@ jobs:
             test -f /tmp/visual/failure.txt && { echo failure:; cat /tmp/visual/failure.txt; } || true
           } > /tmp/receipt.txt
           CONTENT=$(base64 -w0 /tmp/receipt.txt)
-          gh api --method PUT "repos/${GITHUB_REPOSITORY}/contents/ops/beta70-visual-matrix-v1-result.txt" -f message='ops: record Beta70 visual matrix v1' -f content="$CONTENT" -f branch="$BRANCH" >/dev/null || true
+          CURRENT=$(gh api "repos/${GITHUB_REPOSITORY}/contents/ops/beta70-visual-matrix-v1-result.txt?ref=$BRANCH" --jq .sha 2>/dev/null || true)
+          args=(--method PUT "repos/${GITHUB_REPOSITORY}/contents/ops/beta70-visual-matrix-v1-result.txt" -f message='ops: record Beta70 visual matrix v1' -f content="$CONTENT" -f branch="$BRANCH")
+          test -n "$CURRENT" && args+=(-f sha="$CURRENT")
+          gh api "${args[@]}" >/dev/null || true
           cat /tmp/receipt.txt
