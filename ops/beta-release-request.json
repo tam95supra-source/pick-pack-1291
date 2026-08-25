@@ -11,5 +11,6 @@
   "scope": "owner-contextual-pda-user-session-ui",
   "requested_at": "2026-08-25T19:31:00+07:00",
   "owner": "Nguyen Van Tam",
-  "candidate_attempt": 1
+  "candidate_attempt": 2,
+  "retry_reason": "Kotlin first root error ColorDrawable import fixed; same Beta75 scope"
 }
