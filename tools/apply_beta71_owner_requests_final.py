@@ -37,8 +37,32 @@ if old_resource_line in ops:
     ops=ops.replace(old_resource_line,new_resource_line,1)
 elif new_resource_line not in ops:
     raise SystemExit('Beta71 previous resource identity anchor missing')
+old_local_match=r'''        for(local in operationalStore.localHistoryAll()){
+            val id=local.optString("event_id").trim();if(id.isBlank())continue;val body=local.optJSONObject("body")?:JSONObject();val p=body.optJSONObject("payload")?:body;val who=body.optString("mnv").ifBlank{p.optString("mnv")}.trim();if(who!=mnv||!sameSession(body,p,local.optLong("queued_at",0L)))continue
+            val action=body.optString("action").trim().lowercase();val explicit=body.optString("event_type").trim().uppercase();val type=when(explicit){"ENTER"->"ATTENDANCE_ENTER";"RESOURCE"->"RESOURCE_CHANGE";"EXIT"->"ATTENDANCE_EXIT";in allowed->explicit;else->when(action){"enter"->"ATTENDANCE_ENTER";"resource_change"->"RESOURCE_CHANGE";"labor_start"->"LABOR_START";"labor_finish"->"LABOR_FINISH";"exit"->"ATTENDANCE_EXIT";else->""}};if(type.isBlank())continue
+            val localError=local.optString("error").ifBlank{local.optString("last_error")};val existing=merged[id];if(existing!=null){existing.put("local_status",local.optString("status")).put("local_error",localError).put("local_queued_at",local.optLong("queued_at",0L));continue}
+            val label=body.optString("label").ifBlank{when(type){"ATTENDANCE_ENTER"->"Vào ca";"RESOURCE_CHANGE"->"Cập nhật công việc";"LABOR_START"->"Bắt đầu công nhật";"LABOR_FINISH"->"Hoàn thành công nhật";"ATTENDANCE_EXIT"->"Ra ca";else->action}}
+            val actor=body.optString("actor_name").ifBlank{body.optString("actor").ifBlank{body.optString("actor_id").ifBlank{"Thiết bị này"}}}
+            merged[id]=JSONObject().put("event_id",id).put("event_type",type).put("label",label).put("mnv",mnv).put("actor",actor).put("detail",detail(type,body,p)).put("at_iso",body.optString("created_at").ifBlank{body.optString("updated_at")}).put("timeline_source","LOCAL_PDA").put("local_status",local.optString("status")).put("local_error",localError).put("local_queued_at",local.optLong("queued_at",0L))
+        }'''
+new_local_match=r'''        for(local in operationalStore.localHistoryAll()){
+            val id=local.optString("event_id").trim();if(id.isBlank())continue;val body=local.optJSONObject("body")?:JSONObject();val p=body.optJSONObject("payload")?:body;val who=body.optString("mnv").ifBlank{p.optString("mnv")}.trim();if(who!=mnv)continue
+            val sid=body.optString("session_id").ifBlank{p.optString("session_id")}.trim();if(currentSessionId.isNotBlank()&&sid.isNotBlank()&&sid!=currentSessionId)continue
+            val eventIso=body.optString("created_at").ifBlank{body.optString("updated_at").ifBlank{body.optString("at_iso").ifBlank{p.optString("created_at")}}};val queuedAt=local.optLong("queued_at",0L);val eventMs=runCatching{Instant.parse(eventIso).toEpochMilli()}.getOrDefault(queuedAt)
+            if(sid.isBlank()&&enterMs>0L&&eventMs>0L&&(eventMs<enterMs||eventMs>exitMs))continue
+            val action=body.optString("action").trim().lowercase();val explicit=body.optString("event_type").trim().uppercase();val type=when(explicit){"ENTER"->"ATTENDANCE_ENTER";"RESOURCE"->"RESOURCE_CHANGE";"EXIT"->"ATTENDANCE_EXIT";in allowed->explicit;else->when(action){"enter"->"ATTENDANCE_ENTER";"resource_change"->"RESOURCE_CHANGE";"labor_start"->"LABOR_START";"labor_finish"->"LABOR_FINISH";"exit"->"ATTENDANCE_EXIT";else->""}};if(type.isBlank())continue
+            val localError=local.optString("error").ifBlank{local.optString("last_error")};val existing=merged[id];if(existing!=null){existing.put("local_status",local.optString("status")).put("local_error",localError).put("local_queued_at",queuedAt);continue}
+            val label=body.optString("label").ifBlank{when(type){"ATTENDANCE_ENTER"->"Vào ca";"RESOURCE_CHANGE"->"Cập nhật công việc";"LABOR_START"->"Bắt đầu công nhật";"LABOR_FINISH"->"Hoàn thành công nhật";"ATTENDANCE_EXIT"->"Ra ca";else->action}}
+            val actor=body.optString("actor_name").ifBlank{body.optString("actor").ifBlank{body.optString("actor_id").ifBlank{"Thiết bị này"}}}
+            merged[id]=JSONObject().put("event_id",id).put("event_type",type).put("label",label).put("mnv",mnv).put("actor",actor).put("detail",detail(type,body,p)).put("at_iso",eventIso).put("timeline_source","LOCAL_PDA").put("local_status",local.optString("status")).put("local_error",localError).put("local_queued_at",queuedAt)
+        }'''
+if old_local_match in ops:
+    ops=ops.replace(old_local_match,new_local_match,1)
+elif new_local_match not in ops:
+    raise SystemExit('Beta71 isolated local timeline anchor missing')
 ops_path.write_text(ops)
 assert 'api.networkStatus()' not in ops
+assert 'val eventIso=body.optString("created_at")' in ops
 assert 'val explicit=body.optString("event_type").trim().uppercase()' in ops
 assert '.put("detail",detail(type,body,p))' in ops
 assert 'transportViHeader(net.transport)' in ops
