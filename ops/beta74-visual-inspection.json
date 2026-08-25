@@ -1,0 +1,47 @@
+{
+  "status": "PASS",
+  "result": "HUMAN_VISUAL_PASS",
+  "inspected_at": "2026-08-25T18:34:00+07:00",
+  "candidate": {
+    "version_name": "0.4.2-beta.74",
+    "version_code": 80,
+    "package": "vn.pickpack1291.app.beta.publicbeta",
+    "source_sha": "cfb4dbca116f7c47a598bc398bdbe1251ad2bad8",
+    "build_run": 32842363597,
+    "artifact_id": 9561088652,
+    "sha256": "37cadd74088179f1e17872c7474622681941cc5f546807cea769517d9f98b017",
+    "size": 13130629,
+    "signer_sha256": "d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e"
+  },
+  "visual": {
+    "run_id": 32842363597,
+    "artifact_id": 9561153695,
+    "artifact_digest": "sha256:05ced1cc5a159b39df6ff7635398e9085327612fc095827e267678d3448fc4cf",
+    "route_gate": "dumpsys_activity+dumpsys_window+human_pixels"
+  },
+  "human_inspection": {
+    "320x568": {
+      "settings_route": true,
+      "doi_mat_khau_visible": true,
+      "nhat_ky_visible": true,
+      "no_crop_or_overflow": true,
+      "frames": ["16-settings-top.png", "17-settings-scroll-2.png", "17-settings-scroll-3.png"]
+    },
+    "360x640": {
+      "settings_route": true,
+      "doi_mat_khau_visible": true,
+      "nhat_ky_visible": true,
+      "no_crop_or_overflow": true,
+      "frames": ["16-settings-top.png", "17-settings-scroll-2.png", "17-settings-scroll-3.png"]
+    },
+    "480x800": {
+      "settings_route": true,
+      "doi_mat_khau_visible": true,
+      "nhat_ky_visible": true,
+      "no_crop_or_overflow": true,
+      "frames": ["16-settings-top.png", "17-settings-scroll-2.png", "17-settings-scroll-3.png"]
+    }
+  },
+  "stable_publish": "FORBIDDEN",
+  "rebuild_after_candidate_lock": false
+}
