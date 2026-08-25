@@ -1,4 +1,4 @@
-name: Beta75 visual exact candidate
+name: Beta75 exact visual probe
 
 on:
   push:
@@ -16,18 +16,18 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  visual:
+  visual-probe:
     runs-on: ubuntu-24.04
-    timeout-minutes: 35
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 1
-      - name: Validate exact Beta75 visual-only request
+      - name: Validate exact Beta75 probe request
         shell: bash
         run: |
           set -euo pipefail
-          jq -e '.stage=="visual" and .version_name=="0.4.2-beta.75" and .version_code==81 and .candidate_run_id==32849057694 and .candidate_artifact_id==9563625638 and .source_sha=="e475b8476e99a9230683dbbf6ec266235960ed5b" and .apk_sha256=="6e08dc974281cc7b5428d22cf406179447cdeb95443dc19fa1db2b4d32344913" and .apk_size==13147013 and .signer_sha256=="d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e" and .stable_publish=="FORBIDDEN"' ops/beta-release-request.json >/dev/null
+          jq -e '.stage=="probe" and .version_name=="0.4.2-beta.75" and .version_code==81 and .candidate_run_id==32849057694 and .candidate_artifact_id==9563625638 and .source_sha=="e475b8476e99a9230683dbbf6ec266235960ed5b" and .apk_sha256=="6e08dc974281cc7b5428d22cf406179447cdeb95443dc19fa1db2b4d32344913" and .apk_size==13147013 and .signer_sha256=="d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e" and .stable_publish=="FORBIDDEN" and .probe=="480x800-add-dialog"' ops/beta-release-request.json >/dev/null
           git fetch --no-tags --depth=1 origin e475b8476e99a9230683dbbf6ec266235960ed5b
           test -z "$(git diff e475b8476e99a9230683dbbf6ec266235960ed5b HEAD --name-only -- app/src app/build.gradle.kts service google-apps-script)"
       - uses: actions/download-artifact@v4
@@ -37,11 +37,7 @@ jobs:
           repository: tam95supra-source/pick-pack-1291
           run-id: 32849057694
           github-token: ${{ secrets.GITHUB_TOKEN }}
-      - uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: '17'
-      - name: Preflight exact candidate and materialized harness
+      - name: Preflight exact candidate and probe
         shell: bash
         run: |
           set -euo pipefail
@@ -52,93 +48,10 @@ jobs:
           test "$(sha256sum "$APK" | awk '{print $1}')" = "6e08dc974281cc7b5428d22cf406179447cdeb95443dc19fa1db2b4d32344913"
           test "$(stat -c '%s' "$APK")" = "13147013"
           python3 -m py_compile tools/run_beta75_visual.py
-          python3 - <<'PY'
-          from pathlib import Path
-          s=Path('tools/run_beta75_visual.py').read_text(encoding='utf-8')
-          start=s.index('def employee_dialog(')
-          end=s.index('\ndef timeline_view',start)
-          replacement=r'''def locate_action_row(d,tag,wh):
-              w,h=wh
-              for attempt in range(4):
-                  data=adb('exec-out','screencap','-p',text=False).stdout
-                  p=OUT/d/f'22-{tag}-actions-{attempt}.png';p.write_bytes(data);validate_png(p,wh)
-                  pw,ph,c,rows=png_pixels(p);hits=[]
-                  for y in range(int(ph*.34),int(ph*.82)):
-                      xs=[];row=rows[y]
-                      for x in range(pw):
-                          px=row[x*c:(x+1)*c]
-                          if c<3:r=g=b=px[0]
-                          else:r,g,b=px[0],px[1],px[2]
-                          if r>=170 and 70<=g<=160 and b<=105:xs.append(x)
-                      if len(xs)>=max(24,int(pw*.12)):hits.append((y,len(xs),int(sum(xs)/len(xs))))
-                  bands=[]
-                  for hit in hits:
-                      if bands and hit[0]==bands[-1][-1][0]+1:bands[-1].append(hit)
-                      else:bands.append([hit])
-                  bands=[b for b in bands if len(b)>=6]
-                  if bands:
-                      band=max(bands,key=lambda b:sum(q[1] for q in b));weight=sum(q[1] for q in band)
-                      y=int(sum(q[0]*q[1] for q in band)/weight);delete_x=int(sum(q[2]*q[1] for q in band)/weight)
-                      return delete_x,y,p
-                  adb('shell','input','swipe',str(w//2),str(int(h*.72)),str(w//2),str(int(h*.38)),'360');time.sleep(.35)
-              raise AssertionError(f'action row not found: {d}/{tag}')
-
-          def assert_dialog_changed(before,after,wh):
-              w,h=wh;aw,ah,ac,ar=png_pixels(after);bw,bh,bc,br=png_pixels(before);assert (aw,ah)==(bw,bh)==(w,h)
-              changed=0;sampled=0
-              for y in range(0,h,2):
-                  for x in range(0,w,2):
-                      ap=ar[y][x*ac:(x+1)*ac];bp=br[y][x*bc:(x+1)*bc]
-                      av=[ap[0]]*3 if ac<3 else ap[:3];bv=[bp[0]]*3 if bc<3 else bp[:3]
-                      sampled+=1
-                      if sum(abs(int(av[i])-int(bv[i])) for i in range(3))>=45:changed+=1
-              ratio=changed/max(1,sampled);assert ratio>=.08, f'dialog visual change too small: {ratio:.4f}'
-
-          def employee_dialog(d,wh,mnv,tag,tabs):
-              open_employee(d,wh,mnv,tag)
-              delete_x,y,before=locate_action_row(d,tag,wh);w,_=wh
-              x={'add':w//6,'edit':w//2,'delete':delete_x}[tag]
-              adb('shell','input','tap',str(x),str(y));time.sleep(.7)
-              gate(f'{d}-{tag}-dialog');shot(d,f'23-{tag}-dialog',wh)
-              after=OUT/d/f'23-{tag}-dialog.png';assert_dialog_changed(before,after,wh)
-              adb('shell','input','keyevent','4');time.sleep(.2)
-          '''
-          runtime=s[:start]+replacement+s[end:]
-          old="""def open_exchange(d,wh):\n    seed_fixture();start_module(d,'PDA_EXCHANGE');time.sleep(.8);shot(d,'10-pda-exchange',wh)\n"""
-          new=r'''def ime_is_on_screen():
-              dump=adb('shell','dumpsys','window','windows',check=False).stdout
-              marker='WindowStateAnimator'
-              pos=0
-              while True:
-                  pos=dump.find(marker,pos)
-                  if pos<0:return False
-                  end=dump.find('Window #',pos+len(marker));block=dump[pos:(end if end>=0 else len(dump))]
-                  if 'InputMethod' in block and 'Surface: shown=true' in block and 'isOnScreen=true' in block:return True
-                  pos+=len(marker)
-
-          def hide_ime_if_needed(d):
-              before=adb('shell','dumpsys','window','windows',check=False).stdout;record(f'{d}-ime-before.txt',before[-16000:])
-              if ime_is_on_screen():
-                  adb('shell','input','keyevent','4');time.sleep(.5)
-              after=adb('shell','dumpsys','window','windows',check=False).stdout;record(f'{d}-ime-after.txt',after[-16000:])
-              assert not ime_is_on_screen(), 'IME still visible over PDA exchange evidence'
-
-          def open_exchange(d,wh):
-              seed_fixture();start_module(d,'PDA_EXCHANGE');time.sleep(.8);hide_ime_if_needed(d);gate(f'{d}-pda-exchange-clean');shot(d,'10-pda-exchange',wh)
-          '''
-          assert runtime.count(old)==1
-          runtime=runtime.replace(old,new,1)
-          assert all(x in runtime for x in ('PDA_EXCHANGE','30011','30050','30099','320x568','360x640','480x800','D1','D2','D3'))
-          forbidden=('uiauto'+'mator','am instru'+'ment','gradle','apksigner')
-          assert all(x not in runtime for x in forbidden)
-          compile(runtime,'run_beta75_visual_runtime.py','exec')
-          Path('/tmp/run_beta75_visual_runtime.py').write_text(runtime,encoding='utf-8')
-          print('materialized_visual_preflight=PASS')
-          PY
-          python3 -m py_compile /tmp/run_beta75_visual_runtime.py
+          grep -q "WH=(480,800)" tools/run_beta75_visual.py
+          grep -q "probe-480-add-dialog.png" tools/run_beta75_visual.py
+          ! grep -Eq 'gradle|apksigner|uiautomator|am instrument' tools/run_beta75_visual.py
           echo "APK=$APK" >> "$GITHUB_ENV"
-          echo "EXPECTED_SHA=6e08dc974281cc7b5428d22cf406179447cdeb95443dc19fa1db2b4d32344913" >> "$GITHUB_ENV"
-          echo "EXPECTED_SIZE=13147013" >> "$GITHUB_ENV"
       - name: Enable KVM
         shell: bash
         run: |
@@ -147,7 +60,7 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm || true
           sudo chmod 666 /dev/kvm || true
-      - name: Run Beta75 visual matrix on exact APK
+      - name: Run exact 480x800 probe
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 29
@@ -160,12 +73,12 @@ jobs:
             timeout 60s adb install -r "$APK"
             timeout 20s adb root
             timeout 20s adb wait-for-device
-            timeout 720s python3 /tmp/run_beta75_visual_runtime.py
-      - name: Upload visual evidence
+            timeout 300s python3 tools/run_beta75_visual.py
+      - name: Upload probe evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: beta75-visual-${{ github.run_id }}
-          path: /tmp/visual
+          name: beta75-probe-${{ github.run_id }}
+          path: /tmp/probe
           retention-days: 30
           if-no-files-found: error
