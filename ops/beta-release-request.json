@@ -14,5 +14,6 @@
   "locked_artifact_id": 9552942024,
   "locked_sha256": "ad037c1a17d245f90ead59539c5595cc5df6a568b8657ce636cc43d101175fd2",
   "locked_size": 13130629,
-  "attempt": 1
+  "attempt": 2,
+  "retry_reason": "visual verifier harness corrected; exact bytes unchanged"
 }
