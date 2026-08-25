@@ -6,13 +6,13 @@
   "base_version_code": 77,
   "stable_publish": "FORBIDDEN",
   "service_change": "NONE",
-  "requested_at": "2026-08-25T12:05:00+07:00",
-  "attempt": 22,
+  "requested_at": "2026-08-25T12:25:00+07:00",
+  "attempt": 23,
   "candidate_run_id": 32808558173,
   "candidate_artifact_id": 9549037310,
   "apk_sha256": "fdeb006122f065591e82fe912a4a615c9c42a149568c2fc32f7d5b35db353caf",
   "apk_size": 13114245,
-  "visual_harness": "rawshot-content-viewport-v4",
+  "visual_harness": "rawshot-content-viewport-canonical-state-v5",
   "source_sha": "73d5432df09c33cda6554090838e5f55e41761ae",
   "apk_file": "pick-pack-1291-public-beta-0.4.2-beta.72.apk",
   "signer_sha256": "d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e",
@@ -31,6 +31,11 @@
       "run_id": 32811028697,
       "artifact_id": 9549883881,
       "root_cause": "320 and 480 swipe started on bottom navigation; 360 human gate passed; exact APK unchanged"
+    },
+    {
+      "run_id": 32811558028,
+      "artifact_id": 9550059769,
+      "root_cause": "human gate found active fixture used status instead of canonical state, hiding Pick resource summary; exact APK unchanged"
     }
   ]
 }
