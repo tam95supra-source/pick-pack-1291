@@ -1,17 +1,18 @@
 ---
-handover_schema: pick-pack-handover/v1
+handover_schema: pick-pack-handover/v2
 status: READY
-created_at: 2026-08-25T10:28:29+07:00
+created_at: 2026-08-25T10:42:18+07:00
 owner: Nguyễn Văn Tâm
 project: PICK PACK 1291
 active_branch: release/beta71-clean-from-beta68-20260825
-working_head_sha: 5805182aabb1c4f8f38631b010ca9e0d493ca62d
+working_head_sha: 6245e87e0cd4b162466268dd7764a4b2e6d5055d
+archive_file: docs/handovers/HANDOVER_20260825-104218_handoff-retention-v2.md
 base_or_live_version: 0.4.2-beta.71
 task_state: PASS
-next_action: Đọc yêu cầu mới đi kèm prompt đầu phiên; nếu có thì thực thi ngay theo AGENTS.md, nếu chưa có thì chỉ xác nhận đã nạp Beta71 LIVE và chờ OWNER giao scope.
+next_action: WAIT_FOR_OWNER_NEW_SCOPE
 ---
 
-# BÀN GIAO PHIÊN — BETA71 LIVE VÀ CONTEXT BOOTSTRAP
+# BÀN GIAO PHIÊN — BETA71 LIVE VÀ HANDOFF RETENTION V2
 
 ## 1. Yêu cầu OWNER và Definition of Done
 
@@ -22,6 +23,7 @@ Yêu cầu đã xử lý:
 3. Viết lại bối cảnh AI với vai trò chuyên môn, lỗi thường gặp và đúng đường PASS; cấm retry cách đã biết sai.
 4. Khi OWNER yêu cầu chuyển phiên, AI phải tự tạo file bàn giao đầy đủ để phiên mới tiếp tục mà không rà soát lại phần đã PASS.
 5. Bổ sung prompt first-chat và khóa chống AI tự dừng/làm lệch phạm vi.
+6. Mỗi lần chuyển chat phải tự tạo handoff trong repo, giữ canonical + tối đa 5 archive gần nhất; phiên mới không có yêu cầu vẫn tự nạp bản mới nhất.
 
 Definition of Done hiện tại:
 
@@ -29,7 +31,8 @@ Definition of Done hiện tại:
 - Sáu yêu cầu OWNER + PDA local current-holder: PASS.
 - Stable/main/signer/GAS business source không đổi: PASS.
 - Cấu hình repo-native, Project context, lỗi → PASS, handoff protocol và anti-stop gate: PASS.
-- Canonical + archive handoff tồn tại, cùng nội dung, không có secret: PASS sau commit hai file này.
+- Protocol/schema v2, AGENTS, Project context và first-chat prompt áp đúng cơ chế tự nạp mới nhất + retention 5 archive: PASS.
+- Canonical + archive handoff mới tồn tại, cùng nội dung, không có secret và active tree không quá 5 archive: PASS sau commit hai file này.
 
 Phạm vi bị cấm nếu OWNER chưa yêu cầu: Stable publish, merge/ghi `main`, đổi signer, đổi provider/authority/kiến trúc, thêm workflow per-version, rebuild/re-sign candidate đã khóa, xóa bằng chứng lịch sử.
 
@@ -77,9 +80,10 @@ Android/Web-PWA ↔ Cloudflare Worker ↔ D1; Durable Objects/WebSocket realtime
 | Release known-pass playbook | PASS | `docs/BUILD_RELEASE_PLAYBOOK.md`, commit `e31d6f699a5176aeaaae216572f05bed37c7f88f` |
 | OTA schema pass path | PASS | `docs/AI_EXECUTION_STANDARD.md`, commit `f8bc13b2876478c78c0ab8d914e6f347603511b1` |
 | Reusable locked publisher | PASS | `.github/workflows/beta-release.yml`, commit `5429002335b0b32110df2836a8638a28ac0cb237` |
-| Repo-native AI routing | PASS | `AGENTS.md`, anti-stop commit `c6740629e862d4a1b9941642b025335c62cae6f3` |
-| ChatGPT Project context | PASS | `docs/CHATGPT_PROJECT_CONTEXT_V2.md`, anti-drift commit `fb9ef4bfa30f484819447650c54233d4da82e7e3` |
-| Handoff schema/protocol | PASS | `docs/CHAT_HANDOFF_PROTOCOL.md`, commit `5805182aabb1c4f8f38631b010ca9e0d493ca62d` |
+| Repo-native AI routing | PASS | `AGENTS.md`, auto-resume commit `8851b52e773531bb72b6b9a15a7824cc22a96900` |
+| ChatGPT Project context | PASS | `docs/CHATGPT_PROJECT_CONTEXT_V2.md`, retention sync commit `74bfe1aba35352ec8dab2f192d4961bd16251e58` |
+| Handoff schema/protocol v2 | PASS | `docs/CHAT_HANDOFF_PROTOCOL.md`, commit `568a849606c28d9cf2bbe6b6c497970604d93ecc` |
+| First-chat prompt tự nạp latest | PASS | `docs/FIRST_CHAT_PROMPT.md`, commit `6245e87e0cd4b162466268dd7764a4b2e6d5055d` |
 
 ## 4. Thay đổi trong phiên
 
@@ -90,7 +94,8 @@ Các file cấu hình/trạng thái quan trọng đã tạo hoặc cập nhật:
 - `docs/CHATGPT_PROJECT_CONTEXT_V2.md`: context rút gọn để đặt một lần trong Project instructions.
 - `docs/AI_EXECUTION_STANDARD.md`: deterministic/transient/harness và fingerprint → đường PASS.
 - `docs/BUILD_RELEASE_PLAYBOOK.md`: luồng hai workflow, build một lần, exact OTA contract.
-- `docs/CHAT_HANDOFF_PROTOCOL.md`: schema, trigger, canonical/archive, resume contract.
+- `docs/CHAT_HANDOFF_PROTOCOL.md`: schema v2, canonical + tối đa 5 archive, fallback latest và restore qua Git history.
+- `docs/FIRST_CHAT_PROMPT.md`: prompt phiên đầu tự đọc canonical, fallback archive mới nhất và route theo task state.
 - `CURRENT_STATE.md`: Beta71 LIVE exact.
 - `.github/workflows/app-fast-check.yml`, `.github/workflows/beta-release.yml`: active workflow allowlist.
 - `tools/publish_beta71_ota.sh`: idempotent exact publish/readback và restore GAS.
@@ -113,7 +118,7 @@ Retry budget: deterministic = 0; transient transport = tối đa 2 lần có bac
 
 ## 6. Trạng thái workspace/CI/external
 
-- Remote branch: mọi thay đổi công việc đã commit tới `5805182aabb1c4f8f38631b010ca9e0d493ca62d` trước handoff.
+- Remote branch: mọi thay đổi công việc/cấu hình đã commit tới `6245e87e0cd4b162466268dd7764a4b2e6d5055d` trước handoff.
 - Không có source Android chưa commit trong phiên này.
 - Không có build/release workflow đang pending.
 - Release run cuối: `32801206323` — PASS.
@@ -138,15 +143,16 @@ Retry budget: deterministic = 0; transient transport = tối đa 2 lần có bac
 
 ## 8. NEXT_ACTION — điểm tiếp tục chính xác
 
-1. Phiên mới đọc file canonical này.
-2. Đọc phần `YÊU CẦU MỚI` trong prompt đầu phiên:
-   - nếu có yêu cầu: ánh xạ thành scope + DoD và dùng tool thực thi ngay;
-   - nếu ghi `NONE`: chỉ trả lời một câu “Đã nạp bàn giao Beta71 LIVE, sẵn sàng nhận yêu cầu mới”, không chạy tool khác.
+`WAIT_FOR_OWNER_NEW_SCOPE`
 
-Expected result: không recap dài, không crawl repo, không rerun build/visual/OTA đã PASS.
+Phiên mới phải tự đọc `HANDOVER_CURRENT.md` ngay cả khi prompt không có yêu cầu. Nếu canonical thiếu/không READY, chọn archive timestamp READY mới nhất; không hỏi OWNER và không crawl repo.
 
-Fallback duy nhất nếu canonical không đọc được: mở bản archive `HANDOVER_20260825-1028_beta71-live-context-bootstrap.md`; không quét repo. Retry đọc file tối đa 1 lần.
+- Có `YÊU CẦU MỚI`: nạp trạng thái này, ánh xạ scope + DoD rồi thực thi ngay theo `AGENTS.md`.
+- Không có yêu cầu mới: vì `task_state: PASS`, chỉ trả lời một câu “Đã nạp bàn giao Beta71 LIVE, sẵn sàng nhận yêu cầu mới”; không chạy tool khác và không tự phát sinh việc.
 
+Expected result: không recap dài, không đọc log cũ, không rerun build/visual/OTA đã PASS.
+
+Fallback đọc file: archive READY có timestamp lớn nhất, hiện là `HANDOVER_20260825-104218_handoff-retention-v2.md`. Retry đọc tối đa 1 lần.
 ## 9. Blocker và quyền
 
 - Blocker hiện tại: `NONE`.
@@ -163,7 +169,16 @@ Fallback duy nhất nếu canonical không đọc được: mở bản archive `
 - Không chạy lại gate PASS khi input/source/artifact bytes không đổi.
 - Không tự thêm tính năng/refactor/experiment ngoài yêu cầu OWNER.
 - Không tự final khi còn action hợp lệ trong scope; chỉ dừng theo ba điều kiện trong `AGENTS.md`.
+- Không giữ quá 5 archive handoff timestamp trong active tree; chỉ prune archive cũ nhất, không rewrite history.
 
 ## 11. Resume contract
 
-Phiên mới phải coi file này là snapshot continuity canonical, tin các exact ID/hash/PASS ở trên khi input không đổi và tiếp tục từ `NEXT_ACTION`. Chỉ fresh-read external state có thể thay đổi sau `created_at` hoặc ngay trước production write; không đọc lại lịch sử và không yêu cầu OWNER kể lại.
+Phiên mới tự chọn snapshot theo thứ tự: canonical READY → archive timestamp READY mới nhất. Lệnh OWNER mới nhất luôn ưu tiên; nếu không có lệnh mới thì route theo `task_state`/`NEXT_ACTION`. Tin exact ID/hash/PASS khi input không đổi; chỉ fresh-read external state có thể đổi sau `created_at` hoặc trước production write. Không đọc lại lịch sử và không yêu cầu OWNER kể lại.
+
+## 12. Retention/restore
+
+- Canonical: `docs/handovers/HANDOVER_CURRENT.md`.
+- Archive mới: `docs/handovers/HANDOVER_20260825-104218_handoff-retention-v2.md`.
+- Archive trước: `docs/handovers/HANDOVER_20260825-1028_beta71-live-context-bootstrap.md`.
+- Active count sau handoff: `2/5`; pruned trong lần này: `NONE`.
+- Khi archive thứ 6 xuất hiện, xóa bản timestamp cũ nhất khỏi active tree. Muốn restore một trong 5 bản: lấy nội dung archive đã chọn ghi lại vào canonical bằng commit bình thường. Bản cũ hơn vẫn có thể lấy từ Git history; cấm rewrite history.
