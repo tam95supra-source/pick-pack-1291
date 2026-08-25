@@ -8,7 +8,7 @@
   "service_change": "NONE",
   "gas_change": "FORGOT_PASSWORD_PREVIEW",
   "scope": "beta73-exact-publish",
-  "requested_at": "2026-08-25T17:23:00+07:00",
+  "requested_at": "2026-08-25T17:25:00+07:00",
   "owner": "Nguyen Van Tam",
   "locked_run_id": 32820317675,
   "locked_artifact_id": 9552942024,
@@ -21,6 +21,6 @@
   "visual_receipt_commit": "60792ff27b4aa2f741318a7f65280ccd1f6c1890",
   "visual_human_pass": true,
   "publisher_commit": "625632287c97a8093142070f3e42894c736c8f02",
-  "publish_attempt": 2,
-  "retry_reason": "preflight-only failure: shallow checkout lacked visual receipt commit; workflow now fetches exact receipt commit before hash comparison"
+  "publish_attempt": 3,
+  "retry_reason": "publisher verifier aligned to live Beta72 OTA contract; fresh-read GAS target adds Beta73 version_code compatibility; no production write occurred in prior attempt"
 }
