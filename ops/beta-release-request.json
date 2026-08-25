@@ -1,13 +1,13 @@
 {
-  "stage": "candidate",
+  "stage": "visual-export",
   "version_name": "0.4.2-beta.71",
   "version_code": 77,
   "base_version": "0.4.2-beta.68",
   "base_version_code": 74,
   "stable_publish": "FORBIDDEN",
   "service_change": "NONE",
-  "requested_at": "2026-08-25T09:08:00+07:00",
-  "attempt": 10,
+  "requested_at": "2026-08-25T09:15:00+07:00",
+  "attempt": 11,
   "rejected_candidates": [
     {
       "run_id": 32795523561,
@@ -19,5 +19,9 @@
       "artifact_id": 9545165700,
       "reason": "local history session matcher rejected valid event-shaped rows"
     }
-  ]
+  ],
+  "candidate_run_id": 32798498529,
+  "candidate_artifact_id": 9545736575,
+  "visual_run_id": 32798498529,
+  "visual_artifact_id": 9545809881
 }
