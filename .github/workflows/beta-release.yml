@@ -62,29 +62,45 @@ jobs:
               for attempt in range(4):
                   data=adb('exec-out','screencap','-p',text=False).stdout
                   p=OUT/d/f'22-{tag}-actions-{attempt}.png';p.write_bytes(data);validate_png(p,wh)
-                  pw,ph,c,rows=png_pixels(p);candidates=[]
+                  pw,ph,c,rows=png_pixels(p);hits=[]
                   for y in range(int(ph*.34),int(ph*.82)):
-                      xs=[]
-                      row=rows[y]
+                      xs=[];row=rows[y]
                       for x in range(pw):
                           px=row[x*c:(x+1)*c]
                           if c<3:r=g=b=px[0]
                           else:r,g,b=px[0],px[1],px[2]
                           if r>=170 and 70<=g<=160 and b<=105:xs.append(x)
-                      if len(xs)>=max(24,int(pw*.12)):candidates.append((len(xs),y,int(sum(xs)/len(xs))))
-                  if candidates:
-                      _,y,delete_x=max(candidates,key=lambda q:q[0])
-                      return delete_x,y
-                  adb('shell','input','swipe',str(w//2),str(int(h*.72)),str(w//2),str(int(h*.38)),'360')
-                  time.sleep(.35)
+                      if len(xs)>=max(24,int(pw*.12)):hits.append((y,len(xs),int(sum(xs)/len(xs))))
+                  bands=[]
+                  for hit in hits:
+                      if bands and hit[0]==bands[-1][-1][0]+1:bands[-1].append(hit)
+                      else:bands.append([hit])
+                  bands=[b for b in bands if len(b)>=6]
+                  if bands:
+                      band=max(bands,key=lambda b:sum(q[1] for q in b));weight=sum(q[1] for q in band)
+                      y=int(sum(q[0]*q[1] for q in band)/weight);delete_x=int(sum(q[2]*q[1] for q in band)/weight)
+                      return delete_x,y,p
+                  adb('shell','input','swipe',str(w//2),str(int(h*.72)),str(w//2),str(int(h*.38)),'360');time.sleep(.35)
               raise AssertionError(f'action row not found: {d}/{tag}')
+
+          def assert_dialog_changed(before,after,wh):
+              w,h=wh;aw,ah,ac,ar=png_pixels(after);bw,bh,bc,br=png_pixels(before);assert (aw,ah)==(bw,bh)==(w,h)
+              changed=0;sampled=0
+              for y in range(0,h,2):
+                  for x in range(0,w,2):
+                      ap=ar[y][x*ac:(x+1)*ac];bp=br[y][x*bc:(x+1)*bc]
+                      av=[ap[0]]*3 if ac<3 else ap[:3];bv=[bp[0]]*3 if bc<3 else bp[:3]
+                      sampled+=1
+                      if sum(abs(int(av[i])-int(bv[i])) for i in range(3))>=45:changed+=1
+              ratio=changed/max(1,sampled);assert ratio>=.08, f'dialog visual change too small: {ratio:.4f}'
 
           def employee_dialog(d,wh,mnv,tag,tabs):
               open_employee(d,wh,mnv,tag)
-              delete_x,y=locate_action_row(d,tag,wh);w,_=wh
+              delete_x,y,before=locate_action_row(d,tag,wh);w,_=wh
               x={'add':w//6,'edit':w//2,'delete':delete_x}[tag]
               adb('shell','input','tap',str(x),str(y));time.sleep(.7)
               gate(f'{d}-{tag}-dialog');shot(d,f'23-{tag}-dialog',wh)
+              after=OUT/d/f'23-{tag}-dialog.png';assert_dialog_changed(before,after,wh)
               adb('shell','input','keyevent','4');time.sleep(.2)
           '''
           runtime=s[:start]+replacement+s[end:]
