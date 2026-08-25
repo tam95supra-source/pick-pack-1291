@@ -11,9 +11,16 @@ src = src.replace("'master_revision':71", "'master_revision':72", 1)
 src = src.replace("'revision':71", "'revision':72", 1)
 src = src.replace("'beta71-visual-offline-token'", "'beta72-visual-offline-token'", 1)
 
+# Canonical local projection uses state=ACTIVE. Keep USER_PICK absent so the
+# session summary proves the fixed-user fallback without changing APK bytes.
 src = src.replace(
     "'resource_assignments_v64':[{'assignment_id':'asg-pda','resource_type':'PDA','resource_id':'MT90-123456789','status':'ACTIVE'},{'assignment_id':'asg-pick','resource_type':'USER_PICK','resource_id':'user16','status':'ACTIVE'}]",
-    "'resource_assignments_v64':[{'assignment_id':'asg-pda','resource_type':'PDA','resource_id':'MT90-123456789','status':'ACTIVE'}]",
+    "'resource_assignments_v64':[{'assignment_id':'asg-pda','resource_type':'PDA','resource_id':'MT90-123456789','state':'ACTIVE'}]",
+    1,
+)
+src = src.replace(
+    "'positions_v64':[{'position_key':'PICK','position_label':'Pick','status':'ACTIVE'}]",
+    "'positions_v64':[{'position_key':'PICK','position_label':'Pick','state':'ACTIVE'}]",
     1,
 )
 src = src.replace(
