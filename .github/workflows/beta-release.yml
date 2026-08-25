@@ -1,4 +1,4 @@
-name: Beta publish exact candidate
+name: Beta candidate and publish pipeline
 
 on:
   push:
@@ -12,97 +12,232 @@ permissions:
   actions: read
 
 concurrency:
-  group: beta73-owner-scope
+  group: beta-release-fixed
   cancel-in-progress: false
 
 jobs:
-  publish-exact:
+  candidate:
+    if: ${{ github.event_name == 'push' }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 40
     env:
-      GH_TOKEN: ${{ github.token }}
-      GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
-      GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
-      GOOGLE_OAUTH_REFRESH_TOKEN: ${{ secrets.GOOGLE_OAUTH_REFRESH_TOKEN }}
-      GAS_SCRIPT_ID: ${{ secrets.GAS_SCRIPT_ID }}
-      GAS_DEPLOYMENT_ID: ${{ secrets.GAS_DEPLOYMENT_ID }}
-      LOCKED_RUN_ID: '32820317675'
-      LOCKED_ARTIFACT_ID: '9552942024'
-      EXPECTED_SHA: ad037c1a17d245f90ead59539c5595cc5df6a568b8657ce636cc43d101175fd2
-      EXPECTED_SIZE: '13130629'
-      VISUAL_RECEIPT_COMMIT: 60792ff27b4aa2f741318a7f65280ccd1f6c1890
+      EXPECTED_SIGNER_SHA256: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
+      SIGNING_KEY_B64: ${{ secrets.ANDROID_SIGNING_KEY_B64 }}
+      SIGNING_STORE_PASSWORD: ${{ secrets.ANDROID_SIGNING_STORE_PASSWORD }}
+      SIGNING_KEY_PASSWORD: ${{ secrets.ANDROID_SIGNING_KEY_PASSWORD }}
+      SIGNING_ALIAS: ${{ secrets.ANDROID_SIGNING_ALIAS }}
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 1
+          fetch-depth: 0
 
-      - name: Preflight publish-only lock
+      - name: Validate candidate request
+        id: request
         shell: bash
         run: |
           set -euo pipefail
-          jq -e --argjson r "$LOCKED_RUN_ID" --argjson a "$LOCKED_ARTIFACT_ID" --arg h "$EXPECTED_SHA" --argjson z "$EXPECTED_SIZE" '.stage=="publish" and .version_name=="0.4.2-beta.73" and .version_code==79 and .locked_run_id==$r and .locked_artifact_id==$a and .locked_sha256==$h and .locked_size==$z and .stable_publish=="FORBIDDEN" and .visual_receipt_commit==env.VISUAL_RECEIPT_COMMIT' ops/beta-release-request.json >/dev/null
-          jq -e --argjson r "$LOCKED_RUN_ID" --argjson a "$LOCKED_ARTIFACT_ID" --arg h "$EXPECTED_SHA" --argjson z "$EXPECTED_SIZE" '.status=="PASS" and .result=="HUMAN_VISUAL_PASS" and .candidate.build_run==$r and .candidate.artifact_id==$a and .candidate.sha256==$h and .candidate.size==$z and .human_inspection["320x568"].nhat_ky_visible==true and .human_inspection["360x640"].nhat_ky_visible==true and .human_inspection["480x800"].nhat_ky_visible==true' ops/beta73-visual-inspection.json >/dev/null
-          git fetch --no-tags --depth=1 origin "$VISUAL_RECEIPT_COMMIT"
-          test "$(git rev-parse "$VISUAL_RECEIPT_COMMIT:ops/beta73-visual-inspection.json")" = "$(git hash-object ops/beta73-visual-inspection.json)"
-          python3 - <<'PY'
-          from pathlib import Path
-          src=Path('tools/publish_beta73_ota.sh').read_text(encoding='utf-8')
-          old='.ok==true and .version_name==$v and .version_code==$c and .sha256==$h and .size==$z'
-          new='.ok==true and .version_name==$v and ((.version_code // $c)==$c) and .sha256==$h and .size==$z'
-          assert src.count(old)==1, src.count(old)
-          src=src.replace(old,new,1)
-          anchor="assert route in s and helper_sig in s\nf['source']=s"
-          replacement=r"""assert route in s and helper_sig in s
-          update_route="    if (action === 'update_check') return ppJson_(ppUpdateCheck_(body));"
-          update_compat="    if (action === 'update_check') return ppJson_(ppBeta73UpdateCheckCompat_(ppUpdateCheck_(body)));"
-          if update_compat not in s:
-              assert s.count(update_route)==1, 'update_check route anchor drift'
-              s=s.replace(update_route,update_compat,1)
-          compat_sig='function ppBeta73UpdateCheckCompat_(out)'
-          if compat_sig not in s:
-              compat_anchor='function ppJson_(obj)'
-              assert s.count(compat_anchor)==1, 'ppJson anchor drift'
-              compat='\n'.join([
-                  "function ppBeta73UpdateCheckCompat_(out) {",
-                  "  if(!out || typeof out !== 'object') return out;",
-                  "  const channel=String(out.channel||'').toUpperCase(), version=String(out.version_name||'');",
-                  "  if(channel==='BETA') {",
-                  "    if(version==='0.4.2-beta.73') out.version_code=79;",
-                  "    else if(version==='0.4.2-beta.72' && (out.version_code===undefined || out.version_code===null)) out.version_code=78;",
-                  "  }",
-                  "  return out;",
-                  "}",
-                  "",
-                  ""
-              ])
-              s=s.replace(compat_anchor,compat+compat_anchor,1)
-          assert update_compat in s and compat_sig in s
-          f['source']=s"""
-          assert src.count(anchor)==1, src.count(anchor)
-          src=src.replace(anchor,replacement,1)
-          old_verify='assert "action === \'forgot_password_preview\'" in s and \'function ppForgotPasswordPreview_(body)\' in s\nassert \'__beta73_exact_drive_upload\' not in s'
-          new_verify='assert "action === \'forgot_password_preview\'" in s and \'function ppForgotPasswordPreview_(body)\' in s\nassert \'ppBeta73UpdateCheckCompat_(ppUpdateCheck_(body))\' in s and \'function ppBeta73UpdateCheckCompat_(out)\' in s\nassert \'__beta73_exact_drive_upload\' not in s'
-          assert src.count(old_verify)==1, src.count(old_verify)
-          src=src.replace(old_verify,new_verify,1)
-          assert src.count('for i in 1 2 3 4 5 6; do')==2
-          src=src.replace('for i in 1 2 3 4 5 6; do','for i in 1 2 3; do')
-          assert src.count('for i in 1 2 3 4 5 6 7 8; do')==1
-          src=src.replace('for i in 1 2 3 4 5 6 7 8; do','for i in 1 2 3; do',1)
-          Path('/tmp/publish_beta73_ota.sh').write_text(src,encoding='utf-8')
-          PY
-          bash -n /tmp/publish_beta73_ota.sh
-          ! grep -Eq 'gradle|assemble|bundle|apksigner|jarsigner|signingConfig' /tmp/publish_beta73_ota.sh
-          ! grep -Eq 'git push .*main|refs/heads/main|stable-release|publish.*STABLE' /tmp/publish_beta73_ota.sh
+          STAGE=$(jq -r '.stage' ops/beta-release-request.json)
+          echo "stage=$STAGE" >> "$GITHUB_OUTPUT"
+          if [[ "$STAGE" != candidate ]]; then
+            echo 'publish request: candidate job intentionally skipped after validation'
+            exit 0
+          fi
+          jq -e '.version_name=="0.4.2-beta.74" and .version_code==80 and .base_version=="0.4.2-beta.73" and .base_version_code==79 and .stable_publish=="FORBIDDEN" and .service_change=="NONE" and .gas_change=="NONE"' ops/beta-release-request.json >/dev/null
 
-      - name: Publish exact Beta73 bytes and verify LIVE
+      - name: Materialize Beta74 source exactly once
+        if: steps.request.outputs.stage == 'candidate'
+        id: identity
         shell: bash
-        run: bash /tmp/publish_beta73_ota.sh
+        run: |
+          set -euo pipefail
+          python3 -m py_compile tools/apply_beta74_session_projection_fix.py
+          if ! grep -q 'versionName = "0.4.2-beta.74"' app/build.gradle.kts; then
+            python3 tools/apply_beta74_session_projection_fix.py
+            git diff --check
+            git config user.name github-actions[bot]
+            git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+            git add app/build.gradle.kts app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt app/src/main/java/vn/pickpack1291/app/beta/PdaLocalProjection.kt
+            git commit -m 'fix(beta74): stabilize employee projection and session reconciliation'
+            git push origin "HEAD:$GITHUB_REF_NAME"
+          fi
+          grep -q 'versionCode = 80' app/build.gradle.kts
+          grep -q 'versionName = "0.4.2-beta.74"' app/build.gradle.kts
+          echo "source_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
-      - name: Upload Beta73 release evidence
-        if: always()
+      - name: Beta74 regression gates
+        if: steps.request.outputs.stage == 'candidate'
+        shell: bash
+        run: |
+          set -euo pipefail
+          OPS=app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt
+          PROJ=app/src/main/java/vn/pickpack1291/app/beta/PdaLocalProjection.kt
+          grep -Fq 'preferSession(copy, session!!)' "$PROJ"
+          grep -Fq 'previous==null||preferSession(copy,previous)' "$PROJ"
+          grep -Fq 'sessionId.isNotBlank()' "$OPS"
+          grep -Fq 'JSONObject().put("session_id",sessionId).put("mnv",currentMnv)' "$OPS"
+          grep -Fq 'lastEmployeeRenderSignature==signature' "$OPS"
+          grep -Fq 'value.ifBlank{direct}.ifBlank{"—"}' "$OPS"
+          grep -Fq 'THÔNG TIN CA' "$OPS"
+          grep -Fq 'THÔNG TIN CÔNG VIỆC' "$OPS"
+          grep -Fq 'if(!completed)startAnimation' "$OPS"
+          grep -Fq 'Đã chọn User Pick $id.' "$OPS"
+          grep -Fq '"Dung lượng ứng dụng" to humanBytes(appBinaryBytes())' "$OPS"
+          grep -Fq '"Dữ liệu ứng dụng trên máy" to humanBytes(appStorageUsage().userDataBytes)' "$OPS"
+          grep -Fq '"Bộ nhớ đệm (cache)" to humanBytes(appStorageUsage().cacheBytes)' "$OPS"
+          grep -Fq 'UpdateManager.pendingInfo(this)' "$OPS"
+          grep -q 'versionCode = 1' app/build.gradle.kts
+          grep -q 'versionName = "0.1.0-stable"' app/build.gradle.kts
+          ! git diff 2d726828bdd83efe21e9cd41db8d5c06d16f5272 HEAD --name-only -- service google-apps-script | grep -q .
+
+      - uses: actions/setup-java@v5
+        if: steps.request.outputs.stage == 'candidate'
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+        if: steps.request.outputs.stage == 'candidate'
+        with:
+          gradle-version: '9.4.1'
+
+      - name: Resolve Android SDK
+        if: steps.request.outputs.stage == 'candidate'
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -n "${ANDROID_HOME:-}" && -f "$ANDROID_HOME/platforms/android-36/android.jar" && -x "$ANDROID_HOME/build-tools/36.0.0/apksigner" && -x "$ANDROID_HOME/build-tools/36.0.0/aapt" ]]; then
+            echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> "$GITHUB_ENV"
+            exit 0
+          fi
+          SDK="$RUNNER_TEMP/android-sdk"
+          ZIP="$RUNNER_TEMP/commandlinetools.zip"
+          curl -fsSL https://dl.google.com/android/repository/commandlinetools-linux-15859902_latest.zip -o "$ZIP"
+          echo "4e4c464f145a7512b57d088ac6c278c03c9eea610886b35a5e0804e74eedf583  $ZIP" | sha256sum -c -
+          mkdir -p "$SDK/cmdline-tools"
+          unzip -q "$ZIP" -d "$RUNNER_TEMP/android-cmdline"
+          mv "$RUNNER_TEMP/android-cmdline/cmdline-tools" "$SDK/cmdline-tools/latest"
+          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
+          yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
+          "$SDK/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-36' 'build-tools;36.0.0'
+
+      - name: Compile Beta and Stable isolation
+        if: steps.request.outputs.stage == 'candidate'
+        run: gradle --no-daemon --build-cache --parallel :app:assembleBetaDebug :app:assembleStableDebug :app:assembleBetaRelease
+
+      - name: Sign exact Beta74 candidate
+        if: steps.request.outputs.stage == 'candidate'
+        shell: bash
+        env:
+          SOURCE_SHA: ${{ steps.identity.outputs.source_sha }}
+        run: |
+          set -euo pipefail
+          for v in SIGNING_KEY_B64 SIGNING_STORE_PASSWORD SIGNING_KEY_PASSWORD SIGNING_ALIAS; do test -n "${!v:-}"; done
+          BT="$ANDROID_SDK_ROOT/build-tools/36.0.0"
+          U=app/build/outputs/apk/beta/release/app-beta-release-unsigned.apk
+          "$BT/aapt" dump badging "$U" > /tmp/badging.txt
+          grep -q "package: name='vn.pickpack1291.app.beta.publicbeta'" /tmp/badging.txt
+          grep -q "versionCode='80'" /tmp/badging.txt
+          grep -q "versionName='0.4.2-beta.74'" /tmp/badging.txt
+          KS="$RUNNER_TEMP/release.jks"
+          printf '%s' "$SIGNING_KEY_B64" | base64 -d > "$KS"
+          printf '%s' "$SIGNING_STORE_PASSWORD" > "$RUNNER_TEMP/store.pass"
+          printf '%s' "$SIGNING_KEY_PASSWORD" > "$RUNNER_TEMP/key.pass"
+          mkdir -p dist/beta74
+          OUT=dist/beta74/pick-pack-1291-public-beta-0.4.2-beta.74.apk
+          "$BT/apksigner" sign --ks "$KS" --ks-key-alias "$SIGNING_ALIAS" --ks-pass "file:$RUNNER_TEMP/store.pass" --key-pass "file:$RUNNER_TEMP/key.pass" --out "$OUT" "$U"
+          "$BT/apksigner" verify --verbose --print-certs "$OUT" > /tmp/cert.txt
+          grep -qi "Signer #1 certificate SHA-256 digest: $EXPECTED_SIGNER_SHA256" /tmp/cert.txt
+          APK_SHA=$(sha256sum "$OUT" | awk '{print $1}')
+          APK_SIZE=$(stat -c '%s' "$OUT")
+          printf '%s  %s\n' "$APK_SHA" "$(basename "$OUT")" > dist/beta74/SHA256SUMS-0.4.2-beta.74.txt
+          jq -nc --arg source "$SOURCE_SHA" --arg sha "$APK_SHA" --argjson size "$APK_SIZE" --arg signer "$EXPECTED_SIGNER_SHA256" '{version_name:"0.4.2-beta.74",version_code:80,package:"vn.pickpack1291.app.beta.publicbeta",source_sha:$source,apk_sha256:$sha,apk_size:$size,signer_sha256:$signer,stable_version:"0.1.0-stable",stable_code:1,stable_publish:"FORBIDDEN",service_change:"NONE",gas_change:"NONE"}' > dist/beta74/release-meta.json
+          rm -f "$KS" "$RUNNER_TEMP/store.pass" "$RUNNER_TEMP/key.pass"
+
+      - name: Upload exact signed candidate
+        if: steps.request.outputs.stage == 'candidate'
         uses: actions/upload-artifact@v4
         with:
-          name: beta73-release-evidence-${{ github.run_id }}
-          path: /tmp/beta73-release-evidence
+          name: beta74-candidate-${{ github.run_id }}
+          path: dist/beta74/*
           retention-days: 30
-          if-no-files-found: warn
+          if-no-files-found: error
+
+  visual:
+    if: ${{ github.event_name == 'push' }}
+    needs: candidate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate visual stage
+        id: request
+        shell: bash
+        run: |
+          set -euo pipefail
+          STAGE=$(jq -r '.stage' ops/beta-release-request.json)
+          echo "stage=$STAGE" >> "$GITHUB_OUTPUT"
+          if [[ "$STAGE" != candidate ]]; then exit 0; fi
+          jq -e '.version_name=="0.4.2-beta.74" and .version_code==80' ops/beta-release-request.json >/dev/null
+      - uses: actions/download-artifact@v4
+        if: steps.request.outputs.stage == 'candidate'
+        with:
+          name: beta74-candidate-${{ github.run_id }}
+          path: /tmp/beta74-candidate
+      - uses: actions/setup-java@v5
+        if: steps.request.outputs.stage == 'candidate'
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Prepare exact candidate and visual harness
+        if: steps.request.outputs.stage == 'candidate'
+        shell: bash
+        run: |
+          set -euo pipefail
+          META=/tmp/beta74-candidate/release-meta.json
+          APK=/tmp/beta74-candidate/pick-pack-1291-public-beta-0.4.2-beta.74.apk
+          test -f "$META" -a -f "$APK"
+          SHA=$(jq -r '.apk_sha256' "$META"); SIZE=$(jq -r '.apk_size' "$META")
+          test "$(sha256sum "$APK" | awk '{print $1}')" = "$SHA"
+          test "$(stat -c '%s' "$APK")" = "$SIZE"
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('tools/run_beta73_visual.py').read_text(encoding='utf-8')
+          p=p.replace("EXPECTED_VERSION='0.4.2-beta.73'","EXPECTED_VERSION='0.4.2-beta.74'",1).replace("EXPECTED_CODE='79'","EXPECTED_CODE='80'",1)
+          p=p.replace('beta73-visual-offline-token','beta74-visual-offline-token')
+          Path('/tmp/run_beta74_visual.py').write_text(p,encoding='utf-8')
+          compile(p,'run_beta74_visual.py','exec')
+          PY
+          python3 /tmp/run_beta74_visual.py --preflight
+          echo "APK=$APK" >> "$GITHUB_ENV"
+          echo "EXPECTED_SHA=$SHA" >> "$GITHUB_ENV"
+          echo "EXPECTED_SIZE=$SIZE" >> "$GITHUB_ENV"
+      - name: Enable KVM
+        if: steps.request.outputs.stage == 'candidate'
+        shell: bash
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules >/dev/null
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm || true
+          sudo chmod 666 /dev/kvm || true
+      - name: Run Beta74 visual matrix
+        if: steps.request.outputs.stage == 'candidate'
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 29
+          target: default
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: false
+          emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-metrics
+          script: |
+            adb install -r "$APK"
+            python3 /tmp/run_beta74_visual.py
+      - name: Upload visual evidence
+        if: always() && steps.request.outputs.stage == 'candidate'
+        uses: actions/upload-artifact@v4
+        with:
+          name: beta74-visual-${{ github.run_id }}
+          path: /tmp/visual
+          retention-days: 30
+          if-no-files-found: error
