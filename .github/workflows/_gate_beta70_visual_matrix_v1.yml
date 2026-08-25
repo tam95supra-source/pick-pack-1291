@@ -1,0 +1,92 @@
+name: Beta70 locked candidate visual matrix v1
+on:
+  push:
+    branches: [ release/beta70-pda-local-holder-fix-20260825 ]
+    paths: [ 'ops/TRIGGER_BETA70_VISUAL_MATRIX_V1.txt' ]
+permissions:
+  contents: write
+  actions: read
+jobs:
+  visual:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    env:
+      ARTIFACT_ID: '9543716011'
+      EXPECTED_SHA: f4113bf8ffb330cd5ebf51f06a5fd211be04323546d28e4e04dec498d1d83899
+      EXPECTED_SIZE: '13114245'
+      EXPECTED_SIGNER: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
+      BRANCH: release/beta70-pda-local-holder-fix-20260825
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: '${{ github.sha }}', fetch-depth: 0}
+      - name: Fetch exact locked Beta70
+        shell: bash
+        env: {GH_TOKEN: '${{ github.token }}'}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/beta70 /tmp/visual
+          gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${ARTIFACT_ID}/zip" > /tmp/beta70/candidate.zip
+          unzip -q /tmp/beta70/candidate.zip -d /tmp/beta70/artifact
+          APK=$(find /tmp/beta70/artifact -type f -name 'pick-pack-1291-public-beta-0.4.2-beta.70.apk' | head -1)
+          test -n "$APK"
+          test "$(sha256sum "$APK" | awk '{print $1}')" = "$EXPECTED_SHA"
+          test "$(stat -c '%s' "$APK")" = "$EXPECTED_SIZE"
+          AAPT=$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)
+          BADGING=$($AAPT dump badging "$APK" | head -1)
+          grep -F "versionCode='76'" <<<"$BADGING"
+          grep -F "versionName='0.4.2-beta.70'" <<<"$BADGING"
+          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)
+          SIGNER=$($APKSIGNER verify --print-certs "$APK" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | tr '[:upper:]' '[:lower:]' | head -1)
+          test "$SIGNER" = "$EXPECTED_SIGNER"
+          echo "APK=$APK" >> "$GITHUB_ENV"
+          printf 'artifact=%s\nsha256=%s\nsize=%s\nsigner=%s\n%s\n' "$ARTIFACT_ID" "$EXPECTED_SHA" "$EXPECTED_SIZE" "$SIGNER" "$BADGING" > /tmp/visual/candidate-identity.txt
+      - name: Enable KVM
+        shell: bash
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules >/dev/null
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm || true
+          sudo chmod 666 /dev/kvm || true
+      - name: Run exact Beta70 visual matrix
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 29
+          target: default
+          arch: x86_64
+          profile: pixel_2
+          emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-metrics
+          script: |
+            adb install -r "$APK"
+            python3 tools/run_beta70_locked_visual_v1.py
+      - name: Upload visual evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: beta70-locked-candidate-visual-matrix-v1
+          path: /tmp/visual
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Persist receipt
+        if: always()
+        shell: bash
+        env: {GH_TOKEN: '${{ github.token }}'}
+        run: |
+          STATUS=FAIL
+          test -f /tmp/visual/runtime-summary.txt && STATUS=RUNTIME_PASS_AWAITING_HUMAN_INSPECTION
+          {
+            echo "status=$STATUS"
+            echo "run_id=$GITHUB_RUN_ID"
+            echo "candidate_artifact=$ARTIFACT_ID"
+            echo "candidate_sha256=$EXPECTED_SHA"
+            echo "candidate_size=$EXPECTED_SIZE"
+            echo "candidate_signer=$EXPECTED_SIGNER"
+            echo "version=0.4.2-beta.70"
+            echo "version_code=76"
+            echo "package=vn.pickpack1291.app.beta.publicbeta"
+            echo "matrix=320x568@160,360x640@160,480x800@240"
+            test -f /tmp/visual/runtime-summary.txt && cat /tmp/visual/runtime-summary.txt || true
+            test -f /tmp/visual/failure.txt && { echo failure:; cat /tmp/visual/failure.txt; } || true
+          } > /tmp/receipt.txt
+          CONTENT=$(base64 -w0 /tmp/receipt.txt)
+          gh api --method PUT "repos/${GITHUB_REPOSITORY}/contents/ops/beta70-visual-matrix-v1-result.txt" -f message='ops: record Beta70 visual matrix v1' -f content="$CONTENT" -f branch="$BRANCH" >/dev/null || true
+          cat /tmp/receipt.txt
