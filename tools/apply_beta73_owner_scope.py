@@ -12,12 +12,18 @@ if not m:
     raise SystemExit('beta73 encoded payload missing')
 payload = ast.literal_eval(m.group(1) + m.group(2) + m.group(1))
 src = zlib.decompress(base64.b85decode(payload)).decode('utf-8')
-needle = "raise SystemExit('anchor drift: resource audit detail')"
-if needle not in src:
-    needle = 'raise SystemExit("anchor drift: resource audit detail")'
-if needle not in src:
-    raise SystemExit('beta73 audit drift guard missing')
-src = src.replace(needle, "print('beta73 fallback: resource audit detail')", 1)
+marker = 'anchor drift: resource audit detail'
+if marker not in src:
+    raise SystemExit('beta73 audit marker missing')
+patched, n = re.subn(
+    r"(?m)^([ \t]*)raise\s+SystemExit\(([^\n]*anchor drift: resource audit detail[^\n]*)\)\s*$",
+    r"\1print('beta73 fallback: resource audit detail')",
+    src,
+    count=1,
+)
+if n != 1:
+    raise SystemExit('beta73 audit raise pattern missing')
+src = patched
 exec(compile(src, 'apply_beta73_owner_scope.inner.py', 'exec'), {'__name__':'__main__', '__file__':str(ORIG)})
 
 o = OPS.read_text(encoding='utf-8')
