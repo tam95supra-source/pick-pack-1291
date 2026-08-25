@@ -67,8 +67,11 @@ Status: ACTIVE. Mục tiêu: không tiêu tốn runtime vào retry mù hoặc l�
 
 ### OTA response schema lệch
 
-- PASS: fresh-read live `update_check`; kiểm tra contract thực `available/version_name/version_code/apk_url/sha256/size`.
-- Cấm: kết luận APK lỗi từ verifier schema cũ.
+- PASS: fresh-read live `update_check` và tách hai contract:
+  - máy cũ, `available=true`: bắt buộc `source/channel/version_name/apk_url/sha256/size` khớp exact bytes;
+  - máy đang ở target, `available=false`: chỉ yêu cầu `source/channel/version_name/size`; feed có thể cố ý bỏ `sha256`, `apk_url` và `version_code`.
+- Danh tính APK được khóa bằng candidate metadata + phản hồi `available=true` + SHA của bytes tải thật; không ép trường không tồn tại vào phản hồi no-update.
+- Cấm: kết luận APK lỗi, rebuild hoặc re-sign từ verifier schema cũ.
 
 ### Stable/main bị động chạm
 
