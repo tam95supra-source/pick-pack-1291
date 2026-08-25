@@ -41,7 +41,7 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - name: Preflight exact candidate and harness
+      - name: Preflight exact candidate and materialized harness
         shell: bash
         run: |
           set -euo pipefail
@@ -55,12 +55,47 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           s=Path('tools/run_beta75_visual.py').read_text(encoding='utf-8')
-          compile(s,'run_beta75_visual.py','exec')
-          assert all(x in s for x in ('PDA_EXCHANGE','30011','30050','30099','320x568','360x640','480x800','D1','D2','D3'))
+          start=s.index('def employee_dialog(')
+          end=s.index('\ndef timeline_view',start)
+          replacement=r'''def locate_action_row(d,tag,wh):
+              w,h=wh
+              for attempt in range(4):
+                  data=adb('exec-out','screencap','-p',text=False).stdout
+                  p=OUT/d/f'22-{tag}-actions-{attempt}.png';p.write_bytes(data);validate_png(p,wh)
+                  pw,ph,c,rows=png_pixels(p);candidates=[]
+                  for y in range(int(ph*.34),int(ph*.82)):
+                      xs=[]
+                      row=rows[y]
+                      for x in range(pw):
+                          px=row[x*c:(x+1)*c]
+                          if c<3:r=g=b=px[0]
+                          else:r,g,b=px[0],px[1],px[2]
+                          if r>=170 and 70<=g<=160 and b<=105:xs.append(x)
+                      if len(xs)>=max(24,int(pw*.12)):candidates.append((len(xs),y,int(sum(xs)/len(xs))))
+                  if candidates:
+                      _,y,delete_x=max(candidates,key=lambda q:q[0])
+                      return delete_x,y
+                  adb('shell','input','swipe',str(w//2),str(int(h*.72)),str(w//2),str(int(h*.38)),'360')
+                  time.sleep(.35)
+              raise AssertionError(f'action row not found: {d}/{tag}')
+
+          def employee_dialog(d,wh,mnv,tag,tabs):
+              open_employee(d,wh,mnv,tag)
+              delete_x,y=locate_action_row(d,tag,wh);w,_=wh
+              x={'add':w//6,'edit':w//2,'delete':delete_x}[tag]
+              adb('shell','input','tap',str(x),str(y));time.sleep(.7)
+              gate(f'{d}-{tag}-dialog');shot(d,f'23-{tag}-dialog',wh)
+              adb('shell','input','keyevent','4');time.sleep(.2)
+          '''
+          runtime=s[:start]+replacement+s[end:]
+          assert all(x in runtime for x in ('PDA_EXCHANGE','30011','30050','30099','320x568','360x640','480x800','D1','D2','D3'))
           forbidden=('uiauto'+'mator','am instru'+'ment','gradle','apksigner')
-          assert all(x not in s for x in forbidden)
-          print('visual_preflight=PASS')
+          assert all(x not in runtime for x in forbidden)
+          compile(runtime,'run_beta75_visual_runtime.py','exec')
+          Path('/tmp/run_beta75_visual_runtime.py').write_text(runtime,encoding='utf-8')
+          print('materialized_visual_preflight=PASS')
           PY
+          python3 -m py_compile /tmp/run_beta75_visual_runtime.py
           echo "APK=$APK" >> "$GITHUB_ENV"
           echo "EXPECTED_SHA=6e08dc974281cc7b5428d22cf406179447cdeb95443dc19fa1db2b4d32344913" >> "$GITHUB_ENV"
           echo "EXPECTED_SIZE=13147013" >> "$GITHUB_ENV"
@@ -85,7 +120,7 @@ jobs:
             timeout 60s adb install -r "$APK"
             timeout 20s adb root
             timeout 20s adb wait-for-device
-            timeout 720s python3 tools/run_beta75_visual.py
+            timeout 720s python3 /tmp/run_beta75_visual_runtime.py
       - name: Upload visual evidence
         if: always()
         uses: actions/upload-artifact@v4
