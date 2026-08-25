@@ -43,6 +43,7 @@ jobs:
           bash -n tools/publish_beta73_ota.sh
           jq -e --argjson r "$LOCKED_RUN_ID" --argjson a "$LOCKED_ARTIFACT_ID" --arg h "$EXPECTED_SHA" --argjson z "$EXPECTED_SIZE" '.stage=="publish" and .version_name=="0.4.2-beta.73" and .version_code==79 and .locked_run_id==$r and .locked_artifact_id==$a and .locked_sha256==$h and .locked_size==$z and .stable_publish=="FORBIDDEN" and .visual_receipt_commit==env.VISUAL_RECEIPT_COMMIT' ops/beta-release-request.json >/dev/null
           jq -e --argjson r "$LOCKED_RUN_ID" --argjson a "$LOCKED_ARTIFACT_ID" --arg h "$EXPECTED_SHA" --argjson z "$EXPECTED_SIZE" '.status=="PASS" and .result=="HUMAN_VISUAL_PASS" and .candidate.build_run==$r and .candidate.artifact_id==$a and .candidate.sha256==$h and .candidate.size==$z and .human_inspection["320x568"].nhat_ky_visible==true and .human_inspection["360x640"].nhat_ky_visible==true and .human_inspection["480x800"].nhat_ky_visible==true' ops/beta73-visual-inspection.json >/dev/null
+          git fetch --no-tags --depth=1 origin "$VISUAL_RECEIPT_COMMIT"
           test "$(git rev-parse "$VISUAL_RECEIPT_COMMIT:ops/beta73-visual-inspection.json")" = "$(git hash-object ops/beta73-visual-inspection.json)"
           ! grep -Eq 'gradle|assemble|bundle|apksigner|jarsigner|signingConfig' tools/publish_beta73_ota.sh
           ! grep -Eq 'git push .*main|refs/heads/main|stable-release|publish.*STABLE' tools/publish_beta73_ota.sh
