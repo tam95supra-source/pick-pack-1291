@@ -83,6 +83,8 @@ jobs:
           emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-metrics
           script: |
             timeout 60s adb install -r "$APK"
+            timeout 20s adb root
+            timeout 20s adb wait-for-device
             timeout 720s python3 tools/run_beta75_visual.py
       - name: Upload visual evidence
         if: always()
