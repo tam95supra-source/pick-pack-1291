@@ -39,7 +39,6 @@ jobs:
       source_sha: ${{ steps.identity.outputs.source_sha }}
       apk_sha: ${{ steps.sign.outputs.apk_sha }}
       apk_size: ${{ steps.sign.outputs.apk_size }}
-      artifact_id: ${{ steps.candidate_artifact.outputs.artifact-id }}
     env:
       EXPECTED_SIGNER_SHA256: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
       SIGNING_KEY_B64: ${{ secrets.ANDROID_SIGNING_KEY_B64 }}
