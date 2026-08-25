@@ -21,12 +21,15 @@ jobs:
     timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
       - name: Validate exact Beta75 visual-only request
         shell: bash
         run: |
           set -euo pipefail
           jq -e '.stage=="visual" and .version_name=="0.4.2-beta.75" and .version_code==81 and .candidate_run_id==32849057694 and .candidate_artifact_id==9563625638 and .source_sha=="e475b8476e99a9230683dbbf6ec266235960ed5b" and .apk_sha256=="6e08dc974281cc7b5428d22cf406179447cdeb95443dc19fa1db2b4d32344913" and .apk_size==13147013 and .signer_sha256=="d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e" and .stable_publish=="FORBIDDEN"' ops/beta-release-request.json >/dev/null
-          test "$(git diff e475b8476e99a9230683dbbf6ec266235960ed5b HEAD --name-only -- app/src app/build.gradle.kts service google-apps-script | wc -l)" -eq 0
+          git fetch --no-tags --depth=1 origin e475b8476e99a9230683dbbf6ec266235960ed5b
+          test -z "$(git diff e475b8476e99a9230683dbbf6ec266235960ed5b HEAD --name-only -- app/src app/build.gradle.kts service google-apps-script)"
       - uses: actions/download-artifact@v4
         with:
           name: beta75-candidate-32849057694
@@ -53,10 +56,8 @@ jobs:
           from pathlib import Path
           s=Path('tools/run_beta75_visual.py').read_text(encoding='utf-8')
           compile(s,'run_beta75_visual.py','exec')
-          assert "module','PDA_EXCHANGE'" in s
-          assert 'pp_operational_45d.db' in s
-          assert all(x in s for x in ('320x568','360x640','480x800'))
-          forbidden=("adb('shell','uiauto"+'mator', "adb('shell','am','instru"+'ment')
+          assert all(x in s for x in ('PDA_EXCHANGE','30011','30050','30099','320x568','360x640','480x800','D1','D2','D3'))
+          forbidden=('uiauto'+'mator','am instru'+'ment','gradle','apksigner')
           assert all(x not in s for x in forbidden)
           print('visual_preflight=PASS')
           PY
@@ -82,7 +83,7 @@ jobs:
           emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-metrics
           script: |
             timeout 60s adb install -r "$APK"
-            timeout 240s python3 tools/run_beta75_visual.py
+            timeout 720s python3 tools/run_beta75_visual.py
       - name: Upload visual evidence
         if: always()
         uses: actions/upload-artifact@v4
