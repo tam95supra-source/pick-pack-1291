@@ -7,14 +7,19 @@ on:
       - feature/**
     paths:
       - app/**
+      - google-apps-script/**
+      - tools/apply_beta76_nhan_hang_rot_patch.py
+      - tools/deploy_beta76_outbound_gas.sh
       - gradle.properties
+      - .github/workflows/app-fast-check.yml
   pull_request:
     paths:
       - app/**
+      - google-apps-script/**
       - gradle.properties
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: app-fast-check-${{ github.ref }}
@@ -23,9 +28,32 @@ concurrency:
 jobs:
   android:
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    timeout-minutes: 30
+    env:
+      GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+      GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+      GOOGLE_OAUTH_REFRESH_TOKEN: ${{ secrets.GOOGLE_OAUTH_REFRESH_TOKEN }}
+      GAS_SCRIPT_ID: ${{ secrets.GAS_SCRIPT_ID }}
+      GAS_DEPLOYMENT_ID: ${{ secrets.GAS_DEPLOYMENT_ID }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Materialize Beta76 Nhận hàng rớt integration
+        if: github.ref_name == 'feature/beta76-nhan-hang-rot-20260825'
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/apply_beta76_nhan_hang_rot_patch.py
+          if ! git diff --quiet -- app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt google-apps-script/PICK_PACK_API.gs; then
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git add app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt google-apps-script/PICK_PACK_API.gs
+            git commit -m 'fix(beta76): integrate nhan hang rot navigation and GAS routes'
+            git push origin "HEAD:${GITHUB_REF_NAME}"
+          fi
+
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
@@ -33,9 +61,29 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '9.4.1'
-      - name: Static and debug build
+
+      - name: Focused unit tests and Beta/Stable compile isolation
+        shell: bash
         run: |
           set -euo pipefail
+          grep -q 'versionCode = 82' app/build.gradle.kts
+          grep -q 'versionName = "0.4.2-beta.76"' app/build.gradle.kts
           grep -q 'versionCode = 1' app/build.gradle.kts
           grep -q 'versionName = "0.1.0-stable"' app/build.gradle.kts
-          gradle --no-daemon --build-cache --parallel :app:assembleBetaDebug :app:assembleStableDebug
+          grep -q 'private fun dropReceiveScreen()' app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt
+          grep -q "action === 'outbound_drop_append'" google-apps-script/PICK_PACK_API.gs
+          gradle --no-daemon --build-cache --parallel :app:testBetaDebugUnitTest :app:assembleBetaDebug :app:assembleStableDebug
+
+      - name: Deploy exact outbound GAS and run live focused gate
+        if: github.ref_name == 'feature/beta76-nhan-hang-rot-20260825'
+        shell: bash
+        run: bash tools/deploy_beta76_outbound_gas.sh
+
+      - name: Upload outbound GAS evidence
+        if: always() && github.ref_name == 'feature/beta76-nhan-hang-rot-20260825'
+        uses: actions/upload-artifact@v4
+        with:
+          name: beta76-outbound-gas-evidence-${{ github.run_id }}
+          path: /tmp/beta76-outbound-gas-evidence
+          retention-days: 30
+          if-no-files-found: warn
