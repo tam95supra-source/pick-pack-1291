@@ -6,6 +6,8 @@ on:
       - feature/beta76-nhan-hang-rot-20260825
     paths:
       - .github/workflows/beta-release.yml
+      - tools/run_beta76_visual.py
+      - tools/run_beta76_visual_v2.sh
 
 permissions:
   contents: read
@@ -59,7 +61,7 @@ jobs:
           sudo udevadm trigger --name-match=kvm || true
           sudo chmod 666 /dev/kvm || true
 
-      - name: Run exact Beta76 visual matrix v2
+      - name: Run exact Beta76 visual matrix v3
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 29
@@ -72,11 +74,11 @@ jobs:
             adb install -r "$APK"
             bash tools/run_beta76_visual_v2.sh
 
-      - name: Upload exact visual evidence v2
+      - name: Upload exact visual evidence v3
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: beta76-visual-v2-${{ github.run_id }}
+          name: beta76-visual-v3-${{ github.run_id }}
           path: /tmp/beta76-visual
           retention-days: 30
           if-no-files-found: error
