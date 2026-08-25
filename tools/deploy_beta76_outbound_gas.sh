@@ -1,0 +1,239 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+E=/tmp/beta76-outbound-gas-evidence
+mkdir -p "$E"
+for n in GOOGLE_OAUTH_CLIENT_ID GOOGLE_OAUTH_CLIENT_SECRET GOOGLE_OAUTH_REFRESH_TOKEN GAS_SCRIPT_ID GAS_DEPLOYMENT_ID; do
+  test -n "${!n:-}"
+done
+
+token_json=$(curl -fsS --connect-timeout 15 --max-time 30 https://oauth2.googleapis.com/token \
+  -H 'Content-Type: application/x-www-form-urlencoded' \
+  --data-urlencode "client_id=$GOOGLE_OAUTH_CLIENT_ID" \
+  --data-urlencode "client_secret=$GOOGLE_OAUTH_CLIENT_SECRET" \
+  --data-urlencode "refresh_token=$GOOGLE_OAUTH_REFRESH_TOKEN" \
+  --data-urlencode grant_type=refresh_token)
+ACCESS_TOKEN=$(jq -r '.access_token // empty' <<<"$token_json")
+test -n "$ACCESS_TOKEN"
+SCRIPT_ID=$(printf '%s' "$GAS_SCRIPT_ID" | tr -d '\r\n\t ')
+RAW=$(printf '%s' "$GAS_DEPLOYMENT_ID" | tr -d '\r\n\t ')
+DEPLOYMENT_ID="$RAW"
+if [[ "$RAW" == *"/s/"* ]]; then DEPLOYMENT_ID="${RAW#*/s/}"; DEPLOYMENT_ID="${DEPLOYMENT_ID%%/*}"; fi
+GAS_URL="https://script.google.com/macros/s/$DEPLOYMENT_ID/exec"
+echo "::add-mask::$ACCESS_TOKEN"
+echo "::add-mask::$SCRIPT_ID"
+echo "::add-mask::$DEPLOYMENT_ID"
+echo "::add-mask::$GAS_URL"
+
+api="https://script.googleapis.com/v1/projects/$SCRIPT_ID"
+curl -fsS --connect-timeout 15 --max-time 30 -H "Authorization: Bearer $ACCESS_TOKEN" "$api/content" > "$E/project-before.json"
+curl -fsS --connect-timeout 15 --max-time 30 -H "Authorization: Bearer $ACCESS_TOKEN" "$api/deployments/$DEPLOYMENT_ID" > "$E/deployment-before.json"
+
+python3 - "$E/project-before.json" "$E/project-target.json" <<'PY'
+import hashlib,json,sys
+from pathlib import Path
+src_path,target_path=sys.argv[1:]
+j=json.load(open(src_path,encoding='utf-8'))
+files=j.get('files',[])
+api=next((f for f in files if f.get('name')=='PICK_PACK_API'),None)
+assert api and api.get('source'),'PICK_PACK_API missing'
+s=api['source']
+block="""    if (action === 'outbound_location_list') return ppJson_(ppOutboundLocationList_(auth));\n    if (action === 'outbound_location_mutate') return ppJson_(ppWithLock_(function(){ return ppOutboundLocationMutate_(auth, body); }));\n    if (action === 'outbound_drop_append') return ppJson_(ppWithLock_(function(){ return ppOutboundAppend_(auth, body); }));\n    if (action === 'outbound_drop_clear') return ppJson_(ppWithLock_(function(){ return ppOutboundClear_(auth, body); }));\n"""
+if "action === 'outbound_drop_append'" not in s:
+    anchor="    if (action === 'sync_status') return ppJson_(ppSyncStatus_());\n"
+    if s.count(anchor)!=1:
+        anchor="    return ppJson_({ok:false,error:'UNKNOWN_ACTION'}, 404);\n"
+        assert s.count(anchor)==1,'outbound route anchor drift'
+        s=s.replace(anchor,block+'\n'+anchor,1)
+    else:
+        s=s.replace(anchor,anchor+block,1)
+for required in ("outbound_location_list","outbound_location_mutate","outbound_drop_append","outbound_drop_clear"):
+    assert required in s,required
+api['source']=s
+outbound=Path('google-apps-script/OUTBOUND_DROP_RECEIVE.gs').read_text(encoding='utf-8')
+assert "SHEET_ID: '1tl6har_8vGSVsVlcErfQwjX1YgvN3o-FRG5wQV4VTEM'" in outbound
+assert "DROP_SHEET: 'Nhận hàng rớt'" in outbound
+assert '__beta76_outbound_test' not in outbound
+existing=next((f for f in files if f.get('name')=='OUTBOUND_DROP_RECEIVE'),None)
+if existing:
+    existing['source']=outbound
+    existing['type']='SERVER_JS'
+else:
+    files.append({'name':'OUTBOUND_DROP_RECEIVE','type':'SERVER_JS','source':outbound})
+body={'files':files}
+Path(target_path).write_text(json.dumps(body,ensure_ascii=False),encoding='utf-8')
+def canon(fs):
+    return '\n'.join(str(f.get('name',''))+'\0'+str(f.get('type',''))+'\0'+str(f.get('source','')) for f in fs)
+Path('/tmp/beta76-outbound-gas-evidence/project-before.sha256').write_text(hashlib.sha256(canon(j.get('files',[])).encode()).hexdigest())
+Path('/tmp/beta76-outbound-gas-evidence/project-target.sha256').write_text(hashlib.sha256(canon(files).encode()).hexdigest())
+PY
+
+BEFORE_HASH=$(cat "$E/project-before.sha256")
+TARGET_HASH=$(cat "$E/project-target.sha256")
+BEFORE_DESC=$(jq -r '.deploymentConfig.description // ""' "$E/deployment-before.json")
+if [[ "$BEFORE_HASH" == "$TARGET_HASH" && "$BEFORE_DESC" == "Beta76 Nhận hàng rớt final" ]]; then
+  curl -fsSL --connect-timeout 15 --max-time 30 "$GAS_URL" > "$E/live-health.json"
+  jq -e '.ok==true and .service=="pick-pack-gsheet-api"' "$E/live-health.json" >/dev/null
+  jq -n --arg target_hash "$TARGET_HASH" --arg status "ALREADY_DEPLOYED" '{status:$status,target_hash:$target_hash,live_health:"PASS"}' > "$E/receipt.json"
+  echo 'beta76_outbound_gas=ALREADY_DEPLOYED_PASS'
+  exit 0
+fi
+
+MUTATED=0
+recover(){
+  if [[ "$MUTATED" != 1 ]]; then return 0; fi
+  jq '{files:.files}' "$E/project-before.json" > "$E/recover-content.json"
+  code=$(curl -sS --connect-timeout 15 --max-time 30 -o "$E/recover-content.out" -w '%{http_code}' -X PUT \
+    -H "Authorization: Bearer $ACCESS_TOKEN" -H 'Content-Type: application/json' --data-binary @"$E/recover-content.json" "$api/content")
+  [[ "$code" == 200 ]]
+  jq '{deploymentConfig:.deploymentConfig}' "$E/deployment-before.json" > "$E/recover-deployment.json"
+  code=$(curl -sS --connect-timeout 15 --max-time 30 -o "$E/recover-deployment.out" -w '%{http_code}' -X PUT \
+    -H "Authorization: Bearer $ACCESS_TOKEN" -H 'Content-Type: application/json' --data-binary @"$E/recover-deployment.json" "$api/deployments/$DEPLOYMENT_ID")
+  [[ "$code" == 200 ]]
+  MUTATED=0
+}
+trap 'rc=$?; recover || rc=99; exit $rc' EXIT
+
+NONCE=$(openssl rand -hex 32)
+echo "::add-mask::$NONCE"
+python3 - "$E/project-target.json" "$E/project-test.json" "$NONCE" <<'PY'
+import json,sys
+from pathlib import Path
+src,target,nonce=sys.argv[1:]
+j=json.load(open(src,encoding='utf-8'))
+api=next(f for f in j['files'] if f.get('name')=='PICK_PACK_API')
+s=api['source']
+anchor="    if (action === 'login') return ppJson_(ppLogin_(body));\n"
+assert s.count(anchor)==1,'test route anchor drift'
+test_route="    if (action === '__beta76_outbound_test') return ppJson_(ppOutboundSelfTest_(body));\n"
+s=s.replace(anchor,anchor+test_route,1)
+api['source']=s
+out=next(f for f in j['files'] if f.get('name')=='OUTBOUND_DROP_RECEIVE')
+os=out['source']
+os=os.replace('  ppHistorySafeAppendS13_({','  if(!auth.__beta76_test) ppHistorySafeAppendS13_({')
+helper=r'''
+function ppOutboundSelfTest_(body){
+  if(String(body.token||'')!=='__NONCE__') return {ok:false,error:'FORBIDDEN'};
+  const ss=ppOutboundSs_(), loc=ppOutboundSheet_(PP_OUTBOUND.LOCATION_SHEET), drop=ppOutboundSheet_(PP_OUTBOUND.DROP_SHEET);
+  const headers=drop.getRange(1,1,1,8).getDisplayValues()[0];
+  const expected=PP_OUTBOUND.HEADERS;
+  if(ss.getName()!=='PICK PACK 1291 x OUTBOUND') return {ok:false,error:'SHEET_TITLE_MISMATCH'};
+  if(!loc.isSheetHidden()) return {ok:false,error:'LOCATION_TAB_NOT_HIDDEN'};
+  for(let i=0;i<expected.length;i++) if(String(headers[i]||'')!==String(expected[i]||'')) return {ok:false,error:'HEADER_MISMATCH_'+i};
+  if(drop.getLastRow()>1) return {ok:false,error:'REAL_DATA_PRESENT',data_rows:drop.getLastRow()-1};
+  function protectionInfo(sh){
+    let out=[];
+    [SpreadsheetApp.ProtectionType.RANGE,SpreadsheetApp.ProtectionType.SHEET].forEach(function(t){
+      sh.getProtections(t).forEach(function(p){
+        out.push({type:String(t),description:String(p.getDescription()||''),warning_only:p.isWarningOnly(),domain_edit:p.canDomainEdit(),editors:p.getEditors().map(function(e){return e.getEmail();})});
+      });
+    });
+    return out;
+  }
+  const lp=protectionInfo(loc),dp=protectionInfo(drop);
+  const allp=lp.concat(dp);
+  if(allp.length<2) return {ok:false,error:'PROTECTION_MISSING',location_protections:lp,drop_protections:dp};
+  const bad=allp.filter(function(p){return p.warning_only||p.domain_edit||p.editors.some(function(e){return e&&e!==PP_OUTBOUND.OWNER_EMAIL;});});
+  if(bad.length) return {ok:false,error:'PROTECTION_OWNER_MISMATCH',bad:bad};
+  const suffix=Utilities.getUuid().replace(/-/g,'').slice(0,10), a='__B76_TEST_'+suffix, b=a+'_EDIT';
+  const owner={login_id:PP_OUTBOUND.OWNER_LOGIN,role:'SUPERADMIN',display_name:'Beta76 Test',__beta76_test:true};
+  const user={login_id:'beta76_user_test',role:'USER',display_name:'Beta76 User',__beta76_test:true};
+  const admin={login_id:'beta76_admin_test',role:'ADMIN',display_name:'Beta76 Admin',__beta76_test:true};
+  const record='__B76_TEST_ROW_'+suffix, clearId='__B76_TEST_CLEAR_'+suffix;
+  let result={};
+  try{
+    const deny=ppOutboundLocationMutate_(user,{operation:'CREATE',after:a,event_id:'deny-'+suffix});
+    if(deny.ok||deny.error!=='OUTBOUND_OWNER_REQUIRED') throw new Error('USER_LOCATION_GUARD_FAIL');
+    let x=ppOutboundLocationMutate_(owner,{operation:'CREATE',after:a,event_id:'create-'+suffix}); if(!x.ok) throw new Error('OWNER_CREATE_FAIL_'+JSON.stringify(x));
+    x=ppOutboundLocationMutate_(owner,{operation:'UPDATE',before:a,after:b,event_id:'update-'+suffix}); if(!x.ok) throw new Error('OWNER_UPDATE_FAIL_'+JSON.stringify(x));
+    const duplicate=ppOutboundLocationMutate_(owner,{operation:'CREATE',after:b,event_id:'duplicate-'+suffix}); if(duplicate.ok||duplicate.error!=='OUTBOUND_LOCATION_DUPLICATE') throw new Error('DUPLICATE_LOCATION_FAIL');
+    const payload={location:b,scan_qr:'2AD7|7081639744|SOWIN8H9KA2BL3C|PB1260823D8CB48|CX1.1.1|5/13',do_number:'7081639744',package_count:13,idempotency_key:record};
+    const first=ppOutboundAppend_(owner,payload); if(!first.ok||first.idempotent) throw new Error('APPEND_FAIL_'+JSON.stringify(first));
+    const again=ppOutboundAppend_(owner,payload); if(!again.ok||!again.idempotent) throw new Error('IDEMPOTENCY_FAIL_'+JSON.stringify(again));
+    if(drop.getLastRow()-1!==1) throw new Error('APPEND_ROW_COUNT_FAIL_'+String(drop.getLastRow()-1));
+    const row=ppOutboundFindRecord_(drop,record); if(!row) throw new Error('APPEND_READBACK_MISSING');
+    if(String(row.values[0])!==b||String(row.values[2])!==payload.scan_qr||String(row.values[3])!=='7081639744'||String(row.values[4])!=='13') throw new Error('APPEND_READBACK_CONTENT');
+    const userClear=ppOutboundClear_(user,{idempotency_key:'uc-'+suffix}); if(userClear.ok||userClear.error!=='SUPERADMIN_REQUIRED') throw new Error('USER_CLEAR_GUARD_FAIL');
+    const adminClear=ppOutboundClear_(admin,{idempotency_key:'ac-'+suffix}); if(adminClear.ok||adminClear.error!=='SUPERADMIN_REQUIRED') throw new Error('ADMIN_CLEAR_GUARD_FAIL');
+    const cleared=ppOutboundClear_(owner,{idempotency_key:clearId}); if(!cleared.ok||Number(cleared.remaining)!==0) throw new Error('SUPER_CLEAR_FAIL_'+JSON.stringify(cleared));
+    PropertiesService.getScriptProperties().deleteProperty('PP_MASTER_EVT_'+ppSha256Hex_(clearId).slice(0,32));
+    x=ppOutboundLocationMutate_(owner,{operation:'DELETE',before:b,event_id:'delete-'+suffix}); if(!x.ok) throw new Error('OWNER_DELETE_FAIL_'+JSON.stringify(x));
+    if(ppOutboundLocations_().some(function(v){return v===a||v===b;})) throw new Error('LOCATION_CLEANUP_FAIL');
+    if(drop.getLastRow()>1) throw new Error('DATA_CLEANUP_FAIL');
+    result={ok:true,parser_sample:{do_number:'7081639744',package_count:13},owner_crud:true,user_crud_denied:true,append_once:true,idempotent_retry:true,user_clear_denied:true,admin_clear_denied:true,superadmin_clear:true,readback_empty:true,location_hidden:true,headers:headers,location_protections:lp,drop_protections:dp};
+  }catch(err){
+    try{const f=ppOutboundFindRecord_(drop,record);if(f)drop.deleteRow(f.row);}catch(_){}
+    try{const vals=ppOutboundLocations_();for(let i=vals.length-1;i>=0;i--){if(vals[i]===a||vals[i]===b)loc.deleteRow(i+2);}}catch(_){}
+    try{PropertiesService.getScriptProperties().deleteProperty('PP_MASTER_EVT_'+ppSha256Hex_(clearId).slice(0,32));}catch(_){}
+    return {ok:false,error:String(err&&err.message||err),location_protections:lp,drop_protections:dp};
+  }
+  return result;
+}
+'''.replace('__NONCE__',nonce)
+out['source']=os+'\n'+helper
+Path(target).write_text(json.dumps({'files':j['files']},ensure_ascii=False),encoding='utf-8')
+PY
+
+# Deploy temporary self-test version to the exact existing deployment.
+code=$(curl -sS --connect-timeout 15 --max-time 30 -o "$E/test-content-put.json" -w '%{http_code}' -X PUT \
+  -H "Authorization: Bearer $ACCESS_TOKEN" -H 'Content-Type: application/json' --data-binary @"$E/project-test.json" "$api/content")
+[[ "$code" == 200 ]]; MUTATED=1
+code=$(curl -sS --connect-timeout 15 --max-time 30 -o "$E/test-version.json" -w '%{http_code}' -X POST \
+  -H "Authorization: Bearer $ACCESS_TOKEN" -H 'Content-Type: application/json' -d '{"description":"Beta76 Nhận hàng rớt temporary self-test"}' "$api/versions")
+[[ "$code" == 200 ]]
+TEST_VERSION=$(jq -r '.versionNumber' "$E/test-version.json"); test "$TEST_VERSION" != null
+jq -nc --arg sid "$SCRIPT_ID" --argjson v "$TEST_VERSION" '{deploymentConfig:{scriptId:$sid,versionNumber:$v,manifestFileName:"appsscript",description:"Beta76 Nhận hàng rớt temporary self-test"}}' > "$E/test-deployment-put.json"
+code=$(curl -sS --connect-timeout 15 --max-time 30 -o "$E/test-deployment.json" -w '%{http_code}' -X PUT \
+  -H "Authorization: Bearer $ACCESS_TOKEN" -H 'Content-Type: application/json' --data-binary @"$E/test-deployment-put.json" "$api/deployments/$DEPLOYMENT_ID")
+[[ "$code" == 200 ]]
+
+TEST_OK=0
+for attempt in 1 2; do
+  curl -fsSL --connect-timeout 15 --max-time 60 -H 'Content-Type: application/json' -d "{\"action\":\"__beta76_outbound_test\",\"token\":\"$NONCE\"}" "$GAS_URL" > "$E/self-test-$attempt.json" || true
+  if jq -e '.ok==true and .owner_crud==true and .user_crud_denied==true and .append_once==true and .idempotent_retry==true and .user_clear_denied==true and .admin_clear_denied==true and .superadmin_clear==true and .readback_empty==true and .location_hidden==true' "$E/self-test-$attempt.json" >/dev/null 2>&1; then TEST_OK=1; cp "$E/self-test-$attempt.json" "$E/self-test.json"; break; fi
+  sleep $((attempt*2))
+done
+[[ "$TEST_OK" == 1 ]]
+
+# Final content contains no test route/helper; update the same deployment, never create a deployment.
+code=$(curl -sS --connect-timeout 15 --max-time 30 -o "$E/final-content-put.json" -w '%{http_code}' -X PUT \
+  -H "Authorization: Bearer $ACCESS_TOKEN" -H 'Content-Type: application/json' --data-binary @"$E/project-target.json" "$api/content")
+[[ "$code" == 200 ]]
+code=$(curl -sS --connect-timeout 15 --max-time 30 -o "$E/final-version.json" -w '%{http_code}' -X POST \
+  -H "Authorization: Bearer $ACCESS_TOKEN" -H 'Content-Type: application/json' -d '{"description":"Beta76 Nhận hàng rớt final"}' "$api/versions")
+[[ "$code" == 200 ]]
+FINAL_VERSION=$(jq -r '.versionNumber' "$E/final-version.json"); test "$FINAL_VERSION" != null
+jq -nc --arg sid "$SCRIPT_ID" --argjson v "$FINAL_VERSION" '{deploymentConfig:{scriptId:$sid,versionNumber:$v,manifestFileName:"appsscript",description:"Beta76 Nhận hàng rớt final"}}' > "$E/final-deployment-put.json"
+code=$(curl -sS --connect-timeout 15 --max-time 30 -o "$E/final-deployment.json" -w '%{http_code}' -X PUT \
+  -H "Authorization: Bearer $ACCESS_TOKEN" -H 'Content-Type: application/json' --data-binary @"$E/final-deployment-put.json" "$api/deployments/$DEPLOYMENT_ID")
+[[ "$code" == 200 ]]
+
+curl -fsS --connect-timeout 15 --max-time 30 -H "Authorization: Bearer $ACCESS_TOKEN" "$api/content" > "$E/project-after.json"
+curl -fsS --connect-timeout 15 --max-time 30 -H "Authorization: Bearer $ACCESS_TOKEN" "$api/deployments/$DEPLOYMENT_ID" > "$E/deployment-after.json"
+python3 - "$E/project-after.json" "$E/project-target.json" <<'PY'
+import hashlib,json,sys
+
+def canon(path):
+    j=json.load(open(path,encoding='utf-8'))
+    return hashlib.sha256('\n'.join(str(f.get('name',''))+'\0'+str(f.get('type',''))+'\0'+str(f.get('source','')) for f in j.get('files',[])).encode()).hexdigest(),j
+ha,a=canon(sys.argv[1]); ht,t=canon(sys.argv[2]); assert ha==ht,(ha,ht)
+api=next(f for f in a['files'] if f.get('name')=='PICK_PACK_API')
+out=next(f for f in a['files'] if f.get('name')=='OUTBOUND_DROP_RECEIVE')
+assert "action === 'outbound_drop_append'" in api['source']
+assert '__beta76_outbound_test' not in api['source'] and '__beta76_outbound_test' not in out['source']
+open('/tmp/beta76-outbound-gas-evidence/project-after.sha256','w').write(ha)
+PY
+jq -e --argjson v "$FINAL_VERSION" '.deploymentConfig.versionNumber==$v and .deploymentConfig.description=="Beta76 Nhận hàng rớt final"' "$E/deployment-after.json" >/dev/null
+
+HEALTH_OK=0
+for attempt in 1 2; do
+  curl -fsSL --connect-timeout 15 --max-time 30 "$GAS_URL" > "$E/live-health-$attempt.json" || true
+  if jq -e '.ok==true and .service=="pick-pack-gsheet-api"' "$E/live-health-$attempt.json" >/dev/null 2>&1; then HEALTH_OK=1; cp "$E/live-health-$attempt.json" "$E/live-health.json"; break; fi
+  sleep $((attempt*2))
+done
+[[ "$HEALTH_OK" == 1 ]]
+
+jq -n --arg target_hash "$TARGET_HASH" --argjson test_version "$TEST_VERSION" --argjson final_version "$FINAL_VERSION" --slurpfile test "$E/self-test.json" '{status:"PASS",target_hash:$target_hash,test_version:$test_version,final_version:$final_version,self_test:$test[0],live_health:"PASS",deployment_reused:true}' > "$E/receipt.json"
+MUTATED=0
+trap - EXIT
+echo 'beta76_outbound_gas=PASS'
