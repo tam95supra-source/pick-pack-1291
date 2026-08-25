@@ -4,9 +4,10 @@ OWNER: Nguyễn Văn Tâm. Ngôn ngữ làm việc: tiếng Việt, ngắn, rõ,
 
 ## 1. Nguồn sự thật và định tuyến bắt buộc
 
-Thứ tự ưu tiên: lệnh OWNER mới nhất → `docs/handovers/HANDOVER_CURRENT.md` có `status=READY` khi tiếp tục phiên → `CURRENT_STATE.md` → live readback → receipt/artifact/hash → tài liệu lịch sử.
+Thứ tự ưu tiên: lệnh OWNER mới nhất → handoff READY mới nhất trong `docs/handovers/` → `CURRENT_STATE.md` → live readback → receipt/artifact/hash → tài liệu lịch sử.
 
-- Task mới chỉ đọc `CURRENT_STATE.md`, file do OWNER chỉ định và đúng failure domain. Task tiếp tục phiên phải đọc `docs/handovers/HANDOVER_CURRENT.md` trước, không crawl lại repo hoặc rerun gate PASS khi input/bytes không đổi.
+- Mọi phiên mới tự đọc `docs/handovers/HANDOVER_CURRENT.md` trước, kể cả OWNER chưa ghi yêu cầu. Nếu canonical thiếu/không READY thì chọn archive timestamp READY mới nhất; không hỏi OWNER chỉ file và không crawl repo.
+- Khi có yêu cầu mới, dùng handoff chỉ để nạp trạng thái rồi ưu tiên lệnh OWNER. Khi không có yêu cầu: `IN_PROGRESS` tiếp tục từ `NEXT_ACTION`; `PASS`/`WAIT_FOR_OWNER_NEW_SCOPE` chỉ xác nhận đã nạp và chờ scope.
 - Không crawl lại toàn repo; không chạy lại gate đã PASS nếu đầu vào/bytes không đổi.
 - ACTIVE thắng SUPERSEDED. TARGET/CANDIDATE không phải LIVE.
 - Beta69 và Beta70 là SUPERSEDED/ABANDONED; không dùng làm base, không phát hành, không khôi phục workflow của chúng.
@@ -68,15 +69,18 @@ Chỉ ghi PASS/LIVE khi có exact: versionName, versionCode, package, source SHA
 
 Đọc thêm: `ARCHITECTURE_GUARDRAILS.md`, `docs/UI_UX_SYSTEM.md`, `docs/BUILD_RELEASE_PLAYBOOK.md`, `docs/AI_EXECUTION_STANDARD.md`.
 
-## 7. Chuyển phiên chat — bắt buộc tạo bàn giao
+## 7. Chuyển phiên chat — bàn giao tự động trong repo
 
 Khi OWNER nói chuyển phiên/đổi chat/tạo bàn giao/handoff, AI phải thực thi `docs/CHAT_HANDOFF_PROTOCOL.md` trước khi final:
 
 - dừng ở điểm atomic an toàn; không để write/deploy mơ hồ;
-- tạo đồng thời `docs/handovers/HANDOVER_CURRENT.md` và bản archive theo thời gian;
-- ghi đủ mục tiêu/DoD, trạng thái canonical, branch/head SHA, thay đổi, exact evidence, lỗi + đường PASS, việc còn lại, blocker, invariants và một `NEXT_ACTION`;
-- commit/push vào active branch; cập nhật `CURRENT_STATE.md` nếu LIVE đã đổi;
-- không chứa secret và không chạy lại PASS chỉ để làm handoff;
-- final chỉ sau khi file đọc được, kèm link canonical và một câu resume.
+- cập nhật `docs/handovers/HANDOVER_CURRENT.md` và tạo archive `HANDOVER_<YYYYMMDD-HHmmss>_<slug>.md` cùng nội dung;
+- canonical không tính vào retention; chỉ giữ tối đa 5 archive timestamp mới nhất trong active tree; bản thứ 6 thì xóa archive cũ nhất. OWNER đã cho phép thao tác prune này và Git history vẫn giữ đường restore;
+- ghi đủ mục tiêu/DoD, trạng thái canonical, branch/head SHA, thay đổi, exact evidence, lỗi + đường PASS, việc còn lại, blocker, invariants, `archive_file` và đúng một `NEXT_ACTION`;
+- commit/push vào active branch; cập nhật `CURRENT_STATE.md` nếu LIVE đổi;
+- không chứa secret, không rewrite Git history và không chạy lại PASS chỉ để làm handoff;
+- final chỉ sau readback canonical/archive, kèm link canonical và một câu resume.
 
-Phiên mới tin các PASS/ID/hash đã bàn giao nếu input/source/artifact bytes không đổi, không đọc lại lịch sử; bắt đầu ngay từ `NEXT_ACTION`. Chỉ fresh-read phần external có thể đổi sau thời điểm bàn giao hoặc ngay trước production write.
+Phiên mới luôn nạp handoff mới nhất theo thứ tự: canonical READY → archive timestamp READY mới nhất. Tin PASS/ID/hash đã bàn giao nếu input/source/artifact bytes không đổi; không rà lại lịch sử. Chỉ fresh-read external state có thể đổi sau `created_at` hoặc ngay trước production write.
+
+Prompt khởi động ngắn cho chat mới nằm tại `docs/FIRST_CHAT_PROMPT.md`.
