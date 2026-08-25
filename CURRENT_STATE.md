@@ -2,51 +2,65 @@
 
 ## LIVE — BETA
 
-- Status: **Beta73 OTA LIVE PASS**
-- Version: `0.4.2-beta.73`
-- versionCode: `79`
+- Status: **Beta74 OTA LIVE PASS**
+- Version: `0.4.2-beta.74`
+- versionCode: `80`
 - Package: `vn.pickpack1291.app.beta.publicbeta`
-- Lineage: Beta68 golden base → Beta71 → Beta72 → OWNER Beta73 session/resource/settings/login fixes. Beta69/Beta70 source is not a base.
-- Android source SHA: `2d726828bdd83efe21e9cd41db8d5c06d16f5272`
-- Candidate run/artifact: `32820317675` / `9552942024`
-- Final Settings visual run/artifact: `32834871019` / `9558250565`
-- Release run/evidence artifact: `32837337470` / `9559169643`
-- APK SHA-256: `ad037c1a17d245f90ead59539c5595cc5df6a568b8657ce636cc43d101175fd2`
-- APK size: `13130629`
-- Signer SHA-256: `d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e`
-- Signer proof: exact published/Drive bytes match locked signed candidate bytes.
-- Drive APK: `1YbOScnsvPH4mQbyekKQc-EzlF1glG9be`
-- Drive checksum: `1n6n40syMn3eHiJtcJojr6_FBokF4V9jR`
-- OTA source: `GOOGLE_DRIVE`; exact locked bytes.
-- OTA URL: `https://drive.usercontent.google.com/download?id=1YbOScnsvPH4mQbyekKQc-EzlF1glG9be&export=download&confirm=t`
-- OTA readback: Beta72 client sees `available=true`, version `0.4.2-beta.73`, versionCode `79`, SHA/size exact; Beta73 client sees `available=false`, version `0.4.2-beta.73`, versionCode `79`.
-- Fresh Drive readback: name `pick-pack-1291-public-beta-0.4.2-beta.73.apk`, size `13130629`, public reader; downloaded bytes SHA-256 exact `ad037c1a...5fd2`.
-- Human visual inspection: **PASS** tại `320x568`, `360x640`, `480x800`; Settings top có `ĐỔI MẬT KHẨU`, lower frame có `NHẬT KÝ`; không wrong-screen/crop/overflow. Gate API29 dùng `am start -W + dumpsys activity/window + real PNG + human pixels`, không dùng UiAutomation đã biết treo.
-- Forgot-password preview GAS readback: **PASS**; user + trường email tồn tại; không log email nhạy cảm.
-- Rebuild/resign sau candidate lock: **không**.
-- Receipt: `ops/beta73-release-result.json`.
+- Lineage: Beta68 golden base → Beta71 → Beta72 → Beta73 → Beta74. Beta69/Beta70 source is not a base.
+- Android source SHA: `cfb4dbca116f7c47a598bc398bdbe1251ad2bad8`
+- Candidate run/artifact: `32842363597` / `9561088652`
+- Visual artifact: `9561153695`; receipt commit `fe0582614804ef767732ddd7ddfa779aecb48c8a`; HUMAN PASS `320x568`, `360x640`, `480x800`.
+- Final release run/evidence artifact: `32845025048` / `9561988451`.
+- Release evidence digest: `sha256:0e6c98e20b3a0dcd9f321d3f560e454fd0a519afb1433a655bf8a48bbbcc67b6`.
+- APK SHA-256: `37cadd74088179f1e17872c7474622681941cc5f546807cea769517d9f98b017`.
+- APK size: `13130629` bytes.
+- Signer SHA-256: `d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e`.
+- Signer proof: published/Drive bytes SHA exact locked signed candidate; no rebuild/resign after candidate lock.
+- Drive APK ID: `1Dq3uLxBRYWOa5ImYu8BX2VngC1ccoqkr`.
+- Drive checksum ID: `1uXauZVKSJdO71N88FfZT39Pgght5LaNL`.
+- OTA source: `GOOGLE_DRIVE`.
+- OTA URL: `https://drive.usercontent.google.com/download?id=1Dq3uLxBRYWOa5ImYu8BX2VngC1ccoqkr&export=download&confirm=t`.
+- OTA readback: Beta73 client sees `available=true`, version `0.4.2-beta.74`, versionCode `80`, SHA/size exact; Beta74 client sees `available=false`, version `0.4.2-beta.74`, versionCode `80`.
+- Fresh Drive readback after publish: name `pick-pack-1291-public-beta-0.4.2-beta.74.apk`, MIME APK, size `13130629`; downloaded authenticated Drive bytes SHA-256 exact `37cadd74088179f1e17872c7474622681941cc5f546807cea769517d9f98b017`.
+- Receipt: `ops/beta74-release-result.json`, verdict `PASS`.
+
+## BETA74 FIX SCOPE
+
+- Local projection ưu tiên đúng phiên `ACTIVE`/mới nhất của MNV thay vì phiên cũ trong ngày.
+- Không gọi `session_resource_snapshot` khi `session_id` rỗng, loại false `SESSION_NOT_FOUND` sau thao tác hợp lệ.
+- Giữ local-pending cho tới authority ack; tránh dựng lại toàn cây employee khi dữ liệu không đổi để giảm hiện tượng màn hình tự refresh.
+- Service/Worker source/authority không đổi.
 
 ## LOCKED / UNCHANGED
 
-- Stable publish: **FORBIDDEN**; feed trước/sau giống hệt: `available=false`, `reason=NO_APK`.
-- Stable source identity trong candidate: `0.1.0-stable`, versionCode `1`.
-- `main`: `a8c0c0d92522c7173230d4175b4f0d3a4906c8bb`, fresh-read unchanged.
+- Stable publish: **FORBIDDEN**; feed trước/sau publish giống nhau: `available=false`, `reason=NO_APK`.
+- Stable source identity: `0.1.0-stable`, versionCode `1`.
+- `main`: `a8c0c0d92522c7173230d4175b4f0d3a4906c8bb`, fresh-read unchanged sau publish.
 - Signer: `d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e`, unchanged.
-- Worker/Service authority change: **NONE**; Worker không deploy.
-- GAS change: approved `forgot_password_preview` + OTA Beta versionCode compatibility shim only; temporary exact-Drive upload route removed after publish.
-- Authority/provider: unchanged.
+- Worker/Service change: **NONE**.
+- Authority change: **NONE**.
+- GAS production change: `OTA_VERSION_COMPAT_BETA74` only; temporary exact-Drive upload helper removed after publish; existing forgot-password preview preserved.
+- Provider: unchanged.
 
 ## SUPERSEDED / ABANDONED
 
 - Beta69: bỏ khỏi active lineage; không phát hành, không làm base.
 - Beta70: không làm base.
 - Beta71: historical only.
-- Beta72: superseded by Beta73; previous SHA `fdeb006122f065591e82fe912a4a615c9c42a149568c2fc32f7d5b35db353caf`.
-- UiAutomation/Instrumentation Settings gate trên API29: superseded do deterministic hang; không dùng lại.
+- Beta72: superseded.
+- **Beta73: SUPERSEDED by Beta74**; previous SHA `ad037c1a17d245f90ead59539c5595cc5df6a568b8657ce636cc43d101175fd2`.
+- Beta74 publish run `32843213718` attempts 1–3: superseded harness attempts; exact candidate không đổi. Root failure `drive-transport: UNAUTHORIZED` do GAS deployment propagation window quá ngắn.
+
+## RELEASE HARNESS PASS PATH
+
+- Exact artifact remained `9561088652`; no rebuild/resign/revisual.
+- Deterministic harness recovery restored proven GAS propagation windows from Beta73: helper readback `6` attempts; OTA readback `8` attempts.
+- Fixed `beta-release.yml` ran publish-only; final run `32845025048` SUCCESS.
+- Không lặp identical retry của old 3-attempt publisher; không tạo candidate/workflow mới.
 
 ## ACTIVE DEVELOPMENT BASE
 
 - Nhánh continuity: `release/beta71-clean-from-beta68-20260825`.
-- LIVE base cho scope tiếp theo: Beta73 ở trên.
-- Android source identity phát hành Beta73: `2d726828bdd83efe21e9cd41db8d5c06d16f5272`.
-- Active workflow allowlist không đổi: `app-fast-check.yml`, `beta-release.yml`.
+- LIVE base cho scope tiếp theo: Beta74 ở trên.
+- Android source identity phát hành Beta74: `cfb4dbca116f7c47a598bc398bdbe1251ad2bad8`.
+- Active workflow allowlist: `app-fast-check.yml`, `beta-release.yml`.
