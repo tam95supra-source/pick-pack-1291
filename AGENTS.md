@@ -4,9 +4,9 @@ OWNER: Nguyễn Văn Tâm. Ngôn ngữ làm việc: tiếng Việt, ngắn, rõ,
 
 ## 1. Nguồn sự thật và định tuyến bắt buộc
 
-Thứ tự ưu tiên: lệnh OWNER mới nhất → `CURRENT_STATE.md` → handover canonical mới nhất → live readback → receipt/artifact/hash → tài liệu lịch sử.
+Thứ tự ưu tiên: lệnh OWNER mới nhất → `docs/handovers/HANDOVER_CURRENT.md` có `status=READY` khi tiếp tục phiên → `CURRENT_STATE.md` → live readback → receipt/artifact/hash → tài liệu lịch sử.
 
-- Đầu mỗi task chỉ đọc `CURRENT_STATE.md`, file do OWNER chỉ định và đúng failure domain.
+- Task mới chỉ đọc `CURRENT_STATE.md`, file do OWNER chỉ định và đúng failure domain. Task tiếp tục phiên phải đọc `docs/handovers/HANDOVER_CURRENT.md` trước, không crawl lại repo hoặc rerun gate PASS khi input/bytes không đổi.
 - Không crawl lại toàn repo; không chạy lại gate đã PASS nếu đầu vào/bytes không đổi.
 - ACTIVE thắng SUPERSEDED. TARGET/CANDIDATE không phải LIVE.
 - Beta69 và Beta70 là SUPERSEDED/ABANDONED; không dùng làm base, không phát hành, không khôi phục workflow của chúng.
@@ -62,3 +62,16 @@ Phân biệt rõ: source changed ≠ compile PASS ≠ signed candidate ≠ visua
 Chỉ ghi PASS/LIVE khi có exact: versionName, versionCode, package, source SHA, artifact/run ID, APK SHA256, size, signer, visual evidence, Drive/public bytes và OTA readback.
 
 Đọc thêm: `ARCHITECTURE_GUARDRAILS.md`, `docs/UI_UX_SYSTEM.md`, `docs/BUILD_RELEASE_PLAYBOOK.md`, `docs/AI_EXECUTION_STANDARD.md`.
+
+## 7. Chuyển phiên chat — bắt buộc tạo bàn giao
+
+Khi OWNER nói chuyển phiên/đổi chat/tạo bàn giao/handoff, AI phải thực thi `docs/CHAT_HANDOFF_PROTOCOL.md` trước khi final:
+
+- dừng ở điểm atomic an toàn; không để write/deploy mơ hồ;
+- tạo đồng thời `docs/handovers/HANDOVER_CURRENT.md` và bản archive theo thời gian;
+- ghi đủ mục tiêu/DoD, trạng thái canonical, branch/head SHA, thay đổi, exact evidence, lỗi + đường PASS, việc còn lại, blocker, invariants và một `NEXT_ACTION`;
+- commit/push vào active branch; cập nhật `CURRENT_STATE.md` nếu LIVE đã đổi;
+- không chứa secret và không chạy lại PASS chỉ để làm handoff;
+- final chỉ sau khi file đọc được, kèm link canonical và một câu resume.
+
+Phiên mới tin các PASS/ID/hash đã bàn giao nếu input/source/artifact bytes không đổi, không đọc lại lịch sử; bắt đầu ngay từ `NEXT_ACTION`. Chỉ fresh-read phần external có thể đổi sau thời điểm bàn giao hoặc ngay trước production write.
