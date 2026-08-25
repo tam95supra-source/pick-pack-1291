@@ -1,4 +1,4 @@
-name: Beta candidate pipeline
+name: Beta publish exact candidate
 
 on:
   push:
@@ -16,68 +16,46 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  visual-exact:
+  publish-exact:
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    timeout-minutes: 30
     env:
+      GH_TOKEN: ${{ github.token }}
+      GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+      GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+      GOOGLE_OAUTH_REFRESH_TOKEN: ${{ secrets.GOOGLE_OAUTH_REFRESH_TOKEN }}
+      GAS_SCRIPT_ID: ${{ secrets.GAS_SCRIPT_ID }}
+      GAS_DEPLOYMENT_ID: ${{ secrets.GAS_DEPLOYMENT_ID }}
       LOCKED_RUN_ID: '32820317675'
       LOCKED_ARTIFACT_ID: '9552942024'
       EXPECTED_SHA: ad037c1a17d245f90ead59539c5595cc5df6a568b8657ce636cc43d101175fd2
       EXPECTED_SIZE: '13130629'
-      APK: dist/beta73-locked/pick-pack-1291-public-beta-0.4.2-beta.73.apk
+      VISUAL_RECEIPT_COMMIT: 60792ff27b4aa2f741318a7f65280ccd1f6c1890
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
 
-      - name: Validate exact visual retry request
+      - name: Preflight publish-only lock
         shell: bash
         run: |
           set -euo pipefail
-          jq -e '.stage=="visual_retry" and .version_name=="0.4.2-beta.73" and .version_code==79 and .locked_run_id==32820317675 and .locked_artifact_id==9552942024' ops/beta-release-request.json >/dev/null
-          python3 -m py_compile tools/run_beta73_visual.py
-          python3 tools/run_beta73_visual.py --preflight
+          bash -n tools/publish_beta73_ota.sh
+          jq -e --argjson r "$LOCKED_RUN_ID" --argjson a "$LOCKED_ARTIFACT_ID" --arg h "$EXPECTED_SHA" --argjson z "$EXPECTED_SIZE" '.stage=="publish" and .version_name=="0.4.2-beta.73" and .version_code==79 and .locked_run_id==$r and .locked_artifact_id==$a and .locked_sha256==$h and .locked_size==$z and .stable_publish=="FORBIDDEN" and .visual_receipt_commit==env.VISUAL_RECEIPT_COMMIT' ops/beta-release-request.json >/dev/null
+          jq -e --argjson r "$LOCKED_RUN_ID" --argjson a "$LOCKED_ARTIFACT_ID" --arg h "$EXPECTED_SHA" --argjson z "$EXPECTED_SIZE" '.status=="PASS" and .result=="HUMAN_VISUAL_PASS" and .candidate.build_run==$r and .candidate.artifact_id==$a and .candidate.sha256==$h and .candidate.size==$z and .human_inspection["320x568"].nhat_ky_visible==true and .human_inspection["360x640"].nhat_ky_visible==true and .human_inspection["480x800"].nhat_ky_visible==true' ops/beta73-visual-inspection.json >/dev/null
+          test "$(git rev-parse "$VISUAL_RECEIPT_COMMIT:ops/beta73-visual-inspection.json")" = "$(git hash-object ops/beta73-visual-inspection.json)"
+          ! grep -Eq 'gradle|assemble|bundle|apksigner|jarsigner|signingConfig' tools/publish_beta73_ota.sh
+          ! grep -Eq 'git push .*main|refs/heads/main|stable-release|publish.*STABLE' tools/publish_beta73_ota.sh
 
-      - name: Download exact locked candidate
-        uses: actions/download-artifact@v4
-        with:
-          name: beta73-candidate-32820317675
-          path: dist/beta73-locked
-          github-token: ${{ github.token }}
-          run-id: 32820317675
-
-      - name: Verify exact SHA and size before visual
+      - name: Publish exact Beta73 bytes and verify LIVE
         shell: bash
-        run: |
-          set -euo pipefail
-          test -f "$APK"
-          test "$(sha256sum "$APK" | awk '{print $1}')" = "$EXPECTED_SHA"
-          test "$(stat -c '%s' "$APK")" = "$EXPECTED_SIZE"
+        run: bash tools/publish_beta73_ota.sh
 
-      - name: Enable KVM
-        shell: bash
-        run: |
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules >/dev/null
-          sudo udevadm control --reload-rules
-          sudo udevadm trigger --name-match=kvm || true
-          sudo chmod 666 /dev/kvm || true
-
-      - name: Run Beta73 visual matrix on exact artifact
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 29
-          target: default
-          arch: x86_64
-          profile: pixel_2
-          disable-animations: false
-          emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-metrics
-          script: |
-            adb install -r "$APK"
-            python3 tools/run_beta73_visual.py
-
-      - name: Upload exact visual evidence
+      - name: Upload Beta73 release evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: beta73-visual-exact-${{ github.run_id }}
-          path: /tmp/visual
+          name: beta73-release-evidence-${{ github.run_id }}
+          path: /tmp/beta73-release-evidence
           retention-days: 30
-          if-no-files-found: error
+          if-no-files-found: warn
