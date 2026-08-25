@@ -33,7 +33,8 @@ jobs:
         run: |
           set -euo pipefail
           jq -e '.stage=="visual_retry" and .version_name=="0.4.2-beta.73" and .version_code==79 and .locked_run_id==32820317675 and .locked_artifact_id==9552942024' ops/beta-release-request.json >/dev/null
-          python3 -m py_compile tools/run_beta73_visual.py tools/run_beta72_visual.py tools/run_beta71_visual.py
+          python3 -m py_compile tools/run_beta73_visual.py
+          python3 tools/run_beta73_visual.py --preflight
 
       - name: Download exact locked candidate
         uses: actions/download-artifact@v4
