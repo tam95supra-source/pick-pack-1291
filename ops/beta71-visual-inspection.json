@@ -1,6 +1,6 @@
 {
-  "verdict": "HUMAN_VISUAL_PASS",
-  "inspected_at": "2026-08-25T09:36:00+07:00",
+  "verdict": "PASS",
+  "inspected_at": "2026-08-25T09:37:00+07:00",
   "version_name": "0.4.2-beta.71",
   "version_code": 77,
   "package": "vn.pickpack1291.app.beta.publicbeta",
@@ -13,11 +13,7 @@
   "apk_sha256": "5a8e29f5d50ac31010ebe2cd6e6096ffdd8bcd2b354007a7448878ae6eefec3b",
   "apk_size": 13114245,
   "signer_sha256": "d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e",
-  "matrix": [
-    "320x568@160",
-    "360x640@160",
-    "480x800@240"
-  ],
+  "matrix": "320x568,360x640,480x800",
   "screenshots_inspected": 36,
   "evidence_path": "ops/evidence/beta71-final-approved",
   "checks": {
@@ -29,5 +25,11 @@
     "history_vietnamese_detail": "PASS",
     "session_timeline_exact_change": "PASS"
   },
-  "rebuild_after_candidate_lock": false
+  "rebuild_after_candidate_lock": false,
+  "human_inspection": "PASS",
+  "matrix_profiles": [
+    "320x568@160",
+    "360x640@160",
+    "480x800@240"
+  ]
 }
