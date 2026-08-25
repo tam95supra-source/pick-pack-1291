@@ -177,8 +177,8 @@ try:
     launch_home(); tapxy(W*0.25,218*scale,.9)
     tapxy(W*0.50,151*scale,.25); adb('shell','input','text','42267',check=False); adb('shell','input','keyevent','66',check=False); time.sleep(1.8)
     rawshot(d,'11-session-header')
-    for _ in range(3):
-        swipe(W*0.50,H*0.76,W*0.50,H*0.25,520,.65)
+    for _ in range(4):
+        swipe(W*0.92,H*0.58,W*0.92,H*0.18,560,.65)
     rawshot(d,'12-session-timeline'); resumed_check(d+'-timeline')
 
     imgs=sorted((OUT/d).glob('*.png')); assert len(imgs)==12,(d,len(imgs))
