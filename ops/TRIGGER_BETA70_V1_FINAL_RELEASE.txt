@@ -1,4 +1,4 @@
-trigger=beta70-v1-final-exact-ota
+trigger=beta70-v1-final-exact-ota-script-retry1
 visual_verdict=PASS
 candidate_run_id=32792583861
 candidate_artifact_id=9543716011
