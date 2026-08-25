@@ -112,6 +112,7 @@ class OperationsActivity : Activity() {
     private val tabHistory=java.util.ArrayDeque<String>()
     private var liveEmployeeMnv=""
     private var employeeLookupGeneration=0L // S39_EMPLOYEE_SESSION_HISTORY
+    private var lastEmployeeRenderSignature="" // Beta74: suppress identical employee full-tree rebuilds.
     private val foregroundSync by lazy {
         ForegroundSyncCoordinator(this, syncApi, object : ForegroundSyncCoordinator.Listener {
             override fun onStatus(status: ForegroundSyncCoordinator.Status) {
@@ -270,6 +271,19 @@ class OperationsActivity : Activity() {
         root.addView(ScrollView(this).apply{addView(body)},LinearLayout.LayoutParams(-1,0,1f));setScreen(root);mnv.requestFocus()
     }
 
+    private fun employeeRenderSignature(ctx:JSONObject,masters:JSONObject?):String{
+        val e=ctx.optJSONObject("employee")?:JSONObject();val s=ctx.optJSONObject("session");val state=ctx.optString("state")
+        val parts=mutableListOf(e.optString("mnv"),e.optString("full_name"),e.optString("main_position"),e.optString("supplier"),e.optString("department"),e.optString("site"),e.optString("warehouse"),state,ctx.optString("reconciliation_state"))
+        if(s!=null)parts.addAll(listOf(s.optString("session_id"),s.optString("state"),s.optString("version"),s.optString("shift"),s.optString("enter_at"),s.optString("exit_at"),s.optString("pda_serial"),s.optString("user_pick"),s.optString("pack_table"),s.optString("user_pack"),(s.optJSONArray("positions_v64")?:JSONArray()).toString(),(s.optJSONArray("resource_assignments_v64")?:JSONArray()).toString()))
+        if(state=="NOT_ENTERED"&&masters!=null)parts.add(masters.toString())
+        return parts.joinToString("\u001f")
+    }
+    private fun renderEmployeeIfChanged(ctx:JSONObject,masters:JSONObject?){
+        val mnv=ctx.optJSONObject("employee")?.optString("mnv").orEmpty();val signature=employeeRenderSignature(ctx,masters)
+        if(screenState=="EMPLOYEE"&&liveEmployeeMnv==mnv&&lastEmployeeRenderSignature==signature)return
+        renderEmployee(ctx,masters)
+    }
+
     private fun renderLocalEmployee(mnv:String):Boolean{
         val ctx=PdaLocalProjection.employeeContext(this,mnv) ?: return false
         if(!ctx.optBoolean("session_known",true)){
@@ -279,7 +293,7 @@ class OperationsActivity : Activity() {
             return true
         }
         val masters=if(ctx.optString("state")=="NOT_ENTERED")PdaLocalProjection.resourceOptions(this,mnv) else null
-        renderEmployee(ctx,masters)
+        renderEmployeeIfChanged(ctx,masters)
         return true
     }
 
@@ -295,23 +309,23 @@ class OperationsActivity : Activity() {
         val localNow=PdaLocalProjection.employeeContext(this,resolved)
         val localOptions=PdaLocalProjection.resourceOptions(this,resolved)
         val cached=MasterDataCache.employee(this,resolved)
-        if(localNow!=null)renderEmployee(localNow,localOptions)else if(cached!=null)renderCachedEmployee(cached)
+        if(localNow!=null)renderEmployeeIfChanged(localNow,localOptions)else if(cached!=null)renderCachedEmployee(cached)
         api.call("employee_context",JSONObject().put("mnv",resolved).put("include_options",true).put("include_labor",true)){result->runOnUiThread{
             if(generation!=employeeLookupGeneration)return@runOnUiThread
             button?.isEnabled=true
             val overlay=PdaLocalProjection.employeeContext(this@OperationsActivity,resolved)
             val refreshedOptions=PdaLocalProjection.resourceOptions(this@OperationsActivity,resolved)
             if(!result.ok){
-                if(overlay!=null){renderEmployee(overlay,refreshedOptions);TopNotice.show(this@OperationsActivity,"Service chưa xác nhận được; thao tác vẫn lưu local và sẽ đồng bộ khi ứng dụng ở foreground.",TopNotice.Kind.WARNING)}
+                if(overlay!=null){renderEmployeeIfChanged(overlay,refreshedOptions);TopNotice.show(this@OperationsActivity,"Service chưa xác nhận được; thao tác vẫn lưu local và sẽ đồng bộ khi ứng dụng ở foreground.",TopNotice.Kind.WARNING)}
                 else if(result.code==401)sessionExpired()
                 else showError(result.error?:"Không kiểm tra được mã nhân viên")
                 return@runOnUiThread
             }
-            if(overlay!=null&&overlay.optString("reconciliation_state")=="LOCAL_PENDING"){renderEmployee(overlay,refreshedOptions);return@runOnUiThread}
+            if(overlay!=null&&overlay.optString("reconciliation_state")=="LOCAL_PENDING"){renderEmployeeIfChanged(overlay,refreshedOptions);return@runOnUiThread}
             val ctx=result.json?:JSONObject()
             val remoteDate=ctx.optString("business_date").trim()
             if(remoteDate.isNotBlank()&&remoteDate!=currentDate){
-                if(overlay!=null)renderEmployee(overlay,refreshedOptions)else if(cached!=null)renderCachedEmployee(cached)
+                if(overlay!=null)renderEmployeeIfChanged(overlay,refreshedOptions)else if(cached!=null)renderCachedEmployee(cached)
                 return@runOnUiThread
             }
             val remote=ctx.optJSONObject("options")
@@ -321,7 +335,7 @@ class OperationsActivity : Activity() {
                     if((optJSONArray(k)?.length()?:0)==0&&local!=null&&local.length()>0)put(k,local)
                 }
             }
-            renderEmployee(ctx,options)
+            renderEmployeeIfChanged(ctx,options)
         }}
     }
 
@@ -346,15 +360,15 @@ class OperationsActivity : Activity() {
 
     private fun renderEmployee(ctx: JSONObject, masters: JSONObject?) {
         screenState="EMPLOYEE"
-        val e=ctx.optJSONObject("employee")?:JSONObject();val state=ctx.optString("state");val currentMnv=e.optString("mnv");liveEmployeeMnv=currentMnv
+        val e=ctx.optJSONObject("employee")?:JSONObject();val state=ctx.optString("state");val currentMnv=e.optString("mnv");liveEmployeeMnv=currentMnv;lastEmployeeRenderSignature=employeeRenderSignature(ctx,masters)
         val root=column(bg);root.addView(appBar("QUÉT QR NHÂN SỰ"));val body=column(bg).apply{setPadding(dp(12),dp(8),dp(12),dp(58))}
         val scan=mnvInput("Scan / Nhập mã nhân viên").apply{setText("")};body.addView(scan,matchWrap());body.addView(gap(5));body.addView(employeeCard(e,state));body.addView(gap(7))
         var busy=false;fun submit(){val v=scan.text.toString().trim();if(v.isBlank()){TopNotice.show(this,"Nhập hoặc quét mã nhân viên.",TopNotice.Kind.WARNING);return};if(busy)return;busy=true;loadEmployee(v);scan.postDelayed({busy=false},600)};bindScannerEnter(scan){submit()}
-        val ses=ctx.optJSONObject("session")
-        if((state=="ACTIVE"||state=="ENDED")&&ses!=null&&!ses.has("resource_assignments_v64")){
+        val ses=ctx.optJSONObject("session");val sessionId=ses?.optString("session_id").orEmpty().trim()
+        if((state=="ACTIVE"||state=="ENDED")&&ses!=null&&!ses.has("resource_assignments_v64")&&sessionId.isNotBlank()){
             body.addView(status("ĐANG ĐỒNG BỘ TÀI NGUYÊN PHIÊN...",blue,Color.rgb(237,244,255)))
             root.addView(ScrollView(this).apply{addView(body)},LinearLayout.LayoutParams(-1,0,1f));setScreen(root);hideKeyboardForResult(root,scan)
-            val generation=employeeLookupGeneration;api.call("session_resource_snapshot",JSONObject().put("session_id",ses.optString("session_id")).put("mnv",currentMnv)){r->runOnUiThread{
+            val generation=employeeLookupGeneration;api.call("session_resource_snapshot",JSONObject().put("session_id",sessionId).put("mnv",currentMnv)){r->runOnUiThread{
                 if(generation!=employeeLookupGeneration||liveEmployeeMnv!=currentMnv)return@runOnUiThread
                 if(!r.ok){showError(r.error?:"Không đọc được tài nguyên phiên");return@runOnUiThread}
                 renderEmployee(mergeResourceSnapshot(ctx,r.json?:JSONObject()),masters)
@@ -692,7 +706,8 @@ class OperationsActivity : Activity() {
     private fun shiftResourceValue(s:JSONObject,type:String,ended:Boolean):String{
         val rows=if(ended)visibleAssignments(s,type) else activeAssignments(s,type)
         val value=rows.map{it.optString("resource_id").trim()}.filter{it.isNotBlank()}.distinct().joinToString(" • ")
-        return if(value.isNotBlank())value else "—"
+        val direct=when(type.uppercase()){ "PDA"->s.optString("pda_serial");"USER_PICK"->s.optString("user_pick");"PACK_TABLE"->s.optString("pack_table");"USER_PACK"->s.optString("user_pack");else->"" }.trim()
+        return value.ifBlank{direct}.ifBlank{"—"}
     }
     private fun shiftInfoRows(s:JSONObject,ended:Boolean)=listOf(
         "Ca làm việc" to dash(s.optString("shift")),
@@ -701,7 +716,11 @@ class OperationsActivity : Activity() {
         "Trạng thái hoàn tất phiên" to if(ended)"Đã hoàn tất" else "Chưa hoàn tất"
     )
     private fun workInfoRows(s:JSONObject,ended:Boolean):List<Pair<String,String>>{
-        val positions=(if(ended)allPositionLabels(s) else activePositionLabels(s)).distinct()
+        val positions=(if(ended)allPositionLabels(s) else activePositionLabels(s)).distinct().toMutableList()
+        if(positions.isEmpty()){
+            if(s.optString("pda_serial").isNotBlank()||s.optString("user_pick").isNotBlank())positions.add("Pick")
+            if(s.optString("pack_table").isNotBlank()||s.optString("user_pack").isNotBlank())positions.add("Pack")
+        }
         return listOf(
             "Vị trí trong ca" to if(positions.isEmpty())"Làm theo vị trí chính" else positions.joinToString(" & "),
             "PDA" to shiftResourceValue(s,"PDA",ended),

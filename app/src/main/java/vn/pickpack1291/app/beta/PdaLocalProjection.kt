@@ -40,7 +40,9 @@ object PdaLocalProjection {
         var session: JSONObject? = null
         for (i in 0 until sessions.length()) {
             val candidate = sessions.optJSONObject(i) ?: continue
-            if (candidate.optString("mnv") == mnv) { session = JSONObject(candidate.toString()); break }
+            if (candidate.optString("mnv") != mnv) continue
+            val copy = JSONObject(candidate.toString())
+            if (session == null || preferSession(copy, session!!)) session = copy
         }
         var state = when (session?.optString("state")?.uppercase()) {
             "ACTIVE" -> "ACTIVE"
@@ -118,7 +120,7 @@ object PdaLocalProjection {
         val day=store.loadDay(date);val sessions=day?.optJSONArray("sessions")?:JSONArray()
         for(i in 0 until sessions.length()){
             val src=sessions.optJSONObject(i)?:continue;val who=src.optString("mnv").trim();if(who.isBlank())continue
-            val copy=JSONObject(src.toString());byMnv[who]=copy
+            val copy=JSONObject(src.toString());val previous=byMnv[who];if(previous==null||preferSession(copy,previous))byMnv[who]=copy
             copy.optString("user_pick").trim().takeIf{it.isNotBlank()}?.let(usedPicks::add)
             copy.optString("user_pack").trim().takeIf{it.isNotBlank()}?.let(usedPackUsers::add)
         }
@@ -151,6 +153,21 @@ object PdaLocalProjection {
         val normalPacks=JSONArray();val reissuePacks=JSONArray();val sourcePacks=raw.optJSONArray("pack_tables")?:JSONArray()
         for(i in 0 until sourcePacks.length()){val x=sourcePacks.optJSONObject(i)?:continue;val table=x.optString("table").trim();val user=x.optString("user_pack").trim();if(table.isBlank()||user.isBlank())continue;val isCurrent=table==current?.optString("pack_table")&&user==current?.optString("user_pack");when{isCurrent->normalPacks.put(JSONObject(x.toString()).put("duplicate_user",false));table in busyTables||user in busyPackUsers->Unit;user in usedPackUsers->reissuePacks.put(JSONObject(x.toString()).put("duplicate_user",true).put("note","TRÙNG USER"));else->normalPacks.put(JSONObject(x.toString()).put("duplicate_user",false))}}
         return JSONObject().put("ok",true).put("source","PDA_LOCAL_MASTER").put("business_date",date).put("pdas",pdas).put("pda_statuses",raw.optJSONArray("pda_statuses")?:JSONArray()).put("user_picks",normalPicks).put("user_picks_reissue",reissuePicks).put("pack_tables",normalPacks).put("pack_tables_reissue",reissuePacks).put("current",current?:JSONObject.NULL).put("master_revision",raw.optLong("master_revision",0L))
+    }
+
+    private fun preferSession(candidate:JSONObject,current:JSONObject):Boolean {
+        val candidateActive=candidate.optString("state").equals("ACTIVE",true)
+        val currentActive=current.optString("state").equals("ACTIVE",true)
+        if(candidateActive!=currentActive)return candidateActive
+        val candidateAt=candidate.optString("enter_at").ifBlank{candidate.optString("exit_at")}
+        val currentAt=current.optString("enter_at").ifBlank{current.optString("exit_at")}
+        if(candidateAt!=currentAt)return candidateAt>currentAt
+        val candidateVersion=candidate.optInt("version",0)
+        val currentVersion=current.optInt("version",0)
+        if(candidateVersion!=currentVersion)return candidateVersion>currentVersion
+        val candidateId=candidate.optString("session_id")
+        val currentId=current.optString("session_id")
+        return candidateId.isNotBlank()&&currentId.isBlank()
     }
 
     private fun copyIfPresent(from: JSONObject, to: JSONObject, vararg keys: String) {
