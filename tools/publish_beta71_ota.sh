@@ -36,7 +36,7 @@ test "$(jq -r '.matrix' "$VIS")" = "320x568,360x640,480x800"
 MAIN_BEFORE=$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/$GITHUB_REPOSITORY/branches/main" | jq -r '.commit.sha')
 curl -fsSL -H 'content-type: application/json' "$GAS_URL" -d '{"action":"update_check","channel":"BETA","current_version":"0.4.2-beta.67"}' > "$E/beta-before.json"
 curl -fsSL -H 'content-type: application/json' "$GAS_URL" -d '{"action":"update_check","channel":"STABLE","current_version":"0.1.0-stable"}' > "$E/stable-before.json"
-jq -e '.ok==true and .version_name=="0.4.2-beta.68" and .version_code==74' "$E/beta-before.json" >/dev/null
+jq -e '.ok==true and ((.version_name=="0.4.2-beta.68" and .version_code==74) or (.version_name=="0.4.2-beta.70" and .sha256=="f4113bf8ffb330cd5ebf51f06a5fd211be04323546d28e4e04dec498d1d83899" and .size==13114245))' "$E/beta-before.json" >/dev/null
 jq -e '.ok==true' "$E/stable-before.json" >/dev/null
 
 curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' \
@@ -187,7 +187,7 @@ test "$MAIN_AFTER" = "$MAIN_BEFORE"
 
 jq -nc --argjson run "$GITHUB_RUN_ID" --arg source "$SOURCE_SHA" --argjson candidate_run "$SOURCE_RUN_ID" --argjson artifact "$ARTIFACT_ID" \
   --arg sha "$EXPECTED_SHA" --argjson size "$EXPECTED_SIZE" --arg signer "$EXPECTED_SIGNER" --arg drive "$DRIVE_ID" --arg url "$LIVE_URL" \
-  '{verdict:"PASS",release_run_id:$run,source_sha:$source,candidate_run_id:$candidate_run,candidate_artifact_id:$artifact,version_name:"0.4.2-beta.71",version_code:77,package:"vn.pickpack1291.app.beta.publicbeta",apk_sha256:$sha,apk_size:$size,signer_sha256:$signer,drive_file_id:$drive,ota_url:$url,ota_live:"PASS",stable_unchanged:"PASS",main_unchanged:"PASS"}' \
+  '{verdict:"PASS",release_run_id:$run,source_sha:$source,candidate_run_id:$candidate_run,candidate_artifact_id:$artifact,version_name:"0.4.2-beta.71",version_code:77,package:"vn.pickpack1291.app.beta.publicbeta",apk_sha256:$sha,apk_size:$size,signer_sha256:$signer,drive_file_id:$drive,ota_url:$url,ota_live:"PASS",superseded_live_version:"0.4.2-beta.70",superseded_live_sha256:"f4113bf8ffb330cd5ebf51f06a5fd211be04323546d28e4e04dec498d1d83899",base_version:"0.4.2-beta.68",stable_unchanged:"PASS",main_unchanged:"PASS"}' \
   > ops/beta71-release-result.json
 cp ops/beta71-release-result.json "$E/"
 git config user.name github-actions[bot]
