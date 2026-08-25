@@ -1,0 +1,10 @@
+trigger=beta70-v1-final-exact-ota
+visual_verdict=PASS
+candidate_run_id=32792583861
+candidate_artifact_id=9543716011
+visual_run_id=32793362601
+visual_artifact_id=9544003135
+apk_sha256=f4113bf8ffb330cd5ebf51f06a5fd211be04323546d28e4e04dec498d1d83899
+apk_size=13114245
+version=0.4.2-beta.70
+version_code=76
