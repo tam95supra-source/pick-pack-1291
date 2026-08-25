@@ -1,0 +1,78 @@
+{
+  "status": "PASS",
+  "result": "HUMAN_VISUAL_PASS",
+  "inspected_at": "2026-08-25T21:39:00+07:00",
+  "candidate": {
+    "version_name": "0.4.2-beta.75",
+    "version_code": 81,
+    "package": "vn.pickpack1291.app.beta.publicbeta",
+    "source_sha": "e475b8476e99a9230683dbbf6ec266235960ed5b",
+    "build_run": 32849057694,
+    "artifact_id": 9563625638,
+    "sha256": "6e08dc974281cc7b5428d22cf406179447cdeb95443dc19fa1db2b4d32344913",
+    "size": 13147013,
+    "signer_sha256": "d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e"
+  },
+  "probe": {
+    "run_id": 32859450233,
+    "artifact_id": 9567602636,
+    "frame": "480x800-add-dialog",
+    "result": "HUMAN_PASS",
+    "purpose": "verify exact Add dialog targeting after prior 480x800 harness failure"
+  },
+  "visual": {
+    "run_id": 32860235560,
+    "artifact_id": 9568028848,
+    "artifact_digest": "sha256:7b18f94a29ff09f55d589bff76fda988beb1728589b419b93155685a8fe6d64a",
+    "route_gate": "dumpsys_activity+dumpsys_window+bounded_adb+real_png+human_pixels",
+    "android_build_or_sign_in_visual": false
+  },
+  "human_inspection": {
+    "320x568": {
+      "pda_exchange_two_explicit_actions": true,
+      "pda_serial_and_condition_visible": true,
+      "soft_keyboard_not_covering_pda": true,
+      "fixed_account_display": true,
+      "add_dialog_correct": true,
+      "edit_dialog_correct": true,
+      "delete_dialog_correct": true,
+      "timeline_before_after_correct": true,
+      "not_entered_position_form_correct": true,
+      "no_wrong_route_loading_crop_overlap": true,
+      "frames": ["10-pda-exchange.png","22-fixed-account-employee.png","23-add-dialog.png","23-edit-dialog.png","23-delete-dialog.png","24-timeline-scrolled.png","22-not-entered-employee.png"]
+    },
+    "360x640": {
+      "pda_exchange_two_explicit_actions": true,
+      "pda_serial_and_condition_visible": true,
+      "soft_keyboard_not_covering_pda": true,
+      "fixed_account_display": true,
+      "add_dialog_correct": true,
+      "edit_dialog_correct": true,
+      "delete_dialog_correct": true,
+      "timeline_before_after_correct": true,
+      "not_entered_position_form_correct": true,
+      "no_wrong_route_loading_crop_overlap": true,
+      "frames": ["10-pda-exchange.png","22-fixed-account-employee.png","23-add-dialog.png","23-edit-dialog.png","23-delete-dialog.png","24-timeline-scrolled.png","22-not-entered-employee.png"]
+    },
+    "480x800": {
+      "pda_exchange_two_explicit_actions": true,
+      "pda_serial_and_condition_visible": true,
+      "soft_keyboard_not_covering_pda": true,
+      "fixed_account_display": true,
+      "add_dialog_correct": true,
+      "edit_dialog_correct": true,
+      "delete_dialog_correct": true,
+      "timeline_before_after_correct": true,
+      "not_entered_position_form_correct": true,
+      "no_wrong_route_loading_crop_overlap": true,
+      "frames": ["10-pda-exchange.png","22-fixed-account-employee.png","23-add-dialog.png","23-edit-dialog.png","23-delete-dialog.png","24-timeline-scrolled.png","22-not-entered-employee.png"]
+    }
+  },
+  "timeline_evidence": {
+    "pack_table": "D1 -> D2",
+    "work_in_shift": "Pick -> Pick & Pack"
+  },
+  "stable_publish": "FORBIDDEN",
+  "rebuild_after_candidate_lock": false,
+  "resign_after_candidate_lock": false
+}
