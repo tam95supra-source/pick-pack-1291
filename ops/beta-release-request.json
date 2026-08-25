@@ -8,12 +8,12 @@
   "service_change": "NONE",
   "gas_change": "FORGOT_PASSWORD_PREVIEW",
   "scope": "settings-visual-harness-only",
-  "requested_at": "2026-08-25T14:28:00+07:00",
+  "requested_at": "2026-08-25T14:45:00+07:00",
   "owner": "Nguyen Van Tam",
   "locked_run_id": 32820317675,
   "locked_artifact_id": 9552942024,
   "locked_sha256": "ad037c1a17d245f90ead59539c5595cc5df6a568b8657ce636cc43d101175fd2",
   "locked_size": 13130629,
-  "attempt": 2,
-  "retry_reason": "visual verifier harness corrected; exact bytes unchanged"
+  "attempt": 3,
+  "retry_reason": "replace UIAutomator idle marker with no-idle semantic probe; exact bytes unchanged"
 }
