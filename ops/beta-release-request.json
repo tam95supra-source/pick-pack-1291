@@ -1,13 +1,13 @@
 {
-  "stage": "publish-diagnostic",
+  "stage": "publish",
   "version_name": "0.4.2-beta.71",
   "version_code": 77,
   "base_version": "0.4.2-beta.68",
   "base_version_code": 74,
   "stable_publish": "FORBIDDEN",
   "service_change": "NONE",
-  "requested_at": "2026-08-25T10:18:00+07:00",
-  "attempt": 17,
+  "requested_at": "2026-08-25T09:16:30+07:00",
+  "attempt": 18,
   "rejected_candidates": [
     {
       "run_id": 32795523561,
@@ -31,8 +31,17 @@
   "apk_file": "pick-pack-1291-public-beta-0.4.2-beta.71.apk",
   "signer_sha256": "d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e",
   "human_visual_inspection": "PASS",
-  "failed_publish_run_id": 32800246615,
-  "failed_publish_evidence_artifact_id": 9546292748,
+  "superseded_failed_publish_runs": [
+    {
+      "run_id": 32800005532,
+      "reason": "preflight assumed Beta68 while exact Beta70 was live"
+    },
+    {
+      "run_id": 32800246615,
+      "evidence_artifact_id": 9546292748,
+      "reason": "publish completed; verifier expected version_code absent from live feed"
+    }
+  ],
   "supersede_live": {
     "version_name": "0.4.2-beta.70",
     "apk_sha256": "f4113bf8ffb330cd5ebf51f06a5fd211be04323546d28e4e04dec498d1d83899"
