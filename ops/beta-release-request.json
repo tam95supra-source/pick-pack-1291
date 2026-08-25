@@ -1,48 +1,13 @@
 {
-  "stage": "publish",
-  "version_name": "0.4.2-beta.72",
-  "version_code": 78,
-  "base_version": "0.4.2-beta.71",
-  "base_version_code": 77,
+  "stage": "candidate",
+  "version_name": "0.4.2-beta.73",
+  "version_code": 79,
+  "base_version": "0.4.2-beta.72",
+  "base_version_code": 78,
   "stable_publish": "FORBIDDEN",
   "service_change": "NONE",
-  "requested_at": "2026-08-25T12:33:00+07:00",
-  "attempt": 24,
-  "candidate_run_id": 32808558173,
-  "candidate_artifact_id": 9549037310,
-  "apk_sha256": "fdeb006122f065591e82fe912a4a615c9c42a149568c2fc32f7d5b35db353caf",
-  "apk_size": 13114245,
-  "source_sha": "73d5432df09c33cda6554090838e5f55e41761ae",
-  "apk_file": "pick-pack-1291-public-beta-0.4.2-beta.72.apk",
-  "signer_sha256": "d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e",
-  "visual_harness": "rawshot-content-viewport-canonical-state-v5",
-  "visual_run_id": 32812834075,
-  "visual_artifact_id": 9550496243,
-  "human_visual_inspection": "PASS",
-  "superseded_live": {
-    "version_name": "0.4.2-beta.71",
-    "apk_sha256": "5a8e29f5d50ac31010ebe2cd6e6096ffdd8bcd2b354007a7448878ae6eefec3b"
-  },
-  "superseded_visual_failures": [
-    {
-      "run_id": 32808558173,
-      "artifact_id": 9549104283,
-      "root_cause": "uiautomator could not obtain idle XML; build/sign/verify remained PASS"
-    },
-    {
-      "run_id": 32810585357,
-      "artifact_id": 9549744937,
-      "root_cause": "human gate required full resource rows on every matrix size"
-    },
-    {
-      "run_id": 32811028697,
-      "artifact_id": 9549883881,
-      "root_cause": "320 and 480 swipe started on bottom navigation; 360 human gate passed; exact APK unchanged"
-    },
-    {
-      "run_id": 32811558028,
-      "artifact_id": 9550059769,
-      "root_cause": "human gate found active fixture used status instead of canonical state, hiding Pick resource summary; exact APK unchanged"
-    }
-  ]
+  "gas_change": "FORGOT_PASSWORD_PREVIEW",
+  "scope": "owner-work-session-sync-ui",
+  "requested_at": "2026-08-25T13:19:00+07:00",
+  "owner": "Nguyen Van Tam"
 }
