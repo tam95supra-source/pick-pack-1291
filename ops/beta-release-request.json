@@ -1,11 +1,14 @@
 {
-  "stage": "candidate",
+  "stage": "visual-export",
   "version_name": "0.4.2-beta.71",
   "version_code": 77,
   "base_version": "0.4.2-beta.68",
   "base_version_code": 74,
   "stable_publish": "FORBIDDEN",
   "service_change": "NONE",
-  "requested_at": "2026-08-25T08:13:00+07:00",
-  "attempt": 4
+  "requested_at": "2026-08-25T08:20:00+07:00",
+  "attempt": 5,
+  "candidate_run_id": 32795523561,
+  "candidate_artifact_id": 9544753296,
+  "visual_artifact_id": 9544827082
 }
