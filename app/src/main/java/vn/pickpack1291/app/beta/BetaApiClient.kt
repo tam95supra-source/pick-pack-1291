@@ -156,7 +156,7 @@ class BetaApiClient(context: Context) {
     }
 
     fun call(action: String, payload: JSONObject = JSONObject(), callback: (Result) -> Unit) {
-        val directOwnerActions=setOf("resource_master_list","resource_master_upsert","resource_master_delete","history_correction","session_work_update","session_exit_guarded","attendance_time_correct","attendance_exit_delete","attendance_session_delete","service_connections","account_delete","history_delete")
+        val directOwnerActions=setOf("resource_master_list","resource_master_upsert","resource_master_delete","history_correction","session_work_update","session_exit_guarded","attendance_time_correct","attendance_exit_delete","attendance_session_delete","attendance_enter_v2","session_resource_snapshot","session_resource_mutate","session_exit_v2","service_connections","account_delete","history_delete")
         if(action in directOwnerActions){
             localExecutor.execute {
                 try {
@@ -301,6 +301,10 @@ class BetaApiClient(context: Context) {
             "attendance_time_correct"->"/v1/session/time-correction"
             "attendance_exit_delete"->"/v1/session/delete-exit"
             "attendance_session_delete"->"/v1/session/delete-enter"
+            "attendance_enter_v2"->"/v1/session/enter-v2"
+            "session_resource_snapshot"->"/v1/session/resources/snapshot"
+            "session_resource_mutate"->"/v1/session/resources/mutate"
+            "session_exit_v2"->"/v1/session/exit-v2"
             "service_connections"->"/v1/service/connections"
             "account_delete"->"/v1/admin/accounts/delete"
             "history_delete"->"/v1/history/delete"
