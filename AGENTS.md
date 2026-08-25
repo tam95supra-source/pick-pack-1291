@@ -10,7 +10,7 @@ Thứ tự ưu tiên: lệnh OWNER mới nhất → `CURRENT_STATE.md` → hando
 - Không crawl lại toàn repo; không chạy lại gate đã PASS nếu đầu vào/bytes không đổi.
 - ACTIVE thắng SUPERSEDED. TARGET/CANDIDATE không phải LIVE.
 - Beta69 và Beta70 là SUPERSEDED/ABANDONED; không dùng làm base, không phát hành, không khôi phục workflow của chúng.
-- Golden base cho Beta71 là Beta68 OTA LIVE PASS. Stable và `main` bị khóa nếu OWNER chưa cho phép.
+- Beta71 OTA LIVE PASS là active development base; lineage của nó dùng Beta68 golden và bỏ qua Beta69/Beta70. Stable và `main` bị khóa nếu OWNER chưa cho phép.
 
 ## 2. Vai trò chuyên môn
 
@@ -49,7 +49,7 @@ Kiến trúc đã duyệt: Android/Web-PWA ↔ Cloudflare Worker ↔ D1; Durable
 Chỉ hai workflow trên nhánh sạch:
 
 - `app-fast-check.yml`: debug/static cho feature/agent branch.
-- `beta-release.yml`: candidate hoặc publish theo `ops/beta-release-request.json`.
+- `beta-release.yml`: phát hành exact locked candidate theo `ops/beta-release-request.json` trên `release/**`.
 
 Cấm tạo workflow per-version, observer, status writer, materializer lặp, workflow tự sửa workflow, hoặc trigger file mới. Workflow YAML chỉ orchestration; biến đổi lớn nằm trong script.
 
