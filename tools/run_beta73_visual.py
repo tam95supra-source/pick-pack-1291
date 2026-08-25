@@ -162,7 +162,8 @@ def open_settings(d,wh):
     route_gate(f'{d}-settings-top-route')
     time.sleep(.6)
     rawshot(d,'16-settings-top',wh)
-    for _ in range(4):
+    swipe_count=4 if wh==(360,640) else 3
+    for _ in range(swipe_count):
         adb('shell','input','swipe',str(int(W*.50)),str(int(H*.70)),str(int(W*.50)),str(int(H*.25)),'430',check=False)
         time.sleep(.25)
     time.sleep(.6)
