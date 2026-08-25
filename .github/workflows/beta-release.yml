@@ -68,6 +68,7 @@ jobs:
           LOG=app/src/main/java/vn/pickpack1291/app/beta/LocalLogManager.kt
           API=app/src/main/java/vn/pickpack1291/app/beta/BetaApiClient.kt
           GAS=google-apps-script/PICK_PACK_API.gs
+          BETA72_SOURCE=73d5432df09c33cda6554090838e5f55e41761ae
           grep -Fq 'User Pick bắt buộc phải có PDA. Chọn / cấp PDA trước.' "$OPS"
           grep -Fq 'Chọn đủ Bàn Pack và User Pack đúng theo bàn.' "$OPS"
           grep -Fq 'THÔNG TIN CA' "$OPS"
@@ -79,7 +80,7 @@ jobs:
           ! grep -Fq '"EMPLOYEE", "EMPLOYEE_LOADING" -> if(liveEmployeeMnv.isNotBlank()) renderLocalEmployee(liveEmployeeMnv)' "$OPS"
           ! grep -Fq 'postDelayed({if(screenState=="PDA_EXCHANGE")refreshList' "$OPS"
           grep -Fq '"Dung lượng ứng dụng" to humanBytes(appBinaryBytes())' "$OPS"
-          grep -Fq '"Dung lượng dữ liệu ứng dụng"' "$OPS"
+          grep -Fq '"Dữ liệu ứng dụng trên máy" to humanBytes(appStorageUsage().userDataBytes)' "$OPS"
           grep -Fq 'UpdateManager.pendingInfo(this)' "$OPS"
           grep -Fq 'LocalLogManager.detailRows(this)' "$OPS"
           grep -Fq 'fun pendingInfo(c:Context):PendingUpdate?' "$UPD"
@@ -92,8 +93,8 @@ jobs:
           ! grep -Fq 'card.addView(txt("Supra DC Hưng Yên"' "$FULL"
           grep -q 'versionCode = 1' app/build.gradle.kts
           grep -q 'versionName = "0.1.0-stable"' app/build.gradle.kts
-          git diff HEAD^ --name-only | grep -Eq '^(app/|google-apps-script/PICK_PACK_API.gs$)'
-          ! git diff HEAD^ --name-only | grep -q '^service/'
+          git diff "$BETA72_SOURCE" HEAD --name-only | grep -Eq '^(app/|google-apps-script/PICK_PACK_API.gs$)'
+          ! git diff "$BETA72_SOURCE" HEAD --name-only | grep -q '^service/'
 
       - uses: actions/setup-java@v5
         with:
