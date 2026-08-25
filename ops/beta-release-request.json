@@ -1,5 +1,5 @@
 {
-  "stage": "visual_retry",
+  "stage": "publish",
   "version_name": "0.4.2-beta.73",
   "version_code": 79,
   "base_version": "0.4.2-beta.72",
@@ -7,22 +7,18 @@
   "stable_publish": "FORBIDDEN",
   "service_change": "NONE",
   "gas_change": "FORGOT_PASSWORD_PREVIEW",
-  "scope": "settings-visual-harness-only",
-  "requested_at": "2026-08-25T17:01:00+07:00",
+  "scope": "beta73-exact-publish",
+  "requested_at": "2026-08-25T17:21:00+07:00",
   "owner": "Nguyen Van Tam",
   "locked_run_id": 32820317675,
   "locked_artifact_id": 9552942024,
   "locked_sha256": "ad037c1a17d245f90ead59539c5595cc5df6a568b8657ce636cc43d101175fd2",
   "locked_size": 13130629,
-  "visual_gate": "dumpsys_activity+dumpsys_window+human_pixels",
-  "harness_blob": "1bd2e49a0deb23c5e339932663be1041fda7fdbb",
-  "preflight": {
-    "py_compile": "PASS",
-    "materialized_compile": "PASS",
-    "standalone_materialized_source": true,
-    "source_sha256": "2342d9c8f71f9fecae261a8e139cb64cbd9243b5a6bc160c11db8edd8dc8f1af",
-    "adb_timeout_seconds": 15,
-    "forbidden_settings_gate_absent": true
-  },
-  "retry_reason": "capture Settings after each bounded scroll step 1-4 so human gate can select a frame with NHAT KY visible at each matrix size; exact bytes unchanged"
+  "locked_package": "vn.pickpack1291.app.beta.publicbeta",
+  "locked_signer_sha256": "d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e",
+  "visual_run_id": 32834871019,
+  "visual_artifact_id": 9558250565,
+  "visual_receipt_commit": "60792ff27b4aa2f741318a7f65280ccd1f6c1890",
+  "visual_human_pass": true,
+  "publisher_commit": "625632287c97a8093142070f3e42894c736c8f02"
 }
