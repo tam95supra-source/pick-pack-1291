@@ -1,4 +1,4 @@
-name: Beta candidate and publish pipeline
+name: Beta75 visual exact candidate
 
 on:
   push:
@@ -12,203 +12,66 @@ permissions:
   actions: read
 
 concurrency:
-  group: beta-release-fixed
+  group: beta75-visual-exact
   cancel-in-progress: false
 
 jobs:
-  candidate:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 40
-    env:
-      EXPECTED_SIGNER_SHA256: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
-      SIGNING_KEY_B64: ${{ secrets.ANDROID_SIGNING_KEY_B64 }}
-      SIGNING_STORE_PASSWORD: ${{ secrets.ANDROID_SIGNING_STORE_PASSWORD }}
-      SIGNING_KEY_PASSWORD: ${{ secrets.ANDROID_SIGNING_KEY_PASSWORD }}
-      SIGNING_ALIAS: ${{ secrets.ANDROID_SIGNING_ALIAS }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: Validate Beta75 candidate request
-        id: request
-        shell: bash
-        run: |
-          set -euo pipefail
-          STAGE=$(jq -r '.stage' ops/beta-release-request.json)
-          echo "stage=$STAGE" >> "$GITHUB_OUTPUT"
-          if [[ "$STAGE" != candidate ]]; then
-            echo 'non-candidate request: build intentionally skipped'
-            exit 0
-          fi
-          jq -e '.version_name=="0.4.2-beta.75" and .version_code==81 and .base_version=="0.4.2-beta.74" and .base_version_code==80 and .stable_publish=="FORBIDDEN" and .service_change=="NONE" and .gas_change=="NONE"' ops/beta-release-request.json >/dev/null
-      - name: Materialize Beta75 source exactly once
-        if: steps.request.outputs.stage == 'candidate'
-        id: identity
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 -m py_compile tools/apply_beta75_contextual_ui_fix.py tools/apply_beta75_compile_helper.py
-          if ! grep -q 'versionName = "0.4.2-beta.75"' app/build.gradle.kts; then
-            python3 tools/apply_beta75_contextual_ui_fix.py
-            python3 tools/apply_beta75_compile_helper.py
-            git diff --check
-            git config user.name github-actions[bot]
-            git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-            git add app/build.gradle.kts app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt
-            git commit -m 'fix(beta75): contextual PDA work UI and accurate change history'
-            git push origin "HEAD:$GITHUB_REF_NAME"
-          fi
-          grep -q 'versionCode = 81' app/build.gradle.kts
-          grep -q 'versionName = "0.4.2-beta.75"' app/build.gradle.kts
-          echo "source_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
-      - name: Beta75 owner regression gates
-        if: steps.request.outputs.stage == 'candidate'
-        shell: bash
-        run: |
-          set -euo pipefail
-          OPS=app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt
-          grep -Fq 'smallButton("Đổi PDA",teal)' "$OPS"
-          grep -Fq 'smallButton("Trả PDA",orange)' "$OPS"
-          ! grep -Fq 'ĐANG SỬ DỤNG' "$OPS"
-          ! grep -Fq 'Chạm vào thẻ PDA' "$OPS"
-          grep -Fq 'Serial PDA\n' "$OPS"
-          grep -Fq 'Tình trạng PDA\n' "$OPS"
-          grep -Fq 'Không dùng hy1.outbound' "$OPS"
-          ! grep -Fq 'Dùng user cố định theo số điện thoại / họ tên.' "$OPS"
-          grep -Fq 'Đang dùng tài khoản ${login.ifBlank{"—"}} / ${name.ifBlank{"—"}} cố định' "$OPS"
-          ! grep -Fq 'Trạng thái hoàn tất phiên' "$OPS"
-          grep -Fq 'Chọn nội dung cần thêm' "$OPS"
-          grep -Fq 'Chọn nội dung cần sửa' "$OPS"
-          grep -Fq 'Chọn nội dung cần xóa' "$OPS"
-          grep -Fq 'Công việc trong ca: $bw → $aw' "$OPS"
-          grep -Fq '"${it.table} – ${it.user}"' "$OPS"
-          grep -Fq 'PDA lỗi quét / không đọc mã' "$OPS"
-          grep -Fq 'Tạm dừng Pick theo điều phối' "$OPS"
-          grep -Fq 'val activePos=activePositions(s)' "$OPS"
-          grep -Fq 'private fun activePositions(s:JSONObject)' "$OPS"
-          grep -q 'versionCode = 1' app/build.gradle.kts
-          grep -q 'versionName = "0.1.0-stable"' app/build.gradle.kts
-          ! git diff cfb4dbca116f7c47a598bc398bdbe1251ad2bad8 HEAD --name-only -- service google-apps-script | grep -q .
-      - uses: actions/setup-java@v5
-        if: steps.request.outputs.stage == 'candidate'
-        with:
-          distribution: temurin
-          java-version: '17'
-      - uses: gradle/actions/setup-gradle@v4
-        if: steps.request.outputs.stage == 'candidate'
-        with:
-          gradle-version: '9.4.1'
-      - name: Resolve Android SDK
-        if: steps.request.outputs.stage == 'candidate'
-        shell: bash
-        run: |
-          set -euo pipefail
-          if [[ -n "${ANDROID_HOME:-}" && -f "$ANDROID_HOME/platforms/android-36/android.jar" && -x "$ANDROID_HOME/build-tools/36.0.0/apksigner" && -x "$ANDROID_HOME/build-tools/36.0.0/aapt" ]]; then
-            echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> "$GITHUB_ENV"
-            exit 0
-          fi
-          SDK="$RUNNER_TEMP/android-sdk"
-          ZIP="$RUNNER_TEMP/commandlinetools.zip"
-          curl -fsSL https://dl.google.com/android/repository/commandlinetools-linux-15859902_latest.zip -o "$ZIP"
-          echo "4e4c464f145a7512b57d088ac6c278c03c9eea610886b35a5e0804e74eedf583  $ZIP" | sha256sum -c -
-          mkdir -p "$SDK/cmdline-tools"
-          unzip -q "$ZIP" -d "$RUNNER_TEMP/android-cmdline"
-          mv "$RUNNER_TEMP/android-cmdline/cmdline-tools" "$SDK/cmdline-tools/latest"
-          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
-          echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
-          yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
-          "$SDK/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-36' 'build-tools;36.0.0'
-      - name: Compile Beta and Stable isolation
-        if: steps.request.outputs.stage == 'candidate'
-        run: gradle --no-daemon --build-cache --parallel :app:assembleBetaDebug :app:assembleStableDebug :app:assembleBetaRelease
-      - name: Sign exact Beta75 candidate
-        if: steps.request.outputs.stage == 'candidate'
-        shell: bash
-        env:
-          SOURCE_SHA: ${{ steps.identity.outputs.source_sha }}
-        run: |
-          set -euo pipefail
-          for v in SIGNING_KEY_B64 SIGNING_STORE_PASSWORD SIGNING_KEY_PASSWORD SIGNING_ALIAS; do test -n "${!v:-}"; done
-          BT="$ANDROID_SDK_ROOT/build-tools/36.0.0"
-          U=app/build/outputs/apk/beta/release/app-beta-release-unsigned.apk
-          "$BT/aapt" dump badging "$U" > /tmp/badging.txt
-          grep -q "package: name='vn.pickpack1291.app.beta.publicbeta'" /tmp/badging.txt
-          grep -q "versionCode='81'" /tmp/badging.txt
-          grep -q "versionName='0.4.2-beta.75'" /tmp/badging.txt
-          KS="$RUNNER_TEMP/release.jks"
-          printf '%s' "$SIGNING_KEY_B64" | base64 -d > "$KS"
-          printf '%s' "$SIGNING_STORE_PASSWORD" > "$RUNNER_TEMP/store.pass"
-          printf '%s' "$SIGNING_KEY_PASSWORD" > "$RUNNER_TEMP/key.pass"
-          mkdir -p dist/beta75
-          OUT=dist/beta75/pick-pack-1291-public-beta-0.4.2-beta.75.apk
-          "$BT/apksigner" sign --ks "$KS" --ks-key-alias "$SIGNING_ALIAS" --ks-pass "file:$RUNNER_TEMP/store.pass" --key-pass "file:$RUNNER_TEMP/key.pass" --out "$OUT" "$U"
-          "$BT/apksigner" verify --verbose --print-certs "$OUT" > /tmp/cert.txt
-          grep -qi "Signer #1 certificate SHA-256 digest: $EXPECTED_SIGNER_SHA256" /tmp/cert.txt
-          APK_SHA=$(sha256sum "$OUT" | awk '{print $1}')
-          APK_SIZE=$(stat -c '%s' "$OUT")
-          printf '%s  %s\n' "$APK_SHA" "$(basename "$OUT")" > dist/beta75/SHA256SUMS-0.4.2-beta.75.txt
-          jq -nc --arg source "$SOURCE_SHA" --arg sha "$APK_SHA" --argjson size "$APK_SIZE" --arg signer "$EXPECTED_SIGNER_SHA256" '{version_name:"0.4.2-beta.75",version_code:81,package:"vn.pickpack1291.app.beta.publicbeta",source_sha:$source,apk_sha256:$sha,apk_size:$size,signer_sha256:$signer,stable_version:"0.1.0-stable",stable_code:1,stable_publish:"FORBIDDEN",service_change:"NONE",gas_change:"NONE"}' > dist/beta75/release-meta.json
-          rm -f "$KS" "$RUNNER_TEMP/store.pass" "$RUNNER_TEMP/key.pass"
-      - name: Upload exact signed candidate
-        if: steps.request.outputs.stage == 'candidate'
-        uses: actions/upload-artifact@v4
-        with:
-          name: beta75-candidate-${{ github.run_id }}
-          path: dist/beta75/*
-          retention-days: 30
-          if-no-files-found: error
-
   visual:
-    needs: candidate
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
-      - name: Validate visual stage
-        id: request
+      - name: Validate exact Beta75 visual-only request
         shell: bash
         run: |
           set -euo pipefail
-          STAGE=$(jq -r '.stage' ops/beta-release-request.json)
-          echo "stage=$STAGE" >> "$GITHUB_OUTPUT"
-          if [[ "$STAGE" != candidate ]]; then exit 0; fi
-          jq -e '.version_name=="0.4.2-beta.75" and .version_code==81' ops/beta-release-request.json >/dev/null
+          jq -e '.stage=="visual" and .version_name=="0.4.2-beta.75" and .version_code==81 and .candidate_run_id==32849057694 and .candidate_artifact_id==9563625638 and .source_sha=="e475b8476e99a9230683dbbf6ec266235960ed5b" and .apk_sha256=="6e08dc974281cc7b5428d22cf406179447cdeb95443dc19fa1db2b4d32344913" and .apk_size==13147013 and .signer_sha256=="d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e" and .stable_publish=="FORBIDDEN"' ops/beta-release-request.json >/dev/null
+          test "$(git diff e475b8476e99a9230683dbbf6ec266235960ed5b HEAD --name-only -- app/src app/build.gradle.kts service google-apps-script | wc -l)" -eq 0
       - uses: actions/download-artifact@v4
-        if: steps.request.outputs.stage == 'candidate'
         with:
-          name: beta75-candidate-${{ github.run_id }}
+          name: beta75-candidate-32849057694
           path: /tmp/beta75-candidate
+          repository: tam95supra-source/pick-pack-1291
+          run-id: 32849057694
+          github-token: ${{ secrets.GITHUB_TOKEN }}
       - uses: actions/setup-java@v5
-        if: steps.request.outputs.stage == 'candidate'
         with:
           distribution: temurin
           java-version: '17'
-      - name: Prepare exact candidate and Beta75 visual harness
-        if: steps.request.outputs.stage == 'candidate'
+      - name: Preflight exact candidate and harness
         shell: bash
         run: |
           set -euo pipefail
           META=/tmp/beta75-candidate/release-meta.json
           APK=/tmp/beta75-candidate/pick-pack-1291-public-beta-0.4.2-beta.75.apk
           test -f "$META" -a -f "$APK"
-          SHA=$(jq -r '.apk_sha256' "$META"); SIZE=$(jq -r '.apk_size' "$META")
-          test "$(sha256sum "$APK" | awk '{print $1}')" = "$SHA"
-          test "$(stat -c '%s' "$APK")" = "$SIZE"
+          jq -e '.version_name=="0.4.2-beta.75" and .version_code==81 and .package=="vn.pickpack1291.app.beta.publicbeta" and .source_sha=="e475b8476e99a9230683dbbf6ec266235960ed5b" and .apk_sha256=="6e08dc974281cc7b5428d22cf406179447cdeb95443dc19fa1db2b4d32344913" and .apk_size==13147013 and .signer_sha256=="d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e" and .stable_publish=="FORBIDDEN"' "$META" >/dev/null
+          test "$(sha256sum "$APK" | awk '{print $1}')" = "6e08dc974281cc7b5428d22cf406179447cdeb95443dc19fa1db2b4d32344913"
+          test "$(stat -c '%s' "$APK")" = "13147013"
           python3 -m py_compile tools/run_beta75_visual.py
-          python3 tools/run_beta75_visual.py --preflight
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('tools/run_beta75_visual.py').read_text(encoding='utf-8')
+          compile(s,'run_beta75_visual.py','exec')
+          assert "module','PDA_EXCHANGE'" in s
+          assert 'pp_operational_45d.db' in s
+          assert all(x in s for x in ('320x568','360x640','480x800'))
+          forbidden=("adb('shell','uiauto"+'mator', "adb('shell','am','instru"+'ment')
+          assert all(x not in s for x in forbidden)
+          print('visual_preflight=PASS')
+          PY
           echo "APK=$APK" >> "$GITHUB_ENV"
-          echo "EXPECTED_SHA=$SHA" >> "$GITHUB_ENV"
-          echo "EXPECTED_SIZE=$SIZE" >> "$GITHUB_ENV"
+          echo "EXPECTED_SHA=6e08dc974281cc7b5428d22cf406179447cdeb95443dc19fa1db2b4d32344913" >> "$GITHUB_ENV"
+          echo "EXPECTED_SIZE=13147013" >> "$GITHUB_ENV"
       - name: Enable KVM
-        if: steps.request.outputs.stage == 'candidate'
         shell: bash
         run: |
+          set -euo pipefail
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules >/dev/null
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm || true
           sudo chmod 666 /dev/kvm || true
-      - name: Run Beta75 visual matrix
-        if: steps.request.outputs.stage == 'candidate'
+      - name: Run Beta75 visual matrix on exact APK
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 29
@@ -218,10 +81,10 @@ jobs:
           disable-animations: false
           emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-metrics
           script: |
-            adb install -r "$APK"
-            python3 tools/run_beta75_visual.py
+            timeout 60s adb install -r "$APK"
+            timeout 240s python3 tools/run_beta75_visual.py
       - name: Upload visual evidence
-        if: always() && steps.request.outputs.stage == 'candidate'
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: beta75-visual-${{ github.run_id }}
