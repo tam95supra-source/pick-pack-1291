@@ -168,7 +168,12 @@ try:
     launch_home(); tapxy(W*0.25,218*scale,.9)
     tapxy(W*0.50,151*scale,.25); adb('shell','input','text','42267',check=False); adb('shell','input','keyevent','66',check=False); time.sleep(1.8)
     rawshot(d,'11-session-header')
-    swipe(W*0.50,H*0.73,W*0.50,H*0.34,520,1.0); rawshot(d,'12-session-timeline'); resumed_check(d+'-timeline')
+    expected_change='Đổi PDA: MT90-123456789 → MT90-987654321'
+    for _ in range(5):
+        if expected_change.casefold() in ui_text().casefold(): break
+        swipe(W*0.50,H*0.74,W*0.50,H*0.30,520,.65)
+    expect(expected_change); expect('Thêm vị trí trong ca: Pack')
+    rawshot(d,'12-session-timeline'); resumed_check(d+'-timeline')
 
     imgs=sorted((OUT/d).glob('*.png')); assert len(imgs)==12,(d,len(imgs))
     for f in imgs:
