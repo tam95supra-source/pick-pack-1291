@@ -1,165 +1,175 @@
 ---
 handover_schema: pick-pack-handover/v2
 status: READY
-created_at: 2026-08-25T12:46:00+07:00
+created_at: 2026-08-25T16:00:52+07:00
 owner: Nguyễn Văn Tâm
 project: PICK PACK 1291
 active_branch: release/beta71-clean-from-beta68-20260825
-working_head_sha: 473c2338e1a10c31aa2a02a83aa43769f60d6fac
-archive_file: docs/handovers/HANDOVER_20260825-124600_beta72-live-pass.md
+working_head_sha: 70e1cd27c410a34b28bff58cd94602f3aa206398
+archive_file: docs/handovers/HANDOVER_20260825-160052_beta73-visual-retry-cap-blocked.md
 base_or_live_version: 0.4.2-beta.72
-task_state: PASS
-next_action: WAIT_FOR_OWNER_NEW_SCOPE
+target_version: 0.4.2-beta.73
+task_state: BLOCKED
+next_action: OWNER_AUTHORIZE_ONE_ADDITIONAL_VISUAL_ONLY_RETRY
 ---
 
-# BÀN GIAO PHIÊN — BETA72 OTA LIVE PASS
+# BÀN GIAO — BETA73 EXACT CANDIDATE, VISUAL HARNESS BLOCKED BỞI RETRY CAP
 
-## 1. Yêu cầu OWNER và Definition of Done
+## 1. Mục tiêu + DoD OWNER
 
-Yêu cầu cuối của OWNER đã hoàn tất end-to-end:
+Hoàn tất Beta73 cho toàn bộ scope OWNER đã patch, giữ exact candidate, không rebuild/resign. Chỉ PASS khi:
 
-1. User Pick/User Pack và nút `Phát lại` hiển thị cùng dòng.
-2. Vị trí Pick bắt buộc PDA; Pack bắt buộc User Pack; `Không` được miễn.
-3. User Pack ràng buộc theo Bàn Pack từ master mapping.
-4. `Thời gian và vị trí trong ca` hiển thị dạng `Tiêu đề: giá trị` sát nhau, gồm Ca, Vào lúc, Vị trí trong ca, User Pick/User Pack, PDA/Bàn Pack khi áp dụng.
-5. Khi không dùng user `hy1.outbound`, hiển thị đầy đủ `Dùng user cố định theo số điện thoại / họ tên.`
-6. Visual matrix thật 320x568, 360x640, 480x800 phải human PASS; vuốt trái/phải phải quay về màn cha, không thoát app.
-7. Publish đúng exact candidate bytes lên Beta; fresh-read OTA phải khớp URL/SHA256/size/version/package; Stable/main/signer không đổi.
+1. Settings human visual PASS tại `320x568`, `360x640`, `480x800`.
+2. Publish đúng exact artifact `9552942024` lên Beta.
+3. OTA/Drive/LIVE readback khớp URL, SHA256, size, versionName, versionCode, package, signer.
+4. Stable/main/signer/authority không đổi.
+5. Cập nhật LIVE state/handoff sau release.
 
-Definition of Done: **PASS toàn bộ**.
+OWNER đặt retry cap mới nhất: tối đa **2 visual retry** sau run timeout; không được tạo thêm run khi chưa có quyền vượt cap.
 
-Điều cấm tiếp tục có hiệu lực: không rebuild/resign Beta72 đã khóa, không tạo candidate mới, không đổi Android source của release này, không publish Stable, không ghi/merge `main`, không đổi signer/authority/provider, không rerun gate PASS nếu bytes/input không đổi.
+## 2. LIVE / TARGET / CANDIDATE
 
-## 2. Trạng thái canonical hiện tại
-
-### LIVE — BETA72
+### LIVE — giữ nguyên Beta72
 
 - Version: `0.4.2-beta.72`
 - versionCode: `78`
 - Package: `vn.pickpack1291.app.beta.publicbeta`
-- Android source SHA: `73d5432df09c33cda6554090838e5f55e41761ae`
-- Candidate run/artifact: `32808558173` / `9549037310`
-- APK SHA256: `fdeb006122f065591e82fe912a4a615c9c42a149568c2fc32f7d5b35db353caf`
-- APK size: `13114245`
+- Candidate run/artifact cũ: `32808558173` / `9549037310`
+- SHA256: `fdeb006122f065591e82fe912a4a615c9c42a149568c2fc32f7d5b35db353caf`
+- Stable: `0.1.0-stable`, code `1`, publish FORBIDDEN.
+- Main baseline fresh-read trước scope: `a8c0c0d92522c7173230d4175b4f0d3a4906c8bb`.
+
+### TARGET — Beta73
+
+- Version: `0.4.2-beta.73`
+- versionCode: `79`
+- Chưa LIVE, chưa OTA publish.
+
+### CANDIDATE LOCKED — bất biến
+
+- Build run: `32820317675`
+- Artifact: `9552942024`
+- Android source SHA trong `release-meta.json`: `2d726828bdd83efe21e9cd41db8d5c06d16f5272`
+- Version: `0.4.2-beta.73`
+- versionCode: `79`
+- Package: `vn.pickpack1291.app.beta.publicbeta`
+- SHA256: `ad037c1a17d245f90ead59539c5595cc5df6a568b8657ce636cc43d101175fd2`
+- Size: `13130629`
 - Signer SHA256: `d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e`
-- Visual run/artifact: `32812834075` / `9550496243`
-- Human visual inspection: `PASS`, 42 ảnh, matrix `320x568,360x640,480x800`
-- Release run/evidence artifact: `32813298916` / `9550565538`
-- Drive file ID: `1tmIdYOE2lGe2igksVLZ2m3JNLWuVyR9v`
-- Receipt: `ops/beta72-release-result.json`
-- LIVE state: `CURRENT_STATE.md`, commit `473c2338e1a10c31aa2a02a83aa43769f60d6fac`
-- Rebuild/resign sau candidate lock: **không**.
+- Stable identity inside candidate metadata: `0.1.0-stable`, code `1`, publish `FORBIDDEN`.
+- Service change: `NONE`.
+- GAS source flag: `FORGOT_PASSWORD_PREVIEW`.
+- Exact candidate ZIP was re-downloaded locally from artifact and `release-meta.json` + APK bytes matched all identity above.
 
-### LOCKED / UNCHANGED
+## 3. Visual evidence + root cause
 
-- Stable publish: **FORBIDDEN**; feed trước/sau giữ nguyên `available=false`, `reason=NO_APK`; stable identity `0.1.0-stable`, code `1`.
-- `main`: `a8c0c0d92522c7173230d4175b4f0d3a4906c8bb`, unchanged.
-- Signer: giữ nguyên SHA256 ở trên.
-- Service/GAS business source change: `NONE`; helper vận chuyển tạm thời đã restore exact.
-- Active branch: `release/beta71-clean-from-beta68-20260825`.
-- Lineage: Beta68 golden → Beta71 LIVE → OWNER session/resource fixes → Beta72 LIVE. Beta69/Beta70 không phải base.
+### Run gốc `32823314240`
 
-### KIẾN TRÚC / AUTHORITY
+- Exact artifact download: PASS.
+- Exact SHA/size verify: PASS.
+- Job: `97725904592`.
+- Terminal: `cancelled` do workflow timeout ~60 phút.
+- Root cause confirmed từ log: `python3 tools/run_beta73_visual.py` chạy từ `07:49:07Z` tới `08:47:33Z` không thoát.
+- `probe_text()` dùng `adb shell am instrument -w ...` không có child timeout.
+- Partial visual artifact: `9555794126`, zip digest `4756fdeb6995b135699592e5da520e33d8567da5dd42f820bb49568c2ba66d60`.
+- Partial evidence chỉ có 320x568 ảnh `01`–`15`; chưa có ảnh Settings `16/17`. Điều này xác nhận treo tại probe Settings đầu tiên, không phải APK visual fail.
 
-Android/Web-PWA ↔ Cloudflare Worker ↔ D1; Durable Objects/WebSocket realtime; GSheet/GAS replica/fallback/DR/OTA; Android local projection/offline. Một official write authority, fencing/idempotency/anti-duplicate/audit. Không tự thêm backend/provider/authority.
+### Retry #1 — `32829005892`
 
-## 3. Việc đã hoàn tất
+- Exact artifact download + SHA/size: PASS.
+- Job: `97743280973`.
+- Terminal: `failure`.
+- Lỗi gốc đầu tiên: generated materialized harness `SyntaxError` tại Java probe source (`out.putString(...)`).
+- Chưa chạy Settings probe; chưa chạm Android source/APK.
 
-| Hạng mục | Trạng thái | Evidence |
-|---|---|---|
-| Android source OWNER fixes | PASS | source `73d5432df09c33cda6554090838e5f55e41761ae` |
-| Candidate build/sign/verify | PASS | run `32808558173`, artifact `9549037310` |
-| Exact candidate identity | PASS | SHA `fdeb0061...3caf`, size `13114245`, signer `d180450a...731e` |
-| Visual machine gate | PASS | run `32812834075` |
-| Human visual 42 ảnh/3 kích thước | PASS | artifact `9550496243`, `ops/beta72-visual-inspection.json` |
-| Pick bắt buộc PDA | PASS | human/source gate |
-| User Pick + Phát lại cùng dòng | PASS | human/source gate |
-| Pack Bàn Pack → User Pack | PASS | human/source gate |
-| User Pack + Phát lại cùng dòng | PASS | human/source gate |
-| User cố định hiển thị đầy đủ | PASS | active-session visual/source gate |
-| Vuốt quay về màn cha | PASS | human visual gate |
-| OTA exact publish/readback | PASS | run `32813298916`, evidence `9550565538` |
-| OTA exact bytes live | PASS | `ops/beta72-release-result.json`, Drive ID `1tmIdYOE2lGe2igksVLZ2m3JNLWuVyR9v` |
-| Stable unchanged | PASS | release receipt |
-| main unchanged | PASS | fresh-read `a8c0c0d92522c7173230d4175b4f0d3a4906c8bb` |
-| CURRENT_STATE Beta72 LIVE | PASS | commit `473c2338e1a10c31aa2a02a83aa43769f60d6fac` |
+### Retry #2 — `32829283026`
 
-## 4. Thay đổi trong phiên
+- Exact artifact download + SHA/size: PASS.
+- Job: `97744121321`.
+- Terminal: `failure`.
+- Lỗi gốc đầu tiên: generated wrapper `SyntaxError: unexpected character after line continuation character` tại chuỗi preflight 320.
+- Chưa chạy Settings probe; chưa chạm Android source/APK.
 
-- `tools/run_beta72_visual.py`: chỉ sửa harness/fixture để visual exact candidate hoạt động đúng; không sửa APK. Commit harness canonical-state: `26633b99ddd543fe4165df9c84c02d2fe4c0b5ab`.
-- `ops/beta-release-request.json`: trigger lại visual exact artifact, commit `3bc6991665487ce41f6a5f2d9d86276384c18a63`.
-- `ops/beta72-visual-inspection.json`: tạo receipt human PASS, commit `13d527968a0e56fcda484bd256d4c71dd5ffd868`.
-- `.github/workflows/beta-release.yml`: chuyển workflow cố định sang publish-only exact locked candidate, commit `d4cfcea1d4c71ae483ba16a9648a187fb80e316b`.
-- `ops/beta-release-request.json`: stage `publish`, commit `dbc13cb04469d595eb6a3d95358da373b18a1bce`.
-- `ops/beta72-release-result.json`: CI ghi receipt OTA PASS, commit `72c2edc41e87c1a91c96b6d8cd4905890cb82b43`.
-- `CURRENT_STATE.md`: cập nhật Beta72 OTA LIVE, commit `473c2338e1a10c31aa2a02a83aa43769f60d6fac`.
-- Production/live change duy nhất: Beta71 được exact Beta72 supersede trên kênh Beta. Stable/main/signer/GAS business logic không đổi.
+Hai retry OWNER cho phép đã tiêu hết. Không được trigger retry #3 khi chưa có lệnh OWNER mới.
 
-## 5. Lỗi đã gặp và đường PASS
+## 4. Harness hiện tại sau khi dừng run
 
-| Fingerprint | Root cause | Cách PASS đã biết | Cách cấm lặp |
-|---|---|---|---|
-| `uiautomator returned no XML after bounded retry` | Header refresh 750ms khiến Android 10 UIAutomator không đạt idle | Raw screenshot + tọa độ, source gates + human inspection | Không rebuild APK; không retry UIAutomator vô hạn |
-| 320/480 không lộ đủ dòng resource | Swipe bắt đầu trên bottom navigation | Swipe trong content viewport `70%H → 28%H` | Không chạm bottom-nav/edge gesture zone |
-| ACTIVE summary thiếu Pick/PDA/User | Fixture dùng `status` thay canonical `state` | Sửa fixture thành `state:'ACTIVE'`, rerun visual exact artifact | Không sửa Android source vì APK không lỗi |
-| Visual harness fail nhưng APK đúng | Harness/fixture/parser/emulator defect | Sửa đúng harness và reuse artifact `9549037310` | Tuyệt đối không rebuild/resign candidate |
-| OTA/transport | Có thể transient | Retry tối đa 2 lần có backoff, exact bytes | Không rebuild/resign để vượt transport |
-| OTA schema `available=false` | Có thể thiếu SHA/URL/versionCode theo contract | Verify theo live contract, identity qua exact published bytes | Không ép schema cũ rồi kết luận APK lỗi |
+Chỉ sửa harness, không trigger workflow:
 
-Các visual failure cũ là **SUPERSEDED harness evidence**, không phải APK failure: `32808558173` visual stage, `32810585357`, `32811028697`, `32811558028`.
+- `tools/run_beta73_visual.py`
+- Commit hiện tại: `70e1cd27c410a34b28bff58cd94602f3aa206398`
+- Cách sửa: quay về exact harness `ebd95abf772ac4982b94d19c521a9861bc12da51` đã từng compile/chạy, chỉ text-patch:
+  - `am instrument -w` qua `subprocess.run(... timeout=15)`.
+  - Catch `subprocess.TimeoutExpired`.
+  - Ghi `probe-<tag>-timeout.txt`.
+  - Fail-fast và force-stop probe phụ.
+  - Thêm Settings preflight 320 trước matrix bằng `repr(preflight_code)` để tránh lỗi escape/quote đã gặp.
+  - Preflight bắt buộc xác nhận `OperationsActivity`, marker `ĐỔI MẬT KHẨU`, sau cuộn marker `NHẬT KÝ` rồi mới cho matrix tiếp tục.
+- Harness mới **chưa được thực thi** vì retry cap đã hết; không được tự tuyên bố PASS.
 
-## 6. Trạng thái workspace/CI/external
+## 5. File/commit đã đổi trong chặng visual này
 
-- Working head trước handoff: `473c2338e1a10c31aa2a02a83aa43769f60d6fac`.
-- Không có Android source chưa commit.
-- Không có release write mơ hồ; run cuối `32813298916` đã `completed/success`.
-- Visual cuối `32812834075` đã `completed/success`.
-- Release evidence artifact: `9550565538`.
-- Fresh-read `main`: `a8c0c0d92522c7173230d4175b4f0d3a4906c8bb`.
-- Fresh-read `CURRENT_STATE.md`: Beta72 OTA LIVE PASS.
-- External Beta OTA đã được release script tải lại từ live URL và Drive trực tiếp, SHA/size khớp exact candidate.
-- Stable trước/sau deep-equal theo verifier release.
+- `tools/run_beta73_visual.py`
+  - `9357e5b8449a0fffa621a814ac1083450d10cd79`: timeout/preflight attempt #1 — SUPERSEDED vì syntax defect.
+  - `996b07d5dfe71432f553a15ca9ae2deaae6b274d`: proven-base wrapper attempt — SUPERSEDED vì preflight escape syntax defect.
+  - `70e1cd27c410a34b28bff58cd94602f3aa206398`: current harness fix, chưa chạy.
+- `ops/beta-release-request.json`
+  - `687985362dfd4ee5459cfc3feabf33857b5cbbac`: trigger retry #1.
+  - `ed86884c9a7a296092244eefa14eed0f1b5d38f1`: trigger retry #2.
+- Không sửa Android source sau candidate lock.
+- Không rebuild/resign/version bump.
+- Không publish Stable/main.
 
-## 7. Việc còn lại
+## 6. Workspace / CI / external state
 
-- Blocking: `NONE`.
-- Critical path hiện tại: `NONE` — scope Beta72 đã PASS.
-- Không có gate bắt buộc nào còn pending.
-- Không tự phát sinh Beta73 hoặc việc tối ưu/refactor mới.
+- Branch: `release/beta71-clean-from-beta68-20260825`.
+- Working head trước handoff: `70e1cd27c410a34b28bff58cd94602f3aa206398`.
+- Không có workflow visual đang chạy từ retry budget được phép.
+- Beta73 chưa OTA publish; Beta72 vẫn LIVE.
+- Stable/main/signer/authority chưa có production write trong chặng visual.
+- Worker không deploy; source repo chưa được chứng minh khớp LIVE v64 nên vẫn cấm deploy mù.
+- Exact artifact bytes vẫn là `9552942024` / `ad037c1a...5fd2` / `13130629`.
 
-## 8. NEXT_ACTION — điểm tiếp tục chính xác
+## 7. Blocker OWNER thật
 
-`WAIT_FOR_OWNER_NEW_SCOPE`
+**Blocker:** OWNER đã đặt giới hạn tối đa 2 visual retry và cả 2 đã bị tiêu bởi lỗi harness trước khi Settings probe có thể chạy. Tiếp tục trigger run #3 sẽ trực tiếp vi phạm lệnh OWNER mới nhất.
 
-Phiên mới phải đọc `docs/handovers/HANDOVER_CURRENT.md` trước. Nếu OWNER có yêu cầu mới, dùng Beta72 LIVE ở handoff này làm baseline và thực thi đúng scope. Nếu không có yêu cầu mới, chỉ xác nhận đã nạp Beta72 LIVE và chờ lệnh; không rerun build/visual/OTA.
+**Một thao tác OWNER cần làm:** cho phép **đúng 1 visual-only retry bổ sung** bằng exact artifact `9552942024`, dùng harness commit `70e1cd27c410a34b28bff58cd94602f3aa206398`; vẫn cấm build/sign/version bump/Android source.
 
-Expected result: không đọc lại toàn repo, không kiểm tra lại PASS cũ khi source/artifact bytes không đổi. Fresh-read chỉ external state có thể đổi hoặc trước production write.
+Sau khi được phép, không sửa `ops/beta-release-request.json` theo cách tạo candidate mới; chỉ trigger visual-only exact artifact, verify SHA/size trước visual, probe 320 trước, rồi 360/480 nếu 320 PASS.
 
-## 9. Blocker và quyền
+## 8. Việc còn lại sau khi blocker được gỡ
 
-- `NONE` — không thiếu quyền, MFA, approval hoặc quyết định OWNER.
-- Không chứa secret, token, password, keystore hoặc signed URL tạm trong handoff này.
+1. Chạy đúng 1 visual-only retry trên exact artifact.
+2. Nếu probe 320 fail: dừng ngay tại lỗi probe; không full matrix.
+3. Nếu automation PASS: tải evidence và human inspect Settings 320/360/480 + các màn bắt buộc.
+4. Khóa human visual receipt.
+5. Publish exact candidate `9552942024` lên Beta; không rebuild/resign.
+6. Fresh-read OTA/Drive/LIVE + signer/package/version/SHA/size.
+7. Xác minh Stable/main/signer/authority unchanged.
+8. Cập nhật CURRENT_STATE + handoff PASS.
 
-## 10. Invariants không được phá
+## 9. Invariants
 
-- Beta72 exact Android source giữ tại `73d5432df09c33cda6554090838e5f55e41761ae` cho release đã phát hành.
-- Exact candidate artifact `9549037310`; SHA `fdeb006122f065591e82fe912a4a615c9c42a149568c2fc32f7d5b35db353caf`; size `13114245`.
-- Không rebuild/resign Beta72 đã khóa.
-- Không dùng Beta69/Beta70 làm base.
-- Không đổi Stable/main/signer/authority/provider khi OWNER chưa explicit.
-- Không tạo workflow per-version/observer/status/finalizer; dùng workflow active cố định.
-- Không rerun gate PASS chỉ để xác nhận lại handoff.
-- Deterministic failure: dùng đúng đường PASS đã ghi, không retry. Transient: tối đa 2 retry có backoff, giữ nguyên bytes. Harness: sửa harness, không rebuild APK.
+- Beta73 exact candidate không được thay bytes.
+- Không tạo Beta74.
+- Không rebuild/resign candidate.
+- Harness failure chỉ sửa harness.
+- Stable/main/signer/authority/provider không đổi nếu OWNER chưa explicit.
+- Worker không deploy mù.
+- Không tin automation PASS thay cho human pixel inspection.
+- Không publish trước human visual PASS.
 
-## 11. Resume contract
+## 10. NEXT_ACTION
 
-Ưu tiên: OWNER mới nhất → canonical READY → CURRENT_STATE → live readback → receipt/artifact/hash → lịch sử. ACTIVE thắng SUPERSEDED; TARGET/CANDIDATE không phải LIVE. Phiên mới tin các PASS/ID/hash ở đây nếu input/source/bytes không đổi. Chỉ fresh-read external state có thể thay đổi sau `created_at` hoặc ngay trước production write. Không yêu cầu OWNER kể lại thông tin đã có.
+`OWNER_AUTHORIZE_ONE_ADDITIONAL_VISUAL_ONLY_RETRY`
 
-## 12. Retention/restore
+Resume point sau authorization: trigger đúng visual-only workflow hiện có bằng exact artifact `9552942024`; Settings 320 preflight phải PASS trước khi chạy tiếp 360/480.
+
+## 11. Retention
 
 - Canonical: `docs/handovers/HANDOVER_CURRENT.md`.
-- Archive mới: `docs/handovers/HANDOVER_20260825-124600_beta72-live-pass.md`.
-- Archive timestamp hợp lệ trước đó: `docs/handovers/HANDOVER_20260825-104218_handoff-retention-v2.md`.
-- File `HANDOVER_20260825-1028_beta71-live-context-bootstrap.md` là legacy tên không đủ `HHmmss`, không tính vào nhóm archive timestamp v2 theo pattern hiện hành.
-- Sau archive mới, số archive đúng pattern vẫn <= 5; **không cần prune**.
-- Restore bản cũ hơn qua Git history; cấm rewrite history.
+- Archive mới: `docs/handovers/HANDOVER_20260825-160052_beta73-visual-retry-cap-blocked.md`.
+- Archive timestamp v2 trước đó: `HANDOVER_20260825-104218_handoff-retention-v2.md`, `HANDOVER_20260825-124600_beta72-live-pass.md`.
+- `HANDOVER_20260825-1028_beta71-live-context-bootstrap.md` là legacy không đủ HHmmss, không tính retention v2.
+- Sau archive mới vẫn <= 5 archive timestamp v2; không prune.
