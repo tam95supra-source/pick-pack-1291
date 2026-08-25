@@ -14,90 +14,29 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  export-locked-visual-evidence:
+  publish-locked-candidate:
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 45
     env:
-      CANDIDATE_ARTIFACT_ID: '9545736575'
-      VISUAL_ARTIFACT_ID: '9546071678'
-      CANDIDATE_RUN_ID: '32798498529'
-      EXPECTED_SIGNER_SHA256: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
       GH_TOKEN: ${{ github.token }}
+      GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+      GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+      GOOGLE_OAUTH_REFRESH_TOKEN: ${{ secrets.GOOGLE_OAUTH_REFRESH_TOKEN }}
+      GAS_SCRIPT_ID: ${{ secrets.GAS_SCRIPT_ID }}
+      GAS_DEPLOYMENT_ID: ${{ secrets.GAS_DEPLOYMENT_ID }}
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
 
-      - name: Fetch and verify locked evidence
-        id: identity
+      - name: Publish exact locked Beta71 and verify OTA
         shell: bash
-        run: |
-          set -euo pipefail
-          test "$(jq -r '.stage' ops/beta-release-request.json)" = visual-export
-          mkdir -p /tmp/beta71-candidate /tmp/beta71-visual
-          gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${CANDIDATE_ARTIFACT_ID}/zip" > /tmp/candidate.zip
-          gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${VISUAL_ARTIFACT_ID}/zip" > /tmp/visual.zip
-          unzip -q /tmp/candidate.zip -d /tmp/beta71-candidate
-          unzip -q /tmp/visual.zip -d /tmp/beta71-visual
-          APK=$(find /tmp/beta71-candidate -type f -name 'pick-pack-1291-public-beta-0.4.2-beta.71.apk' -print -quit)
-          META=$(find /tmp/beta71-candidate -type f -name release-meta.json -print -quit)
-          VIS=$(dirname "$(find /tmp/beta71-visual -type f -name runtime-summary.txt -print -quit)")
-          test -n "$APK" && test -n "$META" && test -n "$VIS"
-          SHA=$(sha256sum "$APK" | awk '{print $1}')
-          SIZE=$(stat -c '%s' "$APK")
-          test "$SHA" = "$(jq -r '.apk_sha256' "$META")"
-          test "$SIZE" = "$(jq -r '.apk_size' "$META")"
-          test "$(jq -r '.version_name' "$META")" = 0.4.2-beta.71
-          test "$(jq -r '.version_code' "$META")" = 77
-          test "$(jq -r '.package' "$META")" = vn.pickpack1291.app.beta.publicbeta
-          test "$(jq -r '.signer_sha256' "$META")" = "$EXPECTED_SIGNER_SHA256"
-          test "$(find "$VIS" -type f -name '*.png' | wc -l)" = 36
-          grep -Fq '320x568x160: screenshots=12' "$VIS/runtime-summary.txt"
-          grep -Fq '360x640x160: screenshots=12' "$VIS/runtime-summary.txt"
-          grep -Fq '480x800x240: screenshots=12' "$VIS/runtime-summary.txt"
-          python3 - "$VIS" <<'PY'
-          import struct,sys
-          from pathlib import Path
-          root=Path(sys.argv[1])
-          expected={'320x568x160':(320,568),'360x640x160':(360,640),'480x800x240':(480,800)}
-          for d,wh in expected.items():
-              files=sorted((root/d).glob('*.png'))
-              assert len(files)==12,(d,len(files))
-              for p in files:
-                  b=p.read_bytes()
-                  assert b[:8]==b'\x89PNG\r\n\x1a\n',p
-                  assert struct.unpack('>II',b[16:24])==wh,(p,struct.unpack('>II',b[16:24]),wh)
-          PY
-          echo "apk_sha=$SHA" >> "$GITHUB_OUTPUT"
-          echo "apk_size=$SIZE" >> "$GITHUB_OUTPUT"
-          echo "visual_root=$VIS" >> "$GITHUB_OUTPUT"
+        run: bash tools/publish_beta71_ota.sh
 
-      - name: Persist reviewable screenshots without rebuilding
-        shell: bash
-        env:
-          APK_SHA: ${{ steps.identity.outputs.apk_sha }}
-          APK_SIZE: ${{ steps.identity.outputs.apk_size }}
-          VIS: ${{ steps.identity.outputs.visual_root }}
-        run: |
-          set -euo pipefail
-          DEST=ops/evidence/beta71-final-approved
-          test ! -e "$DEST"
-          mkdir -p "$DEST"
-          while IFS= read -r f; do
-            rel="${f#"$VIS"/}"
-            mkdir -p "$DEST/$(dirname "$rel")"
-            cp "$f" "$DEST/$rel"
-          done < <(find "$VIS" -type f \( -name '*.png' -o -name runtime-summary.txt -o -name badging.txt \) | sort)
-          jq -n \
-            --argjson candidate_run_id "$CANDIDATE_RUN_ID" \
-            --argjson candidate_artifact_id "$CANDIDATE_ARTIFACT_ID" \
-            --argjson visual_artifact_id "$VISUAL_ARTIFACT_ID" \
-            --arg apk_sha256 "$APK_SHA" \
-            --argjson apk_size "$APK_SIZE" \
-            --arg signer_sha256 "$EXPECTED_SIGNER_SHA256" \
-            '{verdict:"RUNTIME_PASS_AWAITING_HUMAN_INSPECTION",version_name:"0.4.2-beta.71",version_code:77,package:"vn.pickpack1291.app.beta.publicbeta",candidate_run_id:$candidate_run_id,candidate_artifact_id:$candidate_artifact_id,visual_artifact_id:$visual_artifact_id,apk_sha256:$apk_sha256,apk_size:$apk_size,signer_sha256:$signer_sha256,matrix:["320x568@160","360x640@160","480x800@240"],screenshots:36,rebuild:false}' \
-            > "$DEST/identity.json"
-          git config user.name github-actions[bot]
-          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add "$DEST"
-          git commit -m 'qa: persist final approved Beta71 visual evidence'
-          git push origin "HEAD:$GITHUB_REF_NAME"
+      - name: Upload release evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: beta71-release-evidence-${{ github.run_id }}
+          path: /tmp/beta71-evidence
+          retention-days: 30
+          if-no-files-found: warn
