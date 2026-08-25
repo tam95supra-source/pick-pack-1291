@@ -9,34 +9,26 @@ permissions:
   contents: write
   actions: read
 
-concurrency:
-  group: beta71-clean-release
-  cancel-in-progress: false
-
 jobs:
-  publish-locked-candidate:
+  export-publish-preflight:
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
     env:
       GH_TOKEN: ${{ github.token }}
-      GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
-      GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
-      GOOGLE_OAUTH_REFRESH_TOKEN: ${{ secrets.GOOGLE_OAUTH_REFRESH_TOKEN }}
-      GAS_SCRIPT_ID: ${{ secrets.GAS_SCRIPT_ID }}
-      GAS_DEPLOYMENT_ID: ${{ secrets.GAS_DEPLOYMENT_ID }}
+      EVIDENCE_ARTIFACT_ID: '9546159045'
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
-
-      - name: Publish exact locked Beta71 and verify OTA
+      - name: Export exact failed preflight evidence
         shell: bash
-        run: bash tools/publish_beta71_ota.sh
-
-      - name: Upload release evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: beta71-release-evidence-${{ github.run_id }}
-          path: /tmp/beta71-evidence
-          retention-days: 30
-          if-no-files-found: warn
+        run: |
+          set -euo pipefail
+          test "$(jq -r '.stage' ops/beta-release-request.json)" = publish-diagnostic
+          mkdir -p /tmp/evidence ops/diagnostics/beta71-publish-preflight
+          gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${EVIDENCE_ARTIFACT_ID}/zip" > /tmp/evidence.zip
+          unzip -q /tmp/evidence.zip -d /tmp/evidence
+          cp /tmp/evidence/*.json ops/diagnostics/beta71-publish-preflight/
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add ops/diagnostics/beta71-publish-preflight
+          git commit -m 'diag: persist Beta71 publish preflight evidence'
+          git push origin "HEAD:$GITHUB_REF_NAME"
