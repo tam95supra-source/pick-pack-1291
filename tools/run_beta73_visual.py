@@ -19,6 +19,12 @@ src=src.replace(
     1,
 )
 
+probe='def build_ui_probe():\n    sdk=Path(os.environ[\'ANDROID_HOME\'])\n    bt=sorted([p for p in (sdk/\'build-tools\').iterdir() if p.is_dir()],key=lambda p:[int(x) if x.isdigit() else 0 for x in re.split(r\'[^0-9]+\',p.name)],reverse=True)[0]\n    android_jar=sdk/\'platforms\'/\'android-29\'/\'android.jar\'\n    work=OUT/\'ui-probe\'; shutil.rmtree(work,ignore_errors=True); (work/\'classes\').mkdir(parents=True); (work/\'dex\').mkdir()\n    java=work/\'UiProbe.java\'\n    java.write_text(\'package pp.visual.probe;\\nimport android.app.Activity;\\nimport android.app.Instrumentation;\\nimport android.app.UiAutomation;\\nimport android.os.Bundle;\\nimport android.view.accessibility.AccessibilityNodeInfo;\\npublic class UiProbe extends Instrumentation {\\n  @Override public void onStart() {\\n    Bundle out=new Bundle();\\n    try {\\n      UiAutomation ui=getUiAutomation();\\n      AccessibilityNodeInfo root=ui.getRootInActiveWindow();\\n      StringBuilder sb=new StringBuilder();\\n      walk(root,sb);\\n      out.putString("stream","PP_UI_PROBE_BEGIN\\\\n"+sb.toString()+"PP_UI_PROBE_END");\\n      finish(Activity.RESULT_OK,out);\\n    } catch(Throwable t) {\\n      out.putString("stream","PP_UI_PROBE_ERROR:"+t.getClass().getName()+":"+String.valueOf(t.getMessage()));\\n      finish(Activity.RESULT_CANCELED,out);\\n    }\\n  }\\n  private static void walk(AccessibilityNodeInfo n,StringBuilder sb) {\\n    if(n==null)return;\\n    CharSequence t=n.getText(),d=n.getContentDescription();\\n    if(t!=null && t.length()>0)sb.append(t).append(\\\'\\\\n\\\');\\n    if(d!=null && d.length()>0)sb.append(d).append(\\\'\\\\n\\\');\\n    for(int i=0;i<n.getChildCount();i++){AccessibilityNodeInfo c=n.getChild(i);walk(c,sb);if(c!=null)c.recycle();}\\n  }\\n}\\n\',encoding=\'utf-8\')\n    manifest=work/\'AndroidManifest.xml\'\n    manifest.write_text(\'<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="pp.visual.probe"><uses-sdk android:minSdkVersion="23" android:targetSdkVersion="29"/><application android:label="PP Visual Probe"/><instrumentation android:name="pp.visual.probe.UiProbe" android:targetPackage="pp.visual.probe"/></manifest>\',encoding=\'utf-8\')\n    run([\'javac\',\'-source\',\'8\',\'-target\',\'8\',\'-classpath\',str(android_jar),\'-d\',str(work/\'classes\'),str(java)])\n    run([str(bt/\'d8\'),\'--min-api\',\'23\',\'--lib\',str(android_jar),\'--output\',str(work/\'dex\'),str(work/\'classes\'/\'pp\'/\'visual\'/\'probe\'/\'UiProbe.class\')])\n    unsigned=work/\'probe-unsigned.apk\'; signed=work/\'probe.apk\'; ks=work/\'probe.jks\'\n    run([str(bt/\'aapt\'),\'package\',\'-f\',\'-M\',str(manifest),\'-I\',str(android_jar),\'-F\',str(unsigned)])\n    run([\'zip\',\'-q\',\'-j\',str(unsigned),str(work/\'dex\'/\'classes.dex\')])\n    run([\'keytool\',\'-genkeypair\',\'-keystore\',str(ks),\'-storepass\',\'android\',\'-keypass\',\'android\',\'-alias\',\'androiddebugkey\',\'-dname\',\'CN=Android Debug,O=Android,C=US\',\'-keyalg\',\'RSA\',\'-keysize\',\'2048\',\'-validity\',\'10000\',\'-noprompt\'])\n    run([str(bt/\'apksigner\'),\'sign\',\'--ks\',str(ks),\'--ks-key-alias\',\'androiddebugkey\',\'--ks-pass\',\'pass:android\',\'--key-pass\',\'pass:android\',\'--out\',str(signed),str(unsigned)])\n    adb(\'install\',\'-r\',str(signed))\n    return \'pp.visual.probe/.UiProbe\'\n\nUI_PROBE=build_ui_probe()\ndef probe_text(tag):\n    r=adb(\'shell\',\'am\',\'instrument\',\'-w\',UI_PROBE,check=False)\n    record(f\'probe-{tag}.txt\',r.stdout)\n    if \'PP_UI_PROBE_ERROR:\' in r.stdout: raise AssertionError(r.stdout[-3000:])\n    return r.stdout\n'
+marker="matrix=[('320x568','160',(320,568)),('360x640','160',(360,640)),('480x800','240',(480,800))]"
+if marker not in src:
+    raise SystemExit('matrix anchor drift')
+src=src.replace(marker,probe+'\n'+marker,1)
+
 old="\n".join([
 "    imgs=sorted((OUT/d).glob('*.png')); assert len(imgs)==14,(d,len(imgs))",
 "    for f in imgs:",
@@ -37,11 +43,8 @@ new="\n".join([
 "    def settings_marker(marker,tag):",
 "        last=''",
 "        for attempt in range(2):",
-"            try:",
-"                root=dump(OUT/d/f'{tag}-marker-{attempt+1}.xml'); last=all_text(root)",
-"                if marker.casefold() in last.casefold(): return",
-"            except Exception as exc:",
-"                last=f'{type(exc).__name__}: {exc}'",
+"            last=probe_text(f'{d}-{tag}-{attempt+1}')",
+"            if marker.casefold() in last.casefold(): return",
 "            time.sleep(.35)",
 "        raise AssertionError(f'Settings marker missing: {marker!r} ({tag})\\\\n{last[-4000:]}')",
 "",
