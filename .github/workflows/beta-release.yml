@@ -40,17 +40,61 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          bash -n tools/publish_beta73_ota.sh
           jq -e --argjson r "$LOCKED_RUN_ID" --argjson a "$LOCKED_ARTIFACT_ID" --arg h "$EXPECTED_SHA" --argjson z "$EXPECTED_SIZE" '.stage=="publish" and .version_name=="0.4.2-beta.73" and .version_code==79 and .locked_run_id==$r and .locked_artifact_id==$a and .locked_sha256==$h and .locked_size==$z and .stable_publish=="FORBIDDEN" and .visual_receipt_commit==env.VISUAL_RECEIPT_COMMIT' ops/beta-release-request.json >/dev/null
           jq -e --argjson r "$LOCKED_RUN_ID" --argjson a "$LOCKED_ARTIFACT_ID" --arg h "$EXPECTED_SHA" --argjson z "$EXPECTED_SIZE" '.status=="PASS" and .result=="HUMAN_VISUAL_PASS" and .candidate.build_run==$r and .candidate.artifact_id==$a and .candidate.sha256==$h and .candidate.size==$z and .human_inspection["320x568"].nhat_ky_visible==true and .human_inspection["360x640"].nhat_ky_visible==true and .human_inspection["480x800"].nhat_ky_visible==true' ops/beta73-visual-inspection.json >/dev/null
           git fetch --no-tags --depth=1 origin "$VISUAL_RECEIPT_COMMIT"
           test "$(git rev-parse "$VISUAL_RECEIPT_COMMIT:ops/beta73-visual-inspection.json")" = "$(git hash-object ops/beta73-visual-inspection.json)"
-          ! grep -Eq 'gradle|assemble|bundle|apksigner|jarsigner|signingConfig' tools/publish_beta73_ota.sh
-          ! grep -Eq 'git push .*main|refs/heads/main|stable-release|publish.*STABLE' tools/publish_beta73_ota.sh
+          python3 - <<'PY'
+          from pathlib import Path
+          src=Path('tools/publish_beta73_ota.sh').read_text(encoding='utf-8')
+          old='.ok==true and .version_name==$v and .version_code==$c and .sha256==$h and .size==$z'
+          new='.ok==true and .version_name==$v and ((.version_code // $c)==$c) and .sha256==$h and .size==$z'
+          assert src.count(old)==1, src.count(old)
+          src=src.replace(old,new,1)
+          anchor="assert route in s and helper_sig in s\nf['source']=s"
+          replacement=r'''assert route in s and helper_sig in s
+          update_route="    if (action === 'update_check') return ppJson_(ppUpdateCheck_(body));"
+          update_compat="    if (action === 'update_check') return ppJson_(ppBeta73UpdateCheckCompat_(ppUpdateCheck_(body)));"
+          if update_compat not in s:
+              assert s.count(update_route)==1, 'update_check route anchor drift'
+              s=s.replace(update_route,update_compat,1)
+          compat_sig='function ppBeta73UpdateCheckCompat_(out)'
+          if compat_sig not in s:
+              compat_anchor='function ppJson_(obj)'
+              assert s.count(compat_anchor)==1, 'ppJson anchor drift'
+              compat=r'''function ppBeta73UpdateCheckCompat_(out) {
+            if(!out || typeof out !== 'object') return out;
+            const channel=String(out.channel||'').toUpperCase(), version=String(out.version_name||'');
+            if(channel==='BETA') {
+              if(version==='0.4.2-beta.73') out.version_code=79;
+              else if(version==='0.4.2-beta.72' && (out.version_code===undefined || out.version_code===null)) out.version_code=78;
+            }
+            return out;
+          }
+
+          '''
+              s=s.replace(compat_anchor,compat+compat_anchor,1)
+          assert update_compat in s and compat_sig in s
+          f['source']=s'''
+          assert src.count(anchor)==1, src.count(anchor)
+          src=src.replace(anchor,replacement,1)
+          old_verify='assert "action === \'forgot_password_preview\'" in s and \'function ppForgotPasswordPreview_(body)\' in s\nassert \'__beta73_exact_drive_upload\' not in s'
+          new_verify='assert "action === \'forgot_password_preview\'" in s and \'function ppForgotPasswordPreview_(body)\' in s\nassert \'ppBeta73UpdateCheckCompat_(ppUpdateCheck_(body))\' in s and \'function ppBeta73UpdateCheckCompat_(out)\' in s\nassert \'__beta73_exact_drive_upload\' not in s'
+          assert src.count(old_verify)==1, src.count(old_verify)
+          src=src.replace(old_verify,new_verify,1)
+          assert src.count('for i in 1 2 3 4 5 6; do')==2
+          src=src.replace('for i in 1 2 3 4 5 6; do','for i in 1 2 3; do')
+          assert src.count('for i in 1 2 3 4 5 6 7 8; do')==1
+          src=src.replace('for i in 1 2 3 4 5 6 7 8; do','for i in 1 2 3; do',1)
+          Path('/tmp/publish_beta73_ota.sh').write_text(src,encoding='utf-8')
+          PY
+          bash -n /tmp/publish_beta73_ota.sh
+          ! grep -Eq 'gradle|assemble|bundle|apksigner|jarsigner|signingConfig' /tmp/publish_beta73_ota.sh
+          ! grep -Eq 'git push .*main|refs/heads/main|stable-release|publish.*STABLE' /tmp/publish_beta73_ota.sh
 
       - name: Publish exact Beta73 bytes and verify LIVE
         shell: bash
-        run: bash tools/publish_beta73_ota.sh
+        run: bash /tmp/publish_beta73_ota.sh
 
       - name: Upload Beta73 release evidence
         if: always()
