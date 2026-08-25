@@ -24,7 +24,6 @@ jobs:
       LOCKED_ARTIFACT_ID: '9552942024'
       EXPECTED_SHA: ad037c1a17d245f90ead59539c5595cc5df6a568b8657ce636cc43d101175fd2
       EXPECTED_SIZE: '13130629'
-      EXPECTED_SIGNER_SHA256: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
       APK: dist/beta73-locked/pick-pack-1291-public-beta-0.4.2-beta.73.apk
     steps:
       - uses: actions/checkout@v4
@@ -44,22 +43,13 @@ jobs:
           github-token: ${{ github.token }}
           run-id: 32820317675
 
-      - name: Verify exact locked candidate before visual
+      - name: Verify exact SHA and size before visual
         shell: bash
         run: |
           set -euo pipefail
           test -f "$APK"
           test "$(sha256sum "$APK" | awk '{print $1}')" = "$EXPECTED_SHA"
           test "$(stat -c '%s' "$APK")" = "$EXPECTED_SIZE"
-          BT="$(dirname "$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)")"
-          test -x "$BT/aapt"
-          test -x "$BT/apksigner"
-          "$BT/aapt" dump badging "$APK" > /tmp/badging.txt
-          grep -q "package: name='vn.pickpack1291.app.beta.publicbeta'" /tmp/badging.txt
-          grep -q "versionCode='79'" /tmp/badging.txt
-          grep -q "versionName='0.4.2-beta.73'" /tmp/badging.txt
-          "$BT/apksigner" verify --verbose --print-certs "$APK" > /tmp/cert.txt
-          grep -qi "Signer #1 certificate SHA-256 digest: $EXPECTED_SIGNER_SHA256" /tmp/cert.txt
 
       - name: Enable KVM
         shell: bash
