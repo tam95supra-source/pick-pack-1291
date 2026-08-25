@@ -8,12 +8,12 @@
   "service_change": "NONE",
   "gas_change": "FORGOT_PASSWORD_PREVIEW",
   "scope": "settings-visual-harness-only",
-  "requested_at": "2026-08-25T15:49:00+07:00",
+  "requested_at": "2026-08-25T15:56:00+07:00",
   "owner": "Nguyen Van Tam",
   "locked_run_id": 32820317675,
   "locked_artifact_id": 9552942024,
   "locked_sha256": "ad037c1a17d245f90ead59539c5595cc5df6a568b8657ce636cc43d101175fd2",
   "locked_size": 13130629,
-  "attempt": 4,
-  "retry_reason": "bound am instrument probe to 15s, fail-fast 320 Settings preflight before matrix; exact bytes unchanged"
+  "attempt": 5,
+  "retry_reason": "second/root-cause retry: restore proven ebd95 harness and inject only 15s probe timeout plus 320 Settings preflight; exact bytes unchanged"
 }
