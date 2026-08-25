@@ -1,0 +1,51 @@
+{
+  "status": "PASS",
+  "inspected_at": "2026-08-25T17:03:00+07:00",
+  "owner": "Nguyen Van Tam",
+  "candidate": {
+    "build_run": 32820317675,
+    "artifact_id": 9552942024,
+    "version_name": "0.4.2-beta.73",
+    "version_code": 79,
+    "package": "vn.pickpack1291.app.beta.publicbeta",
+    "sha256": "ad037c1a17d245f90ead59539c5595cc5df6a568b8657ce636cc43d101175fd2",
+    "size": 13130629,
+    "signer_sha256": "d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e"
+  },
+  "visual": {
+    "run_id": 32834871019,
+    "artifact_id": 9558250565,
+    "artifact_digest": "sha256:0c59df02ded521cd5bb96653f35687dba31bff88f4450260eaf504efb421d6d4",
+    "harness_commit": "eb434f2f56257d78a1e2f1aa72f7209fd6d7f3e1",
+    "request_commit": "0d7e2fee334e5f591dbdc25d4649b9d48b869b53",
+    "gate": "am start -W + dumpsys activity/window + real PNG + human pixels",
+    "uiautomation": "FORBIDDEN_KNOWN_HANG"
+  },
+  "human_inspection": {
+    "320x568": {
+      "top": "320x568x160/16-settings-top.png",
+      "lower": "320x568x160/17-settings-scroll-2.png",
+      "doi_mat_khau_visible": true,
+      "nhat_ky_visible": true,
+      "wrong_screen": false,
+      "cropped_hidden_overflow": false
+    },
+    "360x640": {
+      "top": "360x640x160/16-settings-top.png",
+      "lower": "360x640x160/17-settings-scroll-2.png",
+      "doi_mat_khau_visible": true,
+      "nhat_ky_visible": true,
+      "wrong_screen": false,
+      "cropped_hidden_overflow": false
+    },
+    "480x800": {
+      "top": "480x800x240/16-settings-top.png",
+      "lower": "480x800x240/17-settings-scroll-2.png",
+      "doi_mat_khau_visible": true,
+      "nhat_ky_visible": true,
+      "wrong_screen": false,
+      "cropped_hidden_overflow": false
+    }
+  },
+  "result": "HUMAN_VISUAL_PASS"
+}
