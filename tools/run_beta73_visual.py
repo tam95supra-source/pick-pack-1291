@@ -7,6 +7,15 @@ BASE_URL='https://raw.githubusercontent.com/tam95supra-source/pick-pack-1291/ebd
 with urlopen(BASE_URL,timeout=20) as r:
     base=r.read().decode('utf-8')
 
+# Root cause from runtime probe #1: full recursive AccessibilityNodeInfo walk
+# does not complete under the live header refresh. Query only the two unique
+# Settings markers through the accessibility bridge; do not traverse children.
+old_walk='StringBuilder sb=new StringBuilder();\\\\n      walk(root,sb);\\\\n      out.putString("stream","PP_UI_PROBE_BEGIN\\\\\\\\n"+sb.toString()+"PP_UI_PROBE_END");'
+new_walk='StringBuilder sb=new StringBuilder();\\\\n      if(root!=null){\\\\n        if(root.findAccessibilityNodeInfosByText("ĐỔI MẬT KHẨU").size()>0) sb.append("ĐỔI MẬT KHẨU\\\\\\\\n");\\\\n        if(root.findAccessibilityNodeInfosByText("NHẬT KÝ").size()>0) sb.append("NHẬT KÝ\\\\\\\\n");\\\\n      }\\\\n      out.putString("stream","PP_UI_PROBE_BEGIN\\\\\\\\n"+sb.toString()+"PP_UI_PROBE_END");'
+if base.count(old_walk)!=1:
+    raise SystemExit(f'java semantic anchor drift: {base.count(old_walk)}')
+base=base.replace(old_walk,new_walk,1)
+
 old_probe="r=adb(\\'shell\\',\\'am\\',\\'instrument\\',\\'-w\\',UI_PROBE,check=False)"
 new_probe=(
     "try:\\n"
