@@ -1,0 +1,200 @@
+name: Beta70 PDA local holder fix candidate
+
+on:
+  push:
+    branches: [ release/beta70-pda-local-holder-fix-20260825 ]
+    paths:
+      - '.github/workflows/_oneoff_beta70_pda_local_holder_candidate.yml'
+      - 'tools/apply_beta70_pda_local_holder_fix.py'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: beta70-pda-local-holder-candidate
+  cancel-in-progress: false
+
+jobs:
+  build-sign:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    outputs:
+      apk_sha: ${{ steps.sign.outputs.sha }}
+      apk_size: ${{ steps.sign.outputs.size }}
+      candidate_artifact_id: ${{ steps.candidate_upload.outputs.artifact-id }}
+      debug_artifact_id: ${{ steps.debug_upload.outputs.artifact-id }}
+    env:
+      EXPECTED_SIGNER_SHA256: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
+      SIGNING_KEY_B64: ${{ secrets.ANDROID_SIGNING_KEY_B64 }}
+      SIGNING_STORE_PASSWORD: ${{ secrets.ANDROID_SIGNING_STORE_PASSWORD }}
+      SIGNING_KEY_PASSWORD: ${{ secrets.ANDROID_SIGNING_KEY_PASSWORD }}
+      SIGNING_ALIAS: ${{ secrets.ANDROID_SIGNING_ALIAS }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Materialize Beta69 source plus Beta70 defect fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile \
+            tools/apply_beta64_owner_seven_fixes.py \
+            tools/apply_beta64_compile_fix.py \
+            tools/apply_beta65_session_resource_login_parity.py \
+            tools/apply_beta65_behavior_compile_fix.py \
+            tools/apply_beta65_scope_compile_fix.py \
+            tools/apply_beta65_login_reference_finish.py \
+            tools/apply_beta66_login_fullframe.py \
+            tools/apply_beta68_owner_five_fixes.py \
+            tools/apply_beta69_owner_six_fixes.py \
+            tools/apply_beta70_pda_local_holder_fix.py
+          python3 tools/apply_beta64_owner_seven_fixes.py
+          python3 tools/apply_beta64_compile_fix.py
+          python3 tools/apply_beta65_session_resource_login_parity.py
+          python3 tools/apply_beta65_behavior_compile_fix.py
+          python3 tools/apply_beta65_scope_compile_fix.py
+          python3 tools/apply_beta65_login_reference_finish.py
+          python3 tools/apply_beta66_login_fullframe.py
+          python3 tools/apply_beta68_owner_five_fixes.py
+          python3 tools/apply_beta69_owner_six_fixes.py
+          python3 tools/apply_beta70_pda_local_holder_fix.py
+
+      - name: Beta70 static and deterministic regression gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          GR=app/build.gradle.kts
+          OPS=app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt
+          grep -q 'versionCode = 76' "$GR"
+          grep -q 'versionName = "0.4.2-beta.70"' "$GR"
+          grep -q 'versionCode = 1' "$GR"
+          grep -q 'versionName = "0.1.0-stable"' "$GR"
+          grep -Fq 'Beta70: local active sessions are the first authority for the PDA holder list.' "$OPS"
+          ! grep -Fq 'if(!rr.ok){showError(rr.error?:"Không tải được tài nguyên");return@runOnUiThread}' "$OPS"
+          grep -Fq 'val mnv=localMnvFor(serial)' "$OPS"
+          grep -Fq 'Chưa tải được danh mục PDA từ Service • vẫn hiển thị PDA đang dùng đã lưu trên thiết bị.' "$OPS"
+          grep -Fq 'if(q.length==5&&q.all{it.isDigit()})serial.takeLast(5)==q' "$OPS"
+          grep -Fq 'Xác nhận Đổi / Trả PDA' "$OPS"
+          grep -Fq 'setOnClickListener{openHolder(serial,mnv)}' "$OPS"
+          python3 tools/apply_beta70_pda_local_holder_fix.py
+          echo BETA70_STATIC_REGRESSION_PASS
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.4.1'
+
+      - name: Resolve Android SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -n "${ANDROID_HOME:-}" && -f "$ANDROID_HOME/platforms/android-36/android.jar" && -x "$ANDROID_HOME/build-tools/36.0.0/apksigner" && -x "$ANDROID_HOME/build-tools/36.0.0/aapt" ]]; then
+            echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> "$GITHUB_ENV"
+            exit 0
+          fi
+          SDK="$RUNNER_TEMP/android-sdk"
+          ZIP="$RUNNER_TEMP/commandlinetools.zip"
+          curl -fsSL https://dl.google.com/android/repository/commandlinetools-linux-15859902_latest.zip -o "$ZIP"
+          echo "4e4c464f145a7512b57d088ac6c278c03c9eea610886b35a5e0804e74eedf583  $ZIP" | sha256sum -c -
+          mkdir -p "$SDK/cmdline-tools"
+          unzip -q "$ZIP" -d "$RUNNER_TEMP/android-cmdline"
+          mv "$RUNNER_TEMP/android-cmdline/cmdline-tools" "$SDK/cmdline-tools/latest"
+          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
+          yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
+          "$SDK/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-36' 'build-tools;36.0.0'
+
+      - name: Assemble Beta70 and verify Stable isolation
+        shell: bash
+        run: gradle --no-daemon --build-cache --parallel :app:assembleBetaDebug :app:assembleStableDebug :app:assembleBetaRelease
+
+      - name: Sign exact Beta70 candidate
+        id: sign
+        shell: bash
+        run: |
+          set -euo pipefail
+          for v in SIGNING_KEY_B64 SIGNING_STORE_PASSWORD SIGNING_KEY_PASSWORD SIGNING_ALIAS; do [[ -n "${!v:-}" ]]; done
+          BT="$ANDROID_SDK_ROOT/build-tools/36.0.0"
+          UNSIGNED=app/build/outputs/apk/beta/release/app-beta-release-unsigned.apk
+          "$BT/aapt" dump badging "$UNSIGNED" > /tmp/beta.txt
+          grep -q "package: name='vn.pickpack1291.app.beta.publicbeta'" /tmp/beta.txt
+          grep -q "versionCode='76'" /tmp/beta.txt
+          grep -q "versionName='0.4.2-beta.70'" /tmp/beta.txt
+          KS="$RUNNER_TEMP/release.jks"
+          printf '%s' "$SIGNING_KEY_B64" | base64 -d > "$KS"
+          printf '%s' "$SIGNING_STORE_PASSWORD" > "$RUNNER_TEMP/store.pass"
+          printf '%s' "$SIGNING_KEY_PASSWORD" > "$RUNNER_TEMP/key.pass"
+          mkdir -p dist/beta70
+          OUT=dist/beta70/pick-pack-1291-public-beta-0.4.2-beta.70.apk
+          "$BT/apksigner" sign --ks "$KS" --ks-key-alias "$SIGNING_ALIAS" --ks-pass "file:$RUNNER_TEMP/store.pass" --key-pass "file:$RUNNER_TEMP/key.pass" --out "$OUT" "$UNSIGNED"
+          "$BT/apksigner" verify --verbose --print-certs "$OUT" > /tmp/cert.txt
+          grep -qi "Signer #1 certificate SHA-256 digest: $EXPECTED_SIGNER_SHA256" /tmp/cert.txt
+          SHA=$(sha256sum "$OUT" | awk '{print $1}')
+          SIZE=$(stat -c '%s' "$OUT")
+          printf '%s  %s\n' "$SHA" "$(basename "$OUT")" > dist/beta70/SHA256SUMS-0.4.2-beta.70.txt
+          cat > dist/beta70/release-meta.json <<EOF
+          {"version_name":"0.4.2-beta.70","version_code":76,"package":"vn.pickpack1291.app.beta.publicbeta","source_sha":"$GITHUB_SHA","apk_sha256":"$SHA","apk_size":$SIZE,"signer_sha256":"$EXPECTED_SIGNER_SHA256","stable_version":"0.1.0-stable","stable_code":1,"stable_publish":"FORBIDDEN","service_change":"NONE"}
+          EOF
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+          echo "size=$SIZE" >> "$GITHUB_OUTPUT"
+          rm -f "$KS" "$RUNNER_TEMP/store.pass" "$RUNNER_TEMP/key.pass"
+
+      - name: Upload exact signed candidate
+        uses: actions/upload-artifact@v4
+        id: candidate_upload
+        with:
+          name: pick-pack-1291-0.4.2-beta.70-candidate
+          path: dist/beta70/*
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Upload debug APK for visual gate
+        uses: actions/upload-artifact@v4
+        id: debug_upload
+        with:
+          name: beta70-visual-debug-input
+          path: app/build/outputs/apk/beta/debug/app-beta-debug.apk
+          retention-days: 14
+          if-no-files-found: error
+
+      - name: Persist candidate receipt
+        shell: bash
+        env:
+          APK_SHA: ${{ steps.sign.outputs.sha }}
+          APK_SIZE: ${{ steps.sign.outputs.size }}
+          CANDIDATE_ARTIFACT_ID: ${{ steps.candidate_upload.outputs.artifact-id }}
+          DEBUG_ARTIFACT_ID: ${{ steps.debug_upload.outputs.artifact-id }}
+        run: |
+          set -euo pipefail
+          mkdir -p ops
+          cat > ops/beta70-candidate-result.txt <<EOF
+          verdict=PASS
+          run_id=$GITHUB_RUN_ID
+          source_sha=$GITHUB_SHA
+          branch=$GITHUB_REF_NAME
+          beta_name=0.4.2-beta.70
+          beta_code=76
+          package=vn.pickpack1291.app.beta.publicbeta
+          apk_file=pick-pack-1291-public-beta-0.4.2-beta.70.apk
+          apk_sha256=$APK_SHA
+          apk_size=$APK_SIZE
+          artifact_id=$CANDIDATE_ARTIFACT_ID
+          debug_artifact_id=$DEBUG_ARTIFACT_ID
+          signer_sha256=d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
+          stable_name=0.1.0-stable
+          stable_code=1
+          stable_publish=FORBIDDEN
+          service_change=NONE
+          EOF
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add ops/beta70-candidate-result.txt
+          git commit -m 'ops: record Beta70 signed candidate PASS'
+          git push origin HEAD:release/beta70-pda-local-holder-fix-20260825
