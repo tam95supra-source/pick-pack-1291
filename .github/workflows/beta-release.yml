@@ -52,7 +52,7 @@ jobs:
           assert src.count(old)==1, src.count(old)
           src=src.replace(old,new,1)
           anchor="assert route in s and helper_sig in s\nf['source']=s"
-          replacement=r'''assert route in s and helper_sig in s
+          replacement=r"""assert route in s and helper_sig in s
           update_route="    if (action === 'update_check') return ppJson_(ppUpdateCheck_(body));"
           update_compat="    if (action === 'update_check') return ppJson_(ppBeta73UpdateCheckCompat_(ppUpdateCheck_(body)));"
           if update_compat not in s:
@@ -62,20 +62,22 @@ jobs:
           if compat_sig not in s:
               compat_anchor='function ppJson_(obj)'
               assert s.count(compat_anchor)==1, 'ppJson anchor drift'
-              compat=r'''function ppBeta73UpdateCheckCompat_(out) {
-            if(!out || typeof out !== 'object') return out;
-            const channel=String(out.channel||'').toUpperCase(), version=String(out.version_name||'');
-            if(channel==='BETA') {
-              if(version==='0.4.2-beta.73') out.version_code=79;
-              else if(version==='0.4.2-beta.72' && (out.version_code===undefined || out.version_code===null)) out.version_code=78;
-            }
-            return out;
-          }
-
-          '''
+              compat='\n'.join([
+                  "function ppBeta73UpdateCheckCompat_(out) {",
+                  "  if(!out || typeof out !== 'object') return out;",
+                  "  const channel=String(out.channel||'').toUpperCase(), version=String(out.version_name||'');",
+                  "  if(channel==='BETA') {",
+                  "    if(version==='0.4.2-beta.73') out.version_code=79;",
+                  "    else if(version==='0.4.2-beta.72' && (out.version_code===undefined || out.version_code===null)) out.version_code=78;",
+                  "  }",
+                  "  return out;",
+                  "}",
+                  "",
+                  ""
+              ])
               s=s.replace(compat_anchor,compat+compat_anchor,1)
           assert update_compat in s and compat_sig in s
-          f['source']=s'''
+          f['source']=s"""
           assert src.count(anchor)==1, src.count(anchor)
           src=src.replace(anchor,replacement,1)
           old_verify='assert "action === \'forgot_password_preview\'" in s and \'function ppForgotPasswordPreview_(body)\' in s\nassert \'__beta73_exact_drive_upload\' not in s'
