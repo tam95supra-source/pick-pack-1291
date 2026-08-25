@@ -2,10 +2,8 @@ name: Beta release clean pipeline
 
 on:
   push:
-    branches:
-      - release/beta71-clean-from-beta68-20260825
-    paths:
-      - ops/beta-release-request.json
+    branches: [ release/beta71-clean-from-beta68-20260825 ]
+    paths: [ 'ops/beta-release-request.json' ]
 
 permissions:
   contents: write
@@ -16,196 +14,90 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  build-visual:
+  export-locked-visual-evidence:
     runs-on: ubuntu-24.04
-    timeout-minutes: 90
+    timeout-minutes: 15
     env:
+      CANDIDATE_ARTIFACT_ID: '9544753296'
+      VISUAL_ARTIFACT_ID: '9544827082'
+      CANDIDATE_RUN_ID: '32795523561'
       EXPECTED_SIGNER_SHA256: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
-      SIGNING_KEY_B64: ${{ secrets.ANDROID_SIGNING_KEY_B64 }}
-      SIGNING_STORE_PASSWORD: ${{ secrets.ANDROID_SIGNING_STORE_PASSWORD }}
-      SIGNING_KEY_PASSWORD: ${{ secrets.ANDROID_SIGNING_KEY_PASSWORD }}
-      SIGNING_ALIAS: ${{ secrets.ANDROID_SIGNING_ALIAS }}
+      GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+        with: { fetch-depth: 0 }
 
-      - name: Materialize canonical Beta71 from Beta68 once
+      - name: Fetch and verify locked evidence
         id: identity
         shell: bash
         run: |
           set -euo pipefail
-          TARGET_VERSION=$(jq -r '.version_name' ops/beta-release-request.json)
-          TARGET_CODE=$(jq -r '.version_code' ops/beta-release-request.json)
-          test "$TARGET_VERSION" = 0.4.2-beta.71
-          test "$TARGET_CODE" = 77
-          if ! grep -q 'versionName = "0.4.2-beta.71"' app/build.gradle.kts; then
-            python3 -m py_compile \
-              tools/apply_beta64_owner_seven_fixes.py \
-              tools/apply_beta64_compile_fix.py \
-              tools/apply_beta65_session_resource_login_parity.py \
-              tools/apply_beta65_behavior_compile_fix.py \
-              tools/apply_beta65_scope_compile_fix.py \
-              tools/apply_beta65_login_reference_finish.py \
-              tools/apply_beta66_login_fullframe.py \
-              tools/apply_beta68_owner_five_fixes.py \
-              tools/apply_beta71_owner_requests_v5.py \
-              tools/apply_beta71_owner_requests_final.py \
-              tools/apply_beta71_pda_local_holder.py
-            python3 tools/apply_beta64_owner_seven_fixes.py
-            python3 tools/apply_beta64_compile_fix.py
-            python3 tools/apply_beta65_session_resource_login_parity.py
-            python3 tools/apply_beta65_behavior_compile_fix.py
-            python3 tools/apply_beta65_scope_compile_fix.py
-            python3 tools/apply_beta65_login_reference_finish.py
-            python3 tools/apply_beta66_login_fullframe.py
-            python3 tools/apply_beta68_owner_five_fixes.py
-            python3 tools/apply_beta71_owner_requests_final.py
-            python3 tools/apply_beta71_pda_local_holder.py
-            git diff --check
-            git config user.name github-actions[bot]
-            git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-            git add app
-            git commit -m 'build: materialize canonical Beta71 from Beta68'
-            git push origin "HEAD:$GITHUB_REF_NAME"
-          fi
-          grep -q 'versionCode = 77' app/build.gradle.kts
-          grep -q 'versionName = "0.4.2-beta.71"' app/build.gradle.kts
-          SOURCE_SHA=$(git rev-parse HEAD)
-          echo "source_sha=$SOURCE_SHA" >> "$GITHUB_OUTPUT"
+          test "$(jq -r '.stage' ops/beta-release-request.json)" = visual-export
+          mkdir -p /tmp/beta71-candidate /tmp/beta71-visual
+          gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${CANDIDATE_ARTIFACT_ID}/zip" > /tmp/candidate.zip
+          gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${VISUAL_ARTIFACT_ID}/zip" > /tmp/visual.zip
+          unzip -q /tmp/candidate.zip -d /tmp/beta71-candidate
+          unzip -q /tmp/visual.zip -d /tmp/beta71-visual
+          APK=$(find /tmp/beta71-candidate -type f -name 'pick-pack-1291-public-beta-0.4.2-beta.71.apk' -print -quit)
+          META=$(find /tmp/beta71-candidate -type f -name release-meta.json -print -quit)
+          VIS=$(dirname "$(find /tmp/beta71-visual -type f -name runtime-summary.txt -print -quit)")
+          test -n "$APK" && test -n "$META" && test -n "$VIS"
+          SHA=$(sha256sum "$APK" | awk '{print $1}')
+          SIZE=$(stat -c '%s' "$APK")
+          test "$SHA" = "$(jq -r '.apk_sha256' "$META")"
+          test "$SIZE" = "$(jq -r '.apk_size' "$META")"
+          test "$(jq -r '.version_name' "$META")" = 0.4.2-beta.71
+          test "$(jq -r '.version_code' "$META")" = 77
+          test "$(jq -r '.package' "$META")" = vn.pickpack1291.app.beta.publicbeta
+          test "$(jq -r '.signer_sha256' "$META")" = "$EXPECTED_SIGNER_SHA256"
+          test "$(find "$VIS" -type f -name '*.png' | wc -l)" = 36
+          grep -Fq '320x568x160: screenshots=12' "$VIS/runtime-summary.txt"
+          grep -Fq '360x640x160: screenshots=12' "$VIS/runtime-summary.txt"
+          grep -Fq '480x800x240: screenshots=12' "$VIS/runtime-summary.txt"
+          python3 - "$VIS" <<'PY'
+          import struct,sys
+          from pathlib import Path
+          root=Path(sys.argv[1])
+          expected={'320x568x160':(320,568),'360x640x160':(360,640),'480x800x240':(480,800)}
+          for d,wh in expected.items():
+              files=sorted((root/d).glob('*.png'))
+              assert len(files)==12,(d,len(files))
+              for p in files:
+                  b=p.read_bytes()
+                  assert b[:8]==b'\x89PNG\r\n\x1a\n',p
+                  assert struct.unpack('>II',b[16:24])==wh,(p,struct.unpack('>II',b[16:24]),wh)
+          PY
+          echo "apk_sha=$SHA" >> "$GITHUB_OUTPUT"
+          echo "apk_size=$SIZE" >> "$GITHUB_OUTPUT"
+          echo "visual_root=$VIS" >> "$GITHUB_OUTPUT"
 
-      - name: Owner regression gates
-        shell: bash
-        run: |
-          set -euo pipefail
-          OPS=app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt
-          grep -Fq 'Ai thực hiện:' "$OPS"
-          grep -Fq 'Nội dung thay đổi' "$OPS"
-          grep -Fq 'transportViHeader(net.transport)' "$OPS"
-          grep -Fq 'Chờ đồng bộ: $queue' "$OPS"
-          grep -Fq 'Đường đi dữ liệu' "$OPS"
-          grep -Fq 'Cảnh báo đối soát $shift chưa khớp' "$OPS"
-          grep -Fq 'Animation.INFINITE' "$OPS"
-          grep -Fq 'Chạm để xem chi tiết • Đổi PDA • Trả PDA' "$OPS"
-          grep -Fq 'override fun onBackPressed()' "$OPS"
-          grep -Fq 'if(!isRootScreen())navigateBack()' "$OPS"
-          grep -Fq 'sessionWorkChangeDetail(payload:JSONObject)' "$OPS"
-          grep -Fq '"REPLACE_RESOURCE"' "$OPS"
-          grep -Fq 'local active sessions are the first authority for the PDA holder list' "$OPS"
-          ! grep -Fq 'if(!rr.ok){showError(rr.error?:"Không tải được tài nguyên");return@runOnUiThread}' "$OPS"
-          grep -q 'versionCode = 1' app/build.gradle.kts
-          grep -q 'versionName = "0.1.0-stable"' app/build.gradle.kts
-
-      - uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: '17'
-
-      - uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '9.4.1'
-
-      - name: Resolve Android SDK
-        shell: bash
-        run: |
-          set -euo pipefail
-          if [[ -n "${ANDROID_HOME:-}" && -f "$ANDROID_HOME/platforms/android-36/android.jar" && -x "$ANDROID_HOME/build-tools/36.0.0/apksigner" && -x "$ANDROID_HOME/build-tools/36.0.0/aapt" ]]; then
-            echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> "$GITHUB_ENV"
-            exit 0
-          fi
-          SDK="$RUNNER_TEMP/android-sdk"
-          ZIP="$RUNNER_TEMP/commandlinetools.zip"
-          curl -fsSL https://dl.google.com/android/repository/commandlinetools-linux-15859902_latest.zip -o "$ZIP"
-          echo "4e4c464f145a7512b57d088ac6c278c03c9eea610886b35a5e0804e74eedf583  $ZIP" | sha256sum -c -
-          mkdir -p "$SDK/cmdline-tools"
-          unzip -q "$ZIP" -d "$RUNNER_TEMP/android-cmdline"
-          mv "$RUNNER_TEMP/android-cmdline/cmdline-tools" "$SDK/cmdline-tools/latest"
-          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
-          echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
-          yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
-          "$SDK/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-36' 'build-tools;36.0.0'
-
-      - name: Assemble Beta and Stable isolation
-        run: gradle --no-daemon --build-cache --parallel :app:assembleBetaDebug :app:assembleStableDebug :app:assembleBetaRelease
-
-      - name: Sign exact Beta71 candidate
-        id: sign
+      - name: Persist reviewable screenshots without rebuilding
         shell: bash
         env:
-          SOURCE_SHA: ${{ steps.identity.outputs.source_sha }}
+          APK_SHA: ${{ steps.identity.outputs.apk_sha }}
+          APK_SIZE: ${{ steps.identity.outputs.apk_size }}
+          VIS: ${{ steps.identity.outputs.visual_root }}
         run: |
           set -euo pipefail
-          for v in SIGNING_KEY_B64 SIGNING_STORE_PASSWORD SIGNING_KEY_PASSWORD SIGNING_ALIAS; do test -n "${!v:-}"; done
-          BT="$ANDROID_SDK_ROOT/build-tools/36.0.0"
-          U=app/build/outputs/apk/beta/release/app-beta-release-unsigned.apk
-          "$BT/aapt" dump badging "$U" > /tmp/badging.txt
-          grep -q "package: name='vn.pickpack1291.app.beta.publicbeta'" /tmp/badging.txt
-          grep -q "versionCode='77'" /tmp/badging.txt
-          grep -q "versionName='0.4.2-beta.71'" /tmp/badging.txt
-          KS="$RUNNER_TEMP/release.jks"
-          printf '%s' "$SIGNING_KEY_B64" | base64 -d > "$KS"
-          printf '%s' "$SIGNING_STORE_PASSWORD" > "$RUNNER_TEMP/store.pass"
-          printf '%s' "$SIGNING_KEY_PASSWORD" > "$RUNNER_TEMP/key.pass"
-          mkdir -p dist/beta71
-          OUT=dist/beta71/pick-pack-1291-public-beta-0.4.2-beta.71.apk
-          "$BT/apksigner" sign --ks "$KS" --ks-key-alias "$SIGNING_ALIAS" --ks-pass "file:$RUNNER_TEMP/store.pass" --key-pass "file:$RUNNER_TEMP/key.pass" --out "$OUT" "$U"
-          "$BT/apksigner" verify --verbose --print-certs "$OUT" > /tmp/cert.txt
-          grep -qi "Signer #1 certificate SHA-256 digest: $EXPECTED_SIGNER_SHA256" /tmp/cert.txt
-          APK_SHA=$(sha256sum "$OUT" | awk '{print $1}')
-          APK_SIZE=$(stat -c '%s' "$OUT")
-          printf '%s  %s\n' "$APK_SHA" "$(basename "$OUT")" > dist/beta71/SHA256SUMS-0.4.2-beta.71.txt
-          jq -nc --arg source "$SOURCE_SHA" --arg sha "$APK_SHA" --argjson size "$APK_SIZE" --arg signer "$EXPECTED_SIGNER_SHA256" \
-            '{version_name:"0.4.2-beta.71",version_code:77,package:"vn.pickpack1291.app.beta.publicbeta",source_sha:$source,apk_sha256:$sha,apk_size:$size,signer_sha256:$signer,stable_version:"0.1.0-stable",stable_code:1,stable_publish:"FORBIDDEN",service_change:"NONE"}' \
-            > dist/beta71/release-meta.json
-          echo "apk_sha=$APK_SHA" >> "$GITHUB_OUTPUT"
-          echo "apk_size=$APK_SIZE" >> "$GITHUB_OUTPUT"
-          echo "EXPECTED_SHA=$APK_SHA" >> "$GITHUB_ENV"
-          echo "EXPECTED_SIZE=$APK_SIZE" >> "$GITHUB_ENV"
-          echo "APK=$OUT" >> "$GITHUB_ENV"
-          rm -f "$KS" "$RUNNER_TEMP/store.pass" "$RUNNER_TEMP/key.pass"
-
-      - name: Upload exact signed candidate
-        uses: actions/upload-artifact@v4
-        with:
-          name: beta71-candidate-${{ github.run_id }}
-          path: dist/beta71/*
-          retention-days: 30
-          if-no-files-found: error
-
-      - name: Verify exact candidate before visual gate
-        shell: bash
-        run: |
-          set -euo pipefail
-          test -f "$APK"
-          test "$(sha256sum "$APK" | awk '{print $1}')" = "$EXPECTED_SHA"
-          test "$(stat -c '%s' "$APK")" = "$EXPECTED_SIZE"
-
-      - name: Enable KVM
-        shell: bash
-        run: |
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules >/dev/null
-          sudo udevadm control --reload-rules
-          sudo udevadm trigger --name-match=kvm || true
-          sudo chmod 666 /dev/kvm || true
-
-      - name: Run Beta71 visual matrix
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 29
-          target: default
-          arch: x86_64
-          profile: pixel_2
-          disable-animations: false
-          emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-metrics
-          script: |
-            adb install -r "$APK"
-            python3 tools/run_beta71_visual.py
-
-      - name: Upload visual evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: beta71-visual-${{ github.run_id }}
-          path: /tmp/visual
-          retention-days: 30
-          if-no-files-found: error
+          DEST=ops/evidence/beta71
+          test ! -e "$DEST"
+          mkdir -p "$DEST"
+          while IFS= read -r f; do
+            rel="${f#"$VIS"/}"
+            mkdir -p "$DEST/$(dirname "$rel")"
+            cp "$f" "$DEST/$rel"
+          done < <(find "$VIS" -type f \( -name '*.png' -o -name runtime-summary.txt -o -name badging.txt \) | sort)
+          jq -n \
+            --argjson candidate_run_id "$CANDIDATE_RUN_ID" \
+            --argjson candidate_artifact_id "$CANDIDATE_ARTIFACT_ID" \
+            --argjson visual_artifact_id "$VISUAL_ARTIFACT_ID" \
+            --arg apk_sha256 "$APK_SHA" \
+            --argjson apk_size "$APK_SIZE" \
+            --arg signer_sha256 "$EXPECTED_SIGNER_SHA256" \
+            '{verdict:"RUNTIME_PASS_AWAITING_HUMAN_INSPECTION",version_name:"0.4.2-beta.71",version_code:77,package:"vn.pickpack1291.app.beta.publicbeta",candidate_run_id:$candidate_run_id,candidate_artifact_id:$candidate_artifact_id,visual_artifact_id:$visual_artifact_id,apk_sha256:$apk_sha256,apk_size:$apk_size,signer_sha256:$signer_sha256,matrix:["320x568@160","360x640@160","480x800@240"],screenshots:36,rebuild:false}' \
+            > "$DEST/identity.json"
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add "$DEST"
+          git commit -m 'qa: persist locked Beta71 visual evidence'
+          git push origin "HEAD:$GITHUB_REF_NAME"
