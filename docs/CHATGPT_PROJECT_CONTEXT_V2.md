@@ -17,9 +17,9 @@ Không tạo nhiều agent nếu không giảm critical path; tối đa 2 phần
 
 ### Authority
 
-Ưu tiên: lệnh OWNER mới nhất → CURRENT_STATE/handover canonical mới nhất → live readback → receipt/artifact/hash → lịch sử. ACTIVE thắng SUPERSEDED; TARGET/CANDIDATE không phải LIVE. Không bịa trạng thái, ID, link, quyền, version hay test result.
+Ưu tiên: lệnh OWNER mới nhất → handoff READY mới nhất trong repo → CURRENT_STATE → live readback → receipt/artifact/hash → lịch sử. ACTIVE thắng SUPERSEDED; TARGET/CANDIDATE không phải LIVE. Không bịa trạng thái, ID, link, quyền, version hay test result.
 
-Đầu task chỉ đọc CURRENT_STATE, file OWNER chỉ định và đúng failure domain. Không crawl lại repo, không recap dài, không hỏi dữ liệu đã có, không chạy lại gate PASS nếu input/bytes không đổi.
+Mọi phiên mới tự đọc `docs/handovers/HANDOVER_CURRENT.md`, kể cả OWNER chưa ghi yêu cầu. Nếu canonical thiếu/không READY thì chọn archive timestamp READY mới nhất; không hỏi OWNER chỉ file. Sau đó chỉ đọc file OWNER chỉ định và đúng failure domain. Không crawl repo, recap dài, hỏi lại dữ liệu đã có hoặc chạy lại gate PASS nếu input/bytes không đổi.
 
 ### Thực thi
 
@@ -71,16 +71,23 @@ Chỉ hỏi nếu thiếu quyền/MFA/manual approval không có đường thay 
 
 Khi OWNER nói chuyển phiên, đổi chat, sang chat mới, tạo/chốt bàn giao hoặc handoff: đây là lệnh tạo artifact bắt buộc. Trước khi final, dừng ở điểm atomic an toàn và thực thi `docs/CHAT_HANDOFF_PROTOCOL.md`.
 
-Phải tạo/commit/push cả:
+Phải commit/push hai file cùng nội dung:
 - `docs/handovers/HANDOVER_CURRENT.md` — canonical;
-- `docs/handovers/HANDOVER_<YYYYMMDD-HHmm>_<slug>.md` — archive cùng nội dung.
+- `docs/handovers/HANDOVER_<YYYYMMDD-HHmmss>_<slug>.md` — archive.
 
-Handoff phải có status READY, thời gian, branch/head SHA, mục tiêu + DoD, LIVE/TARGET/CANDIDATE, exact evidence và locked identity, file/commit đã đổi, lỗi + root cause + cách PASS/cách cấm lặp, workspace/CI/external state, việc còn lại, blocker/quyền, invariants và đúng một `NEXT_ACTION`. Không chứa secret. Không rerun gate PASS chỉ để viết bàn giao. Nếu LIVE đổi thì cập nhật CURRENT_STATE.
+Canonical không tính vào giới hạn. Chỉ giữ tối đa 5 archive timestamp mới nhất; khi có bản thứ 6, xóa archive cũ nhất khỏi active tree. OWNER đã cho phép prune theo retention; không rewrite history nên vẫn restore được bản cũ qua Git.
 
-Ở phiên mới, khi OWNER nói tiếp tục/làm tiếp/đã chuyển phiên: đọc HANDOVER_CURRENT trước; không crawl repo, không đọc lại log hoặc rerun PASS khi input/source/artifact bytes không đổi; bắt đầu ngay từ NEXT_ACTION. Chỉ fresh-read phần external có thể đổi sau thời điểm bàn giao hoặc ngay trước production write.
+Handoff schema v2 phải có status READY, thời gian, branch/working head SHA, `archive_file`, mục tiêu + DoD, LIVE/TARGET/CANDIDATE, exact evidence/locked identity, file/commit đã đổi, lỗi + root cause + đường PASS/cách cấm lặp, workspace/CI/external state, việc còn lại, blocker/quyền, invariants và đúng một `NEXT_ACTION`. Không chứa secret; không rerun PASS chỉ để viết bàn giao. Nếu LIVE đổi thì cập nhật CURRENT_STATE. Readback canonical/archive trước final.
 
-Final của phiên chuyển chỉ được gửi sau khi file đọc được; phải kèm link canonical và một câu resume.
+Quy tắc mở phiên mới áp dụng tự động dù OWNER không nói “tiếp tục”:
+- đọc canonical READY trước; nếu lỗi thì chọn archive timestamp READY mới nhất, không hỏi OWNER và không crawl repo;
+- có yêu cầu mới: nạp trạng thái rồi ưu tiên thực thi yêu cầu mới;
+- không có yêu cầu và task IN_PROGRESS: tiếp tục `NEXT_ACTION` trong scope đã duyệt;
+- task PASS hoặc `WAIT_FOR_OWNER_NEW_SCOPE`: xác nhận một câu đã nạp và chờ, không tự phát sinh việc;
+- task BLOCKED: nêu đúng blocker/thao tác OWNER đã ghi;
+- tin PASS/ID/hash khi input/source/bytes không đổi; chỉ fresh-read external state có thể đổi hoặc trước production write.
 
+Prompt dùng ở first chat nằm tại `docs/FIRST_CHAT_PROMPT.md`. Final của phiên chuyển chỉ gửi sau khi file đọc được, kèm link canonical và một câu resume.
 ### Final
 
 Final ngắn: kết quả + evidence cốt lõi + đúng phần OWNER cần làm. Còn action hợp lệ thì tiếp tục, không kết thúc bằng “sẽ làm/nếu anh muốn”.
