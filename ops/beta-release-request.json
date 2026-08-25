@@ -8,21 +8,23 @@
   "service_change": "NONE",
   "gas_change": "FORGOT_PASSWORD_PREVIEW",
   "scope": "settings-visual-harness-only",
-  "requested_at": "2026-08-25T16:17:00+07:00",
+  "requested_at": "2026-08-25T16:26:00+07:00",
   "owner": "Nguyen Van Tam",
   "locked_run_id": 32820317675,
   "locked_artifact_id": 9552942024,
   "locked_sha256": "ad037c1a17d245f90ead59539c5595cc5df6a568b8657ce636cc43d101175fd2",
   "locked_size": 13130629,
-  "visual_probe_attempt": 1,
+  "visual_probe_attempt": 2,
+  "harness_blob": "95e3c9713b74c7e8796e9e9877a80ac62a2ab060",
   "preflight": {
     "py_compile": "PASS",
     "materialized_compile": "PASS",
-    "materialized_wrapper_sha256": "086630ddf4b652959be008ed889fccab0b0ef23651b7910072e39b3abccab2aa",
-    "materialized_final_sha256": "e4833ba9d82ee30e74a8f1de44cb1636d940122a0bfa3a0d62d8a3bb39b4c855",
+    "materialized_wrapper_sha256": "508e28ca6baa1bc87eddfe06005e9e4c385a97d192c9c47600ccd4b884d68543",
+    "materialized_final_sha256": "e20484a6c0805a9bad524934d9a14706254e15251485b419f9e3ff13d4075bcf",
+    "java_helper_syntax": "PASS",
     "probe_timeout_seconds": 15,
     "timeout_expired_handled": true,
     "preflight_320_before_matrix": true
   },
-  "retry_reason": "OWNER reset runtime retry budget: syntax-only runs do not count; exact harness 70e1 materialized payload compile PASS; run Settings probe attempt 1 on exact bytes"
+  "retry_reason": "runtime probe #1 timed out during recursive accessibility traversal; replace recursion with two bounded findAccessibilityNodeInfosByText Settings marker queries; exact bytes unchanged"
 }
