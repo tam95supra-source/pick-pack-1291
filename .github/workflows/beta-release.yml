@@ -6,7 +6,7 @@ on:
     paths: [ 'ops/beta-release-request.json' ]
 
 permissions:
-  contents: read
+  contents: write
   actions: read
 
 concurrency:
@@ -14,77 +14,29 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  visual-locked-candidate:
+  publish-locked-candidate:
     runs-on: ubuntu-24.04
-    timeout-minutes: 55
+    timeout-minutes: 45
     env:
-      CANDIDATE_ARTIFACT_ID: '9549037310'
-      EXPECTED_SHA: fdeb006122f065591e82fe912a4a615c9c42a149568c2fc32f7d5b35db353caf
-      EXPECTED_SIZE: '13114245'
-      EXPECTED_SOURCE_SHA: 73d5432df09c33cda6554090838e5f55e41761ae
-      EXPECTED_SIGNER_SHA256: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
       GH_TOKEN: ${{ github.token }}
+      GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+      GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+      GOOGLE_OAUTH_REFRESH_TOKEN: ${{ secrets.GOOGLE_OAUTH_REFRESH_TOKEN }}
+      GAS_SCRIPT_ID: ${{ secrets.GAS_SCRIPT_ID }}
+      GAS_DEPLOYMENT_ID: ${{ secrets.GAS_DEPLOYMENT_ID }}
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
 
-      - name: Fetch exact locked Beta72 candidate
+      - name: Publish exact locked Beta72 and verify OTA
         shell: bash
-        run: |
-          set -euo pipefail
-          REQ=ops/beta-release-request.json
-          test "$(jq -r '.stage' "$REQ")" = visual
-          test "$(jq -r '.candidate_run_id' "$REQ")" = 32808558173
-          test "$(jq -r '.candidate_artifact_id' "$REQ")" = "$CANDIDATE_ARTIFACT_ID"
-          test "$(jq -r '.apk_sha256' "$REQ")" = "$EXPECTED_SHA"
-          test "$(jq -r '.apk_size' "$REQ")" = "$EXPECTED_SIZE"
-          test "$(jq -r '.source_sha' "$REQ")" = "$EXPECTED_SOURCE_SHA"
-          mkdir -p /tmp/candidate
-          gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${CANDIDATE_ARTIFACT_ID}/zip" > /tmp/candidate.zip
-          unzip -q /tmp/candidate.zip -d /tmp/candidate
-          APK=$(find /tmp/candidate -type f -name 'pick-pack-1291-public-beta-0.4.2-beta.72.apk' -print -quit)
-          META=$(find /tmp/candidate -type f -name release-meta.json -print -quit)
-          SUM=$(find /tmp/candidate -type f -name 'SHA256SUMS-0.4.2-beta.72.txt' -print -quit)
-          test -n "$APK" && test -n "$META" && test -n "$SUM"
-          test "$(sha256sum "$APK" | awk '{print $1}')" = "$EXPECTED_SHA"
-          test "$(stat -c '%s' "$APK")" = "$EXPECTED_SIZE"
-          grep -qx "$EXPECTED_SHA  pick-pack-1291-public-beta-0.4.2-beta.72.apk" "$SUM"
-          test "$(jq -r '.apk_sha256' "$META")" = "$EXPECTED_SHA"
-          test "$(jq -r '.apk_size' "$META")" = "$EXPECTED_SIZE"
-          test "$(jq -r '.version_name' "$META")" = 0.4.2-beta.72
-          test "$(jq -r '.version_code' "$META")" = 78
-          test "$(jq -r '.package' "$META")" = vn.pickpack1291.app.beta.publicbeta
-          test "$(jq -r '.source_sha' "$META")" = "$EXPECTED_SOURCE_SHA"
-          test "$(jq -r '.signer_sha256' "$META")" = "$EXPECTED_SIGNER_SHA256"
-          test "$(jq -r '.stable_publish' "$META")" = FORBIDDEN
-          echo "APK=$APK" >> "$GITHUB_ENV"
+        run: bash tools/publish_beta72_ota.sh
 
-      - name: Enable KVM
-        shell: bash
-        run: |
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules >/dev/null
-          sudo udevadm control --reload-rules
-          sudo udevadm trigger --name-match=kvm || true
-          sudo chmod 666 /dev/kvm || true
-
-      - name: Run exact Beta72 visual matrix
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 29
-          target: default
-          arch: x86_64
-          profile: pixel_2
-          disable-animations: false
-          emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-metrics
-          script: |
-            adb install -r "$APK"
-            python3 tools/run_beta72_visual.py
-
-      - name: Upload visual evidence
+      - name: Upload release evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: beta72-visual-${{ github.run_id }}
-          path: /tmp/visual
+          name: beta72-release-evidence-${{ github.run_id }}
+          path: /tmp/beta72-evidence
           retention-days: 30
-          if-no-files-found: error
+          if-no-files-found: warn
