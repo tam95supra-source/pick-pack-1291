@@ -78,6 +78,10 @@ function doPost(e) {
     if (action === 'm2_fallback_flush') return ppJson_(String(auth.role)==='SUPERADMIN'?ppM2FlushFallbackInbox_():{ok:false,error:'SUPERADMIN_REQUIRED'});
     if (action === 'm2_failback_complete') return ppJson_(ppM2CompleteFailback_(auth, body));
     if (action === 'sync_status') return ppJson_(ppSyncStatus_());
+    if (action === 'outbound_location_list') return ppJson_(ppOutboundLocationList_(auth));
+    if (action === 'outbound_location_mutate') return ppJson_(ppWithLock_(function(){ return ppOutboundLocationMutate_(auth, body); }));
+    if (action === 'outbound_drop_append') return ppJson_(ppWithLock_(function(){ return ppOutboundAppend_(auth, body); }));
+    if (action === 'outbound_drop_clear') return ppJson_(ppWithLock_(function(){ return ppOutboundClear_(auth, body); }));
 
     return ppJson_({ok:false,error:'UNKNOWN_ACTION'}, 404);
   } catch (err) {

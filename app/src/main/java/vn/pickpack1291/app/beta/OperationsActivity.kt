@@ -216,7 +216,7 @@ class OperationsActivity : Activity() {
         val cards=listOf(
             businessCard(R.drawable.ic_pp_scan,"Quét QR nhân sự","",true){employeeScan()},
             businessCard(R.drawable.ic_pp_pda_exchange,"Đổi / trả PDA","",true){pdaExchangeScreen()},
-            businessCard(R.drawable.ic_pp_drop_receive,"Nhận hàng Rớt","",true){TopNotice.show(this,"Nhận hàng Rớt đang được chuẩn bị.",TopNotice.Kind.INFO)},
+            businessCard(R.drawable.ic_pp_drop_receive,"Nhận hàng Rớt","",true){dropReceiveScreen()},
             businessCard(R.drawable.ic_pp_report,"Báo cáo nhân sự","",isAdmin()){reportScreen()},
             businessCard(R.drawable.ic_pp_task,"Công nhật","",isAdmin()){laborHome()},
             businessCard(R.drawable.ic_pp_resource,"Tài nguyên","",isAdmin()){resourceHome()},
@@ -228,6 +228,13 @@ class OperationsActivity : Activity() {
         body.addView(businessRow(cards[4],cards[5]));body.addView(gap(4))
         body.addView(businessRow(cards[6],cards[7]))
         attach(root,body)
+    }
+
+
+    private fun dropReceiveScreen(){
+        module="BUSINESS"
+        screenState="DROP_RECEIVE"
+        setScreen(DropReceiveFeature.build(this,api,login,name,role){businessHome()})
     }
 
     // S61_BETA60_SHIFT_RECONCILIATION_ACTIONS: exact counts + direct employee RA entry.
@@ -1613,7 +1620,7 @@ class OperationsActivity : Activity() {
             "RESOURCE_EDITOR","RESOURCE_LIST"->resourceHome()
             "ACCOUNT_MANAGER"->settingsScreen()
             "EMPLOYEE","EMPLOYEE_LOADING","EMPLOYEE_LOOKUP_ERROR"->employeeScan()
-            "SCAN","LABOR_HOME","RESOURCE_HOME","REPORT","LISTS","PDA_EXCHANGE"->businessHome()
+            "SCAN","LABOR_HOME","RESOURCE_HOME","REPORT","LISTS","PDA_EXCHANGE","DROP_RECEIVE"->businessHome()
             "HISTORY_DETAIL"->historyScreen()
             else->{
                 if(isRootScreen()&&tabHistory.isNotEmpty()){
