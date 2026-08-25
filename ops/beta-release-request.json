@@ -1,5 +1,5 @@
 {
-  "stage": "visual",
+  "stage": "probe",
   "version_name": "0.4.2-beta.75",
   "version_code": 81,
   "base_version": "0.4.2-beta.74",
@@ -16,7 +16,8 @@
   "gas_change": "NONE",
   "authority_change": "NONE",
   "scope": "owner-contextual-pda-user-session-ui",
-  "requested_at": "2026-08-25T21:03:00+07:00",
+  "probe": "480x800-add-dialog",
+  "requested_at": "2026-08-25T21:17:00+07:00",
   "owner": "Nguyen Van Tam",
-  "visual_retry_reason": "hide-soft-keyboard-before-pda-exchange-evidence-exact-apk"
+  "visual_retry_reason": "isolated-probe-after-human-fail-480-add-dialog"
 }
