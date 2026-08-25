@@ -1,91 +1,174 @@
-name: Beta75 publish exact candidate
+name: Beta76 exact candidate and visual
 
 on:
   push:
     branches:
-      - release/beta71-clean-from-beta68-20260825
+      - feature/beta76-nhan-hang-rot-20260825
     paths:
-      - ops/beta-release-request.json
       - .github/workflows/beta-release.yml
 
 permissions:
-  contents: write
+  contents: read
   actions: read
 
 concurrency:
-  group: beta75-publish-exact
+  group: beta76-exact-candidate
   cancel-in-progress: false
 
 jobs:
-  publish-exact:
+  candidate:
     runs-on: ubuntu-24.04
-    timeout-minutes: 35
+    timeout-minutes: 40
     env:
-      GH_TOKEN: ${{ github.token }}
-      GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
-      GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
-      GOOGLE_OAUTH_REFRESH_TOKEN: ${{ secrets.GOOGLE_OAUTH_REFRESH_TOKEN }}
-      GAS_SCRIPT_ID: ${{ secrets.GAS_SCRIPT_ID }}
-      GAS_DEPLOYMENT_ID: ${{ secrets.GAS_DEPLOYMENT_ID }}
+      EXPECTED_SIGNER_SHA256: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
+      SIGNING_KEY_B64: ${{ secrets.ANDROID_SIGNING_KEY_B64 }}
+      SIGNING_STORE_PASSWORD: ${{ secrets.ANDROID_SIGNING_STORE_PASSWORD }}
+      SIGNING_KEY_PASSWORD: ${{ secrets.ANDROID_SIGNING_KEY_PASSWORD }}
+      SIGNING_ALIAS: ${{ secrets.ANDROID_SIGNING_ALIAS }}
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 1
+          fetch-depth: 2
 
-      - name: Validate exact Beta75 lock and HUMAN receipt
+      - name: Validate Beta76 source and isolation
         shell: bash
         run: |
           set -euo pipefail
-          jq -e '.stage=="publish" and .version_name=="0.4.2-beta.75" and .version_code==81 and .candidate_run_id==32849057694 and .candidate_artifact_id==9563625638 and .locked_run_id==32849057694 and .locked_artifact_id==9563625638 and .locked_sha256=="6e08dc974281cc7b5428d22cf406179447cdeb95443dc19fa1db2b4d32344913" and .locked_size==13147013 and .locked_package=="vn.pickpack1291.app.beta.publicbeta" and .locked_signer_sha256=="d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e" and .visual_receipt_commit=="007795a656fa14236ed766b164ca80bb5872fb32" and .final_visual_run_id==32860235560 and .final_visual_artifact_id==9568028848 and .stable_publish=="FORBIDDEN" and .service_change=="NONE" and .authority_change=="NONE"' ops/beta-release-request.json >/dev/null
-          jq -e '.status=="PASS" and .result=="HUMAN_VISUAL_PASS" and .candidate.version_name=="0.4.2-beta.75" and .candidate.version_code==81 and .candidate.build_run==32849057694 and .candidate.artifact_id==9563625638 and .candidate.sha256=="6e08dc974281cc7b5428d22cf406179447cdeb95443dc19fa1db2b4d32344913" and .candidate.size==13147013 and .candidate.signer_sha256=="d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e" and .visual.run_id==32860235560 and .visual.artifact_id==9568028848 and .visual.android_build_or_sign_in_visual==false and .human_inspection["320x568"].no_wrong_route_loading_crop_overlap==true and .human_inspection["360x640"].no_wrong_route_loading_crop_overlap==true and .human_inspection["480x800"].no_wrong_route_loading_crop_overlap==true and .human_inspection["480x800"].add_dialog_correct==true and .stable_publish=="FORBIDDEN"' ops/beta75-visual-inspection.json >/dev/null
-          git fetch --no-tags --depth=1 origin 007795a656fa14236ed766b164ca80bb5872fb32
-          git show 007795a656fa14236ed766b164ca80bb5872fb32:ops/beta75-visual-inspection.json > /tmp/locked-visual.json
-          jq -e '.status=="PASS" and .result=="HUMAN_VISUAL_PASS" and .candidate.build_run==32849057694 and .candidate.artifact_id==9563625638 and .candidate.sha256=="6e08dc974281cc7b5428d22cf406179447cdeb95443dc19fa1db2b4d32344913" and .visual.run_id==32860235560 and .visual.artifact_id==9568028848' /tmp/locked-visual.json >/dev/null
-          bash -n tools/publish_beta75_ota.sh
-          echo 'lock_receipt_preflight=PASS'
+          grep -q 'versionCode = 82' app/build.gradle.kts
+          grep -q 'versionName = "0.4.2-beta.76"' app/build.gradle.kts
+          grep -q 'versionCode = 1' app/build.gradle.kts
+          grep -q 'versionName = "0.1.0-stable"' app/build.gradle.kts
+          grep -Fq 'businessCard(R.drawable.ic_pp_drop_receive,"Nhận hàng Rớt","",true){dropReceiveScreen()}' app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt
+          grep -Fq 'private fun dropReceiveScreen()' app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt
+          grep -Fq "action === 'outbound_drop_append'" google-apps-script/PICK_PACK_API.gs
+          grep -Fq "SHEET_ID: '1tl6har_8vGSVsVlcErfQwjX1YgvN3o-FRG5wQV4VTEM'" google-apps-script/OUTBOUND_DROP_RECEIVE.gs
+          grep -Fq 'OWNER_LOGIN="tamnv2"' app/src/main/java/vn/pickpack1291/app/beta/DropReceiveFeature.kt
+          grep -Fq 'actualRole.uppercase()=="SUPERADMIN"' app/src/main/java/vn/pickpack1291/app/beta/DropReceiveFeature.kt
+          git diff --check HEAD^ HEAD
 
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.4.1'
+
+      - name: Resolve Android SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -n "${ANDROID_HOME:-}" && -f "$ANDROID_HOME/platforms/android-36/android.jar" && -x "$ANDROID_HOME/build-tools/36.0.0/apksigner" && -x "$ANDROID_HOME/build-tools/36.0.0/aapt" ]]; then
+            echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> "$GITHUB_ENV"
+            exit 0
+          fi
+          SDK="$RUNNER_TEMP/android-sdk"
+          ZIP="$RUNNER_TEMP/commandlinetools.zip"
+          curl -fsSL https://dl.google.com/android/repository/commandlinetools-linux-15859902_latest.zip -o "$ZIP"
+          echo "4e4c464f145a7512b57d088ac6c278c03c9eea610886b35a5e0804e74eedf583  $ZIP" | sha256sum -c -
+          mkdir -p "$SDK/cmdline-tools"
+          unzip -q "$ZIP" -d "$RUNNER_TEMP/android-cmdline"
+          mv "$RUNNER_TEMP/android-cmdline/cmdline-tools" "$SDK/cmdline-tools/latest"
+          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
+          yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
+          "$SDK/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-36' 'build-tools;36.0.0'
+
+      - name: Compile Beta and Stable isolation
+        shell: bash
+        run: |
+          set -euo pipefail
+          gradle --no-daemon --build-cache --parallel :app:testBetaDebugUnitTest :app:assembleBetaDebug :app:assembleStableDebug :app:assembleBetaRelease
+
+      - name: Sign exact Beta76 candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          for v in SIGNING_KEY_B64 SIGNING_STORE_PASSWORD SIGNING_KEY_PASSWORD SIGNING_ALIAS; do test -n "${!v:-}"; done
+          BT="$ANDROID_SDK_ROOT/build-tools/36.0.0"
+          U=app/build/outputs/apk/beta/release/app-beta-release-unsigned.apk
+          test -f "$U"
+          "$BT/aapt" dump badging "$U" > /tmp/beta76-badging.txt
+          grep -q "package: name='vn.pickpack1291.app.beta.publicbeta'" /tmp/beta76-badging.txt
+          grep -q "versionCode='82'" /tmp/beta76-badging.txt
+          grep -q "versionName='0.4.2-beta.76'" /tmp/beta76-badging.txt
+          KS="$RUNNER_TEMP/release.jks"
+          printf '%s' "$SIGNING_KEY_B64" | base64 -d > "$KS"
+          printf '%s' "$SIGNING_STORE_PASSWORD" > "$RUNNER_TEMP/store.pass"
+          printf '%s' "$SIGNING_KEY_PASSWORD" > "$RUNNER_TEMP/key.pass"
+          mkdir -p dist/beta76
+          OUT=dist/beta76/pick-pack-1291-public-beta-0.4.2-beta.76.apk
+          "$BT/apksigner" sign --ks "$KS" --ks-key-alias "$SIGNING_ALIAS" --ks-pass "file:$RUNNER_TEMP/store.pass" --key-pass "file:$RUNNER_TEMP/key.pass" --out "$OUT" "$U"
+          "$BT/apksigner" verify --verbose --print-certs "$OUT" > /tmp/beta76-cert.txt
+          grep -qi "Signer #1 certificate SHA-256 digest: $EXPECTED_SIGNER_SHA256" /tmp/beta76-cert.txt
+          APK_SHA=$(sha256sum "$OUT" | awk '{print $1}')
+          APK_SIZE=$(stat -c '%s' "$OUT")
+          SOURCE_SHA=$(git rev-parse HEAD)
+          printf '%s  %s\n' "$APK_SHA" "$(basename "$OUT")" > dist/beta76/SHA256SUMS-0.4.2-beta.76.txt
+          jq -nc --arg source "$SOURCE_SHA" --arg sha "$APK_SHA" --argjson size "$APK_SIZE" --arg signer "$EXPECTED_SIGNER_SHA256" --argjson run "$GITHUB_RUN_ID" '{version_name:"0.4.2-beta.76",version_code:82,package:"vn.pickpack1291.app.beta.publicbeta",source_sha:$source,build_run:$run,apk_sha256:$sha,apk_size:$size,signer_sha256:$signer,stable_version:"0.1.0-stable",stable_code:1,stable_publish:"FORBIDDEN",service_change:"NONE",gas_change:"OUTBOUND_DROP_RECEIVE",authority_change:"NONE",candidate_locked:true}' > dist/beta76/release-meta.json
+          rm -f "$KS" "$RUNNER_TEMP/store.pass" "$RUNNER_TEMP/key.pass"
+
+      - name: Upload exact signed candidate
+        uses: actions/upload-artifact@v4
+        with:
+          name: beta76-candidate-${{ github.run_id }}
+          path: dist/beta76/*
+          retention-days: 30
+          if-no-files-found: error
+
+  visual:
+    needs: candidate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
-          name: beta75-candidate-32849057694
-          path: /tmp/beta75-preflight
-          repository: tam95supra-source/pick-pack-1291
-          run-id: 32849057694
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          name: beta76-candidate-${{ github.run_id }}
+          path: /tmp/beta76-candidate
 
-      - name: Preflight exact bytes and materialized publisher
+      - name: Lock exact candidate for visual
         shell: bash
         run: |
           set -euo pipefail
-          APK=/tmp/beta75-preflight/pick-pack-1291-public-beta-0.4.2-beta.75.apk
-          META=/tmp/beta75-preflight/release-meta.json
-          test -f "$APK" -a -f "$META"
-          test "$(sha256sum "$APK" | awk '{print $1}')" = "6e08dc974281cc7b5428d22cf406179447cdeb95443dc19fa1db2b4d32344913"
-          test "$(stat -c '%s' "$APK")" = "13147013"
-          jq -e '.version_name=="0.4.2-beta.75" and .version_code==81 and .package=="vn.pickpack1291.app.beta.publicbeta" and .source_sha=="e475b8476e99a9230683dbbf6ec266235960ed5b" and .apk_sha256=="6e08dc974281cc7b5428d22cf406179447cdeb95443dc19fa1db2b4d32344913" and .apk_size==13147013 and .signer_sha256=="d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e" and .stable_publish=="FORBIDDEN" and .service_change=="NONE"' "$META" >/dev/null
-          P=$(BETA75_MATERIALIZE_ONLY=1 bash tools/publish_beta75_ota.sh)
-          test -f "$P"
-          bash -n "$P"
-          grep -Fq 'TARGET_VERSION=0.4.2-beta.75' "$P"
-          grep -Fq 'SOURCE_RUN_ID=32849057694' "$P"
-          grep -Fq 'ARTIFACT_ID=9563625638' "$P"
-          grep -Fq 'EXPECTED_SHA=6e08dc974281cc7b5428d22cf406179447cdeb95443dc19fa1db2b4d32344913' "$P"
-          grep -Fq 'VISUAL_RUN=32860235560' "$P"
-          grep -Fq 'VISUAL_ARTIFACT=9568028848' "$P"
-          ! grep -Fq '32842363597' "$P"
-          ! grep -Fq '9561088652' "$P"
-          ! grep -Eq 'assemble|bundle|apksigner|jarsigner|signingConfig' "$P"
-          ! grep -Eq 'git push .*main|refs/heads/main|stable-release|publish.*STABLE' "$P"
-          echo 'exact_bytes_materialized_publisher_preflight=PASS'
+          META=/tmp/beta76-candidate/release-meta.json
+          APK=/tmp/beta76-candidate/pick-pack-1291-public-beta-0.4.2-beta.76.apk
+          test -f "$META" -a -f "$APK"
+          jq -e --argjson run "$GITHUB_RUN_ID" '.version_name=="0.4.2-beta.76" and .version_code==82 and .package=="vn.pickpack1291.app.beta.publicbeta" and .build_run==$run and .candidate_locked==true and .stable_publish=="FORBIDDEN" and .service_change=="NONE" and .gas_change=="OUTBOUND_DROP_RECEIVE" and .authority_change=="NONE"' "$META" >/dev/null
+          SHA=$(jq -r '.apk_sha256' "$META"); SIZE=$(jq -r '.apk_size' "$META")
+          test "$(sha256sum "$APK" | awk '{print $1}')" = "$SHA"
+          test "$(stat -c '%s' "$APK")" = "$SIZE"
+          python3 -m py_compile tools/run_beta76_visual.py
+          echo "APK=$APK" >> "$GITHUB_ENV"
+          echo "EXPECTED_SHA=$SHA" >> "$GITHUB_ENV"
+          echo "EXPECTED_SIZE=$SIZE" >> "$GITHUB_ENV"
 
-      - name: Publish exact Beta75 bytes and verify LIVE
+      - name: Enable KVM
         shell: bash
-        run: bash tools/publish_beta75_ota.sh
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules >/dev/null
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm || true
+          sudo chmod 666 /dev/kvm || true
 
-      - name: Upload Beta75 release evidence
+      - name: Run exact Beta76 visual matrix
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 29
+          target: default
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: false
+          emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-metrics
+          script: |
+            adb install -r "$APK"
+            python3 tools/run_beta76_visual.py
+
+      - name: Upload exact visual evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: beta75-release-evidence-${{ github.run_id }}
-          path: /tmp/beta75-release-evidence
+          name: beta76-visual-${{ github.run_id }}
+          path: /tmp/beta76-visual
           retention-days: 30
-          if-no-files-found: warn
+          if-no-files-found: error
