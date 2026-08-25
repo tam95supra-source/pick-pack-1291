@@ -44,7 +44,7 @@ Không dừng ở plan, commit, PR, workflow pending, build PASS, artifact hay d
 - Push race: một writer, không observer/status commits.
 - Missing gradlew: setup-gradle + gradle.
 - SDK: dùng bản cài sẵn trước, pinned fallback sau.
-- OTA schema: fresh-read contract live trước khi sửa.
+- OTA schema: `available=true` phải khớp URL/SHA/size; `available=false` có thể không có SHA/URL/versionCode. Sửa verifier theo contract live, không rebuild.
 - Stable/main: fresh-read trước/sau, giữ nguyên nếu OWNER chưa cho phép.
 
 ### Release lock
