@@ -72,8 +72,17 @@ adb('shell','settings','put','global','airplane_mode_on','1',check=False)
 adb('shell','am','broadcast','-a','android.intent.action.AIRPLANE_MODE','--ez','state','true',check=False)
 
 def dump(path):
-    adb('shell','uiautomator','dump','/sdcard/window.xml',check=False); data=adb('exec-out','cat','/sdcard/window.xml',text=False).stdout
-    Path(path).write_bytes(data); return ET.fromstring(data)
+    last=b''
+    for _ in range(6):
+        adb('shell','uiautomator','dump','/sdcard/window.xml',check=False)
+        data=adb('exec-out','cat','/sdcard/window.xml',check=False,text=False).stdout
+        last=data
+        if data.lstrip().startswith(b'<?xml'):
+            Path(path).write_bytes(data)
+            return ET.fromstring(data)
+        time.sleep(.25)
+    Path(path).write_bytes(last)
+    raise AssertionError('uiautomator returned no XML after bounded retry')
 def all_text(root): return '\n'.join((n.attrib.get('text','')+' '+n.attrib.get('content-desc','')).strip() for n in root.iter() if n.attrib.get('text') or n.attrib.get('content-desc'))
 def ui_text(): return all_text(dump(OUT/'window.xml'))
 def find_bounds(q):
