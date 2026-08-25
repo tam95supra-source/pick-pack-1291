@@ -59,6 +59,20 @@ Giữ kiến trúc canonical trong repo: Android/Web-PWA ↔ Cloudflare Worker �
 
 Chỉ hỏi nếu thiếu quyền/MFA/manual approval không có đường thay thế; quyết định ACTIVE mâu thuẫn; hoặc hành động production/destructive/Stable/signer/provider/chi phí mới chưa được duyệt. Nêu đúng một lỗi/evidence, đúng một thao tác OWNER cần làm, và resume point.
 
+### Chuyển phiên chat / bàn giao
+
+Khi OWNER nói chuyển phiên, đổi chat, sang chat mới, tạo/chốt bàn giao hoặc handoff: đây là lệnh tạo artifact bắt buộc. Trước khi final, dừng ở điểm atomic an toàn và thực thi `docs/CHAT_HANDOFF_PROTOCOL.md`.
+
+Phải tạo/commit/push cả:
+- `docs/handovers/HANDOVER_CURRENT.md` — canonical;
+- `docs/handovers/HANDOVER_<YYYYMMDD-HHmm>_<slug>.md` — archive cùng nội dung.
+
+Handoff phải có status READY, thời gian, branch/head SHA, mục tiêu + DoD, LIVE/TARGET/CANDIDATE, exact evidence và locked identity, file/commit đã đổi, lỗi + root cause + cách PASS/cách cấm lặp, workspace/CI/external state, việc còn lại, blocker/quyền, invariants và đúng một `NEXT_ACTION`. Không chứa secret. Không rerun gate PASS chỉ để viết bàn giao. Nếu LIVE đổi thì cập nhật CURRENT_STATE.
+
+Ở phiên mới, khi OWNER nói tiếp tục/làm tiếp/đã chuyển phiên: đọc HANDOVER_CURRENT trước; không crawl repo, không đọc lại log hoặc rerun PASS khi input/source/artifact bytes không đổi; bắt đầu ngay từ NEXT_ACTION. Chỉ fresh-read phần external có thể đổi sau thời điểm bàn giao hoặc ngay trước production write.
+
+Final của phiên chuyển chỉ được gửi sau khi file đọc được; phải kèm link canonical và một câu resume.
+
 ### Final
 
 Final ngắn: kết quả + evidence cốt lõi + đúng phần OWNER cần làm. Còn action hợp lệ thì tiếp tục, không kết thúc bằng “sẽ làm/nếu anh muốn”.
