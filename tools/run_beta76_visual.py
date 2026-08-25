@@ -46,14 +46,15 @@ def launch_business():
 def main():
     verify_candidate();adb('wait-for-device');adb('shell','svc','wifi','disable',check=False);adb('shell','svc','data','disable',check=False)
     adb('shell','wm','size','320x568');adb('shell','wm','density','240');time.sleep(.6);launch_business();screenshot('probe-320x568-business.png')
-    # 320x568: second-row left card is partially visible above the persistent bottom nav.
-    adb('shell','input','tap','80','410');time.sleep(.9);screenshot('probe-320x568-drop-top.png')
+    # Scroll only the business body so the second-row left card clears the persistent bottom nav.
+    adb('shell','input','swipe','160','340','160','205','320');time.sleep(.6);screenshot('probe-320x568-business-scrolled.png')
+    adb('shell','input','tap','80','285');time.sleep(.9);screenshot('probe-320x568-drop-top.png')
     act=adb('shell','dumpsys','activity','activities',check=False).stdout;rec('probe-320x568-activity.txt',act[-12000:]);assert PKG in act and 'OperationsActivity' in act
     # Focus the QR field by fixed frame coordinate to exercise the soft keyboard without UiAutomator idle waits.
     adb('shell','input','tap','160','235');time.sleep(.8);screenshot('probe-320x568-keyboard.png')
     adb('shell','input','keyevent','4');time.sleep(.4)
     for _ in range(3):adb('shell','input','swipe','160','390','160','190','300');time.sleep(.25)
     screenshot('probe-320x568-drop-bottom.png')
-    rec('probe.json','{"status":"PROBE_CAPTURED","size":"320x568","route":"coordinate","candidate_run":32875201581,"artifact_id":9573716441,"requires_human_inspection":true}\n')
+    rec('probe.json','{"status":"PROBE_CAPTURED","size":"320x568","route":"scroll-then-coordinate","candidate_run":32875201581,"artifact_id":9573716441,"requires_human_inspection":true}\n')
     print('BETA76_VISUAL_PROBE_CAPTURED')
 if __name__=='__main__':main()
