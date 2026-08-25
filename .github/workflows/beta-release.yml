@@ -16,169 +16,50 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  build-visual:
+  visual-exact:
     runs-on: ubuntu-24.04
-    timeout-minutes: 90
+    timeout-minutes: 60
     env:
+      LOCKED_RUN_ID: '32820317675'
+      LOCKED_ARTIFACT_ID: '9552942024'
+      EXPECTED_SHA: ad037c1a17d245f90ead59539c5595cc5df6a568b8657ce636cc43d101175fd2
+      EXPECTED_SIZE: '13130629'
       EXPECTED_SIGNER_SHA256: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
-      SIGNING_KEY_B64: ${{ secrets.ANDROID_SIGNING_KEY_B64 }}
-      SIGNING_STORE_PASSWORD: ${{ secrets.ANDROID_SIGNING_STORE_PASSWORD }}
-      SIGNING_KEY_PASSWORD: ${{ secrets.ANDROID_SIGNING_KEY_PASSWORD }}
-      SIGNING_ALIAS: ${{ secrets.ANDROID_SIGNING_ALIAS }}
+      APK: dist/beta73-locked/pick-pack-1291-public-beta-0.4.2-beta.73.apk
     steps:
       - uses: actions/checkout@v4
+
+      - name: Validate exact visual retry request
+        shell: bash
+        run: |
+          set -euo pipefail
+          jq -e '.stage=="visual_retry" and .version_name=="0.4.2-beta.73" and .version_code==79 and .locked_run_id==32820317675 and .locked_artifact_id==9552942024' ops/beta-release-request.json >/dev/null
+          python3 -m py_compile tools/run_beta73_visual.py tools/run_beta72_visual.py tools/run_beta71_visual.py
+
+      - name: Download exact locked candidate
+        uses: actions/download-artifact@v4
         with:
-          fetch-depth: 0
+          name: beta73-candidate-32820317675
+          path: dist/beta73-locked
+          github-token: ${{ github.token }}
+          run-id: 32820317675
 
-      - name: Validate candidate request
-        shell: bash
-        run: |
-          set -euo pipefail
-          jq -e '.stage=="candidate" and .version_name=="0.4.2-beta.73" and .version_code==79' ops/beta-release-request.json >/dev/null
-
-      - name: Materialize Beta73 owner scope once
-        id: identity
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 -m py_compile tools/apply_beta73_owner_scope.py tools/run_beta73_visual.py
-          if ! grep -q 'versionName = "0.4.2-beta.73"' app/build.gradle.kts; then
-            python3 tools/apply_beta73_owner_scope.py
-            git diff --check
-            cp google-apps-script/PICK_PACK_API.gs /tmp/PICK_PACK_API.js
-            node --check /tmp/PICK_PACK_API.js
-            git config user.name github-actions[bot]
-            git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-            git add app google-apps-script/PICK_PACK_API.gs
-            git commit -m 'fix(beta73): owner work session sync and account UX'
-            git push origin "HEAD:$GITHUB_REF_NAME"
-          fi
-          grep -q 'versionCode = 79' app/build.gradle.kts
-          grep -q 'versionName = "0.4.2-beta.73"' app/build.gradle.kts
-          SOURCE_SHA=$(git rev-parse HEAD)
-          echo "source_sha=$SOURCE_SHA" >> "$GITHUB_OUTPUT"
-
-      - name: Owner regression gates
-        shell: bash
-        run: |
-          set -euo pipefail
-          OPS=app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt
-          FULL=app/src/main/java/vn/pickpack1291/app/beta/FullBetaActivity.kt
-          UPD=app/src/main/java/vn/pickpack1291/app/beta/UpdateManager.kt
-          LOG=app/src/main/java/vn/pickpack1291/app/beta/LocalLogManager.kt
-          API=app/src/main/java/vn/pickpack1291/app/beta/BetaApiClient.kt
-          GAS=google-apps-script/PICK_PACK_API.gs
-          BETA72_SOURCE=73d5432df09c33cda6554090838e5f55e41761ae
-          grep -Fq 'User Pick bắt buộc phải có PDA. Chọn / cấp PDA trước.' "$OPS"
-          grep -Fq 'Chọn đủ Bàn Pack và User Pack đúng theo bàn.' "$OPS"
-          grep -Fq 'THÔNG TIN CA' "$OPS"
-          grep -Fq 'THÔNG TIN CÔNG VIỆC' "$OPS"
-          grep -Fq 'Trước cập nhật' "$OPS"
-          grep -Fq 'Sau cập nhật' "$OPS"
-          grep -Fq 'if(r.error!="SESSION_CHANGED")' "$OPS"
-          grep -Fq 'freshId!=sessionId||freshState!="ACTIVE"' "$OPS"
-          ! grep -Fq '"EMPLOYEE", "EMPLOYEE_LOADING" -> if(liveEmployeeMnv.isNotBlank()) renderLocalEmployee(liveEmployeeMnv)' "$OPS"
-          ! grep -Fq 'postDelayed({if(screenState=="PDA_EXCHANGE")refreshList' "$OPS"
-          grep -Fq '"Dung lượng ứng dụng" to humanBytes(appBinaryBytes())' "$OPS"
-          grep -Fq '"Dữ liệu ứng dụng trên máy" to humanBytes(appStorageUsage().userDataBytes)' "$OPS"
-          grep -Fq 'UpdateManager.pendingInfo(this)' "$OPS"
-          grep -Fq 'LocalLogManager.detailRows(this)' "$OPS"
-          grep -Fq 'fun pendingInfo(c:Context):PendingUpdate?' "$UPD"
-          grep -Fq 'savePending(activity,version,url,sha,notes,versionCode)' "$UPD"
-          grep -Fq 'fun detailRows(context:Context)' "$LOG"
-          grep -Fq 'fun forgotPasswordPreview(' "$API"
-          grep -Fq 'forgot_password_preview' "$GAS"
-          grep -Fq 'Copyright 2026 - tamnv2 - Chuyên viên Pick Pack 1291 - Supra DCHY' "$FULL"
-          ! grep -Fq 'card.addView(txt("PICK PACK 1291"' "$FULL"
-          ! grep -Fq 'card.addView(txt("Supra DC Hưng Yên"' "$FULL"
-          grep -q 'versionCode = 1' app/build.gradle.kts
-          grep -q 'versionName = "0.1.0-stable"' app/build.gradle.kts
-          git diff "$BETA72_SOURCE" HEAD --name-only | grep -Eq '^(app/|google-apps-script/PICK_PACK_API.gs$)'
-          ! git diff "$BETA72_SOURCE" HEAD --name-only | grep -q '^service/'
-
-      - uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: '17'
-
-      - uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '9.4.1'
-
-      - name: Resolve Android SDK
-        shell: bash
-        run: |
-          set -euo pipefail
-          if [[ -n "${ANDROID_HOME:-}" && -f "$ANDROID_HOME/platforms/android-36/android.jar" && -x "$ANDROID_HOME/build-tools/36.0.0/apksigner" && -x "$ANDROID_HOME/build-tools/36.0.0/aapt" ]]; then
-            echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> "$GITHUB_ENV"
-            exit 0
-          fi
-          SDK="$RUNNER_TEMP/android-sdk"
-          ZIP="$RUNNER_TEMP/commandlinetools.zip"
-          curl -fsSL https://dl.google.com/android/repository/commandlinetools-linux-15859902_latest.zip -o "$ZIP"
-          echo "4e4c464f145a7512b57d088ac6c278c03c9eea610886b35a5e0804e74eedf583  $ZIP" | sha256sum -c -
-          mkdir -p "$SDK/cmdline-tools"
-          unzip -q "$ZIP" -d "$RUNNER_TEMP/android-cmdline"
-          mv "$RUNNER_TEMP/android-cmdline/cmdline-tools" "$SDK/cmdline-tools/latest"
-          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
-          echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
-          yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
-          "$SDK/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-36' 'build-tools;36.0.0'
-
-      - name: Assemble Beta and Stable isolation
-        run: gradle --no-daemon --build-cache --parallel :app:assembleBetaDebug :app:assembleStableDebug :app:assembleBetaRelease
-
-      - name: Sign exact Beta73 candidate
-        id: sign
-        shell: bash
-        env:
-          SOURCE_SHA: ${{ steps.identity.outputs.source_sha }}
-        run: |
-          set -euo pipefail
-          for v in SIGNING_KEY_B64 SIGNING_STORE_PASSWORD SIGNING_KEY_PASSWORD SIGNING_ALIAS; do test -n "${!v:-}"; done
-          BT="$ANDROID_SDK_ROOT/build-tools/36.0.0"
-          U=app/build/outputs/apk/beta/release/app-beta-release-unsigned.apk
-          "$BT/aapt" dump badging "$U" > /tmp/badging.txt
-          grep -q "package: name='vn.pickpack1291.app.beta.publicbeta'" /tmp/badging.txt
-          grep -q "versionCode='79'" /tmp/badging.txt
-          grep -q "versionName='0.4.2-beta.73'" /tmp/badging.txt
-          KS="$RUNNER_TEMP/release.jks"
-          printf '%s' "$SIGNING_KEY_B64" | base64 -d > "$KS"
-          printf '%s' "$SIGNING_STORE_PASSWORD" > "$RUNNER_TEMP/store.pass"
-          printf '%s' "$SIGNING_KEY_PASSWORD" > "$RUNNER_TEMP/key.pass"
-          mkdir -p dist/beta73
-          OUT=dist/beta73/pick-pack-1291-public-beta-0.4.2-beta.73.apk
-          "$BT/apksigner" sign --ks "$KS" --ks-key-alias "$SIGNING_ALIAS" --ks-pass "file:$RUNNER_TEMP/store.pass" --key-pass "file:$RUNNER_TEMP/key.pass" --out "$OUT" "$U"
-          "$BT/apksigner" verify --verbose --print-certs "$OUT" > /tmp/cert.txt
-          grep -qi "Signer #1 certificate SHA-256 digest: $EXPECTED_SIGNER_SHA256" /tmp/cert.txt
-          APK_SHA=$(sha256sum "$OUT" | awk '{print $1}')
-          APK_SIZE=$(stat -c '%s' "$OUT")
-          printf '%s  %s\n' "$APK_SHA" "$(basename "$OUT")" > dist/beta73/SHA256SUMS-0.4.2-beta.73.txt
-          jq -nc --arg source "$SOURCE_SHA" --arg sha "$APK_SHA" --argjson size "$APK_SIZE" --arg signer "$EXPECTED_SIGNER_SHA256" \
-            '{version_name:"0.4.2-beta.73",version_code:79,package:"vn.pickpack1291.app.beta.publicbeta",source_sha:$source,apk_sha256:$sha,apk_size:$size,signer_sha256:$signer,stable_version:"0.1.0-stable",stable_code:1,stable_publish:"FORBIDDEN",service_change:"NONE",gas_change:"FORGOT_PASSWORD_PREVIEW"}' \
-            > dist/beta73/release-meta.json
-          echo "apk_sha=$APK_SHA" >> "$GITHUB_OUTPUT"
-          echo "apk_size=$APK_SIZE" >> "$GITHUB_OUTPUT"
-          echo "EXPECTED_SHA=$APK_SHA" >> "$GITHUB_ENV"
-          echo "EXPECTED_SIZE=$APK_SIZE" >> "$GITHUB_ENV"
-          echo "APK=$OUT" >> "$GITHUB_ENV"
-          rm -f "$KS" "$RUNNER_TEMP/store.pass" "$RUNNER_TEMP/key.pass"
-
-      - name: Upload exact signed candidate
-        uses: actions/upload-artifact@v4
-        with:
-          name: beta73-candidate-${{ github.run_id }}
-          path: dist/beta73/*
-          retention-days: 30
-          if-no-files-found: error
-
-      - name: Verify exact candidate before visual gate
+      - name: Verify exact locked candidate before visual
         shell: bash
         run: |
           set -euo pipefail
           test -f "$APK"
           test "$(sha256sum "$APK" | awk '{print $1}')" = "$EXPECTED_SHA"
           test "$(stat -c '%s' "$APK")" = "$EXPECTED_SIZE"
+          BT="$(dirname "$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)")"
+          test -x "$BT/aapt"
+          test -x "$BT/apksigner"
+          "$BT/aapt" dump badging "$APK" > /tmp/badging.txt
+          grep -q "package: name='vn.pickpack1291.app.beta.publicbeta'" /tmp/badging.txt
+          grep -q "versionCode='79'" /tmp/badging.txt
+          grep -q "versionName='0.4.2-beta.73'" /tmp/badging.txt
+          "$BT/apksigner" verify --verbose --print-certs "$APK" > /tmp/cert.txt
+          grep -qi "Signer #1 certificate SHA-256 digest: $EXPECTED_SIGNER_SHA256" /tmp/cert.txt
 
       - name: Enable KVM
         shell: bash
@@ -188,7 +69,7 @@ jobs:
           sudo udevadm trigger --name-match=kvm || true
           sudo chmod 666 /dev/kvm || true
 
-      - name: Run Beta73 visual matrix
+      - name: Run Beta73 visual matrix on exact artifact
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 29
@@ -201,11 +82,11 @@ jobs:
             adb install -r "$APK"
             python3 tools/run_beta73_visual.py
 
-      - name: Upload visual evidence
+      - name: Upload exact visual evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: beta73-visual-${{ github.run_id }}
+          name: beta73-visual-exact-${{ github.run_id }}
           path: /tmp/visual
           retention-days: 30
           if-no-files-found: error
