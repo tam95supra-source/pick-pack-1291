@@ -6,13 +6,13 @@
   "base_version_code": 77,
   "stable_publish": "FORBIDDEN",
   "service_change": "NONE",
-  "requested_at": "2026-08-25T11:58:00+07:00",
-  "attempt": 21,
+  "requested_at": "2026-08-25T12:05:00+07:00",
+  "attempt": 22,
   "candidate_run_id": 32808558173,
   "candidate_artifact_id": 9549037310,
   "apk_sha256": "fdeb006122f065591e82fe912a4a615c9c42a149568c2fc32f7d5b35db353caf",
   "apk_size": 13114245,
-  "visual_harness": "rawshot-coordinate-no-uiautomator-v3",
+  "visual_harness": "rawshot-content-viewport-v4",
   "source_sha": "73d5432df09c33cda6554090838e5f55e41761ae",
   "apk_file": "pick-pack-1291-public-beta-0.4.2-beta.72.apk",
   "signer_sha256": "d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e",
@@ -25,7 +25,12 @@
     {
       "run_id": 32810585357,
       "artifact_id": 9549744937,
-      "root_cause": "machine visual matrix PASS but human gate required one more bounded scroll to expose complete User + Phat lai rows"
+      "root_cause": "human gate required full resource rows on every matrix size"
+    },
+    {
+      "run_id": 32811028697,
+      "artifact_id": 9549883881,
+      "root_cause": "320 and 480 swipe started on bottom navigation; 360 human gate passed; exact APK unchanged"
     }
   ]
 }
