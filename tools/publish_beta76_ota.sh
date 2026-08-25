@@ -121,6 +121,27 @@ curl -fsSL --connect-timeout 15 --max-time 30 -H 'content-type: application/json
 assert anchor in src
 src = src.replace(anchor, insertion, 1)
 
+# Preserve the OAuth error body in release evidence. The inherited publisher
+# used curl -f inside command substitution, which discarded the only useful
+# response when Google returned HTTP 400.
+old_oauth = '''RESP=$(curl -fsS --connect-timeout 15 --max-time 30 https://oauth2.googleapis.com/token -H 'Content-Type: application/x-www-form-urlencoded' \\
+  --data-urlencode "client_id=$GOOGLE_OAUTH_CLIENT_ID" \\
+  --data-urlencode "client_secret=$GOOGLE_OAUTH_CLIENT_SECRET" \\
+  --data-urlencode "refresh_token=$GOOGLE_OAUTH_REFRESH_TOKEN" \\
+  --data-urlencode grant_type=refresh_token)
+ACCESS_TOKEN=$(jq -r '.access_token // empty' <<<"$RESP")
+test -n "$ACCESS_TOKEN"'''
+new_oauth = '''OAUTH_CODE=$(curl -sS --connect-timeout 15 --max-time 30 -o "$E/oauth-token.json" -w '%{http_code}' https://oauth2.googleapis.com/token -H 'Content-Type: application/x-www-form-urlencoded' \\
+  --data-urlencode "client_id=$GOOGLE_OAUTH_CLIENT_ID" \\
+  --data-urlencode "client_secret=$GOOGLE_OAUTH_CLIENT_SECRET" \\
+  --data-urlencode "refresh_token=$GOOGLE_OAUTH_REFRESH_TOKEN" \\
+  --data-urlencode grant_type=refresh_token)
+test "$OAUTH_CODE" = 200
+ACCESS_TOKEN=$(jq -r '.access_token // empty' "$E/oauth-token.json")
+test -n "$ACCESS_TOKEN"'''
+assert old_oauth in src
+src = src.replace(old_oauth, new_oauth, 1)
+
 for stale in (
     '32849057694', '9563625638', '32860235560', '9568028848',
     'e475b8476e99a9230683dbbf6ec266235960ed5b',
