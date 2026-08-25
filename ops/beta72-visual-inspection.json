@@ -1,0 +1,36 @@
+{
+  "verdict": "PASS",
+  "inspected_at": "2026-08-25T12:32:00+07:00",
+  "version_name": "0.4.2-beta.72",
+  "version_code": 78,
+  "package": "vn.pickpack1291.app.beta.publicbeta",
+  "source_sha": "73d5432df09c33cda6554090838e5f55e41761ae",
+  "candidate_run_id": 32808558173,
+  "candidate_artifact_id": 9549037310,
+  "visual_run_id": 32812834075,
+  "visual_artifact_id": 9550496243,
+  "apk_file": "pick-pack-1291-public-beta-0.4.2-beta.72.apk",
+  "apk_sha256": "fdeb006122f065591e82fe912a4a615c9c42a149568c2fc32f7d5b35db353caf",
+  "apk_size": 13114245,
+  "signer_sha256": "d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e",
+  "matrix": "320x568,360x640,480x800",
+  "screenshots_inspected": 42,
+  "visual_artifact_name": "beta72-visual-32812834075",
+  "checks": {
+    "session_label_value_layout": "PASS",
+    "fixed_user_full_text_in_session_summary": "PASS",
+    "pick_requires_pda": "PASS",
+    "user_pick_and_reissue_same_row": "PASS",
+    "pack_table_to_user_pack_binding": "PASS",
+    "user_pack_and_reissue_same_row": "PASS",
+    "no_overlap_or_layout_overflow": "PASS",
+    "edge_swipe_back_to_parent": "PASS"
+  },
+  "rebuild_after_candidate_lock": false,
+  "human_inspection": "PASS",
+  "matrix_profiles": [
+    "320x568@160",
+    "360x640@160",
+    "480x800@240"
+  ]
+}
