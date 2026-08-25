@@ -16,29 +16,9 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  prepare:
+  build-visual:
     runs-on: ubuntu-24.04
-    outputs:
-      stage: ${{ steps.request.outputs.stage }}
-    steps:
-      - uses: actions/checkout@v4
-      - id: request
-        shell: bash
-        run: |
-          set -euo pipefail
-          STAGE=$(jq -r '.stage' ops/beta-release-request.json)
-          test "$STAGE" = candidate -o "$STAGE" = publish
-          echo "stage=$STAGE" >> "$GITHUB_OUTPUT"
-
-  candidate:
-    needs: prepare
-    if: needs.prepare.outputs.stage == 'candidate'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 45
-    outputs:
-      source_sha: ${{ steps.identity.outputs.source_sha }}
-      apk_sha: ${{ steps.sign.outputs.apk_sha }}
-      apk_size: ${{ steps.sign.outputs.apk_size }}
+    timeout-minutes: 90
     env:
       EXPECTED_SIGNER_SHA256: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
       SIGNING_KEY_B64: ${{ secrets.ANDROID_SIGNING_KEY_B64 }}
@@ -181,10 +161,12 @@ jobs:
             > dist/beta71/release-meta.json
           echo "apk_sha=$APK_SHA" >> "$GITHUB_OUTPUT"
           echo "apk_size=$APK_SIZE" >> "$GITHUB_OUTPUT"
+          echo "EXPECTED_SHA=$APK_SHA" >> "$GITHUB_ENV"
+          echo "EXPECTED_SIZE=$APK_SIZE" >> "$GITHUB_ENV"
+          echo "APK=$OUT" >> "$GITHUB_ENV"
           rm -f "$KS" "$RUNNER_TEMP/store.pass" "$RUNNER_TEMP/key.pass"
 
       - name: Upload exact signed candidate
-        id: candidate_artifact
         uses: actions/upload-artifact@v4
         with:
           name: beta71-candidate-${{ github.run_id }}
@@ -192,41 +174,21 @@ jobs:
           retention-days: 30
           if-no-files-found: error
 
-  visual:
-    needs:
-      - prepare
-      - candidate
-    if: needs.prepare.outputs.stage == 'candidate' && needs.candidate.result == 'success'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 50
-    env:
-      EXPECTED_SHA: ${{ needs.candidate.outputs.apk_sha }}
-      EXPECTED_SIZE: ${{ needs.candidate.outputs.apk_size }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: release/beta71-clean-from-beta68-20260825
-
-      - uses: actions/download-artifact@v4
-        with:
-          name: beta71-candidate-${{ github.run_id }}
-          path: /tmp/candidate
-
-      - name: Verify candidate input
+      - name: Verify exact candidate before visual gate
         shell: bash
         run: |
           set -euo pipefail
-          APK=$(find /tmp/candidate -type f -name 'pick-pack-1291-public-beta-0.4.2-beta.71.apk' -print -quit)
-          test -n "$APK"
+          test -f "$APK"
           test "$(sha256sum "$APK" | awk '{print $1}')" = "$EXPECTED_SHA"
           test "$(stat -c '%s' "$APK")" = "$EXPECTED_SIZE"
-          echo "APK=$APK" >> "$GITHUB_ENV"
 
       - name: Enable KVM
         shell: bash
         run: |
-          test -e /dev/kvm
-          sudo chmod 666 /dev/kvm
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules >/dev/null
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm || true
+          sudo chmod 666 /dev/kvm || true
 
       - name: Run Beta71 visual matrix
         uses: reactivecircus/android-emulator-runner@v2
@@ -249,31 +211,3 @@ jobs:
           path: /tmp/visual
           retention-days: 30
           if-no-files-found: error
-
-  publish:
-    needs: prepare
-    if: needs.prepare.outputs.stage == 'publish'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 45
-    env:
-      GH_TOKEN: ${{ github.token }}
-      GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
-      GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
-      GOOGLE_OAUTH_REFRESH_TOKEN: ${{ secrets.GOOGLE_OAUTH_REFRESH_TOKEN }}
-      GAS_SCRIPT_ID: ${{ secrets.GAS_SCRIPT_ID }}
-      GAS_DEPLOYMENT_ID: ${{ secrets.GAS_DEPLOYMENT_ID }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: Publish locked Beta71 bytes and verify OTA
-        shell: bash
-        run: bash tools/publish_beta71_ota.sh
-      - name: Upload release evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: beta71-release-evidence-${{ github.run_id }}
-          path: /tmp/beta71-evidence
-          retention-days: 30
-          if-no-files-found: warn
