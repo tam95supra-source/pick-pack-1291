@@ -36,7 +36,7 @@ test "$(jq -r '.matrix' "$VIS")" = "320x568,360x640,480x800"
 MAIN_BEFORE=$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/$GITHUB_REPOSITORY/branches/main" | jq -r '.commit.sha')
 curl -fsSL -H 'content-type: application/json' "$GAS_URL" -d '{"action":"update_check","channel":"BETA","current_version":"0.4.2-beta.67"}' > "$E/beta-before.json"
 curl -fsSL -H 'content-type: application/json' "$GAS_URL" -d '{"action":"update_check","channel":"STABLE","current_version":"0.1.0-stable"}' > "$E/stable-before.json"
-jq -e '.ok==true and ((.version_name=="0.4.2-beta.68" and .version_code==74) or (.version_name=="0.4.2-beta.70" and .sha256=="f4113bf8ffb330cd5ebf51f06a5fd211be04323546d28e4e04dec498d1d83899" and .size==13114245))' "$E/beta-before.json" >/dev/null
+jq -e '.ok==true and ((.version_name=="0.4.2-beta.68" and .version_code==74) or (.version_name=="0.4.2-beta.70" and .sha256=="f4113bf8ffb330cd5ebf51f06a5fd211be04323546d28e4e04dec498d1d83899" and .size==13114245) or (.version_name=="0.4.2-beta.71" and .sha256=="5a8e29f5d50ac31010ebe2cd6e6096ffdd8bcd2b354007a7448878ae6eefec3b" and .size==13114245))' "$E/beta-before.json" >/dev/null
 jq -e '.ok==true' "$E/stable-before.json" >/dev/null
 
 curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' \
@@ -115,7 +115,7 @@ f=next(x for x in j['files'] if x.get('name')=='PICK_PACK_API')
 anchor="    if (action === 'health') return ppJson_(ppHealth_());"
 assert anchor in f['source']
 route="    if (action === '__beta71_exact_drive_upload') return ppJson_(ppBeta71ExactDriveUploadTmp_(body));"
-notes="• Lịch sử thuần Việt, rõ ai làm gì và thời gian.\\n• Chi tiết Mạng, Đồng bộ, Dịch vụ chính xác hơn.\\n• Cảnh báo đối soát vào / ra ca nhấp nháy khi lệch.\\n• Đổi / Trả PDA chuyên nghiệp, chỉ hiện PDA đang dùng kể cả Service lỗi.\\n• Vuốt cạnh quay lại màn trước trong ứng dụng.\\n• Diễn biến trong ca hiển thị đúng thay đổi công việc."
+notes="• Lịch sử thuần Việt, rõ ai làm gì và thời gian.\n• Chi tiết Mạng, Đồng bộ, Dịch vụ chính xác hơn.\n• Cảnh báo đối soát vào / ra ca nhấp nháy khi lệch.\n• Đổi / Trả PDA chuyên nghiệp, chỉ hiện PDA đang dùng kể cả Service lỗi.\n• Vuốt cạnh quay lại màn trước trong ứng dụng.\n• Diễn biến trong ca hiển thị đúng thay đổi công việc."
 helper=f'''
 function ppBeta71ExactDriveUploadTmp_(body){{
   if(String(body.token||'')!={json.dumps(nonce)})return {{ok:false,error:'FORBIDDEN'}};
@@ -161,12 +161,12 @@ restore_gas
 PASS=false
 for i in 1 2 3 4 5 6 7 8; do
   curl -fsSL -H 'content-type: application/json' "$GAS_URL" -d '{"action":"update_check","channel":"BETA","current_version":"0.4.2-beta.68"}' > "$E/beta-after.json"
-  if jq -e --arg h "$EXPECTED_SHA" '.ok==true and .available==true and .version_name=="0.4.2-beta.71" and .version_code==77 and .sha256==$h' "$E/beta-after.json" >/dev/null 2>&1; then PASS=true; break; fi
+  if jq -e --arg h "$EXPECTED_SHA" '.ok==true and .available==true and .version_name=="0.4.2-beta.71" and .sha256==$h and .size==13114245' "$E/beta-after.json" >/dev/null 2>&1; then PASS=true; break; fi
   sleep $((i*3))
 done
 test "$PASS" = true
 curl -fsSL -H 'content-type: application/json' "$GAS_URL" -d '{"action":"update_check","channel":"BETA","current_version":"0.4.2-beta.71"}' > "$E/beta-current.json"
-jq -e '.ok==true and .available==false and .version_name=="0.4.2-beta.71" and .version_code==77' "$E/beta-current.json" >/dev/null
+jq -e '.ok==true and .available==false and .version_name=="0.4.2-beta.71" and .sha256=="5a8e29f5d50ac31010ebe2cd6e6096ffdd8bcd2b354007a7448878ae6eefec3b" and .size==13114245' "$E/beta-current.json" >/dev/null
 LIVE_URL=$(jq -r '.apk_url // .download_url // .url // empty' "$E/beta-after.json")
 [[ "$LIVE_URL" == https://* ]]
 curl -fsSL -L --connect-timeout 15 --max-time 180 "$LIVE_URL" -o /tmp/beta71-live.apk
