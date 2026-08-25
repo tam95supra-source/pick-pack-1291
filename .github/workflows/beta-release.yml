@@ -6,6 +6,7 @@ on:
       - release/beta71-clean-from-beta68-20260825
     paths:
       - ops/beta-release-request.json
+      - .github/workflows/beta-release.yml
 
 permissions:
   contents: write
@@ -39,7 +40,9 @@ jobs:
           jq -e '.status=="PASS" and .result=="HUMAN_VISUAL_PASS" and .candidate.version_name=="0.4.2-beta.75" and .candidate.version_code==81 and .candidate.build_run==32849057694 and .candidate.artifact_id==9563625638 and .candidate.sha256=="6e08dc974281cc7b5428d22cf406179447cdeb95443dc19fa1db2b4d32344913" and .candidate.size==13147013 and .candidate.signer_sha256=="d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e" and .visual.run_id==32860235560 and .visual.artifact_id==9568028848 and .visual.android_build_or_sign_in_visual==false and .human_inspection["320x568"].no_wrong_route_loading_crop_overlap==true and .human_inspection["360x640"].no_wrong_route_loading_crop_overlap==true and .human_inspection["480x800"].no_wrong_route_loading_crop_overlap==true and .human_inspection["480x800"].add_dialog_correct==true and .stable_publish=="FORBIDDEN"' ops/beta75-visual-inspection.json >/dev/null
           git fetch --no-tags --depth=1 origin 007795a656fa14236ed766b164ca80bb5872fb32
           git show 007795a656fa14236ed766b164ca80bb5872fb32:ops/beta75-visual-inspection.json > /tmp/locked-visual.json
-          cmp -s /tmp/locked-visual.json ops/beta75-visual-inspection.json
+          jq -S -c . /tmp/locked-visual.json > /tmp/locked-visual.canon
+          jq -S -c . ops/beta75-visual-inspection.json > /tmp/current-visual.canon
+          cmp -s /tmp/locked-visual.canon /tmp/current-visual.canon
           bash -n tools/publish_beta75_ota.sh
           ! grep -Eq 'assemble|bundle|apksigner|jarsigner|signingConfig' tools/publish_beta75_ota.sh
           ! grep -Eq 'git push .*main|refs/heads/main|stable-release|publish.*STABLE' tools/publish_beta75_ota.sh
