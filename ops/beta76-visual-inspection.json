@@ -1,0 +1,84 @@
+{
+  "status": "PASS",
+  "result": "HUMAN_VISUAL_PASS",
+  "inspected_at": "2026-08-26T05:29:39+07:00",
+  "candidate": {
+    "version_name": "0.4.2-beta.76",
+    "version_code": 82,
+    "package": "vn.pickpack1291.app.beta.publicbeta",
+    "source_sha": "0d81793eabf465716a4fe36038d143b11220667f",
+    "build_run": 32875201581,
+    "artifact_id": 9573716441,
+    "sha256": "7018977f28d09434de27e6c6e90a7a51ec11c77831285d7e466c7aeeeeef9ee2",
+    "size": 13179781,
+    "signer_sha256": "d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e"
+  },
+  "probe": {
+    "run_id": 32905776490,
+    "artifact_id": 9584789120,
+    "artifact_digest": "sha256:41cfb2eba0a0fb76bba204513a040eabdde870c417d952d61443c14e89fee4b8",
+    "frame": "320x568",
+    "result": "HUMAN_PASS",
+    "purpose": "verify route, mdpi PDA viewport, QR focus and IME before the final matrix"
+  },
+  "visual": {
+    "run_id": 32906107089,
+    "artifact_id": 9584898561,
+    "artifact_digest": "sha256:c02316956d161629d6c8f079171cf51572931fb2ddc3e137b56c9a9429faf7f5",
+    "route_gate": "exact_candidate+activity_readback+real_png+ime_state+human_pixels",
+    "android_build_or_sign_in_visual": false
+  },
+  "human_inspection": {
+    "320x568": {
+      "drop_receive_card_visible": true,
+      "drop_receive_screen_correct": true,
+      "position_select_visible": true,
+      "owner_crud_buttons_visible": true,
+      "qr_do_package_fields_visible": true,
+      "keyboard_qr_not_obscured": true,
+      "add_clear_actions_visible": true,
+      "no_wrong_route_loading_crop_overlap": true,
+      "frames": [
+        "320x568-business.png",
+        "320x568-drop-top.png",
+        "320x568-keyboard.png",
+        "320x568-drop-bottom.png"
+      ]
+    },
+    "360x640": {
+      "drop_receive_card_visible": true,
+      "drop_receive_screen_correct": true,
+      "position_select_visible": true,
+      "owner_crud_buttons_visible": true,
+      "qr_do_package_fields_visible": true,
+      "keyboard_qr_not_obscured": true,
+      "add_clear_actions_visible": true,
+      "no_wrong_route_loading_crop_overlap": true,
+      "frames": [
+        "360x640-business.png",
+        "360x640-drop-top.png",
+        "360x640-keyboard.png",
+        "360x640-drop-bottom.png"
+      ]
+    },
+    "480x800": {
+      "drop_receive_card_visible": true,
+      "drop_receive_screen_correct": true,
+      "position_select_visible": true,
+      "owner_crud_buttons_visible": true,
+      "qr_do_package_fields_visible": true,
+      "keyboard_qr_not_obscured": true,
+      "add_clear_actions_visible": true,
+      "no_wrong_route_loading_crop_overlap": true,
+      "frames": [
+        "480x800-business.png",
+        "480x800-drop-top.png",
+        "480x800-keyboard.png",
+        "480x800-drop-bottom.png"
+      ]
+    }
+  },
+  "stable_publish": "FORBIDDEN",
+  "rebuild_after_candidate_lock": false,
+  "resign_after_candidate_lock": false
+}
