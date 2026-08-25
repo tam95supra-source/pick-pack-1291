@@ -1,0 +1,6 @@
+trigger=beta70-locked-visual-v1
+candidate_artifact=9543716011
+candidate_sha256=f4113bf8ffb330cd5ebf51f06a5fd211be04323546d28e4e04dec498d1d83899
+candidate_size=13114245
+version=0.4.2-beta.70
+version_code=76
