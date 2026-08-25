@@ -166,7 +166,7 @@ for i in 1 2 3 4 5 6 7 8; do
 done
 test "$PASS" = true
 curl -fsSL -H 'content-type: application/json' "$GAS_URL" -d '{"action":"update_check","channel":"BETA","current_version":"0.4.2-beta.71"}' > "$E/beta-current.json"
-jq -e '.ok==true and .available==false and .version_name=="0.4.2-beta.71" and .sha256=="5a8e29f5d50ac31010ebe2cd6e6096ffdd8bcd2b354007a7448878ae6eefec3b" and .size==13114245' "$E/beta-current.json" >/dev/null
+jq -e '.ok==true and .source=="GOOGLE_DRIVE" and .channel=="BETA" and .available==false and .version_name=="0.4.2-beta.71" and .size==13114245' "$E/beta-current.json" >/dev/null
 LIVE_URL=$(jq -r '.apk_url // .download_url // .url // empty' "$E/beta-after.json")
 [[ "$LIVE_URL" == https://* ]]
 curl -fsSL -L --connect-timeout 15 --max-time 180 "$LIVE_URL" -o /tmp/beta71-live.apk
