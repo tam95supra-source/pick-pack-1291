@@ -162,7 +162,7 @@ def open_settings(d,wh):
     route_gate(f'{d}-settings-top-route')
     time.sleep(.6)
     rawshot(d,'16-settings-top',wh)
-    for _ in range(5):
+    for _ in range(4):
         adb('shell','input','swipe',str(int(W*.50)),str(int(H*.70)),str(int(W*.50)),str(int(H*.25)),'430',check=False)
         time.sleep(.25)
     time.sleep(.6)
