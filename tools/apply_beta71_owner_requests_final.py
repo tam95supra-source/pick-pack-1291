@@ -31,6 +31,12 @@ if old_timeline in ops:
     ops=ops.replace(old_timeline,new_timeline,1)
 elif new_timeline not in ops:
     raise SystemExit('Beta71 local event timeline anchor missing')
+old_resource_line=r'''"REPLACE_RESOURCE"->{val old=assignmentById(before,x.optString("assignment_id"));val t=old?.optString("resource_type").orEmpty().ifBlank{x.optString("resource_type")};val oldId=old?.optString("resource_id").orEmpty().ifBlank{"—"};val newId=x.optString("new_resource_id").ifBlank{"—"};changes.add("Đổi ${resName(t)}: $oldId → $newId${x.optString("reason").takeIf{it.isNotBlank()}?.let{" • Lý do: $it"}.orEmpty()}")}'''
+new_resource_line=r'''"REPLACE_RESOURCE"->{val old=assignmentById(before,x.optString("assignment_id"));val t=old?.optString("resource_type").orEmpty().ifBlank{x.optString("resource_type")};val oldId=old?.optString("resource_id").orEmpty().ifBlank{when(t.uppercase()){"PDA"->before.optString("pda_serial");"USER_PICK"->before.optString("user_pick");"PACK_TABLE"->before.optString("pack_table");"USER_PACK"->before.optString("user_pack");else->""}}.ifBlank{"—"};val newId=x.optString("new_resource_id").ifBlank{"—"};changes.add("Đổi ${resName(t)}: $oldId → $newId${x.optString("reason").takeIf{it.isNotBlank()}?.let{" • Lý do: $it"}.orEmpty()}")}'''
+if old_resource_line in ops:
+    ops=ops.replace(old_resource_line,new_resource_line,1)
+elif new_resource_line not in ops:
+    raise SystemExit('Beta71 previous resource identity anchor missing')
 ops_path.write_text(ops)
 assert 'api.networkStatus()' not in ops
 assert 'val explicit=body.optString("event_type").trim().uppercase()' in ops
