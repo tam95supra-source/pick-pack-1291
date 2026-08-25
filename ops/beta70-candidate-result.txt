@@ -1,0 +1,17 @@
+verdict=PASS
+run_id=32792630985
+source_sha=35bc8dfb0fb9c01c029fc3cf23a4250d54b5f93c
+branch=release/beta70-pda-local-holder-fix-20260825
+beta_name=0.4.2-beta.70
+beta_code=76
+package=vn.pickpack1291.app.beta.publicbeta
+apk_file=pick-pack-1291-public-beta-0.4.2-beta.70.apk
+apk_sha256=a7a7ad7f9aeef4a7243a9009ae350801d9403b658d2c810d491331411a2a12a6
+apk_size=13114245
+artifact_id=9543730168
+debug_artifact_id=9543730708
+signer_sha256=d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
+stable_name=0.1.0-stable
+stable_code=1
+stable_publish=FORBIDDEN
+service_change=NONE
