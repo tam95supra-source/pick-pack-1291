@@ -63,7 +63,12 @@ def make_db(path,date):
 
 def seed_fixture():
     adb('shell','am','force-stop',PKG,check=False)
-    uid=adb('shell','stat','-c','%u',f'/data/user/0/{PKG}').stdout.strip();gid=adb('shell','stat','-c','%g',f'/data/user/0/{PKG}').stdout.strip();date=datetime.now(ZoneInfo('Asia/Bangkok')).strftime('%Y-%m-%d')
+    probe=adb('shell','stat','-c','%u:%g',f'/data/user/0/{PKG}',check=False).stdout.strip()
+    if ':' not in probe:
+        adb('shell','am','start','-W','-n',f'{PKG}/{ACT}','--es','module','BUSINESS','--es','login','0987654321','--es','name','TamNV','--es','role','ADMIN',check=False)
+        time.sleep(.5);adb('shell','am','force-stop',PKG,check=False);probe=adb('shell','stat','-c','%u:%g',f'/data/user/0/{PKG}',check=False).stdout.strip()
+    assert ':' in probe, probe
+    uid,gid=probe.split(':',1);date=datetime.now(ZoneInfo('Asia/Bangkok')).strftime('%Y-%m-%d')
     auth=OUT/'pick_pack_auth_session_v2.xml';auth.write_text(prefs_xml({'token':'beta75-visual-offline-token','login_id':'0987654321','display_name':'TamNV','role':'ADMIN','position':'PickPack1291','email':'visual@example.invalid'}),encoding='utf-8')
     master={'ok':True,'master_revision':9,'staff':[{'mnv':'30011','full_name':'Nguyễn Văn A','main_position':'Pick','supplier':'NLV','department':'Pick Pack','site':'1291','warehouse':'HY1'},{'mnv':'30050','full_name':'Trần Thị B','main_position':'Pick','supplier':'NTH','department':'Pick Pack','site':'1291','warehouse':'HY1'},{'mnv':'30060','full_name':'Lê Văn C','main_position':'Pack','supplier':'NLV','department':'Pick Pack','site':'1291','warehouse':'HY1'},{'mnv':'30099','full_name':'Phạm Thị D','main_position':'Pick','supplier':'NLV','department':'Pick Pack','site':'1291','warehouse':'HY1'}],'pdas':[{'serial':'NLS-MT90-0012345','last5':'12345','status':'Nguyên vẹn'},{'serial':'NLS-MT90-0067890','last5':'67890','status':'Màn hình xước nhẹ'},{'serial':'NLS-MT90-0099999','last5':'99999','status':'Nguyên vẹn'}],'pda_statuses':['Nguyên vẹn','Màn hình xước nhẹ','Lỗi quét mã'],'user_picks':['HY1.OUT.01','HY1.OUT.02','HY1.OUT.03'],'pack_bundles':[{'table':'D1','user_pack':'PACK01'},{'table':'D2','user_pack':'PACK02'},{'table':'D3','user_pack':'PACK03'}]}
     master_xml=OUT/'pp1291_master_cache.xml';master_xml.write_text(prefs_xml({'snapshot':json.dumps(master,ensure_ascii=False,separators=(',',':'))}),encoding='utf-8')
