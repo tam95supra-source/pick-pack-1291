@@ -1,16 +1,18 @@
-name: Beta release clean pipeline
+name: Beta locked release pipeline
 
 on:
   push:
-    branches: [ release/beta71-clean-from-beta68-20260825 ]
-    paths: [ 'ops/beta-release-request.json' ]
+    branches:
+      - release/**
+    paths:
+      - ops/beta-release-request.json
 
 permissions:
   contents: write
   actions: read
 
 concurrency:
-  group: beta71-clean-release
+  group: beta-locked-release-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -25,18 +27,27 @@ jobs:
       GAS_SCRIPT_ID: ${{ secrets.GAS_SCRIPT_ID }}
       GAS_DEPLOYMENT_ID: ${{ secrets.GAS_DEPLOYMENT_ID }}
     steps:
-      - uses: actions/checkout@v4
-        with: { fetch-depth: 0 }
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
 
-      - name: Publish exact locked Beta71 and verify OTA
+      - name: Validate request and publish exact locked candidate
         shell: bash
-        run: bash tools/publish_beta71_ota.sh
+        run: |
+          set -euo pipefail
+          test "$(jq -r '.stage' ops/beta-release-request.json)" = publish
+          target="$(jq -r '.version_name' ops/beta-release-request.json)"
+          beta_no="$(sed -nE 's/^0\.4\.2-beta\.([0-9]+)$/\1/p' <<<"$target")"
+          test -n "$beta_no"
+          script="tools/publish_beta${beta_no}_ota.sh"
+          test -f "$script"
+          bash "$script"
 
       - name: Upload release evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: beta71-release-evidence-${{ github.run_id }}
-          path: /tmp/beta71-evidence
+          name: beta-release-evidence-${{ github.run_id }}
+          path: /tmp/beta*-evidence
           retention-days: 30
           if-no-files-found: warn
