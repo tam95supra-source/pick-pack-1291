@@ -30,7 +30,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
       - name: Validate candidate request
         id: request
         shell: bash
@@ -43,7 +42,6 @@ jobs:
             exit 0
           fi
           jq -e '.version_name=="0.4.2-beta.74" and .version_code==80 and .base_version=="0.4.2-beta.73" and .base_version_code==79 and .stable_publish=="FORBIDDEN" and .service_change=="NONE" and .gas_change=="NONE"' ops/beta-release-request.json >/dev/null
-
       - name: Materialize Beta74 source exactly once
         if: steps.request.outputs.stage == 'candidate'
         id: identity
@@ -63,7 +61,6 @@ jobs:
           grep -q 'versionCode = 80' app/build.gradle.kts
           grep -q 'versionName = "0.4.2-beta.74"' app/build.gradle.kts
           echo "source_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
-
       - name: Beta74 regression gates
         if: steps.request.outputs.stage == 'candidate'
         shell: bash
@@ -88,18 +85,15 @@ jobs:
           grep -q 'versionCode = 1' app/build.gradle.kts
           grep -q 'versionName = "0.1.0-stable"' app/build.gradle.kts
           ! git diff 2d726828bdd83efe21e9cd41db8d5c06d16f5272 HEAD --name-only -- service google-apps-script | grep -q .
-
       - uses: actions/setup-java@v5
         if: steps.request.outputs.stage == 'candidate'
         with:
           distribution: temurin
           java-version: '17'
-
       - uses: gradle/actions/setup-gradle@v4
         if: steps.request.outputs.stage == 'candidate'
         with:
           gradle-version: '9.4.1'
-
       - name: Resolve Android SDK
         if: steps.request.outputs.stage == 'candidate'
         shell: bash
@@ -120,11 +114,9 @@ jobs:
           echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
           yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
           "$SDK/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-36' 'build-tools;36.0.0'
-
       - name: Compile Beta and Stable isolation
         if: steps.request.outputs.stage == 'candidate'
         run: gradle --no-daemon --build-cache --parallel :app:assembleBetaDebug :app:assembleStableDebug :app:assembleBetaRelease
-
       - name: Sign exact Beta74 candidate
         if: steps.request.outputs.stage == 'candidate'
         shell: bash
@@ -153,7 +145,6 @@ jobs:
           printf '%s  %s\n' "$APK_SHA" "$(basename "$OUT")" > dist/beta74/SHA256SUMS-0.4.2-beta.74.txt
           jq -nc --arg source "$SOURCE_SHA" --arg sha "$APK_SHA" --argjson size "$APK_SIZE" --arg signer "$EXPECTED_SIGNER_SHA256" '{version_name:"0.4.2-beta.74",version_code:80,package:"vn.pickpack1291.app.beta.publicbeta",source_sha:$source,apk_sha256:$sha,apk_size:$size,signer_sha256:$signer,stable_version:"0.1.0-stable",stable_code:1,stable_publish:"FORBIDDEN",service_change:"NONE",gas_change:"NONE"}' > dist/beta74/release-meta.json
           rm -f "$KS" "$RUNNER_TEMP/store.pass" "$RUNNER_TEMP/key.pass"
-
       - name: Upload exact signed candidate
         if: steps.request.outputs.stage == 'candidate'
         uses: actions/upload-artifact@v4
@@ -241,3 +232,44 @@ jobs:
           path: /tmp/visual
           retention-days: 30
           if-no-files-found: error
+
+  publish:
+    needs: candidate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+      GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+      GOOGLE_OAUTH_REFRESH_TOKEN: ${{ secrets.GOOGLE_OAUTH_REFRESH_TOKEN }}
+      GAS_SCRIPT_ID: ${{ secrets.GAS_SCRIPT_ID }}
+      GAS_DEPLOYMENT_ID: ${{ secrets.GAS_DEPLOYMENT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Validate publish request and exact lock
+        id: request
+        shell: bash
+        run: |
+          set -euo pipefail
+          STAGE=$(jq -r '.stage' ops/beta-release-request.json)
+          echo "stage=$STAGE" >> "$GITHUB_OUTPUT"
+          if [[ "$STAGE" != publish ]]; then exit 0; fi
+          jq -e '.version_name=="0.4.2-beta.74" and .version_code==80 and .locked_run_id==32842363597 and .locked_artifact_id==9561088652 and .locked_sha256=="37cadd74088179f1e17872c7474622681941cc5f546807cea769517d9f98b017" and .locked_size==13130629 and .locked_package=="vn.pickpack1291.app.beta.publicbeta" and .locked_signer_sha256=="d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e" and .stable_publish=="FORBIDDEN"' ops/beta-release-request.json >/dev/null
+          jq -e '.status=="PASS" and .result=="HUMAN_VISUAL_PASS" and .candidate.build_run==32842363597 and .candidate.artifact_id==9561088652 and .visual.artifact_id==9561153695' ops/beta74-visual-inspection.json >/dev/null
+          bash -n tools/publish_beta74_ota.sh
+          ! grep -Eq 'gradle|assemble|bundle|apksigner|jarsigner|signingConfig' tools/publish_beta74_ota.sh
+          ! grep -Eq 'git push .*main|refs/heads/main|stable-release|publish.*STABLE' tools/publish_beta74_ota.sh
+      - name: Publish exact Beta74 bytes and verify LIVE
+        if: steps.request.outputs.stage == 'publish'
+        shell: bash
+        run: bash tools/publish_beta74_ota.sh
+      - name: Upload Beta74 release evidence
+        if: always() && steps.request.outputs.stage == 'publish'
+        uses: actions/upload-artifact@v4
+        with:
+          name: beta74-release-evidence-${{ github.run_id }}
+          path: /tmp/beta74-release-evidence
+          retention-days: 30
+          if-no-files-found: warn
