@@ -49,7 +49,6 @@ jobs:
               tools/apply_beta65_login_reference_finish.py \
               tools/apply_beta66_login_fullframe.py \
               tools/apply_beta68_owner_five_fixes.py \
-              tools/apply_beta68_login_visual_pass.py \
               tools/apply_beta71_owner_requests_v5.py \
               tools/apply_beta71_owner_requests_final.py \
               tools/apply_beta71_pda_local_holder.py
@@ -61,7 +60,6 @@ jobs:
             python3 tools/apply_beta65_login_reference_finish.py
             python3 tools/apply_beta66_login_fullframe.py
             python3 tools/apply_beta68_owner_five_fixes.py
-            python3 tools/apply_beta68_login_visual_pass.py
             python3 tools/apply_beta71_owner_requests_final.py
             python3 tools/apply_beta71_pda_local_holder.py
             git diff --check
