@@ -18,6 +18,23 @@ jobs:
         with:
           ref: ${{ github.sha }}
           fetch-depth: 0
+      - name: Diagnose read-only live authority
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          bash -n tools/release_beta70_exact_ota_v1.sh
+          V=ops/beta70-visual-inspection.txt
+          grep -qx 'verdict=PASS' "$V"
+          grep -qx 'candidate_artifact_id=9543716011' "$V"
+          MAIN=$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/$GITHUB_REPOSITORY/branches/main" | jq -r '.commit.sha')
+          echo "main_sha=$MAIN"
+          GAS='https://script.google.com/macros/s/AKfycbzbEoGfbNg6s2HnP-gUpcBJ7mMIkVBtYuQKMndb9seDV2c55lQwSUO1GZ-LtQ2CxMCauA/exec'
+          curl -fsSL -H 'content-type: application/json' "$GAS" -d '{"action":"update_check","channel":"STABLE","current_version":"0.1.0-stable"}' > /tmp/stable-live.json
+          curl -fsSL -H 'content-type: application/json' "$GAS" -d '{"action":"update_check","channel":"BETA","current_version":"0.4.2-beta.67"}' > /tmp/beta-live.json
+          jq -c '{ok,channel,available,version_name,version_code,sha256,size,source,reason}' /tmp/stable-live.json
+          jq -c '{ok,channel,available,version_name,version_code,sha256,size,source,reason}' /tmp/beta-live.json
       - name: Execute exact Beta70 canonical OTA flow
         shell: bash
         env:
