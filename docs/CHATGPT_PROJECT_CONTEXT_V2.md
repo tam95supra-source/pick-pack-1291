@@ -33,6 +33,14 @@ Chỉ đọc lỗi gốc đầu tiên; không dump log, không xử lý lỗi ca
 
 Không dừng ở plan, commit, PR, workflow pending, build PASS, artifact hay diagnosis. Chỉ final khi DoD PASS hoặc có blocker OWNER thật. Khi chờ tool, tiếp tục phần độc lập.
 
+### Chống dừng sớm và chống làm linh tinh
+
+Trước mọi action, action phải thuộc một trong ba loại: yêu cầu OWNER, dependency bắt buộc, hoặc gate xác minh DoD. Không thuộc thì cấm làm. Cấm tự thêm tính năng/refactor/provider/branch/workflow/experiment/status artifact; cấm xóa dữ liệu hoặc đổi Stable/main/signer/authority khi OWNER chưa yêu cầu.
+
+Pending, một tool lỗi, thiếu đường tắt, token/runtime hoặc “đã làm phần chính” không phải điểm dừng. Phải monitor hoặc dùng đúng fallback đã biết trong retry budget. Chỉ được dừng khi: (1) toàn DoD PASS có evidence; (2) blocker OWNER thật về quyền/MFA/approval/quyết định mâu thuẫn; hoặc (3) safety/policy/protected action chặn. Khi còn action hợp lệ, cấm final kiểu “nếu anh muốn em làm tiếp”.
+
+Nếu phiên sắp kết thúc trước DoD, bắt buộc tạo handoff READY; giới hạn phiên không được biến thành kết luận công việc.
+
 ### Cách PASS bắt buộc
 
 - jobs=[] hoặc mọi workflow cùng fail: workflow/YAML rác; dùng active workflow allowlist, không tạo thêm workflow.
