@@ -48,9 +48,20 @@ jobs:
           test "$(sha256sum "$APK" | awk '{print $1}')" = "6e08dc974281cc7b5428d22cf406179447cdeb95443dc19fa1db2b4d32344913"
           test "$(stat -c '%s' "$APK")" = "13147013"
           python3 -m py_compile tools/run_beta75_visual.py
-          grep -q "WH=(480,800)" tools/run_beta75_visual.py
-          grep -q "probe-480-add-dialog.png" tools/run_beta75_visual.py
-          ! grep -Eq 'gradle|apksigner|uiautomator|am instrument' tools/run_beta75_visual.py
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('tools/run_beta75_visual.py').read_text(encoding='utf-8')
+          old="adb('shell','input','swipe','240','620','240','350','360'); time.sleep(.45)"
+          new="adb('shell','input','swipe','240','560','240','280','360'); time.sleep(.45)"
+          assert s.count(old)==1
+          s=s.replace(old,new,1)
+          compile(s,'beta75_probe_runtime.py','exec')
+          Path('/tmp/beta75_probe_runtime.py').write_text(s,encoding='utf-8')
+          PY
+          python3 -m py_compile /tmp/beta75_probe_runtime.py
+          grep -q "WH=(480,800)" /tmp/beta75_probe_runtime.py
+          grep -q "probe-480-add-dialog.png" /tmp/beta75_probe_runtime.py
+          ! grep -Eq 'gradle|apksigner|uiautomator|am instrument' /tmp/beta75_probe_runtime.py
           echo "APK=$APK" >> "$GITHUB_ENV"
       - name: Enable KVM
         shell: bash
@@ -73,7 +84,7 @@ jobs:
             timeout 60s adb install -r "$APK"
             timeout 20s adb root
             timeout 20s adb wait-for-device
-            timeout 300s python3 tools/run_beta75_visual.py
+            timeout 300s python3 /tmp/beta75_probe_runtime.py
       - name: Upload probe evidence
         if: always()
         uses: actions/upload-artifact@v4
