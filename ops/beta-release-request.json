@@ -1,13 +1,13 @@
 {
-  "stage": "visual",
+  "stage": "visual-export",
   "version_name": "0.4.2-beta.71",
   "version_code": 77,
   "base_version": "0.4.2-beta.68",
   "base_version_code": 74,
   "stable_publish": "FORBIDDEN",
   "service_change": "NONE",
-  "requested_at": "2026-08-25T08:49:00+07:00",
-  "attempt": 8,
+  "requested_at": "2026-08-25T08:57:00+07:00",
+  "attempt": 9,
   "rejected_candidate": {
     "run_id": 32795523561,
     "artifact_id": 9544753296,
@@ -17,5 +17,7 @@
   "candidate_artifact_id": 9545165700,
   "apk_sha256": "54c0f8dfa02da0ad1ddb0a7347d8f955048fd72230e9b319fecd4be24de5ba63",
   "apk_size": 13114245,
-  "visual_harness": "rawshot-fixed-scroll-v2"
+  "visual_harness": "rawshot-fixed-scroll-v2",
+  "visual_run_id": 32797526643,
+  "visual_artifact_id": 9545409357
 }
