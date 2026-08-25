@@ -8,21 +8,21 @@
   "service_change": "NONE",
   "gas_change": "FORGOT_PASSWORD_PREVIEW",
   "scope": "settings-visual-harness-only",
-  "requested_at": "2026-08-25T16:47:00+07:00",
+  "requested_at": "2026-08-25T16:53:00+07:00",
   "owner": "Nguyen Van Tam",
   "locked_run_id": 32820317675,
   "locked_artifact_id": 9552942024,
   "locked_sha256": "ad037c1a17d245f90ead59539c5595cc5df6a568b8657ce636cc43d101175fd2",
   "locked_size": 13130629,
   "visual_gate": "dumpsys_activity+dumpsys_window+human_pixels",
-  "harness_blob": "7fe086ab9917f529442b80261be4d2def4d843bb",
+  "harness_blob": "032ec2743c91ae55b1c3400fa5aa9bb487db6db9",
   "preflight": {
     "py_compile": "PASS",
     "materialized_compile": "PASS",
     "standalone_materialized_source": true,
-    "source_sha256": "c255a6d0e3d2092155e97ea7f8295b44dc0c7d1fb8141a13fdbedc6939e92f0b",
+    "source_sha256": "d78848cf8ba37225a4030e4737c4b3b2dba5bc89d275d958a419c082dd989053",
     "adb_timeout_seconds": 15,
     "forbidden_settings_gate_absent": true
   },
-  "retry_reason": "OWNER approved replacement of API29 UiAutomation gate; use bounded am start + dumpsys activity/window + real PNG + mandatory human marker inspection; exact bytes unchanged"
+  "retry_reason": "human inspection found lower Settings title NHAT KY cropped at 320 and 480; reduce bounded content swipes from 5 to 4; exact bytes unchanged"
 }
