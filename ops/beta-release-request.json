@@ -8,21 +8,21 @@
   "service_change": "NONE",
   "gas_change": "FORGOT_PASSWORD_PREVIEW",
   "scope": "settings-visual-harness-only",
-  "requested_at": "2026-08-25T16:53:00+07:00",
+  "requested_at": "2026-08-25T16:57:00+07:00",
   "owner": "Nguyen Van Tam",
   "locked_run_id": 32820317675,
   "locked_artifact_id": 9552942024,
   "locked_sha256": "ad037c1a17d245f90ead59539c5595cc5df6a568b8657ce636cc43d101175fd2",
   "locked_size": 13130629,
   "visual_gate": "dumpsys_activity+dumpsys_window+human_pixels",
-  "harness_blob": "032ec2743c91ae55b1c3400fa5aa9bb487db6db9",
+  "harness_blob": "779c91298d3a6608fb0d09793c0f97223051c772",
   "preflight": {
     "py_compile": "PASS",
     "materialized_compile": "PASS",
     "standalone_materialized_source": true,
-    "source_sha256": "d78848cf8ba37225a4030e4737c4b3b2dba5bc89d275d958a419c082dd989053",
+    "source_sha256": "f5106deb923c4d441cf3d44587e2634bde8dfbc952a9a806d817bdce83b909d8",
     "adb_timeout_seconds": 15,
     "forbidden_settings_gate_absent": true
   },
-  "retry_reason": "human inspection found lower Settings title NHAT KY cropped at 320 and 480; reduce bounded content swipes from 5 to 4; exact bytes unchanged"
+  "retry_reason": "human inspection still cropped NHAT KY at 320 and 480 after 4 swipes; use 3 swipes for 320/480 and keep 4 for 360; exact bytes unchanged"
 }
