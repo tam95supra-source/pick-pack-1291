@@ -245,6 +245,21 @@ class BetaApiClient(context: Context) {
         }
     }
 
+
+    fun forgotPasswordPreview(loginId: String, callback: (Result) -> Unit) {
+        executor.execute {
+            try {
+                callback(post(JSONObject().apply {
+                    put("action", "forgot_password_preview")
+                    put("login_id", loginId.trim())
+                    put("_device_id", deviceId)
+                    put("_app_channel", BuildConfig.CHANNEL)
+                    put("_app_version", BuildConfig.VERSION_NAME)
+                }, authenticated = false))
+            } catch (t: Throwable) { callback(failure(t)) }
+        }
+    }
+
     fun forgotPassword(loginId: String, callback: (Result) -> Unit) {
         executor.execute {
             try {

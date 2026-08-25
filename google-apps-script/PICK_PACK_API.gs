@@ -38,6 +38,7 @@ function doPost(e) {
     if (action === 'service_discovery') return ppJson_(ppM2Discovery_(body));
     if (action === 'health') return ppJson_(ppHealth_());
     if (action === 'update_check') return ppJson_(ppUpdateCheck_(body));
+    if (action === 'forgot_password_preview') return ppJson_(ppForgotPasswordPreview_(body));
     if (action === 'forgot_password') return ppJson_(ppForgotPassword_(body));
     if (action === 'login_challenge') return ppJson_(ppLoginChallenge_(body));
     if (action === 'login') return ppJson_(ppLogin_(body));
@@ -537,6 +538,18 @@ function ppResetParts_(v){const p=String(v||'').split('$');if(p.length!==4||p[0]
 function ppCredentialParts_(v){const p=ppVerifierParts_(v);if(p)return {algorithm:'pbkdf2_sha256',iterations:p.iterations,salt:p.salt,key:p.key};return ppResetParts_(v);}
 function ppResetPasswordValue_(){const chars='ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';let out='PP-';const bytes=ppRandom_(12);for(let i=0;i<10;i++){const n=(bytes[i]+256)%256;out+=chars.charAt(n%chars.length);}return out;}
 function ppResetKey_(password,salt){return ppB64u_(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256,Utilities.newBlob('PP_RESET_V1|'+salt+'|'+password).getBytes()));}
+
+function ppForgotPasswordPreview_(body){
+  const login=String(body.login_id||'').trim();
+  if(!login)return {ok:false,error:'LOGIN_ID_REQUIRED'};
+  const rateKey='PP_RESET_PREVIEW_'+ppSha256Hex_(login+'|'+ppDeviceId_(body)).slice(0,48),cache=CacheService.getScriptCache();
+  if(cache.get(rateKey))return {ok:false,error:'TOO_MANY_REQUESTS'};
+  cache.put(rateKey,'1',10);
+  const a=ppAccount_(login);
+  if(!a||a.status!=='ACTIVE')return {ok:false,error:'ACCOUNT_NOT_FOUND'};
+  return {ok:true,login_id:a.login_id,email:(a.email||PP.RESET_ADMIN_EMAIL)};
+}
+
 function ppForgotPassword_(body){
   const login=String(body.login_id||'').trim(),generic={ok:true,delivery:'ACCOUNT_EMAIL',message:'RESET_REQUEST_ACCEPTED'};
   if(!login)return generic;

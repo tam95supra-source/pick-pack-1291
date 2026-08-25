@@ -77,6 +77,22 @@ object LocalLogManager {
         return "$total tệp • ${size(bytes)} • còn trên máy ${files.size} • mới nhất $at"
     }
 
+
+    fun detailRows(context:Context):List<Pair<String,String>>{
+        val files=logDir(context).listFiles()?.filter{it.isFile}.orEmpty().sortedByDescending{it.lastModified()}
+        val latest=files.firstOrNull()
+        fun size(v:Long)=when{v<1024L->"$v B";v<1024L*1024L->String.format(Locale.US,"%.1f KB",v/1024.0);else->String.format(Locale.US,"%.1f MB",v/(1024.0*1024.0))}
+        val at=latest?.lastModified()?.takeIf{it>0L}?.let{SimpleDateFormat("HH:mm:ss dd/MM/yyyy",Locale.US).format(Date(it))}?:"—"
+        val state=if(files.isEmpty())"Đã đồng bộ / không có tệp chờ" else "Chờ tải lên hoặc đồng bộ: ${files.size} tệp"
+        return listOf(
+            "Tên tệp nhật ký" to (latest?.name?:"—"),
+            "Dung lượng tệp" to size(latest?.length()?:0L),
+            "Thời gian cập nhật mới nhất" to at,
+            "Dung lượng lưu trữ còn trống" to size(context.filesDir.usableSpace.coerceAtLeast(0L)),
+            "Trạng thái tải lên / đồng bộ" to state
+        )
+    }
+
     fun sendManualReport(context: Context, api: BetaApiClient, screen: String, syncState: String, callback: (BetaApiClient.Result) -> Unit) {
         val file = write(context, "MANUAL_REPORT", buildString {
             appendLine("type=MANUAL"); appendCommon(context)

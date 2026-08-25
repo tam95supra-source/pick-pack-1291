@@ -155,10 +155,7 @@ class FullBetaActivity : Activity() {
         card.addView(ImageView(this).apply {
             setImageResource(R.drawable.login_supra_logo);adjustViewBounds=true;scaleType=ImageView.ScaleType.FIT_CENTER
         },size(dp(if(compact)88 else 104),dp(if(compact)88 else 104)))
-        card.addView(gap(4))
-        card.addView(txt("PICK PACK 1291",if(compact)18f else 20f,navy,true).center())
-        card.addView(txt("Supra DC Hưng Yên",11.5f,muted,true).center())
-        card.addView(gap(if(compact)14 else 18))
+        card.addView(gap(if(compact)10 else 14))
         card.addView(txt("Tài khoản",9.8f,muted,true));card.addView(gap(3));card.addView(user,matchWrap())
         card.addView(gap(9));card.addView(txt("Mật khẩu",9.8f,muted,true));card.addView(gap(3));card.addView(passWrap,matchWrap())
 
@@ -168,11 +165,24 @@ class FullBetaActivity : Activity() {
             setOnClickListener {
                 val loginId=user.text.toString().trim()
                 if(loginId.isBlank()){toast("Nhập đúng tài khoản trước khi chọn Quên mật khẩu.");return@setOnClickListener}
-                isEnabled=false;text="Đang gửi yêu cầu..."
-                api.forgotPassword(loginId){r->runOnUiThread{
-                    isEnabled=true;text="Quên mật khẩu?"
-                    if(!r.ok){showError(r.error?:"Không gửi được yêu cầu đặt lại mật khẩu");return@runOnUiThread}
-                    TopNotice.show(this@FullBetaActivity,"Nếu tài khoản hợp lệ, mật khẩu mới đã được gửi tới mail đã cấu hình.",TopNotice.Kind.SUCCESS)
+                val forgotView=this
+                forgotView.isEnabled=false;forgotView.text="Đang kiểm tra..."
+                api.forgotPasswordPreview(loginId){preview->runOnUiThread{
+                    forgotView.isEnabled=true;forgotView.text="Quên mật khẩu?"
+                    if(!preview.ok){showError(preview.error?:"Không đọc được thông tin tài khoản");return@runOnUiThread}
+                    val p=preview.json?:JSONObject();val shownUser=p.optString("login_id",loginId);val shownMail=p.optString("email").ifBlank{"—"}
+                    AlertDialog.Builder(this@FullBetaActivity)
+                        .setTitle("Xác nhận đặt lại mật khẩu")
+                        .setMessage("Tài khoản: $shownUser\nEmail liên kết: $shownMail\n\nHai thông tin trên chỉ để kiểm tra, không thể sửa tại đây.")
+                        .setNegativeButton("HỦY",null)
+                        .setPositiveButton("ĐẶT LẠI MẬT KHẨU"){_,_->
+                            forgotView.isEnabled=false;forgotView.text="Đang gửi yêu cầu..."
+                            api.forgotPassword(loginId){r->runOnUiThread{
+                                forgotView.isEnabled=true;forgotView.text="Quên mật khẩu?"
+                                if(!r.ok){showError(r.error?:"Không gửi được yêu cầu đặt lại mật khẩu");return@runOnUiThread}
+                                TopNotice.show(this@FullBetaActivity,"Đã gửi mật khẩu mới tới email liên kết.",TopNotice.Kind.SUCCESS)
+                            }}
+                        }.show()
                 }}
             }
         }
@@ -198,7 +208,7 @@ class FullBetaActivity : Activity() {
         button.setOnClickListener{submit()};user.setOnEditorActionListener{_,id,_->if(id==EditorInfo.IME_ACTION_NEXT){pass.requestFocus();true}else false};pass.setOnEditorActionListener{_,id,_->if(id==EditorInfo.IME_ACTION_DONE){submit();true}else false}
         card.addView(button,matchWrap())
 
-        val copyright=txt("Copyright 2026 Supra DC Hưng Yên - tamnv2 - Chuyên viên Pick Pack 1291",8.6f,muted,false).apply {
+        val copyright=txt("Copyright 2026 - tamnv2 - Chuyên viên Pick Pack 1291 - Supra DCHY",8.6f,muted,false).apply {
             gravity=Gravity.CENTER;maxLines=2;setPadding(dp(8),dp(8),dp(8),0)
         }
         val root=FrameLayout(this).apply{setBackgroundColor(bg)}

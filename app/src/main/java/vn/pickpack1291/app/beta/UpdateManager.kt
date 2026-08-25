@@ -18,8 +18,19 @@ object UpdateManager {
     private var busy=false
     private var lastAutomaticCheckAt=0L
     private const val AUTO_DEDUP_MS=30_000L
+    private const val PREFS="pp1291_pending_update_v1"
+    data class PendingUpdate(val version:String,val url:String,val sha:String,val notes:String,val versionCode:Int)
+    private fun prefs(c:Context)=c.getSharedPreferences(PREFS,Context.MODE_PRIVATE)
+    fun pendingInfo(c:Context):PendingUpdate?{
+        val p=prefs(c);val v=p.getString("version","").orEmpty().trim()
+        if(v.isBlank()||v==BuildConfig.VERSION_NAME){if(v==BuildConfig.VERSION_NAME)p.edit().clear().apply();return null}
+        val url=p.getString("url","").orEmpty();if(url.isBlank())return null
+        return PendingUpdate(v,url,p.getString("sha","").orEmpty(),p.getString("notes","").orEmpty(),p.getInt("version_code",0))
+    }
+    private fun savePending(c:Context,v:String,url:String,sha:String,notes:String,code:Int){prefs(c).edit().putString("version",v).putString("url",url).putString("sha",sha).putString("notes",notes).putInt("version_code",code).apply()}
 
     fun checkAutomatic(activity:Activity){
+        pendingInfo(activity)
         val now=android.os.SystemClock.elapsedRealtime()
         if(busy||activity.isFinishing||activity.isDestroyed||now-lastAutomaticCheckAt<AUTO_DEDUP_MS)return
         lastAutomaticCheckAt=now
@@ -28,9 +39,12 @@ object UpdateManager {
 
     fun openManual(activity:Activity){
         if(busy||activity.isFinishing||activity.isDestroyed)return
+        val pending=pendingInfo(activity)
+        if(pending!=null){showRelease(activity,pending.version,pending.url,pending.sha,pending.notes);return}
         Toast.makeText(activity,"Đang kiểm tra phiên bản mới...",Toast.LENGTH_SHORT).show()
         check(activity,true)
     }
+
 
     private fun check(activity:Activity,manual:Boolean){
         if(busy)return
@@ -48,17 +62,19 @@ object UpdateManager {
                 if(manual)AlertDialog.Builder(activity).setTitle("Đang dùng phiên bản mới nhất").setMessage("Phiên bản hiện tại: ${BuildConfig.VERSION_NAME}\nKhông có bản cập nhật mới cho ${channelLabel()}.").setPositiveButton("OK",null).show()
                 return@runOnUiThread
             }
-            val version=j.optString("version_name").trim();val url=j.optString("apk_url").trim();val sha=j.optString("sha256").trim();val notes=j.optString("notes").trim().take(4000)
+            val version=j.optString("version_name").trim();val url=j.optString("apk_url").trim();val sha=j.optString("sha256").trim();val notes=j.optString("notes").trim().take(4000);val versionCode=j.optInt("version_code",0)
             if(version.isBlank()||url.isBlank()){
                 if(manual)AlertDialog.Builder(activity).setTitle("Thông tin cập nhật chưa đầy đủ").setMessage("Bản phát hành chưa có đủ phiên bản hoặc đường dẫn tải APK.").setPositiveButton("OK",null).show()
                 return@runOnUiThread
             }
+            savePending(activity,version,url,sha,notes,versionCode)
             showRelease(activity,version,url,sha,notes)
         }}
     }
 
     private fun channelLabel():String=if(BuildConfig.CHANNEL=="BETA")"kênh Bản thử nghiệm" else "kênh Bản ổn định"
 
+    fun bulletNotesForDisplay(raw:String):String=bulletNotes(raw)
     private fun bulletNotes(raw:String):String{
         val lines=raw.replace("\r","\n").split('\n').map{it.trim()}.filter{it.isNotBlank()}.map{
             it.replace(Regex("^(?:[-•*]+|\\d+[.)])\\s*"),"").trim()
