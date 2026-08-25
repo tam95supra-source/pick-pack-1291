@@ -1,0 +1,19 @@
+{
+  "verdict": "RUNTIME_PASS_AWAITING_HUMAN_INSPECTION",
+  "version_name": "0.4.2-beta.71",
+  "version_code": 77,
+  "package": "vn.pickpack1291.app.beta.publicbeta",
+  "candidate_run_id": 32795523561,
+  "candidate_artifact_id": 9544753296,
+  "visual_artifact_id": 9544827082,
+  "apk_sha256": "8f85c57d08ac020f7398860b1cb1147dd55d28351e02f2b15e6ba59f438d70be",
+  "apk_size": 13114245,
+  "signer_sha256": "d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e",
+  "matrix": [
+    "320x568@160",
+    "360x640@160",
+    "480x800@240"
+  ],
+  "screenshots": 36,
+  "rebuild": false
+}
