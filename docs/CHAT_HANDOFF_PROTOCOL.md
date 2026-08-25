@@ -1,134 +1,124 @@
 # CHAT HANDOFF PROTOCOL — PICK PACK 1291
 
 Status: **ACTIVE / mandatory**  
-Schema: `pick-pack-handover/v1`
+Schema: `pick-pack-handover/v2`
 
-Mục tiêu: OWNER chuyển sang chat mới và tiếp tục đúng bước còn dở mà không phải kể lại, crawl repo, đọc log cũ hoặc chạy lại gate đã PASS.
+Mục tiêu: mỗi lần OWNER chuyển chat, repo có một snapshot bàn giao đủ để phiên mới tiếp tục ngay; đồng thời giữ tối đa 5 bản archive gần nhất để phục hồi mà không làm phình context.
 
 ## 1. Trigger bắt buộc
 
-Áp dụng ngay khi OWNER dùng một trong các ý sau:
+Áp dụng ngay khi OWNER nói chuyển phiên, đổi chat, sang chat mới, tạo/chốt bàn giao, handoff hoặc kết thúc phiên để làm tiếp ở phiên khác. Đây là lệnh tạo artifact trong repo, không phải chỉ tóm tắt bằng chat.
 
-- chuyển phiên, đổi chat, sang chat mới;
-- tạo/chốt file bàn giao;
-- handoff, bàn giao cho AI/phiên tiếp theo;
-- kết thúc phiên này để làm tiếp ở phiên khác.
+## 2. Artifact và quy tắc lưu 5 bản
 
-Đây là yêu cầu tạo artifact, không phải yêu cầu chỉ tóm tắt bằng chat.
+Mỗi lần trigger, AI phải tạo hai file có **cùng nội dung**:
 
-## 2. Việc AI phải làm trước khi kết thúc phiên
+- Canonical: `docs/handovers/HANDOVER_CURRENT.md`.
+- Archive: `docs/handovers/HANDOVER_<YYYYMMDD-HHmmss>_<slug>.md`.
 
-1. Hoàn thành hoặc dừng tại một điểm atomic an toàn; không bỏ lại write/deploy ở trạng thái không rõ.
-2. Thu thập trạng thái từ chính tool output, receipt, commit và evidence đã có; không chạy lại gate PASS chỉ để viết bàn giao.
-3. Nếu trạng thái LIVE thay đổi trong phiên, cập nhật `CURRENT_STATE.md`.
-4. Tạo hai file có cùng nội dung:
-   - canonical: `docs/handovers/HANDOVER_CURRENT.md`;
-   - archive: `docs/handovers/HANDOVER_<YYYYMMDD-HHmm>_<slug>.md`.
-5. Commit/push hai file vào đúng active branch. Không ghi vào `main` nếu chưa được OWNER cho phép.
-6. Tự kiểm tra đủ trường, không có secret và mọi ID/hash đều đến từ evidence.
-7. Chỉ final sau khi file đã có link/commit đọc được. Final phải đưa link canonical và đúng một câu resume.
+Quy tắc retention:
 
-Nếu remote write thật sự bị chặn, tạo cùng file trong workspace, cung cấp link và nêu đúng blocker; không thay bằng một đoạn tóm tắt rời trong chat.
+1. `HANDOVER_CURRENT.md` không tính vào giới hạn archive.
+2. Sau khi tạo archive mới, liệt kê các file đúng mẫu `HANDOVER_<YYYYMMDD-HHmmss>_<slug>.md`, sắp xếp giảm dần theo timestamp trong tên.
+3. Giữ đúng 5 archive mới nhất; nếu có bản thứ 6 thì xóa archive cũ nhất khỏi cây hiện hành trong cùng active branch.
+4. Việc xóa archive quá hạn theo mục này đã được OWNER cho phép. Lịch sử Git vẫn là đường phục hồi cho các bản cũ hơn; cấm rewrite history.
+5. Không xóa `HANDOVER_CURRENT.md`, evidence release, receipt hoặc tài liệu ngoài nhóm archive chỉ để thực hiện retention.
 
-## 3. Nội dung bắt buộc của file bàn giao
+## 3. Việc phải làm trước khi kết thúc phiên
 
-File phải dùng đúng cấu trúc sau; không bỏ mục bằng cách ghi chung chung.
+1. Hoàn thành hoặc dừng tại một điểm atomic an toàn; không để write/deploy mơ hồ.
+2. Thu thập trạng thái từ tool output, receipt, commit và evidence đã có; không chạy lại gate PASS chỉ để viết bàn giao.
+3. Nếu LIVE thay đổi, cập nhật `CURRENT_STATE.md` trước handoff.
+4. Xác định `working_head_sha` là commit cuối chứa thay đổi công việc/cấu hình trước commit handoff.
+5. Tạo archive timestamp mới, cập nhật canonical bằng đúng cùng nội dung, rồi áp retention 5 archive.
+6. Commit/push vào đúng active branch; không ghi `main` nếu OWNER chưa cho phép.
+7. Readback canonical và archive mới; xác minh cùng nội dung, `status: READY`, đủ trường và không có secret.
+8. Chỉ final sau khi file đọc được; đưa link canonical và đúng một câu resume.
+
+Nếu remote write thật sự bị chặn, tạo file cùng schema trong workspace và nêu đúng blocker. Không thay bằng một đoạn tóm tắt rời trong chat.
+
+## 4. Cấu trúc bắt buộc
 
 ```markdown
 ---
-handover_schema: pick-pack-handover/v1
+handover_schema: pick-pack-handover/v2
 status: READY
 created_at: <ISO-8601 +07:00>
 owner: Nguyễn Văn Tâm
 project: PICK PACK 1291
 active_branch: <branch>
-working_head_sha: <SHA trạng thái công việc ngay trước commit handoff>
+working_head_sha: <SHA trước commit handoff>
+archive_file: docs/handovers/HANDOVER_<YYYYMMDD-HHmmss>_<slug>.md
 base_or_live_version: <version>
 task_state: <IN_PROGRESS|BLOCKED|PASS>
-next_action: <một hành động cụ thể>
+next_action: <một hành động cụ thể, hoặc WAIT_FOR_OWNER_NEW_SCOPE khi PASS>
 ---
 
 # BÀN GIAO PHIÊN
 
 ## 1. Yêu cầu OWNER và Definition of Done
-- Nguyên văn mục tiêu đang xử lý.
-- Phạm vi được phép và điều cấm.
+- Mục tiêu đang xử lý, scope được phép, điều cấm và DoD.
 
 ## 2. Trạng thái canonical hiện tại
-- LIVE/TARGET/CANDIDATE phân biệt rõ.
-- Kiến trúc/authority đang áp dụng.
-- Branch/base/source SHA hiện hành.
-- Stable/main/service/signer lock.
+- Phân biệt LIVE/TARGET/CANDIDATE; branch/base/source SHA; architecture/authority; Stable/main/service/signer lock.
 
 ## 3. Việc đã hoàn tất
 | Hạng mục | Trạng thái | Evidence |
+|---|---|---|
 - File/commit/run/job/artifact/version/package/SHA256/size/signer/Drive ID khi có.
-- PASS nào đã khóa và input/bytes tương ứng.
 
 ## 4. Thay đổi trong phiên
-- File đã tạo/sửa/xóa.
-- Commit và lý do kỹ thuật.
-- Thay đổi production/live nếu có.
+- File tạo/sửa/xóa, commit, lý do và thay đổi production/live.
 
 ## 5. Lỗi đã gặp và đường PASS
 | Fingerprint | Root cause | Cách PASS đã biết | Cách cấm lặp |
-- Ghi rõ retry nào không được thử lại.
+|---|---|---|---|
 
 ## 6. Trạng thái workspace/CI/external
-- Clean/dirty; uncommitted files.
-- Workflow đang chạy hoặc run cuối.
-- External state đang chờ, thời điểm fresh-read cuối.
+- Clean/dirty, uncommitted, workflow đang chạy/run cuối, thời điểm fresh-read external.
 
 ## 7. Việc còn lại
-- Danh sách theo thứ tự critical path.
-- Acceptance gate cho từng việc.
-- Tách blocking và after-release housekeeping.
+- Critical path, acceptance gate, blocking và housekeeping.
 
 ## 8. NEXT_ACTION — điểm tiếp tục chính xác
-- Một tool/command/file/step đầu tiên.
-- Expected result.
-- Nếu fail: đúng fallback đã biết, giới hạn retry.
+- Một tool/command/file/step đầu tiên, expected result và fallback/retry budget.
 
 ## 9. Blocker và quyền
-- Thiếu quyền/MFA/approval nào.
-- OWNER cần làm gì, nếu có.
-- Không ghi secret, token, mật khẩu hoặc signed URL tạm.
+- Quyền/MFA/approval còn thiếu và đúng thao tác OWNER cần làm; không chứa secret.
 
 ## 10. Invariants không được phá
 - Những điều tuyệt đối không đổi/rebuild/retry/promote.
 
 ## 11. Resume contract
-- Phiên mới phải đọc file này trước.
-- Không đọc lại lịch sử hoặc rerun PASS khi input/bytes không đổi.
-- Tiếp tục trực tiếp từ NEXT_ACTION.
+- Cách phiên mới chọn handoff, phần được tin và điều kiện cần fresh-read.
+
+## 12. Retention/restore
+- Archive hiện có, bản bị prune nếu có và cách restore qua Git history.
 ```
 
-Mục không áp dụng phải ghi `NONE — lý do`, không được xóa.
+Mục không áp dụng phải ghi `NONE — lý do`, không được xóa. `working_head_sha` không được trỏ vào chính commit tạo handoff vì sẽ tạo tham chiếu vòng.
 
-`working_head_sha` là commit cuối chứa thay đổi công việc trước khi tạo hai file handoff; không cố ghi SHA của chính commit handoff vì sẽ tạo tham chiếu vòng.
+## 5. Quy tắc tự động cho phiên mới
 
-## 4. Quy tắc cho phiên mới
+Áp dụng ở **mọi phiên mới**, kể cả khi OWNER chưa ghi yêu cầu cụ thể:
 
-Khi OWNER nói “tiếp tục”, “làm tiếp”, “đã chuyển phiên” hoặc dẫn file bàn giao:
+1. Đọc `docs/handovers/HANDOVER_CURRENT.md` trước.
+2. Nếu canonical thiếu, không đọc được, `status != READY`, thiếu `NEXT_ACTION`, hoặc `archive_file` không hợp lệ: liệt kê các archive timestamp, chọn tên có timestamp lớn nhất và dùng bản `status: READY` mới nhất. Không hỏi OWNER chọn file và không crawl repo.
+3. Lệnh OWNER mới nhất luôn có ưu tiên cao nhất. Nếu có yêu cầu mới, nạp handoff để lấy trạng thái rồi thực thi yêu cầu mới theo `AGENTS.md`.
+4. Nếu không có yêu cầu mới và `task_state: IN_PROGRESS`, tiếp tục ngay từ `NEXT_ACTION` trong đúng scope đã được OWNER cho phép.
+5. Nếu không có yêu cầu mới và `task_state: PASS`, hoặc `next_action: WAIT_FOR_OWNER_NEW_SCOPE`, chỉ xác nhận một câu đã nạp snapshot và chờ scope; không tự phát sinh việc.
+6. Nếu `task_state: BLOCKED`, nêu đúng blocker và đúng thao tác OWNER đã ghi; không rà soát lại phần PASS.
+7. Không mở log/evidence cũ hoặc rerun PASS khi input, source SHA và artifact bytes không đổi. Chỉ fresh-read external state có thể đổi sau `created_at` hoặc ngay trước production write.
 
-1. Đọc `docs/handovers/HANDOVER_CURRENT.md` trước và coi đây là snapshot continuity canonical.
-2. Không crawl repo, không đọc toàn bộ chat cũ, không mở lại log/evidence của mục đã ghi PASS.
-3. Tin exact ID/hash/PASS trong bàn giao nếu input, source SHA và artifact bytes không đổi.
-4. Bắt đầu ngay từ `NEXT_ACTION`.
-5. Chỉ đọc thêm tối đa file domain được bàn giao dẫn trực tiếp khi bước pending cần nó.
-6. Chỉ fresh-read phần external có thể đã đổi sau `created_at`, hoặc ngay trước một production write. Fresh-read này không làm mất giá trị của các gate đã PASS.
-7. Nếu `HANDOVER_CURRENT.md` thiếu, `status!=READY`, SHA mâu thuẫn hoặc thiếu `NEXT_ACTION`, dừng và sửa handover trước; không tự suy đoán bằng cách crawl toàn repo.
-
-## 5. Tiêu chuẩn chất lượng
+## 6. Tiêu chuẩn PASS
 
 Handoff chỉ PASS khi:
 
-- canonical và archive cùng nội dung;
-- `status=READY`;
-- branch/working head SHA/resume point cụ thể;
-- mọi công việc đã làm, còn lại, lỗi và cách PASS đều có;
-- locked artifact/release identity đầy đủ khi liên quan;
+- canonical và archive mới cùng nội dung;
+- schema v2, `status: READY`, branch, working head, `archive_file` và đúng một `NEXT_ACTION` hợp lệ;
+- đầy đủ việc đã làm/còn lại/lỗi/đường PASS/invariants/evidence;
 - không chứa secret;
-- phiên mới có thể thực hiện bước tiếp theo mà không hỏi OWNER kể lại hoặc kiểm tra lại phần đã PASS.
+- active tree có không quá 5 archive timestamp;
+- phiên mới có thể tiếp tục mà không yêu cầu OWNER kể lại hoặc kiểm tra lại phần đã PASS.
 
-Tài liệu trạng thái ngoài repo là phụ; file canonical trong repo là nguồn tiếp tục chính.
+`docs/FIRST_CHAT_PROMPT.md` là prompt khởi động ngắn; file protocol này và `AGENTS.md` là quy tắc vận hành bền vững trong repo.
