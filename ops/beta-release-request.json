@@ -16,7 +16,7 @@
   "gas_change": "NONE",
   "authority_change": "NONE",
   "scope": "owner-contextual-pda-user-session-ui",
-  "requested_at": "2026-08-25T20:19:00+07:00",
+  "requested_at": "2026-08-25T20:45:00+07:00",
   "owner": "Nguyen Van Tam",
-  "visual_retry_reason": "adb-root-restored-exact-apk"
+  "visual_retry_reason": "human-inspection-found-dialog-route-harness-defect-pixel-targeting-fixed-exact-apk"
 }
