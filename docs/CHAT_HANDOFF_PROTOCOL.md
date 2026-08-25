@@ -42,7 +42,7 @@ created_at: <ISO-8601 +07:00>
 owner: Nguyễn Văn Tâm
 project: PICK PACK 1291
 active_branch: <branch>
-head_sha: <current branch SHA>
+working_head_sha: <SHA trạng thái công việc ngay trước commit handoff>
 base_or_live_version: <version>
 task_state: <IN_PROGRESS|BLOCKED|PASS>
 next_action: <một hành động cụ thể>
@@ -105,6 +105,8 @@ next_action: <một hành động cụ thể>
 
 Mục không áp dụng phải ghi `NONE — lý do`, không được xóa.
 
+`working_head_sha` là commit cuối chứa thay đổi công việc trước khi tạo hai file handoff; không cố ghi SHA của chính commit handoff vì sẽ tạo tham chiếu vòng.
+
 ## 4. Quy tắc cho phiên mới
 
 Khi OWNER nói “tiếp tục”, “làm tiếp”, “đã chuyển phiên” hoặc dẫn file bàn giao:
@@ -123,7 +125,7 @@ Handoff chỉ PASS khi:
 
 - canonical và archive cùng nội dung;
 - `status=READY`;
-- branch/head SHA/resume point cụ thể;
+- branch/working head SHA/resume point cụ thể;
 - mọi công việc đã làm, còn lại, lỗi và cách PASS đều có;
 - locked artifact/release identity đầy đủ khi liên quan;
 - không chứa secret;
