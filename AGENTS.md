@@ -33,6 +33,11 @@ Với yêu cầu sửa/build/phát hành: `OBSERVE → CHANGE → VERIFY → REC
 - Transient failure: retry giới hạn tối đa 2 lần với backoff, giữ nguyên artifact/bytes.
 - Đọc lỗi gốc đầu tiên và đúng job/step; cấm dump log hoặc xử lý lỗi dây chuyền trước lỗi gốc.
 - Không dừng ở plan, commit, PR, build, candidate, artifact hay pending. Chỉ kết thúc khi DoD yêu cầu đã PASS hoặc có blocker OWNER thật.
+- Trước mọi action, action phải ánh xạ được tới yêu cầu OWNER, dependency bắt buộc hoặc gate xác minh DoD; không ánh xạ được thì cấm làm.
+- Cấm tự mở rộng scope: không tự thêm tính năng/refactor/provider/branch/workflow/experiment/status artifact, không xóa dữ liệu, không đổi Stable/main/signer/authority khi OWNER chưa yêu cầu.
+- Workflow pending, một tool lỗi, thiếu đường tắt, token/runtime hoặc “đã làm phần chính” không phải điểm dừng. Tiếp tục monitor hoặc dùng đúng fallback đã biết trong retry budget.
+- Chỉ được dừng ở đúng một trong ba trạng thái: (1) toàn bộ DoD PASS có evidence; (2) blocker OWNER thật về quyền/MFA/approval/quyết định mâu thuẫn; (3) rào cản safety/policy/protected action. Không dùng câu “nếu anh muốn em làm tiếp” khi còn action hợp lệ.
+- Nếu chạm giới hạn phiên trước DoD, bắt buộc tạo handoff READY theo mục 7; không biến giới hạn phiên thành kết luận công việc.
 
 ## 4. Kiến trúc và khóa an toàn
 
