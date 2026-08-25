@@ -1,4 +1,4 @@
-name: Beta75 final visual exact candidate
+name: Beta75 publish exact candidate
 
 on:
   push:
@@ -12,161 +12,78 @@ permissions:
   actions: read
 
 concurrency:
-  group: beta75-visual-exact
+  group: beta75-publish-exact
   cancel-in-progress: false
 
 jobs:
-  visual:
+  publish-exact:
     runs-on: ubuntu-24.04
     timeout-minutes: 35
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+      GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+      GOOGLE_OAUTH_REFRESH_TOKEN: ${{ secrets.GOOGLE_OAUTH_REFRESH_TOKEN }}
+      GAS_SCRIPT_ID: ${{ secrets.GAS_SCRIPT_ID }}
+      GAS_DEPLOYMENT_ID: ${{ secrets.GAS_DEPLOYMENT_ID }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 1
-      - name: Validate exact Beta75 final visual request
+
+      - name: Validate exact Beta75 lock and HUMAN receipt
         shell: bash
         run: |
           set -euo pipefail
-          jq -e '.stage=="visual" and .version_name=="0.4.2-beta.75" and .version_code==81 and .candidate_run_id==32849057694 and .candidate_artifact_id==9563625638 and .source_sha=="e475b8476e99a9230683dbbf6ec266235960ed5b" and .apk_sha256=="6e08dc974281cc7b5428d22cf406179447cdeb95443dc19fa1db2b4d32344913" and .apk_size==13147013 and .signer_sha256=="d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e" and .stable_publish=="FORBIDDEN" and .probe_human_pass_run==32859450233' ops/beta-release-request.json >/dev/null
-          git fetch --no-tags --depth=1 origin e475b8476e99a9230683dbbf6ec266235960ed5b
-          test -z "$(git diff e475b8476e99a9230683dbbf6ec266235960ed5b HEAD --name-only -- app/src app/build.gradle.kts service google-apps-script)"
+          jq -e '.stage=="publish" and .version_name=="0.4.2-beta.75" and .version_code==81 and .candidate_run_id==32849057694 and .candidate_artifact_id==9563625638 and .locked_run_id==32849057694 and .locked_artifact_id==9563625638 and .locked_sha256=="6e08dc974281cc7b5428d22cf406179447cdeb95443dc19fa1db2b4d32344913" and .locked_size==13147013 and .locked_package=="vn.pickpack1291.app.beta.publicbeta" and .locked_signer_sha256=="d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e" and .visual_receipt_commit=="007795a656fa14236ed766b164ca80bb5872fb32" and .final_visual_run_id==32860235560 and .final_visual_artifact_id==9568028848 and .stable_publish=="FORBIDDEN" and .service_change=="NONE" and .authority_change=="NONE"' ops/beta-release-request.json >/dev/null
+          jq -e '.status=="PASS" and .result=="HUMAN_VISUAL_PASS" and .candidate.version_name=="0.4.2-beta.75" and .candidate.version_code==81 and .candidate.build_run==32849057694 and .candidate.artifact_id==9563625638 and .candidate.sha256=="6e08dc974281cc7b5428d22cf406179447cdeb95443dc19fa1db2b4d32344913" and .candidate.size==13147013 and .candidate.signer_sha256=="d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e" and .visual.run_id==32860235560 and .visual.artifact_id==9568028848 and .visual.android_build_or_sign_in_visual==false and .human_inspection["320x568"].no_wrong_route_loading_crop_overlap==true and .human_inspection["360x640"].no_wrong_route_loading_crop_overlap==true and .human_inspection["480x800"].no_wrong_route_loading_crop_overlap==true and .human_inspection["480x800"].add_dialog_correct==true and .stable_publish=="FORBIDDEN"' ops/beta75-visual-inspection.json >/dev/null
+          git fetch --no-tags --depth=1 origin 007795a656fa14236ed766b164ca80bb5872fb32
+          git show 007795a656fa14236ed766b164ca80bb5872fb32:ops/beta75-visual-inspection.json > /tmp/locked-visual.json
+          cmp -s /tmp/locked-visual.json ops/beta75-visual-inspection.json
+          bash -n tools/publish_beta75_ota.sh
+          ! grep -Eq 'assemble|bundle|apksigner|jarsigner|signingConfig' tools/publish_beta75_ota.sh
+          ! grep -Eq 'git push .*main|refs/heads/main|stable-release|publish.*STABLE' tools/publish_beta75_ota.sh
+
       - uses: actions/download-artifact@v4
         with:
           name: beta75-candidate-32849057694
-          path: /tmp/beta75-candidate
+          path: /tmp/beta75-preflight
           repository: tam95supra-source/pick-pack-1291
           run-id: 32849057694
           github-token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Preflight exact candidate and final materialized harness
+
+      - name: Preflight exact bytes and materialized publisher
         shell: bash
         run: |
           set -euo pipefail
-          META=/tmp/beta75-candidate/release-meta.json
-          APK=/tmp/beta75-candidate/pick-pack-1291-public-beta-0.4.2-beta.75.apk
-          test -f "$META" -a -f "$APK"
-          jq -e '.version_name=="0.4.2-beta.75" and .version_code==81 and .package=="vn.pickpack1291.app.beta.publicbeta" and .source_sha=="e475b8476e99a9230683dbbf6ec266235960ed5b" and .apk_sha256=="6e08dc974281cc7b5428d22cf406179447cdeb95443dc19fa1db2b4d32344913" and .apk_size==13147013 and .signer_sha256=="d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e" and .stable_publish=="FORBIDDEN"' "$META" >/dev/null
+          APK=/tmp/beta75-preflight/pick-pack-1291-public-beta-0.4.2-beta.75.apk
+          META=/tmp/beta75-preflight/release-meta.json
+          test -f "$APK" -a -f "$META"
           test "$(sha256sum "$APK" | awk '{print $1}')" = "6e08dc974281cc7b5428d22cf406179447cdeb95443dc19fa1db2b4d32344913"
           test "$(stat -c '%s' "$APK")" = "13147013"
-          git fetch --no-tags --depth=1 origin 452318b076777040d0b3eefa791eda04fc35526b
-          git show 452318b076777040d0b3eefa791eda04fc35526b:tools/run_beta75_visual.py > /tmp/base_beta75_visual.py
-          python3 -m py_compile /tmp/base_beta75_visual.py
-          python3 - <<'PY'
-          from pathlib import Path
-          s=Path('/tmp/base_beta75_visual.py').read_text(encoding='utf-8')
-          start=s.index('def employee_dialog(')
-          end=s.index('\ndef timeline_view',start)
-          replacement=r'''def locate_action_row(d,tag,wh):
-              w,h=wh
-              for attempt in range(5):
-                  data=adb('exec-out','screencap','-p',text=False).stdout
-                  p=OUT/d/f'22-{tag}-actions-{attempt}.png';p.write_bytes(data);validate_png(p,wh)
-                  pw,ph,c,rows=png_pixels(p);per=[]
-                  for y in range(int(ph*.30),int(ph*.86)):
-                      counts=[0,0,0];sx=[0,0,0]
-                      for x in range(pw):
-                          px=rows[y][x*c:(x+1)*c]
-                          if c<3:r=g=b=px[0]
-                          else:r,g,b=px[0],px[1],px[2]
-                          cls=None
-                          if 15<=r<=65 and 70<=g<=135 and 180<=b<=245:cls=0
-                          elif 10<=r<=55 and 35<=g<=90 and 120<=b<=200:cls=1
-                          elif 175<=r<=230 and 85<=g<=145 and b<=45:cls=2
-                          if cls is not None:counts[cls]+=1;sx[cls]+=x
-                      if min(counts)>=max(20,int(pw*.055)):
-                          xs=[sx[i]//counts[i] for i in range(3)]
-                          if xs[0]<xs[1]<xs[2]:per.append((y,xs))
-                  bands=[]
-                  for item in per:
-                      if bands and item[0]==bands[-1][-1][0]+1:bands[-1].append(item)
-                      else:bands.append([item])
-                  bands=[b for b in bands if len(b)>=6]
-                  if bands:
-                      band=max(bands,key=len);mid=band[len(band)//2]
-                      return mid[1],mid[0],p
-                  adb('shell','input','swipe',str(w//2),str(int(h*.70)),str(w//2),str(int(h*.35)),'360');time.sleep(.45)
-              raise AssertionError(f'action row not found: {d}/{tag}')
+          jq -e '.version_name=="0.4.2-beta.75" and .version_code==81 and .package=="vn.pickpack1291.app.beta.publicbeta" and .source_sha=="e475b8476e99a9230683dbbf6ec266235960ed5b" and .apk_sha256=="6e08dc974281cc7b5428d22cf406179447cdeb95443dc19fa1db2b4d32344913" and .apk_size==13147013 and .signer_sha256=="d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e" and .stable_publish=="FORBIDDEN" and .service_change=="NONE"' "$META" >/dev/null
+          P=$(BETA75_MATERIALIZE_ONLY=1 bash tools/publish_beta75_ota.sh)
+          test -f "$P"
+          bash -n "$P"
+          grep -Fq 'TARGET_VERSION=0.4.2-beta.75' "$P"
+          grep -Fq 'SOURCE_RUN_ID=32849057694' "$P"
+          grep -Fq 'ARTIFACT_ID=9563625638' "$P"
+          grep -Fq 'EXPECTED_SHA=6e08dc974281cc7b5428d22cf406179447cdeb95443dc19fa1db2b4d32344913' "$P"
+          grep -Fq 'VISUAL_RUN=32860235560' "$P"
+          grep -Fq 'VISUAL_ARTIFACT=9568028848' "$P"
+          ! grep -Fq '32842363597' "$P"
+          ! grep -Fq '9561088652' "$P"
+          ! grep -Eq 'assemble|bundle|apksigner|jarsigner|signingConfig' "$P"
 
-          def assert_modal_open(before,after,wh):
-              w,h=wh;aw,ah,ac,ar=png_pixels(after);bw,bh,bc,br=png_pixels(before);assert (aw,ah)==(bw,bh)==(w,h)
-              darker=sampled=0
-              for y in range(0,h,3):
-                  for x in range(0,w,3):
-                      ap=ar[y][x*ac:(x+1)*ac];bp=br[y][x*bc:(x+1)*bc]
-                      av=[ap[0]]*3 if ac<3 else ap[:3];bv=[bp[0]]*3 if bc<3 else bp[:3]
-                      sampled+=1
-                      if sum(int(bv[i])-int(av[i]) for i in range(3))>=90:darker+=1
-              ratio=darker/max(1,sampled)
-              assert ratio>=.22,f'modal dim ratio too small: {ratio:.4f}'
-
-          def employee_dialog(d,wh,mnv,tag,tabs):
-              open_employee(d,wh,mnv,tag)
-              xs,y,before=locate_action_row(d,tag,wh)
-              idx={'add':0,'edit':1,'delete':2}[tag]
-              adb('shell','input','tap',str(xs[idx]),str(y));time.sleep(.75)
-              gate(f'{d}-{tag}-dialog');shot(d,f'23-{tag}-dialog',wh)
-              assert_modal_open(before,OUT/d/f'23-{tag}-dialog.png',wh)
-              adb('shell','input','keyevent','4');time.sleep(.2)
-          '''
-          runtime=s[:start]+replacement+s[end:]
-          old="""def open_exchange(d,wh):
-              seed_fixture();start_module(d,'PDA_EXCHANGE');time.sleep(.8);shot(d,'10-pda-exchange',wh)
-          """.replace('              ','    ')
-          new=r'''def ime_is_on_screen():
-              dump=adb('shell','dumpsys','window','windows',check=False).stdout
-              blocks=dump.split('Window #')
-              return any('InputMethod' in b and 'isOnScreen=true' in b for b in blocks)
-
-          def hide_ime_if_needed(d):
-              before=adb('shell','dumpsys','window','windows',check=False).stdout;record(f'{d}-ime-before.txt',before[-16000:])
-              if ime_is_on_screen():
-                  adb('shell','input','keyevent','4');time.sleep(.5)
-              after=adb('shell','dumpsys','window','windows',check=False).stdout;record(f'{d}-ime-after.txt',after[-16000:])
-              assert not ime_is_on_screen(),'IME still visible'
-
-          def open_exchange(d,wh):
-              seed_fixture();start_module(d,'PDA_EXCHANGE');time.sleep(.8);hide_ime_if_needed(d);gate(f'{d}-pda-exchange-clean');shot(d,'10-pda-exchange',wh)
-          '''
-          assert runtime.count(old)==1
-          runtime=runtime.replace(old,new,1)
-          compile(runtime,'beta75_final_visual.py','exec')
-          Path('/tmp/beta75_final_visual.py').write_text(runtime,encoding='utf-8')
-          PY
-          python3 -m py_compile /tmp/beta75_final_visual.py
-          grep -q "320x568" /tmp/beta75_final_visual.py
-          grep -q "360x640" /tmp/beta75_final_visual.py
-          grep -q "480x800" /tmp/beta75_final_visual.py
-          grep -q "30099" /tmp/beta75_final_visual.py
-          ! grep -Eq 'uiautomator|am instrument|gradle|apksigner' /tmp/beta75_final_visual.py
-          echo "APK=$APK" >> "$GITHUB_ENV"
-          echo "EXPECTED_SHA=6e08dc974281cc7b5428d22cf406179447cdeb95443dc19fa1db2b4d32344913" >> "$GITHUB_ENV"
-          echo "EXPECTED_SIZE=13147013" >> "$GITHUB_ENV"
-      - name: Enable KVM
+      - name: Publish exact Beta75 bytes and verify LIVE
         shell: bash
-        run: |
-          set -euo pipefail
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules >/dev/null
-          sudo udevadm control --reload-rules
-          sudo udevadm trigger --name-match=kvm || true
-          sudo chmod 666 /dev/kvm || true
-      - name: Run final Beta75 visual matrix on exact APK
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 29
-          target: default
-          arch: x86_64
-          profile: pixel_2
-          disable-animations: false
-          emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-metrics
-          script: |
-            timeout 60s adb install -r "$APK"
-            timeout 20s adb root
-            timeout 20s adb wait-for-device
-            timeout 720s python3 /tmp/beta75_final_visual.py
-      - name: Upload final visual evidence
+        run: bash tools/publish_beta75_ota.sh
+
+      - name: Upload Beta75 release evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: beta75-visual-${{ github.run_id }}
-          path: /tmp/visual
+          name: beta75-release-evidence-${{ github.run_id }}
+          path: /tmp/beta75-release-evidence
           retention-days: 30
-          if-no-files-found: error
+          if-no-files-found: warn
