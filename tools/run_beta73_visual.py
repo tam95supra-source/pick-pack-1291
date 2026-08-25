@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 from urllib.request import urlopen
 
-# Immutable last-known-running Beta73 harness. Patch only the Settings probe behavior.
+# Reuse the last known-running Beta73 harness byte-for-byte and patch only
+# the Settings semantic probe. The candidate APK remains external/immutable.
 BASE_URL='https://raw.githubusercontent.com/tam95supra-source/pick-pack-1291/ebd95abf772ac4982b94d19c521a9861bc12da51/tools/run_beta73_visual.py'
 with urlopen(BASE_URL,timeout=20) as r:
     base=r.read().decode('utf-8')
@@ -23,24 +24,27 @@ if base.count(old_probe)!=1:
 base=base.replace(old_probe,new_probe,1)
 
 matrix_anchor="src=src.replace(marker,probe+'\\n'+marker,1)"
-preflight=(
-    "preflight=\\\"\\n"
-    "adb('shell','wm','size','320x568'); adb('shell','wm','density','160'); time.sleep(1)\\n"
-    "pre='settings-probe-320'; (OUT/pre).mkdir(exist_ok=True)\\n"
-    "adb('shell','am','force-stop',PKG,check=False)\\n"
-    "r=adb('shell','am','start','-W','-n',f'{PKG}/{ACT}','--es','module','SETTINGS','--es','login','tamnv2','--es','name','Nguyen Van Tam','--es','role','ADMIN','--es','position','Chuyen vien Pick Pack 1291','--es','email','visual@example.invalid',check=False)\\n"
-    "record('settings-preflight-start.txt',r.stdout); time.sleep(1.0); resumed_check('settings-preflight-route')\\n"
-    "state=adb('shell','dumpsys','activity','activities',check=False).stdout; record('settings-preflight-route.txt',state[-8000:]); assert PKG in state and 'OperationsActivity' in state,'Settings route/activity missing at 320x568'\\n"
-    "top=probe_text('settings-preflight-top'); assert 'ĐỔI MẬT KHẨU'.casefold() in top.casefold(),'Settings top marker missing at 320x568'\\n"
-    "rawshot(pre,'settings-top')\\n"
-    "for _ in range(5): swipe(160,568*0.70,160,568*0.25,430,.35)\\n"
-    "low=probe_text('settings-preflight-lower'); assert 'NHẬT KÝ'.casefold() in low.casefold(),'Settings lower marker missing at 320x568'\\n"
-    "rawshot(pre,'settings-lower'); record('settings-probe-320-PASS.txt','route=OperationsActivity module=SETTINGS markers=ĐỔI MẬT KHẨU,NHẬT KÝ result=PASS')\\n"
-    "\\\"\\n"
-    "src=src.replace(marker,probe+'\\\\n'+preflight+'\\\\n'+marker,1)"
-)
+preflight_code="""
+adb('shell','wm','size','320x568'); adb('shell','wm','density','160'); time.sleep(1)
+pre='settings-probe-320'; (OUT/pre).mkdir(exist_ok=True)
+adb('shell','am','force-stop',PKG,check=False)
+r=adb('shell','am','start','-W','-n',f'{PKG}/{ACT}','--es','module','SETTINGS','--es','login','tamnv2','--es','name','Nguyen Van Tam','--es','role','ADMIN','--es','position','Chuyen vien Pick Pack 1291','--es','email','visual@example.invalid',check=False)
+record('settings-preflight-start.txt',r.stdout); time.sleep(1.0); resumed_check('settings-preflight-route')
+state=adb('shell','dumpsys','activity','activities',check=False).stdout
+record('settings-preflight-route.txt',state[-8000:])
+assert PKG in state and 'OperationsActivity' in state,'Settings route/activity missing at 320x568'
+top=probe_text('settings-preflight-top')
+assert 'ĐỔI MẬT KHẨU'.casefold() in top.casefold(),'Settings top marker missing at 320x568'
+rawshot(pre,'settings-top')
+for _ in range(5): swipe(160,568*0.70,160,568*0.25,430,.35)
+low=probe_text('settings-preflight-lower')
+assert 'NHẬT KÝ'.casefold() in low.casefold(),'Settings lower marker missing at 320x568'
+rawshot(pre,'settings-lower')
+record('settings-probe-320-PASS.txt','route=OperationsActivity module=SETTINGS markers=ĐỔI MẬT KHẨU,NHẬT KÝ result=PASS')
+"""
+replacement="preflight="+repr(preflight_code)+"\n"+"src=src.replace(marker,probe+'\\n'+preflight+'\\n'+marker,1)"
 if base.count(matrix_anchor)!=1:
     raise SystemExit(f'matrix anchor drift: {base.count(matrix_anchor)}')
-base=base.replace(matrix_anchor,preflight,1)
+base=base.replace(matrix_anchor,replacement,1)
 
 exec(compile(base,'run_beta73_visual.bounded-wrapper.py','exec'),{'__name__':'__main__','__file__':__file__})
