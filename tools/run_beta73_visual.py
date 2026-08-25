@@ -41,7 +41,7 @@ def preflight():
     assert "dumpsys','activity','activities'" in src
     assert "dumpsys','window','windows'" in src
     assert src.count("rawshot(d,'16-settings-top')")==1
-    assert src.count("rawshot(d,'17-settings-storage-update-log')")==1
+    assert src.count("rawshot(d,f'17-settings-scroll-{step}')")==1
     result={
         'py_compile':'PASS',
         'materialized_compile':'PASS',
@@ -162,13 +162,11 @@ def open_settings(d,wh):
     route_gate(f'{d}-settings-top-route')
     time.sleep(.6)
     rawshot(d,'16-settings-top',wh)
-    swipe_count=4 if wh==(360,640) else 3
-    for _ in range(swipe_count):
+    for step in range(1,5):
         adb('shell','input','swipe',str(int(W*.50)),str(int(H*.70)),str(int(W*.50)),str(int(H*.25)),'430',check=False)
-        time.sleep(.25)
-    time.sleep(.6)
-    route_gate(f'{d}-settings-lower-route')
-    rawshot(d,'17-settings-storage-update-log',wh)
+        time.sleep(.35)
+        route_gate(f'{d}-settings-scroll-{step}-route')
+        rawshot(d,f'17-settings-scroll-{step}',wh)
 
 def main():
     if '--preflight' in sys.argv:
@@ -184,7 +182,7 @@ def main():
             d=f'{size}x{density}'; (OUT/d).mkdir(parents=True,exist_ok=True)
             adb('shell','wm','size',size); adb('shell','wm','density',density); time.sleep(.8)
             open_settings(d,wh)
-            rows.append(f'{d}: settings_top=PASS settings_lower=PASS route_window=PASS png=PASS human_markers=REQUIRED')
+            rows.append(f'{d}: settings_top=PASS settings_scroll_frames=4 route_window=PASS png=PASS human_markers=REQUIRED')
     except Exception as exc:
         record('failure.txt',repr(exc))
         record('logcat-tail.txt',adb('logcat','-d','-t','200',check=False).stdout)
