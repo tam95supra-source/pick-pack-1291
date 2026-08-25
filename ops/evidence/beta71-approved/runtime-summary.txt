@@ -1,0 +1,3 @@
+320x568x160: screenshots=12 dimensions=320x568 exact_beta71=PASS local_active_holder_fixture=MT90-123456789 remote_state=AIRPLANE manual_visual_inspection=REQUIRED
+360x640x160: screenshots=12 dimensions=360x640 exact_beta71=PASS local_active_holder_fixture=MT90-123456789 remote_state=AIRPLANE manual_visual_inspection=REQUIRED
+480x800x240: screenshots=12 dimensions=480x800 exact_beta71=PASS local_active_holder_fixture=MT90-123456789 remote_state=AIRPLANE manual_visual_inspection=REQUIRED
