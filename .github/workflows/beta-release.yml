@@ -104,6 +104,30 @@ jobs:
               adb('shell','input','keyevent','4');time.sleep(.2)
           '''
           runtime=s[:start]+replacement+s[end:]
+          old="""def open_exchange(d,wh):\n    seed_fixture();start_module(d,'PDA_EXCHANGE');time.sleep(.8);shot(d,'10-pda-exchange',wh)\n"""
+          new=r'''def ime_is_on_screen():
+              dump=adb('shell','dumpsys','window','windows',check=False).stdout
+              marker='WindowStateAnimator'
+              pos=0
+              while True:
+                  pos=dump.find(marker,pos)
+                  if pos<0:return False
+                  end=dump.find('Window #',pos+len(marker));block=dump[pos:(end if end>=0 else len(dump))]
+                  if 'InputMethod' in block and 'Surface: shown=true' in block and 'isOnScreen=true' in block:return True
+                  pos+=len(marker)
+
+          def hide_ime_if_needed(d):
+              before=adb('shell','dumpsys','window','windows',check=False).stdout;record(f'{d}-ime-before.txt',before[-16000:])
+              if ime_is_on_screen():
+                  adb('shell','input','keyevent','4');time.sleep(.5)
+              after=adb('shell','dumpsys','window','windows',check=False).stdout;record(f'{d}-ime-after.txt',after[-16000:])
+              assert not ime_is_on_screen(), 'IME still visible over PDA exchange evidence'
+
+          def open_exchange(d,wh):
+              seed_fixture();start_module(d,'PDA_EXCHANGE');time.sleep(.8);hide_ime_if_needed(d);gate(f'{d}-pda-exchange-clean');shot(d,'10-pda-exchange',wh)
+          '''
+          assert runtime.count(old)==1
+          runtime=runtime.replace(old,new,1)
           assert all(x in runtime for x in ('PDA_EXCHANGE','30011','30050','30099','320x568','360x640','480x800','D1','D2','D3'))
           forbidden=('uiauto'+'mator','am instru'+'ment','gradle','apksigner')
           assert all(x not in runtime for x in forbidden)
