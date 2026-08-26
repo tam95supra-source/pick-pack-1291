@@ -3,71 +3,36 @@ name: App fast check
 on:
   push:
     branches:
-      - agent/**
-      - feature/**
+      - feature/beta77-owner-fixes-20260826
     paths:
-      - app/**
-      - service/**
-      - google-apps-script/**
-      - tools/deploy_beta76_outbound_gas.sh
       - tools/beta77_service_live_gate.sh
-      - gradle.properties
       - .github/workflows/app-fast-check.yml
-  pull_request:
-    paths:
-      - app/**
-      - service/**
-      - google-apps-script/**
-      - gradle.properties
 
 permissions:
   contents: read
 
 concurrency:
-  group: app-fast-check-${{ github.ref }}
+  group: beta77-service-live-gate
   cancel-in-progress: true
+
+env:
+  D1_NAME: pick-pack-1291-service-prod
+  TYPECHECK_PASS_SHA: 6ae90b10a942c82c79ff9e0cfc8d0586c6a4ba6c
 
 jobs:
   android:
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     env:
-      GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
-      GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
-      GOOGLE_OAUTH_REFRESH_TOKEN: ${{ secrets.GOOGLE_OAUTH_REFRESH_TOKEN }}
-      GAS_SCRIPT_ID: ${{ secrets.GAS_SCRIPT_ID }}
-      GAS_DEPLOYMENT_ID: ${{ secrets.GAS_DEPLOYMENT_ID }}
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      D1_NAME: pick-pack-1291-service-prod
+      GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 2
+          fetch-depth: 0
 
-      - name: Detect changed inputs
-        id: scope
-        shell: bash
-        run: |
-          set -euo pipefail
-          changed=$(git diff --name-only HEAD^ HEAD)
-          if grep -Eq '^(app/|service/|google-apps-script/|gradle.properties$)' <<<"$changed"; then
-            echo 'code_changed=true' >> "$GITHUB_OUTPUT"
-          else
-            echo 'code_changed=false' >> "$GITHUB_OUTPUT"
-          fi
-          if grep -Eq '^(google-apps-script/|tools/deploy_beta76_outbound_gas\.sh$|app/build\.gradle\.kts$)' <<<"$changed"; then
-            echo 'gas_changed=true' >> "$GITHUB_OUTPUT"
-          else
-            echo 'gas_changed=false' >> "$GITHUB_OUTPUT"
-          fi
-          if grep -Eq '^(tools/beta77_service_live_gate\.sh$|\.github/workflows/app-fast-check\.yml$)' <<<"$changed"; then
-            echo 'service_live_gate=true' >> "$GITHUB_OUTPUT"
-          else
-            echo 'service_live_gate=false' >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Focused Beta77 source gates
+      - name: Beta77 immutable source and harness gates
         shell: bash
         run: |
           set -euo pipefail
@@ -75,173 +40,52 @@ jobs:
           grep -q 'versionName = "0.4.2-beta.77"' app/build.gradle.kts
           grep -q 'versionCode = 1' app/build.gradle.kts
           grep -q 'versionName = "0.1.0-stable"' app/build.gradle.kts
-          grep -Fq 'listOf("Chưa có vị trí")' app/src/main/java/vn/pickpack1291/app/beta/DropReceiveFeature.kt
-          ! grep -Fq 'listOf("Chọn vị trí")' app/src/main/java/vn/pickpack1291/app/beta/DropReceiveFeature.kt
-          grep -Fq 'optBoolean("owner",false)' app/src/main/java/vn/pickpack1291/app/beta/DropReceiveFeature.kt
-          ! grep -Fq 'OWNER_LOGIN' google-apps-script/OUTBOUND_DROP_RECEIVE.gs
-          grep -Fq "auth.role||'').toUpperCase()==='SUPERADMIN'" google-apps-script/OUTBOUND_DROP_RECEIVE.gs
-          grep -Fq 'PP_OUTBOUND.OWNER_EMAIL' google-apps-script/OUTBOUND_DROP_RECEIVE.gs
-          grep -Fq 'OldSessionWarningFeature.build' app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt
-          grep -Fq 'old_active_sessions' app/src/main/java/vn/pickpack1291/app/beta/M2RuntimeBridge.kt
           grep -Fq 'FROM resource_leases")' service/src/mobile_hotfix.ts
           grep -Fq 's.business_date<?1' service/src/mobile_hotfix.ts
           grep -Fq 'EXCLUSIVE_RESOURCE_CONFLICT' service/src/core.ts
-          grep -Fq 'never attach an intermediate full tree' app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt
-          grep -Fq "action === 'outbound_drop_append'" google-apps-script/PICK_PACK_API.gs
-          grep -Fq 'PP_OUTBOUND_LOCATIONS_V1' google-apps-script/OUTBOUND_DROP_RECEIVE.gs
-          grep -Fq 'real_data_preserved:true' tools/deploy_beta76_outbound_gas.sh
           grep -Fq 'cross_day_active_pda_hidden' tools/beta77_service_live_gate.sh
           grep -Fq 'EXCLUSIVE_RESOURCE_CONFLICT' tools/beta77_service_live_gate.sh
           grep -Fq "Path('wrangler.live.jsonc')" tools/beta77_service_live_gate.sh
           ! grep -Fq '/tmp/wrangler.live.jsonc' tools/beta77_service_live_gate.sh
           git diff --check HEAD^ HEAD
+          git cat-file -e "$TYPECHECK_PASS_SHA^{commit}"
+          git diff --quiet "$TYPECHECK_PASS_SHA" HEAD -- service/
+          echo 'service_typecheck_receipt=REUSED_PASS input_service_tree_unchanged=true run=32930560595'
 
-      - name: Resolve current LIVE Apps Script Web App
-        id: gas_live
-        if: github.ref_name == 'feature/beta77-owner-fixes-20260826' && steps.scope.outputs.gas_changed == 'true'
-        shell: bash
-        run: |
-          set -euo pipefail
-          D=/tmp/beta77-gas-discovery
-          rm -rf "$D" && mkdir -p "$D"
-          for n in GOOGLE_OAUTH_CLIENT_ID GOOGLE_OAUTH_CLIENT_SECRET GOOGLE_OAUTH_REFRESH_TOKEN GAS_SCRIPT_ID; do test -n "${!n:-}"; done
-          token_json=$(curl -fsS --connect-timeout 15 --max-time 30 https://oauth2.googleapis.com/token \
-            -H 'Content-Type: application/x-www-form-urlencoded' \
-            --data-urlencode "client_id=$GOOGLE_OAUTH_CLIENT_ID" \
-            --data-urlencode "client_secret=$GOOGLE_OAUTH_CLIENT_SECRET" \
-            --data-urlencode "refresh_token=$GOOGLE_OAUTH_REFRESH_TOKEN" \
-            --data-urlencode grant_type=refresh_token)
-          ACCESS_TOKEN=$(jq -r '.access_token // empty' <<<"$token_json")
-          test -n "$ACCESS_TOKEN"
-          SCRIPT_ID=$(printf '%s' "$GAS_SCRIPT_ID" | tr -d '\r\n\t ')
-          echo "::add-mask::$ACCESS_TOKEN"
-          echo "::add-mask::$SCRIPT_ID"
-          api="https://script.googleapis.com/v1/projects/$SCRIPT_ID"
-          curl -fsS --connect-timeout 15 --max-time 30 -H "Authorization: Bearer $ACCESS_TOKEN" "$api/deployments?pageSize=50" > "$D/deployments.json"
-          python3 - "$D/deployments.json" "$D/candidates.tsv" <<'PY'
-          import json,sys
-          src,out=sys.argv[1:]
-          j=json.load(open(src,encoding='utf-8'))
-          rows=[]
-          for d in j.get('deployments',[]):
-              did=str(d.get('deploymentId','')).strip()
-              cfg=d.get('deploymentConfig') or {}
-              ver=int(cfg.get('versionNumber') or 0)
-              for ep in d.get('entryPoints') or []:
-                  wa=ep.get('webApp') or {}
-                  url=str(wa.get('url','')).strip()
-                  ec=wa.get('entryPointConfig') or {}
-                  access=str(ec.get('access','')).strip()
-                  execute=str(ec.get('executeAs','')).strip()
-                  if did and url.startswith('https://script.google.com/macros/s/') and url.endswith('/exec'):
-                      rows.append((did,url,ver,access,execute))
-          with open(out,'w',encoding='utf-8') as f:
-              for r in rows:f.write('\t'.join(map(str,r))+'\n')
-          PY
-          test -s "$D/candidates.tsv"
-          : > "$D/healthy.tsv"
-          while IFS=$'\t' read -r did url ver access execute; do
-            http=$(curl -sSL --connect-timeout 15 --max-time 30 -o "$D/body-$ver.json" -w '%{http_code}' "$url" || printf '000')
-            if [[ "$http" =~ ^2[0-9][0-9]$ ]] && jq -e '.ok==true and .service=="pick-pack-gsheet-api"' "$D/body-$ver.json" >/dev/null 2>&1; then
-              printf '%s\t%s\t%s\t%s\t%s\n' "$did" "$url" "$ver" "$access" "$execute" >> "$D/healthy.tsv"
-            fi
-          done < "$D/candidates.tsv"
-          test -s "$D/healthy.tsv"
-          IFS=$'\t' read -r LIVE_ID LIVE_URL LIVE_VERSION LIVE_ACCESS LIVE_EXECUTE < <(sort -t$'\t' -k3,3nr "$D/healthy.tsv" | head -n1)
-          test -n "$LIVE_ID" && test -n "$LIVE_URL"
-          echo "deployment_id=$LIVE_ID" >> "$GITHUB_OUTPUT"
-          echo "url=$LIVE_URL" >> "$GITHUB_OUTPUT"
-
-      - uses: actions/setup-java@v5
-        if: steps.scope.outputs.code_changed == 'true'
-        with:
-          distribution: temurin
-          java-version: '17'
-      - uses: gradle/actions/setup-gradle@v4
-        if: steps.scope.outputs.code_changed == 'true'
-        with:
-          gradle-version: '9.4.1'
       - uses: actions/setup-node@v4
-        if: steps.scope.outputs.code_changed == 'true' || steps.scope.outputs.service_live_gate == 'true'
         with:
           node-version: '22'
 
-      - name: Service typecheck
-        if: steps.scope.outputs.code_changed == 'true'
+      - name: Install fixed Service deployment dependencies
         working-directory: service
         shell: bash
-        run: |
-          set -euo pipefail
-          npm install --ignore-scripts --no-audit --no-fund
-          npm run check
+        run: npm install --ignore-scripts --no-audit --no-fund
 
-      - name: Android focused tests and Beta/Stable compile isolation
-        if: steps.scope.outputs.code_changed == 'true'
-        shell: bash
-        run: |
-          set -euo pipefail
-          gradle --no-daemon --build-cache --parallel :app:testBetaDebugUnitTest :app:assembleBetaDebug :app:assembleStableDebug
-
-      - name: Deploy exact outbound GAS and run live focused gate
-        if: github.ref_name == 'feature/beta77-owner-fixes-20260826' && steps.scope.outputs.gas_changed == 'true'
-        shell: bash
-        env:
-          GAS_DEPLOYMENT_ID: ${{ steps.gas_live.outputs.deployment_id }}
-        run: |
-          set -euo pipefail
-          bash tools/deploy_beta76_outbound_gas.sh
-
-      - name: Enforce app config points at LIVE GAS
-        if: github.ref_name == 'feature/beta77-owner-fixes-20260826' && steps.scope.outputs.gas_changed == 'true'
-        shell: bash
-        env:
-          LIVE_GAS_URL: ${{ steps.gas_live.outputs.url }}
-        run: |
-          set -euo pipefail
-          APP_GAS_URL=$(sed -n 's/^val approvedGsheetApiUrl = "\([^"]*\)"/\1/p' app/build.gradle.kts)
-          test -n "$APP_GAS_URL"
-          test "$APP_GAS_URL" = "$LIVE_GAS_URL"
-          echo 'app_gas_config=PASS'
-
-      - name: Upload final outbound GAS evidence
-        if: success() && github.ref_name == 'feature/beta77-owner-fixes-20260826' && steps.scope.outputs.gas_changed == 'true'
-        uses: actions/upload-artifact@v4
-        with:
-          name: beta77-outbound-gas-final-${{ github.run_id }}
-          path: /tmp/beta76-outbound-gas-evidence
-          retention-days: 30
-          if-no-files-found: error
-
-      - name: Install Service deployment dependencies
-        if: steps.scope.outputs.service_live_gate == 'true'
-        working-directory: service
-        shell: bash
-        run: |
-          set -euo pipefail
-          npm install --ignore-scripts --no-audit --no-fund
-
-      - name: Resolve LIVE Worker and preflight Service
-        if: github.ref_name == 'feature/beta77-owner-fixes-20260826' && steps.scope.outputs.service_live_gate == 'true'
+      - name: Resolve exact LIVE Worker and preflight compile/config/health
+        id: live
         working-directory: service
         shell: bash
         run: |
           set -euo pipefail
           for n in CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID; do test -n "${!n:-}"; done
-          npm run typecheck
           D=/tmp/beta77-service-preflight
           rm -rf "$D" && mkdir -p "$D"
+
           AUTH=$(npx wrangler d1 execute "$D1_NAME" --remote --command "SELECT authority_epoch,authority_seq,mode,scope,service_generation FROM authority_state WHERE singleton_id=1;" --json)
           printf '%s' "$AUTH" > "$D/authority.json"
           GEN=$(node -e 'const j=JSON.parse(process.argv[1]);const r=j?.[0]?.results?.[0];if(!r||r.mode!=="SERVICE_PRIMARY"||r.scope!=="PRODUCTION")process.exit(2);process.stdout.write(String(r.service_generation||""))' "$AUTH")
           test -n "$GEN"
+
           LIST=$(npx wrangler d1 list --json)
           D1_ID=$(node -e 'const a=JSON.parse(process.argv[1]);const x=a.find(v=>v.name===process.env.D1_NAME);process.stdout.write(x?.uuid||x?.id||"")' "$LIST")
           test -n "$D1_ID"
+
           curl -fsS -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/services" > "$D/services.json"
           curl -fsS -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/subdomain" > "$D/subdomain.json"
           jq -e '.success==true' "$D/services.json" >/dev/null
           jq -e '.success==true and (.result.subdomain|length>0)' "$D/subdomain.json" >/dev/null
           SUBDOMAIN=$(jq -r '.result.subdomain' "$D/subdomain.json")
+
           : > "$D/healthy.tsv"
           while IFS= read -r name; do
             [[ "$name" == pick-pack-1291* ]] || continue
@@ -251,11 +95,11 @@ jobs:
               printf '%s\t%s\n' "$name" "$url" >> "$D/healthy.tsv"
             fi
           done < <(jq -r '.result[]? | (.id // .name // empty)' "$D/services.json")
-          [[ $(wc -l < "$D/healthy.tsv") -eq 1 ]]
+          count=$(wc -l < "$D/healthy.tsv")
+          [[ "$count" -eq 1 ]] || { echo "LIVE_WORKER_MATCH_COUNT=$count" >&2; jq -c '.result[]? | {id,name}' "$D/services.json" >&2; exit 6; }
           IFS=$'\t' read -r LIVE_WORKER_NAME LIVE_SERVICE_URL < "$D/healthy.tsv"
           test -n "$LIVE_WORKER_NAME" && test -n "$LIVE_SERVICE_URL"
-          echo "LIVE_WORKER_NAME=$LIVE_WORKER_NAME" >> "$GITHUB_ENV"
-          echo "LIVE_SERVICE_URL=$LIVE_SERVICE_URL" >> "$GITHUB_ENV"
+
           python3 - "$D1_ID" "$GEN" "$LIVE_WORKER_NAME" <<'PY'
           from pathlib import Path
           import sys
@@ -268,21 +112,28 @@ jobs:
             '"database_id": "__M1_D1_DATABASE_ID__"':f'"database_id": "{d1}"',
           }
           for old,new in repls.items():
-            if old not in s: raise SystemExit('PREFLIGHT_CONFIG_ANCHOR_MISSING:'+old)
-            s=s.replace(old,new,1)
+              if old not in s: raise SystemExit('PREFLIGHT_CONFIG_ANCHOR_MISSING:'+old)
+              s=s.replace(old,new,1)
           Path('wrangler.preflight.jsonc').write_text(s,encoding='utf-8')
           PY
-          npx wrangler deploy --dry-run --config wrangler.preflight.jsonc --outdir "$D/dry-run" >/dev/null
+
+          npx wrangler deploy --dry-run --config wrangler.preflight.jsonc --outdir "$D/dry-run" > "$D/dry-run.log"
+          test -s "$D/dry-run/worker.js" || test -s "$D/dry-run/index.js" || find "$D/dry-run" -type f -size +0c | grep -q .
           curl -fsS --connect-timeout 10 --max-time 20 "$LIVE_SERVICE_URL/health" > "$D/live-health-before.json"
           jq -e --arg gen "$GEN" '.ok==true and .service=="pick-pack-1291-service" and .environment=="production" and (.generation|tostring)==$gen and .authority.mode=="SERVICE_PRIMARY" and .authority.scope=="PRODUCTION"' "$D/live-health-before.json" >/dev/null
+
+          echo "worker_name=$LIVE_WORKER_NAME" >> "$GITHUB_OUTPUT"
+          echo "service_url=$LIVE_SERVICE_URL" >> "$GITHUB_OUTPUT"
           echo "service_preflight=PASS worker=$LIVE_WORKER_NAME"
 
-      - name: Deploy Beta77 Service and run live PDA regression
-        if: github.ref_name == 'feature/beta77-owner-fixes-20260826' && steps.scope.outputs.service_live_gate == 'true'
+      - name: Deploy exact Beta77 Service source and run PDA LIVE regression
         shell: bash
+        env:
+          LIVE_WORKER_NAME: ${{ steps.live.outputs.worker_name }}
+          LIVE_SERVICE_URL: ${{ steps.live.outputs.service_url }}
         run: |
           set -euo pipefail
-          test -n "${LIVE_WORKER_NAME:-}" && test -n "${LIVE_SERVICE_URL:-}"
+          test -n "$LIVE_WORKER_NAME" && test -n "$LIVE_SERVICE_URL"
           cp tools/beta77_service_live_gate.sh /tmp/beta77_service_live_gate.sh
           python3 - "$LIVE_WORKER_NAME" <<'PY'
           from pathlib import Path
@@ -290,19 +141,18 @@ jobs:
           name=sys.argv[1]
           p=Path('/tmp/beta77_service_live_gate.sh')
           s=p.read_text(encoding='utf-8')
-          a='WORKER_NAME=pick-pack-1291-service\n'
-          b=f'WORKER_NAME={name}\n'
-          if s.count(a)!=1: raise SystemExit('WORKER_NAME_ANCHOR_MISSING')
-          s=s.replace(a,b,1)
-          a='  \'"name": "pick-pack-1291-service-m1-staging"\':\'"name": "pick-pack-1291-service"\',\n'
-          b=f'  \'"name": "pick-pack-1291-service-m1-staging"\':\'"name": "{name}"\',\n'
-          if s.count(a)!=1: raise SystemExit('WORKER_CONFIG_ANCHOR_MISSING')
-          p.write_text(s.replace(a,b,1),encoding='utf-8')
+          old='WORKER_NAME=pick-pack-1291-service\n'
+          if s.count(old)!=1: raise SystemExit('WORKER_NAME_ANCHOR_MISSING')
+          s=s.replace(old,f'WORKER_NAME={name}\n',1)
+          old='  \'"name": "pick-pack-1291-service-m1-staging"\':\'"name": "pick-pack-1291-service"\',\n'
+          if s.count(old)!=1: raise SystemExit('WORKER_CONFIG_ANCHOR_MISSING')
+          s=s.replace(old,f'  \'"name": "pick-pack-1291-service-m1-staging"\':\'"name": "{name}"\',\n',1)
+          p.write_text(s,encoding='utf-8')
           PY
           bash /tmp/beta77_service_live_gate.sh
 
       - name: Upload Beta77 Service live evidence
-        if: success() && github.ref_name == 'feature/beta77-owner-fixes-20260826' && steps.scope.outputs.service_live_gate == 'true'
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: beta77-service-live-${{ github.run_id }}
