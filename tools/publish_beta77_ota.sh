@@ -105,6 +105,14 @@ for old, new in (
 ):
     src = src.replace(old, new)
 
+# Beta77 candidate metadata carries canonical GAS/Service receipts and
+# authority_change, not the legacy service_change marker used by Beta74-76.
+# Update only the inherited candidate-meta verifier; do not alter APK bytes.
+legacy_meta_tail = '.stable_publish=="FORBIDDEN" and .service_change=="NONE"'
+beta77_meta_tail = '.stable_publish=="FORBIDDEN" and .authority_change=="NONE" and .gas_run==32932894375 and .gas_artifact==9593853159 and .service_run==32953215533 and .service_artifact==9600983380'
+assert src.count(legacy_meta_tail) == 1, f'legacy candidate-meta gate count={src.count(legacy_meta_tail)}'
+src = src.replace(legacy_meta_tail, beta77_meta_tail, 1)
+
 for stale in (
     '32875201581', '9573716441', '32906107089', '9584898561',
     '0d81793eabf465716a4fe36038d143b11220667f',
@@ -136,6 +144,9 @@ for required in (
     '847378116153befe7b10a29951df43913e864636',
     'ops/beta77-release-result.json',
     'ppBeta77UpdateCheckCompat_',
+    'authority_change=="NONE"',
+    'gas_run==32932894375',
+    'service_run==32953215533',
 ):
     assert required in src, required
 
