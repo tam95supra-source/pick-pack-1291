@@ -21,11 +21,7 @@ import sys
 
 src = Path(sys.argv[1]).read_text(encoding='utf-8')
 
-# Advance Beta76 labels/paths/helper names first.
 src = src.replace('beta76', 'beta77').replace('Beta76', 'Beta77')
-
-# Shift semantic versions atomically so target Beta76 becomes Beta77 while the
-# previous Beta75 becomes Beta76 without cascading into the target.
 src = src.replace('0.4.2-beta.76', '__BETA77_TARGET__')
 src = src.replace('0.4.2-beta.75', '0.4.2-beta.76')
 src = src.replace('__BETA77_TARGET__', '0.4.2-beta.77')
@@ -48,10 +44,6 @@ for old, new in replacements:
     assert old in src, old
     src = src.replace(old, new)
 
-# After the global Beta76->Beta77 label advance, the inherited Beta76 route
-# block still uses variable name compat76 while its helper target is already
-# ppBeta77UpdateCheckCompat_. Match that exact post-transform shape, then
-# introduce compat77 while restoring compat76 as the immediate fallback.
 old_compat = '''compat73="    if (action === 'update_check') return ppJson_(ppBeta73UpdateCheckCompat_(ppUpdateCheck_(body)));"
 compat74="    if (action === 'update_check') return ppJson_(ppBeta74UpdateCheckCompat_(ppUpdateCheck_(body)));"
 compat75="    if (action === 'update_check') return ppJson_(ppBeta75UpdateCheckCompat_(ppUpdateCheck_(body)));"
@@ -79,7 +71,6 @@ if compat77 not in s:
 assert old_compat in src, 'beta77 compat anchor drift'
 src = src.replace(old_compat, new_compat, 1)
 
-# Advance versionCode in the live OTA adapter and every exact readback gate.
 for old, new in [
     ("if(version==='0.4.2-beta.77') out.version_code=82;", "if(version==='0.4.2-beta.77') out.version_code=83;"),
     ("else if(version==='0.4.2-beta.76' && (out.version_code===undefined || out.version_code===null)) out.version_code=81;", "else if(version==='0.4.2-beta.76' && (out.version_code===undefined || out.version_code===null)) out.version_code=82;"),
@@ -100,6 +91,19 @@ match = re.search(r'notes=".*?"\nhelper=f\'\'\'', src, flags=re.S)
 assert match, 'release notes anchor missing'
 notes = 'notes="• Nhận hàng Rớt: vị trí đúng, Chưa có vị trí khi rỗng; OWNER có Tạo / Sửa / Xóa.\\n• Quét QR nhân sự hiển thị dấu gạch thay null và giữ nguyên phiên PDA ACTIVE cùng ngày/xuyên ngày.\\n• Đổi / Trả PDA và luồng ra sớm hiển thị đúng; sửa ổn định màn trong lúc snapshot tài nguyên về nền."\nhelper=f\'\'\''
 src = src[:match.start()] + notes + src[match.end():]
+
+# Candidate/visual IDs are also embedded in inherited jq/readback receipt gates,
+# not only in top-level assignments. All of these identities are superseded in
+# Beta77 and therefore must be shifted everywhere before stale checks.
+for old, new in (
+    ('32875201581', '32953924512'),
+    ('9573716441', '9601304499'),
+    ('32906107089', '32960147493'),
+    ('9584898561', '9603638990'),
+    ('0d81793eabf465716a4fe36038d143b11220667f', '43579d1f7f01816cddbdbbcce0a2f19d95d16d91'),
+    ('aa3123d3b0c20230f441c3db9aaf9d516c9e481e', '847378116153befe7b10a29951df43913e864636'),
+):
+    src = src.replace(old, new)
 
 for stale in (
     '32875201581', '9573716441', '32906107089', '9584898561',
