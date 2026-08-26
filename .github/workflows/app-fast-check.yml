@@ -3,7 +3,7 @@ name: App fast check
 on:
   push:
     branches:
-      - feature/beta79-old-session-outbound-service-20260826
+      - feature/beta78-old-session-outbound-service-20260826
     paths:
       - .github/workflows/app-fast-check.yml
 
@@ -36,7 +36,7 @@ jobs:
           set -euo pipefail
           git diff --quiet HEAD^ HEAD -- app service
           grep -q 'versionCode = 85' app/build.gradle.kts
-          grep -q 'versionName = "0.4.2-beta.78"' app/build.gradle.kts
+          grep -q 'versionName = "0.4.2-beta.79"' app/build.gradle.kts
           grep -q 'versionCode = 1' app/build.gradle.kts
           grep -q 'versionName = "0.1.0-stable"' app/build.gradle.kts
           grep -Fq 'historical_session_detail' app/src/main/java/vn/pickpack1291/app/beta/M2RuntimeBridge.kt
@@ -102,13 +102,13 @@ jobs:
           "$BT/aapt" dump badging "$U" > /tmp/beta79-badging.txt
           grep -q "package: name='vn.pickpack1291.app.beta.publicbeta'" /tmp/beta79-badging.txt
           grep -q "versionCode='85'" /tmp/beta79-badging.txt
-          grep -q "versionName='0.4.2-beta.78'" /tmp/beta79-badging.txt
+          grep -q "versionName='0.4.2-beta.79'" /tmp/beta79-badging.txt
           KS="$RUNNER_TEMP/release.jks"
           printf '%s' "$SIGNING_KEY_B64" | base64 -d > "$KS"
           printf '%s' "$SIGNING_STORE_PASSWORD" > "$RUNNER_TEMP/store.pass"
           printf '%s' "$SIGNING_KEY_PASSWORD" > "$RUNNER_TEMP/key.pass"
           mkdir -p dist/beta79
-          OUT=dist/beta79/pick-pack-1291-public-beta-0.4.2-beta.78.apk
+          OUT=dist/beta79/pick-pack-1291-public-beta-0.4.2-beta.79.apk
           "$BT/apksigner" sign --ks "$KS" --ks-key-alias "$SIGNING_ALIAS" --ks-pass "file:$RUNNER_TEMP/store.pass" --key-pass "file:$RUNNER_TEMP/key.pass" --out "$OUT" "$U"
           "$BT/apksigner" verify --verbose --print-certs "$OUT" > /tmp/beta79-cert.txt
           CERT=$(grep -m1 'Signer #1 certificate SHA-256 digest:' /tmp/beta79-cert.txt | sed 's/.*digest: //' | tr 'A-F' 'a-f' | tr -d ':[:space:]')
@@ -116,8 +116,8 @@ jobs:
           APK_SHA=$(sha256sum "$OUT" | awk '{print $1}')
           APK_SIZE=$(stat -c '%s' "$OUT")
           SOURCE_SHA=$(git rev-parse HEAD)
-          printf '%s  %s\n' "$APK_SHA" "$(basename "$OUT")" > dist/beta79/SHA256SUMS-0.4.2-beta.78.txt
-          jq -nc --arg source "$SOURCE_SHA" --arg sha "$APK_SHA" --argjson size "$APK_SIZE" --arg signer "$EXPECTED_SIGNER_SHA256" --argjson run "$GITHUB_RUN_ID" '{version_name:"0.4.2-beta.78",version_code:85,package:"vn.pickpack1291.app.beta.publicbeta",source_sha:$source,build_run:$run,apk_sha256:$sha,apk_size:$size,signer_sha256:$signer,stable_version:"0.1.0-stable",stable_code:1,stable_publish:"FORBIDDEN",apps_script_version:194,service_run:32977566159,service_artifact:9610145160,service_worker:"pickpack",service_generation:"m2-prod-reset-20260823-001",historical_result:"3/3_SERVICE_D1_EXACT",outbound_result:"CRUD_DUP_GSHEET_PASS",authority_change:"NONE",candidate_locked:true}' > dist/beta79/release-meta.json
+          printf '%s  %s\n' "$APK_SHA" "$(basename "$OUT")" > dist/beta79/SHA256SUMS-0.4.2-beta.79.txt
+          jq -nc --arg source "$SOURCE_SHA" --arg sha "$APK_SHA" --argjson size "$APK_SIZE" --arg signer "$EXPECTED_SIGNER_SHA256" --argjson run "$GITHUB_RUN_ID" '{version_name:"0.4.2-beta.79",version_code:85,package:"vn.pickpack1291.app.beta.publicbeta",source_sha:$source,build_run:$run,apk_sha256:$sha,apk_size:$size,signer_sha256:$signer,stable_version:"0.1.0-stable",stable_code:1,stable_publish:"FORBIDDEN",apps_script_version:194,service_run:32977566159,service_artifact:9610145160,service_worker:"pickpack",service_generation:"m2-prod-reset-20260823-001",historical_result:"3/3_SERVICE_D1_EXACT",outbound_result:"CRUD_DUP_GSHEET_PASS",authority_change:"NONE",candidate_locked:true}' > dist/beta79/release-meta.json
           rm -f "$KS" "$RUNNER_TEMP/store.pass" "$RUNNER_TEMP/key.pass"
 
       - name: Upload exact candidate
@@ -144,9 +144,9 @@ jobs:
         run: |
           set -euo pipefail
           META=/tmp/beta79-candidate/release-meta.json
-          APK=/tmp/beta79-candidate/pick-pack-1291-public-beta-0.4.2-beta.78.apk
+          APK=/tmp/beta79-candidate/pick-pack-1291-public-beta-0.4.2-beta.79.apk
           test -f "$META" -a -f "$APK"
-          jq -e --argjson run "$GITHUB_RUN_ID" '.version_name=="0.4.2-beta.78" and .version_code==85 and .build_run==$run and .candidate_locked==true and .stable_publish=="FORBIDDEN" and .service_run==32977566159 and .authority_change=="NONE"' "$META" >/dev/null
+          jq -e --argjson run "$GITHUB_RUN_ID" '.version_name=="0.4.2-beta.79" and .version_code==85 and .build_run==$run and .candidate_locked==true and .stable_publish=="FORBIDDEN" and .service_run==32977566159 and .authority_change=="NONE"' "$META" >/dev/null
           SHA=$(jq -r '.apk_sha256' "$META"); SIZE=$(jq -r '.apk_size' "$META")
           test "$(sha256sum "$APK" | awk '{print $1}')" = "$SHA"
           test "$(stat -c '%s' "$APK")" = "$SIZE"
