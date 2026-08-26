@@ -43,26 +43,12 @@ jobs:
           test "$(stat -c '%s' "$APK")" = "13196165"
           python3 -m py_compile tools/run_beta76_visual.py
           bash -n tools/run_beta76_visual_v2.sh
-          grep -Fq "'app_process', '/system/bin'" tools/run_beta76_visual.py
-          grep -Fq "UiAutomationShellWrapper wrapper" tools/VisualHierarchyDumper.java
-          ! grep -Fq "waitForIdle" tools/VisualHierarchyDumper.java
-          grep -Fq "/data/local/tmp/beta77-window.xml" tools/run_beta76_visual.py
-          test -f tools/VisualHierarchyDumper.java -a -f tools/UiAutomationShellWrapper.java
-          command -v javac >/dev/null
-          command -v jar >/dev/null
-          ANDROID_JAR="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}/platforms/android-36/android.jar"
-          test -f "$ANDROID_JAR"
-          DUMPER_BUILD="$(mktemp -d /tmp/beta77-dumper-preflight.XXXXXX)"
-          trap 'rm -rf "$DUMPER_BUILD"' EXIT
-          mkdir -p "$DUMPER_BUILD/classes"
-          javac -source 8 -target 8 -cp "$ANDROID_JAR" -d "$DUMPER_BUILD/classes" tools/UiAutomationShellWrapper.java tools/VisualHierarchyDumper.java
-          D8="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}/build-tools/36.0.0/d8"
-          test -x "$D8"
-          mkdir -p "$DUMPER_BUILD/dex"
-          "$D8" --min-api 29 --lib "$ANDROID_JAR" --classpath "$DUMPER_BUILD/classes" --output "$DUMPER_BUILD/dex" "$DUMPER_BUILD/classes/com/android/commands/uiautomator/VisualHierarchyDumper.class"
-          jar cf "$DUMPER_BUILD/beta77-visual-dumper.jar" -C "$DUMPER_BUILD/dex" classes.dex
-          test -s "$DUMPER_BUILD/beta77-visual-dumper.jar"
-          unzip -Z1 "$DUMPER_BUILD/beta77-visual-dumper.jar" | grep -Fxq 'classes.dex'
+          grep -Fq "adb('shell', 'input', 'tap', '90', '180')" tools/run_beta76_visual.py
+          grep -Fq "adb('shell', 'input', 'tap', '90', '300')" tools/run_beta76_visual.py
+          grep -Fq "adb('shell', 'wm', 'density', '160')" tools/run_beta76_visual.py
+          grep -Fq 'candidate_run=32953924512' tools/run_beta76_visual.py
+          grep -Fq 'artifact_id=9601304499' tools/run_beta76_visual.py
+          ! grep -Fq 'uiautomator' tools/run_beta76_visual.py
           ! grep -Eq 'gradle|assemble|bundle|apksigner|jarsigner|signingConfig' tools/run_beta76_visual_v2.sh
           echo "APK=$APK" >> "$GITHUB_ENV"
           echo "EXPECTED_SHA=6ce7838f6f0725ca98b4f3d9237d38aec60092f4488b2795a32ae3f9d24371fb" >> "$GITHUB_ENV"
