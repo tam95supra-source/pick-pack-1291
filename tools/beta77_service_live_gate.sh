@@ -49,12 +49,12 @@ repls={
 for old,new in repls.items():
     if old not in s: raise SystemExit('LIVE_CONFIG_ANCHOR_MISSING:'+old)
     s=s.replace(old,new,1)
-Path('/tmp/beta77-service-live/wrangler.live.jsonc').write_text(s,encoding='utf-8')
+Path('wrangler.live.jsonc').write_text(s,encoding='utf-8')
 PY
 
 # Deploy exact Beta77 service source to the existing production Worker and D1 only.
 # Existing Worker secrets are preserved; this gate does not transition authority or create resources.
-npx wrangler deploy --config "$D/wrangler.live.jsonc" 2>&1 | tee "$D/deploy.log"
+npx wrangler deploy --config wrangler.live.jsonc 2>&1 | tee "$D/deploy.log"
 SERVICE_URL=$(grep -Eo 'https://[A-Za-z0-9._-]+\.workers\.dev' "$D/deploy.log" | tail -1 || true)
 test -n "$SERVICE_URL" || { echo 'SERVICE_URL_NOT_FOUND' >&2; exit 4; }
 
@@ -94,7 +94,7 @@ NODE
 )
 echo "::add-mask::$TOKEN"
 
-sql(){ npx wrangler d1 execute "$D1_NAME" --remote --command "$1" --json >/dev/null; }
+sql(){ npx wrangler d1 execute "$D1_NAME" --remote --config wrangler.live.jsonc --command "$1" --json >/dev/null; }
 read_api(){
   local name=$1 body=$2
   curl -fsS --connect-timeout 15 --max-time 30 -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json; charset=utf-8' --data-binary "$body" "$SERVICE_URL/v1/mobile/read" > "$D/$name.json"
@@ -109,13 +109,11 @@ trap 'rc=$?; cleanup; exit $rc' EXIT
 cleanup
 sql "INSERT INTO accounts(login_id,verifier,verifier_hash,role,display_name,position,email,status,source_row,source_checksum,is_shadow_test) VALUES('$LOGIN','b77-test','$VERIFIER_HASH','USER','Beta77 Test','TEST','','ACTIVE',-77,'b77-test',1); INSERT INTO auth_sessions(login_id,session_id,device_id,issued_at) VALUES('$LOGIN','$AUTH_SESSION','$DEVICE','$NOW'); INSERT INTO employees(mnv,full_name,source_row,source_checksum) VALUES('$MNV_A','Beta77 A',-77,'b77-test'),('$MNV_B','Beta77 B',-77,'b77-test'); INSERT INTO resources(resource_type,resource_id,status_label,available,metadata_json,source_row,source_checksum) VALUES('PDA','$PDA','TỐT',1,'{}',-77,'b77-test');"
 
-# Free PDA must be visible.
 read_api free "{\"action\":\"master_options\",\"mnv\":\"$MNV_A\"}"
 node - <<'NODE' "$D/free.json" "$PDA"
 const fs=require('fs'),j=JSON.parse(fs.readFileSync(process.argv[2],'utf8'));if(!j.ok||!Array.isArray(j.pdas)||!j.pdas.some(x=>x.serial===process.argv[3]))throw new Error('FREE_PDA_NOT_VISIBLE');
 NODE
 
-# Previous-day ACTIVE lease must hide the PDA and appear in old-session warning feed.
 sql "INSERT INTO attendance_sessions(session_id,mnv,business_date,shift,work_choice,state,pda_serial,enter_at,entered_by,version,updated_at) VALUES('$OLD_SESSION','$MNV_B','$YESTERDAY','TEST','PICK','ACTIVE','$PDA','$NOW','$LOGIN',1,'$NOW'); INSERT INTO resource_leases(resource_type,resource_id,session_id,mnv,business_date,acquired_event_id,acquired_at) VALUES('PDA','$PDA','$OLD_SESSION','$MNV_B','$YESTERDAY','__B77_DIRECT_OLD','$NOW');"
 read_api old_busy "{\"action\":\"master_options\",\"mnv\":\"$MNV_A\"}"
 read_api old_warning '{"action":"old_active_sessions"}'
@@ -125,21 +123,18 @@ if(!o.ok||o.pdas.some(x=>x.serial===process.argv[4]))throw new Error('CROSS_DAY_
 if(!w.ok||!Array.isArray(w.items)||!w.items.some(x=>x.mnv===process.argv[5]&&x.business_date===process.argv[6]))throw new Error('OLD_ACTIVE_WARNING_MISSING');
 NODE
 
-# End/return old session: lease released -> PDA visible again.
 sql "DELETE FROM resource_leases WHERE resource_type='PDA' AND resource_id='$PDA'; UPDATE attendance_sessions SET state='ENDED',exit_at='$NOW',exited_by='$LOGIN',version=2,updated_at='$NOW' WHERE session_id='$OLD_SESSION';"
 read_api old_released "{\"action\":\"master_options\",\"mnv\":\"$MNV_A\"}"
 node - <<'NODE' "$D/old_released.json" "$PDA"
 const fs=require('fs'),j=JSON.parse(fs.readFileSync(process.argv[2],'utf8'));if(!j.ok||!j.pdas.some(x=>x.serial===process.argv[3]))throw new Error('ENDED_OLD_PDA_NOT_RELEASED');
 NODE
 
-# Current-day ACTIVE lease must hide the PDA.
 sql "INSERT INTO attendance_sessions(session_id,mnv,business_date,shift,work_choice,state,pda_serial,enter_at,entered_by,version,updated_at) VALUES('$CUR_SESSION','$MNV_B','$TODAY','TEST','PICK','ACTIVE','$PDA','$NOW','$LOGIN',1,'$NOW'); INSERT INTO resource_leases(resource_type,resource_id,session_id,mnv,business_date,acquired_event_id,acquired_at) VALUES('PDA','$PDA','$CUR_SESSION','$MNV_B','$TODAY','__B77_DIRECT_CUR','$NOW');"
 read_api current_busy "{\"action\":\"master_options\",\"mnv\":\"$MNV_A\"}"
 node - <<'NODE' "$D/current_busy.json" "$PDA"
 const fs=require('fs'),j=JSON.parse(fs.readFileSync(process.argv[2],'utf8'));if(!j.ok||j.pdas.some(x=>x.serial===process.argv[3]))throw new Error('CURRENT_ACTIVE_PDA_LEAK');
 NODE
 
-# Race/write boundary: even with a stale client choice, canonical mutation must reject the now-held PDA.
 RACE_BODY=$(node - <<'NODE' "$EVENT_ID" "$MNV_A" "$TODAY" "$PDA" "$IDEM" "$DEVICE" "$NOW"
 const [event_id,mnv,business_date,pda,idempotency_key,device_id,timestamp]=process.argv.slice(2);
 process.stdout.write(JSON.stringify({event_id,event_type:'ATTENDANCE_ENTER',entity_type:'ATTENDANCE',entity_id:'__B77_RACE_SESSION_'+event_id,business_date,base_version:0,timestamp,payload:{mnv,shift:'TEST',work_choice:'PICK',pda_serial:pda},idempotency_key,device_id,schema_version:1,client_source:'PDA'}));
@@ -152,7 +147,6 @@ node - <<'NODE' "$D/race.json"
 const fs=require('fs'),j=JSON.parse(fs.readFileSync(process.argv[2],'utf8'));if(j?.error?.code!=='EXCLUSIVE_RESOURCE_CONFLICT')throw new Error('RACE_GATE_NOT_ENFORCED:'+JSON.stringify(j));
 NODE
 
-# Valid early return/exchange releases the lease -> PDA visible again.
 sql "DELETE FROM resource_leases WHERE resource_type='PDA' AND resource_id='$PDA'; UPDATE attendance_sessions SET state='ENDED',exit_at='$NOW',exited_by='$LOGIN',version=2,updated_at='$NOW' WHERE session_id='$CUR_SESSION';"
 read_api current_released "{\"action\":\"master_options\",\"mnv\":\"$MNV_A\"}"
 node - <<'NODE' "$D/current_released.json" "$PDA"
@@ -160,11 +154,11 @@ const fs=require('fs'),j=JSON.parse(fs.readFileSync(process.argv[2],'utf8'));if(
 NODE
 
 cleanup
-CLEAN=$(npx wrangler d1 execute "$D1_NAME" --remote --command "SELECT (SELECT COUNT(*) FROM accounts WHERE login_id='$LOGIN')+(SELECT COUNT(*) FROM employees WHERE mnv IN ('$MNV_A','$MNV_B'))+(SELECT COUNT(*) FROM resources WHERE resource_id='$PDA')+(SELECT COUNT(*) FROM attendance_sessions WHERE mnv IN ('$MNV_A','$MNV_B'))+(SELECT COUNT(*) FROM resource_leases WHERE resource_id='$PDA')+(SELECT COUNT(*) FROM events WHERE event_id='$EVENT_ID' OR idempotency_key='$IDEM') AS n;" --json)
+CLEAN=$(npx wrangler d1 execute "$D1_NAME" --remote --config wrangler.live.jsonc --command "SELECT (SELECT COUNT(*) FROM accounts WHERE login_id='$LOGIN')+(SELECT COUNT(*) FROM employees WHERE mnv IN ('$MNV_A','$MNV_B'))+(SELECT COUNT(*) FROM resources WHERE resource_id='$PDA')+(SELECT COUNT(*) FROM attendance_sessions WHERE mnv IN ('$MNV_A','$MNV_B'))+(SELECT COUNT(*) FROM resource_leases WHERE resource_id='$PDA')+(SELECT COUNT(*) FROM events WHERE event_id='$EVENT_ID' OR idempotency_key='$IDEM') AS n;" --json)
 printf '%s' "$CLEAN" > "$D/cleanup.json"
 node -e 'const j=JSON.parse(process.argv[1]);if(Number(j?.[0]?.results?.[0]?.n)!==0)throw new Error("TEST_DATA_REMAINS")' "$CLEAN"
 
-AUTH_AFTER=$(npx wrangler d1 execute "$D1_NAME" --remote --command "SELECT authority_epoch,authority_seq,mode,scope,service_generation FROM authority_state WHERE singleton_id=1;" --json)
+AUTH_AFTER=$(npx wrangler d1 execute "$D1_NAME" --remote --config wrangler.live.jsonc --command "SELECT authority_epoch,authority_seq,mode,scope,service_generation FROM authority_state WHERE singleton_id=1;" --json)
 printf '%s' "$AUTH_AFTER" > "$D/authority-after.json"
 node - <<'NODE' "$D/authority-before.json" "$D/authority-after.json"
 const fs=require('fs'),a=JSON.parse(fs.readFileSync(process.argv[2],'utf8'))?.[0]?.results?.[0],b=JSON.parse(fs.readFileSync(process.argv[3],'utf8'))?.[0]?.results?.[0];
@@ -173,4 +167,5 @@ NODE
 
 jq -n --arg service_url "$SERVICE_URL" --arg source_sha "$GITHUB_SHA" --arg generation "$SERVICE_GENERATION" --argjson authority_epoch "$AUTH_EPOCH_BEFORE" --argjson authority_seq "$AUTH_SEQ_BEFORE" '{status:"PASS",source_sha:$source_sha,service_url:$service_url,generation:$generation,authority_epoch:$authority_epoch,authority_seq:$authority_seq,production_authority_unchanged:true,free_pda_visible:true,cross_day_active_pda_hidden:true,old_active_warning:true,ended_old_pda_released:true,current_active_pda_hidden:true,race_gate:"EXCLUSIVE_RESOURCE_CONFLICT",early_return_pda_released:true,test_data_cleanup:true}' > "$D/receipt.json"
 trap - EXIT
+rm -f wrangler.live.jsonc
 echo 'beta77_service_live_gate=PASS'
