@@ -13,11 +13,18 @@ javac -source 8 -target 8 \
   -d "$HARNESS_BUILD/classes" \
   tools/UiAutomationShellWrapper.java \
   tools/VisualHierarchyDumper.java
-jar cf "$HARNESS_BUILD/beta77-visual-dumper.jar" \
-  -C "$HARNESS_BUILD/classes" \
-  com/android/commands/uiautomator/VisualHierarchyDumper.class
+D8="$SDK_ROOT/build-tools/36.0.0/d8"
+test -x "$D8"
+mkdir -p "$HARNESS_BUILD/dex"
+"$D8" \
+  --min-api 29 \
+  --lib "$ANDROID_JAR" \
+  --classpath "$HARNESS_BUILD/classes" \
+  --output "$HARNESS_BUILD/dex" \
+  "$HARNESS_BUILD/classes/com/android/commands/uiautomator/VisualHierarchyDumper.class"
+jar cf "$HARNESS_BUILD/beta77-visual-dumper.jar" -C "$HARNESS_BUILD/dex" classes.dex
 test -s "$HARNESS_BUILD/beta77-visual-dumper.jar"
-! jar tf "$HARNESS_BUILD/beta77-visual-dumper.jar" | grep -Fq 'UiAutomationShellWrapper.class'
+unzip -Z1 "$HARNESS_BUILD/beta77-visual-dumper.jar" | grep -Fxq 'classes.dex'
 
 adb push "$HARNESS_BUILD/beta77-visual-dumper.jar" /data/local/tmp/beta77-visual-dumper.jar
 adb shell chmod 644 /data/local/tmp/beta77-visual-dumper.jar
