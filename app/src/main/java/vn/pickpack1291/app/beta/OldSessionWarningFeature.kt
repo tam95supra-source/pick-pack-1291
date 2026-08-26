@@ -23,7 +23,7 @@ object OldSessionWarningFeature {
         fun dp(v:Int)=(v*d).toInt()
         fun round(color:Int,r:Int)=GradientDrawable().apply{setColor(color);cornerRadius=dp(r).toFloat()}
         fun txt(v:String,size:Float,color:Int,bold:Boolean=false)=TextView(activity).apply{text=v;textSize=size;setTextColor(color);typeface=if(bold)Typeface.DEFAULT_BOLD else Typeface.DEFAULT}
-        fun dash(v:Any?):String=String(v?:"").trim().ifBlank{"—"}
+        fun dash(v:Any?):String=(v?.toString().orEmpty()).trim().ifBlank{"—"}
         val root=LinearLayout(activity).apply{orientation=LinearLayout.VERTICAL;visibility=View.GONE;setPadding(0,0,0,dp(6))}
         val button=Button(activity).apply{
             text="CẢNH BÁO:  CHƯA KẾT THÚC PHIÊN CÁC NGÀY CŨ."
