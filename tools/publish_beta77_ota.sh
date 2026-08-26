@@ -71,6 +71,13 @@ if compat77 not in s:
 assert old_compat in src, 'beta77 compat anchor drift'
 src = src.replace(old_compat, new_compat, 1)
 
+# The inherited post-patch assertion still references variable compat76. Once
+# the live Beta76 route is replaced by compat77, that assertion is necessarily
+# false even though the Beta77 route/helper are correct.
+legacy_compat_assert = 'assert compat76 in s and helper_sig in s'
+assert src.count(legacy_compat_assert) == 1, f'compat final assertion count={src.count(legacy_compat_assert)}'
+src = src.replace(legacy_compat_assert, 'assert compat77 in s and helper_sig in s', 1)
+
 for old, new in [
     ("if(version==='0.4.2-beta.77') out.version_code=82;", "if(version==='0.4.2-beta.77') out.version_code=83;"),
     ("else if(version==='0.4.2-beta.76' && (out.version_code===undefined || out.version_code===null)) out.version_code=81;", "else if(version==='0.4.2-beta.76' && (out.version_code===undefined || out.version_code===null)) out.version_code=82;"),
@@ -92,9 +99,6 @@ assert match, 'release notes anchor missing'
 notes = 'notes="• Nhận hàng Rớt: vị trí đúng, Chưa có vị trí khi rỗng; OWNER có Tạo / Sửa / Xóa.\\n• Quét QR nhân sự hiển thị dấu gạch thay null và giữ nguyên phiên PDA ACTIVE cùng ngày/xuyên ngày.\\n• Đổi / Trả PDA và luồng ra sớm hiển thị đúng; sửa ổn định màn trong lúc snapshot tài nguyên về nền."\nhelper=f\'\'\''
 src = src[:match.start()] + notes + src[match.end():]
 
-# Candidate/visual IDs are also embedded in inherited jq/readback receipt gates,
-# not only in top-level assignments. All of these identities are superseded in
-# Beta77 and therefore must be shifted everywhere before stale checks.
 for old, new in (
     ('32875201581', '32953924512'),
     ('9573716441', '9601304499'),
@@ -105,9 +109,6 @@ for old, new in (
 ):
     src = src.replace(old, new)
 
-# Beta77 candidate metadata carries canonical GAS/Service receipts and
-# authority_change, not the legacy service_change marker used by Beta74-76.
-# Update only the inherited candidate-meta verifier; do not alter APK bytes.
 legacy_meta_tail = '.stable_publish=="FORBIDDEN" and .service_change=="NONE"'
 beta77_meta_tail = '.stable_publish=="FORBIDDEN" and .authority_change=="NONE" and .gas_run==32932894375 and .gas_artifact==9593853159 and .service_run==32953215533 and .service_artifact==9600983380'
 assert src.count(legacy_meta_tail) == 1, f'legacy candidate-meta gate count={src.count(legacy_meta_tail)}'
@@ -144,6 +145,7 @@ for required in (
     '847378116153befe7b10a29951df43913e864636',
     'ops/beta77-release-result.json',
     'ppBeta77UpdateCheckCompat_',
+    'assert compat77 in s and helper_sig in s',
     'authority_change=="NONE"',
     'gas_run==32932894375',
     'service_run==32953215533',
