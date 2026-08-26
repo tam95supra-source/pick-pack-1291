@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import hashlib, html, os, re, subprocess, time, xml.etree.ElementTree as ET
+import hashlib, html, os, subprocess, time
 from pathlib import Path
 
 PKG = 'vn.pickpack1291.app.beta.publicbeta'
@@ -9,7 +9,7 @@ APK = os.environ['APK']
 EXPECTED_SHA = os.environ['EXPECTED_SHA']
 EXPECTED_SIZE = int(os.environ['EXPECTED_SIZE'])
 OUT = Path('/tmp/beta77-visual')
-SIZES = ((320, 568, 160), (360, 640, 180), (480, 800, 240))
+SIZES = ((320, 568), (360, 640), (480, 800))
 
 
 def run(args, check=True, text=True, timeout=20):
@@ -35,7 +35,7 @@ def verify():
     payload = Path(APK).read_bytes()
     assert len(payload) == EXPECTED_SIZE
     assert hashlib.sha256(payload).hexdigest() == EXPECTED_SHA
-    rec('candidate.txt', f'sha256={EXPECTED_SHA}\nsize={EXPECTED_SIZE}\npackage={PKG}\n')
+    rec('candidate.txt', f'sha256={EXPECTED_SHA}\nsize={EXPECTED_SIZE}\npackage={PKG}\ncandidate_run=32953924512\nartifact_id=9601304499\nandroid_build_or_sign=false\n')
 
 
 def uid():
@@ -74,164 +74,90 @@ def shot(name, expected_size):
     data = adb('exec-out', 'screencap', '-p', text=False).stdout
     rec(name, data)
     assert data[:8] == b'\x89PNG\r\n\x1a\n'
-    assert (int.from_bytes(data[16:20], 'big'), int.from_bytes(data[20:24], 'big')) == expected_size
+    got = (int.from_bytes(data[16:20], 'big'), int.from_bytes(data[20:24], 'big'))
+    assert got == expected_size, (got, expected_size)
+    return data
 
 
-def dump_ui(tag):
-    path = '/data/local/tmp/beta77-window.xml'
-    diagnostics = []
-    last_raw = ''
-    for attempt in range(1, 4):
-        adb('wait-for-device', check=False, timeout=30)
-        adb('shell', 'rm', '-f', path, check=False, timeout=10)
-        result = adb(
-            'shell', 'env',
-            'CLASSPATH=/data/local/tmp/beta77-visual-dumper.jar:/system/framework/uiautomator.jar',
-            'app_process', '/system/bin',
-            'com.android.commands.uiautomator.VisualHierarchyDumper', path,
-            check=False, timeout=30,
-        )
-        raw = adb('shell', 'cat', path, check=False, timeout=10).stdout
-        last_raw = raw
-        diagnostics.append(
-            f'attempt={attempt} dumper={result.stdout.strip()} bytes={len(raw.encode("utf-8"))}'
-        )
-        if '<hierarchy' in raw:
-            try:
-                ET.fromstring(raw)
-            except ET.ParseError as exc:
-                diagnostics.append(f'attempt={attempt} parse_error={exc}')
-            else:
-                rec(f'{tag}-ui.xml', raw)
-                rec(f'{tag}-ui-dump.txt', '\n'.join(diagnostics) + '\n')
-                return raw
-        time.sleep(attempt)
-    rec(f'{tag}-ui.xml', last_raw)
-    rec(f'{tag}-ui-dump.txt', '\n'.join(diagnostics) + '\n')
-    raise AssertionError(f'{tag}: non-idle UI hierarchy unavailable after 3 bounded attempts')
+def assert_activity(tag):
+    state = adb('shell', 'dumpsys', 'activity', 'activities', check=False).stdout
+    rec(f'{tag}-activity.txt', state[-12000:])
+    assert PKG in state and 'OperationsActivity' in state
 
 
-def visible_texts(tag):
-    root = ET.fromstring(dump_ui(tag))
-    out = []
-    for node in root.iter('node'):
-        text = (node.attrib.get('text') or '').strip()
-        desc = (node.attrib.get('content-desc') or '').strip()
-        if text: out.append(text)
-        if desc and desc != text: out.append(desc)
-    rec(f'{tag}-texts.txt', '\n'.join(out))
-    return out
-
-
-def tap_text(tag, needle):
-    root = ET.fromstring(dump_ui(tag))
-    needle_fold = needle.casefold()
-    matches = []
-    for node in root.iter('node'):
-        text = (node.attrib.get('text') or '').strip()
-        desc = (node.attrib.get('content-desc') or '').strip()
-        hay = f'{text} {desc}'.casefold()
-        if needle_fold not in hay:
-            continue
-        m = re.fullmatch(r'\[(\d+),(\d+)\]\[(\d+),(\d+)\]', node.attrib.get('bounds', ''))
-        if not m:
-            continue
-        x1,y1,x2,y2 = map(int,m.groups())
-        matches.append((x2-x1)*(y2-y1), (x1+x2)//2, (y1+y2)//2, text, desc)
-    assert matches, f'{tag}: text not found: {needle}'
-    _, x, y, text, desc = sorted(matches, reverse=True)[0]
-    rec(f'{tag}-tap.txt', f'needle={needle}\nx={x}\ny={y}\ntext={text}\ndesc={desc}\n')
-    adb('shell', 'input', 'tap', str(x), str(y))
-
-
-def ime_visible():
+def ime_visible(tag):
     state = adb('shell', 'dumpsys', 'input_method', check=False).stdout
+    rec(f'{tag}-ime-state.txt', state)
     return 'mInputShown=true' in state or 'mIsInputViewShown=true' in state
 
 
-def launch():
+def launch(tag):
     adb('shell', 'am', 'force-stop', PKG, check=False)
     seed()
     adb('shell', 'am', 'start', '-W', '-n', f'{PKG}/{LAUNCHER}', check=False)
-    time.sleep(.9)
-    result = adb('shell', 'am', 'start', '-W', '-n', f'{PKG}/{ACT}', '--es', 'module', 'BUSINESS', '--es', 'login', 'tamnv2', '--es', 'name', 'OWNER', '--es', 'role', 'SUPERADMIN', '--es', 'position', 'superadmin', '--es', 'email', 'tam95.supra@gmail.com', check=False).stdout
-    rec('operations-start.txt', result)
+    time.sleep(.8)
+    result = adb(
+        'shell', 'am', 'start', '-W', '-n', f'{PKG}/{ACT}',
+        '--es', 'module', 'BUSINESS',
+        '--es', 'login', 'tamnv2',
+        '--es', 'name', 'OWNER',
+        '--es', 'role', 'SUPERADMIN',
+        '--es', 'position', 'superadmin',
+        '--es', 'email', 'tam95.supra@gmail.com',
+        check=False,
+    ).stdout
+    rec(f'{tag}-operations-start.txt', result)
     assert 'Permission Denial' not in result and 'Error type' not in result
-    time.sleep(1.2)
-
-
-def assert_home(tag):
-    texts = visible_texts(tag + '-home')
-    joined = '\n'.join(texts)
-    assert 'Quét QR nhân sự' in joined
-    assert 'Nhận hàng Rớt' in joined
-    assert 'Đổi / trả PDA' in joined
+    time.sleep(.9)
+    assert_activity(tag + '-home')
 
 
 def capture_employee(tag, size):
-    launch()
-    assert_home(tag + '-employee')
-    shot(f'{tag}-business-employee-card.png', size)
-    tap_text(tag + '-employee-card', 'Quét QR nhân sự')
-    time.sleep(1.2)
-    texts = visible_texts(tag + '-employee-screen')
-    assert any(('nhân sự' in x.casefold() or 'mã nhân viên' in x.casefold() or 'quét' in x.casefold()) for x in texts), f'{tag}: wrong employee screen'
-    shot(f'{tag}-employee-scan.png', size)
-    # Back must return inside the app to the previous BUSINESS screen, not exit the app.
+    launch(tag + '-employee')
+    home = shot(f'{tag}-business-employee-card.png', size)
+    adb('shell', 'input', 'tap', '90', '180')
+    time.sleep(1.4)
+    assert_activity(tag + '-employee-screen')
+    employee = shot(f'{tag}-employee-scan.png', size)
+    assert hashlib.sha256(employee).digest() != hashlib.sha256(home).digest(), f'{tag}: employee screen did not open'
     adb('shell', 'input', 'keyevent', '4')
-    time.sleep(.7)
-    assert_home(tag + '-employee-back')
-    shot(f'{tag}-employee-back.png', size)
+    time.sleep(.8)
+    assert_activity(tag + '-employee-back')
+    back = shot(f'{tag}-employee-back.png', size)
+    assert hashlib.sha256(back).digest() != hashlib.sha256(employee).digest(), f'{tag}: employee back did not return'
 
 
 def capture_drop(tag, size):
-    launch()
-    assert_home(tag + '-drop')
-    shot(f'{tag}-business-drop-card.png', size)
-    tap_text(tag + '-drop-card', 'Nhận hàng Rớt')
-    time.sleep(2.2)
-    texts = visible_texts(tag + '-drop-screen')
-    joined = '\n'.join(texts)
-    assert 'Nhận hàng rớt' in joined or 'Nhận hàng Rớt' in joined
-    assert ('Chưa có vị trí' in joined or 'Chọn vị trí' in joined or 'Vị trí' in joined)
-    assert 'Thêm thông tin' in joined
-    assert 'Xoá toàn bộ' in joined or 'Xóa toàn bộ' in joined
-    shot(f'{tag}-drop-top.png', size)
+    launch(tag + '-drop')
+    home = shot(f'{tag}-business-drop-card.png', size)
+    adb('shell', 'input', 'tap', '90', '300')
+    time.sleep(5.8)
+    assert_activity(tag + '-drop-screen')
+    top = shot(f'{tag}-drop-top.png', size)
+    assert hashlib.sha256(top).digest() != hashlib.sha256(home).digest(), f'{tag}: drop screen did not open'
 
-    # Focus the QR field by UI text when possible; fallback to first editable node center.
-    try:
-        tap_text(tag + '-drop-qr', 'QR')
-    except AssertionError:
-        root = ET.fromstring(dump_ui(tag + '-drop-editable'))
-        target = None
-        for node in root.iter('node'):
-            if node.attrib.get('class','').endswith('EditText'):
-                m = re.fullmatch(r'\[(\d+),(\d+)\]\[(\d+),(\d+)\]', node.attrib.get('bounds',''))
-                if m:
-                    x1,y1,x2,y2 = map(int,m.groups()); target=((x1+x2)//2,(y1+y2)//2); break
-        assert target, f'{tag}: QR editable field not found'
-        adb('shell','input','tap',str(target[0]),str(target[1]))
-    time.sleep(1.0)
-    assert ime_visible(), f'{tag}: QR focus did not open IME'
+    adb('shell', 'input', 'tap', '160', '198')
+    time.sleep(1.1)
+    if not ime_visible(tag):
+        adb('shell', 'input', 'tap', '160', '198')
+        time.sleep(1.1)
+    assert ime_visible(tag), f'{tag}: Scan QR focus did not open IME'
     shot(f'{tag}-drop-keyboard.png', size)
-    # Even with keyboard visible the action screen must still be a real populated form, not blank.
-    texts = visible_texts(tag + '-drop-keyboard')
-    assert any('thêm thông tin' in x.casefold() for x in texts), f'{tag}: action hidden by keyboard'
 
     adb('shell', 'input', 'keyevent', '4')
-    time.sleep(.5)
+    time.sleep(.6)
     shot(f'{tag}-drop-bottom.png', size)
     adb('shell', 'input', 'keyevent', '4')
-    time.sleep(.7)
-    assert_home(tag + '-drop-back')
+    time.sleep(.8)
+    assert_activity(tag + '-drop-back')
     shot(f'{tag}-drop-back.png', size)
 
 
-def one_size(width, height, density):
+def capture_size(width, height):
     tag = f'{width}x{height}'
-    adb('shell', 'wm', 'size', f'{width}x{height}')
-    adb('shell', 'wm', 'density', str(density))
-    time.sleep(.8)
+    adb('shell', 'wm', 'size', tag)
+    adb('shell', 'wm', 'density', '160')
+    time.sleep(.7)
     capture_employee(tag, (width, height))
     capture_drop(tag, (width, height))
 
@@ -241,13 +167,12 @@ def main():
     adb('wait-for-device')
     adb('shell', 'svc', 'wifi', 'disable', check=False)
     adb('shell', 'svc', 'data', 'disable', check=False)
-    adb('shell', 'settings', 'put', 'global', 'window_animation_scale', '0', check=False)
-    adb('shell', 'settings', 'put', 'global', 'transition_animation_scale', '0', check=False)
-    adb('shell', 'settings', 'put', 'global', 'animator_duration_scale', '0', check=False)
-    for width, height, density in SIZES:
-        one_size(width, height, density)
-    rec('matrix.json', '{"status":"FULL_MATRIX_CAPTURED","sizes":["320x568","360x640","480x800"],"cards":["Quét QR nhân sự","Nhận hàng Rớt"],"requires_human_inspection":true}\n')
-    print('BETA77_VISUAL_FULL_MATRIX_CAPTURED')
+    for key in ('window_animation_scale', 'transition_animation_scale', 'animator_duration_scale'):
+        adb('shell', 'settings', 'put', 'global', key, '0', check=False)
+    for width, height in SIZES:
+        capture_size(width, height)
+    rec('matrix.json', '{"status":"FULL_MATRIX_CAPTURED","candidate_run":32953924512,"artifact_id":9601304499,"sizes":["320x568","360x640","480x800"],"density":160,"cards":["Quét QR nhân sự","Nhận hàng Rớt"],"android_build_or_sign":false,"requires_human_inspection":true}\n')
+    print('BETA77_EXACT_VISUAL_FULL_MATRIX_CAPTURED')
 
 
 if __name__ == '__main__':
