@@ -1,4 +1,4 @@
-name: Beta77 exact candidate visual retry
+name: Beta77 exact candidate full visual retry
 
 on:
   push:
@@ -43,13 +43,17 @@ jobs:
           test "$(stat -c '%s' "$APK")" = "13196165"
           python3 -m py_compile tools/run_beta76_visual.py
           bash -n tools/run_beta76_visual_v2.sh
-          grep -Fq "adb('shell', 'input', 'tap', '90', '180')" tools/run_beta76_visual.py
-          grep -Fq "adb('shell', 'input', 'tap', '90', '300')" tools/run_beta76_visual.py
+          grep -Fq "capture_employee(tag, (width, height))" tools/run_beta76_visual.py
+          grep -Fq "capture_old_session(tag, (width, height))" tools/run_beta76_visual.py
+          grep -Fq "capture_pda_release(tag, (width, height))" tools/run_beta76_visual.py
+          grep -Fq "capture_drop(tag, (width, height))" tools/run_beta76_visual.py
+          grep -Fq "'overnight_active_warning'" tools/run_beta76_visual.py
+          grep -Fq "'pda_release_early_return'" tools/run_beta76_visual.py
           grep -Fq "adb('shell', 'wm', 'density', '160')" tools/run_beta76_visual.py
           grep -Fq 'candidate_run=32953924512' tools/run_beta76_visual.py
           grep -Fq 'artifact_id=9601304499' tools/run_beta76_visual.py
           ! grep -Fq 'uiautomator' tools/run_beta76_visual.py
-          ! grep -Eq 'gradle|assemble|bundle|apksigner|jarsigner|signingConfig' tools/run_beta76_visual_v2.sh
+          ! grep -Eq 'gradle|assemble(Beta|Release|Debug)|apksigner|jarsigner|signingConfig' tools/run_beta76_visual.py tools/run_beta76_visual_v2.sh
           echo "APK=$APK" >> "$GITHUB_ENV"
           echo "EXPECTED_SHA=6ce7838f6f0725ca98b4f3d9237d38aec60092f4488b2795a32ae3f9d24371fb" >> "$GITHUB_ENV"
           echo "EXPECTED_SIZE=13196165" >> "$GITHUB_ENV"
