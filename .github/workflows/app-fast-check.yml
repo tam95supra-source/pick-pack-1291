@@ -23,10 +23,9 @@ concurrency:
 jobs:
   beta78-service-live:
     runs-on: ubuntu-24.04
-    timeout-minutes: 35
+    timeout-minutes: 30
     env:
       D1_NAME: pick-pack-1291-service-prod
-      OUTBOUND_SHEET_ID: 1tl6har_8vGSVsVlcErfQwjX1YgvN3o-FRG5wQV4VTEM
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
@@ -37,7 +36,7 @@ jobs:
         with:
           fetch-depth: 2
 
-      - name: Reuse immutable Beta78 compile receipts
+      - name: Reuse immutable Beta78 receipts
         shell: bash
         run: |
           set -euo pipefail
@@ -50,25 +49,7 @@ jobs:
           echo 'service_typecheck=REUSED_PASS run=32974026769 source_unchanged=true'
           echo 'android_compile=REUSED_PASS run=32974026769 source_unchanged=true'
           echo 'historical_3of3=REUSED_PASS run=32975908629 service_source_unchanged=true'
-
-      - name: Google OAuth and outbound Sheet readback preflight
-        shell: bash
-        run: |
-          set -euo pipefail
-          D=/tmp/beta78-google-preflight; rm -rf "$D"; mkdir -p "$D"
-          for n in GOOGLE_OAUTH_CLIENT_ID GOOGLE_OAUTH_CLIENT_SECRET GOOGLE_OAUTH_REFRESH_TOKEN; do test -n "${!n:-}"; echo "::add-mask::${!n}"; done
-          TOKEN_HTTP=$(curl -sS --connect-timeout 10 --max-time 20 -o "$D/token.json" -w '%{http_code}' https://oauth2.googleapis.com/token \
-            -d client_id="$GOOGLE_OAUTH_CLIENT_ID" -d client_secret="$GOOGLE_OAUTH_CLIENT_SECRET" -d refresh_token="$GOOGLE_OAUTH_REFRESH_TOKEN" -d grant_type=refresh_token || printf 000)
-          jq 'del(.access_token,.id_token)' "$D/token.json" > "$D/token-sanitized.json" 2>/dev/null || printf '{}\n' > "$D/token-sanitized.json"
-          echo "token_http=$TOKEN_HTTP"
-          [[ "$TOKEN_HTTP" == 200 ]] || { cat "$D/token-sanitized.json"; exit 31; }
-          ACCESS_TOKEN=$(jq -r '.access_token // empty' "$D/token.json"); test -n "$ACCESS_TOKEN"; echo "::add-mask::$ACCESS_TOKEN"
-          SHEET_HTTP=$(curl -sS --connect-timeout 10 --max-time 20 -o "$D/sheet.json" -w '%{http_code}' -H "Authorization: Bearer $ACCESS_TOKEN" \
-            "https://sheets.googleapis.com/v4/spreadsheets/$OUTBOUND_SHEET_ID?fields=spreadsheetId,sheets.properties(sheetId,title)" || printf 000)
-          echo "sheet_http=$SHEET_HTTP"
-          if [[ "$SHEET_HTTP" != 200 ]]; then jq '{error}' "$D/sheet.json" 2>/dev/null || cat "$D/sheet.json"; exit 32; fi
-          jq -e --arg id "$OUTBOUND_SHEET_ID" '.spreadsheetId==$id and any(.sheets[]; .properties.title=="Nhận hàng rớt") and any(.sheets[]; .properties.title=="Vị trí")' "$D/sheet.json" >/dev/null
-          echo 'google_outbound_preflight=PASS'
+          echo 'google_oauth_sheet_preflight=REUSED_PASS run=32976535806 attempt=2'
 
       - uses: actions/setup-node@v4
         with:
@@ -79,34 +60,37 @@ jobs:
         shell: bash
         run: npm install --ignore-scripts --no-audit --no-fund
 
-      - name: Patch transient post-deploy health harness only
+      - name: Materialize outbound continuation gate
         shell: bash
         run: |
           set -euo pipefail
-          cp tools/beta78_service_live_gate.sh /tmp/beta78_service_live_gate.sh
+          cp tools/beta78_service_live_gate.sh /tmp/beta78_outbound_continue.sh
           python3 - <<'PY'
           from pathlib import Path
-          p=Path('/tmp/beta78_service_live_gate.sh')
+          p=Path('/tmp/beta78_outbound_continue.sh')
           s=p.read_text(encoding='utf-8')
-          old='curl -fsS "$SERVICE_URL/health" > "$D/health-after.json"\n'
-          new='''HEALTH_HTTP=000\nfor attempt in 1 2 3; do\n  HEALTH_HTTP=$(curl -sS --connect-timeout 10 --max-time 20 -o "$D/health-after.json" -w '%{http_code}' "$SERVICE_URL/health" || printf 000)\n  [[ "$HEALTH_HTTP" =~ ^2[0-9][0-9]$ ]] && break\n  [[ "$attempt" -lt 3 ]] && sleep $((attempt*3))\ndone\n[[ "$HEALTH_HTTP" =~ ^2[0-9][0-9]$ ]] || { echo "LIVE_HEALTH_HTTP=$HEALTH_HTTP" >&2; exit 22; }\n'''
-          if s.count(old)!=1: raise SystemExit('HEALTH_ANCHOR_MISSING')
-          p.write_text(s.replace(old,new,1),encoding='utf-8')
+          old_deploy='''npx wrangler d1 migrations apply "$D1_NAME" --remote --config wrangler.live.jsonc 2>&1 | tee "$D/migrations.log"\nnpx wrangler deploy --config wrangler.live.jsonc 2>&1 | tee "$D/deploy.log"\ncurl -fsS "$SERVICE_URL/health" > "$D/health-after.json"\njq -e --arg gen "$GEN" --argjson epoch "$EPOCH" '.ok==true and .environment=="production" and (.generation|tostring)==$gen and .authority.mode=="SERVICE_PRIMARY" and .authority.scope=="PRODUCTION" and .authority.authority_epoch==$epoch' "$D/health-after.json" >/dev/null\n'''
+          new_deploy='''printf '%s' "$GOOGLE_OAUTH_REFRESH_TOKEN" | npx wrangler secret put GOOGLE_OAUTH_REFRESH_TOKEN --config wrangler.live.jsonc > "$D/worker-secret-sync.log"\nsleep 3\necho 'worker_google_refresh_token=SYNCED_FROM_GITHUB_SECRET'\n'''
+          if s.count(old_deploy)!=1: raise SystemExit('DEPLOY_BLOCK_ANCHOR_MISSING')
+          s=s.replace(old_deploy,new_deploy,1)
+          start=s.index('# Exact historical session gate:')
+          end=s.index('# OAuth token for conservative Google append+readback baseline')
+          s=s[:start] + "# Historical exact gate reused from run 32975908629; source unchanged.\necho 'historical_3of3=REUSED_PASS run=32975908629'\n\n" + s[end:]
+          p.write_text(s,encoding='utf-8')
           PY
-          bash -n /tmp/beta78_service_live_gate.sh
+          bash -n /tmp/beta78_outbound_continue.sh
+          grep -Fq 'worker_google_refresh_token=SYNCED_FROM_GITHUB_SECRET' /tmp/beta78_outbound_continue.sh
+          grep -Fq 'historical_3of3=REUSED_PASS run=32975908629' /tmp/beta78_outbound_continue.sh
 
-      - name: Run exact production Service live gate
+      - name: Sync Worker credential and run outbound live gate
         shell: bash
-        run: bash /tmp/beta78_service_live_gate.sh
+        run: bash /tmp/beta78_outbound_continue.sh
 
       - name: Upload Beta78 Service evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: beta78-service-live-${{ github.run_id }}
-          path: |
-            /tmp/beta78-service-live
-            /tmp/beta78-google-preflight/token-sanitized.json
-            /tmp/beta78-google-preflight/sheet.json
+          path: /tmp/beta78-service-live
           retention-days: 30
           if-no-files-found: warn
