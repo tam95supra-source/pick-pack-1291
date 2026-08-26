@@ -65,7 +65,8 @@ jobs:
         run: |
           set -o pipefail
           npm install --ignore-scripts --no-audit --no-fund 2>&1 | tee /tmp/beta78-npm.log
-          npx tsc --noEmit 2>&1 | tee /tmp/beta78-typecheck.log
+          npm run cf:types 2>&1 | tee /tmp/beta78-cf-types.log
+          npm run typecheck 2>&1 | tee /tmp/beta78-typecheck.log
           npx wrangler deploy --dry-run --outdir /tmp/beta78-dry-run 2>&1 | tee /tmp/beta78-dry-run.log
           find /tmp/beta78-dry-run -type f -size +0c | grep -q .
 
@@ -105,6 +106,7 @@ jobs:
           path: |
             /tmp/beta78-service-live
             /tmp/beta78-typecheck.log
+            /tmp/beta78-cf-types.log
             /tmp/beta78-dry-run.log
             /tmp/beta78-npm.log
           retention-days: 30
