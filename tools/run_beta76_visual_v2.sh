@@ -2,15 +2,16 @@
 set -Eeuo pipefail
 
 SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
-PLATFORM="$SDK_ROOT/platforms/android-29"
-test -f "$PLATFORM/android.jar"
-test -f "$PLATFORM/uiautomator.jar"
+ANDROID_JAR="$SDK_ROOT/platforms/android-36/android.jar"
+test -f "$ANDROID_JAR"
 
 HARNESS_BUILD="$(mktemp -d /tmp/beta77-visual-dumper.XXXXXX)"
 trap 'rm -rf "$HARNESS_BUILD"' EXIT
 mkdir -p "$HARNESS_BUILD/classes"
+adb pull /system/framework/uiautomator.jar "$HARNESS_BUILD/uiautomator.jar"
+test -s "$HARNESS_BUILD/uiautomator.jar"
 javac -source 8 -target 8 \
-  -cp "$PLATFORM/android.jar:$PLATFORM/uiautomator.jar" \
+  -cp "$ANDROID_JAR:$HARNESS_BUILD/uiautomator.jar" \
   -d "$HARNESS_BUILD/classes" \
   tools/VisualHierarchyDumper.java
 jar cf "$HARNESS_BUILD/beta77-visual-dumper.jar" -C "$HARNESS_BUILD/classes" .
