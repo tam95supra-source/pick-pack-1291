@@ -122,6 +122,9 @@ jobs:
               '''.superadmin_clear==true and .readback_empty==true''',
               '''.test_row_cleaned==true and .real_data_preserved==true''',
               'self-test predicate')
+          old_loop='''TEST_OK=0\nfor attempt in 1 2; do\n  curl -fsSL --connect-timeout 15 --max-time 60 -H 'Content-Type: application/json' -d "{\\"action\\":\\"__beta76_outbound_test\\",\\"token\\":\\"$NONCE\\"}" "$GAS_URL" > "$E/self-test-$attempt.json" || true\n  if jq -e '.ok==true and .owner_crud==true and .user_crud_denied==true and .append_once==true and .idempotent_retry==true and .user_clear_denied==true and .admin_clear_denied==true and .test_row_cleaned==true and .real_data_preserved==true and .location_hidden==true' "$E/self-test-$attempt.json" >/dev/null 2>&1; then TEST_OK=1; cp "$E/self-test-$attempt.json" "$E/self-test.json"; break; fi\n  sleep $((attempt*2))\ndone\n[[ "$TEST_OK" == 1 ]]'''
+          new_loop='''TEST_OK=0\nfor attempt in 1 2; do\n  http=$(curl -sSL --connect-timeout 15 --max-time 90 -o "$E/self-test-$attempt.json" -w '%{http_code}' -H 'Content-Type: application/json' -d "{\\"action\\":\\"__beta76_outbound_test\\",\\"token\\":\\"$NONCE\\"}" "$GAS_URL" || printf '000')\n  printf '%s\\n' "$http" > "$E/self-test-$attempt.http"\n  if [[ "$http" == 200 ]] && jq -e '.ok==true and .owner_crud==true and .user_crud_denied==true and .append_once==true and .idempotent_retry==true and .user_clear_denied==true and .admin_clear_denied==true and .test_row_cleaned==true and .real_data_preserved==true and .location_hidden==true' "$E/self-test-$attempt.json" >/dev/null 2>&1; then TEST_OK=1; cp "$E/self-test-$attempt.json" "$E/self-test.json"; break; fi\n  [[ "$attempt" == 2 ]] || sleep 30\ndone\n[[ "$TEST_OK" == 1 ]]'''
+          s=replace_once(s,old_loop,new_loop,'GAS propagation retry')
           s=s.replace('Beta76 Nhận hàng rớt temporary self-test','Beta77 Nhận hàng rớt temporary self-test')
           s=s.replace('Beta76 Nhận hàng rớt final','Beta77 Nhận hàng rớt final')
           p.write_text(s,encoding='utf-8')
@@ -138,18 +141,32 @@ jobs:
             git config user.name 'github-actions[bot]'
             git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
             git add tools/deploy_beta76_outbound_gas.sh app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt
-            git commit -m 'fix(beta77): preserve live sheet data and suppress employee rerender'
+            git commit -m 'test(beta77): tolerate GAS deployment propagation'
             git push origin "HEAD:${GITHUB_REF_NAME}"
           fi
 
+      - name: Detect changed code inputs
+        id: scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --name-only HEAD^ HEAD | grep -Eq '^(app/|service/|google-apps-script/|gradle.properties$)'; then
+            echo 'code_changed=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'code_changed=false' >> "$GITHUB_OUTPUT"
+          fi
+
       - uses: actions/setup-java@v5
+        if: steps.scope.outputs.code_changed == 'true'
         with:
           distribution: temurin
           java-version: '17'
       - uses: gradle/actions/setup-gradle@v4
+        if: steps.scope.outputs.code_changed == 'true'
         with:
           gradle-version: '9.4.1'
       - uses: actions/setup-node@v4
+        if: steps.scope.outputs.code_changed == 'true'
         with:
           node-version: '22'
 
@@ -177,9 +194,11 @@ jobs:
           grep -Fq 'PP_OUTBOUND_LOCATIONS_V1' google-apps-script/OUTBOUND_DROP_RECEIVE.gs
           grep -Fq 'real_data_preserved:true' tools/deploy_beta76_outbound_gas.sh
           grep -Fq 'ppWithLock_(function(){ return ppOutboundSelfTest_(body); })' tools/deploy_beta76_outbound_gas.sh
+          grep -Fq "-w '%{http_code}'" tools/deploy_beta76_outbound_gas.sh
           git diff --check HEAD^ HEAD
 
       - name: Service typecheck
+        if: steps.scope.outputs.code_changed == 'true'
         working-directory: service
         shell: bash
         run: |
@@ -188,6 +207,7 @@ jobs:
           npm run check
 
       - name: Android focused tests and Beta/Stable compile isolation
+        if: steps.scope.outputs.code_changed == 'true'
         shell: bash
         run: |
           set -euo pipefail
