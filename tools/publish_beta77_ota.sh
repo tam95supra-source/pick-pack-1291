@@ -21,10 +21,14 @@ import sys
 
 src = Path(sys.argv[1]).read_text(encoding='utf-8')
 
-# Advance Beta76 labels/paths/helper names first. The previous semantic version
-# is shifted separately so it remains Beta76 instead of cascading to Beta77.
+# Advance Beta76 labels/paths/helper names first.
 src = src.replace('beta76', 'beta77').replace('Beta76', 'Beta77')
+
+# Shift semantic versions atomically so target Beta76 becomes Beta77 while the
+# previous Beta75 becomes Beta76 without cascading into the target.
+src = src.replace('0.4.2-beta.76', '__BETA77_TARGET__')
 src = src.replace('0.4.2-beta.75', '0.4.2-beta.76')
+src = src.replace('__BETA77_TARGET__', '0.4.2-beta.77')
 
 replacements = [
     ('TARGET_CODE=82', 'TARGET_CODE=83'),
