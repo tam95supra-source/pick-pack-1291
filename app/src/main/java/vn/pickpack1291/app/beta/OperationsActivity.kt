@@ -212,7 +212,7 @@ class OperationsActivity : Activity() {
     private fun businessHome(){
         module="BUSINESS";screenState="BUSINESS"
         val root=baseRoot("NGHIỆP VỤ");val body=body().apply{setPadding(dp(8),dp(6),dp(8),dp(76))}
-        body.addView(OldSessionWarningFeature.build(this,api){mnv->loadEmployee(mnv)},matchWrap())
+        body.addView(OldSessionWarningFeature.build(this,api){raw->openHistoricalSession(raw)},matchWrap())
         addBusinessShiftReconciliation(body)
         val cards=listOf(
             businessCard(R.drawable.ic_pp_scan,"Quét QR nhân sự","",true){employeeScan()},
@@ -303,6 +303,35 @@ class OperationsActivity : Activity() {
         val masters=if(ctx.optString("state")=="NOT_ENTERED")PdaLocalProjection.resourceOptions(this,mnv) else null
         renderEmployeeIfChanged(ctx,masters)
         return true
+    }
+
+    private fun historicalEmployeeContext(raw:JSONObject):JSONObject?{
+        val identity=raw.optJSONObject("identity")?:JSONObject()
+        val sourceSession=raw.optJSONObject("session")?:return null
+        val sourceEmployee=raw.optJSONObject("employee")?:JSONObject()
+        val session=JSONObject(sourceSession.toString())
+        val sid=identity.optString("session_id").ifBlank{session.optString("session_id")}.trim()
+        val mnv=identity.optString("mnv").ifBlank{session.optString("mnv")}.trim()
+        val date=identity.optString("business_date").ifBlank{session.optString("business_date")}.trim()
+        if(sid.isBlank()||mnv.isBlank()||date.isBlank())return null
+        session.put("session_id",sid).put("mnv",mnv).put("business_date",date)
+        val employee=JSONObject(sourceEmployee.toString()).apply{if(optString("mnv").isBlank())put("mnv",mnv)}
+        val state=session.optString("state").ifBlank{"ACTIVE"}.uppercase()
+        val ctx=JSONObject().put("business_date",date).put("employee",employee).put("session",session).put("state",state).put("historical_session",true)
+        val labor=raw.optJSONArray("labor")?:JSONArray()
+        for(i in 0 until labor.length()){val x=labor.optJSONObject(i)?:continue;if(x.optString("state").equals("OPEN",true)){ctx.put("active_labor",JSONObject(x.toString()));break}}
+        return ctx
+    }
+
+    private fun openHistoricalSession(raw:JSONObject){
+        val ctx=historicalEmployeeContext(raw)
+        if(ctx==null){showError("Không dựng được đúng phiên cũ đã chọn.");return}
+        val s=ctx.optJSONObject("session")?:return
+        val mnv=s.optString("mnv").trim()
+        employeeLookupGeneration++
+        liveEmployeeMnv=mnv
+        lastEmployeeRenderSignature=""
+        renderEmployee(ctx,null)
     }
 
     // S38_ATTENDANCE_UI: render staff identity immediately, then use current Service session/resource options.
@@ -584,12 +613,16 @@ class OperationsActivity : Activity() {
                 if(handleAuth(r))return@runOnUiThread
                 if(r.ok){TopNotice.show(this,"Đã cập nhật công việc trong ca.",TopNotice.Kind.SUCCESS);foregroundSync.requestSync();renderEmployee(mergeResourceSnapshot(ctx,r.json?:JSONObject()),null);return@runOnUiThread}
                 if(r.error!="SESSION_CHANGED"){showError(r.error?:"Không cập nhật được phiên");return@runOnUiThread}
-                api.call("employee_context",JSONObject().put("mnv",mnv).put("include_options",false).put("include_labor",true)){fresh->runOnUiThread{
+                val historical=ctx.optBoolean("historical_session")||original.optString("business_date").let{it.isNotBlank()&&it!=operationalStore.businessDate()}
+                val refreshAction=if(historical)"historical_session_detail" else "employee_context"
+                val refreshPayload=if(historical)JSONObject().put("session_id",sessionId).put("mnv",mnv).put("business_date",original.optString("business_date")) else JSONObject().put("mnv",mnv).put("include_options",false).put("include_labor",true)
+                api.call(refreshAction,refreshPayload){fresh->runOnUiThread{
                     if(generation!=employeeLookupGeneration||liveEmployeeMnv!=mnv)return@runOnUiThread
                     if(handleAuth(fresh))return@runOnUiThread
-                    if(!fresh.ok){showError("Không đối chiếu được phiên mới nhất từ Service.");return@runOnUiThread}
-                    val fc=fresh.json?:JSONObject();val fs=fc.optJSONObject("session");val freshId=fs?.optString("session_id").orEmpty();val freshState=fc.optString("state")
-                    if(freshId!=sessionId||freshState!="ACTIVE"){showError("Phiên hiện tại thực sự đã thay đổi trên Service. Quét lại nhân sự trước khi tiếp tục.");return@runOnUiThread}
+                    if(!fresh.ok){showError("Không đối chiếu được đúng phiên mới nhất từ Service.");return@runOnUiThread}
+                    val fc=if(historical)historicalEmployeeContext(fresh.json?:JSONObject()) else fresh.json
+                    val fs=fc?.optJSONObject("session");val freshId=fs?.optString("session_id").orEmpty();val freshState=fc?.optString("state").orEmpty()
+                    if(freshId!=sessionId||freshState!="ACTIVE"){showError("Đúng phiên đã chọn thực sự đã thay đổi trên Service. Mở lại phiên trước khi tiếp tục.");return@runOnUiThread}
                     if(retry>=1){showError("Phiên vừa được cập nhật đồng thời. Dữ liệu mới nhất đã được giữ; mở lại thao tác để xác nhận.");return@runOnUiThread}
                     send(fs?.optInt("version",expectedVersion)?:expectedVersion,idem,retry+1)
                 }}
