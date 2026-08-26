@@ -1,4 +1,4 @@
-name: Beta77 exact candidate full visual retry
+name: Beta77 exact candidate dialog-verified visual retry
 
 on:
   push:
@@ -48,6 +48,8 @@ jobs:
           grep -Fq "capture_pda_release(tag, (width, height))" tools/run_beta76_visual.py
           grep -Fq "capture_drop(tag, (width, height))" tools/run_beta76_visual.py
           grep -Fq "'overnight_active_warning'" tools/run_beta76_visual.py
+          grep -Fq "ratio >= .08" tools/run_beta76_visual.py
+          grep -Fq "old-session-dialog-ratio.txt" tools/run_beta76_visual.py
           grep -Fq "'pda_release_early_return'" tools/run_beta76_visual.py
           grep -Fq "adb('shell', 'wm', 'density', '160')" tools/run_beta76_visual.py
           grep -Fq 'candidate_run=32953924512' tools/run_beta76_visual.py
