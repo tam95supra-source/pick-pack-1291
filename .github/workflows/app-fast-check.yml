@@ -1,23 +1,20 @@
 name: App fast check
 
 on:
-  push:
+  pull_request:
     branches:
-      - feature/beta78-old-session-outbound-service-20260826
-    paths:
-      - .github/workflows/app-fast-check.yml
-      - tools/publish_beta78_ota.sh
+      - release/beta71-clean-from-beta68-20260825-handoff-temp
 
 permissions:
   contents: read
   actions: read
 
 concurrency:
-  group: beta78-exact-ota-publish-active
+  group: beta78-exact-ota-request-trigger
   cancel-in-progress: false
 
 jobs:
-  publish:
+  publish-beta78-exact:
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     env:
@@ -28,8 +25,10 @@ jobs:
       GAS_SCRIPT_ID: ${{ secrets.GAS_SCRIPT_ID }}
       GAS_DEPLOYMENT_ID: ${{ secrets.GAS_DEPLOYMENT_ID }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout exact Beta78 release carrier
+        uses: actions/checkout@v4
         with:
+          ref: feature/beta78-old-session-outbound-service-20260826
           fetch-depth: 0
 
       - name: Download exact locked Beta78 candidate
@@ -45,6 +44,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          test "$(git rev-parse 9f5d309e13bce62381784d3e53b019bf80d5dfbe)" = 9f5d309e13bce62381784d3e53b019bf80d5dfbe
           chmod +x tools/publish_beta78_ota.sh
           bash -n tools/publish_beta78_ota.sh
           bash tools/publish_beta78_ota.sh
