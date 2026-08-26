@@ -94,7 +94,7 @@ jobs:
             jq -e '.success==true and .result.enabled==true' "$D/subdomain-${name}.json" >/dev/null 2>&1 || continue
             url="https://${name}.${SUBDOMAIN}.workers.dev"
             http=$(curl -sS --connect-timeout 10 --max-time 20 -o "$D/health-${name}.json" -w '%{http_code}' "$url/health" || printf '000')
-            if [[ "$http" =~ ^2[0-9][0-9]$ ]] && jq -e --arg gen "$GEN" '.ok==true and .service=="pick-pack-1291-service" and .environment=="production" and (.generation|tostring)==$gen and .authority.mode=="SERVICE_PRIMARY" and .authority.scope=="PRODUCTION"' "$D/health-${name}.json" >/dev/null 2>&1; then
+            if [[ "$http" =~ ^2[0-9][0-9]$ ]] && jq -e --arg gen "$GEN" --arg name "$name" '.ok==true and (.service|tostring)==$name and .environment=="production" and (.generation|tostring)==$gen and .authority.mode=="SERVICE_PRIMARY" and .authority.scope=="PRODUCTION"' "$D/health-${name}.json" >/dev/null 2>&1; then
               printf '%s\t%s\n' "$name" "$url" >> "$D/healthy.tsv"
             fi
           done < <(jq -r '.result[]? | .id // empty' "$D/scripts.json")
@@ -123,7 +123,7 @@ jobs:
           npx wrangler deploy --dry-run --config wrangler.preflight.jsonc --outdir "$D/dry-run" > "$D/dry-run.log"
           find "$D/dry-run" -type f -size +0c | grep -q .
           curl -fsS --connect-timeout 10 --max-time 20 "$LIVE_SERVICE_URL/health" > "$D/live-health-before.json"
-          jq -e --arg gen "$GEN" '.ok==true and .service=="pick-pack-1291-service" and .environment=="production" and (.generation|tostring)==$gen and .authority.mode=="SERVICE_PRIMARY" and .authority.scope=="PRODUCTION"' "$D/live-health-before.json" >/dev/null
+          jq -e --arg gen "$GEN" --arg name "$LIVE_WORKER_NAME" '.ok==true and (.service|tostring)==$name and .environment=="production" and (.generation|tostring)==$gen and .authority.mode=="SERVICE_PRIMARY" and .authority.scope=="PRODUCTION"' "$D/live-health-before.json" >/dev/null
 
           echo "worker_name=$LIVE_WORKER_NAME" >> "$GITHUB_OUTPUT"
           echo "service_url=$LIVE_SERVICE_URL" >> "$GITHUB_OUTPUT"
@@ -150,6 +150,9 @@ jobs:
           old='  \'"name": "pick-pack-1291-service-m1-staging"\':\'"name": "pick-pack-1291-service"\',\n'
           if s.count(old)!=1: raise SystemExit('WORKER_CONFIG_ANCHOR_MISSING')
           s=s.replace(old,f'  \'"name": "pick-pack-1291-service-m1-staging"\':\'"name": "{name}"\',\n',1)
+          old="j.service!=='pick-pack-1291-service'"
+          if s.count(old)!=1: raise SystemExit('WORKER_HEALTH_ANCHOR_MISSING')
+          s=s.replace(old,f"j.service!=='{name}'",1)
           p.write_text(s,encoding='utf-8')
           PY
           bash /tmp/beta77_service_live_gate.sh
