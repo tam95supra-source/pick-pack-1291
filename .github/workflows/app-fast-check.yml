@@ -47,19 +47,28 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python3 tools/apply_beta77_owner_fixes.py
-          if ! git diff --quiet; then
-            git config user.name 'github-actions[bot]'
-            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-            git add app/build.gradle.kts \
-              app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt \
-              app/src/main/java/vn/pickpack1291/app/beta/DropReceiveFeature.kt \
-              app/src/main/java/vn/pickpack1291/app/beta/OldSessionWarningFeature.kt \
-              app/src/main/java/vn/pickpack1291/app/beta/M2RuntimeBridge.kt \
-              service/src/mobile_hotfix.ts \
-              google-apps-script/OUTBOUND_DROP_RECEIVE.gs
-            git commit -m 'fix(beta77): owner requested drop receive and cross-day session fixes'
-            git push origin "HEAD:${GITHUB_REF_NAME}"
+          if grep -q 'versionName = "0.4.2-beta.76"' app/build.gradle.kts; then
+            python3 - <<'PY'
+          from pathlib import Path
+          p=Path('tools/apply_beta77_owner_fixes.py')
+          s=p.read_text(encoding='utf-8')
+          s=s.replace('type;} \'', 'type;}\'')
+          p.write_text(s,encoding='utf-8')
+          PY
+            python3 tools/apply_beta77_owner_fixes.py
+            if ! git diff --quiet; then
+              git config user.name 'github-actions[bot]'
+              git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+              git add app/build.gradle.kts \
+                app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt \
+                app/src/main/java/vn/pickpack1291/app/beta/DropReceiveFeature.kt \
+                app/src/main/java/vn/pickpack1291/app/beta/OldSessionWarningFeature.kt \
+                app/src/main/java/vn/pickpack1291/app/beta/M2RuntimeBridge.kt \
+                service/src/mobile_hotfix.ts \
+                google-apps-script/OUTBOUND_DROP_RECEIVE.gs
+              git commit -m 'fix(beta77): owner requested drop receive and cross-day session fixes'
+              git push origin "HEAD:${GITHUB_REF_NAME}"
+            fi
           fi
 
       - uses: actions/setup-java@v5
