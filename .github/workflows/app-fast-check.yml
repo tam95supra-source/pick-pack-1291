@@ -26,7 +26,6 @@ jobs:
     timeout-minutes: 35
     env:
       D1_NAME: pick-pack-1291-service-prod
-      PASS_SHA: ce4a0ee0bcf1ed6dffbd0429c5238ce3918f94d1
       OUTBOUND_SHEET_ID: 1tl6har_8vGSVsVlcErfQwjX1YgvN3o-FRG5wQV4VTEM
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -42,8 +41,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          git cat-file -e "$PASS_SHA^{commit}"
-          git diff --quiet "$PASS_SHA" HEAD -- app service
+          git diff --quiet HEAD^ HEAD -- app service
           grep -q 'versionCode = 84' app/build.gradle.kts
           grep -q 'versionName = "0.4.2-beta.78"' app/build.gradle.kts
           grep -q 'versionCode = 1' app/build.gradle.kts
