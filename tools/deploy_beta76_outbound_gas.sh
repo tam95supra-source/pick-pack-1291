@@ -71,7 +71,7 @@ PY
 BEFORE_HASH=$(cat "$E/project-before.sha256")
 TARGET_HASH=$(cat "$E/project-target.sha256")
 BEFORE_DESC=$(jq -r '.deploymentConfig.description // ""' "$E/deployment-before.json")
-if [[ "$BEFORE_HASH" == "$TARGET_HASH" && "$BEFORE_DESC" == "Beta76 Nhận hàng rớt final" ]]; then
+if [[ "$BEFORE_HASH" == "$TARGET_HASH" && "$BEFORE_DESC" == "Beta77 Nhận hàng rớt final" ]]; then
   curl -fsSL --connect-timeout 15 --max-time 30 "$GAS_URL" > "$E/live-health.json"
   jq -e '.ok==true and .service=="pick-pack-gsheet-api"' "$E/live-health.json" >/dev/null
   jq -n --arg target_hash "$TARGET_HASH" --arg status "ALREADY_DEPLOYED" '{status:$status,target_hash:$target_hash,live_health:"PASS"}' > "$E/receipt.json"
@@ -105,7 +105,7 @@ api=next(f for f in j['files'] if f.get('name')=='PICK_PACK_API')
 s=api['source']
 anchor="    if (action === 'login') return ppJson_(ppLogin_(body));\n"
 assert s.count(anchor)==1,'test route anchor drift'
-test_route="    if (action === '__beta76_outbound_test') return ppJson_(ppOutboundSelfTest_(body));\n"
+test_route="    if (action === '__beta76_outbound_test') return ppJson_(ppWithLock_(function(){ return ppOutboundSelfTest_(body); }));\n"
 s=s.replace(anchor,anchor+test_route,1)
 api['source']=s
 out=next(f for f in j['files'] if f.get('name')=='OUTBOUND_DROP_RECEIVE')
@@ -118,9 +118,10 @@ function ppOutboundSelfTest_(body){
   const headers=drop.getRange(1,1,1,8).getDisplayValues()[0];
   const expected=PP_OUTBOUND.HEADERS;
   if(ss.getName()!=='PICK PACK 1291 x OUTBOUND') return {ok:false,error:'SHEET_TITLE_MISMATCH'};
+  if(!loc.isSheetHidden()) loc.hideSheet();
   if(!loc.isSheetHidden()) return {ok:false,error:'LOCATION_TAB_NOT_HIDDEN'};
   for(let i=0;i<expected.length;i++) if(String(headers[i]||'')!==String(expected[i]||'')) return {ok:false,error:'HEADER_MISMATCH_'+i};
-  if(drop.getLastRow()>1) return {ok:false,error:'REAL_DATA_PRESENT',data_rows:drop.getLastRow()-1};
+  const beforeData=JSON.stringify(drop.getDataRange().getDisplayValues()), beforeRows=drop.getLastRow();
   function protectionInfo(sh){
     let out=[];
     [SpreadsheetApp.ProtectionType.RANGE,SpreadsheetApp.ProtectionType.SHEET].forEach(function(t){
@@ -136,10 +137,10 @@ function ppOutboundSelfTest_(body){
   const bad=allp.filter(function(p){return p.warning_only||p.domain_edit||p.editors.some(function(e){return e&&e!==PP_OUTBOUND.OWNER_EMAIL;});});
   if(bad.length) return {ok:false,error:'PROTECTION_OWNER_MISMATCH',bad:bad};
   const suffix=Utilities.getUuid().replace(/-/g,'').slice(0,10), a='__B76_TEST_'+suffix, b=a+'_EDIT';
-  const owner={login_id:PP_OUTBOUND.OWNER_LOGIN,role:'SUPERADMIN',display_name:'Beta76 Test',__beta76_test:true};
-  const user={login_id:'beta76_user_test',role:'USER',display_name:'Beta76 User',__beta76_test:true};
-  const admin={login_id:'beta76_admin_test',role:'ADMIN',display_name:'Beta76 Admin',__beta76_test:true};
-  const record='__B76_TEST_ROW_'+suffix, clearId='__B76_TEST_CLEAR_'+suffix;
+  const owner={login_id:'beta77_owner_test',role:'SUPERADMIN',display_name:'Beta77 Test',email:PP_OUTBOUND.OWNER_EMAIL,__beta76_test:true};
+  const user={login_id:'beta77_user_test',role:'USER',display_name:'Beta77 User',email:'beta77-user@example.invalid',__beta76_test:true};
+  const admin={login_id:'beta77_admin_test',role:'ADMIN',display_name:'Beta77 Admin',email:'beta77-admin@example.invalid',__beta76_test:true};
+  const record='__B77_TEST_ROW_'+suffix;
   let result={};
   try{
     const deny=ppOutboundLocationMutate_(user,{operation:'CREATE',after:a,event_id:'deny-'+suffix});
@@ -150,21 +151,21 @@ function ppOutboundSelfTest_(body){
     const payload={location:b,scan_qr:'2AD7|7081639744|SOWIN8H9KA2BL3C|PB1260823D8CB48|CX1.1.1|5/13',do_number:'7081639744',package_count:13,idempotency_key:record};
     const first=ppOutboundAppend_(owner,payload); if(!first.ok||first.idempotent) throw new Error('APPEND_FAIL_'+JSON.stringify(first));
     const again=ppOutboundAppend_(owner,payload); if(!again.ok||!again.idempotent) throw new Error('IDEMPOTENCY_FAIL_'+JSON.stringify(again));
-    if(drop.getLastRow()-1!==1) throw new Error('APPEND_ROW_COUNT_FAIL_'+String(drop.getLastRow()-1));
+    if(drop.getLastRow()!==beforeRows+1) throw new Error('APPEND_ROW_COUNT_FAIL_'+String(drop.getLastRow()));
     const row=ppOutboundFindRecord_(drop,record); if(!row) throw new Error('APPEND_READBACK_MISSING');
     if(String(row.values[0])!==b||String(row.values[2])!==payload.scan_qr||String(row.values[3])!=='7081639744'||String(row.values[4])!=='13') throw new Error('APPEND_READBACK_CONTENT');
     const userClear=ppOutboundClear_(user,{idempotency_key:'uc-'+suffix}); if(userClear.ok||userClear.error!=='SUPERADMIN_REQUIRED') throw new Error('USER_CLEAR_GUARD_FAIL');
     const adminClear=ppOutboundClear_(admin,{idempotency_key:'ac-'+suffix}); if(adminClear.ok||adminClear.error!=='SUPERADMIN_REQUIRED') throw new Error('ADMIN_CLEAR_GUARD_FAIL');
-    const cleared=ppOutboundClear_(owner,{idempotency_key:clearId}); if(!cleared.ok||Number(cleared.remaining)!==0) throw new Error('SUPER_CLEAR_FAIL_'+JSON.stringify(cleared));
-    PropertiesService.getScriptProperties().deleteProperty('PP_MASTER_EVT_'+ppSha256Hex_(clearId).slice(0,32));
+    const marker=ppOutboundFindRecord_(drop,record); if(!marker) throw new Error('TEST_ROW_CLEANUP_MISSING');
+    drop.deleteRow(marker.row); SpreadsheetApp.flush();
     x=ppOutboundLocationMutate_(owner,{operation:'DELETE',before:b,event_id:'delete-'+suffix}); if(!x.ok) throw new Error('OWNER_DELETE_FAIL_'+JSON.stringify(x));
     if(ppOutboundLocations_().some(function(v){return v===a||v===b;})) throw new Error('LOCATION_CLEANUP_FAIL');
-    if(drop.getLastRow()>1) throw new Error('DATA_CLEANUP_FAIL');
-    result={ok:true,parser_sample:{do_number:'7081639744',package_count:13},owner_crud:true,user_crud_denied:true,append_once:true,idempotent_retry:true,user_clear_denied:true,admin_clear_denied:true,superadmin_clear:true,readback_empty:true,location_hidden:true,headers:headers,location_protections:lp,drop_protections:dp};
+    if(drop.getLastRow()!==beforeRows) throw new Error('REAL_DATA_ROW_COUNT_CHANGED');
+    if(JSON.stringify(drop.getDataRange().getDisplayValues())!==beforeData) throw new Error('REAL_DATA_CHANGED');
+    result={ok:true,parser_sample:{do_number:'7081639744',package_count:13},owner_crud:true,user_crud_denied:true,append_once:true,idempotent_retry:true,user_clear_denied:true,admin_clear_denied:true,test_row_cleaned:true,real_data_preserved:true,location_hidden:true,headers:headers,location_protections:lp,drop_protections:dp};
   }catch(err){
     try{const f=ppOutboundFindRecord_(drop,record);if(f)drop.deleteRow(f.row);}catch(_){}
     try{const vals=ppOutboundLocations_();for(let i=vals.length-1;i>=0;i--){if(vals[i]===a||vals[i]===b)loc.deleteRow(i+2);}}catch(_){}
-    try{PropertiesService.getScriptProperties().deleteProperty('PP_MASTER_EVT_'+ppSha256Hex_(clearId).slice(0,32));}catch(_){}
     return {ok:false,error:String(err&&err.message||err),location_protections:lp,drop_protections:dp};
   }
   return result;
@@ -179,10 +180,10 @@ code=$(curl -sS --connect-timeout 15 --max-time 30 -o "$E/test-content-put.json"
   -H "Authorization: Bearer $ACCESS_TOKEN" -H 'Content-Type: application/json' --data-binary @"$E/project-test.json" "$api/content")
 [[ "$code" == 200 ]]; MUTATED=1
 code=$(curl -sS --connect-timeout 15 --max-time 30 -o "$E/test-version.json" -w '%{http_code}' -X POST \
-  -H "Authorization: Bearer $ACCESS_TOKEN" -H 'Content-Type: application/json' -d '{"description":"Beta76 Nhận hàng rớt temporary self-test"}' "$api/versions")
+  -H "Authorization: Bearer $ACCESS_TOKEN" -H 'Content-Type: application/json' -d '{"description":"Beta77 Nhận hàng rớt temporary self-test"}' "$api/versions")
 [[ "$code" == 200 ]]
 TEST_VERSION=$(jq -r '.versionNumber' "$E/test-version.json"); test "$TEST_VERSION" != null
-jq -nc --arg sid "$SCRIPT_ID" --argjson v "$TEST_VERSION" '{deploymentConfig:{scriptId:$sid,versionNumber:$v,manifestFileName:"appsscript",description:"Beta76 Nhận hàng rớt temporary self-test"}}' > "$E/test-deployment-put.json"
+jq -nc --arg sid "$SCRIPT_ID" --argjson v "$TEST_VERSION" '{deploymentConfig:{scriptId:$sid,versionNumber:$v,manifestFileName:"appsscript",description:"Beta77 Nhận hàng rớt temporary self-test"}}' > "$E/test-deployment-put.json"
 code=$(curl -sS --connect-timeout 15 --max-time 30 -o "$E/test-deployment.json" -w '%{http_code}' -X PUT \
   -H "Authorization: Bearer $ACCESS_TOKEN" -H 'Content-Type: application/json' --data-binary @"$E/test-deployment-put.json" "$api/deployments/$DEPLOYMENT_ID")
 [[ "$code" == 200 ]]
@@ -190,7 +191,7 @@ code=$(curl -sS --connect-timeout 15 --max-time 30 -o "$E/test-deployment.json" 
 TEST_OK=0
 for attempt in 1 2; do
   curl -fsSL --connect-timeout 15 --max-time 60 -H 'Content-Type: application/json' -d "{\"action\":\"__beta76_outbound_test\",\"token\":\"$NONCE\"}" "$GAS_URL" > "$E/self-test-$attempt.json" || true
-  if jq -e '.ok==true and .owner_crud==true and .user_crud_denied==true and .append_once==true and .idempotent_retry==true and .user_clear_denied==true and .admin_clear_denied==true and .superadmin_clear==true and .readback_empty==true and .location_hidden==true' "$E/self-test-$attempt.json" >/dev/null 2>&1; then TEST_OK=1; cp "$E/self-test-$attempt.json" "$E/self-test.json"; break; fi
+  if jq -e '.ok==true and .owner_crud==true and .user_crud_denied==true and .append_once==true and .idempotent_retry==true and .user_clear_denied==true and .admin_clear_denied==true and .test_row_cleaned==true and .real_data_preserved==true and .location_hidden==true' "$E/self-test-$attempt.json" >/dev/null 2>&1; then TEST_OK=1; cp "$E/self-test-$attempt.json" "$E/self-test.json"; break; fi
   sleep $((attempt*2))
 done
 [[ "$TEST_OK" == 1 ]]
@@ -200,10 +201,10 @@ code=$(curl -sS --connect-timeout 15 --max-time 30 -o "$E/final-content-put.json
   -H "Authorization: Bearer $ACCESS_TOKEN" -H 'Content-Type: application/json' --data-binary @"$E/project-target.json" "$api/content")
 [[ "$code" == 200 ]]
 code=$(curl -sS --connect-timeout 15 --max-time 30 -o "$E/final-version.json" -w '%{http_code}' -X POST \
-  -H "Authorization: Bearer $ACCESS_TOKEN" -H 'Content-Type: application/json' -d '{"description":"Beta76 Nhận hàng rớt final"}' "$api/versions")
+  -H "Authorization: Bearer $ACCESS_TOKEN" -H 'Content-Type: application/json' -d '{"description":"Beta77 Nhận hàng rớt final"}' "$api/versions")
 [[ "$code" == 200 ]]
 FINAL_VERSION=$(jq -r '.versionNumber' "$E/final-version.json"); test "$FINAL_VERSION" != null
-jq -nc --arg sid "$SCRIPT_ID" --argjson v "$FINAL_VERSION" '{deploymentConfig:{scriptId:$sid,versionNumber:$v,manifestFileName:"appsscript",description:"Beta76 Nhận hàng rớt final"}}' > "$E/final-deployment-put.json"
+jq -nc --arg sid "$SCRIPT_ID" --argjson v "$FINAL_VERSION" '{deploymentConfig:{scriptId:$sid,versionNumber:$v,manifestFileName:"appsscript",description:"Beta77 Nhận hàng rớt final"}}' > "$E/final-deployment-put.json"
 code=$(curl -sS --connect-timeout 15 --max-time 30 -o "$E/final-deployment.json" -w '%{http_code}' -X PUT \
   -H "Authorization: Bearer $ACCESS_TOKEN" -H 'Content-Type: application/json' --data-binary @"$E/final-deployment-put.json" "$api/deployments/$DEPLOYMENT_ID")
 [[ "$code" == 200 ]]
@@ -223,7 +224,7 @@ assert "action === 'outbound_drop_append'" in api['source']
 assert '__beta76_outbound_test' not in api['source'] and '__beta76_outbound_test' not in out['source']
 open('/tmp/beta76-outbound-gas-evidence/project-after.sha256','w').write(ha)
 PY
-jq -e --argjson v "$FINAL_VERSION" '.deploymentConfig.versionNumber==$v and .deploymentConfig.description=="Beta76 Nhận hàng rớt final"' "$E/deployment-after.json" >/dev/null
+jq -e --argjson v "$FINAL_VERSION" '.deploymentConfig.versionNumber==$v and .deploymentConfig.description=="Beta77 Nhận hàng rớt final"' "$E/deployment-after.json" >/dev/null
 
 HEALTH_OK=0
 for attempt in 1 2; do

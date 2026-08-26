@@ -374,8 +374,7 @@ class OperationsActivity : Activity() {
         var busy=false;fun submit(){val v=scan.text.toString().trim();if(v.isBlank()){TopNotice.show(this,"Nhập hoặc quét mã nhân viên.",TopNotice.Kind.WARNING);return};if(busy)return;busy=true;loadEmployee(v);scan.postDelayed({busy=false},600)};bindScannerEnter(scan){submit()}
         val ses=ctx.optJSONObject("session");val sessionId=ses?.optString("session_id").orEmpty().trim()
         if((state=="ACTIVE"||state=="ENDED")&&ses!=null&&!ses.has("resource_assignments_v64")&&sessionId.isNotBlank()){
-            body.addView(status("ĐANG ĐỒNG BỘ TÀI NGUYÊN PHIÊN...",blue,Color.rgb(237,244,255)))
-            root.addView(ScrollView(this).apply{addView(body)},LinearLayout.LayoutParams(-1,0,1f));setScreen(root);hideKeyboardForResult(root,scan)
+            // Beta77: keep the already rendered employee view while the resource snapshot arrives; never attach an intermediate full tree.
             val generation=employeeLookupGeneration;api.call("session_resource_snapshot",JSONObject().put("session_id",sessionId).put("mnv",currentMnv)){r->runOnUiThread{
                 if(generation!=employeeLookupGeneration||liveEmployeeMnv!=currentMnv)return@runOnUiThread
                 if(!r.ok){showError(r.error?:"Không đọc được tài nguyên phiên");return@runOnUiThread}
