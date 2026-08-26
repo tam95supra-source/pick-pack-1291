@@ -41,15 +41,21 @@ jobs:
         with:
           fetch-depth: 2
 
-      - name: Detect changed code inputs
+      - name: Detect changed inputs
         id: scope
         shell: bash
         run: |
           set -euo pipefail
-          if git diff --name-only HEAD^ HEAD | grep -Eq '^(app/|service/|google-apps-script/|gradle.properties$)'; then
+          changed=$(git diff --name-only HEAD^ HEAD)
+          if grep -Eq '^(app/|service/|google-apps-script/|gradle.properties$)' <<<"$changed"; then
             echo 'code_changed=true' >> "$GITHUB_OUTPUT"
           else
             echo 'code_changed=false' >> "$GITHUB_OUTPUT"
+          fi
+          if grep -Eq '^(google-apps-script/|tools/deploy_beta76_outbound_gas\.sh$|app/build\.gradle\.kts$)' <<<"$changed"; then
+            echo 'gas_changed=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'gas_changed=false' >> "$GITHUB_OUTPUT"
           fi
 
       - name: Focused Beta77 source gates
@@ -81,7 +87,7 @@ jobs:
 
       - name: Resolve current LIVE Apps Script Web App
         id: gas_live
-        if: github.ref_name == 'feature/beta77-owner-fixes-20260826'
+        if: github.ref_name == 'feature/beta77-owner-fixes-20260826' && steps.scope.outputs.gas_changed == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -175,7 +181,7 @@ jobs:
           gradle --no-daemon --build-cache --parallel :app:testBetaDebugUnitTest :app:assembleBetaDebug :app:assembleStableDebug
 
       - name: Deploy exact outbound GAS and run live focused gate
-        if: github.ref_name == 'feature/beta77-owner-fixes-20260826'
+        if: github.ref_name == 'feature/beta77-owner-fixes-20260826' && steps.scope.outputs.gas_changed == 'true'
         shell: bash
         env:
           GAS_DEPLOYMENT_ID: ${{ steps.gas_live.outputs.deployment_id }}
@@ -184,7 +190,7 @@ jobs:
           bash tools/deploy_beta76_outbound_gas.sh
 
       - name: Enforce app config points at LIVE GAS
-        if: github.ref_name == 'feature/beta77-owner-fixes-20260826'
+        if: github.ref_name == 'feature/beta77-owner-fixes-20260826' && steps.scope.outputs.gas_changed == 'true'
         shell: bash
         env:
           LIVE_GAS_URL: ${{ steps.gas_live.outputs.url }}
@@ -201,7 +207,7 @@ jobs:
           echo 'app_gas_config=PASS'
 
       - name: Upload final outbound GAS evidence
-        if: success() && github.ref_name == 'feature/beta77-owner-fixes-20260826'
+        if: success() && github.ref_name == 'feature/beta77-owner-fixes-20260826' && steps.scope.outputs.gas_changed == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: beta77-outbound-gas-final-${{ github.run_id }}
