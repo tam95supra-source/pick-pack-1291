@@ -103,10 +103,10 @@ src,target,nonce=sys.argv[1:]
 j=json.load(open(src,encoding='utf-8'))
 api=next(f for f in j['files'] if f.get('name')=='PICK_PACK_API')
 s=api['source']
-anchor="    if (action === 'login') return ppJson_(ppLogin_(body));\n"
-assert s.count(anchor)==1,'test route anchor drift'
-test_route="    if (action === '__beta76_outbound_test') return ppJson_(ppWithLock_(function(){ return ppOutboundSelfTest_(body); }));\n"
-s=s.replace(anchor,anchor+test_route,1)
+old_get="""function doGet() {\n  return ppJson_({ok:true, service:'pick-pack-gsheet-api', mode:'APP_GSHEET', report_engine:'S12_CURRENT_DAY', business_date:ppBusinessIso_()});\n}\n"""
+new_get="""function doGet(e) {\n  const p=(e&&e.parameter)||{};\n  if(String(p.action||'')==='__beta76_outbound_test') return ppJson_(ppWithLock_(function(){ return ppOutboundSelfTest_({token:String(p.token||'')}); }));\n  return ppJson_({ok:true, service:'pick-pack-gsheet-api', mode:'APP_GSHEET', report_engine:'S12_CURRENT_DAY', business_date:ppBusinessIso_()});\n}\n"""
+assert s.count(old_get)==1,'test GET anchor drift'
+s=s.replace(old_get,new_get,1)
 api['source']=s
 out=next(f for f in j['files'] if f.get('name')=='OUTBOUND_DROP_RECEIVE')
 os=out['source']
@@ -118,7 +118,6 @@ function ppOutboundSelfTest_(body){
   const headers=drop.getRange(1,1,1,8).getDisplayValues()[0];
   const expected=PP_OUTBOUND.HEADERS;
   if(ss.getName()!=='PICK PACK 1291 x OUTBOUND') return {ok:false,error:'SHEET_TITLE_MISMATCH'};
-  if(!loc.isSheetHidden()) loc.hideSheet();
   if(!loc.isSheetHidden()) loc.hideSheet();
   if(!loc.isSheetHidden()) return {ok:false,error:'LOCATION_TAB_NOT_HIDDEN'};
   for(let i=0;i<expected.length;i++) if(String(headers[i]||'')!==String(expected[i]||'')) return {ok:false,error:'HEADER_MISMATCH_'+i};
@@ -137,7 +136,7 @@ function ppOutboundSelfTest_(body){
   if(allp.length<2) return {ok:false,error:'PROTECTION_MISSING',location_protections:lp,drop_protections:dp};
   const bad=allp.filter(function(p){return p.warning_only||p.domain_edit||p.editors.some(function(e){return e&&e!==PP_OUTBOUND.OWNER_EMAIL;});});
   if(bad.length) return {ok:false,error:'PROTECTION_OWNER_MISMATCH',bad:bad};
-  const suffix=Utilities.getUuid().replace(/-/g,'').slice(0,10), a='__B76_TEST_'+suffix, b=a+'_EDIT';
+  const suffix=Utilities.getUuid().replace(/-/g,'').slice(0,10), a='__B77_TEST_'+suffix, b=a+'_EDIT';
   const owner={login_id:'beta77_owner_test',role:'SUPERADMIN',display_name:'Beta77 Test',email:PP_OUTBOUND.OWNER_EMAIL,__beta76_test:true};
   const user={login_id:'beta77_user_test',role:'USER',display_name:'Beta77 User',email:'beta77-user@example.invalid',__beta76_test:true};
   const admin={login_id:'beta77_admin_test',role:'ADMIN',display_name:'Beta77 Admin',email:'beta77-admin@example.invalid',__beta76_test:true};
@@ -191,7 +190,8 @@ code=$(curl -sS --connect-timeout 15 --max-time 30 -o "$E/test-deployment.json" 
 
 TEST_OK=0
 for attempt in 1 2; do
-  http=$(curl -sSL --connect-timeout 15 --max-time 90 -o "$E/self-test-$attempt.json" -w '%{http_code}' -H 'Content-Type: application/json' -d "{\"action\":\"__beta76_outbound_test\",\"token\":\"$NONCE\"}" "$GAS_URL" || printf '000')
+  http=$(curl -sSL --connect-timeout 15 --max-time 90 -o "$E/self-test-$attempt.json" -w '%{http_code}' -G \
+    --data-urlencode 'action=__beta76_outbound_test' --data-urlencode "token=$NONCE" "$GAS_URL" || printf '000')
   printf '%s\n' "$http" > "$E/self-test-$attempt.http"
   if [[ "$http" == 200 ]] && jq -e '.ok==true and .owner_crud==true and .user_crud_denied==true and .append_once==true and .idempotent_retry==true and .user_clear_denied==true and .admin_clear_denied==true and .test_row_cleaned==true and .real_data_preserved==true and .location_hidden==true' "$E/self-test-$attempt.json" >/dev/null 2>&1; then TEST_OK=1; cp "$E/self-test-$attempt.json" "$E/self-test.json"; break; fi
   [[ "$attempt" == 2 ]] || sleep 30
