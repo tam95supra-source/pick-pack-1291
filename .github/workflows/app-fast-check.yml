@@ -3,165 +3,105 @@ name: App fast check
 on:
   push:
     branches:
-      - feature/beta77-owner-fixes-20260826
+      - feature/beta78-old-session-outbound-service-20260826
     paths:
-      - tools/beta77_service_live_gate.sh
+      - app/build.gradle.kts
+      - app/src/main/java/vn/pickpack1291/app/beta/M2RuntimeBridge.kt
+      - app/src/main/java/vn/pickpack1291/app/beta/OldSessionWarningFeature.kt
+      - app/src/main/java/vn/pickpack1291/app/beta/DropReceiveFeature.kt
+      - service/**
+      - tools/beta78_service_live_gate.sh
       - .github/workflows/app-fast-check.yml
 
 permissions:
   contents: read
 
 concurrency:
-  group: beta77-service-live-gate
-  cancel-in-progress: true
-
-env:
-  D1_NAME: pick-pack-1291-service-prod
-  TYPECHECK_PASS_SHA: 6ae90b10a942c82c79ff9e0cfc8d0586c6a4ba6c
+  group: beta78-service-live-gate
+  cancel-in-progress: false
 
 jobs:
-  android:
+  beta78-service-live:
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     env:
+      D1_NAME: pick-pack-1291-service-prod
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
       GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+      GOOGLE_OAUTH_REFRESH_TOKEN: ${{ secrets.GOOGLE_OAUTH_REFRESH_TOKEN }}
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 2
 
-      - name: Beta77 immutable source and harness gates
+      - name: Validate Beta78 scope and immutable invariants
         shell: bash
         run: |
           set -euo pipefail
-          grep -q 'versionCode = 83' app/build.gradle.kts
-          grep -q 'versionName = "0.4.2-beta.77"' app/build.gradle.kts
+          grep -q 'versionCode = 84' app/build.gradle.kts
+          grep -q 'versionName = "0.4.2-beta.78"' app/build.gradle.kts
           grep -q 'versionCode = 1' app/build.gradle.kts
           grep -q 'versionName = "0.1.0-stable"' app/build.gradle.kts
-          grep -Fq 'FROM resource_leases")' service/src/mobile_hotfix.ts
-          grep -Fq 's.business_date<?1' service/src/mobile_hotfix.ts
-          grep -Fq 'EXCLUSIVE_RESOURCE_CONFLICT' service/src/core.ts
-          grep -Fq 'cross_day_active_pda_hidden' tools/beta77_service_live_gate.sh
-          grep -Fq 'EXCLUSIVE_RESOURCE_CONFLICT' tools/beta77_service_live_gate.sh
-          grep -Fq "Path('wrangler.live.jsonc')" tools/beta77_service_live_gate.sh
-          ! grep -Fq '/tmp/wrangler.live.jsonc' tools/beta77_service_live_gate.sh
+          grep -Fq 'historical_session_detail' app/src/main/java/vn/pickpack1291/app/beta/M2RuntimeBridge.kt
+          grep -Fq 'outbound_drop_append' app/src/main/java/vn/pickpack1291/app/beta/M2RuntimeBridge.kt
+          grep -Fq 'session_id' app/src/main/java/vn/pickpack1291/app/beta/OldSessionWarningFeature.kt
+          ! grep -Fq 'onOpen(item.mnv)' app/src/main/java/vn/pickpack1291/app/beta/OldSessionWarningFeature.kt
+          grep -Fq 'Service/D1 xác nhận ngay' app/src/main/java/vn/pickpack1291/app/beta/DropReceiveFeature.kt
+          grep -Fq 'outbound_replication_outbox' service/migrations/0007_beta78_history_outbound.sql
+          grep -Fq 'HISTORICAL_SESSION_OUTSIDE_RETENTION' service/src/historical_beta78.ts
+          grep -Fq 'SERVICE_NOT_WRITE_AUTHORITY' service/src/outbound_beta78.ts
+          grep -Fq '3/3_SERVICE_D1_EXACT' tools/beta78_service_live_gate.sh
           git diff --check HEAD^ HEAD
-          git cat-file -e "$TYPECHECK_PASS_SHA^{commit}"
-          git diff --quiet "$TYPECHECK_PASS_SHA" HEAD -- service/
-          echo 'service_typecheck_receipt=REUSED_PASS input_service_tree_unchanged=true run=32930560595'
 
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
 
-      - name: Install fixed Service deployment dependencies
-        working-directory: service
-        shell: bash
-        run: npm install --ignore-scripts --no-audit --no-fund
-
-      - name: Resolve exact LIVE Worker and preflight compile/config/health
-        id: live
+      - name: Typecheck Service
         working-directory: service
         shell: bash
         run: |
           set -euo pipefail
-          for n in CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID; do test -n "${!n:-}"; done
-          D=/tmp/beta77-service-preflight
-          rm -rf "$D" && mkdir -p "$D"
+          npm install --ignore-scripts --no-audit --no-fund
+          npx tsc --noEmit
+          npx wrangler deploy --dry-run --outdir /tmp/beta78-dry-run
+          find /tmp/beta78-dry-run -type f -size +0c | grep -q .
 
-          AUTH=$(npx wrangler d1 execute "$D1_NAME" --remote --command "SELECT authority_epoch,authority_seq,mode,scope,service_generation FROM authority_state WHERE singleton_id=1;" --json)
-          printf '%s' "$AUTH" > "$D/authority.json"
-          GEN=$(node -e 'const j=JSON.parse(process.argv[1]);const r=j?.[0]?.results?.[0];if(!r||r.mode!=="SERVICE_PRIMARY"||r.scope!=="PRODUCTION")process.exit(2);process.stdout.write(String(r.service_generation||""))' "$AUTH")
-          test -n "$GEN"
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
 
-          LIST=$(npx wrangler d1 list --json)
-          D1_ID=$(node -e 'const a=JSON.parse(process.argv[1]);const x=a.find(v=>v.name===process.env.D1_NAME);process.stdout.write(x?.uuid||x?.id||"")' "$LIST")
-          test -n "$D1_ID"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.4.1'
 
-          curl -fsS -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts" > "$D/scripts.json"
-          curl -fsS -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/subdomain" > "$D/subdomain.json"
-          jq -e '.success==true' "$D/scripts.json" >/dev/null
-          jq -e '.success==true and (.result.subdomain|length>0)' "$D/subdomain.json" >/dev/null
-          SUBDOMAIN=$(jq -r '.result.subdomain' "$D/subdomain.json")
-
-          : > "$D/healthy.tsv"
-          while IFS= read -r name; do
-            [[ "$name" == pick-pack-1291* || "$name" == pickpack* ]] || continue
-            sd_http=$(curl -sS -o "$D/subdomain-${name}.json" -w '%{http_code}' -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/$name/subdomain" || printf '000')
-            [[ "$sd_http" == 200 ]] || continue
-            jq -e '.success==true and .result.enabled==true' "$D/subdomain-${name}.json" >/dev/null 2>&1 || continue
-            url="https://${name}.${SUBDOMAIN}.workers.dev"
-            http=$(curl -sS --connect-timeout 10 --max-time 20 -o "$D/health-${name}.json" -w '%{http_code}' "$url/health" || printf '000')
-            if [[ "$http" =~ ^2[0-9][0-9]$ ]] && jq -e --arg gen "$GEN" --arg name "$name" '.ok==true and (.service|tostring)==$name and .environment=="production" and (.generation|tostring)==$gen and .authority.mode=="SERVICE_PRIMARY" and .authority.scope=="PRODUCTION"' "$D/health-${name}.json" >/dev/null 2>&1; then
-              printf '%s\t%s\n' "$name" "$url" >> "$D/healthy.tsv"
-            fi
-          done < <(jq -r '.result[]? | .id // empty' "$D/scripts.json")
-          count=$(wc -l < "$D/healthy.tsv")
-          [[ "$count" -eq 1 ]] || { echo "LIVE_WORKER_MATCH_COUNT=$count" >&2; jq -c '.result[]? | {id,modified_on}' "$D/scripts.json" >&2; for f in "$D"/health-*.json; do [[ -e "$f" ]] && { echo "HEALTH_FILE=$f" >&2; jq -c . "$f" >&2 || cat "$f" >&2; }; done; exit 6; }
-          IFS=$'\t' read -r LIVE_WORKER_NAME LIVE_SERVICE_URL < "$D/healthy.tsv"
-          test -n "$LIVE_WORKER_NAME" && test -n "$LIVE_SERVICE_URL"
-
-          python3 - "$D1_ID" "$GEN" "$LIVE_WORKER_NAME" <<'PY'
-          from pathlib import Path
-          import sys
-          d1,generation,name=sys.argv[1:]
-          s=Path('wrangler.jsonc').read_text(encoding='utf-8')
-          repls={
-            '"name": "pick-pack-1291-service-m1-staging"':f'"name": "{name}"',
-            '"SERVICE_GENERATION": "m2-precutover-20260819-001"':f'"SERVICE_GENERATION": "{generation}"',
-            '"database_name": "pick-pack-1291-m1-staging"':'"database_name": "pick-pack-1291-service-prod"',
-            '"database_id": "__M1_D1_DATABASE_ID__"':f'"database_id": "{d1}"',
-          }
-          for old,new in repls.items():
-              if old not in s: raise SystemExit('PREFLIGHT_CONFIG_ANCHOR_MISSING:'+old)
-              s=s.replace(old,new,1)
-          Path('wrangler.preflight.jsonc').write_text(s,encoding='utf-8')
-          PY
-
-          npx wrangler deploy --dry-run --config wrangler.preflight.jsonc --outdir "$D/dry-run" > "$D/dry-run.log"
-          find "$D/dry-run" -type f -size +0c | grep -q .
-          curl -fsS --connect-timeout 10 --max-time 20 "$LIVE_SERVICE_URL/health" > "$D/live-health-before.json"
-          jq -e --arg gen "$GEN" --arg name "$LIVE_WORKER_NAME" '.ok==true and (.service|tostring)==$name and .environment=="production" and (.generation|tostring)==$gen and .authority.mode=="SERVICE_PRIMARY" and .authority.scope=="PRODUCTION"' "$D/live-health-before.json" >/dev/null
-
-          echo "worker_name=$LIVE_WORKER_NAME" >> "$GITHUB_OUTPUT"
-          echo "service_url=$LIVE_SERVICE_URL" >> "$GITHUB_OUTPUT"
-          echo "service_preflight=PASS worker=$LIVE_WORKER_NAME"
-
-      - name: Deploy exact Beta77 Service source and run PDA LIVE regression
+      - name: Resolve Android SDK and compile Beta78
         shell: bash
-        env:
-          LIVE_WORKER_NAME: ${{ steps.live.outputs.worker_name }}
-          LIVE_SERVICE_URL: ${{ steps.live.outputs.service_url }}
         run: |
           set -euo pipefail
-          test -n "$LIVE_WORKER_NAME" && test -n "$LIVE_SERVICE_URL"
-          cp tools/beta77_service_live_gate.sh /tmp/beta77_service_live_gate.sh
-          python3 - "$LIVE_WORKER_NAME" <<'PY'
-          from pathlib import Path
-          import sys
-          name=sys.argv[1]
-          p=Path('/tmp/beta77_service_live_gate.sh')
-          s=p.read_text(encoding='utf-8')
-          old='WORKER_NAME=pick-pack-1291-service\n'
-          if s.count(old)!=1: raise SystemExit('WORKER_NAME_ANCHOR_MISSING')
-          s=s.replace(old,f'WORKER_NAME={name}\n',1)
-          old='  \'"name": "pick-pack-1291-service-m1-staging"\':\'"name": "pick-pack-1291-service"\',\n'
-          if s.count(old)!=1: raise SystemExit('WORKER_CONFIG_ANCHOR_MISSING')
-          s=s.replace(old,f'  \'"name": "pick-pack-1291-service-m1-staging"\':\'"name": "{name}"\',\n',1)
-          old="j.service!=='pick-pack-1291-service'"
-          if s.count(old)!=1: raise SystemExit('WORKER_HEALTH_ANCHOR_MISSING')
-          s=s.replace(old,f"j.service!=='{name}'",1)
-          p.write_text(s,encoding='utf-8')
-          PY
-          bash /tmp/beta77_service_live_gate.sh
+          if [[ -z "${ANDROID_HOME:-}" || ! -f "$ANDROID_HOME/platforms/android-36/android.jar" ]]; then
+            SDK="$RUNNER_TEMP/android-sdk"; ZIP="$RUNNER_TEMP/commandlinetools.zip"
+            curl -fsSL https://dl.google.com/android/repository/commandlinetools-linux-15859902_latest.zip -o "$ZIP"
+            echo "4e4c464f145a7512b57d088ac6c278c03c9eea610886b35a5e0804e74eedf583  $ZIP" | sha256sum -c -
+            mkdir -p "$SDK/cmdline-tools"; unzip -q "$ZIP" -d "$RUNNER_TEMP/android-cmdline"; mv "$RUNNER_TEMP/android-cmdline/cmdline-tools" "$SDK/cmdline-tools/latest"
+            echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"; echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
+            yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
+            "$SDK/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-36' 'build-tools;36.0.0'
+          fi
+          gradle --no-daemon --build-cache :app:testBetaDebugUnitTest :app:assembleBetaDebug
 
-      - name: Upload Beta77 Service live evidence
-        if: success()
+      - name: Deploy production Service and run exact live gate
+        shell: bash
+        run: bash tools/beta78_service_live_gate.sh
+
+      - name: Upload Beta78 Service evidence
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: beta77-service-live-${{ github.run_id }}
-          path: /tmp/beta77-service-live
+          name: beta78-service-live-${{ github.run_id }}
+          path: /tmp/beta78-service-live
           retention-days: 30
-          if-no-files-found: error
+          if-no-files-found: warn
