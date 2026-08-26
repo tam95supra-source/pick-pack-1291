@@ -1,16 +1,16 @@
 ---
 handover_schema: pick-pack-handover/v2
 status: READY
-created_at: 2026-08-26T18:12:00+07:00
+created_at: 2026-08-26T18:14:00+07:00
 owner: Nguyễn Văn Tâm
 project: PICK PACK 1291
 active_branch: feature/beta77-owner-fixes-20260826
-working_head_sha: e8b42dedf26bf0d5399b79c4987d1044029c6c1b
+working_head_sha: 90e3254ac5ac07506b599c75fee4fc65cf975abe
 archive_file: null
 base_or_live_version: 0.4.2-beta.76
 target_version: 0.4.2-beta.77
 task_state: IN_PROGRESS
-next_action: FIX_BETA77_SEMANTIC_VERSION_SHIFT_IN_PUBLISH_MATERIALIZER_THEN_RUN_PUBLISH_ONLY_EXACT_BYTES
+next_action: REPLACE_ALL_STALE_BETA76_RECEIPT_AND_REQUEST_IDS_IN_BETA77_MATERIALIZER_THEN_PUBLISH_EXACT_BYTES
 ---
 
 # BÀN GIAO CANONICAL — BETA77 IN PROGRESS
@@ -41,25 +41,18 @@ next_action: FIX_BETA77_SEMANTIC_VERSION_SHIFT_IN_PUBLISH_MATERIALIZER_THEN_RUN_
 - GAS: run `32932894375`, Apps Script `194`, artifact `9593853159`, digest `sha256:2b939d18e7db7e74925771516925716f6a4c98e1c7ed3a2c92c9418a0e86fcc1`.
 - Service/PDA: run `32953215533`, worker version `0cd7e517-a03b-4dae-80e3-8acb0f437c84`, artifact `9600983380`, digest `sha256:b4da9784cd70eb7b2384c901c0e404104091fed208225032efa4417b4bf9ec36`.
 
-## 5. Publish deterministic failures
-### Run 32960698432
-- Fail preflight trước production mutation tại `assert old_compat in src`.
-- Root cause compat anchor sai shape hậu transform.
-- Đã sửa ở commit `5223e46d7393dfbbc7ce04daff5b5ddb00a87257`.
-
-### Run 32961961420
-- Terminal failure tại preflight; publish step skipped, chưa production mutation.
-- Exact candidate SHA/size/metadata và visual receipt đều PASS trước điểm lỗi.
-- Lỗi gốc mới: `AssertionError: if(version==='0.4.2-beta.77') out.version_code=82;` tại Python materializer.
-- Root cause: wrapper chỉ đổi `0.4.2-beta.75 → beta.76` nhưng chưa nâng atomic target `0.4.2-beta.76 → beta.77`; do đó target line vẫn Beta76/code82.
-- Đường PASS deterministic: dùng placeholder shift `beta.76 -> __BETA77_TARGET__`, `beta.75 -> beta.76`, `__BETA77_TARGET__ -> beta.77`; sau đó các exact code/readback replacements hiện có mới match.
-- Cấm retry run với script hiện tại.
+## 5. Publish deterministic failures — tất cả trước production mutation
+- `32960698432`: compat anchor sai shape hậu transform; sửa commit `5223e46d7393dfbbc7ce04daff5b5ddb00a87257`.
+- `32961961420`: target semantic version chưa shift Beta76→Beta77; sửa atomic placeholder ở commit `3cfccc41dd6d4e26373441892c05332eaae52ecc`.
+- `32962143541`, job `98156641428`: preflight exact candidate + visual receipt PASS; publish step skipped. Lỗi gốc mới `AssertionError: 32875201581` trong stale guard của Python materializer.
+- Root cause: inherited Beta76 publisher còn raw Beta76 identity trong jq request/receipt gates (`candidate_run_id`, `candidate_artifact_id`, `final_visual_run_id`, `final_visual_artifact_id`), không nằm trong biến `SOURCE_RUN_ID=...` nên chưa được thay bởi các replacement hiện tại.
+- Đường PASS: đổi toàn bộ exact raw Beta76 IDs sang Beta77 locked IDs trong materialized publisher, giữ visual boolean gates đã tương thích; stale guard phải PASS rồi mới trigger lại.
 
 ## 6. Invariants
-- Không poll/rerun run candidate cũ `32953924512` hay visual job cũ.
+- Không poll/rerun candidate run `32953924512` hoặc visual job cũ.
 - Không rebuild/resign/revisual/GAS/Service.
 - Stable/main/signer/authority/provider không đổi.
 - Chỉ publish exact artifact `9601304499`.
 
 ## 7. NEXT_ACTION
-`FIX_BETA77_SEMANTIC_VERSION_SHIFT_IN_PUBLISH_MATERIALIZER_THEN_RUN_PUBLISH_ONLY_EXACT_BYTES`
+`REPLACE_ALL_STALE_BETA76_RECEIPT_AND_REQUEST_IDS_IN_BETA77_MATERIALIZER_THEN_PUBLISH_EXACT_BYTES`
