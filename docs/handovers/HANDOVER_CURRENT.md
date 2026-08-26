@@ -1,115 +1,97 @@
 ---
 handover_schema: pick-pack-handover/v2
 status: READY
-created_at: 2026-08-25T22:42:00+07:00
+created_at: 2026-08-26T18:10:00+07:00
 owner: Nguyễn Văn Tâm
 project: PICK PACK 1291
 active_branch: release/beta71-clean-from-beta68-20260825
-working_head_sha: c5b45b8bb7dec35a868d7c425866cfce28ce9eae
-archive_file: docs/handovers/HANDOVER_20260825-224200_beta75-session-transfer.md
-base_or_live_version: 0.4.2-beta.75
-target_version: 0.4.2-beta.75
-task_state: PASS
-next_action: WAIT_FOR_OWNER_NEW_SCOPE
+working_head_sha: 43579d1f7f01816cddbdbbcce0a2f19d95d16d91
+archive_file: PENDING_UNTIL_FINAL_READY_ARCHIVE
+target_version: 0.4.2-beta.77
+task_state: IN_PROGRESS
+next_action: FIX_VISUAL_HARNESS_UIAUTOMATION_HARD_DEPENDENCY_THEN_PROBE_320x568
 ---
 
-# BÀN GIAO PHIÊN — BETA75 OTA LIVE PASS
+# BÀN GIAO CANONICAL — BETA77 TERMINAL VISUAL HARNESS FAILURE
 
-## 1. Yêu cầu OWNER và Definition of Done
-- OWNER đã yêu cầu phát hành exact Beta75 và chỉ kết thúc khi exact bytes publish PASS → OTA/Drive/LIVE readback khớp → Stable/main/signer/authority unchanged → state/handoff READY.
-- Scope Beta75 đã hoàn tất toàn bộ; OWNER hiện yêu cầu chuyển phiên chat.
-- Cấm tự rebuild/resign/revisual/version bump/Beta76 hoặc đổi Stable/main/signer/authority khi chưa có scope OWNER mới.
+## OWNER / DoD
+Tiếp tục exact Beta77 từ terminal failure đã xác định. Không poll run cũ, không retry mù, không rerun GAS hoặc Service/PDA. Chỉ hoàn tất khi BETA77 OTA LIVE PASS → OTA/Drive/LIVE khớp → Stable/main unchanged → state/handoff READY, hoặc blocker OWNER thật.
 
-## 2. Trạng thái canonical hiện tại
-### LIVE
-- Beta: `0.4.2-beta.75`, versionCode `81` — **BETA75 OTA LIVE PASS**.
-- Package: `vn.pickpack1291.app.beta.publicbeta`.
-- Android source SHA: `e475b8476e99a9230683dbbf6ec266235960ed5b`.
-- Candidate run/artifact: `32849057694` / `9563625638`.
-- APK SHA256: `6e08dc974281cc7b5428d22cf406179447cdeb95443dc19fa1db2b4d32344913`.
-- Size: `13147013` bytes.
-- Signer SHA256: `d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e`.
-- Probe HUMAN PASS: run `32859450233`, artifact `9567602636`.
-- Final HUMAN visual matrix: run `32860235560`, artifact `9568028848`; receipt `ops/beta75-visual-inspection.json`, receipt commit `007795a656fa14236ed766b164ca80bb5872fb32`; PASS đủ `320x568`, `360x640`, `480x800`.
-- Final publish run: `32865705207` — SUCCESS.
-- Release evidence artifact: `9570048273`; digest `sha256:09707dc2c8feeab71fdcc8aab74b5628fc713c09d019b9357f49f8aca62439be`.
-- Release receipt: `ops/beta75-release-result.json`, verdict `PASS`.
-- Drive APK ID: `1A0T5HL2HD-On1Oc4A3G3Rd0qZAlbFwWz`; checksum ID: `1okPTtleBKOUb9L-HLbV94ImQqu5iorSv`.
-- OTA URL: `https://drive.usercontent.google.com/download?id=1A0T5HL2HD-On1Oc4A3G3Rd0qZAlbFwWz&export=download&confirm=t`.
-- Beta74 client thấy Beta75 `available=true`; Beta75 client không thấy bản mới hơn theo contract.
+## LIVE / TARGET / CANDIDATE
+### TARGET
+- Beta77 OTA LIVE.
 
-### SUPERSEDED
-- Beta74: **SUPERSEDED by Beta75**; SHA cũ `37cadd74088179f1e17872c7474622681941cc5f546807cea769517d9f98b017`.
+### EXACT CANDIDATE — LOCKED
+- Source: `43579d1f7f01816cddbdbbcce0a2f19d95d16d91`
+- Artifact: `9601304499`
+- Version: `0.4.2-beta.77`
+- versionCode: `83`
+- Package: `vn.pickpack1291.app.beta.publicbeta`
+- SHA256: `6ce7838f6f0725ca98b4f3d9237d38aec60092f4488b2795a32ae3f9d24371fb`
+- Size: `13196165`
+- Signer: `d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e`
+- No rebuild / resign / version bump / Beta78.
 
-### LOCKED / UNCHANGED
-- Stable: `0.1.0-stable`, versionCode `1`; publish **FORBIDDEN**; feed trước/sau unchanged.
-- `main`: `a8c0c0d92522c7173230d4175b4f0d3a4906c8bb`, fresh-read unchanged sau publish.
-- Signer unchanged: `d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e`.
-- Worker/Service change: `NONE`; authority change: `NONE`; provider unchanged.
-- GAS production change: chỉ OTA version compatibility Beta75; temporary Drive upload helper đã được gỡ sau publish.
+### CANONICAL PASS — DO NOT RERUN
+- GAS canonical PASS.
+- Service/PDA LIVE PASS.
 
-## 3. Việc đã hoàn tất
-| Hạng mục | Trạng thái | Evidence |
-|---|---|---|
-| Beta75 Android source | PASS | `e475b8476e99a9230683dbbf6ec266235960ed5b` |
-| Candidate compile/sign/upload | PASS | run `32849057694`, artifact `9563625638` |
-| Final HUMAN visual matrix | PASS | run `32860235560`, artifact `9568028848`, receipt commit `007795a...` |
-| Publish exact bytes | PASS | run `32865705207` SUCCESS |
-| OTA readback | PASS | Beta74→Beta75 available; Beta75→no newer |
-| Drive metadata/bytes/checksum | PASS | exact SHA `6e08...4913`, size `13147013` |
-| Stable isolation | PASS | unchanged |
-| main isolation | PASS | `a8c0c0d92522c7173230d4175b4f0d3a4906c8bb` |
-| CURRENT_STATE | PASS | Beta75 LIVE |
+## TERMINAL FAILURE EVIDENCE
+- Workflow run `32953924512`: TERMINAL.
+- Candidate job `98131295305`: SUCCESS.
+- Visual job `98132080539`: FAILURE.
+- Candidate artifact `9601304499`.
+- Visual failure artifact `9601362376`.
+- First/root error: `AssertionError: 320x568-employee-home: UI hierarchy unavailable`.
+- Failure path: `tools/run_beta76_visual.py` → `assert_home()` → `visible_texts()` → `dump_ui()` → `uiautomator dump` không trả XML có `<hierarchy>`.
+- APK install PASS; chưa có evidence lỗi APK.
+- Classification: HARNESS defect. Không poll/retry run cũ.
 
-## 4. Thay đổi trong phiên
-- `tools/publish_beta75_ota.sh`: publisher exact-byte Beta75 từ đường PASS Beta74.
-- `.github/workflows/beta-release.yml`: fixed active publish-only workflow, không build/sign/visual.
-- `ops/beta-release-request.json`: stage publish exact Beta75.
-- `ops/beta75-release-result.json`: release receipt PASS.
-- `CURRENT_STATE.md`: Beta75 LIVE PASS, Beta74 SUPERSEDED.
-- Production LIVE change duy nhất: Beta OTA Beta74 → Beta75.
-- Trong thao tác bàn giao này có một ref phụ vô tình được tạo: `release/beta71-clean-from-beta68-20260825-handoff-temp` tại SHA `c5b45b8bb7dec35a868d7c425866cfce28ce9eae`; **không phải ACTIVE, không có divergence nội dung, không dùng làm continuity**. Active branch vẫn là `release/beta71-clean-from-beta68-20260825`.
+## ROOT CAUSE / ĐƯỜNG PASS
+- Root cause: visual harness phụ thuộc cứng UiAutomation/accessibility hierarchy để xác định UI và điều hướng.
+- PASS path: bỏ UiAutomation khỏi mandatory gate; ADB bounded timeout; `am start -W`; verify route bằng `dumpsys activity` + `dumpsys window`; direct route hoặc tọa độ tỷ lệ theo kích thước màn hình; screenshot PNG thật + route/activity/window evidence; UiAutomation optional only.
+- Cấm rebuild APK để xử lý visual harness.
 
-## 5. Lỗi đã gặp và đường PASS
-| Fingerprint | Root cause | Cách PASS đã biết | Cấm lặp |
-|---|---|---|---|
-| Beta75 compile: `Unresolved reference ColorDrawable` | thiếu import Kotlin | thêm đúng import, compile/sign candidate PASS | không xử lý cascade/refactor |
-| Visual sai dialog/IME | harness selector/fixture/keyboard | sửa harness only, exact APK giữ nguyên, HUMAN PASS | không rebuild/revisual mù |
-| Publish preflight fail | gate harness tự bắt blacklist/receipt byte compare | jq exact receipt identity + kiểm tra materialized publisher | không rebuild/resign |
-| `curl (28)` trong publisher | transient transport/propagation | giữ exact bytes, dùng propagation window proven | không tạo candidate/Beta76 |
+## REQUIRED PREFLIGHT
+1. `py_compile` harness PASS.
+2. Shell syntax PASS.
+3. Không còn hard assertion yêu cầu `<hierarchy>`.
+4. Exact artifact input phải khớp SHA256 + size ở trên.
+5. Android source không đổi.
 
-## 6. Trạng thái workspace/CI/external
-- Active branch: `release/beta71-clean-from-beta68-20260825`.
-- Working head trước handoff mới: `c5b45b8bb7dec35a868d7c425866cfce28ce9eae`.
-- Final release run `32865705207`: SUCCESS; không còn workflow cần theo dõi.
-- Exact candidate bytes không đổi sau lock.
-- External state đã fresh-read sau publish: Drive/public bytes exact; OTA LIVE PASS; Stable/main/signer/authority unchanged.
-- Blocker: NONE.
+## PROBE 320x568 REQUIRED
+- BUSINESS có thẻ `Quét QR nhân sự`.
+- Màn `Quét QR nhân sự`.
+- Back về đúng BUSINESS.
+- Màn `Nhận hàng rớt`.
+- Keyboard mở tại Scan QR nhưng không che form/nút.
+- PNG 320x568 thật, không rỗng/đen.
+- HUMAN FAIL → sửa route/tọa độ/wait harness only.
+- HUMAN PASS → full matrix 320x568, 360x640, 480x800 exact same candidate.
 
-## 7. Việc còn lại
-- **NONE — Beta75 OTA DoD PASS toàn bộ.**
-- Chờ OWNER ra scope mới.
+## FULL MATRIX HUMAN GATE
+- Đúng màn, không chụp nhầm; không cắt/che/tràn.
+- Keyboard không che nút thao tác.
+- Nhận hàng rớt đủ select vị trí, Tạo/Sửa/Xoá, Scan QR, DO, Số kiện, nút hành động.
+- Quét QR nhân sự đúng dữ liệu và dùng `-` thay `null`.
 
-## 8. NEXT_ACTION — điểm tiếp tục chính xác
-`WAIT_FOR_OWNER_NEW_SCOPE`
+## AFTER HUMAN PASS
+- Lock visual receipt.
+- Publish exact bytes artifact `9601304499` lên BETA only.
+- Fresh-read OTA, Drive, public bytes, LIVE; đối chiếu SHA256/size/version/code/package/signer.
+- Fresh-read Stable/main/signer/authority unchanged.
+- Update release receipt, `CURRENT_STATE.md`, canonical handoff và archive READY.
 
-## 9. Blocker và quyền
-- **NONE** — không thiếu quyền/MFA/approval cho scope đã hoàn tất.
+## INVARIANTS
+- Stable publish FORBIDDEN.
+- Không đổi Stable/main/signer/authority/provider.
+- Không GAS/Service/PDA rerun.
+- Không poll run `32953924512`.
+- Không rerun visual job `98132080539` bằng harness cũ.
+- Không final ở probe, automation PASS, pending, hoặc publish chưa readback.
 
-## 10. Invariants không được phá
-- Không rebuild/resign/revisual Beta75 đã LIVE khi source/artifact bytes không đổi.
-- Không đổi Stable/main/signer/authority/provider khi OWNER chưa ra lệnh mới.
-- Beta75 LIVE identity phải giữ đúng version/code/package/SHA/size/signer/Drive IDs ở mục 2.
-- Beta74 là SUPERSEDED.
-- Tin các PASS/run/artifact/hash/version/evidence ở handoff này khi input/source/bytes không đổi; chỉ fresh-read external state có thể đổi.
+## BLOCKER
+- NONE hiện tại.
 
-## 11. Resume contract
-- Phiên mới đọc `docs/handovers/HANDOVER_CURRENT.md` trước.
-- Nếu `status: READY`, dùng file này làm canonical; không crawl repo/rerun gate PASS.
-- Có yêu cầu OWNER mới: ưu tiên yêu cầu mới và chỉ đọc đúng failure domain liên quan.
-- Không có scope mới: vì `task_state: PASS` và `NEXT_ACTION: WAIT_FOR_OWNER_NEW_SCOPE`, chỉ xác nhận đã nạp snapshot và chờ.
-
-## 12. Retention/restore
-- Archive mới: `HANDOVER_20260825-224200_beta75-session-transfer.md`.
-- Giữ đúng 5 timestamp archive mới nhất sau prune: `HANDOVER_20260825-173000_beta73-ota-live-pass.md`, `HANDOVER_20260825-174900_beta73-live-pass-session-transfer.md`, `HANDOVER_20260825-190249_beta74-ota-live-pass.md`, `HANDOVER_20260825-223058_beta75-ota-live-pass.md`, `HANDOVER_20260825-224200_beta75-session-transfer.md`.
-- Prune `HANDOVER_20260825-163400_beta73-uiautomation-bridge-blocked.md` khỏi active tree theo retention đã được OWNER duyệt; vẫn restore được qua Git history.
+## NEXT_ACTION
+`FIX_VISUAL_HARNESS_UIAUTOMATION_HARD_DEPENDENCY_THEN_PROBE_320x568`
