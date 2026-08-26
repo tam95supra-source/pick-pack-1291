@@ -85,9 +85,10 @@ def dump_ui(tag):
         adb('wait-for-device', check=False, timeout=30)
         adb('shell', 'rm', '-f', path, check=False, timeout=10)
         result = adb(
-            'shell', 'uiautomator', 'runtest',
-            '/data/local/tmp/beta77-visual-dumper.jar',
-            '-c', 'vn.pickpack1291.visual.VisualHierarchyDumper#testDump',
+            'shell', 'env',
+            'CLASSPATH=/data/local/tmp/beta77-visual-dumper.jar:/system/framework/uiautomator.jar',
+            'app_process', '/system/bin',
+            'com.android.commands.uiautomator.VisualHierarchyDumper', path,
             check=False, timeout=30,
         )
         raw = adb('shell', 'cat', path, check=False, timeout=10).stdout
