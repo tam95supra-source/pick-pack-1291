@@ -27,7 +27,7 @@ jobs:
         with:
           name: beta77-candidate-32953924512
           path: /tmp/beta77-candidate
-          github-token: \${{ github.token }}
+          github-token: ${{ github.token }}
           repository: tam95supra-source/pick-pack-1291
           run-id: 32953924512
 
@@ -75,7 +75,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: beta77-visual-\${{ github.run_id }}
+          name: beta77-visual-${{ github.run_id }}
           path: /tmp/beta77-visual
           retention-days: 30
           if-no-files-found: error
