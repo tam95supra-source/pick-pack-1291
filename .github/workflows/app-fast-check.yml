@@ -52,7 +52,7 @@ jobs:
           else
             echo 'code_changed=false' >> "$GITHUB_OUTPUT"
           fi
-          if grep -Eq '^(google-apps-script/|tools/deploy_beta76_outbound_gas\.sh$|app/build\.gradle\.kts$)' <<<"$changed"; then
+          if grep -Eq '^(google-apps-script/|tools/deploy_beta76_outbound_gas\.sh$|app/build\.gradle\.kts$|\.github/workflows/app-fast-check\.yml$)' <<<"$changed"; then
             echo 'gas_changed=true' >> "$GITHUB_OUTPUT"
           else
             echo 'gas_changed=false' >> "$GITHUB_OUTPUT"
@@ -187,7 +187,17 @@ jobs:
           GAS_DEPLOYMENT_ID: ${{ steps.gas_live.outputs.deployment_id }}
         run: |
           set -euo pipefail
-          bash tools/deploy_beta76_outbound_gas.sh
+          cp tools/deploy_beta76_outbound_gas.sh /tmp/beta77-gas-gate.sh
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('/tmp/beta77-gas-gate.sh')
+          s=p.read_text(encoding='utf-8')
+          needle='set -Eeuo pipefail\n'
+          inject="set -Eeuo pipefail\ntrap 'rc=$?; printf \"::error title=GAS_GATE_ROOT::line=%s rc=%s\\n\" \"$LINENO\" \"$rc\"; exit \"$rc\"' ERR\n"
+          assert s.count(needle)==1
+          p.write_text(s.replace(needle,inject,1),encoding='utf-8')
+          PY
+          bash /tmp/beta77-gas-gate.sh
 
       - name: Enforce app config points at LIVE GAS
         if: github.ref_name == 'feature/beta77-owner-fixes-20260826' && steps.scope.outputs.gas_changed == 'true'
