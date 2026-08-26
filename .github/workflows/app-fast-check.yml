@@ -118,7 +118,19 @@ jobs:
       - name: Deploy exact outbound GAS and run live focused gate
         if: github.ref_name == 'feature/beta77-owner-fixes-20260826'
         shell: bash
-        run: bash tools/deploy_beta76_outbound_gas.sh
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('tools/deploy_beta76_outbound_gas.sh')
+          s=p.read_text(encoding='utf-8')
+          old="  if(!loc.isSheetHidden()) return {ok:false,error:'LOCATION_TAB_NOT_HIDDEN'};"
+          new="  if(!loc.isSheetHidden()) loc.hideSheet();\n  if(!loc.isSheetHidden()) return {ok:false,error:'LOCATION_TAB_NOT_HIDDEN'};"
+          if s.count(old)!=1:
+              raise SystemExit('location hidden self-test anchor drift')
+          p.write_text(s.replace(old,new,1),encoding='utf-8')
+          PY
+          bash tools/deploy_beta76_outbound_gas.sh
 
       - name: Upload outbound GAS evidence
         if: always() && github.ref_name == 'feature/beta77-owner-fixes-20260826'
