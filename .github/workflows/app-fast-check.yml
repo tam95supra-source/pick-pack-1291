@@ -81,8 +81,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: npm
-          cache-dependency-path: service/package-lock.json
 
       - name: Focused source gates
         shell: bash
@@ -108,7 +106,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          npm ci
+          npm install --ignore-scripts --no-audit --no-fund
           npm run check
 
       - name: Android focused tests and Beta/Stable compile isolation
