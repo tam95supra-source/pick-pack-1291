@@ -4,6 +4,7 @@ on:
   pull_request:
     branches:
       - release/beta71-clean-from-beta68-20260825-handoff-temp
+    types: [opened, synchronize, reopened, ready_for_review]
 
 permissions:
   contents: read
