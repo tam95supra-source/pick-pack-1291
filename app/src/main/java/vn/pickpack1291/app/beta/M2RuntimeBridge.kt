@@ -234,6 +234,6 @@ class M2RuntimeBridge(context: Context) {
         private const val KEY_SERVICE_URL = "runtime_service_url"
         private const val KEY_LAST_ROUTE = "runtime_last_route"
         private const val KEY_LAST_ERROR = "runtime_last_error"
-        val DIRECT_READS = setOf("employee_context", "master_options", "history_shared")
+        val DIRECT_READS = setOf("employee_context", "master_options", "history_shared", "old_active_sessions")
     }
 }

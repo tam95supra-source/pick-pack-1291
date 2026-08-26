@@ -18,10 +18,15 @@ function ppOutboundSheet_(name){
 function ppOutboundOwner_(auth){ return !!auth && String(auth.login_id||'').trim()===PP_OUTBOUND.OWNER_LOGIN; }
 function ppOutboundNorm_(value){ return String(value||'').trim().replace(/\s+/g,' '); }
 function ppOutboundKey_(value){ return ppFold_(ppOutboundNorm_(value)); }
-function ppOutboundLocations_(){
-  const sh=ppOutboundSheet_(PP_OUTBOUND.LOCATION_SHEET), last=sh.getLastRow();
-  if(last<2) return [];
+function ppOutboundLocationCache_(){ return CacheService.getScriptCache(); }
+function ppOutboundLocationsFromSheet_(sh){
+  const last=sh.getLastRow(); if(last<2) return [];
   return sh.getRange(2,1,last-1,1).getDisplayValues().map(function(r){return ppOutboundNorm_(r[0]);}).filter(function(v){return !!v;});
+}
+function ppOutboundCacheLocations_(items){ try{ ppOutboundLocationCache_().put('PP_OUTBOUND_LOCATIONS_V1',JSON.stringify(items),300); }catch(_){} return items; }
+function ppOutboundLocations_(){
+  try{ const cached=ppOutboundLocationCache_().get('PP_OUTBOUND_LOCATIONS_V1'); if(cached){ const items=JSON.parse(cached); if(Array.isArray(items)) return items.map(ppOutboundNorm_).filter(Boolean); } }catch(_){}
+  return ppOutboundCacheLocations_(ppOutboundLocationsFromSheet_(ppOutboundSheet_(PP_OUTBOUND.LOCATION_SHEET)));
 }
 function ppOutboundLocationList_(auth){
   return {ok:true,items:ppOutboundLocations_(),owner:ppOutboundOwner_(auth)};
@@ -33,7 +38,7 @@ function ppOutboundLocationMutate_(auth,body){
   if(['CREATE','UPDATE','DELETE'].indexOf(op)<0) return {ok:false,error:'OUTBOUND_LOCATION_OPERATION_INVALID'};
   if((op==='CREATE'||op==='UPDATE')&&!after) return {ok:false,error:'OUTBOUND_LOCATION_REQUIRED'};
   if(op!=='CREATE'&&!before) return {ok:false,error:'OUTBOUND_LOCATION_REQUIRED'};
-  const sh=ppOutboundSheet_(PP_OUTBOUND.LOCATION_SHEET), values=ppOutboundLocations_(), keys=values.map(ppOutboundKey_);
+  const sh=ppOutboundSheet_(PP_OUTBOUND.LOCATION_SHEET), values=ppOutboundLocationsFromSheet_(sh), keys=values.map(ppOutboundKey_);
   const beforeIndex=keys.indexOf(ppOutboundKey_(before)), afterIndex=keys.indexOf(ppOutboundKey_(after));
   if(op==='CREATE'){
     if(afterIndex>=0) return {ok:false,error:'OUTBOUND_LOCATION_DUPLICATE'};
@@ -46,10 +51,10 @@ function ppOutboundLocationMutate_(auth,body){
     if(beforeIndex<0) return {ok:false,error:'OUTBOUND_LOCATION_NOT_FOUND'};
     sh.deleteRow(beforeIndex+2);
   }
-  SpreadsheetApp.flush();
-  const readback=ppOutboundLocations_();
+  const readback=ppOutboundLocationsFromSheet_(sh);
   const expected=op==='DELETE' ? readback.map(ppOutboundKey_).indexOf(ppOutboundKey_(before))<0 : readback.map(ppOutboundKey_).indexOf(ppOutboundKey_(after))>=0;
   if(!expected) return {ok:false,error:'OUTBOUND_LOCATION_READBACK_FAILED'};
+  ppOutboundCacheLocations_(readback);
   ppHistorySafeAppendS13_({event_type:'OUTBOUND_LOCATION_'+op,label:'Nhận hàng rớt • '+op,actor:auth.login_id,detail:(op==='UPDATE'?before+' → '+after:(op==='DELETE'?before:after)),event_id:String(body.event_id||Utilities.getUuid()),scope:'OUTBOUND'});
   return {ok:true,items:readback,owner:true};
 }
@@ -74,13 +79,11 @@ function ppOutboundAppend_(auth,body){
   if(existing) return {ok:true,idempotent:true,row:existing.row,item:existing.values};
   const day=ppBusinessVisible_(), at=ppNowVisible_(), actor=String(auth.display_name||auth.login_id||'').trim() || String(auth.login_id||'').trim();
   const row=[location,day,rawQr,orderNo,count,actor,at,id];
-  sh.appendRow(row); SpreadsheetApp.flush();
-  const readback=ppOutboundFindRecord_(sh,id);
-  if(!readback) return {ok:false,error:'OUTBOUND_APPEND_READBACK_FAILED'};
-  const got=readback.values;
+  sh.appendRow(row);
+  const rowNo=sh.getLastRow(), got=sh.getRange(rowNo,1,1,8).getDisplayValues()[0];
   if(String(got[0])!==location || String(got[2])!==rawQr || String(got[3])!==orderNo || String(got[4])!==String(count) || String(got[7])!==id) return {ok:false,error:'OUTBOUND_APPEND_READBACK_MISMATCH'};
   ppHistorySafeAppendS13_({event_type:'OUTBOUND_DROP_APPEND',label:'Nhận hàng rớt • Thêm thông tin',actor:auth.login_id,detail:'Vị trí '+location+' • DO '+orderNo+' • Số kiện '+count,event_id:id,scope:'OUTBOUND'});
-  return {ok:true,idempotent:false,row:readback.row,item:got};
+  return {ok:true,idempotent:false,row:rowNo,item:got};
 }
 function ppOutboundClear_(auth,body){
   if(!auth || String(auth.role||'').toUpperCase()!=='SUPERADMIN') return {ok:false,error:'SUPERADMIN_REQUIRED'};

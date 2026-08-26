@@ -212,6 +212,7 @@ class OperationsActivity : Activity() {
     private fun businessHome(){
         module="BUSINESS";screenState="BUSINESS"
         val root=baseRoot("NGHIỆP VỤ");val body=body().apply{setPadding(dp(8),dp(6),dp(8),dp(76))}
+        body.addView(OldSessionWarningFeature.build(this,api){mnv->loadEmployee(mnv)},matchWrap())
         addBusinessShiftReconciliation(body)
         val cards=listOf(
             businessCard(R.drawable.ic_pp_scan,"Quét QR nhân sự","",true){employeeScan()},
@@ -283,7 +284,6 @@ class OperationsActivity : Activity() {
         val e=ctx.optJSONObject("employee")?:JSONObject();val s=ctx.optJSONObject("session");val state=ctx.optString("state")
         val parts=mutableListOf(e.optString("mnv"),e.optString("full_name"),e.optString("main_position"),e.optString("supplier"),e.optString("department"),e.optString("site"),e.optString("warehouse"),state,ctx.optString("reconciliation_state"))
         if(s!=null)parts.addAll(listOf(s.optString("session_id"),s.optString("state"),s.optString("version"),s.optString("shift"),s.optString("enter_at"),s.optString("exit_at"),s.optString("pda_serial"),s.optString("user_pick"),s.optString("pack_table"),s.optString("user_pack"),(s.optJSONArray("positions_v64")?:JSONArray()).toString(),(s.optJSONArray("resource_assignments_v64")?:JSONArray()).toString()))
-        if(state=="NOT_ENTERED"&&masters!=null)parts.add(masters.toString())
         return parts.joinToString("\u001f")
     }
     private fun renderEmployeeIfChanged(ctx:JSONObject,masters:JSONObject?){
@@ -2153,7 +2153,7 @@ raw.contains("PDA_STATUS_MISMATCH_NOTIFY_SPECIALIST")->"Tình trạng PDA hiện
         return AppStorageUsage((total-cache).coerceAtLeast(0L),cache.coerceAtLeast(0L))
     }
     private fun humanBytes(bytes:Long):String=when{bytes<1024L->"$bytes B";bytes<1024L*1024L->String.format(java.util.Locale.US,"%.1f KB",bytes/1024.0);bytes<1024L*1024L*1024L->String.format(java.util.Locale.US,"%.1f MB",bytes/(1024.0*1024.0));else->String.format(java.util.Locale.US,"%.2f GB",bytes/(1024.0*1024.0*1024.0))}
-    private fun dash(v:String)=v.takeIf{it.isNotBlank()&&it!="null"}?:"—"
+    private fun dash(v:String)=v.trim().takeIf{it.isNotBlank()&&!it.equals("null",true)}?:"-"
     private fun txt(v:String,s:Float,c:Int,b:Boolean)=TextView(this).apply{text=v;textSize=s;setTextColor(c);typeface=if(b)Typeface.DEFAULT_BOLD else Typeface.DEFAULT}
     private fun column(c:Int)=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setBackgroundColor(c)}
     private fun row(c:Int)=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL;setBackgroundColor(c)}

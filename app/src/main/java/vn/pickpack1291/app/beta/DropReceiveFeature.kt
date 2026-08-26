@@ -37,7 +37,6 @@ object DropReceiveQrParser {
 }
 
 object DropReceiveFeature {
-    private const val OWNER_LOGIN="tamnv2"
 
     fun build(activity:Activity,api:BetaApiClient,login:String,displayName:String,actualRole:String,onBack:()->Unit):View{
         val density=activity.resources.displayMetrics.density
@@ -63,14 +62,15 @@ object DropReceiveFeature {
         root.addView(bar,LinearLayout.LayoutParams(-1,-2))
 
         val body=column().apply{setPadding(dp(10),dp(8),dp(10),dp(18))}
-        val owner=login==OWNER_LOGIN
         val actualSuper=actualRole.uppercase()=="SUPERADMIN"
         val locationSpinner=Spinner(activity).apply{minimumHeight=dp(46);setPadding(dp(8),dp(3),dp(8),dp(3));background=bg()}
         val createBtn=button("Tạo",teal);val editBtn=button("Sửa",navy);val deleteBtn=button("Xóa",red)
-        listOf(createBtn,editBtn,deleteBtn).forEach{it.isEnabled=owner;it.alpha=if(owner)1f else .35f}
+        var canManageLocations=false
+        fun applyLocationPermission(allowed:Boolean){canManageLocations=allowed;listOf(createBtn,editBtn,deleteBtn).forEach{it.isEnabled=allowed;it.alpha=if(allowed)1f else .35f}}
+        applyLocationPermission(false)
         body.addView(text("Vị trí",9.7f,muted,true));body.addView(gap(3))
         val locationRow=row();locationRow.addView(locationSpinner,LinearLayout.LayoutParams(0,dp(46),1.7f).apply{marginEnd=dp(3)});locationRow.addView(createBtn,LinearLayout.LayoutParams(0,dp(42),.66f).apply{marginStart=dp(2);marginEnd=dp(2)});locationRow.addView(editBtn,LinearLayout.LayoutParams(0,dp(42),.66f).apply{marginStart=dp(2);marginEnd=dp(2)});locationRow.addView(deleteBtn,LinearLayout.LayoutParams(0,dp(42),.66f).apply{marginStart=dp(2)})
-        body.addView(locationRow,LinearLayout.LayoutParams(-1,-2));if(!owner){body.addView(gap(3));body.addView(text("Danh sách vị trí chỉ OWNER được Tạo / Sửa / Xóa.",9f,muted,false))}
+        body.addView(locationRow,LinearLayout.LayoutParams(-1,-2))
         body.addView(gap(9))
 
         val qr=input("Scan QR").apply{imeOptions=EditorInfo.IME_ACTION_DONE}
@@ -83,20 +83,24 @@ object DropReceiveFeature {
         val scroll=ScrollView(activity).apply{isFillViewport=true;addView(body,ViewGroup.LayoutParams(-1,-2))}
         root.addView(scroll,LinearLayout.LayoutParams(-1,0,1f))
 
+        val locationCache=activity.getSharedPreferences("drop_receive_location_cache",android.content.Context.MODE_PRIVATE)
         var locationItems=listOf<String>()
         var pendingRecordId:String?=null
-        fun selectedLocation():String=locationItems.getOrNull(locationSpinner.selectedItemPosition-1).orEmpty()
+        fun selectedLocation():String=if(locationItems.isEmpty())"" else locationItems.getOrNull(locationSpinner.selectedItemPosition).orEmpty()
         fun setLocations(items:List<String>,preferred:String=""){
             val clean=items.map{it.trim()}.filter{it.isNotBlank()}.distinct()
             locationItems=clean
-            locationSpinner.adapter=ArrayAdapter(activity,android.R.layout.simple_spinner_dropdown_item,(listOf("Chọn vị trí")+clean))
-            val index=clean.indexOf(preferred);if(index>=0)locationSpinner.setSelection(index+1)
+            val shown=if(clean.isEmpty())listOf("Chưa có vị trí") else clean
+            locationSpinner.adapter=ArrayAdapter(activity,android.R.layout.simple_spinner_dropdown_item,shown)
+            val index=clean.indexOf(preferred);locationSpinner.setSelection(if(index>=0)index else 0)
         }
+        fun cacheLocations(items:List<String>){locationCache.edit().putString("items",JSONArray(items).toString()).apply()}
+        fun cachedLocations():List<String>{val raw=locationCache.getString("items","").orEmpty();if(raw.isBlank())return emptyList();return runCatching{val arr=JSONArray(raw);val out=mutableListOf<String>();for(i in 0 until arr.length()){val v=arr.optString(i).trim();if(v.isNotBlank())out.add(v)};out}.getOrDefault(emptyList())}
         fun readItems(json:JSONObject?):List<String>{val arr=json?.optJSONArray("items")?:JSONArray();val out=mutableListOf<String>();for(i in 0 until arr.length()){val v=arr.optString(i).trim();if(v.isNotBlank())out.add(v)};return out}
         fun reloadLocations(preferred:String=""){
             api.call("outbound_location_list"){r->activity.runOnUiThread{
                 if(!r.ok){error(r.error?:"Không tải được danh sách vị trí từ Google Sheet.");return@runOnUiThread}
-                setLocations(readItems(r.json),preferred)
+                val items=readItems(r.json);applyLocationPermission(r.json?.optBoolean("owner",false)==true);setLocations(items,preferred);cacheLocations(items)
             }}
         }
         fun locationDialog(title:String,initial:String="",save:(String)->Unit){
@@ -109,12 +113,12 @@ object DropReceiveFeature {
             api.call("outbound_location_mutate",JSONObject().put("operation",op).put("before",before).put("after",after).put("event_id",eventId)){r->activity.runOnUiThread{
                 if(!r.ok){error(r.error?:"Không cập nhật được vị trí.");return@runOnUiThread}
                 val preferred=if(op=="DELETE")"" else after
-                setLocations(readItems(r.json),preferred);success("Đã cập nhật danh sách vị trí.")
+                val items=readItems(r.json);applyLocationPermission(r.json?.optBoolean("owner",canManageLocations)==true);setLocations(items,preferred);cacheLocations(items);success("Đã cập nhật danh sách vị trí.")
             }}
         }
-        createBtn.setOnClickListener{if(!owner)return@setOnClickListener;locationDialog("Tạo vị trí"){v->mutateLocation("CREATE","",v)}}
-        editBtn.setOnClickListener{if(!owner)return@setOnClickListener;val before=selectedLocation();if(before.isBlank()){warning("Chọn vị trí cần sửa.");return@setOnClickListener};locationDialog("Sửa vị trí",before){v->mutateLocation("UPDATE",before,v)}}
-        deleteBtn.setOnClickListener{if(!owner)return@setOnClickListener;val before=selectedLocation();if(before.isBlank()){warning("Chọn vị trí cần xóa.");return@setOnClickListener};AlertDialog.Builder(activity).setTitle("Xóa vị trí?").setMessage("Xóa “$before” khỏi danh sách chọn?").setNegativeButton("Hủy",null).setPositiveButton("XÓA"){_,_->mutateLocation("DELETE",before,"")}.show()}
+        createBtn.setOnClickListener{if(!canManageLocations)return@setOnClickListener;locationDialog("Tạo vị trí"){v->mutateLocation("CREATE","",v)}}
+        editBtn.setOnClickListener{if(!canManageLocations)return@setOnClickListener;val before=selectedLocation();if(before.isBlank()){warning("Chưa có vị trí để sửa.");return@setOnClickListener};locationDialog("Sửa vị trí",before){v->mutateLocation("UPDATE",before,v)}}
+        deleteBtn.setOnClickListener{if(!canManageLocations)return@setOnClickListener;val before=selectedLocation();if(before.isBlank()){warning("Chưa có vị trí để xóa.");return@setOnClickListener};AlertDialog.Builder(activity).setTitle("Xóa vị trí?").setMessage("Xóa “$before” khỏi danh sách chọn?").setNegativeButton("Hủy",null).setPositiveButton("XÓA"){_,_->mutateLocation("DELETE",before,"")}.show()}
 
         fun parseQr(showInvalid:Boolean){
             val raw=qr.text.toString();if(raw.isBlank())return
@@ -147,7 +151,7 @@ object DropReceiveFeature {
             }.show()
         }
 
-        setLocations(emptyList());reloadLocations()
+        setLocations(cachedLocations());reloadLocations(selectedLocation())
         return root
     }
 }
