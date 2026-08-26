@@ -153,7 +153,7 @@ function ppOutboundSelfTest_(body){
     if(deny.ok||deny.error!=='OUTBOUND_OWNER_REQUIRED') throw new Error('USER_LOCATION_GUARD_FAIL');
     let x=ppOutboundLocationMutate_(owner,{operation:'CREATE',after:a,event_id:'create-'+suffix}); if(!x.ok) throw new Error('OWNER_CREATE_FAIL_'+JSON.stringify(x));
     x=ppOutboundLocationMutate_(owner,{operation:'UPDATE',before:a,after:b,event_id:'update-'+suffix}); if(!x.ok) throw new Error('OWNER_UPDATE_FAIL_'+JSON.stringify(x));
-    const listed=ppOutboundLocationList_(owner); if(!listed.ok||!listed.locations||listed.locations.indexOf(b)<0) throw new Error('LOCATION_LIST_FAIL_'+JSON.stringify(listed));
+    const listed=ppOutboundLocationList_(owner), listedItems=listed.items||listed.locations||[]; if(!listed.ok||listedItems.indexOf(b)<0) throw new Error('LOCATION_LIST_FAIL_'+JSON.stringify(listed));
     const duplicate=ppOutboundLocationMutate_(owner,{operation:'CREATE',after:b,event_id:'duplicate-'+suffix}); if(duplicate.ok||duplicate.error!=='OUTBOUND_LOCATION_DUPLICATE') throw new Error('DUPLICATE_LOCATION_FAIL');
     const payload={location:b,scan_qr:'2AD7|7081639744|SOWIN8H9KA2BL3C|PB1260823D8CB48|CX1.1.1|5/13',do_number:'7081639744',package_count:13,idempotency_key:record};
     const first=ppOutboundAppend_(owner,payload); if(!first.ok||first.idempotent) throw new Error('APPEND_FAIL_'+JSON.stringify(first));
