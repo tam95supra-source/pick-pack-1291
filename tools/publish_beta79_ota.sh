@@ -131,9 +131,29 @@ ACCESS_TOKEN=$(jq -r '.access_token // empty' <<<"$TOKEN_JSON")
 test -n "$ACCESS_TOKEN"
 echo "::add-mask::$ACCESS_TOKEN"
 
-curl -fsS --connect-timeout 15 --max-time 30 -H "Authorization: Bearer $ACCESS_TOKEN" \
-  "https://www.googleapis.com/drive/v3/files/$BETA_FOLDER_ID?fields=id,name,mimeType" > "$E/drive-folder.json"
-jq -e --arg id "$BETA_FOLDER_ID" '.id==$id' "$E/drive-folder.json" >/dev/null
+DRIVE_OK=0
+for attempt in 0 1 2; do
+  DRIVE_HTTP=$(curl -sS --connect-timeout 15 --max-time 30 -o "$E/drive-folder.json" -w '%{http_code}' \
+    -H "Authorization: Bearer $ACCESS_TOKEN" \
+    "https://www.googleapis.com/drive/v3/files/$BETA_FOLDER_ID?fields=id,name,mimeType" || printf '000')
+  if [[ "$DRIVE_HTTP" == 200 ]] && jq -e --arg id "$BETA_FOLDER_ID" '.id==$id' "$E/drive-folder.json" >/dev/null 2>&1; then
+    DRIVE_OK=1
+    break
+  fi
+  DRIVE_REASON=$(jq -r '.error.errors[0].reason // .error.status // empty' "$E/drive-folder.json" 2>/dev/null || true)
+  echo "drive_preflight_http=$DRIVE_HTTP reason=$DRIVE_REASON attempt=$attempt" >&2
+  case "$DRIVE_REASON" in
+    rateLimitExceeded|userRateLimitExceeded|backendError|internalError)
+      [[ "$attempt" -lt 2 ]] || break
+      sleep $((2 + attempt * 4))
+      ;;
+    *) break ;;
+  esac
+done
+if [[ "$DRIVE_OK" != 1 ]]; then
+  jq -c '{error:{code:(.error.code//null),status:(.error.status//null),reason:(.error.errors[0].reason//null),message:(.error.message//null)}}' "$E/drive-folder.json" 2>/dev/null >&2 || true
+  exit 22
+fi
 API="https://script.googleapis.com/v1/projects/$SCRIPT_ID"
 curl -fsS --connect-timeout 15 --max-time 30 -H "Authorization: Bearer $ACCESS_TOKEN" "$API/content" > "$E/gas-before.json"
 curl -fsS --connect-timeout 15 --max-time 30 -H "Authorization: Bearer $ACCESS_TOKEN" "$API/deployments/$DEPLOYMENT_ID" > "$E/deployment-before.json"
