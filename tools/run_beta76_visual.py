@@ -1,6 +1,14 @@
 #!/usr/bin/env python3
-import hashlib, html, os, subprocess, time
+import hashlib
+import html
+import json
+import os
+import sqlite3
+import subprocess
+import time
+from datetime import datetime, timedelta
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 PKG = 'vn.pickpack1291.app.beta.publicbeta'
 ACT = 'vn.pickpack1291.app.beta.OperationsActivity'
@@ -12,11 +20,11 @@ OUT = Path('/tmp/beta77-visual')
 SIZES = ((320, 568), (360, 640), (480, 800))
 
 
-def run(args, check=True, text=True, timeout=20):
+def run(args, check=True, text=True, timeout=24):
     return subprocess.run(args, check=check, text=text, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=timeout)
 
 
-def adb(*args, check=True, text=True, timeout=20):
+def adb(*args, check=True, text=True, timeout=24):
     return run(['adb', *args], check, text, timeout)
 
 
@@ -38,7 +46,7 @@ def verify():
     rec('candidate.txt', f'sha256={EXPECTED_SHA}\nsize={EXPECTED_SIZE}\npackage={PKG}\ncandidate_run=32953924512\nartifact_id=9601304499\nandroid_build_or_sign=false\n')
 
 
-def uid():
+def app_owner():
     adb('shell', 'am', 'force-stop', PKG, check=False)
     result = adb('shell', 'stat', '-c', '%u:%g', f'/data/user/0/{PKG}', check=False).stdout.strip()
     if ':' not in result:
@@ -46,12 +54,63 @@ def uid():
         time.sleep(.8)
         adb('shell', 'am', 'force-stop', PKG, check=False)
         result = adb('shell', 'stat', '-c', '%u:%g', f'/data/user/0/{PKG}', check=False).stdout.strip()
-    assert ':' in result
+    assert ':' in result, result
     return result.split(':', 1)
 
 
-def seed():
-    user_id, group_id = uid()
+def active_session(mnv, business_date, session_id, pda):
+    return {
+        'session_id': session_id,
+        'mnv': mnv,
+        'business_date': business_date,
+        'shift': 'Ca 2',
+        'state': 'ACTIVE',
+        'pda_serial': pda,
+        'pda_enter_status': 'Nguyên vẹn',
+        'enter_at': f'{business_date}T03:10:00Z',
+        'version': 4,
+        'main_position_v64': 'Pick',
+        'positions_v64': [
+            {'position_key': 'PICK', 'position_label': 'Pick', 'state': 'ACTIVE'},
+        ],
+        'resource_assignments_v64': [
+            {'assignment_id': f'{session_id}-pda', 'resource_type': 'PDA', 'resource_id': pda, 'state': 'ACTIVE'},
+        ],
+    }
+
+
+def make_db(path, fixture):
+    if path.exists():
+        path.unlink()
+    db = sqlite3.connect(path)
+    cur = db.cursor()
+    cur.execute('PRAGMA user_version=3')
+    cur.execute('CREATE TABLE day_snapshot(business_date TEXT PRIMARY KEY NOT NULL,day_revision INTEGER NOT NULL,snapshot_json TEXT NOT NULL,saved_at INTEGER NOT NULL)')
+    cur.execute('CREATE INDEX idx_day_snapshot_saved ON day_snapshot(saved_at)')
+    cur.execute('CREATE TABLE sync_meta(meta_key TEXT PRIMARY KEY NOT NULL,meta_value TEXT NOT NULL)')
+    cur.execute('CREATE TABLE mutation_outbox(event_id TEXT PRIMARY KEY NOT NULL,body_json TEXT NOT NULL,exclusive INTEGER NOT NULL DEFAULT 0,status TEXT NOT NULL,attempt_count INTEGER NOT NULL DEFAULT 0,next_attempt_at INTEGER NOT NULL,queued_at INTEGER NOT NULL,updated_at INTEGER NOT NULL,last_error TEXT)')
+    cur.execute('CREATE INDEX idx_mutation_outbox_due ON mutation_outbox(status,next_attempt_at,queued_at)')
+    cur.execute('CREATE TABLE local_history(event_id TEXT PRIMARY KEY NOT NULL,body_json TEXT NOT NULL,status TEXT NOT NULL,last_error TEXT,queued_at INTEGER NOT NULL,updated_at INTEGER NOT NULL)')
+    cur.execute('CREATE INDEX idx_local_history_queued ON local_history(queued_at DESC)')
+    today = datetime.now(ZoneInfo('Asia/Bangkok')).date()
+    if fixture == 'current':
+        dates = [(today, [active_session('30011', today.isoformat(), 'beta77-current-active', 'NLS-MT90-0012345')])]
+    elif fixture == 'old':
+        old = today - timedelta(days=1)
+        dates = [(old, [active_session('30012', old.isoformat(), 'beta77-overnight-active', 'NLS-MT90-0054321')])]
+    else:
+        dates = []
+    now_ms = int(time.time() * 1000)
+    for business_date, sessions in dates:
+        snapshot = {'ok': True, 'business_date': business_date.isoformat(), 'day_revision': 77, 'sessions': sessions, 'events': [], 'labor': []}
+        cur.execute('INSERT INTO day_snapshot VALUES(?,?,?,?)', (business_date.isoformat(), 77, json.dumps(snapshot, ensure_ascii=False), now_ms))
+    cur.execute('INSERT INTO sync_meta VALUES(?,?)', ('business_date', today.isoformat()))
+    db.commit()
+    db.close()
+
+
+def seed(fixture):
+    user_id, group_id = app_owner()
     OUT.mkdir(parents=True, exist_ok=True)
     auth = OUT / 'auth.xml'
     auth.write_text(prefs({
@@ -62,12 +121,40 @@ def seed():
         'position': 'superadmin',
         'email': 'tam95.supra@gmail.com',
     }), encoding='utf-8')
-    destination = f'/data/user/0/{PKG}/shared_prefs/pick_pack_auth_session_v2.xml'
-    adb('push', str(auth), '/data/local/tmp/auth.xml')
-    adb('shell', 'mkdir', '-p', f'/data/user/0/{PKG}/shared_prefs')
-    adb('shell', 'cp', '/data/local/tmp/auth.xml', destination)
-    adb('shell', 'chown', f'{user_id}:{group_id}', destination)
-    adb('shell', 'chmod', '600', destination)
+    master = {
+        'ok': True,
+        'master_revision': 77,
+        'staff': [
+            {'mnv': '30011', 'full_name': 'Nguyễn Văn A', 'main_position': 'Pick', 'supplier': 'NLV', 'department': '', 'site': '1291', 'warehouse': 'HY1'},
+            {'mnv': '30012', 'full_name': 'Nguyễn Văn B', 'main_position': 'Pick', 'supplier': 'IH', 'department': 'Pick Pack', 'site': '1291', 'warehouse': 'HY1'},
+        ],
+        'pdas': [
+            {'serial': 'NLS-MT90-0012345', 'last5': '12345', 'status': 'Nguyên vẹn'},
+            {'serial': 'NLS-MT90-0054321', 'last5': '54321', 'status': 'Nguyên vẹn'},
+        ],
+        'pda_statuses': ['Nguyên vẹn', 'Màn hình xước nhẹ', 'Lỗi quét mã'],
+        'user_picks': ['HY1.OUT.01', 'HY1.OUT.02'],
+        'pack_bundles': [{'table': 'D1', 'user_pack': 'PACK01'}],
+    }
+    master_path = OUT / 'pp1291_master_cache.xml'
+    master_path.write_text(prefs({'snapshot': json.dumps(master, ensure_ascii=False, separators=(',', ':'))}), encoding='utf-8')
+    db_path = OUT / 'pp_operational_45d.db'
+    make_db(db_path, fixture)
+    prefs_dir = f'/data/user/0/{PKG}/shared_prefs'
+    db_dir = f'/data/user/0/{PKG}/databases'
+    adb('shell', 'mkdir', '-p', prefs_dir, db_dir)
+    adb('shell', 'rm', '-f', f'{db_dir}/pp_operational_45d.db', f'{db_dir}/pp_operational_45d.db-wal', f'{db_dir}/pp_operational_45d.db-shm', f'{prefs_dir}/pp1291_master_cache.xml', check=False)
+    files = [
+        (auth, f'{prefs_dir}/pick_pack_auth_session_v2.xml'),
+        (master_path, f'{prefs_dir}/pp1291_master_cache.xml'),
+        (db_path, f'{db_dir}/pp_operational_45d.db'),
+    ]
+    for local, destination in files:
+        temp = f'/data/local/tmp/{local.name}'
+        adb('push', str(local), temp)
+        adb('shell', 'cp', temp, destination)
+        adb('shell', 'chown', f'{user_id}:{group_id}', destination)
+        adb('shell', 'chmod', '600', destination)
 
 
 def shot(name, expected_size):
@@ -91,14 +178,18 @@ def ime_visible(tag):
     return 'mInputShown=true' in state or 'mIsInputViewShown=true' in state
 
 
-def launch(tag):
+def hide_ime(tag):
+    if ime_visible(tag):
+        adb('shell', 'input', 'keyevent', '4')
+        time.sleep(.5)
+
+
+def launch(tag, fixture, module='BUSINESS'):
     adb('shell', 'am', 'force-stop', PKG, check=False)
-    seed()
-    adb('shell', 'am', 'start', '-W', '-n', f'{PKG}/{LAUNCHER}', check=False)
-    time.sleep(.8)
+    seed(fixture)
     result = adb(
         'shell', 'am', 'start', '-W', '-n', f'{PKG}/{ACT}',
-        '--es', 'module', 'BUSINESS',
+        '--es', 'module', module,
         '--es', 'login', 'tamnv2',
         '--es', 'name', 'OWNER',
         '--es', 'role', 'SUPERADMIN',
@@ -108,42 +199,66 @@ def launch(tag):
     ).stdout
     rec(f'{tag}-operations-start.txt', result)
     assert 'Permission Denial' not in result and 'Error type' not in result
-    time.sleep(.9)
-    assert_activity(tag + '-home')
+    time.sleep(1.2)
+    assert_activity(tag)
 
 
 def capture_employee(tag, size):
-    launch(tag + '-employee')
-    home = shot(f'{tag}-business-employee-card.png', size)
-    adb('shell', 'input', 'tap', '90', '180')
-    time.sleep(1.4)
-    assert_activity(tag + '-employee-screen')
-    employee = shot(f'{tag}-employee-scan.png', size)
-    assert hashlib.sha256(employee).digest() != hashlib.sha256(home).digest(), f'{tag}: employee screen did not open'
-    adb('shell', 'input', 'keyevent', '4')
+    width, height = size
+    launch(tag + '-employee', 'current')
+    home = shot(f'{tag}-business-current-active.png', size)
+    adb('shell', 'input', 'tap', str(width // 4), '238')
+    time.sleep(1.0)
+    adb('shell', 'input', 'tap', str(width // 2), '169')
+    adb('shell', 'input', 'text', '30011')
+    adb('shell', 'input', 'keyevent', '66')
+    time.sleep(2.2)
+    hide_ime(tag + '-employee-active')
+    top = shot(f'{tag}-employee-active-top.png', size)
+    assert hashlib.sha256(top).digest() != hashlib.sha256(home).digest(), f'{tag}: active employee screen did not open'
+    for index in range(1, 4):
+        adb('shell', 'input', 'swipe', str(width // 2), str(height - 150), str(width // 2), '155', '420')
+        time.sleep(.55)
+        shot(f'{tag}-employee-active-scroll-{index}.png', size)
+    assert_activity(tag + '-employee-active-final')
+
+
+def capture_old_session(tag, size):
+    width, _ = size
+    launch(tag + '-old-session', 'old')
+    home = shot(f'{tag}-old-session-warning.png', size)
+    adb('shell', 'input', 'tap', str(width // 2), '170')
     time.sleep(.8)
-    assert_activity(tag + '-employee-back')
-    back = shot(f'{tag}-employee-back.png', size)
-    assert hashlib.sha256(back).digest() != hashlib.sha256(employee).digest(), f'{tag}: employee back did not return'
+    dialog = shot(f'{tag}-old-session-dialog.png', size)
+    assert hashlib.sha256(dialog).digest() != hashlib.sha256(home).digest(), f'{tag}: old-session dialog did not open'
+    adb('shell', 'input', 'keyevent', '4')
+    time.sleep(.4)
+
+
+def capture_pda_release(tag, size):
+    launch(tag + '-pda-release', 'current', 'PDA_EXCHANGE')
+    time.sleep(7.0)
+    hide_ime(tag + '-pda-release')
+    shot(f'{tag}-pda-release-early-return.png', size)
+    assert_activity(tag + '-pda-release-final')
 
 
 def capture_drop(tag, size):
-    launch(tag + '-drop')
+    width, _ = size
+    launch(tag + '-drop', 'empty')
     home = shot(f'{tag}-business-drop-card.png', size)
-    adb('shell', 'input', 'tap', '90', '300')
+    adb('shell', 'input', 'tap', str(width // 4), '300')
     time.sleep(5.8)
     assert_activity(tag + '-drop-screen')
     top = shot(f'{tag}-drop-top.png', size)
     assert hashlib.sha256(top).digest() != hashlib.sha256(home).digest(), f'{tag}: drop screen did not open'
-
-    adb('shell', 'input', 'tap', '160', '198')
+    adb('shell', 'input', 'tap', str(width // 2), '198')
     time.sleep(1.1)
     if not ime_visible(tag):
-        adb('shell', 'input', 'tap', '160', '198')
+        adb('shell', 'input', 'tap', str(width // 2), '198')
         time.sleep(1.1)
     assert ime_visible(tag), f'{tag}: Scan QR focus did not open IME'
     shot(f'{tag}-drop-keyboard.png', size)
-
     adb('shell', 'input', 'keyevent', '4')
     time.sleep(.6)
     shot(f'{tag}-drop-bottom.png', size)
@@ -159,6 +274,8 @@ def capture_size(width, height):
     adb('shell', 'wm', 'density', '160')
     time.sleep(.7)
     capture_employee(tag, (width, height))
+    capture_old_session(tag, (width, height))
+    capture_pda_release(tag, (width, height))
     capture_drop(tag, (width, height))
 
 
@@ -171,7 +288,16 @@ def main():
         adb('shell', 'settings', 'put', 'global', key, '0', check=False)
     for width, height in SIZES:
         capture_size(width, height)
-    rec('matrix.json', '{"status":"FULL_MATRIX_CAPTURED","candidate_run":32953924512,"artifact_id":9601304499,"sizes":["320x568","360x640","480x800"],"density":160,"cards":["Quét QR nhân sự","Nhận hàng Rớt"],"android_build_or_sign":false,"requires_human_inspection":true}\n')
+    rec('matrix.json', json.dumps({
+        'status': 'FULL_MATRIX_CAPTURED',
+        'candidate_run': 32953924512,
+        'artifact_id': 9601304499,
+        'sizes': ['320x568', '360x640', '480x800'],
+        'density': 160,
+        'scenarios': ['drop_receive', 'employee_active_same_day', 'employee_null_dash', 'overnight_active_warning', 'pda_release_early_return'],
+        'android_build_or_sign': False,
+        'requires_human_inspection': True,
+    }, ensure_ascii=False, separators=(',', ':')) + '\n')
     print('BETA77_EXACT_VISUAL_FULL_MATRIX_CAPTURED')
 
 
