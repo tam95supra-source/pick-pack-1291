@@ -1,4 +1,4 @@
-name: Beta77 exact candidate dialog-verified visual retry
+name: Beta77 publish exact locked candidate
 
 on:
   push:
@@ -12,80 +12,79 @@ permissions:
   actions: read
 
 concurrency:
-  group: beta77-exact-visual-retry
+  group: beta77-publish-exact
   cancel-in-progress: false
 
 jobs:
-  visual:
+  publish-exact:
     runs-on: ubuntu-24.04
-    timeout-minutes: 40
+    timeout-minutes: 45
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+      GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+      GOOGLE_OAUTH_REFRESH_TOKEN: ${{ secrets.GOOGLE_OAUTH_REFRESH_TOKEN }}
+      GAS_SCRIPT_ID: ${{ secrets.GAS_SCRIPT_ID }}
+      GAS_DEPLOYMENT_ID: ${{ secrets.GAS_DEPLOYMENT_ID }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
 
-      - name: Download locked Beta77 candidate from run 32953924512
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4
         with:
           name: beta77-candidate-32953924512
-          path: /tmp/beta77-candidate
+          path: /tmp/beta77-preflight
           github-token: ${{ github.token }}
           repository: tam95supra-source/pick-pack-1291
           run-id: 32953924512
 
-      - name: Preflight patched harness and lock exact candidate
+      - name: Validate publish-only lock and materialized publisher
         shell: bash
         run: |
           set -euo pipefail
-          META=/tmp/beta77-candidate/release-meta.json
-          APK=/tmp/beta77-candidate/pick-pack-1291-public-beta-0.4.2-beta.77.apk
-          test -f "$META" -a -f "$APK"
-          jq -e '.version_name=="0.4.2-beta.77" and .version_code==83 and .package=="vn.pickpack1291.app.beta.publicbeta" and .source_sha=="43579d1f7f01816cddbdbbcce0a2f19d95d16d91" and .build_run==32953924512 and .apk_sha256=="6ce7838f6f0725ca98b4f3d9237d38aec60092f4488b2795a32ae3f9d24371fb" and .apk_size==13196165 and .signer_sha256=="d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e" and .candidate_locked==true and .stable_publish=="FORBIDDEN" and .gas_run==32932894375 and .service_run==32953215533 and .authority_change=="NONE"' "$META" >/dev/null
+          APK=/tmp/beta77-preflight/pick-pack-1291-public-beta-0.4.2-beta.77.apk
+          META=/tmp/beta77-preflight/release-meta.json
+          test -f "$APK" -a -f "$META"
           test "$(sha256sum "$APK" | awk '{print $1}')" = "6ce7838f6f0725ca98b4f3d9237d38aec60092f4488b2795a32ae3f9d24371fb"
           test "$(stat -c '%s' "$APK")" = "13196165"
-          python3 -m py_compile tools/run_beta76_visual.py
-          bash -n tools/run_beta76_visual_v2.sh
-          grep -Fq "capture_employee(tag, (width, height))" tools/run_beta76_visual.py
-          grep -Fq "capture_old_session(tag, (width, height))" tools/run_beta76_visual.py
-          grep -Fq "capture_pda_release(tag, (width, height))" tools/run_beta76_visual.py
-          grep -Fq "capture_drop(tag, (width, height))" tools/run_beta76_visual.py
-          grep -Fq "'overnight_active_warning'" tools/run_beta76_visual.py
-          grep -Fq "ratio >= .08" tools/run_beta76_visual.py
-          grep -Fq "old-session-dialog-ratio.txt" tools/run_beta76_visual.py
-          grep -Fq "'pda_release_early_return'" tools/run_beta76_visual.py
-          grep -Fq "adb('shell', 'wm', 'density', '160')" tools/run_beta76_visual.py
-          grep -Fq 'candidate_run=32953924512' tools/run_beta76_visual.py
-          grep -Fq 'artifact_id=9601304499' tools/run_beta76_visual.py
-          ! grep -Fq 'uiautomator' tools/run_beta76_visual.py
-          ! grep -Eq 'gradle|assemble(Beta|Release|Debug)|apksigner|jarsigner|signingConfig' tools/run_beta76_visual.py tools/run_beta76_visual_v2.sh
-          echo "APK=$APK" >> "$GITHUB_ENV"
-          echo "EXPECTED_SHA=6ce7838f6f0725ca98b4f3d9237d38aec60092f4488b2795a32ae3f9d24371fb" >> "$GITHUB_ENV"
-          echo "EXPECTED_SIZE=13196165" >> "$GITHUB_ENV"
+          jq -e '.version_name=="0.4.2-beta.77" and .version_code==83 and .package=="vn.pickpack1291.app.beta.publicbeta" and .source_sha=="43579d1f7f01816cddbdbbcce0a2f19d95d16d91" and .build_run==32953924512 and .apk_sha256=="6ce7838f6f0725ca98b4f3d9237d38aec60092f4488b2795a32ae3f9d24371fb" and .apk_size==13196165 and .signer_sha256=="d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e" and .candidate_locked==true and .stable_publish=="FORBIDDEN"' "$META" >/dev/null
+          jq -e '.stage=="publish" and .mode=="PUBLISH_ONLY_EXACT_BYTES" and .version_name=="0.4.2-beta.77" and .version_code==83 and .candidate_run_id==32953924512 and .candidate_artifact_id==9601304499 and .locked_sha256=="6ce7838f6f0725ca98b4f3d9237d38aec60092f4488b2795a32ae3f9d24371fb" and .locked_size==13196165 and .locked_package=="vn.pickpack1291.app.beta.publicbeta" and .locked_signer_sha256=="d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e" and .visual_receipt_commit=="847378116153befe7b10a29951df43913e864636" and .final_visual_run_id==32960147493 and .final_visual_artifact_id==9603638990 and .stable_publish=="FORBIDDEN" and .rebuild==false and .resign==false and .gas_canonical_rerun==false and .service_pda_rerun==false and .authority_change=="NONE"' ops/beta-release-request.json >/dev/null
+          jq -e '.status=="PASS" and .result=="HUMAN_VISUAL_PASS" and .candidate.version_name=="0.4.2-beta.77" and .candidate.version_code==83 and .candidate.build_run==32953924512 and .candidate.artifact_id==9601304499 and .candidate.sha256=="6ce7838f6f0725ca98b4f3d9237d38aec60092f4488b2795a32ae3f9d24371fb" and .candidate.size==13196165 and .candidate.signer_sha256=="d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e" and .visual.run_id==32960147493 and .visual.artifact_id==9603638990 and .visual.android_build_or_sign_in_visual==false and .human_inspection["320x568"].drop_receive_screen_correct==true and .human_inspection["360x640"].drop_receive_screen_correct==true and .human_inspection["480x800"].drop_receive_screen_correct==true and .human_inspection["320x568"].employee_null_values_render_dash==true and .human_inspection["360x640"].employee_null_values_render_dash==true and .human_inspection["480x800"].employee_null_values_render_dash==true and .human_inspection["320x568"].overnight_active_open_session_visible==true and .human_inspection["360x640"].overnight_active_open_session_visible==true and .human_inspection["480x800"].overnight_active_open_session_visible==true and .human_inspection["320x568"].pda_change_and_return_actions_visible==true and .human_inspection["360x640"].pda_change_and_return_actions_visible==true and .human_inspection["480x800"].pda_change_and_return_actions_visible==true and .stable_publish=="FORBIDDEN" and .rebuild_after_candidate_lock==false and .resign_after_candidate_lock==false' ops/beta77-visual-inspection.json >/dev/null
+          git fetch --no-tags --depth=1 origin 847378116153befe7b10a29951df43913e864636
+          git show 847378116153befe7b10a29951df43913e864636:ops/beta77-visual-inspection.json > /tmp/locked-beta77-visual.json
+          cmp -s /tmp/locked-beta77-visual.json ops/beta77-visual-inspection.json
+          bash -n tools/publish_beta77_ota.sh
+          P=$(BETA77_MATERIALIZE_ONLY=1 bash tools/publish_beta77_ota.sh)
+          test -f "$P"
+          bash -n "$P"
+          grep -Fq 'TARGET_VERSION=0.4.2-beta.77' "$P"
+          grep -Fq 'TARGET_CODE=83' "$P"
+          grep -Fq 'SOURCE_SHA=43579d1f7f01816cddbdbbcce0a2f19d95d16d91' "$P"
+          grep -Fq 'SOURCE_RUN_ID=32953924512' "$P"
+          grep -Fq 'ARTIFACT_ID=9601304499' "$P"
+          grep -Fq 'EXPECTED_SHA=6ce7838f6f0725ca98b4f3d9237d38aec60092f4488b2795a32ae3f9d24371fb' "$P"
+          grep -Fq 'EXPECTED_SIZE=13196165' "$P"
+          grep -Fq 'PREV_VERSION=0.4.2-beta.76' "$P"
+          grep -Fq 'PREV_CODE=82' "$P"
+          grep -Fq 'VISUAL_RUN=32960147493' "$P"
+          grep -Fq 'VISUAL_ARTIFACT=9603638990' "$P"
+          grep -Fq '847378116153befe7b10a29951df43913e864636' "$P"
+          grep -Fq 'ppBeta77UpdateCheckCompat_' "$P"
+          grep -Fq 'stable_publish=="FORBIDDEN"' "$P"
+          ! grep -Eq 'gradle|assembleBeta|assembleStable|apksigner|jarsigner|signingConfig' "$P"
+          ! grep -Eq 'git push .*main|refs/heads/main|stable-release|publish.*STABLE' "$P"
+          echo 'beta77_exact_bytes_publish_only_preflight=PASS'
 
-      - name: Enable KVM
+      - name: Publish exact Beta77 bytes and verify LIVE
         shell: bash
-        run: |
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules >/dev/null
-          sudo udevadm control --reload-rules
-          sudo udevadm trigger --name-match=kvm || true
-          sudo chmod 666 /dev/kvm || true
+        run: bash tools/publish_beta77_ota.sh
 
-      - name: Run exact Beta77 visual matrix
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 29
-          target: default
-          arch: x86_64
-          profile: pixel_2
-          disable-animations: false
-          emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-metrics
-          script: |
-            adb install -r "$APK"
-            bash tools/run_beta76_visual_v2.sh
-
-      - name: Upload exact visual evidence
+      - name: Upload Beta77 release evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: beta77-visual-${{ github.run_id }}
-          path: /tmp/beta77-visual
+          name: beta77-release-evidence-${{ github.run_id }}
+          path: /tmp/beta77-release-evidence
           retention-days: 30
-          if-no-files-found: error
+          if-no-files-found: warn
