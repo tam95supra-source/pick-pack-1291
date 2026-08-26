@@ -1,0 +1,147 @@
+{
+  "status": "PASS",
+  "result": "HUMAN_VISUAL_PASS",
+  "inspected_at": "2026-08-26T17:53:16+07:00",
+  "candidate": {
+    "version_name": "0.4.2-beta.77",
+    "version_code": 83,
+    "package": "vn.pickpack1291.app.beta.publicbeta",
+    "source_sha": "43579d1f7f01816cddbdbbcce0a2f19d95d16d91",
+    "build_run": 32953924512,
+    "artifact_id": 9601304499,
+    "sha256": "6ce7838f6f0725ca98b4f3d9237d38aec60092f4488b2795a32ae3f9d24371fb",
+    "size": 13196165,
+    "signer_sha256": "d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e"
+  },
+  "inherited_canonical_gates": {
+    "gas": {
+      "status": "PASS",
+      "run_id": 32932894375,
+      "apps_script_version": 194,
+      "artifact_id": 9593853159,
+      "digest": "sha256:2b939d18e7db7e74925771516925716f6a4c98e1c7ed3a2c92c9418a0e86fcc1",
+      "rerun": false
+    },
+    "service_pda": {
+      "status": "PASS",
+      "run_id": 32953215533,
+      "worker": "pickpack",
+      "version_id": "0cd7e517-a03b-4dae-80e3-8acb0f437c84",
+      "artifact_id": 9600983380,
+      "digest": "sha256:b4da9784cd70eb7b2384c901c0e404104091fed208225032efa4417b4bf9ec36",
+      "rerun": false
+    }
+  },
+  "visual": {
+    "run_id": 32960147493,
+    "artifact_id": 9603638990,
+    "artifact_digest": "sha256:2d57ccc286b9088c0f99c2d70878bcd57423bc36fe55842ed6f48b0ede533d19",
+    "workflow_head_sha": "af1939dfe71250d202c55a4cc7d4bed6ca9702df",
+    "route_gate": "exact_candidate+activity_readback+real_png+ime_state+fixture_matrix+human_pixels",
+    "dialog_pixel_gate": {
+      "minimum_changed_ratio": 0.08,
+      "320x568": 0.7755,
+      "360x640": 0.8109,
+      "480x800": 0.862
+    },
+    "android_build_or_sign_in_visual": false
+  },
+  "human_inspection": {
+    "320x568": {
+      "drop_receive_card_visible": true,
+      "drop_receive_screen_correct": true,
+      "empty_position_displays_chua_co_vi_tri": true,
+      "owner_crud_buttons_visible": true,
+      "owner_crud_actions_accessible": true,
+      "qr_do_package_fields_visible": true,
+      "keyboard_qr_not_obscured": true,
+      "add_clear_actions_visible": true,
+      "employee_active_same_day_not_reselected": true,
+      "employee_null_values_render_dash": true,
+      "overnight_active_warning_visible": true,
+      "overnight_active_open_session_visible": true,
+      "pda_change_and_return_actions_visible": true,
+      "pda_release_early_return_scope_correct": true,
+      "no_wrong_route_loading_crop_overlap": true,
+      "frames": [
+        "320x568-business-current-active.png",
+        "320x568-employee-active-top.png",
+        "320x568-employee-active-scroll-1.png",
+        "320x568-employee-active-scroll-2.png",
+        "320x568-employee-active-scroll-3.png",
+        "320x568-old-session-warning.png",
+        "320x568-old-session-dialog.png",
+        "320x568-pda-release-early-return.png",
+        "320x568-drop-top.png",
+        "320x568-drop-keyboard.png",
+        "320x568-drop-bottom.png"
+      ]
+    },
+    "360x640": {
+      "drop_receive_card_visible": true,
+      "drop_receive_screen_correct": true,
+      "empty_position_displays_chua_co_vi_tri": true,
+      "owner_crud_buttons_visible": true,
+      "owner_crud_actions_accessible": true,
+      "qr_do_package_fields_visible": true,
+      "keyboard_qr_not_obscured": true,
+      "add_clear_actions_visible": true,
+      "employee_active_same_day_not_reselected": true,
+      "employee_null_values_render_dash": true,
+      "overnight_active_warning_visible": true,
+      "overnight_active_open_session_visible": true,
+      "pda_change_and_return_actions_visible": true,
+      "pda_release_early_return_scope_correct": true,
+      "no_wrong_route_loading_crop_overlap": true,
+      "frames": [
+        "360x640-business-current-active.png",
+        "360x640-employee-active-top.png",
+        "360x640-employee-active-scroll-1.png",
+        "360x640-employee-active-scroll-2.png",
+        "360x640-employee-active-scroll-3.png",
+        "360x640-old-session-warning.png",
+        "360x640-old-session-dialog.png",
+        "360x640-pda-release-early-return.png",
+        "360x640-drop-top.png",
+        "360x640-drop-keyboard.png",
+        "360x640-drop-bottom.png"
+      ]
+    },
+    "480x800": {
+      "drop_receive_card_visible": true,
+      "drop_receive_screen_correct": true,
+      "empty_position_displays_chua_co_vi_tri": true,
+      "owner_crud_buttons_visible": true,
+      "owner_crud_actions_accessible": true,
+      "qr_do_package_fields_visible": true,
+      "keyboard_qr_not_obscured": true,
+      "add_clear_actions_visible": true,
+      "employee_active_same_day_not_reselected": true,
+      "employee_null_values_render_dash": true,
+      "overnight_active_warning_visible": true,
+      "overnight_active_open_session_visible": true,
+      "pda_change_and_return_actions_visible": true,
+      "pda_release_early_return_scope_correct": true,
+      "no_wrong_route_loading_crop_overlap": true,
+      "frames": [
+        "480x800-business-current-active.png",
+        "480x800-employee-active-top.png",
+        "480x800-employee-active-scroll-1.png",
+        "480x800-employee-active-scroll-2.png",
+        "480x800-employee-active-scroll-3.png",
+        "480x800-old-session-warning.png",
+        "480x800-old-session-dialog.png",
+        "480x800-pda-release-early-return.png",
+        "480x800-drop-top.png",
+        "480x800-drop-keyboard.png",
+        "480x800-drop-bottom.png"
+      ]
+    }
+  },
+  "stable_publish": "FORBIDDEN",
+  "rebuild_after_candidate_lock": false,
+  "resign_after_candidate_lock": false,
+  "gas_canonical_rerun": false,
+  "service_pda_rerun": false,
+  "authority_change": "NONE"
+}
