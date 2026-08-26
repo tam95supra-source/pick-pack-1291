@@ -43,8 +43,17 @@ jobs:
           test "$(stat -c '%s' "$APK")" = "13196165"
           python3 -m py_compile tools/run_beta76_visual.py
           bash -n tools/run_beta76_visual_v2.sh
-          grep -Fq "for attempt in range(1, 7)" tools/run_beta76_visual.py
+          grep -Fq "uiautomator', 'runtest'" tools/run_beta76_visual.py
+          grep -Fq "setWaitForIdleTimeout(0)" tools/VisualHierarchyDumper.java
           grep -Fq "/data/local/tmp/beta77-window.xml" tools/run_beta76_visual.py
+          PLATFORM="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}/platforms/android-29"
+          test -f "$PLATFORM/android.jar" -a -f "$PLATFORM/uiautomator.jar"
+          DUMPER_BUILD="$(mktemp -d /tmp/beta77-dumper-preflight.XXXXXX)"
+          trap 'rm -rf "$DUMPER_BUILD"' EXIT
+          mkdir -p "$DUMPER_BUILD/classes"
+          javac -source 8 -target 8 -cp "$PLATFORM/android.jar:$PLATFORM/uiautomator.jar" -d "$DUMPER_BUILD/classes" tools/VisualHierarchyDumper.java
+          jar cf "$DUMPER_BUILD/beta77-visual-dumper.jar" -C "$DUMPER_BUILD/classes" .
+          test -s "$DUMPER_BUILD/beta77-visual-dumper.jar"
           ! grep -Eq 'gradle|assemble|bundle|apksigner|jarsigner|signingConfig' tools/run_beta76_visual_v2.sh
           echo "APK=$APK" >> "$GITHUB_ENV"
           echo "EXPECTED_SHA=6ce7838f6f0725ca98b4f3d9237d38aec60092f4488b2795a32ae3f9d24371fb" >> "$GITHUB_ENV"
