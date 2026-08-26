@@ -63,10 +63,10 @@ jobs:
         working-directory: service
         shell: bash
         run: |
-          set -euo pipefail
-          npm install --ignore-scripts --no-audit --no-fund
-          npx tsc --noEmit
-          npx wrangler deploy --dry-run --outdir /tmp/beta78-dry-run
+          set -o pipefail
+          npm install --ignore-scripts --no-audit --no-fund 2>&1 | tee /tmp/beta78-npm.log
+          npx tsc --noEmit 2>&1 | tee /tmp/beta78-typecheck.log
+          npx wrangler deploy --dry-run --outdir /tmp/beta78-dry-run 2>&1 | tee /tmp/beta78-dry-run.log
           find /tmp/beta78-dry-run -type f -size +0c | grep -q .
 
       - uses: actions/setup-java@v5
@@ -102,6 +102,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: beta78-service-live-${{ github.run_id }}
-          path: /tmp/beta78-service-live
+          path: |
+            /tmp/beta78-service-live
+            /tmp/beta78-typecheck.log
+            /tmp/beta78-dry-run.log
+            /tmp/beta78-npm.log
           retention-days: 30
           if-no-files-found: warn
