@@ -1,0 +1,57 @@
+{
+  "status": "PASS",
+  "result": "HUMAN_VISUAL_PASS",
+  "scope": "beta79-old-session-full-qr-actions",
+  "candidate": {
+    "version_name": "0.4.2-beta.79",
+    "version_code": 85,
+    "package": "vn.pickpack1291.app.beta.publicbeta",
+    "source_sha": "db96999844a31e7fed7d0f072fd0dd123fae1288",
+    "build_run": 33020009122,
+    "artifact_id": 9626192148,
+    "sha256": "547e1242a7d0bb057332ce38c46313771da33235fc0e384a908c14207e26e056",
+    "size": 13196165,
+    "signer_sha256": "d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e"
+  },
+  "visual": {
+    "run_id": 33020009122,
+    "artifact_id": 9626266511,
+    "artifact_digest": "sha256:100dfdfc7695bd74ecbd408169c6d645c8d7849dbffb9313c50ea9f75520cb81",
+    "android_build_or_sign_in_visual": false
+  },
+  "source_contract": {
+    "old_session_callback": "historical_session_detail -> onOpen(raw) -> openHistoricalSession(raw) -> renderEmployee(ctx,null)",
+    "exact_identity": [
+      "session_id",
+      "mnv",
+      "business_date"
+    ],
+    "active_actions": [
+      "Thêm",
+      "Sửa",
+      "Xóa",
+      "Ra ca"
+    ],
+    "conflict_refresh": "historical_session_detail exact session_id"
+  },
+  "human_inspection": {
+    "320x568": {
+      "old_session_warning_visible": true,
+      "active_actions_visible_after_scroll": true,
+      "no_layout_break": true
+    },
+    "360x640": {
+      "old_session_warning_visible": true,
+      "active_actions_visible_after_scroll": true,
+      "no_layout_break": true
+    },
+    "480x800": {
+      "old_session_warning_visible": true,
+      "active_actions_visible": true,
+      "no_layout_break": true
+    }
+  },
+  "stable_publish": "FORBIDDEN",
+  "rebuild_after_candidate_lock": false,
+  "resign_after_candidate_lock": false
+}
