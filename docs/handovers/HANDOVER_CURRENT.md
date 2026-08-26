@@ -1,16 +1,16 @@
 ---
 handover_schema: pick-pack-handover/v2
 status: READY
-created_at: 2026-08-26T18:14:00+07:00
+created_at: 2026-08-26T18:18:00+07:00
 owner: Nguyễn Văn Tâm
 project: PICK PACK 1291
 active_branch: feature/beta77-owner-fixes-20260826
-working_head_sha: 90e3254ac5ac07506b599c75fee4fc65cf975abe
+working_head_sha: d6e04218ab22342d1505184ed99ffc8ca5ec7d92
 archive_file: null
 base_or_live_version: 0.4.2-beta.76
 target_version: 0.4.2-beta.77
 task_state: IN_PROGRESS
-next_action: REPLACE_ALL_STALE_BETA76_RECEIPT_AND_REQUEST_IDS_IN_BETA77_MATERIALIZER_THEN_PUBLISH_EXACT_BYTES
+next_action: FIX_BETA77_RELEASE_META_VERIFIER_CONTRACT_THEN_RETRY_EXACT_PUBLISH
 ---
 
 # BÀN GIAO CANONICAL — BETA77 IN PROGRESS
@@ -31,28 +31,28 @@ next_action: REPLACE_ALL_STALE_BETA76_RECEIPT_AND_REQUEST_IDS_IN_BETA77_MATERIAL
 - Signer: `d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e`.
 
 ## 3. Visual/HUMAN — PASS, KHÔNG RERUN
-- Original visual job `98132080539` failed vì `UI hierarchy unavailable`; harness-only.
-- Hard UiAutomation gate đã được loại.
-- Final visual run/artifact `32960147493` / `9603638990`.
-- Receipt commit `847378116153befe7b10a29951df43913e864636`.
-- `ops/beta77-visual-inspection.json`: HUMAN_VISUAL_PASS đủ 320x568, 360x640, 480x800; build/sign trong visual=false.
+- Final visual run/artifact `32960147493` / `9603638990`; receipt commit `847378116153befe7b10a29951df43913e864636`.
+- HUMAN_VISUAL_PASS đủ `320x568`, `360x640`, `480x800`; Android build/sign trong visual=false.
 
 ## 4. Canonical inherited PASS — KHÔNG RERUN
 - GAS: run `32932894375`, Apps Script `194`, artifact `9593853159`, digest `sha256:2b939d18e7db7e74925771516925716f6a4c98e1c7ed3a2c92c9418a0e86fcc1`.
 - Service/PDA: run `32953215533`, worker version `0cd7e517-a03b-4dae-80e3-8acb0f437c84`, artifact `9600983380`, digest `sha256:b4da9784cd70eb7b2384c901c0e404104091fed208225032efa4417b4bf9ec36`.
 
-## 5. Publish deterministic failures — tất cả trước production mutation
-- `32960698432`: compat anchor sai shape hậu transform; sửa commit `5223e46d7393dfbbc7ce04daff5b5ddb00a87257`.
-- `32961961420`: target semantic version chưa shift Beta76→Beta77; sửa atomic placeholder ở commit `3cfccc41dd6d4e26373441892c05332eaae52ecc`.
-- `32962143541`, job `98156641428`: preflight exact candidate + visual receipt PASS; publish step skipped. Lỗi gốc mới `AssertionError: 32875201581` trong stale guard của Python materializer.
-- Root cause: inherited Beta76 publisher còn raw Beta76 identity trong jq request/receipt gates (`candidate_run_id`, `candidate_artifact_id`, `final_visual_run_id`, `final_visual_artifact_id`), không nằm trong biến `SOURCE_RUN_ID=...` nên chưa được thay bởi các replacement hiện tại.
-- Đường PASS: đổi toàn bộ exact raw Beta76 IDs sang Beta77 locked IDs trong materialized publisher, giữ visual boolean gates đã tương thích; stale guard phải PASS rồi mới trigger lại.
+## 5. Publish deterministic failures
+- `32960698432`: compat anchor defect — fixed.
+- `32961961420`: semantic Beta76→Beta77 shift defect — fixed.
+- `32962143541`: stale inherited candidate/visual receipt IDs — fixed at `cb5417f274c7e16a4e08914422562f5096ecf0b5`.
+- `32962400902`, job `98157421050`: preflight PASS hoàn toàn; publish step bắt đầu rồi fail. Evidence artifact `9604380172`, digest `sha256:5135ba8f0b9a68bb1268ded7ccd1bc04c9791f8735134b65c4a11867998bf7b6` chỉ có `beta-before.json` và `stable-before.json`, chứng minh fail trước OAuth/GAS/Drive mutation.
+- Fresh evidence: `beta-before` vẫn Beta76 code82 SHA `7018977f...`, `stable-before` vẫn `NO_APK`.
+- Exact artifact `9601304499` đã tải/giải nén ngoài workflow: APK SHA/size/checksum/meta đều đúng.
+- Lỗi gốc deterministic: inherited publisher metadata verifier yêu cầu `.service_change=="NONE"`; Beta77 release-meta canonical không có field này mà có `.authority_change=="NONE"` cùng `gas_run/gas_artifact/service_run/service_artifact`. Reproduce: inherited jq rc=1; Beta77 canonical receipt gate rc=0.
+- Đường PASS: sửa verifier theo contract Beta77 canonical, bắt buộc authority NONE + GAS run/artifact + Service run/artifact đúng; không sửa APK/meta bytes.
 
 ## 6. Invariants
-- Không poll/rerun candidate run `32953924512` hoặc visual job cũ.
-- Không rebuild/resign/revisual/GAS/Service.
+- Không rerun candidate/visual/GAS/Service.
+- Không rebuild/resign/version bump.
 - Stable/main/signer/authority/provider không đổi.
 - Chỉ publish exact artifact `9601304499`.
 
 ## 7. NEXT_ACTION
-`REPLACE_ALL_STALE_BETA76_RECEIPT_AND_REQUEST_IDS_IN_BETA77_MATERIALIZER_THEN_PUBLISH_EXACT_BYTES`
+`FIX_BETA77_RELEASE_META_VERIFIER_CONTRACT_THEN_RETRY_EXACT_PUBLISH`
