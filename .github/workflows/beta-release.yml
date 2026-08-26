@@ -1,6 +1,6 @@
 name: Beta77 publish exact locked candidate
 
-# Deterministic retrigger after aligning Beta77 release-meta verifier with canonical GAS/Service receipts.
+# Deterministic retrigger after correcting inherited final OTA compat assertion to compat77.
 on:
   push:
     branches:
