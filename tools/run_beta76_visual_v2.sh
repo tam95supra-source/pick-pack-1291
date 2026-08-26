@@ -8,14 +8,16 @@ test -f "$ANDROID_JAR"
 HARNESS_BUILD="$(mktemp -d /tmp/beta77-visual-dumper.XXXXXX)"
 trap 'rm -rf "$HARNESS_BUILD"' EXIT
 mkdir -p "$HARNESS_BUILD/classes"
-adb pull /system/framework/uiautomator.jar "$HARNESS_BUILD/uiautomator.jar"
-test -s "$HARNESS_BUILD/uiautomator.jar"
 javac -source 8 -target 8 \
-  -cp "$ANDROID_JAR:$HARNESS_BUILD/uiautomator.jar" \
+  -cp "$ANDROID_JAR" \
   -d "$HARNESS_BUILD/classes" \
+  tools/UiAutomationShellWrapper.java \
   tools/VisualHierarchyDumper.java
-jar cf "$HARNESS_BUILD/beta77-visual-dumper.jar" -C "$HARNESS_BUILD/classes" .
+jar cf "$HARNESS_BUILD/beta77-visual-dumper.jar" \
+  -C "$HARNESS_BUILD/classes" \
+  com/android/commands/uiautomator/VisualHierarchyDumper.class
 test -s "$HARNESS_BUILD/beta77-visual-dumper.jar"
+! jar tf "$HARNESS_BUILD/beta77-visual-dumper.jar" | grep -Fq 'UiAutomationShellWrapper.class'
 
 adb push "$HARNESS_BUILD/beta77-visual-dumper.jar" /data/local/tmp/beta77-visual-dumper.jar
 adb shell chmod 644 /data/local/tmp/beta77-visual-dumper.jar
