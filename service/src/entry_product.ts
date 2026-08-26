@@ -8,6 +8,7 @@ import { serviceConnectionsV47 } from "./beta47_connections";
 import { backfillAllHistoryAudit } from "./beta47_history_audit";
 import { reconcileBeta47OperationalProjection } from "./beta47_projection";
 import { historyDelete } from "./history_delete";
+import { replicateOutboundPending } from "./outbound_beta78";
 import { enqueueInvalidation } from "./push";
 import { apiError, json } from "./util";
 
@@ -53,6 +54,8 @@ export default {
   async scheduled(controller:ScheduledController,env:Env,ctx:ExecutionContext):Promise<void>{
     await current.scheduled(controller,env,ctx);
     await flushSessionSpecialProjections(env);
+    try{const outbound=await replicateOutboundPending(env);console.log(JSON.stringify({level:"info",kind:"beta78_outbound_replication",...outbound}));}
+    catch(e){console.log(JSON.stringify({level:"error",kind:"beta78_outbound_replication_failed",error:String(e).slice(0,500)}));}
     try{const r=await reconcileBeta47OperationalProjection(env);if(r.catalog_changed)await broadcastCatalogRevision(env);console.log(JSON.stringify({level:"info",kind:"beta47_projection",...r}));}
     catch(e){console.log(JSON.stringify({level:"error",kind:"beta47_projection_failed",error:String(e).slice(0,500)}));}
     try{const historyRows=await backfillAllHistoryAudit(env);console.log(JSON.stringify({level:"info",kind:"beta47_history_audit",history_rows:historyRows}));}
