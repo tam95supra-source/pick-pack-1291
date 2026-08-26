@@ -82,7 +82,7 @@ jobs:
       - name: Resolve Android SDK and compile Beta78
         shell: bash
         run: |
-          set -euo pipefail
+          set -o pipefail
           if [[ -z "${ANDROID_HOME:-}" || ! -f "$ANDROID_HOME/platforms/android-36/android.jar" ]]; then
             SDK="$RUNNER_TEMP/android-sdk"; ZIP="$RUNNER_TEMP/commandlinetools.zip"
             curl -fsSL https://dl.google.com/android/repository/commandlinetools-linux-15859902_latest.zip -o "$ZIP"
@@ -92,7 +92,7 @@ jobs:
             yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
             "$SDK/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-36' 'build-tools;36.0.0'
           fi
-          gradle --no-daemon --build-cache :app:testBetaDebugUnitTest :app:assembleBetaDebug
+          gradle --no-daemon --build-cache :app:testBetaDebugUnitTest :app:assembleBetaDebug 2>&1 | tee /tmp/beta78-android-compile.log
 
       - name: Deploy production Service and run exact live gate
         shell: bash
@@ -109,5 +109,6 @@ jobs:
             /tmp/beta78-cf-types.log
             /tmp/beta78-dry-run.log
             /tmp/beta78-npm.log
+            /tmp/beta78-android-compile.log
           retention-days: 30
           if-no-files-found: warn
