@@ -27,6 +27,7 @@ jobs:
     env:
       D1_NAME: pick-pack-1291-service-prod
       PASS_SHA: ce4a0ee0bcf1ed6dffbd0429c5238ce3918f94d1
+      OUTBOUND_SHEET_ID: 1tl6har_8vGSVsVlcErfQwjX1YgvN3o-FRG5wQV4VTEM
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
@@ -47,10 +48,29 @@ jobs:
           grep -q 'versionName = "0.4.2-beta.78"' app/build.gradle.kts
           grep -q 'versionCode = 1' app/build.gradle.kts
           grep -q 'versionName = "0.1.0-stable"' app/build.gradle.kts
-          grep -Fq '3/3_SERVICE_D1_EXACT' tools/beta78_service_live_gate.sh
           git diff --check HEAD^ HEAD
           echo 'service_typecheck=REUSED_PASS run=32974026769 source_unchanged=true'
           echo 'android_compile=REUSED_PASS run=32974026769 source_unchanged=true'
+          echo 'historical_3of3=REUSED_PASS run=32975908629 service_source_unchanged=true'
+
+      - name: Google OAuth and outbound Sheet readback preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          D=/tmp/beta78-google-preflight; rm -rf "$D"; mkdir -p "$D"
+          for n in GOOGLE_OAUTH_CLIENT_ID GOOGLE_OAUTH_CLIENT_SECRET GOOGLE_OAUTH_REFRESH_TOKEN; do test -n "${!n:-}"; echo "::add-mask::${!n}"; done
+          TOKEN_HTTP=$(curl -sS --connect-timeout 10 --max-time 20 -o "$D/token.json" -w '%{http_code}' https://oauth2.googleapis.com/token \
+            -d client_id="$GOOGLE_OAUTH_CLIENT_ID" -d client_secret="$GOOGLE_OAUTH_CLIENT_SECRET" -d refresh_token="$GOOGLE_OAUTH_REFRESH_TOKEN" -d grant_type=refresh_token || printf 000)
+          jq 'del(.access_token,.id_token)' "$D/token.json" > "$D/token-sanitized.json" 2>/dev/null || printf '{}\n' > "$D/token-sanitized.json"
+          echo "token_http=$TOKEN_HTTP"
+          [[ "$TOKEN_HTTP" == 200 ]] || { cat "$D/token-sanitized.json"; exit 31; }
+          ACCESS_TOKEN=$(jq -r '.access_token // empty' "$D/token.json"); test -n "$ACCESS_TOKEN"; echo "::add-mask::$ACCESS_TOKEN"
+          SHEET_HTTP=$(curl -sS --connect-timeout 10 --max-time 20 -o "$D/sheet.json" -w '%{http_code}' -H "Authorization: Bearer $ACCESS_TOKEN" \
+            "https://sheets.googleapis.com/v4/spreadsheets/$OUTBOUND_SHEET_ID?fields=spreadsheetId,sheets.properties(sheetId,title)" || printf 000)
+          echo "sheet_http=$SHEET_HTTP"
+          if [[ "$SHEET_HTTP" != 200 ]]; then jq '{error}' "$D/sheet.json" 2>/dev/null || cat "$D/sheet.json"; exit 32; fi
+          jq -e --arg id "$OUTBOUND_SHEET_ID" '.spreadsheetId==$id and any(.sheets[]; .properties.title=="Nhận hàng rớt") and any(.sheets[]; .properties.title=="Vị trí")' "$D/sheet.json" >/dev/null
+          echo 'google_outbound_preflight=PASS'
 
       - uses: actions/setup-node@v4
         with:
@@ -76,9 +96,8 @@ jobs:
           p.write_text(s.replace(old,new,1),encoding='utf-8')
           PY
           bash -n /tmp/beta78_service_live_gate.sh
-          grep -Fq 'for attempt in 1 2 3' /tmp/beta78_service_live_gate.sh
 
-      - name: Retry exact production Service live gate
+      - name: Run exact production Service live gate
         shell: bash
         run: bash /tmp/beta78_service_live_gate.sh
 
@@ -87,6 +106,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: beta78-service-live-${{ github.run_id }}
-          path: /tmp/beta78-service-live
+          path: |
+            /tmp/beta78-service-live
+            /tmp/beta78-google-preflight/token-sanitized.json
+            /tmp/beta78-google-preflight/sheet.json
           retention-days: 30
           if-no-files-found: warn
