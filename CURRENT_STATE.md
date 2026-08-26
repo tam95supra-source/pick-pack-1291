@@ -2,63 +2,64 @@
 
 ## LIVE — BETA
 
-- Status: **BETA76 OTA LIVE PASS**
-- Version: `0.4.2-beta.76`
-- versionCode: `82`
+- Status: **BETA77 OTA LIVE PASS**
+- Version: `0.4.2-beta.77`
+- versionCode: `83`
 - Package: `vn.pickpack1291.app.beta.publicbeta`
-- Android source SHA: `0d81793eabf465716a4fe36038d143b11220667f`.
-- Candidate run/artifact: `32875201581` / `9573716441`.
-- APK SHA-256: `7018977f28d09434de27e6c6e90a7a51ec11c77831285d7e466c7aeeeeef9ee2`.
-- APK size: `13179781` bytes.
+- Android source SHA: `43579d1f7f01816cddbdbbcce0a2f19d95d16d91`.
+- Candidate run/artifact: `32953924512` / `9601304499`.
+- APK SHA-256: `6ce7838f6f0725ca98b4f3d9237d38aec60092f4488b2795a32ae3f9d24371fb`.
+- APK size: `13196165` bytes.
 - Signer SHA-256: `d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e`.
-- Final HUMAN visual run/artifact: `32906107089` / `9584898561`; receipt `ops/beta76-visual-inspection.json`, commit `aa3123d3b0c20230f441c3db9aaf9d516c9e481e`; HUMAN PASS `320x568`, `360x640`, `480x800`.
-- Production mutation that made exact Beta76 LIVE occurred during rerun of `32907203640` after OAuth refresh was repaired; later failure was verifier-only after exact Drive/OTA write.
-- Final readback-only release run: `32922737926` — **SUCCESS**.
-- Release evidence artifact: `9590374981`; digest `sha256:1eaabc48b6ef0515572ea629535cacf65886cb88442fcd99ec4c5edeba538fa2`.
-- Drive APK ID: `1uxfoNvcPLJUxpPxo-XwAb12ZZasX4Heb`.
-- Drive checksum ID: `1IxZLvxRjfDCmRZTIVNyOqSaWdXhneGjH`.
-- OTA URL: `https://drive.usercontent.google.com/download?id=1uxfoNvcPLJUxpPxo-XwAb12ZZasX4Heb&export=download&confirm=t`.
-- OTA readback: Beta75 client thấy Beta76 `available=true`; Beta76 client `available=false` và version/code đúng contract.
-- Fresh Drive metadata: file `pick-pack-1291-public-beta-0.4.2-beta.76.apk`, MIME APK, size `13179781`, shared anyone-reader; public/downloaded bytes SHA-256 exact candidate; checksum exact.
-- Release receipt: `ops/beta76-release-result.json`, verdict `PASS`.
+- Final HUMAN visual run/artifact: `32960147493` / `9603638990`; receipt commit `847378116153befe7b10a29951df43913e864636`; HUMAN PASS `320x568`, `360x640`, `480x800`.
+- Exact-byte publish/readback run: `32962971229`, job `98159194235`.
+- Release evidence artifact: `9604622754`.
+- Drive APK ID: `1N2y2VtsQVs2PNTKsEQP6Bl4eIbNBpAz1`.
+- Drive checksum ID: `15YbzW_xs2MVur3t3jSJoApS_AMUAg0R3`.
+- OTA URL: `https://drive.usercontent.google.com/download?id=1N2y2VtsQVs2PNTKsEQP6Bl4eIbNBpAz1&export=download&confirm=t`.
+- OTA readback: previous Beta client sees Beta77 `available=true`; Beta77 current-version readback returns `available=false` while retaining version/code/size contract.
+- Drive transport/checksum/public bytes: exact candidate SHA-256 `6ce7838f6f0725ca98b4f3d9237d38aec60092f4488b2795a32ae3f9d24371fb`, size `13196165`.
+- Release receipt: `ops/beta77-release-result.json`, verdict `PASS`.
+- Workflow itself ended red only after PASS receipt was locally committed: `github-actions[bot]` had `contents: read`, so final `git push` receipt returned 403. Production publish and LIVE verification had already completed; receipt was persisted afterward through the GitHub connector without rerunning publish.
 
-## BETA76 SCOPE
+## BETA77 SCOPE
 
-- Nhận hàng rớt: chọn `Vị trí`; OWNER có Tạo / Sửa / Xóa.
-- Scan QR tự tách DO và Số kiện; vẫn hỗ trợ nhập tay khi QR sai.
-- Thêm thông tin ghi theo đường GAS/Sheet đã chốt với idempotency/readback.
-- Xóa toàn bộ chỉ dành cho superadmin; giữ header/tab/quyền/danh sách Vị trí.
-- Sheet/permission và app/logic đã PASS trước candidate lock; không rerun khi bytes không đổi.
+- Nhận hàng Rớt: vị trí đúng; rỗng hiển thị `Chưa có vị trí`; OWNER có Tạo / Sửa / Xóa.
+- Quét QR nhân sự: dữ liệu rỗng hiển thị `-`; giữ phiên PDA ACTIVE cùng ngày/xuyên ngày theo scope đã chốt.
+- Đổi / Trả PDA và luồng ra sớm hiển thị đúng.
+- Visual harness không còn bắt buộc UiAutomation hierarchy; exact APK không rebuild/resign trong quá trình sửa harness/release.
+
+## CANONICAL PASS — KHÔNG RERUN
+
+- GAS: run `32932894375`, Apps Script version `194`, artifact `9593853159`, digest `sha256:2b939d18e7db7e74925771516925716f6a4c98e1c7ed3a2c92c9418a0e86fcc1`.
+- Service/PDA LIVE: run `32953215533`, artifact `9600983380`, worker version `0cd7e517-a03b-4dae-80e3-8acb0f437c84`, digest `sha256:b4da9784cd70eb7b2384c901c0e404104091fed208225032efa4417b4bf9ec36`.
 
 ## LOCKED / UNCHANGED
 
-- Stable publish: **FORBIDDEN**; fresh readback vẫn `available=false`, `reason=NO_APK`.
-- Stable source identity: `0.1.0-stable`, versionCode `1`.
-- `main`: `a8c0c0d92522c7173230d4175b4f0d3a4906c8bb`, fresh-read unchanged.
+- Stable publish: **FORBIDDEN**; before/after readback both `available=false`, `reason=NO_APK`.
+- Stable source identity remains `0.1.0-stable`, versionCode `1`.
+- `main`: `a8c0c0d92522c7173230d4175b4f0d3a4906c8bb`, fresh-read unchanged after Beta77 publish.
 - Signer unchanged: `d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e`.
 - Worker/Service change: **NONE**.
 - Authority change: **NONE**.
-- GAS production change: `OTA_VERSION_COMPAT_BETA76` only; temporary exact-Drive helper không thuộc trạng thái cuối.
 - Provider unchanged.
+- No rebuild, resign, version bump, Beta78, GAS canonical rerun, or Service/PDA rerun.
 
-## SUPERSEDED / ABANDONED
+## SUPERSEDED
 
-- **Beta75: SUPERSEDED by Beta76**; previous SHA `6e08dc974281cc7b5428d22cf406179447cdeb95443dc19fa1db2b4d32344913`.
-- Beta69/Beta70: ABANDONED; không thuộc active base.
-- Beta71/Beta72/Beta73/Beta74: historical/superseded.
+- **Beta76: SUPERSEDED by Beta77**; previous SHA `7018977f28d09434de27e6c6e90a7a51ec11c77831285d7e466c7aeeeeef9ee2`, size `13179781`.
+- Beta69/Beta70: ABANDONED.
+- Beta71–Beta75: historical/superseded.
 
 ## RELEASE / RECOVERY PATH
 
-- OAuth blocker `invalid_grant` được OWNER sửa bằng refresh token mới của đúng OAuth client/account hiện có; token mới đã được CI sử dụng thành công.
-- Exact Beta76 bytes được giữ nguyên toàn bộ; không rebuild/resign/version bump.
-- Sau production write, direct Drive-v3 metadata verifier trả 403 dù Drive transport/public bytes/OTA đã thành công; xác định là verifier/harness defect.
-- Connected Drive fresh-read xác nhận metadata; publisher được sửa readback-only/idempotent để không lặp production mutation khi exact Beta76 đã LIVE.
-- Final run `32922737926` PASS toàn bộ readback-only: OTA, public/Drive bytes, checksum, Stable và main.
+- Original visual failure `320x568-employee-home: UI hierarchy unavailable` was visual-harness-only; UiAutomation hard dependency was removed and final HUMAN matrix passed with exact candidate.
+- Publish materializer deterministic defects were fixed without APK rebuild: semantic Beta76→Beta77 shift, stale receipt identities, legacy candidate metadata gate, and inherited final `compat76` assertion after route promotion to `compat77`.
+- Run `32962971229` completed exact Drive transport, OTA compatibility update and LIVE/readback verification. Its only terminal failure was repository receipt push permission after PASS; no release retry was needed.
 
 ## ACTIVE DEVELOPMENT BASE
 
-- Working branch tại release closeout: `feature/beta76-nhan-hang-rot-20260825`.
-- Continuity branch mặc định của dự án vẫn `release/beta71-clean-from-beta68-20260825` cho tới khi OWNER ra scope mới/handoff mới chỉ định khác.
-- LIVE base cho scope tiếp theo: Beta76 ở trên.
-- Android source identity: `0d81793eabf465716a4fe36038d143b11220667f`.
+- Working/continuity branch: `feature/beta77-owner-fixes-20260826`.
+- LIVE base for next scope: Beta77 above.
+- Android source identity: `43579d1f7f01816cddbdbbcce0a2f19d95d16d91`.
 - Active workflow allowlist: `app-fast-check.yml`, `beta-release.yml`.
