@@ -75,7 +75,7 @@ jobs:
           grep -Fq "action === 'outbound_drop_append'" google-apps-script/PICK_PACK_API.gs
           grep -Fq 'PP_OUTBOUND_LOCATIONS_V1' google-apps-script/OUTBOUND_DROP_RECEIVE.gs
           grep -Fq 'real_data_preserved:true' tools/deploy_beta76_outbound_gas.sh
-          grep -Fq 'ppWithLock_(function(){ return ppOutboundSelfTest_(body); })' tools/deploy_beta76_outbound_gas.sh
+          grep -Fq "String(p.action||'')==='__beta76_outbound_test'" tools/deploy_beta76_outbound_gas.sh
           grep -Fq -- "-w '%{http_code}'" tools/deploy_beta76_outbound_gas.sh
           git diff --check HEAD^ HEAD
 
