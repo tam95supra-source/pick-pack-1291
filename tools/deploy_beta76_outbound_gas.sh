@@ -2,6 +2,7 @@
 set -Eeuo pipefail
 
 E=/tmp/beta76-outbound-gas-evidence
+rm -rf "$E"
 mkdir -p "$E"
 for n in GOOGLE_OAUTH_CLIENT_ID GOOGLE_OAUTH_CLIENT_SECRET GOOGLE_OAUTH_REFRESH_TOKEN GAS_SCRIPT_ID GAS_DEPLOYMENT_ID; do
   test -n "${!n:-}"
@@ -72,8 +73,9 @@ BEFORE_HASH=$(cat "$E/project-before.sha256")
 TARGET_HASH=$(cat "$E/project-target.sha256")
 BEFORE_DESC=$(jq -r '.deploymentConfig.description // ""' "$E/deployment-before.json")
 if [[ "$BEFORE_HASH" == "$TARGET_HASH" && "$BEFORE_DESC" == "Beta77 Nhận hàng rớt final" ]]; then
-  curl -fsSL --connect-timeout 15 --max-time 30 "$GAS_URL" > "$E/live-health.json"
+  curl -fsSL --connect-timeout 15 --max-time 30 -D "$E/live-health.headers" "$GAS_URL" > "$E/live-health.json"
   jq -e '.ok==true and .service=="pick-pack-gsheet-api"' "$E/live-health.json" >/dev/null
+  grep -iq '^content-type:.*application/json' "$E/live-health.headers"
   jq -n --arg target_hash "$TARGET_HASH" --arg status "ALREADY_DEPLOYED" '{status:$status,target_hash:$target_hash,live_health:"PASS"}' > "$E/receipt.json"
   echo 'beta76_outbound_gas=ALREADY_DEPLOYED_PASS'
   exit 0
@@ -104,9 +106,13 @@ j=json.load(open(src,encoding='utf-8'))
 api=next(f for f in j['files'] if f.get('name')=='PICK_PACK_API')
 s=api['source']
 old_get="""function doGet() {\n  return ppJson_({ok:true, service:'pick-pack-gsheet-api', mode:'APP_GSHEET', report_engine:'S12_CURRENT_DAY', business_date:ppBusinessIso_()});\n}\n"""
-new_get="""function doGet(e) {\n  const p=(e&&e.parameter)||{};\n  if(String(p.action||'')==='__beta76_outbound_test') return ppJson_(ppWithLock_(function(){ return ppOutboundSelfTest_({token:String(p.token||'')}); }));\n  return ppJson_({ok:true, service:'pick-pack-gsheet-api', mode:'APP_GSHEET', report_engine:'S12_CURRENT_DAY', business_date:ppBusinessIso_()});\n}\n"""
+new_get="""function doGet(e) {\n  const p=(e&&e.parameter)||{};\n  if(String(p.action||'')==='__beta76_outbound_test' && String(p.token||'')==='__NONCE__') return ppJson_({ok:true,beta77_probe:true});\n  return ppJson_({ok:true, service:'pick-pack-gsheet-api', mode:'APP_GSHEET', report_engine:'S12_CURRENT_DAY', business_date:ppBusinessIso_()});\n}\n""".replace('__NONCE__',nonce)
 assert s.count(old_get)==1,'test GET anchor drift'
 s=s.replace(old_get,new_get,1)
+post_anchor="    const action = String(body.action || '').trim();\n"
+post_test="    if (action === '__beta77_outbound_post_test') return ppJson_(ppWithLock_(function(){ return ppOutboundSelfTest_({token:String(body.token||'')}); }));\n"
+assert s.count(post_anchor)==1,'test POST anchor drift'
+s=s.replace(post_anchor,post_anchor+post_test,1)
 api['source']=s
 out=next(f for f in j['files'] if f.get('name')=='OUTBOUND_DROP_RECEIVE')
 os=out['source']
@@ -147,6 +153,7 @@ function ppOutboundSelfTest_(body){
     if(deny.ok||deny.error!=='OUTBOUND_OWNER_REQUIRED') throw new Error('USER_LOCATION_GUARD_FAIL');
     let x=ppOutboundLocationMutate_(owner,{operation:'CREATE',after:a,event_id:'create-'+suffix}); if(!x.ok) throw new Error('OWNER_CREATE_FAIL_'+JSON.stringify(x));
     x=ppOutboundLocationMutate_(owner,{operation:'UPDATE',before:a,after:b,event_id:'update-'+suffix}); if(!x.ok) throw new Error('OWNER_UPDATE_FAIL_'+JSON.stringify(x));
+    const listed=ppOutboundLocationList_(owner); if(!listed.ok||!listed.locations||listed.locations.indexOf(b)<0) throw new Error('LOCATION_LIST_FAIL_'+JSON.stringify(listed));
     const duplicate=ppOutboundLocationMutate_(owner,{operation:'CREATE',after:b,event_id:'duplicate-'+suffix}); if(duplicate.ok||duplicate.error!=='OUTBOUND_LOCATION_DUPLICATE') throw new Error('DUPLICATE_LOCATION_FAIL');
     const payload={location:b,scan_qr:'2AD7|7081639744|SOWIN8H9KA2BL3C|PB1260823D8CB48|CX1.1.1|5/13',do_number:'7081639744',package_count:13,idempotency_key:record};
     const first=ppOutboundAppend_(owner,payload); if(!first.ok||first.idempotent) throw new Error('APPEND_FAIL_'+JSON.stringify(first));
@@ -162,7 +169,7 @@ function ppOutboundSelfTest_(body){
     if(ppOutboundLocations_().some(function(v){return v===a||v===b;})) throw new Error('LOCATION_CLEANUP_FAIL');
     if(drop.getLastRow()!==beforeRows) throw new Error('REAL_DATA_ROW_COUNT_CHANGED');
     if(JSON.stringify(drop.getDataRange().getDisplayValues())!==beforeData) throw new Error('REAL_DATA_CHANGED');
-    result={ok:true,parser_sample:{do_number:'7081639744',package_count:13},owner_crud:true,user_crud_denied:true,append_once:true,idempotent_retry:true,user_clear_denied:true,admin_clear_denied:true,test_row_cleaned:true,real_data_preserved:true,location_hidden:true,headers:headers,location_protections:lp,drop_protections:dp};
+    result={ok:true,parser_sample:{do_number:'7081639744',package_count:13},owner_crud:true,user_crud_denied:true,location_list_readable:true,append_once:true,idempotent_retry:true,user_clear_denied:true,admin_clear_denied:true,test_row_cleaned:true,real_data_preserved:true,location_hidden:true,headers:headers,location_protections:lp,drop_protections:dp};
   }catch(err){
     try{const f=ppOutboundFindRecord_(drop,record);if(f)drop.deleteRow(f.row);}catch(_){}
     try{const vals=ppOutboundLocations_();for(let i=vals.length-1;i>=0;i--){if(vals[i]===a||vals[i]===b)loc.deleteRow(i+2);}}catch(_){}
@@ -188,15 +195,33 @@ code=$(curl -sS --connect-timeout 15 --max-time 30 -o "$E/test-deployment.json" 
   -H "Authorization: Bearer $ACCESS_TOKEN" -H 'Content-Type: application/json' --data-binary @"$E/test-deployment-put.json" "$api/deployments/$DEPLOYMENT_ID")
 [[ "$code" == 200 ]]
 
-TEST_OK=0
-for attempt in 1 2; do
-  http=$(curl -sSL --connect-timeout 15 --max-time 90 -o "$E/self-test-$attempt.json" -w '%{http_code}' -G \
+# Apps Script can temporarily serve Drive 404 while a Web App version cutover propagates.
+# Initial probe + at most two bounded retries; exact deployment/version remains unchanged.
+PROBE_OK=0
+for attempt in 1 2 3; do
+  http=$(curl -sSL --connect-timeout 15 --max-time 45 -D "$E/probe-$attempt.headers" -o "$E/probe-$attempt.json" -w '%{http_code}' -G \
     --data-urlencode 'action=__beta76_outbound_test' --data-urlencode "token=$NONCE" "$GAS_URL" || printf '000')
-  printf '%s\n' "$http" > "$E/self-test-$attempt.http"
-  if [[ "$http" == 200 ]] && jq -e '.ok==true and .owner_crud==true and .user_crud_denied==true and .append_once==true and .idempotent_retry==true and .user_clear_denied==true and .admin_clear_denied==true and .test_row_cleaned==true and .real_data_preserved==true and .location_hidden==true' "$E/self-test-$attempt.json" >/dev/null 2>&1; then TEST_OK=1; cp "$E/self-test-$attempt.json" "$E/self-test.json"; break; fi
-  [[ "$attempt" == 2 ]] || sleep 30
+  printf '%s\n' "$http" > "$E/probe-$attempt.http"
+  if [[ "$http" == 200 ]] \
+    && grep -iq '^content-type:.*application/json' "$E/probe-$attempt.headers" \
+    && jq -e '.ok==true and .beta77_probe==true' "$E/probe-$attempt.json" >/dev/null 2>&1; then
+    PROBE_OK=1
+    cp "$E/probe-$attempt.json" "$E/probe.json"
+    break
+  fi
+  if [[ "$attempt" == 1 ]]; then sleep 60; elif [[ "$attempt" == 2 ]]; then sleep 120; fi
 done
-[[ "$TEST_OK" == 1 ]]
+[[ "$PROBE_OK" == 1 ]]
+
+# POST through the real /exec Web App. The temporary nonce route exercises the exact Sheet functions,
+# appends one idempotent marker, reads it back, deletes only that marker, and proves real data unchanged.
+POST_BODY=$(jq -nc --arg token "$NONCE" '{action:"__beta77_outbound_post_test",token:$token}')
+POST_HTTP=$(curl -sSL --connect-timeout 15 --max-time 120 -D "$E/self-test.headers" -o "$E/self-test.json" -w '%{http_code}' \
+  -H 'Content-Type: application/json; charset=utf-8' --data-binary "$POST_BODY" "$GAS_URL" || printf '000')
+printf '%s\n' "$POST_HTTP" > "$E/self-test.http"
+[[ "$POST_HTTP" == 200 ]]
+grep -iq '^content-type:.*application/json' "$E/self-test.headers"
+jq -e '.ok==true and .owner_crud==true and .user_crud_denied==true and .location_list_readable==true and .append_once==true and .idempotent_retry==true and .user_clear_denied==true and .admin_clear_denied==true and .test_row_cleaned==true and .real_data_preserved==true and .location_hidden==true' "$E/self-test.json" >/dev/null
 
 # Final content contains no test route/helper; update the same deployment, never create a deployment.
 code=$(curl -sS --connect-timeout 15 --max-time 30 -o "$E/final-content-put.json" -w '%{http_code}' -X PUT \
@@ -223,20 +248,40 @@ ha,a=canon(sys.argv[1]); ht,t=canon(sys.argv[2]); assert ha==ht,(ha,ht)
 api=next(f for f in a['files'] if f.get('name')=='PICK_PACK_API')
 out=next(f for f in a['files'] if f.get('name')=='OUTBOUND_DROP_RECEIVE')
 assert "action === 'outbound_drop_append'" in api['source']
-assert '__beta76_outbound_test' not in api['source'] and '__beta76_outbound_test' not in out['source']
+assert '__beta76_outbound_test' not in api['source'] and '__beta77_outbound_post_test' not in api['source'] and 'ppOutboundSelfTest_' not in out['source']
 open('/tmp/beta76-outbound-gas-evidence/project-after.sha256','w').write(ha)
 PY
 jq -e --argjson v "$FINAL_VERSION" '.deploymentConfig.versionNumber==$v and .deploymentConfig.description=="Beta77 Nhận hàng rớt final"' "$E/deployment-after.json" >/dev/null
+jq -e '.entryPoints[]? | select(.entryPointType=="WEB_APP") | .webApp.entryPointConfig.access=="ANYONE_ANONYMOUS" and .webApp.entryPointConfig.executeAs=="USER_DEPLOYING"' "$E/deployment-after.json" >/dev/null
 
-HEALTH_OK=0
-for attempt in 1 2; do
-  curl -fsSL --connect-timeout 15 --max-time 30 "$GAS_URL" > "$E/live-health-$attempt.json" || true
-  if jq -e '.ok==true and .service=="pick-pack-gsheet-api"' "$E/live-health-$attempt.json" >/dev/null 2>&1; then HEALTH_OK=1; cp "$E/live-health-$attempt.json" "$E/live-health.json"; break; fi
-  sleep $((attempt*2))
+# Wait for final cutover. The temporary POST route must disappear and normal GET must be JSON health.
+FINAL_OK=0
+for attempt in 1 2 3; do
+  GET_HTTP=$(curl -sSL --connect-timeout 15 --max-time 45 -D "$E/live-health-$attempt.headers" -o "$E/live-health-$attempt.json" -w '%{http_code}' "$GAS_URL" || printf '000')
+  TEST_HTTP=$(curl -sSL --connect-timeout 15 --max-time 45 -o "$E/final-route-check-$attempt.json" -w '%{http_code}' \
+    -H 'Content-Type: application/json; charset=utf-8' --data-binary "$POST_BODY" "$GAS_URL" || printf '000')
+  if [[ "$GET_HTTP" == 200 ]] \
+    && grep -iq '^content-type:.*application/json' "$E/live-health-$attempt.headers" \
+    && jq -e '.ok==true and .service=="pick-pack-gsheet-api"' "$E/live-health-$attempt.json" >/dev/null 2>&1 \
+    && ! jq -e '.owner_crud==true' "$E/final-route-check-$attempt.json" >/dev/null 2>&1; then
+    FINAL_OK=1
+    cp "$E/live-health-$attempt.json" "$E/live-health.json"
+    printf '%s\n' "$GET_HTTP" > "$E/live-health.http"
+    break
+  fi
+  if [[ "$attempt" == 1 ]]; then sleep 60; elif [[ "$attempt" == 2 ]]; then sleep 120; fi
 done
-[[ "$HEALTH_OK" == 1 ]]
+[[ "$FINAL_OK" == 1 ]]
 
-jq -n --arg target_hash "$TARGET_HASH" --argjson test_version "$TEST_VERSION" --argjson final_version "$FINAL_VERSION" --slurpfile test "$E/self-test.json" '{status:"PASS",target_hash:$target_hash,test_version:$test_version,final_version:$final_version,self_test:$test[0],live_health:"PASS",deployment_reused:true}' > "$E/receipt.json"
+jq -n \
+  --arg target_hash "$TARGET_HASH" \
+  --arg deployment_id "$DEPLOYMENT_ID" \
+  --arg gas_url "$GAS_URL" \
+  --argjson test_version "$TEST_VERSION" \
+  --argjson final_version "$FINAL_VERSION" \
+  --arg post_http "$POST_HTTP" \
+  --slurpfile test "$E/self-test.json" \
+  '{status:"PASS",target_hash:$target_hash,deployment_id:$deployment_id,gas_url:$gas_url,test_version:$test_version,final_version:$final_version,get_read_only:"PASS",post_http:$post_http,post_contract:"PASS",self_test:$test[0],cleanup:"PASS",real_data_preserved:true,live_health:"PASS",deployment_reused:true,access:"ANYONE_ANONYMOUS",execute_as:"USER_DEPLOYING"}' > "$E/receipt.json"
 MUTATED=0
 trap - EXIT
 echo 'beta76_outbound_gas=PASS'
