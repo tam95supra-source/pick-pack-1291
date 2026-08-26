@@ -43,8 +43,9 @@ jobs:
           test "$(stat -c '%s' "$APK")" = "13196165"
           python3 -m py_compile tools/run_beta76_visual.py
           bash -n tools/run_beta76_visual_v2.sh
-          grep -Fq "uiautomator', 'runtest'" tools/run_beta76_visual.py
-          grep -Fq "setWaitForIdleTimeout(0)" tools/VisualHierarchyDumper.java
+          grep -Fq "'app_process', '/system/bin'" tools/run_beta76_visual.py
+          grep -Fq "UiAutomationShellWrapper wrapper" tools/VisualHierarchyDumper.java
+          ! grep -Fq "waitForIdle" tools/VisualHierarchyDumper.java
           grep -Fq "/data/local/tmp/beta77-window.xml" tools/run_beta76_visual.py
           test -f tools/VisualHierarchyDumper.java
           command -v javac >/dev/null
