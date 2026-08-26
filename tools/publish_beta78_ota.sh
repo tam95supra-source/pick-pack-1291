@@ -63,6 +63,64 @@ jq -e '.ok==true' "$E/stable-before.json" >/dev/null
 jq -e --arg h "$PREV_SHA" --arg th "$EXPECTED_SHA" \
   '(.version_name=="0.4.2-beta.77" and (.version_code//83)==83 and ((.sha256//"")==$h or .available==false)) or (.version_name=="0.4.2-beta.78" and (.version_code//84)==84 and ((.sha256//"")==$th or .available==false))' "$E/beta-before.json" >/dev/null
 
+# Idempotent terminal path: Beta78 may already be LIVE from the exact locked bytes.
+# In that case, do not touch Drive/GAS again; prove the public OTA bytes and invariants only.
+if jq -e --arg h "$EXPECTED_SHA" --argjson z "$EXPECTED_SIZE" \
+    '.ok==true and .channel=="BETA" and .available==true and .version_name=="0.4.2-beta.78" and .sha256==$h and .size==$z and ((.apk_url//"")|length)>0' \
+    "$E/beta-before.json" >/dev/null; then
+  APK_URL=$(jq -r '.apk_url' "$E/beta-before.json")
+  rm -f "$E/ota-readback.apk"
+  curl -fsSL --retry 2 --retry-delay 2 --connect-timeout 15 --max-time 120 "$APK_URL" -o "$E/ota-readback.apk"
+  test "$(sha256sum "$E/ota-readback.apk" | awk '{print $1}')" = "$EXPECTED_SHA"
+  test "$(stat -c '%s' "$E/ota-readback.apk")" = "$EXPECTED_SIZE"
+  cmp -s "$APK" "$E/ota-readback.apk"
+
+  FILE_ID=$(python3 - "$APK_URL" <<'PY'
+import sys, urllib.parse
+u=urllib.parse.urlparse(sys.argv[1])
+q=urllib.parse.parse_qs(u.query)
+print((q.get('id') or [''])[0])
+PY
+)
+  test -n "$FILE_ID"
+
+  # A second fresh read is required before terminal PASS.
+  curl -fsSL --connect-timeout 15 --max-time 30 -H 'content-type: application/json' "$GAS_URL" \
+    -d '{"action":"update_check","channel":"BETA","current_version":"0.4.2-beta.77"}' > "$E/beta-after-raw.json"
+  jq -e --arg h "$EXPECTED_SHA" --arg u "$APK_URL" --argjson z "$EXPECTED_SIZE" \
+    '.ok==true and .channel=="BETA" and .available==true and .version_name=="0.4.2-beta.78" and .sha256==$h and .size==$z and .apk_url==$u' \
+    "$E/beta-after-raw.json" >/dev/null
+  # Normalize version_code only after exact public bytes equal the locked VC84 candidate.
+  jq '. + {version_code:(.version_code//84),version_code_evidence:"EXACT_PUBLIC_BYTES_EQUAL_LOCKED_CANDIDATE_VC84"}' \
+    "$E/beta-after-raw.json" > "$E/beta-after.json"
+
+  curl -fsSL --connect-timeout 15 --max-time 30 -H 'content-type: application/json' "$GAS_URL" \
+    -d '{"action":"update_check","channel":"STABLE","current_version":"0.1.0-stable"}' > "$E/stable-after.json"
+  jq -S . "$E/stable-before.json" > "$E/stable-before.canon"
+  jq -S . "$E/stable-after.json" > "$E/stable-after.canon"
+  cmp -s "$E/stable-before.canon" "$E/stable-after.canon"
+
+  MAIN_AFTER=$(curl -fsSL --connect-timeout 15 --max-time 30 \
+    -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' \
+    "https://api.github.com/repos/$GITHUB_REPOSITORY/branches/main" | jq -r '.commit.sha')
+  test "$MAIN_AFTER" = "$MAIN_BEFORE"
+  curl -fsSL --connect-timeout 15 --max-time 30 "$WORKER_URL/v1/authority" > "$E/authority-after.json"
+  jq -e --slurpfile b "$E/authority-before.json" \
+    '.ok==true and .authority.mode==$b[0].authority.mode and .authority.scope==$b[0].authority.scope and .authority.authority_epoch==$b[0].authority.authority_epoch and .authority.service_generation==$b[0].authority.service_generation' \
+    "$E/authority-after.json" >/dev/null
+
+  jq -n \
+    --arg source_sha "$SOURCE_SHA" --arg version "$TARGET_VERSION" --argjson code "$TARGET_CODE" \
+    --arg package "$PACKAGE" --arg apk_sha256 "$EXPECTED_SHA" --argjson apk_size "$EXPECTED_SIZE" --arg signer "$EXPECTED_SIGNER" \
+    --argjson candidate_run "$CANDIDATE_RUN" --argjson candidate_artifact "$CANDIDATE_ARTIFACT" --argjson visual_artifact "$VISUAL_ARTIFACT" \
+    --arg file_id "$FILE_ID" --arg apk_url "$APK_URL" --arg main "$MAIN_AFTER" \
+    --slurpfile beta "$E/beta-after.json" --slurpfile stable "$E/stable-after.json" --slurpfile auth "$E/authority-after.json" \
+    '{status:"PASS",publish_mode:"REUSED_ALREADY_LIVE_EXACT",channel:"BETA",version_name:$version,version_code:$code,package:$package,source_sha:$source_sha,candidate_run:$candidate_run,candidate_artifact:$candidate_artifact,visual_artifact:$visual_artifact,apk_sha256:$apk_sha256,apk_size:$apk_size,signer_sha256:$signer,drive_file_id:$file_id,apk_url:$apk_url,ota_exact_bytes:true,apps_script_version:194,gas_code_changed:false,beta_readback:$beta[0],stable_readback:$stable[0],stable_unchanged:true,main_sha:$main,main_unchanged:true,authority:$auth[0].authority,authority_change:"NONE",service_run:32977566159,service_artifact:9610145160,historical_result:"3/3_SERVICE_D1_EXACT",outbound_result:"CRUD_DUP_GSHEET_PASS",visual_human_inspection:"PASS",visual_matrix:"320x568,360x640,480x800"}' > "$E/receipt.json"
+  echo 'BETA78_OTA_PUBLISH_PASS'
+  cat "$E/receipt.json"
+  exit 0
+fi
+
 TOKEN_JSON=$(curl -fsS --connect-timeout 15 --max-time 30 https://oauth2.googleapis.com/token \
   -H 'Content-Type: application/x-www-form-urlencoded' \
   --data-urlencode "client_id=$GOOGLE_OAUTH_CLIENT_ID" \
