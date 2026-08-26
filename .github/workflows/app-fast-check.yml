@@ -80,23 +80,26 @@ jobs:
           D1_ID=$(node -e 'const a=JSON.parse(process.argv[1]);const x=a.find(v=>v.name===process.env.D1_NAME);process.stdout.write(x?.uuid||x?.id||"")' "$LIST")
           test -n "$D1_ID"
 
-          curl -fsS -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/services" > "$D/services.json"
+          curl -fsS -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts" > "$D/scripts.json"
           curl -fsS -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/subdomain" > "$D/subdomain.json"
-          jq -e '.success==true' "$D/services.json" >/dev/null
+          jq -e '.success==true' "$D/scripts.json" >/dev/null
           jq -e '.success==true and (.result.subdomain|length>0)' "$D/subdomain.json" >/dev/null
           SUBDOMAIN=$(jq -r '.result.subdomain' "$D/subdomain.json")
 
           : > "$D/healthy.tsv"
           while IFS= read -r name; do
-            [[ "$name" == pick-pack-1291* ]] || continue
+            [[ "$name" == pick-pack-1291* || "$name" == pickpack* ]] || continue
+            sd_http=$(curl -sS -o "$D/subdomain-${name}.json" -w '%{http_code}' -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/$name/subdomain" || printf '000')
+            [[ "$sd_http" == 200 ]] || continue
+            jq -e '.success==true and .result.enabled==true' "$D/subdomain-${name}.json" >/dev/null 2>&1 || continue
             url="https://${name}.${SUBDOMAIN}.workers.dev"
             http=$(curl -sS --connect-timeout 10 --max-time 20 -o "$D/health-${name}.json" -w '%{http_code}' "$url/health" || printf '000')
             if [[ "$http" =~ ^2[0-9][0-9]$ ]] && jq -e --arg gen "$GEN" '.ok==true and .service=="pick-pack-1291-service" and .environment=="production" and (.generation|tostring)==$gen and .authority.mode=="SERVICE_PRIMARY" and .authority.scope=="PRODUCTION"' "$D/health-${name}.json" >/dev/null 2>&1; then
               printf '%s\t%s\n' "$name" "$url" >> "$D/healthy.tsv"
             fi
-          done < <(jq -r '.result[]? | (.id // .name // empty)' "$D/services.json")
+          done < <(jq -r '.result[]? | .id // empty' "$D/scripts.json")
           count=$(wc -l < "$D/healthy.tsv")
-          [[ "$count" -eq 1 ]] || { echo "LIVE_WORKER_MATCH_COUNT=$count" >&2; jq -c '.result[]? | {id,name}' "$D/services.json" >&2; exit 6; }
+          [[ "$count" -eq 1 ]] || { echo "LIVE_WORKER_MATCH_COUNT=$count" >&2; jq -c '.result[]? | {id,modified_on}' "$D/scripts.json" >&2; for f in "$D"/health-*.json; do [[ -e "$f" ]] && { echo "HEALTH_FILE=$f" >&2; jq -c . "$f" >&2 || cat "$f" >&2; }; done; exit 6; }
           IFS=$'\t' read -r LIVE_WORKER_NAME LIVE_SERVICE_URL < "$D/healthy.tsv"
           test -n "$LIVE_WORKER_NAME" && test -n "$LIVE_SERVICE_URL"
 
@@ -118,7 +121,7 @@ jobs:
           PY
 
           npx wrangler deploy --dry-run --config wrangler.preflight.jsonc --outdir "$D/dry-run" > "$D/dry-run.log"
-          test -s "$D/dry-run/worker.js" || test -s "$D/dry-run/index.js" || find "$D/dry-run" -type f -size +0c | grep -q .
+          find "$D/dry-run" -type f -size +0c | grep -q .
           curl -fsS --connect-timeout 10 --max-time 20 "$LIVE_SERVICE_URL/health" > "$D/live-health-before.json"
           jq -e --arg gen "$GEN" '.ok==true and .service=="pick-pack-1291-service" and .environment=="production" and (.generation|tostring)==$gen and .authority.mode=="SERVICE_PRIMARY" and .authority.scope=="PRODUCTION"' "$D/live-health-before.json" >/dev/null
 
