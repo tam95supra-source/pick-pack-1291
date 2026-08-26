@@ -9,7 +9,6 @@ on:
       - app/**
       - service/**
       - google-apps-script/**
-      - tools/apply_beta77_owner_fixes.py
       - tools/deploy_beta76_outbound_gas.sh
       - gradle.properties
       - .github/workflows/app-fast-check.yml
@@ -21,7 +20,7 @@ on:
       - gradle.properties
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: app-fast-check-${{ github.ref }}
@@ -42,109 +41,6 @@ jobs:
         with:
           fetch-depth: 2
 
-      - name: Materialize Beta77 owner fixes
-        if: github.ref_name == 'feature/beta77-owner-fixes-20260826'
-        shell: bash
-        run: |
-          set -euo pipefail
-          if grep -q 'versionName = "0.4.2-beta.76"' app/build.gradle.kts; then
-            python3 - <<'PY'
-          from pathlib import Path
-          p=Path('tools/apply_beta77_owner_fixes.py')
-          s=p.read_text(encoding='utf-8')
-          s=s.replace('type;} \\', 'type;}\\')
-          p.write_text(s,encoding='utf-8')
-          PY
-            python3 tools/apply_beta77_owner_fixes.py
-            if ! git diff --quiet; then
-              git config user.name 'github-actions[bot]'
-              git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-              git add app/build.gradle.kts \
-                app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt \
-                app/src/main/java/vn/pickpack1291/app/beta/DropReceiveFeature.kt \
-                app/src/main/java/vn/pickpack1291/app/beta/OldSessionWarningFeature.kt \
-                app/src/main/java/vn/pickpack1291/app/beta/M2RuntimeBridge.kt \
-                service/src/mobile_hotfix.ts \
-                google-apps-script/OUTBOUND_DROP_RECEIVE.gs
-              git commit -m 'fix(beta77): owner requested drop receive and cross-day session fixes'
-              git push origin "HEAD:${GITHUB_REF_NAME}"
-            fi
-          fi
-
-      - name: Persist Beta77 live-safe harness and smooth employee render
-        if: github.ref_name == 'feature/beta77-owner-fixes-20260826'
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 - <<'PY'
-          from pathlib import Path
-
-          def replace_once(text, old, new, label):
-              if old in text:
-                  if text.count(old) != 1:
-                      raise SystemExit(f'{label}: anchor count {text.count(old)}')
-                  return text.replace(old, new, 1)
-              if new not in text:
-                  raise SystemExit(f'{label}: neither old nor new anchor found')
-              return text
-
-          p=Path('tools/deploy_beta76_outbound_gas.sh')
-          s=p.read_text(encoding='utf-8')
-          s=replace_once(s,
-              '''test_route="    if (action === '__beta76_outbound_test') return ppJson_(ppOutboundSelfTest_(body));\\n"''',
-              '''test_route="    if (action === '__beta76_outbound_test') return ppJson_(ppWithLock_(function(){ return ppOutboundSelfTest_(body); }));\\n"''',
-              'self-test lock route')
-          s=replace_once(s,
-              '''  if(!loc.isSheetHidden()) return {ok:false,error:'LOCATION_TAB_NOT_HIDDEN'};''',
-              '''  if(!loc.isSheetHidden()) loc.hideSheet();\n  if(!loc.isSheetHidden()) return {ok:false,error:'LOCATION_TAB_NOT_HIDDEN'};''',
-              'location hidden gate')
-          s=replace_once(s,
-              '''  if(drop.getLastRow()>1) return {ok:false,error:'REAL_DATA_PRESENT',data_rows:drop.getLastRow()-1};''',
-              '''  const beforeData=JSON.stringify(drop.getDataRange().getDisplayValues()), beforeRows=drop.getLastRow();''',
-              'real data baseline')
-          s=replace_once(s,
-              '''  const owner={login_id:PP_OUTBOUND.OWNER_LOGIN,role:'SUPERADMIN',display_name:'Beta76 Test',__beta76_test:true};\n  const user={login_id:'beta76_user_test',role:'USER',display_name:'Beta76 User',__beta76_test:true};\n  const admin={login_id:'beta76_admin_test',role:'ADMIN',display_name:'Beta76 Admin',__beta76_test:true};\n  const record='__B76_TEST_ROW_'+suffix, clearId='__B76_TEST_CLEAR_'+suffix;''',
-              '''  const owner={login_id:'beta77_owner_test',role:'SUPERADMIN',display_name:'Beta77 Test',email:PP_OUTBOUND.OWNER_EMAIL,__beta76_test:true};\n  const user={login_id:'beta77_user_test',role:'USER',display_name:'Beta77 User',email:'beta77-user@example.invalid',__beta76_test:true};\n  const admin={login_id:'beta77_admin_test',role:'ADMIN',display_name:'Beta77 Admin',email:'beta77-admin@example.invalid',__beta76_test:true};\n  const record='__B77_TEST_ROW_'+suffix;''',
-              'self-test auth')
-          s=replace_once(s,
-              '''    if(drop.getLastRow()-1!==1) throw new Error('APPEND_ROW_COUNT_FAIL_'+String(drop.getLastRow()-1));''',
-              '''    if(drop.getLastRow()!==beforeRows+1) throw new Error('APPEND_ROW_COUNT_FAIL_'+String(drop.getLastRow()));''',
-              'append row count')
-          s=replace_once(s,
-              '''    const cleared=ppOutboundClear_(owner,{idempotency_key:clearId}); if(!cleared.ok||Number(cleared.remaining)!==0) throw new Error('SUPER_CLEAR_FAIL_'+JSON.stringify(cleared));\n    PropertiesService.getScriptProperties().deleteProperty('PP_MASTER_EVT_'+ppSha256Hex_(clearId).slice(0,32));\n    x=ppOutboundLocationMutate_(owner,{operation:'DELETE',before:b,event_id:'delete-'+suffix}); if(!x.ok) throw new Error('OWNER_DELETE_FAIL_'+JSON.stringify(x));\n    if(ppOutboundLocations_().some(function(v){return v===a||v===b;})) throw new Error('LOCATION_CLEANUP_FAIL');\n    if(drop.getLastRow()>1) throw new Error('DATA_CLEANUP_FAIL');\n    result={ok:true,parser_sample:{do_number:'7081639744',package_count:13},owner_crud:true,user_crud_denied:true,append_once:true,idempotent_retry:true,user_clear_denied:true,admin_clear_denied:true,superadmin_clear:true,readback_empty:true,location_hidden:true,headers:headers,location_protections:lp,drop_protections:dp};''',
-              '''    const marker=ppOutboundFindRecord_(drop,record); if(!marker) throw new Error('TEST_ROW_CLEANUP_MISSING');\n    drop.deleteRow(marker.row); SpreadsheetApp.flush();\n    x=ppOutboundLocationMutate_(owner,{operation:'DELETE',before:b,event_id:'delete-'+suffix}); if(!x.ok) throw new Error('OWNER_DELETE_FAIL_'+JSON.stringify(x));\n    if(ppOutboundLocations_().some(function(v){return v===a||v===b;})) throw new Error('LOCATION_CLEANUP_FAIL');\n    if(drop.getLastRow()!==beforeRows) throw new Error('REAL_DATA_ROW_COUNT_CHANGED');\n    if(JSON.stringify(drop.getDataRange().getDisplayValues())!==beforeData) throw new Error('REAL_DATA_CHANGED');\n    result={ok:true,parser_sample:{do_number:'7081639744',package_count:13},owner_crud:true,user_crud_denied:true,append_once:true,idempotent_retry:true,user_clear_denied:true,admin_clear_denied:true,test_row_cleaned:true,real_data_preserved:true,location_hidden:true,headers:headers,location_protections:lp,drop_protections:dp};''',
-              'live-safe cleanup')
-          s=replace_once(s,
-              '''    try{PropertiesService.getScriptProperties().deleteProperty('PP_MASTER_EVT_'+ppSha256Hex_(clearId).slice(0,32));}catch(_){}\n''',
-              '''''',
-              'clear property cleanup')
-          s=replace_once(s,
-              '''.superadmin_clear==true and .readback_empty==true''',
-              '''.test_row_cleaned==true and .real_data_preserved==true''',
-              'self-test predicate')
-          old_loop='''TEST_OK=0\nfor attempt in 1 2; do\n  curl -fsSL --connect-timeout 15 --max-time 60 -H 'Content-Type: application/json' -d "{\\"action\\":\\"__beta76_outbound_test\\",\\"token\\":\\"$NONCE\\"}" "$GAS_URL" > "$E/self-test-$attempt.json" || true\n  if jq -e '.ok==true and .owner_crud==true and .user_crud_denied==true and .append_once==true and .idempotent_retry==true and .user_clear_denied==true and .admin_clear_denied==true and .test_row_cleaned==true and .real_data_preserved==true and .location_hidden==true' "$E/self-test-$attempt.json" >/dev/null 2>&1; then TEST_OK=1; cp "$E/self-test-$attempt.json" "$E/self-test.json"; break; fi\n  sleep $((attempt*2))\ndone\n[[ "$TEST_OK" == 1 ]]'''
-          new_loop='''TEST_OK=0\nfor attempt in 1 2; do\n  http=$(curl -sSL --connect-timeout 15 --max-time 90 -o "$E/self-test-$attempt.json" -w '%{http_code}' -H 'Content-Type: application/json' -d "{\\"action\\":\\"__beta76_outbound_test\\",\\"token\\":\\"$NONCE\\"}" "$GAS_URL" || printf '000')\n  printf '%s\\n' "$http" > "$E/self-test-$attempt.http"\n  if [[ "$http" == 200 ]] && jq -e '.ok==true and .owner_crud==true and .user_crud_denied==true and .append_once==true and .idempotent_retry==true and .user_clear_denied==true and .admin_clear_denied==true and .test_row_cleaned==true and .real_data_preserved==true and .location_hidden==true' "$E/self-test-$attempt.json" >/dev/null 2>&1; then TEST_OK=1; cp "$E/self-test-$attempt.json" "$E/self-test.json"; break; fi\n  [[ "$attempt" == 2 ]] || sleep 30\ndone\n[[ "$TEST_OK" == 1 ]]'''
-          s=replace_once(s,old_loop,new_loop,'GAS propagation retry')
-          s=s.replace('Beta76 Nhận hàng rớt temporary self-test','Beta77 Nhận hàng rớt temporary self-test')
-          s=s.replace('Beta76 Nhận hàng rớt final','Beta77 Nhận hàng rớt final')
-          p.write_text(s,encoding='utf-8')
-
-          p=Path('app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt')
-          s=p.read_text(encoding='utf-8')
-          old='''            body.addView(status("ĐANG ĐỒNG BỘ TÀI NGUYÊN PHIÊN...",blue,Color.rgb(237,244,255)))\n            root.addView(ScrollView(this).apply{addView(body)},LinearLayout.LayoutParams(-1,0,1f));setScreen(root);hideKeyboardForResult(root,scan)\n            val generation=employeeLookupGeneration;api.call("session_resource_snapshot",JSONObject().put("session_id",sessionId).put("mnv",currentMnv)){r->runOnUiThread{'''
-          new='''            // Beta77: keep the already rendered employee view while the resource snapshot arrives; never attach an intermediate full tree.\n            val generation=employeeLookupGeneration;api.call("session_resource_snapshot",JSONObject().put("session_id",sessionId).put("mnv",currentMnv)){r->runOnUiThread{'''
-          s=replace_once(s,old,new,'employee snapshot intermediate render')
-          p.write_text(s,encoding='utf-8')
-          PY
-
-          if ! git diff --quiet; then
-            git config user.name 'github-actions[bot]'
-            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-            git add tools/deploy_beta76_outbound_gas.sh app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt
-            git commit -m 'test(beta77): tolerate GAS deployment propagation'
-            git push origin "HEAD:${GITHUB_REF_NAME}"
-          fi
-
       - name: Detect changed code inputs
         id: scope
         shell: bash
@@ -156,21 +52,7 @@ jobs:
             echo 'code_changed=false' >> "$GITHUB_OUTPUT"
           fi
 
-      - uses: actions/setup-java@v5
-        if: steps.scope.outputs.code_changed == 'true'
-        with:
-          distribution: temurin
-          java-version: '17'
-      - uses: gradle/actions/setup-gradle@v4
-        if: steps.scope.outputs.code_changed == 'true'
-        with:
-          gradle-version: '9.4.1'
-      - uses: actions/setup-node@v4
-        if: steps.scope.outputs.code_changed == 'true'
-        with:
-          node-version: '22'
-
-      - name: Focused source gates
+      - name: Focused Beta77 source gates
         shell: bash
         run: |
           set -euo pipefail
@@ -194,8 +76,22 @@ jobs:
           grep -Fq 'PP_OUTBOUND_LOCATIONS_V1' google-apps-script/OUTBOUND_DROP_RECEIVE.gs
           grep -Fq 'real_data_preserved:true' tools/deploy_beta76_outbound_gas.sh
           grep -Fq 'ppWithLock_(function(){ return ppOutboundSelfTest_(body); })' tools/deploy_beta76_outbound_gas.sh
-          grep -Fq "-w '%{http_code}'" tools/deploy_beta76_outbound_gas.sh
+          grep -Fq -- "-w '%{http_code}'" tools/deploy_beta76_outbound_gas.sh
           git diff --check HEAD^ HEAD
+
+      - uses: actions/setup-java@v5
+        if: steps.scope.outputs.code_changed == 'true'
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        if: steps.scope.outputs.code_changed == 'true'
+        with:
+          gradle-version: '9.4.1'
+      - uses: actions/setup-node@v4
+        if: steps.scope.outputs.code_changed == 'true'
+        with:
+          node-version: '22'
 
       - name: Service typecheck
         if: steps.scope.outputs.code_changed == 'true'
