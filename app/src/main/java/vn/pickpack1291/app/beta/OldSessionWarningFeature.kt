@@ -18,7 +18,7 @@ import org.json.JSONObject
 object OldSessionWarningFeature {
     private data class Item(val sessionId:String,val mnv:String,val name:String,val date:String,val shift:String,val pda:String,val enterAt:String)
 
-    fun build(activity:Activity,api:BetaApiClient,@Suppress("UNUSED_PARAMETER") onOpen:(String)->Unit):View{
+    fun build(activity:Activity,api:BetaApiClient,onOpen:(JSONObject)->Unit):View{
         val d=activity.resources.displayMetrics.density
         fun dp(v:Int)=(v*d).toInt()
         fun round(color:Int,r:Int)=GradientDrawable().apply{setColor(color);cornerRadius=dp(r).toFloat()}
@@ -73,11 +73,17 @@ object OldSessionWarningFeature {
                     }
                     AlertDialog.Builder(activity).setTitle("Không mở được phiên cũ").setMessage(msg).setPositiveButton("Đóng",null).show();return@runOnUiThread
                 }
-                val j=r.json?:JSONObject();val identity=j.optJSONObject("identity")?:JSONObject();val s=j.optJSONObject("session")?:JSONObject();val e=j.optJSONObject("employee")?:JSONObject();val labor=j.optJSONArray("labor")?:JSONArray();val timeline=j.optJSONArray("timeline")?:JSONArray()
-                val box=LinearLayout(activity).apply{orientation=LinearLayout.VERTICAL;setPadding(dp(14),dp(8),dp(14),dp(10))}
-                fun row(label:String,value:Any?){box.addView(txt("$label: ${dash(value)}",10.4f,Color.rgb(24,44,42),label in setOf("Mã nhân viên","Ngày nghiệp vụ","Trạng thái")))}
-                row("Session ID",identity.optString("session_id"));row("Mã nhân viên",identity.optString("mnv"));row("Họ tên",e.optString("full_name").ifBlank{item.name});row("Ngày nghiệp vụ",identity.optString("business_date"));row("Ca",s.optString("shift"));row("Trạng thái",s.optString("state"));row("Vị trí",s.optString("work_choice"));row("Vào ca",s.optString("enter_at"));row("Ra ca",s.optString("exit_at"));row("PDA",s.optString("pda_serial"));row("Tình trạng PDA vào",s.optString("pda_enter_status"));row("Tình trạng PDA ra",s.optString("pda_exit_status"));row("User Pick",s.optString("user_pick"));row("Bàn Pack",s.optString("pack_table"));row("User Pack",s.optString("user_pack"));row("Ghi chú",s.optString("resource_note"));row("Công nhật",if(labor.length()>0)"${labor.length()} mục" else "Không có");row("Sự kiện",if(timeline.length()>0)"${timeline.length()} mục" else "Không có")
-                AlertDialog.Builder(activity).setTitle("Chi tiết đúng phiên ${item.date}").setView(ScrollView(activity).apply{addView(box)}).setPositiveButton("Đóng",null).show()
+                val j=r.json?:JSONObject()
+                val identity=j.optJSONObject("identity")?:JSONObject()
+                val session=j.optJSONObject("session")?:JSONObject()
+                val exactSessionId=identity.optString("session_id").ifBlank{session.optString("session_id")}.trim()
+                val exactMnv=identity.optString("mnv").ifBlank{session.optString("mnv")}.trim()
+                val exactDate=identity.optString("business_date").ifBlank{session.optString("business_date")}.trim()
+                if(exactSessionId!=item.sessionId||exactMnv!=item.mnv||exactDate!=item.date){
+                    AlertDialog.Builder(activity).setTitle("Không mở được phiên cũ").setMessage("Dữ liệu trả về không khớp đúng phiên đã chọn.").setPositiveButton("Đóng",null).show()
+                    return@runOnUiThread
+                }
+                onOpen(j)
             }}
         }
         fun showList(){
