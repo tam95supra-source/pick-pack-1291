@@ -227,7 +227,7 @@ jobs:
         run: |
           set -euo pipefail
           for n in CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID; do test -n "${!n:-}"; done
-          npm run check
+          npm run typecheck
           D=/tmp/beta77-service-preflight
           rm -rf "$D" && mkdir -p "$D"
           AUTH=$(npx wrangler d1 execute "$D1_NAME" --remote --command "SELECT authority_epoch,authority_seq,mode,scope,service_generation FROM authority_state WHERE singleton_id=1;" --json)
