@@ -37,6 +37,12 @@ lines[start:end] = ['# Drive metadata is read back through the connected Drive v
 src = ''.join(lines)
 assert needle not in src
 assert 'drive.usercontent.google.com/download?id=$SUM_ID' in src
+
+old_before = "'.ok==true and .version_name==$v and ((.version_code // $c)==$c) and .sha256==$h and .size==$z' \"$E/beta-before.json\" >/dev/null"
+new_before = "'.ok==true and ((.version_name==$v and ((.version_code // $c)==$c) and .sha256==$h and .size==$z) or (.version_name==\"0.4.2-beta.76\" and .version_code==82 and .sha256==\"7018977f28d09434de27e6c6e90a7a51ec11c77831285d7e466c7aeeeeef9ee2\" and .size==13179781))' \"$E/beta-before.json\" >/dev/null"
+assert old_before in src, 'beta-before verifier anchor drift'
+src = src.replace(old_before, new_before, 1)
+
 Path(sys.argv[2]).write_text(src, encoding='utf-8')
 PY
 
