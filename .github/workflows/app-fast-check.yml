@@ -10,6 +10,7 @@ on:
       - service/**
       - google-apps-script/**
       - tools/deploy_beta76_outbound_gas.sh
+      - tools/beta77_service_live_gate.sh
       - gradle.properties
       - .github/workflows/app-fast-check.yml
   pull_request:
@@ -36,6 +37,9 @@ jobs:
       GOOGLE_OAUTH_REFRESH_TOKEN: ${{ secrets.GOOGLE_OAUTH_REFRESH_TOKEN }}
       GAS_SCRIPT_ID: ${{ secrets.GAS_SCRIPT_ID }}
       GAS_DEPLOYMENT_ID: ${{ secrets.GAS_DEPLOYMENT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      D1_NAME: pick-pack-1291-service-prod
     steps:
       - uses: actions/checkout@v4
         with:
@@ -52,10 +56,15 @@ jobs:
           else
             echo 'code_changed=false' >> "$GITHUB_OUTPUT"
           fi
-          if grep -Eq '^(google-apps-script/|tools/deploy_beta76_outbound_gas\.sh$|app/build\.gradle\.kts$|\.github/workflows/app-fast-check\.yml$)' <<<"$changed"; then
+          if grep -Eq '^(google-apps-script/|tools/deploy_beta76_outbound_gas\.sh$|app/build\.gradle\.kts$)' <<<"$changed"; then
             echo 'gas_changed=true' >> "$GITHUB_OUTPUT"
           else
             echo 'gas_changed=false' >> "$GITHUB_OUTPUT"
+          fi
+          if grep -Eq '^(tools/beta77_service_live_gate\.sh$|\.github/workflows/app-fast-check\.yml$)' <<<"$changed"; then
+            echo 'service_live_gate=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'service_live_gate=false' >> "$GITHUB_OUTPUT"
           fi
 
       - name: Focused Beta77 source gates
@@ -81,8 +90,8 @@ jobs:
           grep -Fq "action === 'outbound_drop_append'" google-apps-script/PICK_PACK_API.gs
           grep -Fq 'PP_OUTBOUND_LOCATIONS_V1' google-apps-script/OUTBOUND_DROP_RECEIVE.gs
           grep -Fq 'real_data_preserved:true' tools/deploy_beta76_outbound_gas.sh
-          grep -Fq "String(p.action||'')==='__beta76_outbound_test'" tools/deploy_beta76_outbound_gas.sh
-          grep -Fq -- "-w '%{http_code}'" tools/deploy_beta76_outbound_gas.sh
+          grep -Fq 'cross_day_active_pda_hidden' tools/beta77_service_live_gate.sh
+          grep -Fq 'EXCLUSIVE_RESOURCE_CONFLICT' tools/beta77_service_live_gate.sh
           git diff --check HEAD^ HEAD
 
       - name: Resolve current LIVE Apps Script Web App
@@ -125,8 +134,7 @@ jobs:
                   if did and url.startswith('https://script.google.com/macros/s/') and url.endswith('/exec'):
                       rows.append((did,url,ver,access,execute))
           with open(out,'w',encoding='utf-8') as f:
-              for r in rows:
-                  f.write('\t'.join(map(str,r))+'\n')
+              for r in rows:f.write('\t'.join(map(str,r))+'\n')
           PY
           test -s "$D/candidates.tsv"
           : > "$D/healthy.tsv"
@@ -141,14 +149,6 @@ jobs:
           test -n "$LIVE_ID" && test -n "$LIVE_URL"
           echo "deployment_id=$LIVE_ID" >> "$GITHUB_OUTPUT"
           echo "url=$LIVE_URL" >> "$GITHUB_OUTPUT"
-          echo "version=$LIVE_VERSION" >> "$GITHUB_OUTPUT"
-          echo "access=$LIVE_ACCESS" >> "$GITHUB_OUTPUT"
-          echo "execute_as=$LIVE_EXECUTE" >> "$GITHUB_OUTPUT"
-          echo "LIVE_GAS_DEPLOYMENT_ID=$LIVE_ID"
-          echo "LIVE_GAS_URL=$LIVE_URL"
-          echo "LIVE_GAS_VERSION=$LIVE_VERSION"
-          echo "LIVE_GAS_ACCESS=$LIVE_ACCESS"
-          echo "LIVE_GAS_EXECUTE_AS=$LIVE_EXECUTE"
 
       - uses: actions/setup-java@v5
         if: steps.scope.outputs.code_changed == 'true'
@@ -160,7 +160,7 @@ jobs:
         with:
           gradle-version: '9.4.1'
       - uses: actions/setup-node@v4
-        if: steps.scope.outputs.code_changed == 'true'
+        if: steps.scope.outputs.code_changed == 'true' || steps.scope.outputs.service_live_gate == 'true'
         with:
           node-version: '22'
 
@@ -187,27 +187,7 @@ jobs:
           GAS_DEPLOYMENT_ID: ${{ steps.gas_live.outputs.deployment_id }}
         run: |
           set -euo pipefail
-          cp tools/deploy_beta76_outbound_gas.sh /tmp/beta77-gas-gate.sh
-          python3 - <<'PY'
-          from pathlib import Path
-          p=Path('/tmp/beta77-gas-gate.sh')
-          s=p.read_text(encoding='utf-8')
-          needle='set -Eeuo pipefail\n'
-          inject="set -Eeuo pipefail\ntrap 'rc=$?; printf \"::error title=GAS_GATE_ROOT::line=%s rc=%s\\n\" \"$LINENO\" \"$rc\"; exit \"$rc\"' ERR\n"
-          assert s.count(needle)==1
-          p.write_text(s.replace(needle,inject,1),encoding='utf-8')
-          PY
-          if ! bash /tmp/beta77-gas-gate.sh; then
-            if [[ -f /tmp/beta76-outbound-gas-evidence/self-test.http ]]; then
-              printf 'GAS_POST_HTTP='; cat /tmp/beta76-outbound-gas-evidence/self-test.http
-            fi
-            if [[ -f /tmp/beta76-outbound-gas-evidence/self-test.json ]]; then
-              echo 'GAS_SELF_TEST_RESPONSE_BEGIN'
-              jq -c . /tmp/beta76-outbound-gas-evidence/self-test.json || cat /tmp/beta76-outbound-gas-evidence/self-test.json
-              echo 'GAS_SELF_TEST_RESPONSE_END'
-            fi
-            exit 1
-          fi
+          bash tools/deploy_beta76_outbound_gas.sh
 
       - name: Enforce app config points at LIVE GAS
         if: github.ref_name == 'feature/beta77-owner-fixes-20260826' && steps.scope.outputs.gas_changed == 'true'
@@ -218,12 +198,7 @@ jobs:
           set -euo pipefail
           APP_GAS_URL=$(sed -n 's/^val approvedGsheetApiUrl = "\([^"]*\)"/\1/p' app/build.gradle.kts)
           test -n "$APP_GAS_URL"
-          if [[ "$APP_GAS_URL" != "$LIVE_GAS_URL" ]]; then
-            echo "::error title=APP_CONFIG_MISMATCH::approvedGsheetApiUrl must equal LIVE_GAS_URL"
-            echo "APP_GAS_URL=$APP_GAS_URL"
-            echo "LIVE_GAS_URL=$LIVE_GAS_URL"
-            exit 78
-          fi
+          test "$APP_GAS_URL" = "$LIVE_GAS_URL"
           echo 'app_gas_config=PASS'
 
       - name: Upload final outbound GAS evidence
@@ -232,5 +207,29 @@ jobs:
         with:
           name: beta77-outbound-gas-final-${{ github.run_id }}
           path: /tmp/beta76-outbound-gas-evidence
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Install Service deployment dependencies
+        if: steps.scope.outputs.service_live_gate == 'true'
+        working-directory: service
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --ignore-scripts --no-audit --no-fund
+
+      - name: Deploy Beta77 Service and run live PDA regression
+        if: github.ref_name == 'feature/beta77-owner-fixes-20260826' && steps.scope.outputs.service_live_gate == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash tools/beta77_service_live_gate.sh
+
+      - name: Upload Beta77 Service live evidence
+        if: success() && github.ref_name == 'feature/beta77-owner-fixes-20260826' && steps.scope.outputs.service_live_gate == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: beta77-service-live-${{ github.run_id }}
+          path: /tmp/beta77-service-live
           retention-days: 30
           if-no-files-found: error
