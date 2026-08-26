@@ -78,11 +78,34 @@ def shot(name, expected_size):
 
 
 def dump_ui(tag):
-    adb('shell', 'uiautomator', 'dump', '/sdcard/beta77-window.xml', check=False, timeout=30)
-    raw = adb('shell', 'cat', '/sdcard/beta77-window.xml', check=False, timeout=10).stdout
-    rec(f'{tag}-ui.xml', raw)
-    assert '<hierarchy' in raw, f'{tag}: UI hierarchy unavailable'
-    return raw
+    path = '/data/local/tmp/beta77-window.xml'
+    diagnostics = []
+    last_raw = ''
+    for attempt in range(1, 7):
+        adb('wait-for-device', check=False, timeout=30)
+        adb('shell', 'rm', '-f', path, check=False, timeout=10)
+        result = adb(
+            'shell', 'uiautomator', 'dump', '--compressed', path,
+            check=False, timeout=30,
+        )
+        raw = adb('shell', 'cat', path, check=False, timeout=10).stdout
+        last_raw = raw
+        diagnostics.append(
+            f'attempt={attempt} dump={result.stdout.strip()} bytes={len(raw.encode("utf-8"))}'
+        )
+        if '<hierarchy' in raw:
+            try:
+                ET.fromstring(raw)
+            except ET.ParseError as exc:
+                diagnostics.append(f'attempt={attempt} parse_error={exc}')
+            else:
+                rec(f'{tag}-ui.xml', raw)
+                rec(f'{tag}-ui-dump.txt', '\n'.join(diagnostics) + '\n')
+                return raw
+        time.sleep(min(attempt, 3))
+    rec(f'{tag}-ui.xml', last_raw)
+    rec(f'{tag}-ui-dump.txt', '\n'.join(diagnostics) + '\n')
+    raise AssertionError(f'{tag}: UI hierarchy unavailable after 6 bounded attempts')
 
 
 def visible_texts(tag):
