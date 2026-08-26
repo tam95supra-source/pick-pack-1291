@@ -4,8 +4,10 @@ import html
 import json
 import os
 import sqlite3
+import struct
 import subprocess
 import time
+import zlib
 from datetime import datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -166,6 +168,76 @@ def shot(name, expected_size):
     return data
 
 
+def png_pixels(data):
+    assert data[:8] == b'\x89PNG\r\n\x1a\n'
+    pos = 8
+    idat = []
+    width = height = color_type = depth = interlace = None
+    while pos < len(data):
+        length = struct.unpack('>I', data[pos:pos + 4])[0]
+        kind = data[pos + 4:pos + 8]
+        chunk = data[pos + 8:pos + 8 + length]
+        pos += 12 + length
+        if kind == b'IHDR':
+            width, height, depth, color_type, _, _, interlace = struct.unpack('>IIBBBBB', chunk)
+        elif kind == b'IDAT':
+            idat.append(chunk)
+        elif kind == b'IEND':
+            break
+    assert depth == 8 and interlace == 0
+    channels = {0: 1, 2: 3, 4: 2, 6: 4}[color_type]
+    raw = zlib.decompress(b''.join(idat))
+    stride = width * channels
+    rows = []
+    previous = bytearray(stride)
+    offset = 0
+
+    def paeth(a, b, c):
+        estimate = a + b - c
+        da, db, dc = abs(estimate - a), abs(estimate - b), abs(estimate - c)
+        return a if da <= db and da <= dc else (b if db <= dc else c)
+
+    for _ in range(height):
+        mode = raw[offset]
+        offset += 1
+        current = bytearray(raw[offset:offset + stride])
+        offset += stride
+        for index in range(stride):
+            left = current[index - channels] if index >= channels else 0
+            above = previous[index]
+            upper_left = previous[index - channels] if index >= channels else 0
+            if mode == 1:
+                current[index] = (current[index] + left) & 255
+            elif mode == 2:
+                current[index] = (current[index] + above) & 255
+            elif mode == 3:
+                current[index] = (current[index] + ((left + above) // 2)) & 255
+            elif mode == 4:
+                current[index] = (current[index] + paeth(left, above, upper_left)) & 255
+            elif mode != 0:
+                raise AssertionError(f'unsupported PNG filter {mode}')
+        rows.append(current)
+        previous = current
+    return width, height, channels, rows
+
+
+def changed_ratio(before, after):
+    bw, bh, bc, br = png_pixels(before)
+    aw, ah, ac, ar = png_pixels(after)
+    assert (bw, bh) == (aw, ah)
+    changed = sampled = 0
+    for y in range(0, bh, 3):
+        for x in range(0, bw, 3):
+            bp = br[y][x * bc:(x + 1) * bc]
+            ap = ar[y][x * ac:(x + 1) * ac]
+            bv = [bp[0]] * 3 if bc < 3 else bp[:3]
+            av = [ap[0]] * 3 if ac < 3 else ap[:3]
+            sampled += 1
+            if sum(abs(int(av[i]) - int(bv[i])) for i in range(3)) >= 60:
+                changed += 1
+    return changed / max(1, sampled)
+
+
 def assert_activity(tag):
     state = adb('shell', 'dumpsys', 'activity', 'activities', check=False).stdout
     rec(f'{tag}-activity.txt', state[-12000:])
@@ -227,10 +299,20 @@ def capture_old_session(tag, size):
     width, _ = size
     launch(tag + '-old-session', 'old')
     home = shot(f'{tag}-old-session-warning.png', size)
-    adb('shell', 'input', 'tap', str(width // 2), '170')
-    time.sleep(.8)
-    dialog = shot(f'{tag}-old-session-dialog.png', size)
-    assert hashlib.sha256(dialog).digest() != hashlib.sha256(home).digest(), f'{tag}: old-session dialog did not open'
+    dialog = None
+    evidence = []
+    for y in (160, 176, 188):
+        adb('shell', 'input', 'tap', str(width // 2), str(y))
+        time.sleep(.8)
+        probe = shot(f'{tag}-old-session-dialog-probe-{y}.png', size)
+        ratio = changed_ratio(home, probe)
+        evidence.append(f'y={y} changed_ratio={ratio:.4f}')
+        if ratio >= .08:
+            dialog = probe
+            rec(f'{tag}-old-session-dialog.png', dialog)
+            break
+    rec(f'{tag}-old-session-dialog-ratio.txt', '\n'.join(evidence) + '\n')
+    assert dialog is not None, f'{tag}: old-session dialog did not open; {evidence}'
     adb('shell', 'input', 'keyevent', '4')
     time.sleep(.4)
 
