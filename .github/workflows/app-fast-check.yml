@@ -1,41 +1,59 @@
 name: App fast check
 
 on:
-  push:
-    branches:
-      - agent/**
-      - feature/**
-    paths:
-      - app/**
-      - gradle.properties
   pull_request:
-    paths:
-      - app/**
-      - gradle.properties
+    branches:
+      - release/beta71-clean-from-beta68-20260825-handoff-temp
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
-  group: app-fast-check-${{ github.ref }}
-  cancel-in-progress: true
+  group: beta78-exact-ota-request-trigger
+  cancel-in-progress: false
 
 jobs:
-  android:
+  publish-beta78-exact:
     runs-on: ubuntu-24.04
     timeout-minutes: 25
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+      GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+      GOOGLE_OAUTH_REFRESH_TOKEN: ${{ secrets.GOOGLE_OAUTH_REFRESH_TOKEN }}
+      GAS_SCRIPT_ID: ${{ secrets.GAS_SCRIPT_ID }}
+      GAS_DEPLOYMENT_ID: ${{ secrets.GAS_DEPLOYMENT_ID }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v5
+      - name: Checkout exact Beta78 release carrier
+        uses: actions/checkout@v4
         with:
-          distribution: temurin
-          java-version: '17'
-      - uses: gradle/actions/setup-gradle@v4
+          ref: feature/beta78-old-session-outbound-service-20260826
+          fetch-depth: 0
+
+      - name: Download exact locked Beta78 candidate
+        uses: actions/download-artifact@v4
         with:
-          gradle-version: '9.4.1'
-      - name: Static and debug build
+          name: beta78-candidate-32978373007
+          path: /tmp/beta78-candidate
+          github-token: ${{ github.token }}
+          repository: tam95supra-source/pick-pack-1291
+          run-id: 32978373007
+
+      - name: Publish exact bytes to Drive Beta and OTA
+        shell: bash
         run: |
           set -euo pipefail
-          grep -q 'versionCode = 1' app/build.gradle.kts
-          grep -q 'versionName = "0.1.0-stable"' app/build.gradle.kts
-          gradle --no-daemon --build-cache --parallel :app:assembleBetaDebug :app:assembleStableDebug
+          test "$(git rev-parse 9f5d309e13bce62381784d3e53b019bf80d5dfbe)" = 9f5d309e13bce62381784d3e53b019bf80d5dfbe
+          chmod +x tools/publish_beta78_ota.sh
+          bash -n tools/publish_beta78_ota.sh
+          bash tools/publish_beta78_ota.sh
+
+      - name: Upload Beta78 publish receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: beta78-publish-${{ github.run_id }}
+          path: /tmp/beta78-publish
+          retention-days: 30
+          if-no-files-found: warn
