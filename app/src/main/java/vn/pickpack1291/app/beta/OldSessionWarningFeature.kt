@@ -26,7 +26,7 @@ object OldSessionWarningFeature {
         fun txt(v:String,size:Float,color:Int,bold:Boolean=false)=TextView(activity).apply{text=v;textSize=size;setTextColor(color);typeface=if(bold)Typeface.DEFAULT_BOLD else Typeface.DEFAULT}
         val root=LinearLayout(activity).apply{orientation=LinearLayout.VERTICAL;visibility=View.GONE;setPadding(0,0,0,dp(6))}
         val button=Button(activity).apply{
-            text="CẢNH BÁO: CHƯA KẾT THÚC PHIÊN CÁC NGÀY CŨ."
+            text="CẢNH BÁO:  CHƯA KẾT THÚC PHIÊN CÁC NGÀY CŨ."
             textSize=10.2f;setTextColor(Color.WHITE);typeface=Typeface.DEFAULT_BOLD;isAllCaps=false;gravity=Gravity.CENTER
             background=round(Color.rgb(139,0,0),11);minHeight=dp(46);setPadding(dp(8),dp(5),dp(8),dp(5))
         }
