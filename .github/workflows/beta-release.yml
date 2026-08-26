@@ -47,11 +47,18 @@ jobs:
           grep -Fq "UiAutomationShellWrapper wrapper" tools/VisualHierarchyDumper.java
           ! grep -Fq "waitForIdle" tools/VisualHierarchyDumper.java
           grep -Fq "/data/local/tmp/beta77-window.xml" tools/run_beta76_visual.py
-          test -f tools/VisualHierarchyDumper.java
+          test -f tools/VisualHierarchyDumper.java -a -f tools/UiAutomationShellWrapper.java
           command -v javac >/dev/null
           command -v jar >/dev/null
-          grep -Fq "adb pull /system/framework/uiautomator.jar" tools/run_beta76_visual_v2.sh
-          grep -Fq 'platforms/android-36/android.jar' tools/run_beta76_visual_v2.sh
+          ANDROID_JAR="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}/platforms/android-36/android.jar"
+          test -f "$ANDROID_JAR"
+          DUMPER_BUILD="$(mktemp -d /tmp/beta77-dumper-preflight.XXXXXX)"
+          trap 'rm -rf "$DUMPER_BUILD"' EXIT
+          mkdir -p "$DUMPER_BUILD/classes"
+          javac -source 8 -target 8 -cp "$ANDROID_JAR" -d "$DUMPER_BUILD/classes" tools/UiAutomationShellWrapper.java tools/VisualHierarchyDumper.java
+          jar cf "$DUMPER_BUILD/beta77-visual-dumper.jar" -C "$DUMPER_BUILD/classes" com/android/commands/uiautomator/VisualHierarchyDumper.class
+          test -s "$DUMPER_BUILD/beta77-visual-dumper.jar"
+          ! jar tf "$DUMPER_BUILD/beta77-visual-dumper.jar" | grep -Fq 'UiAutomationShellWrapper.class'
           ! grep -Eq 'gradle|assemble|bundle|apksigner|jarsigner|signingConfig' tools/run_beta76_visual_v2.sh
           echo "APK=$APK" >> "$GITHUB_ENV"
           echo "EXPECTED_SHA=6ce7838f6f0725ca98b4f3d9237d38aec60092f4488b2795a32ae3f9d24371fb" >> "$GITHUB_ENV"
