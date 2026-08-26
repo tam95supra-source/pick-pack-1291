@@ -197,7 +197,17 @@ jobs:
           assert s.count(needle)==1
           p.write_text(s.replace(needle,inject,1),encoding='utf-8')
           PY
-          bash /tmp/beta77-gas-gate.sh
+          if ! bash /tmp/beta77-gas-gate.sh; then
+            if [[ -f /tmp/beta76-outbound-gas-evidence/self-test.http ]]; then
+              printf 'GAS_POST_HTTP='; cat /tmp/beta76-outbound-gas-evidence/self-test.http
+            fi
+            if [[ -f /tmp/beta76-outbound-gas-evidence/self-test.json ]]; then
+              echo 'GAS_SELF_TEST_RESPONSE_BEGIN'
+              jq -c . /tmp/beta76-outbound-gas-evidence/self-test.json || cat /tmp/beta76-outbound-gas-evidence/self-test.json
+              echo 'GAS_SELF_TEST_RESPONSE_END'
+            fi
+            exit 1
+          fi
 
       - name: Enforce app config points at LIVE GAS
         if: github.ref_name == 'feature/beta77-owner-fixes-20260826' && steps.scope.outputs.gas_changed == 'true'
