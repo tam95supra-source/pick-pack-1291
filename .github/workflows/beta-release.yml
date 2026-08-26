@@ -1,5 +1,6 @@
 name: Beta77 publish exact locked candidate
 
+# Deterministic retrigger after fixing the inherited Beta76->Beta77 compat anchor.
 on:
   push:
     branches:
