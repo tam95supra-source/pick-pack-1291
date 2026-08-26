@@ -81,17 +81,19 @@ def dump_ui(tag):
     path = '/data/local/tmp/beta77-window.xml'
     diagnostics = []
     last_raw = ''
-    for attempt in range(1, 7):
+    for attempt in range(1, 4):
         adb('wait-for-device', check=False, timeout=30)
         adb('shell', 'rm', '-f', path, check=False, timeout=10)
         result = adb(
-            'shell', 'uiautomator', 'dump', '--compressed', path,
+            'shell', 'uiautomator', 'runtest',
+            '/data/local/tmp/beta77-visual-dumper.jar',
+            '-c', 'vn.pickpack1291.visual.VisualHierarchyDumper#testDump',
             check=False, timeout=30,
         )
         raw = adb('shell', 'cat', path, check=False, timeout=10).stdout
         last_raw = raw
         diagnostics.append(
-            f'attempt={attempt} dump={result.stdout.strip()} bytes={len(raw.encode("utf-8"))}'
+            f'attempt={attempt} dumper={result.stdout.strip()} bytes={len(raw.encode("utf-8"))}'
         )
         if '<hierarchy' in raw:
             try:
@@ -102,10 +104,10 @@ def dump_ui(tag):
                 rec(f'{tag}-ui.xml', raw)
                 rec(f'{tag}-ui-dump.txt', '\n'.join(diagnostics) + '\n')
                 return raw
-        time.sleep(min(attempt, 3))
+        time.sleep(attempt)
     rec(f'{tag}-ui.xml', last_raw)
     rec(f'{tag}-ui-dump.txt', '\n'.join(diagnostics) + '\n')
-    raise AssertionError(f'{tag}: UI hierarchy unavailable after 6 bounded attempts')
+    raise AssertionError(f'{tag}: non-idle UI hierarchy unavailable after 3 bounded attempts')
 
 
 def visible_texts(tag):
