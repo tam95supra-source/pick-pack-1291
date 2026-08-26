@@ -119,6 +119,7 @@ function ppOutboundSelfTest_(body){
   const expected=PP_OUTBOUND.HEADERS;
   if(ss.getName()!=='PICK PACK 1291 x OUTBOUND') return {ok:false,error:'SHEET_TITLE_MISMATCH'};
   if(!loc.isSheetHidden()) loc.hideSheet();
+  if(!loc.isSheetHidden()) loc.hideSheet();
   if(!loc.isSheetHidden()) return {ok:false,error:'LOCATION_TAB_NOT_HIDDEN'};
   for(let i=0;i<expected.length;i++) if(String(headers[i]||'')!==String(expected[i]||'')) return {ok:false,error:'HEADER_MISMATCH_'+i};
   const beforeData=JSON.stringify(drop.getDataRange().getDisplayValues()), beforeRows=drop.getLastRow();
@@ -190,9 +191,10 @@ code=$(curl -sS --connect-timeout 15 --max-time 30 -o "$E/test-deployment.json" 
 
 TEST_OK=0
 for attempt in 1 2; do
-  curl -fsSL --connect-timeout 15 --max-time 60 -H 'Content-Type: application/json' -d "{\"action\":\"__beta76_outbound_test\",\"token\":\"$NONCE\"}" "$GAS_URL" > "$E/self-test-$attempt.json" || true
-  if jq -e '.ok==true and .owner_crud==true and .user_crud_denied==true and .append_once==true and .idempotent_retry==true and .user_clear_denied==true and .admin_clear_denied==true and .test_row_cleaned==true and .real_data_preserved==true and .location_hidden==true' "$E/self-test-$attempt.json" >/dev/null 2>&1; then TEST_OK=1; cp "$E/self-test-$attempt.json" "$E/self-test.json"; break; fi
-  sleep $((attempt*2))
+  http=$(curl -sSL --connect-timeout 15 --max-time 90 -o "$E/self-test-$attempt.json" -w '%{http_code}' -H 'Content-Type: application/json' -d "{\"action\":\"__beta76_outbound_test\",\"token\":\"$NONCE\"}" "$GAS_URL" || printf '000')
+  printf '%s\n' "$http" > "$E/self-test-$attempt.http"
+  if [[ "$http" == 200 ]] && jq -e '.ok==true and .owner_crud==true and .user_crud_denied==true and .append_once==true and .idempotent_retry==true and .user_clear_denied==true and .admin_clear_denied==true and .test_row_cleaned==true and .real_data_preserved==true and .location_hidden==true' "$E/self-test-$attempt.json" >/dev/null 2>&1; then TEST_OK=1; cp "$E/self-test-$attempt.json" "$E/self-test.json"; break; fi
+  [[ "$attempt" == 2 ]] || sleep 30
 done
 [[ "$TEST_OK" == 1 ]]
 
