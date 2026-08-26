@@ -37,12 +37,11 @@ object DropReceiveQrParser {
 }
 
 object DropReceiveFeature {
-
     fun build(activity:Activity,api:BetaApiClient,login:String,displayName:String,actualRole:String,onBack:()->Unit):View{
         val density=activity.resources.displayMetrics.density
         fun dp(v:Int)=(v*density).toInt()
-        val teal=ThemeManager.primary(activity);val navy=ThemeManager.primaryDark(activity);val soft=ThemeManager.soft(activity)
-        val ink=Color.rgb(24,44,42);val muted=Color.rgb(100,116,139);val red=Color.rgb(218,45,53);val orange=Color.rgb(217,119,6)
+        val teal=ThemeManager.primary(activity);val navy=ThemeManager.primaryDark(activity)
+        val ink=Color.rgb(24,44,42);val muted=Color.rgb(100,116,139);val red=Color.rgb(218,45,53)
         fun bg(fill:Int=Color.WHITE,r:Int=12,stroke:Int=Color.argb(72,Color.red(teal),Color.green(teal),Color.blue(teal)))=GradientDrawable().apply{setColor(fill);cornerRadius=dp(r).toFloat();setStroke(dp(1),stroke)}
         fun text(value:String,size:Float,color:Int=ink,bold:Boolean=false)=TextView(activity).apply{text=value;textSize=size;setTextColor(color);typeface=if(bold)Typeface.DEFAULT_BOLD else Typeface.DEFAULT}
         fun column()=LinearLayout(activity).apply{orientation=LinearLayout.VERTICAL;setBackgroundColor(Color.WHITE)}
@@ -70,15 +69,14 @@ object DropReceiveFeature {
         applyLocationPermission(false)
         body.addView(text("Vị trí",9.7f,muted,true));body.addView(gap(3))
         val locationRow=row();locationRow.addView(locationSpinner,LinearLayout.LayoutParams(0,dp(46),1.7f).apply{marginEnd=dp(3)});locationRow.addView(createBtn,LinearLayout.LayoutParams(0,dp(42),.66f).apply{marginStart=dp(2);marginEnd=dp(2)});locationRow.addView(editBtn,LinearLayout.LayoutParams(0,dp(42),.66f).apply{marginStart=dp(2);marginEnd=dp(2)});locationRow.addView(deleteBtn,LinearLayout.LayoutParams(0,dp(42),.66f).apply{marginStart=dp(2)})
-        body.addView(locationRow,LinearLayout.LayoutParams(-1,-2))
-        body.addView(gap(9))
+        body.addView(locationRow,LinearLayout.LayoutParams(-1,-2));body.addView(gap(9))
 
         val qr=input("Scan QR").apply{imeOptions=EditorInfo.IME_ACTION_DONE}
         val order=input("DO");val packages=input("Số kiện",true)
         body.addView(field("Scan QR",qr));body.addView(gap(8));body.addView(field("DO",order));body.addView(gap(8));body.addView(field("Số kiện",packages));body.addView(gap(10))
         val addBtn=button("Thêm thông tin",teal).apply{textSize=11f};val clearBtn=button("Xóa toàn bộ",red).apply{textSize=11f;isEnabled=actualSuper;alpha=if(actualSuper)1f else .35f}
         val actions=row();actions.addView(addBtn,LinearLayout.LayoutParams(0,dp(46),1f).apply{marginEnd=dp(4)});actions.addView(clearBtn,LinearLayout.LayoutParams(0,dp(46),1f).apply{marginStart=dp(4)});body.addView(actions,LinearLayout.LayoutParams(-1,-2))
-        body.addView(gap(8));body.addView(text("Ngày, người cập nhật và thời gian cập nhật được xác nhận trực tiếp bởi Google Apps Script khi ghi Sheet.",9f,muted,false))
+        body.addView(gap(8));body.addView(text("Service/D1 xác nhận ngay; Google Sheet được đồng bộ nền qua outbox.",9f,muted,false))
 
         val scroll=ScrollView(activity).apply{isFillViewport=true;addView(body,ViewGroup.LayoutParams(-1,-2))}
         root.addView(scroll,LinearLayout.LayoutParams(-1,0,1f))
@@ -88,8 +86,7 @@ object DropReceiveFeature {
         var pendingRecordId:String?=null
         fun selectedLocation():String=if(locationItems.isEmpty())"" else locationItems.getOrNull(locationSpinner.selectedItemPosition).orEmpty()
         fun setLocations(items:List<String>,preferred:String=""){
-            val clean=items.map{it.trim()}.filter{it.isNotBlank()}.distinct()
-            locationItems=clean
+            val clean=items.map{it.trim()}.filter{it.isNotBlank()}.distinct();locationItems=clean
             val shown=if(clean.isEmpty())listOf("Chưa có vị trí") else clean
             locationSpinner.adapter=ArrayAdapter(activity,android.R.layout.simple_spinner_dropdown_item,shown)
             val index=clean.indexOf(preferred);locationSpinner.setSelection(if(index>=0)index else 0)
@@ -99,7 +96,7 @@ object DropReceiveFeature {
         fun readItems(json:JSONObject?):List<String>{val arr=json?.optJSONArray("items")?:JSONArray();val out=mutableListOf<String>();for(i in 0 until arr.length()){val v=arr.optString(i).trim();if(v.isNotBlank())out.add(v)};return out}
         fun reloadLocations(preferred:String=""){
             api.call("outbound_location_list"){r->activity.runOnUiThread{
-                if(!r.ok){error(r.error?:"Không tải được danh sách vị trí từ Google Sheet.");return@runOnUiThread}
+                if(!r.ok){error(r.error?:"Không tải được danh sách vị trí từ Service/D1.");return@runOnUiThread}
                 val items=readItems(r.json);applyLocationPermission(r.json?.optBoolean("owner",false)==true);setLocations(items,preferred);cacheLocations(items)
             }}
         }
@@ -110,10 +107,10 @@ object DropReceiveFeature {
         }
         fun mutateLocation(op:String,before:String,after:String){
             val eventId=UUID.randomUUID().toString()
-            api.call("outbound_location_mutate",JSONObject().put("operation",op).put("before",before).put("after",after).put("event_id",eventId)){r->activity.runOnUiThread{
-                if(!r.ok){error(r.error?:"Không cập nhật được vị trí.");return@runOnUiThread}
+            api.call("outbound_location_mutate",JSONObject().put("operation",op).put("before",before).put("after",after).put("event_id",eventId).put("idempotency_key",eventId)){r->activity.runOnUiThread{
+                if(!r.ok){error(r.error?:"Service/D1 chưa xác nhận cập nhật vị trí.");return@runOnUiThread}
                 val preferred=if(op=="DELETE")"" else after
-                val items=readItems(r.json);applyLocationPermission(r.json?.optBoolean("owner",canManageLocations)==true);setLocations(items,preferred);cacheLocations(items);success("Đã cập nhật danh sách vị trí.")
+                val items=readItems(r.json);applyLocationPermission(r.json?.optBoolean("owner",canManageLocations)==true);setLocations(items,preferred);cacheLocations(items);success("Service/D1 đã xác nhận vị trí; Google Sheet đồng bộ nền.")
             }}
         }
         createBtn.setOnClickListener{if(!canManageLocations)return@setOnClickListener;locationDialog("Tạo vị trí"){v->mutateLocation("CREATE","",v)}}
@@ -133,12 +130,12 @@ object DropReceiveFeature {
         addBtn.setOnClickListener{
             val location=selectedLocation();val orderNo=order.text.toString().trim();val countText=packages.text.toString().trim();val count=countText.toIntOrNull()
             if(location.isBlank()){warning("Chọn Vị trí.");return@setOnClickListener};if(orderNo.isBlank()){warning("Nhập DO.");return@setOnClickListener};if(count==null||count<=0){warning("Số kiện phải là số nguyên lớn hơn 0.");return@setOnClickListener}
-            val id=pendingRecordId?:UUID.randomUUID().toString().also{pendingRecordId=it};addBtn.isEnabled=false;addBtn.text="Đang ghi Google Sheet..."
+            val id=pendingRecordId?:UUID.randomUUID().toString().also{pendingRecordId=it};addBtn.isEnabled=false;addBtn.text="Đang xác nhận Service..."
             val payload=JSONObject().put("location",location).put("scan_qr",qr.text.toString()).put("do_number",orderNo).put("package_count",count).put("idempotency_key",id)
             api.call("outbound_drop_append",payload){r->activity.runOnUiThread{
                 addBtn.isEnabled=true;addBtn.text="Thêm thông tin"
-                if(!r.ok){error(r.error?:"Google Sheet chưa xác nhận. Dữ liệu trên form được giữ nguyên để thử lại.");return@runOnUiThread}
-                pendingRecordId=null;qr.setText("");order.setText("");packages.setText("");success("Đã ghi đúng một dòng vào Google Sheet.")
+                if(!r.ok){error(r.error?:"Service/D1 chưa xác nhận. Dữ liệu trên form được giữ nguyên để thử lại cùng mã chống trùng.");return@runOnUiThread}
+                pendingRecordId=null;qr.setText("");order.setText("");packages.setText("");success("Service/D1 đã nhận đúng một bản ghi; Google Sheet đồng bộ nền.")
             }}
         }
 
@@ -147,7 +144,7 @@ object DropReceiveFeature {
             AlertDialog.Builder(activity).setTitle("Xóa toàn bộ dữ liệu?").setMessage("Chỉ xóa các dòng nghiệp vụ trong tab Nhận hàng rớt; không xóa header, Vị trí, quyền hoặc protected ranges.").setNegativeButton("Hủy",null).setPositiveButton("TIẾP TỤC"){_,_->
                 val pw=input("Nhập mật khẩu thực tế").apply{inputType=InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD}
                 val authDialog=AlertDialog.Builder(activity).setTitle("Xác thực trước khi xóa").setView(pw).setNegativeButton("Hủy",null).setPositiveButton("XÁC THỰC",null).create()
-                authDialog.setOnShowListener{val b=authDialog.getButton(AlertDialog.BUTTON_POSITIVE);b.setOnClickListener{val password=pw.text.toString();if(password.isBlank()){error("Nhập mật khẩu thực tế.");return@setOnClickListener};b.isEnabled=false;b.text="Đang xác thực...";api.login(login,password){lr->activity.runOnUiThread{b.isEnabled=true;b.text="XÁC THỰC";if(!lr.ok){error("Không thể xác thực mật khẩu.");return@runOnUiThread};authDialog.dismiss();clearBtn.isEnabled=false;api.call("outbound_drop_clear",JSONObject().put("idempotency_key",UUID.randomUUID().toString())){cr->activity.runOnUiThread{clearBtn.isEnabled=true;if(!cr.ok){error(cr.error?:"Không xóa được dữ liệu.");return@runOnUiThread};success("Đã xóa toàn bộ dữ liệu nghiệp vụ và xác nhận readback rỗng.")}}}}}};authDialog.show();pw.requestFocus()
+                authDialog.setOnShowListener{val b=authDialog.getButton(AlertDialog.BUTTON_POSITIVE);b.setOnClickListener{val password=pw.text.toString();if(password.isBlank()){error("Nhập mật khẩu thực tế.");return@setOnClickListener};b.isEnabled=false;b.text="Đang xác thực...";api.login(login,password){lr->activity.runOnUiThread{b.isEnabled=true;b.text="XÁC THỰC";if(!lr.ok){error("Không thể xác thực mật khẩu.");return@runOnUiThread};authDialog.dismiss();clearBtn.isEnabled=false;api.call("outbound_drop_clear",JSONObject().put("idempotency_key",UUID.randomUUID().toString())){cr->activity.runOnUiThread{clearBtn.isEnabled=true;if(!cr.ok){error(cr.error?:"Service/D1 chưa xác nhận lệnh xóa.");return@runOnUiThread};success("Service/D1 đã xác nhận xóa; Google Sheet đồng bộ nền.")}}}}}};authDialog.show();pw.requestFocus()
             }.show()
         }
 
