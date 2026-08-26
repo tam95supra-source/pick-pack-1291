@@ -1,6 +1,6 @@
 name: Beta77 publish exact locked candidate
 
-# Deterministic retrigger after fixing compat anchor and atomic Beta76->Beta77 semantic-version shift.
+# Deterministic retrigger after replacing superseded Beta76 candidate/visual receipt IDs.
 on:
   push:
     branches:
