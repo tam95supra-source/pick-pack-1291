@@ -44,20 +44,21 @@ for old, new in replacements:
     assert old in src, old
     src = src.replace(old, new)
 
-# The inherited materializer knows Beta73-76. Insert Beta76 as the immediate
-# fallback anchor before introducing Beta77, without rerunning the Beta77 GAS
-# canonical functional gate.
+# After the global Beta76->Beta77 label advance, the inherited Beta76 route
+# block still uses variable name compat76 while its helper target is already
+# ppBeta77UpdateCheckCompat_. Match that exact post-transform shape, then
+# introduce compat77 while restoring compat76 as the immediate fallback.
 old_compat = '''compat73="    if (action === 'update_check') return ppJson_(ppBeta73UpdateCheckCompat_(ppUpdateCheck_(body)));"
 compat74="    if (action === 'update_check') return ppJson_(ppBeta74UpdateCheckCompat_(ppUpdateCheck_(body)));"
 compat75="    if (action === 'update_check') return ppJson_(ppBeta75UpdateCheckCompat_(ppUpdateCheck_(body)));"
-compat77="    if (action === 'update_check') return ppJson_(ppBeta77UpdateCheckCompat_(ppUpdateCheck_(body)));"
-if compat77 not in s:
-    if compat75 in s: s=s.replace(compat75,compat77,1)
-    elif compat74 in s: s=s.replace(compat74,compat77,1)
-    elif compat73 in s: s=s.replace(compat73,compat77,1)
+compat76="    if (action === 'update_check') return ppJson_(ppBeta77UpdateCheckCompat_(ppUpdateCheck_(body)));"
+if compat76 not in s:
+    if compat75 in s: s=s.replace(compat75,compat76,1)
+    elif compat74 in s: s=s.replace(compat74,compat76,1)
+    elif compat73 in s: s=s.replace(compat73,compat76,1)
     else:
         assert s.count(plain)==1, 'update_check route anchor drift'
-        s=s.replace(plain,compat77,1)'''
+        s=s.replace(plain,compat76,1)'''
 new_compat = '''compat73="    if (action === 'update_check') return ppJson_(ppBeta73UpdateCheckCompat_(ppUpdateCheck_(body)));"
 compat74="    if (action === 'update_check') return ppJson_(ppBeta74UpdateCheckCompat_(ppUpdateCheck_(body)));"
 compat75="    if (action === 'update_check') return ppJson_(ppBeta75UpdateCheckCompat_(ppUpdateCheck_(body)));"
@@ -71,7 +72,7 @@ if compat77 not in s:
     else:
         assert s.count(plain)==1, 'update_check route anchor drift'
         s=s.replace(plain,compat77,1)'''
-assert old_compat in src
+assert old_compat in src, 'beta77 compat anchor drift'
 src = src.replace(old_compat, new_compat, 1)
 
 # Advance versionCode in the live OTA adapter and every exact readback gate.
