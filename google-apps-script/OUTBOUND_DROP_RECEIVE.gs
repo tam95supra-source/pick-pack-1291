@@ -1,8 +1,7 @@
-// Beta76 — Nhận hàng rớt. Direct Android -> GAS -> Google Sheets authority.
+// Beta77 — Nhận hàng rớt. Direct Android -> GAS -> Google Sheets authority.
 // This file intentionally does not call Worker/D1/Supabase/service business paths.
 const PP_OUTBOUND = Object.freeze({
   SHEET_ID: '1tl6har_8vGSVsVlcErfQwjX1YgvN3o-FRG5wQV4VTEM',
-  OWNER_LOGIN: 'tamnv2',
   OWNER_EMAIL: 'tam95.supra@gmail.com',
   LOCATION_SHEET: 'Vị trí',
   DROP_SHEET: 'Nhận hàng rớt',
@@ -15,7 +14,7 @@ function ppOutboundSheet_(name){
   if(!sh) throw new Error('OUTBOUND_SHEET_MISSING_'+name);
   return sh;
 }
-function ppOutboundOwner_(auth){ return !!auth && String(auth.login_id||'').trim()===PP_OUTBOUND.OWNER_LOGIN; }
+function ppOutboundOwner_(auth){ return !!auth && String(auth.role||'').toUpperCase()==='SUPERADMIN' && ppFold_(auth.email||'')===ppFold_(PP_OUTBOUND.OWNER_EMAIL); }
 function ppOutboundNorm_(value){ return String(value||'').trim().replace(/\s+/g,' '); }
 function ppOutboundKey_(value){ return ppFold_(ppOutboundNorm_(value)); }
 function ppOutboundLocationCache_(){ return CacheService.getScriptCache(); }
@@ -51,6 +50,7 @@ function ppOutboundLocationMutate_(auth,body){
     if(beforeIndex<0) return {ok:false,error:'OUTBOUND_LOCATION_NOT_FOUND'};
     sh.deleteRow(beforeIndex+2);
   }
+  SpreadsheetApp.flush();
   const readback=ppOutboundLocationsFromSheet_(sh);
   const expected=op==='DELETE' ? readback.map(ppOutboundKey_).indexOf(ppOutboundKey_(before))<0 : readback.map(ppOutboundKey_).indexOf(ppOutboundKey_(after))>=0;
   if(!expected) return {ok:false,error:'OUTBOUND_LOCATION_READBACK_FAILED'};
@@ -80,10 +80,13 @@ function ppOutboundAppend_(auth,body){
   const day=ppBusinessVisible_(), at=ppNowVisible_(), actor=String(auth.display_name||auth.login_id||'').trim() || String(auth.login_id||'').trim();
   const row=[location,day,rawQr,orderNo,count,actor,at,id];
   sh.appendRow(row);
-  const rowNo=sh.getLastRow(), got=sh.getRange(rowNo,1,1,8).getDisplayValues()[0];
+  SpreadsheetApp.flush();
+  const written=ppOutboundFindRecord_(sh,id);
+  if(!written) return {ok:false,error:'OUTBOUND_APPEND_READBACK_MISSING'};
+  const got=written.values;
   if(String(got[0])!==location || String(got[2])!==rawQr || String(got[3])!==orderNo || String(got[4])!==String(count) || String(got[7])!==id) return {ok:false,error:'OUTBOUND_APPEND_READBACK_MISMATCH'};
   ppHistorySafeAppendS13_({event_type:'OUTBOUND_DROP_APPEND',label:'Nhận hàng rớt • Thêm thông tin',actor:auth.login_id,detail:'Vị trí '+location+' • DO '+orderNo+' • Số kiện '+count,event_id:id,scope:'OUTBOUND'});
-  return {ok:true,idempotent:false,row:rowNo,item:got};
+  return {ok:true,idempotent:false,row:written.row,item:got};
 }
 function ppOutboundClear_(auth,body){
   if(!auth || String(auth.role||'').toUpperCase()!=='SUPERADMIN') return {ok:false,error:'SUPERADMIN_REQUIRED'};
