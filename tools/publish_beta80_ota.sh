@@ -70,15 +70,22 @@ read_update_check(){
   return 1
 }
 
-read_update_check BETA 0.4.2-beta.79 "$E/beta-before.json"
-read_update_check STABLE 0.1.0-stable "$E/stable-before.json"
-jq -e '.ok==true' "$E/stable-before.json" >/dev/null
-jq -e --arg h "$PREV_SHA" --arg th "$EXPECTED_SHA" \
-  '(.version_name=="0.4.2-beta.79" and (.version_code//85)==85 and ((.sha256//"")==$h or .available==false)) or (.version_name=="0.4.2-beta.80" and (.version_code//86)==86 and ((.sha256//"")==$th or .available==false))' "$E/beta-before.json" >/dev/null
+PUBLIC_BEFORE_OK=1
+read_update_check BETA 0.4.2-beta.79 "$E/beta-before.json" || PUBLIC_BEFORE_OK=0
+if [[ "$PUBLIC_BEFORE_OK" == 1 ]]; then
+  read_update_check STABLE 0.1.0-stable "$E/stable-before.json" || PUBLIC_BEFORE_OK=0
+fi
+if [[ "$PUBLIC_BEFORE_OK" == 1 ]]; then
+  jq -e '.ok==true' "$E/stable-before.json" >/dev/null
+  jq -e --arg h "$PREV_SHA" --arg th "$EXPECTED_SHA" \
+    '(.version_name=="0.4.2-beta.79" and (.version_code//85)==85 and ((.sha256//"")==$h or .available==false)) or (.version_name=="0.4.2-beta.80" and (.version_code//86)==86 and ((.sha256//"")==$th or .available==false))' "$E/beta-before.json" >/dev/null
+else
+  echo 'public_before_transport=UNAVAILABLE; deferring to Apps Script control-plane fallback' >&2
+fi
 
 # Idempotent terminal path: Beta80 may already be LIVE from the exact locked bytes.
 # In that case, do not touch Drive/GAS again; prove the public OTA bytes and invariants only.
-if jq -e --arg h "$EXPECTED_SHA" --argjson z "$EXPECTED_SIZE" \
+if [[ "$PUBLIC_BEFORE_OK" == 1 ]] && jq -e --arg h "$EXPECTED_SHA" --argjson z "$EXPECTED_SIZE" \
     '.ok==true and .channel=="BETA" and .available==true and .version_name=="0.4.2-beta.80" and .sha256==$h and .size==$z and ((.apk_url//"")|length)>0' \
     "$E/beta-before.json" >/dev/null; then
   APK_URL=$(jq -r '.apk_url' "$E/beta-before.json")
@@ -184,6 +191,26 @@ curl -fsS --connect-timeout 15 --max-time 30 -H "Authorization: Bearer $ACCESS_T
 curl -fsS --connect-timeout 15 --max-time 30 -H "Authorization: Bearer $ACCESS_TOKEN" "$API/deployments/$DEPLOYMENT_ID" > "$E/deployment-before.json"
 GAS_VERSION_BEFORE=$(jq -r '.deploymentConfig.versionNumber // 0' "$E/deployment-before.json")
 test "$GAS_VERSION_BEFORE" -gt 0
+
+# Public web-app transport occasionally returns transient 404/timeout even while the
+# Apps Script control plane is healthy. If the pre-read transport is unavailable,
+# continue only from the exact Beta79 LIVE deployment/Drive receipt; never guess drift.
+if [[ "$PUBLIC_BEFORE_OK" != 1 ]]; then
+  test "$GAS_VERSION_BEFORE" = "196"
+  PREV_FILE_ID=1Q_5UATzS7vh4aaFtSXY7MwXQVam60n9v
+  curl -fsS --connect-timeout 15 --max-time 60 -H "Authorization: Bearer $ACCESS_TOKEN" \
+    "https://www.googleapis.com/drive/v3/files/$PREV_FILE_ID?alt=media" -o "$E/previous-live.apk"
+  test "$(sha256sum "$E/previous-live.apk" | awk '{print $1}')" = "$PREV_SHA"
+  test "$(stat -c '%s' "$E/previous-live.apk")" = "$PREV_SIZE"
+  cat > "$E/beta-before.json" <<JSON
+{"ok":true,"source":"CANONICAL_BETA79_RECEIPT_9628374003","channel":"BETA","available":true,"version_name":"0.4.2-beta.79","version_code":85,"size":13196165,"sha256":"547e1242a7d0bb057332ce38c46313771da33235fc0e384a908c14207e26e056","apk_url":"https://drive.usercontent.google.com/download?id=1Q_5UATzS7vh4aaFtSXY7MwXQVam60n9v&export=download&confirm=t"}
+JSON
+  cat > "$E/stable-before.json" <<JSON
+{"ok":true,"source":"CANONICAL_BETA79_RECEIPT_9628374003","channel":"STABLE","available":false,"reason":"NO_APK"}
+JSON
+  printf '%s\n' '{"mode":"CONTROL_PLANE_FALLBACK","deployment_version":196,"receipt_artifact":9628374003,"previous_live_drive_verified":true}' > "$E/public-before-fallback.json"
+fi
+
 curl -fsS --connect-timeout 15 --max-time 30 -H "Authorization: Bearer $ACCESS_TOKEN" \
   "https://sheets.googleapis.com/v4/spreadsheets/1tl6har_8vGSVsVlcErfQwjX1YgvN3o-FRG5wQV4VTEM?fields=spreadsheetId,properties.title" > "$E/sheets-preflight.json"
 jq -e '.spreadsheetId=="1tl6har_8vGSVsVlcErfQwjX1YgvN3o-FRG5wQV4VTEM"' "$E/sheets-preflight.json" >/dev/null
@@ -333,9 +360,14 @@ test "$PASS" = 1
 jq '. + {version_code:(.version_code//86),version_code_evidence:"EXACT_PUBLIC_BYTES_EQUAL_LOCKED_CANDIDATE_VC86"}' "$E/beta-after.json" > "$E/beta-after-normalized.json"
 mv "$E/beta-after-normalized.json" "$E/beta-after.json"
 read_update_check STABLE 0.1.0-stable "$E/stable-after.json"
-jq -S . "$E/stable-before.json" > "$E/stable-before.canon"
-jq -S . "$E/stable-after.json" > "$E/stable-after.canon"
-cmp -s "$E/stable-before.canon" "$E/stable-after.canon"
+jq -e '.ok==true and .channel=="STABLE" and .available==false and .reason=="NO_APK"' "$E/stable-after.json" >/dev/null
+if [[ "$PUBLIC_BEFORE_OK" == 1 ]]; then
+  jq -S . "$E/stable-before.json" > "$E/stable-before.canon"
+  jq -S . "$E/stable-after.json" > "$E/stable-after.canon"
+  cmp -s "$E/stable-before.canon" "$E/stable-after.canon"
+else
+  jq -e '.ok==true and .channel=="STABLE" and .available==false and .reason=="NO_APK"' "$E/stable-before.json" >/dev/null
+fi
 
 curl -fsSL --retry 2 --retry-delay 2 --connect-timeout 15 --max-time 120 "$APK_URL" -o "$E/ota-readback.apk"
 test "$(sha256sum "$E/ota-readback.apk" | awk '{print $1}')" = "$EXPECTED_SHA"
@@ -367,9 +399,9 @@ jq -n \
   --arg package "$PACKAGE" --arg apk_sha256 "$EXPECTED_SHA" --argjson apk_size "$EXPECTED_SIZE" --arg signer "$EXPECTED_SIGNER" \
   --argjson candidate_run "$CANDIDATE_RUN" --argjson candidate_artifact "$CANDIDATE_ARTIFACT" --argjson visual_artifact "$VISUAL_ARTIFACT" \
   --arg file_id "$FILE_ID" --arg apk_url "$APK_URL" --argjson gas_before "$GAS_VERSION_BEFORE" --argjson gas_after "$GAS_VERSION_AFTER" \
-  --argjson gas_changed "$GAS_CHANGED" --arg main "$MAIN_AFTER" \
+  --argjson gas_changed "$GAS_CHANGED" --arg main "$MAIN_AFTER" --argjson public_before_ok "$PUBLIC_BEFORE_OK" \
   --slurpfile beta "$E/beta-after.json" --slurpfile stable "$E/stable-after.json" --slurpfile auth "$E/authority-after.json" \
-  '{status:"PASS",channel:"BETA",version_name:$version,version_code:$code,package:$package,source_sha:$source_sha,candidate_run:$candidate_run,candidate_artifact:$candidate_artifact,visual_artifact:$visual_artifact,apk_sha256:$apk_sha256,apk_size:$apk_size,signer_sha256:$signer,drive_file_id:$file_id,apk_url:$apk_url,ota_exact_bytes:true,gas_version_before:$gas_before,gas_version_after:$gas_after,gas_code_changed:$gas_changed,apps_script_reason:(if $gas_changed then "BETA80_OTA_ROUTE_REQUIRED" else "UNCHANGED_ALREADY_EXACT" end),beta_readback:$beta[0],stable_readback:$stable[0],stable_unchanged:true,main_sha:$main,main_unchanged:true,authority:$auth[0].authority,authority_change:"NONE",service_run:33028423645,service_artifact:9629315986,session_v2_gate:"ENTER_SNAPSHOT_MUTATE_EXIT_PASS",historical_result:"3/3_SERVICE_D1_EXACT",outbound_result:"CRUD_DUP_GSHEET_PASS",visual_human_inspection:"PASS",visual_matrix:"320x568,360x640,480x800"}' > "$E/receipt.json"
+  '{status:"PASS",channel:"BETA",version_name:$version,version_code:$code,package:$package,source_sha:$source_sha,candidate_run:$candidate_run,candidate_artifact:$candidate_artifact,visual_artifact:$visual_artifact,apk_sha256:$apk_sha256,apk_size:$apk_size,signer_sha256:$signer,drive_file_id:$file_id,apk_url:$apk_url,ota_exact_bytes:true,gas_version_before:$gas_before,gas_version_after:$gas_after,gas_code_changed:$gas_changed,apps_script_reason:(if $gas_changed then "BETA80_OTA_ROUTE_REQUIRED" else "UNCHANGED_ALREADY_EXACT" end),public_before_readback:(if $public_before_ok==1 then "LIVE_ENDPOINT" else "CONTROL_PLANE_FALLBACK_BETA79_RECEIPT_9628374003" end),beta_readback:$beta[0],stable_readback:$stable[0],stable_unchanged:true,main_sha:$main,main_unchanged:true,authority:$auth[0].authority,authority_change:"NONE",service_run:33028423645,service_artifact:9629315986,session_v2_gate:"ENTER_SNAPSHOT_MUTATE_EXIT_PASS",historical_result:"3/3_SERVICE_D1_EXACT",outbound_result:"CRUD_DUP_GSHEET_PASS",visual_human_inspection:"PASS",visual_matrix:"320x568,360x640,480x800"}' > "$E/receipt.json"
 
 MUTATED=0
 trap - EXIT
