@@ -324,7 +324,7 @@ jobs:
             set -euo pipefail
             adb root >/tmp/beta80-pda-verify/adb-root.txt 2>&1 || true
             adb wait-for-device
-            test "$(adb shell id -u 2>/dev/null | tr -d '')" = "0"
+            test "$(adb shell id -u 2>/dev/null | tr -d '\\r')" = "0"
 
             python3 /tmp/beta80_pda_verify.py ota-old
             python3 /tmp/beta80_pda_verify.py fileprovider
@@ -360,8 +360,7 @@ jobs:
             jq -e --slurpfile b /tmp/beta80-pda-verify/authority-before.json '.ok==true and .authority.mode==$b[0].authority.mode and .authority.scope==$b[0].authority.scope and .authority.authority_epoch==$b[0].authority.authority_epoch and .authority.service_generation==$b[0].authority.service_generation' /tmp/beta80-pda-verify/authority-after.json >/dev/null
             MAIN_AFTER=$(curl -fsS -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/$GITHUB_REPOSITORY/branches/main" | jq -r '.commit.sha')
             test "$MAIN_AFTER" = "$MAIN_BEFORE"
-            printf '%s
-' "$MAIN_AFTER" > /tmp/beta80-pda-verify/main-after.txt
+            printf '%s\\n' "$MAIN_AFTER" > /tmp/beta80-pda-verify/main-after.txt
 
             PUBLIC_OK=0
             for attempt in 0 1 2; do
