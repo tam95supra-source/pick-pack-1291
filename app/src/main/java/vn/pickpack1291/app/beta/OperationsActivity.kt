@@ -247,23 +247,42 @@ class OperationsActivity : Activity() {
             Regex("""\b\d{2}:\d{2}\b""").find(v)?.value?:clean
         }
     }
+    private data class ShiftStaffIdentity(val supplier:String,val mnv:String,val fullName:String)
+    private fun shiftStaffIdentity(ses:JSONObject):ShiftStaffIdentity{
+        val mnv=ses.optString("mnv").trim()
+        val emp=MasterDataCache.employee(this,mnv)
+        val snap=ses.optJSONObject("employee_snapshot")
+        val supplier=emp?.optString("supplier").orEmpty().ifBlank{snap?.optString("supplier").orEmpty()}.trim()
+        val fullName=emp?.optString("full_name").orEmpty().ifBlank{snap?.optString("full_name").orEmpty()}.trim()
+        return ShiftStaffIdentity(supplier,mnv,fullName)
+    }
+    private fun shiftStaffOrdered(rows:List<JSONObject>):List<JSONObject>{
+        val unique=rows.distinctBy{it.optString("session_id").ifBlank{"${it.optString("mnv")}|${it.optString("enter_at")}"}}
+            .filter{dash(it.optString("enter_at"))!="-"}
+        fun foldedOrLast(v:String)=foldLocal(v).ifBlank{"\uFFFF"}
+        return unique.sortedWith(Comparator{a,b->
+            val x=shiftStaffIdentity(a);val y=shiftStaffIdentity(b)
+            val supplierCmp=foldedOrLast(x.supplier).compareTo(foldedOrLast(y.supplier))
+            if(supplierCmp!=0)return@Comparator supplierCmp
+            val mnvCmp=naturalUserCompare(x.mnv,y.mnv)
+            if(mnvCmp!=0)return@Comparator mnvCmp
+            foldedOrLast(x.fullName).compareTo(foldedOrLast(y.fullName))
+        })
+    }
     private fun showCurrentDayShiftStaff(date:String,shift:String,rows:List<JSONObject>){
         screenState="SHIFT_STAFF_LIST"
         val root=baseRoot("$shift • ${businessDateVi(date)}")
         val body=body()
-        val clean=rows.distinctBy{it.optString("session_id").ifBlank{"${it.optString("mnv")}|${it.optString("enter_at")}"}}
-            .filter{dash(it.optString("enter_at"))!="-"}.sortedBy{it.optString("enter_at")}
+        val clean=shiftStaffOrdered(rows)
         if(clean.isEmpty()){
             body.addView(info("Chưa có nhân sự vào $shift trong ngày ${businessDateVi(date)}."))
         }else clean.forEach{ses->
-            val mnv=ses.optString("mnv").trim()
-            val emp=MasterDataCache.employee(this,mnv)
-            val display=emp?.optString("full_name").orEmpty().ifBlank{ses.optJSONObject("employee_snapshot")?.optString("full_name").orEmpty()}
+            val identity=shiftStaffIdentity(ses)
             val ended=ses.optString("state").equals("ENDED",true)&&dash(ses.optString("exit_at"))!="-"
-            val card=listCard("${dash(mnv)} • ${dash(display)}","Vào ${compactAttendanceTime(ses.optString("enter_at"))} • Ra ${if(ended)compactAttendanceTime(ses.optString("exit_at")) else "-"}")
+            val card=listCard("${dash(identity.supplier)} • ${dash(identity.mnv)} • ${dash(identity.fullName)}","Vào ${compactAttendanceTime(ses.optString("enter_at"))} • Ra ${if(ended)compactAttendanceTime(ses.optString("exit_at")) else "-"}")
             card.isClickable=true
             card.isFocusable=true
-            card.setOnClickListener{if(mnv.isNotBlank())loadEmployee(mnv)}
+            card.setOnClickListener{if(identity.mnv.isNotBlank())loadEmployee(identity.mnv)}
             body.addView(card,matchWrap());body.addView(gap(5))
         }
         attach(root,body)
@@ -302,13 +321,11 @@ class OperationsActivity : Activity() {
                         showCurrentDayShiftStaff(currentDate,shift,entered)
                     },matchWrap())
                     list.addView(gap(7))
-                    pending.forEach{ses->
-                        val mnv=ses.optString("mnv").trim()
-                        val emp=MasterDataCache.employee(this,mnv)
-                        val display=emp?.optString("full_name").orEmpty().ifBlank{ses.optJSONObject("employee_snapshot")?.optString("full_name").orEmpty()}
+                    shiftStaffOrdered(pending).forEach{ses->
+                        val identity=shiftStaffIdentity(ses)
                         val line=row(surface).apply{gravity=Gravity.CENTER_VERTICAL;setPadding(dp(4),dp(3),dp(4),dp(3))}
-                        line.addView(txt("${dash(mnv)} • ${dash(display)}",11f,ink,true),LinearLayout.LayoutParams(0,-2,1f))
-                        line.addView(smallButton("RA CA",red).apply{setOnClickListener{dialog?.dismiss();if(mnv.isNotBlank())loadEmployee(mnv)}},LinearLayout.LayoutParams(dp(78),dp(38)))
+                        line.addView(txt("${dash(identity.supplier)} • ${dash(identity.mnv)} • ${dash(identity.fullName)}",11f,ink,true),LinearLayout.LayoutParams(0,-2,1f))
+                        line.addView(smallButton("RA CA",red).apply{setOnClickListener{dialog?.dismiss();if(identity.mnv.isNotBlank())loadEmployee(identity.mnv)}},LinearLayout.LayoutParams(dp(78),dp(38)))
                         list.addView(line,matchWrap());list.addView(gap(3))
                     }
                     dialog=AlertDialog.Builder(this).setTitle("$shift • ${pending.size} nhân sự chưa ra").setView(ScrollView(this).apply{addView(list)}).setNegativeButton("Đóng",null).create()
@@ -581,8 +598,38 @@ class OperationsActivity : Activity() {
         fun sameSession(e:JSONObject,p:JSONObject,localAt:Long=0L):Boolean{val sid=e.optString("session_id").ifBlank{p.optString("session_id")}.trim();if(currentSessionId.isNotBlank()&&sid.isNotBlank())return sid==currentSessionId;val ms=if(localAt>0L)localAt else runCatching{Instant.parse(e.optString("committed_at").ifBlank{e.optString("occurred_at").ifBlank{e.optString("at_iso").ifBlank{e.optString("at")}}}).toEpochMilli()}.getOrDefault(0L);return enterMs>0L&&ms>=enterMs&&ms<=exitMs}
         val allowed=setOf("ATTENDANCE_ENTER","ENTER","RESOURCE_CHANGE","RESOURCE","LABOR_START","LABOR_FINISH","ATTENDANCE_EXIT","EXIT","ATTENDANCE_TIME_CORRECTED","ATTENDANCE_EXIT_DELETED")
         fun payload(e:JSONObject):JSONObject{
-            e.optJSONObject("payload")?.let{return it}
-            return when(val raw=e.opt("payload_json")){is JSONObject->raw;is String->if(raw.isBlank())JSONObject() else runCatching{JSONObject(raw)}.getOrDefault(JSONObject());else->JSONObject()}
+            fun parsed(raw:Any?):JSONObject?=when(raw){
+                is JSONObject->raw
+                is String->raw.trim().takeIf{it.isNotBlank()}?.let{runCatching{JSONObject(it)}.getOrNull()}
+                else->null
+            }
+            val out=JSONObject()
+            fun merge(src:JSONObject?){
+                if(src==null)return
+                val keys=src.keys()
+                while(keys.hasNext()){
+                    val k=keys.next();val v=src.opt(k)
+                    if(v==null||v===JSONObject.NULL)continue
+                    val existing=out.opt(k)
+                    val missing=!out.has(k)||existing==null||existing===JSONObject.NULL||(existing is String&&existing.isBlank())
+                    if(missing)out.put(k,v)
+                }
+            }
+            // Service can expose a small parsed payload and keep the complete audit snapshot in payload_json.
+            // Read the complete JSON first, then fill missing fields from alternate shapes.
+            merge(parsed(e.opt("payload_json")))
+            merge(parsed(e.opt("payload")))
+            merge(e.optJSONObject("data"))
+            for(k in listOf("before","after","operations","session_id","mnv","mutation_kind","work_choice","pda_serial","user_pick","pack_table","user_pack","positions_v64","resource_assignments_v64")){
+                if(!out.has(k)&&e.has(k)){val v=e.opt(k);if(v!=null&&v!==JSONObject.NULL)out.put(k,v)}
+            }
+            fun normalizeObject(target:String,vararg aliases:String){
+                if(out.optJSONObject(target)!=null)return
+                for(alias in aliases){val x=parsed(out.opt(alias));if(x!=null){out.put(target,x);return}}
+            }
+            normalizeObject("before","before_json","before_snapshot","snapshot_before")
+            normalizeObject("after","after_json","after_snapshot","snapshot_after")
+            return out
         }
         fun detail(type:String,e:JSONObject,p:JSONObject):String{
             if(type=="ATTENDANCE_TIME_CORRECTED"){val field=if(p.optString("field")=="enter_at")"Giờ vào" else "Giờ ra";return "$field: ${formatIso(p.optString("before_value"))} → ${formatIso(p.optString("after_value"))} • Lý do: ${p.optString("reason").ifBlank{"—"}}"}
@@ -673,17 +720,21 @@ class OperationsActivity : Activity() {
     private fun returnedSessionContext(ctx:JSONObject,r:BetaApiClient.Result):JSONObject?{val ss=r.json?.optJSONObject("session")?:return null;return JSONObject(ctx.toString()).put("session",ss).put("state",ss.optString("state"))}
 
     // S50_BETA44_OWNER_USER_PROJECTION_ADMIN_BULK_SYNC_VI
-    // Beta83 OWNER confirmation policy: authorized actions accept current Vietnam HH:mm.
+    // Beta84 OWNER confirmation policy: Vietnam HHmm with an inclusive ±2 minute tolerance.
     // The actual SUPERADMIN may alternatively authenticate with the fixed account password.
-    private fun currentActionPassword():String=java.time.LocalTime.now(ZoneId.of("Asia/Ho_Chi_Minh")).format(DateTimeFormatter.ofPattern("HH:mm"))
+    private fun validActionTimePassword(value:String):Boolean{
+        if(!Regex("""\\d{4}""").matches(value))return false
+        val now=java.time.ZonedDateTime.now(ZoneId.of("Asia/Ho_Chi_Minh"))
+        val formatter=DateTimeFormatter.ofPattern("HHmm")
+        return (-2L..2L).any{delta->now.plusMinutes(delta).format(formatter)==value}
+    }
     private fun verifyActionPassword(actionLabel:String,after:()->Unit){
         val pw=input("Mật khẩu xác nhận",true)
-        val extra=if(isActualSuper())" Hoặc dùng mật khẩu cố định của SUPERADMIN." else ""
-        val dialog=AlertDialog.Builder(this).setTitle("Xác thực $actionLabel").setMessage("Nhập mật khẩu HH:mm hiện tại.$extra").setView(pw).setNegativeButton("Hủy",null).setPositiveButton("XÁC THỰC",null).create()
+        val dialog=AlertDialog.Builder(this).setTitle("Xác thực $actionLabel").setView(pw).setNegativeButton("Hủy",null).setPositiveButton("XÁC THỰC",null).create()
         dialog.setOnShowListener{val btn=dialog.getButton(AlertDialog.BUTTON_POSITIVE);btn.setOnClickListener{
             val value=pw.text.toString().trim()
             if(value.isBlank()){showError("Nhập mật khẩu xác nhận.");return@setOnClickListener}
-            if(value==currentActionPassword()){dialog.dismiss();after();return@setOnClickListener}
+            if(validActionTimePassword(value)){dialog.dismiss();after();return@setOnClickListener}
             if(!isActualSuper()){showError("Mật khẩu xác nhận không đúng.");return@setOnClickListener}
             btn.isEnabled=false;btn.text="ĐANG XÁC THỰC..."
             api.login(login,value){r->runOnUiThread{btn.isEnabled=true;btn.text="XÁC THỰC";if(!r.ok){showError("Mật khẩu xác nhận không đúng.");return@runOnUiThread};dialog.dismiss();after()}}

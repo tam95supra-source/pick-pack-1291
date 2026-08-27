@@ -24,10 +24,32 @@ object UpdateManager {
     private const val PREFS="pp1291_pending_update_v1"
     data class PendingUpdate(val version:String,val url:String,val sha:String,val notes:String,val versionCode:Int)
     private fun prefs(c:Context)=c.getSharedPreferences(PREFS,Context.MODE_PRIVATE)
+    private fun managedApkName(version:String)="pick-pack-1291-${BuildConfig.CHANNEL.lowercase()}-$version.apk"
+    private fun managedDownloadDir(c:Context)=c.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)
+    private fun pruneManagedUpdateApks(c:Context,keepName:String?=null){
+        val dir=managedDownloadDir(c)?:return
+        dir.listFiles()?.forEach{file->
+            val managed=file.isFile&&file.name.startsWith("pick-pack-1291-")&&file.name.endsWith(".apk",ignoreCase=true)
+            if(managed&&file.name!=keepName)runCatching{file.delete()}
+        }
+    }
     fun pendingInfo(c:Context):PendingUpdate?{
         val p=prefs(c);val v=p.getString("version","").orEmpty().trim()
-        if(v.isBlank()||v==BuildConfig.VERSION_NAME){if(v==BuildConfig.VERSION_NAME)p.edit().clear().apply();return null}
-        val url=p.getString("url","").orEmpty();if(url.isBlank())return null
+        if(v.isBlank()){
+            pruneManagedUpdateApks(c)
+            return null
+        }
+        if(v==BuildConfig.VERSION_NAME){
+            p.edit().clear().apply()
+            pruneManagedUpdateApks(c)
+            return null
+        }
+        val url=p.getString("url","").orEmpty()
+        if(url.isBlank()){
+            pruneManagedUpdateApks(c)
+            return null
+        }
+        pruneManagedUpdateApks(c,managedApkName(v))
         return PendingUpdate(v,url,p.getString("sha","").orEmpty(),p.getString("notes","").orEmpty(),p.getInt("version_code",0))
     }
     private fun savePending(c:Context,v:String,url:String,sha:String,notes:String,code:Int){prefs(c).edit().putString("version",v).putString("url",url).putString("sha",sha).putString("notes",notes).putInt("version_code",code).apply()}
@@ -108,9 +130,10 @@ object UpdateManager {
 
     private fun download(activity:Activity,version:String,url:String,expectedSha:String){
         val manager=activity.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-        val fileName="pick-pack-1291-${BuildConfig.CHANNEL.lowercase()}-$version.apk"
-        val dir=activity.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)
+        val fileName=managedApkName(version)
+        val dir=managedDownloadDir(activity)
         if(dir==null){AlertDialog.Builder(activity).setTitle("Không tạo được file cập nhật").setMessage("Thiết bị không cấp vùng lưu APK cho ứng dụng.").setPositiveButton("OK",null).show();return}
+        pruneManagedUpdateApks(activity,fileName)
         val apkFile=File(dir,fileName)
         if(apkFile.exists()&&!apkFile.delete()){AlertDialog.Builder(activity).setTitle("Không chuẩn bị được file cập nhật").setMessage("Không thể thay file APK tải trước đó.").setPositiveButton("OK",null).show();return}
         val request=DownloadManager.Request(Uri.parse(url)).setTitle("Pick Pack 1291 $version").setDescription("Đang tải APK cập nhật").setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED).setAllowedOverMetered(true).setAllowedOverRoaming(false).setMimeType("application/vnd.android.package-archive").setDestinationInExternalFilesDir(activity,Environment.DIRECTORY_DOWNLOADS,fileName)

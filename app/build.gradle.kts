@@ -32,8 +32,8 @@ android {
         create("beta") {
             dimension = "channel"
             applicationId = "vn.pickpack1291.app.beta.publicbeta"
-            versionCode = 89
-            versionName = "0.4.2-beta.83"
+            versionCode = 90
+            versionName = "0.4.2-beta.84"
             manifestPlaceholders["appLabel"] = "Pick Pack 1291 Beta"
             buildConfigField("String", "CHANNEL", "\"BETA\"")
         }
@@ -73,6 +73,7 @@ dependencies {
 // Firebase client identifiers are injected at build time and default blank so source never contains project config.
 // GSHEET_API_URL remains public discovery/fallback configuration and manual update lookup path; no Service URL is compiled into APK.
 // Signing material remains outside this repository and the Android signer is owner-locked.
+// Beta84: prune stale OTA APK downloads, sort reconciliation staff by supplier/MNV/name, HHmm ±2 minute confirmation without guidance text, and merge canonical audit payload shapes. Stable remains isolated and unchanged.
 // Beta83: owner session UI ordering/timeline detail + HH:mm privileged action confirmation; actual SUPERADMIN also keeps fixed account-password confirmation. Stable remains isolated and unchanged.
 // Beta82: current-day shift reconciliation lists, QR-session reconciliation cards, null-safe display, and simplified Settings information. Stable remains isolated and unchanged.
 // Beta80: restore canonical Service v2 session routes and direct FileProvider OTA installer launch. Stable remains isolated and unchanged.
