@@ -3,6 +3,7 @@ import { authenticate } from "./auth";
 import { exchangeGasSession, mobileRead } from "./mobile_hotfix";
 import { resourceAdminList, resourceAdminMutate } from "./resource_admin";
 import { attendanceExitDelete, attendanceTimeCorrect, flushSessionSpecialProjections, sessionExitGuarded, sessionWorkUpdate } from "./session_hotfix";
+import { attendanceEnterV2, sessionResourceMutateV2, sessionResourceSnapshotV2 } from "./session_v2_compat";
 import { superadminDeleteAccounts } from "./beta44_owner";
 import { serviceConnectionsV47 } from "./beta47_connections";
 import { backfillAllHistoryAudit } from "./beta47_history_audit";
@@ -46,6 +47,10 @@ export default {
     if(u.pathname==="/v1/admin/resources"&&method==="POST")return resourceAdminMutate(request,env);
     if(u.pathname==="/v1/history/delete"&&method==="POST")return historyDelete(request,env);
     if(u.pathname==="/v1/session/work"&&method==="POST")return sessionWorkUpdate(request,env);
+    if(u.pathname==="/v1/session/enter-v2"&&method==="POST")return attendanceEnterV2(request,env);
+    if(u.pathname==="/v1/session/resources/snapshot"&&method==="POST")return sessionResourceSnapshotV2(request,env);
+    if(u.pathname==="/v1/session/resources/mutate"&&method==="POST")return sessionResourceMutateV2(request,env);
+    if(u.pathname==="/v1/session/exit-v2"&&method==="POST")return sessionExitGuarded(request,env);
     if(u.pathname==="/v1/session/exit"&&method==="POST")return sessionExitGuarded(request,env);
     if(u.pathname==="/v1/session/time-correction"&&method==="POST")return attendanceTimeCorrect(request,env);
     if(u.pathname==="/v1/session/delete-exit"&&method==="POST")return attendanceExitDelete(request,env);
