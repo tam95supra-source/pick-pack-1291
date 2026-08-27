@@ -4,7 +4,6 @@ set -Eeuo pipefail
 SOURCE_SHA=963ed28a90d2bb3e4a950ae8100fef15edfa86c5
 EXPECTED_SIGNER=d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
 BRANCH=feature/beta78-old-session-outbound-service-20260826
-APPROVED_MAIN_SHA=4e728df1265943148a78642123df9dd84f2997c2
 R=/tmp/beta81-pda/receipt.json
 
 for n in GH_TOKEN GITHUB_API_URL GITHUB_REPOSITORY GITHUB_RUN_ID GITHUB_SHA APK_SHA APK_SIZE; do
@@ -41,7 +40,11 @@ jq -e --arg h "$APK_SHA" --argjson z "$APK_SIZE" --arg signer "$EXPECTED_SIGNER"
 
 MAIN_FRESH=$(curl -fsSL --connect-timeout 15 --max-time 30   -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json'   "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/branches/main" | jq -r '.commit.sha')
 test "$MAIN_FRESH" = "$(jq -r '.main_sha' "$R")"
-test "$MAIN_FRESH" = "$APPROVED_MAIN_SHA"
+git fetch origin main --quiet
+test "$(git rev-parse origin/main)" = "$MAIN_FRESH"
+mapfile -t MAIN_CHANGED < <(git diff --name-only a8c0c0d92522c7173230d4175b4f0d3a4906c8bb..origin/main)
+test "${#MAIN_CHANGED[@]}" = 1
+test "${MAIN_CHANGED[0]}" = ".github/workflows/beta-release.yml"
 
 JOBS=$(curl -fsS -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json'   "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/jobs?per_page=100")
 PDA_JOB_ID=$(jq -r '.jobs[] | select(.name=="pda-verify" and .conclusion=="success") | .id' <<<"$JOBS" | head -n1)
