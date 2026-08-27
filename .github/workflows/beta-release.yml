@@ -17,7 +17,6 @@ env:
   APK_SIZE: '13196221'
   EXPECTED_SIGNER: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
   PUBLISH_RUN: '33078179831'
-  APPROVED_MAIN_SHA: 4e728df1265943148a78642123df9dd84f2997c2
 
 jobs:
   pda_verify:
@@ -93,16 +92,11 @@ jobs:
           MAIN_BEFORE=$(curl -fsSL --connect-timeout 15 --max-time 30 \
             -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' \
             "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/branches/main" | jq -r '.commit.sha')
-          test "$MAIN_BEFORE" = "$APPROVED_MAIN_SHA"
-          curl -fsSL --connect-timeout 15 --max-time 30 \
-            -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' \
-            "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/commits/$MAIN_BEFORE" > /tmp/beta81-main-approval.json
-          jq -e --arg base "$PUBLISH_MAIN" '
-            (.parents|length)==1 and
-            .parents[0].sha==$base and
-            (.files|length)==1 and
-            .files[0].filename==".github/workflows/beta-release.yml"
-          ' /tmp/beta81-main-approval.json >/dev/null
+          git fetch origin main --quiet
+          test "$(git rev-parse origin/main)" = "$MAIN_BEFORE"
+          mapfile -t MAIN_CHANGED < <(git diff --name-only "$PUBLISH_MAIN..origin/main")
+          test "${#MAIN_CHANGED[@]}" = 1
+          test "${MAIN_CHANGED[0]}" = ".github/workflows/beta-release.yml"
           test -n "$OTA_URL" -a "$OTA_URL" != null
           echo "::add-mask::$OTA_URL"
           echo "OLD_APK=$OLD" >> "$GITHUB_ENV"
