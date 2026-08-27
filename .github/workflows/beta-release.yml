@@ -161,9 +161,8 @@ jobs:
           python3 -m py_compile /tmp/beta80_pda_verify.py
           grep -Fq 'url_b64' tools/Beta80VerifyInstrumentation.java
           grep -Fq 'OTA_URL_B64=' tools/beta80_pda_device_gate.sh
-          grep -Fq 'tap_installer_button' tools/beta80_pda_device_gate.sh
-          grep -Fq 'fileprovider-installer' tools/beta80_pda_device_gate.sh
-          grep -Fq 'PackageInstallerActivity' tools/beta80_pda_device_gate.sh
+          grep -Fq 'fileprovider_installer_clicked' tools/beta80_pda_device_gate.sh
+          grep -Fq 'ota_installer_clicked' tools/beta80_pda_device_gate.sh
           grep -Fq 'local xml="$OUT/${tag}-installer.xml"' tools/beta80_pda_device_gate.sh
           ! grep -Eq 'gradle|assembleBeta|assembleStable|apksigner.*pick-pack|jarsigner' /tmp/beta80_pda_verify.py
 
