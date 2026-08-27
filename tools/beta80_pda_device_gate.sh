@@ -23,16 +23,23 @@ adb shell am instrument -w -r   -e mode ota   -e version '0.4.2-beta.80'   -e ur
 OTA_PID=$!
 
 INSTALLER_SEEN=0
+FILEPROVIDER_GRANT_SEEN=0
 for _ in $(seq 1 240); do
   adb shell dumpsys activity activities >"$OUT/installer-activity-current.txt" 2>/dev/null || true
-  if grep -Eqi 'packageinstaller|installer' "$OUT/installer-activity-current.txt" && grep -Fqi '.fileprovider' "$OUT/installer-activity-current.txt"; then
+  adb shell dumpsys activity uri-permissions >"$OUT/installer-uri-permissions-current.txt" 2>/dev/null || true
+  if grep -Eqi 'packageinstaller|installer' "$OUT/installer-activity-current.txt"; then
     cp "$OUT/installer-activity-current.txt" "$OUT/installer-activity.txt"
     INSTALLER_SEEN=1
-    break
   fi
+  if grep -Fqi "$PKG.fileprovider" "$OUT/installer-uri-permissions-current.txt"; then
+    cp "$OUT/installer-uri-permissions-current.txt" "$OUT/installer-uri-permissions.txt"
+    FILEPROVIDER_GRANT_SEEN=1
+  fi
+  if [[ "$INSTALLER_SEEN" == 1 && "$FILEPROVIDER_GRANT_SEEN" == 1 ]]; then break; fi
   sleep 0.25
 done
 test "$INSTALLER_SEEN" = 1
+test "$FILEPROVIDER_GRANT_SEEN" = 1
 
 UPDATED=0
 for _ in $(seq 1 120); do
@@ -51,7 +58,7 @@ DOWNLOADED="/sdcard/Android/data/$PKG/files/Download/pick-pack-1291-beta-0.4.2-b
 adb pull "$DOWNLOADED" "$OUT/ota-downloaded.apk" >/dev/null
 test "$(sha256sum "$OUT/ota-downloaded.apk" | awk '{print $1}')" = "$EXPECTED_SHA"
 test "$(stat -c '%s' "$OUT/ota-downloaded.apk")" = "$EXPECTED_SIZE"
-grep -Fqi '.fileprovider' "$OUT/installer-activity.txt"
+grep -Fqi "$PKG.fileprovider" "$OUT/installer-uri-permissions.txt"
 
 adb shell cat "/data/user/0/$PKG/shared_prefs/pp_beta80_verify.xml" >"$OUT/ota-flags.xml"
 grep -Fq 'name="ota_prompt_entry_clicked" value="true"' "$OUT/ota-flags.xml"
