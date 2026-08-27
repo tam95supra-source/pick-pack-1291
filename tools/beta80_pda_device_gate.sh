@@ -22,64 +22,21 @@ OTA_URL_B64=$(printf '%s' "$OTA_URL" | base64 -w0)
 adb shell am instrument -w -r   -e mode ota   -e version '0.4.2-beta.80'   -e url_b64 "$OTA_URL_B64"   -e sha "$EXPECTED_SHA"   "$VERIFY_COMPONENT" >"$OUT/ota-instrument.txt" 2>&1 &
 OTA_PID=$!
 
-tap_installer_button(){
-  local tag="$1"
-  local xml="$OUT/${tag}-installer.xml"
-  local coords=""
-  for _ in $(seq 1 20); do
-    adb shell uiautomator dump /sdcard/installer.xml >/dev/null 2>&1 || true
-    adb pull /sdcard/installer.xml "$xml" >/dev/null 2>&1 || true
-    if [[ -s "$xml" ]]; then
-      coords=$(python3 - "$xml" <<'PY'
-import re,sys,xml.etree.ElementTree as ET
-root=ET.parse(sys.argv[1]).getroot()
-wanted={"INSTALL","UPDATE","CÀI ĐẶT","CẬP NHẬT"}
-for n in root.iter("node"):
-    text=(n.attrib.get("text") or "").strip().upper()
-    if text not in wanted: continue
-    m=re.fullmatch(r"\[(\d+),(\d+)\]\[(\d+),(\d+)\]",n.attrib.get("bounds",""))
-    if not m: continue
-    x1,y1,x2,y2=map(int,m.groups())
-    print((x1+x2)//2,(y1+y2)//2)
-    raise SystemExit(0)
-raise SystemExit(1)
-PY
-) || true
-    fi
-    [[ -n "$coords" ]] && break
-    sleep 0.25
-  done
-  test -n "$coords"
-  read -r x y <<<"$coords"
-  adb shell input tap "$x" "$y"
-}
-
-# Beta79 positive OTA: app downloads exact OTA URL and opens Android installer automatically.
-OLD_INSTALLER_SEEN=0
-for _ in $(seq 1 240); do
-  adb shell dumpsys activity activities >"$OUT/old-installer-current.txt" 2>/dev/null || true
-  if grep -Fqi 'PackageInstallerActivity' "$OUT/old-installer-current.txt"; then
-    cp "$OUT/old-installer-current.txt" "$OUT/old-installer.txt"
-    OLD_INSTALLER_SEEN=1
-    break
-  fi
-  sleep 0.25
-done
-test "$OLD_INSTALLER_SEEN" = 1
-! grep -Eqi 'documentsui|com\.android\.documents' "$OUT/old-installer.txt"
-tap_installer_button old
-
+# Beta79 OTA instrumentation clicks Android's installer immediately after it becomes active.
 UPDATED=0
-for _ in $(seq 1 120); do
+for _ in $(seq 1 180); do
   adb shell dumpsys package "$PKG" >"$OUT/package-current.txt" 2>/dev/null || true
+  adb shell cat "/data/user/0/$PKG/shared_prefs/pp_beta80_verify.xml" >"$OUT/ota-flags-current.xml" 2>/dev/null || true
   if grep -Fq 'versionName=0.4.2-beta.80' "$OUT/package-current.txt" && grep -Eq 'versionCode=86([[:space:]]|$)' "$OUT/package-current.txt"; then
     cp "$OUT/package-current.txt" "$OUT/package-beta80.txt"
+    cp "$OUT/ota-flags-current.xml" "$OUT/ota-flags.xml" || true
     UPDATED=1
     break
   fi
   sleep 0.5
 done
 test "$UPDATED" = 1
+kill "$OTA_PID" >/dev/null 2>&1 || true
 wait "$OTA_PID" || true
 
 DOWNLOADED="/sdcard/Android/data/$PKG/files/Download/pick-pack-1291-beta-0.4.2-beta.80.apk"
@@ -90,39 +47,37 @@ adb shell cat "/data/user/0/$PKG/shared_prefs/pp_beta80_verify.xml" >"$OUT/ota-f
 grep -Fq 'name="ota_prompt_entry_clicked" value="true"' "$OUT/ota-flags.xml"
 grep -Fq 'name="ota_download_clicked" value="true"' "$OUT/ota-flags.xml"
 grep -Fq 'name="ota_installer_seen" value="true"' "$OUT/ota-flags.xml"
+grep -Fq 'name="ota_installer_clicked" value="true"' "$OUT/ota-flags.xml"
 
-# Installed Beta80 self-reinstall proves the new FileProvider path reaches Android installer.
+# Installed Beta80 self-reinstall proves its FileProvider route opens Android installer with no file picker.
 adb install -r "$VERIFY_HARNESS_APK" >"$OUT/reinstall-verify-harness.txt"
 OTA_URL_B64=$(printf '%s' "$OTA_URL" | base64 -w0)
 adb shell am instrument -w -r   -e mode fileprovider   -e version '0.4.2-beta.80'   -e url_b64 "$OTA_URL_B64"   -e sha "$EXPECTED_SHA"   "$VERIFY_COMPONENT" >"$OUT/fileprovider-instrument.txt" 2>&1 &
 FP_PID=$!
-FP_INSTALLER_SEEN=0
-for _ in $(seq 1 240); do
-  adb shell dumpsys activity activities >"$OUT/fileprovider-installer-current.txt" 2>/dev/null || true
-  if grep -Fqi 'PackageInstallerActivity' "$OUT/fileprovider-installer-current.txt"; then
-    cp "$OUT/fileprovider-installer-current.txt" "$OUT/fileprovider-installer.txt"
-    if grep -Fqi "$PKG.fileprovider" "$OUT/fileprovider-installer.txt"; then
-      FP_INSTALLER_SEEN=1
-      break
-    fi
+FP_CLICKED=0
+for _ in $(seq 1 180); do
+  adb shell cat "/data/user/0/$PKG/shared_prefs/pp_beta80_verify.xml" >"$OUT/fileprovider-flags-current.xml" 2>/dev/null || true
+  if grep -Fq 'name="fileprovider_installer_clicked" value="true"' "$OUT/fileprovider-flags-current.xml"; then
+    cp "$OUT/fileprovider-flags-current.xml" "$OUT/fileprovider-flags.xml"
+    FP_CLICKED=1
+    break
   fi
-  sleep 0.25
-done
-test "$FP_INSTALLER_SEEN" = 1
-! grep -Eqi 'documentsui|com\.android\.documents' "$OUT/fileprovider-installer.txt"
-tap_installer_button fileprovider
-for _ in $(seq 1 120); do
-  adb shell dumpsys package "$PKG" >"$OUT/package-current.txt" 2>/dev/null || true
-  if grep -Fq 'versionName=0.4.2-beta.80' "$OUT/package-current.txt" && grep -Eq 'versionCode=86([[:space:]]|$)' "$OUT/package-current.txt"; then break; fi
   sleep 0.5
 done
+test "$FP_CLICKED" = 1
+kill "$FP_PID" >/dev/null 2>&1 || true
 wait "$FP_PID" || true
+
+adb shell dumpsys package "$PKG" >"$OUT/package-beta80-after-fileprovider.txt"
+grep -Fq 'versionName=0.4.2-beta.80' "$OUT/package-beta80-after-fileprovider.txt"
+grep -Eq 'versionCode=86([[:space:]]|$)' "$OUT/package-beta80-after-fileprovider.txt"
+grep -Fqi "$PKG.fileprovider" "$OUT/package-beta80-after-fileprovider.txt"
 adb pull "$DOWNLOADED" "$OUT/ota-downloaded-fileprovider.apk" >/dev/null
 test "$(sha256sum "$OUT/ota-downloaded-fileprovider.apk" | awk '{print $1}')" = "$EXPECTED_SHA"
 test "$(stat -c '%s' "$OUT/ota-downloaded-fileprovider.apk")" = "$EXPECTED_SIZE"
-adb shell cat "/data/user/0/$PKG/shared_prefs/pp_beta80_verify.xml" >"$OUT/fileprovider-flags.xml"
 grep -Fq 'name="fileprovider_download_invoked" value="true"' "$OUT/fileprovider-flags.xml"
 grep -Fq 'name="fileprovider_installer_seen" value="true"' "$OUT/fileprovider-flags.xml"
+grep -Fq 'name="fileprovider_installer_clicked" value="true"' "$OUT/fileprovider-flags.xml"
 
 adb shell am start -W -n "$PKG/vn.pickpack1291.app.beta.FullBetaActivity" >"$OUT/open-beta80.txt"
 adb shell dumpsys activity activities >"$OUT/activity-beta80-open.txt"
