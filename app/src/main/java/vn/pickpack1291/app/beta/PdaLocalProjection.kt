@@ -20,7 +20,28 @@ object PdaLocalProjection {
         val store = OperationalDataStore(context.applicationContext)
         val businessDate = store.businessDate() // S45_BETA40_OWNER_FIXES
         val day = store.loadDay(businessDate)
-        if(day==null){
+        var session: JSONObject? = null
+        if(day!=null){
+            val sessions = day.optJSONArray("sessions") ?: JSONArray()
+            for (i in 0 until sessions.length()) {
+                val candidate = sessions.optJSONObject(i) ?: continue
+                if (candidate.optString("mnv") != mnv) continue
+                val copy = JSONObject(candidate.toString())
+                if (session == null || preferSession(copy, session!!)) session = copy
+            }
+        }
+        // Midnight rollover fence: prior-day ACTIVE remains authoritative until explicit exit.
+        for(oldDate in store.availableDates().filter{it<businessDate}){
+            val oldSessions=store.loadDay(oldDate)?.optJSONArray("sessions")?:continue
+            for(i in 0 until oldSessions.length()){
+                val candidate=oldSessions.optJSONObject(i)?:continue
+                if(candidate.optString("mnv")!=mnv||!candidate.optString("state").equals("ACTIVE",true))continue
+                val copy=JSONObject(candidate.toString())
+                if(session==null||preferSession(copy,session!!))session=copy
+            }
+            if(session?.optString("state")?.equals("ACTIVE",true)==true)break
+        }
+        if(day==null&&session==null){
             // S29_OWNER_LOCALFIRST_HISTORY: employee master is enough for immediate scan UX.
             // Session state remains fenced until a canonical day snapshot arrives.
             return JSONObject()
@@ -36,20 +57,14 @@ object PdaLocalProjection {
                 .put("reconciliation_state","CACHE_WARMING")
                 .put("provisional",false)
         }
-        val sessions = day.optJSONArray("sessions") ?: JSONArray()
-        var session: JSONObject? = null
-        for (i in 0 until sessions.length()) {
-            val candidate = sessions.optJSONObject(i) ?: continue
-            if (candidate.optString("mnv") != mnv) continue
-            val copy = JSONObject(candidate.toString())
-            if (session == null || preferSession(copy, session!!)) session = copy
-        }
         var state = when (session?.optString("state")?.uppercase()) {
             "ACTIVE" -> "ACTIVE"
             "ENDED" -> "ENDED"
             else -> "NOT_ENTERED"
         }
-        val labor = day?.optJSONArray("labor") ?: JSONArray()
+        val sessionDate=session?.optString("business_date").orEmpty()
+        val contextDay=if(sessionDate.isNotBlank()&&sessionDate!=businessDate)store.loadDay(sessionDate)?:day else day
+        val labor = contextDay?.optJSONArray("labor") ?: JSONArray()
         var activeLabor: JSONObject? = null
         for (i in 0 until labor.length()) {
             val item = labor.optJSONObject(i) ?: continue
@@ -123,6 +138,18 @@ object PdaLocalProjection {
             val copy=JSONObject(src.toString());val previous=byMnv[who];if(previous==null||preferSession(copy,previous))byMnv[who]=copy
             copy.optString("user_pick").trim().takeIf{it.isNotBlank()}?.let(usedPicks::add)
             copy.optString("user_pack").trim().takeIf{it.isNotBlank()}?.let(usedPackUsers::add)
+        }
+        // Preserve prior-day ACTIVE leases locally across 24:00 to avoid duplicate PDA/User allocation.
+        for(oldDate in store.availableDates().filter{it<date}){
+            val oldSessions=store.loadDay(oldDate)?.optJSONArray("sessions")?:continue
+            for(i in 0 until oldSessions.length()){
+                val src=oldSessions.optJSONObject(i)?:continue
+                if(!src.optString("state").equals("ACTIVE",true))continue
+                val who=src.optString("mnv").trim();if(who.isBlank())continue
+                val copy=JSONObject(src.toString());val previous=byMnv[who];if(previous==null||preferSession(copy,previous))byMnv[who]=copy
+                copy.optString("user_pick").trim().takeIf{it.isNotBlank()}?.let(usedPicks::add)
+                copy.optString("user_pack").trim().takeIf{it.isNotBlank()}?.let(usedPackUsers::add)
+            }
         }
         for(item in store.projectionMutations(1000)){
             val body=item.body;val payload=body.optJSONObject("payload")?:body
