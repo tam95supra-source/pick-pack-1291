@@ -321,6 +321,7 @@ jobs:
           disable-animations: false
           emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-metrics
           script: |
+            cat > /tmp/beta80-pda-device.sh <<'BASH'
             set -euo pipefail
             adb root >/tmp/beta80-pda-verify/adb-root.txt 2>&1 || true
             adb wait-for-device
@@ -377,6 +378,8 @@ jobs:
 
             jq -n --arg sha "$EXPECTED_SHA" --argjson size "$EXPECTED_SIZE" --arg signer "$EXPECTED_SIGNER" --arg sid "$TEST_SID" --arg mnv "$TEST_MNV" --arg old_date "$TEST_OLD_DATE" --arg main "$MAIN_AFTER"               --slurpfile beta /tmp/beta80-pda-verify/beta-final.json --slurpfile stable /tmp/beta80-pda-verify/stable-final.json --slurpfile auth /tmp/beta80-pda-verify/authority-after.json               '{status:"PASS",version_name:"0.4.2-beta.80",version_code:86,candidate_artifact:9629377960,apk_sha256:$sha,apk_size:$size,signer_sha256:$signer,ota_from_beta79_direct_installer:true,beta80_fileprovider_actual_self_reinstall:true,file_picker_required:false,installed_and_opened_beta80:true,session:{mnv:$mnv,session_id:$sid,business_date:$old_date,flow:"Vào ca UI -> mở đúng session_id -> Xóa -> Sửa Ca 2 -> Bắn ra",not_found:false,wrong_session:false,d1_final:"ENDED"},beta_readback:$beta[0],stable_readback:$stable[0],stable_unchanged:true,main_sha:$main,main_unchanged:true,authority:$auth[0].authority,authority_change:"NONE"}' > /tmp/beta80-pda-verify/receipt.json
             cat /tmp/beta80-pda-verify/receipt.json
+            BASH
+            bash /tmp/beta80-pda-device.sh
 
       - name: Cleanup isolated D1 fixture
         if: always()
