@@ -131,9 +131,9 @@ public final class Beta82UiChecksInstrumentation extends Instrumentation {
   }
   private void showTextOnScreen(String text,long timeout){
     AccessibilityNodeInfo n=waitText(text,false,false,timeout);
-    if(!n.performAction(AccessibilityNodeInfo.ACTION_SHOW_ON_SCREEN)){
+    if(!n.performAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_SHOW_ON_SCREEN.getId())){
       AccessibilityNodeInfo p=n.getParent();
-      if(p!=null)p.performAction(AccessibilityNodeInfo.ACTION_SHOW_ON_SCREEN);
+      if(p!=null)p.performAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_SHOW_ON_SCREEN.getId());
     }
     SystemClock.sleep(450L);
   }
