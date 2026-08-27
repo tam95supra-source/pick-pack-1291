@@ -1,4 +1,5 @@
 name: Beta81 exact OTA publish
+# Beta81 exact-release trigger after deterministic preflight.
 
 on:
   push:
