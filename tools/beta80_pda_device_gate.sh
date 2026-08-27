@@ -4,6 +4,7 @@ PKG=vn.pickpack1291.app.beta.publicbeta
 VERIFY_COMPONENT=vn.pickpack1291.verify/.Beta80VerifyInstrumentation
 OUT=/tmp/beta80-pda-verify
 mkdir -p "$OUT"
+trap 'rc=$?; adb logcat -d -v threadtime > "$OUT/device-logcat.txt" 2>&1 || true; exit $rc' ERR
 
 adb root >"$OUT/adb-root.txt" 2>&1 || true
 adb wait-for-device
