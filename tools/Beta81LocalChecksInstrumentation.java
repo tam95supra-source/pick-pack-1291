@@ -285,11 +285,7 @@ public final class Beta81LocalChecksInstrumentation extends Instrumentation {
     mark("old_resources_preserved");
 
     seedService();
-    mark("phase_before_second_open");
-    open("BUSINESS");
-    mark("phase_after_second_open");
-    clickText("Quét QR nhân sự",true,15000);
-    seedService();
+    mark("phase_existing_qr_reused");
     setEmployee(mnv);
     waitText("CẢNH BÁO: PHIÊN CA CŨ",false,false,15000);
     waitText("Ra ca",true,true,15000);

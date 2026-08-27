@@ -4,6 +4,7 @@ set -Eeuo pipefail
 SOURCE_SHA=963ed28a90d2bb3e4a950ae8100fef15edfa86c5
 EXPECTED_SIGNER=d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
 BRANCH=feature/beta78-old-session-outbound-service-20260826
+APPROVED_MAIN_SHA=4e728df1265943148a78642123df9dd84f2997c2
 R=/tmp/beta81-pda/receipt.json
 
 for n in GH_TOKEN GITHUB_API_URL GITHUB_REPOSITORY GITHUB_RUN_ID GITHUB_SHA APK_SHA APK_SIZE; do
@@ -40,7 +41,7 @@ jq -e --arg h "$APK_SHA" --argjson z "$APK_SIZE" --arg signer "$EXPECTED_SIGNER"
 
 MAIN_FRESH=$(curl -fsSL --connect-timeout 15 --max-time 30   -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json'   "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/branches/main" | jq -r '.commit.sha')
 test "$MAIN_FRESH" = "$(jq -r '.main_sha' "$R")"
-test "$MAIN_FRESH" = a8c0c0d92522c7173230d4175b4f0d3a4906c8bb
+test "$MAIN_FRESH" = "$APPROVED_MAIN_SHA"
 
 JOBS=$(curl -fsS -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json'   "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/jobs?per_page=100")
 PDA_JOB_ID=$(jq -r '.jobs[] | select(.name=="pda-verify" and .conclusion=="success") | .id' <<<"$JOBS" | head -n1)
@@ -107,7 +108,7 @@ cat > CURRENT_STATE.md <<EOF
 - beta81_device_receipt: đối soát ENDED+exit_at; QR có rà soát; cảnh báo phiên cũ; rollover qua 24:00 giữ ACTIVE và không giải phóng PDA/User — PASS
 - beta_ota: exact Beta81 PASS
 - stable: unchanged
-- main_sha: $MAIN_FRESH (unchanged)
+- main_sha: $MAIN_FRESH (OWNER-approved workflow-only change; unchanged during recovery)
 - authority: SERVICE_PRIMARY / PRODUCTION / epoch $AUTH_EPOCH / generation $AUTH_GEN (unchanged)
 - next_action: WAIT_FOR_OWNER_NEW_SCOPE
 EOF
@@ -134,7 +135,7 @@ Hoàn tất Beta81 bằng exact candidate 9646920908: OTA LIVE, hash/size/signer
 - Visual: artifact 9647045177 PASS.
 - Service evidence: artifact 9646805806 PASS.
 - Stable: unchanged.
-- main: $MAIN_FRESH unchanged.
+- main: $MAIN_FRESH; only OWNER-approved .github/workflows/beta-release.yml change from pre-publish main, unchanged during recovery.
 - authority: SERVICE_PRIMARY / PRODUCTION / epoch $AUTH_EPOCH / generation $AUTH_GEN unchanged.
 
 ## Evidence / locked identity

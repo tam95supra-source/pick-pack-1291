@@ -17,6 +17,7 @@ env:
   APK_SIZE: '13196221'
   EXPECTED_SIGNER: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
   PUBLISH_RUN: '33078179831'
+  APPROVED_MAIN_SHA: 4e728df1265943148a78642123df9dd84f2997c2
 
 jobs:
   pda_verify:
@@ -87,9 +88,17 @@ jobs:
             .stable_unchanged==true and .main_unchanged==true and .authority_change=="NONE"
           ' "$R" >/dev/null
           OTA_URL=$(jq -r '.apk_url' "$R")
-          MAIN_BEFORE=$(jq -r '.main_sha' "$R")
+          PUBLISH_MAIN=$(jq -r '.main_sha' "$R")
+          test "$PUBLISH_MAIN" = a8c0c0d92522c7173230d4175b4f0d3a4906c8bb
+          MAIN_BEFORE=$(curl -fsSL --connect-timeout 15 --max-time 30 \
+            -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' \
+            "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/branches/main" | jq -r '.commit.sha')
+          test "$MAIN_BEFORE" = "$APPROVED_MAIN_SHA"
+          curl -fsSL --connect-timeout 15 --max-time 30 \
+            -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' \
+            "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/compare/$PUBLISH_MAIN...$MAIN_BEFORE" > /tmp/beta81-main-approval.json
+          jq -e '.files|length==1 and .files[0].filename==".github/workflows/beta-release.yml"' /tmp/beta81-main-approval.json >/dev/null
           test -n "$OTA_URL" -a "$OTA_URL" != null
-          test -n "$MAIN_BEFORE" -a "$MAIN_BEFORE" != null
           echo "::add-mask::$OTA_URL"
           echo "OLD_APK=$OLD" >> "$GITHUB_ENV"
           echo "NEW_APK=$NEW" >> "$GITHUB_ENV"

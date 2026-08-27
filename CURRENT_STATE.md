@@ -1,26 +1,23 @@
 # CURRENT STATE — PICK PACK 1291
 
-- updated_at: 2026-08-27T21:47:00+0700
-- status: BETA81_OTA_LIVE_DEVICE_GATE_PENDING
+- updated_at: 2026-08-27T22:36:00+0700
+- status: BETA81_OTA_LIVE_DEVICE_GATE_RECOVERY_READY
 - continuity_branch: feature/beta78-old-session-outbound-service-20260826
 - source_sha: 963ed28a90d2bb3e4a950ae8100fef15edfa86c5
-- recovery_checkpoint: branch HEAD commit containing this file
 - beta_ota_live: 0.4.2-beta.81 (versionCode 87)
 - beta_release_pass: false
-- candidate_run: 33073351925
-- candidate_artifact: 9646920908
-- visual_artifact: 9647045177
-- service_artifact: 9646805806
+- candidate_run/artifact: 33073351925 / 9646920908
+- visual_artifact: 9647045177 PASS
+- service_artifact: 9646805806 PASS
 - apk_sha256: f796bf8db5ec4575bb9d6d0880650c49abc682fe07c68aed916270f2afea3789
 - apk_size: 13196221
 - signer_sha256: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
-- publish_run: 33078179831
-- publish_job: 98537863151 SUCCESS
-- pda_job: 98538159325 CANCELLED at 55-minute timeout
-- publish_receipt: exact Beta81 Drive/BETA OTA PASS; Beta80->Beta81 available=true; Beta81 available=false
-- partial_device_evidence: PackageInstaller installed Beta81; installed-base.apk and OTA-downloaded.apk match exact SHA/size; signer matches
-- missing_gate: local Beta81 three-fix instrumentation did not return; finalize skipped
+- publish_run/job: 33078179831 / 98537863151 SUCCESS; exact Drive/BETA OTA bytes already LIVE
+- failed_recovery_run/job: 33088069684 / 98573171301
+- failure_root: harness UI reopened BUSINESS after already being on QR screen; first four Beta81 checks PASS, then TEXT_NOT_FOUND:Quét QR nhân sự
+- failure_receipt: reconciliation_home_1_0=true; reconciliation_qr_1_0=true; rollover_old_active_preserved=true; old_resources_preserved=true; installed Beta81 exact bytes/signer PASS
+- harness_fix: reuse the existing QR screen for old-session scan; no second activity reopen
 - stable: NO_APK unchanged
-- main_sha: a8c0c0d92522c7173230d4175b4f0d3a4906c8bb unchanged
+- main_sha: 4e728df1265943148a78642123df9dd84f2997c2; OWNER-approved workflow-only change from a8c0c0d92522c7173230d4175b4f0d3a4906c8bb
 - authority: SERVICE_PRIMARY / PRODUCTION / epoch 9 / generation m2-prod-reset-20260823-001 unchanged
 - next_action: OWNER_RUN_EXISTING_BETA_RELEASE_WORKFLOW_DISPATCH_ONCE
