@@ -189,10 +189,10 @@ jobs:
           if [[ "$TARGET_ALREADY" == 1 ]]; then
             APK_URL=$(jq -r '.apk_url' "$E/beta-before.json")
             FILE_ID=$(python3 - "$APK_URL" <<'PY'
-import sys,urllib.parse
-u=urllib.parse.urlparse(sys.argv[1]); q=urllib.parse.parse_qs(u.query)
-print((q.get("id") or [""])[0])
-PY
+          import sys,urllib.parse
+          u=urllib.parse.urlparse(sys.argv[1]); q=urllib.parse.parse_qs(u.query)
+          print((q.get("id") or [""])[0])
+          PY
 )
             test -n "$FILE_ID"
           else
@@ -401,124 +401,124 @@ PY
           echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
           mkdir -p /tmp/b81h/src/vn/pickpack1291/verify /tmp/b81h/classes /tmp/b81h/dex /tmp/beta81-pda-verify
           python3 - <<'PY'
-from pathlib import Path
-p=Path("tools/Beta80VerifyInstrumentation.java")
-s=p.read_text(encoding="utf-8")
-s=s.replace("import java.lang.reflect.Method;", "import java.lang.reflect.Method;\nimport org.json.JSONArray;\nimport org.json.JSONObject;\nimport java.time.LocalDate;\nimport java.time.ZoneId;")
-s=s.replace('else if("historical".equals(mode)) historical();', 'else if("historical".equals(mode)) historical();\n      else if("beta81checks".equals(mode)) beta81checks();')
-s=s.replace('.putString("notes","Beta80 OTA exact candidate")\n      .putInt("version_code",86)', '.putString("notes","Beta81 OTA exact candidate")\n      .putInt("version_code",87)')
-marker="\n}"
-method=r'''
-  private void assertTrue(boolean v,String msg){ if(!v)throw new IllegalStateException(msg); }
-
-  private void beta81checks() throws Exception {
-    String mnv=req("mnv"), mnv2=req("mnv2");
-    seedAuth(); seedService();
-    String today=LocalDate.now(ZoneId.of("Asia/Ho_Chi_Minh")).toString();
-    String oldDate=LocalDate.parse(today).minusDays(1).toString();
-
-    JSONObject master=new JSONObject().put("ok",true).put("master_revision",81001L)
-      .put("staff",new JSONArray()
-        .put(new JSONObject().put("mnv",mnv).put("full_name","Beta81 Test A").put("main_position","PICK").put("supplier","TEST").put("department","OPS").put("site","1291").put("warehouse","HY1"))
-        .put(new JSONObject().put("mnv",mnv2).put("full_name","Beta81 Test B").put("main_position","PACK").put("supplier","TEST").put("department","OPS").put("site","1291").put("warehouse","HY1")))
-      .put("pdas",new JSONArray()
-        .put(new JSONObject().put("serial","MT90-B81-OLD").put("status","Tốt"))
-        .put(new JSONObject().put("serial","MT90-B81-FREE").put("status","Tốt")))
-      .put("pda_statuses",new JSONArray().put("Tốt"))
-      .put("user_picks",new JSONArray().put("PICK-B81-OLD").put("PICK-B81-FREE"))
-      .put("pack_bundles",new JSONArray()
-        .put(new JSONObject().put("table","TABLE-B81-OLD").put("user_pack","PACK-B81-OLD"))
-        .put(new JSONObject().put("table","TABLE-B81-FREE").put("user_pack","PACK-B81-FREE")));
-
-    ClassLoader cl=target.getClassLoader();
-    Class<?> mc=cl.loadClass("vn.pickpack1291.app.beta.MasterDataCache");
-    Object mci=mc.getField("INSTANCE").get(null);
-    mc.getMethod("save",Context.class,JSONObject.class).invoke(mci,target,master);
-
-    Class<?> sc=cl.loadClass("vn.pickpack1291.app.beta.OperationalDataStore");
-    Object store=sc.getConstructor(Context.class).newInstance(target);
-    Method saveDay=sc.getMethod("saveDay",JSONObject.class);
-
-    JSONObject currentSession=new JSONObject()
-      .put("session_id","beta81-current-active").put("mnv",mnv).put("business_date",today)
-      .put("shift","Ca 2").put("work_choice","PICK").put("state","ACTIVE")
-      .put("enter_at",today+"T12:00:00Z").put("exit_at","").put("version",1);
-    JSONObject currentDay=new JSONObject().put("business_date",today).put("day_revision",81001L)
-      .put("sessions",new JSONArray().put(currentSession)).put("events",new JSONArray()).put("labor",new JSONArray());
-    saveDay.invoke(store,currentDay);
-
-    open("BUSINESS");
-    waitText("Ca 2 – 1/0",true,false,15000);
-    mark("reconciliation_home_1_0",true);
-    clickText("Quét QR nhân sự",true,15000);
-    waitText("Ca 2 – 1/0",true,false,15000);
-    mark("reconciliation_qr_1_0",true);
-
-    JSONObject emptyCurrent=new JSONObject().put("business_date",today).put("day_revision",81002L)
-      .put("sessions",new JSONArray()).put("events",new JSONArray()).put("labor",new JSONArray());
-    saveDay.invoke(store,emptyCurrent);
-    JSONObject oldSession=new JSONObject()
-      .put("session_id","beta81-old-active").put("mnv",mnv).put("business_date",oldDate)
-      .put("shift","Ca 2").put("work_choice","PICK").put("state","ACTIVE")
-      .put("enter_at",oldDate+"T16:30:00Z").put("exit_at","").put("version",3)
-      .put("pda_serial","MT90-B81-OLD").put("user_pick","PICK-B81-OLD")
-      .put("pack_table","TABLE-B81-OLD").put("user_pack","PACK-B81-OLD");
-    JSONObject oldDay=new JSONObject().put("business_date",oldDate).put("day_revision",81003L)
-      .put("sessions",new JSONArray().put(oldSession)).put("events",new JSONArray()).put("labor",new JSONArray());
-    saveDay.invoke(store,oldDay);
-
-    Class<?> pc=cl.loadClass("vn.pickpack1291.app.beta.PdaLocalProjection");
-    Object pci=pc.getField("INSTANCE").get(null);
-    JSONObject ctx=(JSONObject)pc.getMethod("employeeContext",Context.class,String.class).invoke(pci,target,mnv);
-    assertTrue(ctx!=null && "ACTIVE".equals(ctx.optString("state")),"ROLLOVER_STATE_NOT_ACTIVE");
-    assertTrue(today.equals(ctx.optString("business_date")),"ROLLOVER_CONTEXT_DATE_NOT_NEW_DAY");
-    JSONObject ses=ctx.optJSONObject("session");
-    assertTrue(ses!=null && "beta81-old-active".equals(ses.optString("session_id")),"ROLLOVER_WRONG_SESSION");
-    assertTrue(oldDate.equals(ses.optString("business_date")),"ROLLOVER_OLD_DATE_LOST");
-    mark("rollover_old_active_preserved",true);
-
-    JSONObject options=(JSONObject)pc.getMethod("resourceOptions",Context.class,String.class).invoke(pci,target,mnv2);
-    boolean pdaBusy=true;
-    JSONArray pdas=options.optJSONArray("pdas");
-    for(int i=0;i<(pdas==null?0:pdas.length());i++) if("MT90-B81-OLD".equals(pdas.optJSONObject(i).optString("serial"))) pdaBusy=false;
-    boolean pickBusy=true;
-    JSONArray picks=options.optJSONArray("user_picks");
-    for(int i=0;i<(picks==null?0:picks.length());i++) if("PICK-B81-OLD".equals(picks.optString(i))) pickBusy=false;
-    boolean packBusy=true;
-    JSONArray packs=options.optJSONArray("pack_tables");
-    for(int i=0;i<(packs==null?0:packs.length());i++){
-      JSONObject x=packs.optJSONObject(i);
-      if(x!=null && ("TABLE-B81-OLD".equals(x.optString("table")) || "PACK-B81-OLD".equals(x.optString("user_pack")))) packBusy=false;
-    }
-    assertTrue(pdaBusy && pickBusy && packBusy,"OLD_ACTIVE_RESOURCE_RELEASED");
-    mark("old_resources_preserved",true);
-
-    seedService(); open("BUSINESS");
-    clickText("Quét QR nhân sự",true,15000);
-    seedService(); setEmployee(mnv);
-    waitText("CẢNH BÁO: PHIÊN CA CŨ",false,false,15000);
-    waitText("Ra ca",true,true,15000);
-    mark("scanned_old_warning",true);
-    ok("BETA81_THREE_FIXES_PASS");
-  }
-'''
-idx=s.rfind(marker)
-if idx<0: raise SystemExit("CLASS_END_NOT_FOUND")
-s=s[:idx]+method+s[idx:]
-Path("/tmp/b81h/src/vn/pickpack1291/verify/Beta80VerifyInstrumentation.java").write_text(s,encoding="utf-8")
-PY
+          from pathlib import Path
+          p=Path("tools/Beta80VerifyInstrumentation.java")
+          s=p.read_text(encoding="utf-8")
+          s=s.replace("import java.lang.reflect.Method;", "import java.lang.reflect.Method;\nimport org.json.JSONArray;\nimport org.json.JSONObject;\nimport java.time.LocalDate;\nimport java.time.ZoneId;")
+          s=s.replace('else if("historical".equals(mode)) historical();', 'else if("historical".equals(mode)) historical();\n      else if("beta81checks".equals(mode)) beta81checks();')
+          s=s.replace('.putString("notes","Beta80 OTA exact candidate")\n      .putInt("version_code",86)', '.putString("notes","Beta81 OTA exact candidate")\n      .putInt("version_code",87)')
+          marker="\n}"
+          method=r'''
+            private void assertTrue(boolean v,String msg){ if(!v)throw new IllegalStateException(msg); }
+          
+            private void beta81checks() throws Exception {
+              String mnv=req("mnv"), mnv2=req("mnv2");
+              seedAuth(); seedService();
+              String today=LocalDate.now(ZoneId.of("Asia/Ho_Chi_Minh")).toString();
+              String oldDate=LocalDate.parse(today).minusDays(1).toString();
+          
+              JSONObject master=new JSONObject().put("ok",true).put("master_revision",81001L)
+                .put("staff",new JSONArray()
+                  .put(new JSONObject().put("mnv",mnv).put("full_name","Beta81 Test A").put("main_position","PICK").put("supplier","TEST").put("department","OPS").put("site","1291").put("warehouse","HY1"))
+                  .put(new JSONObject().put("mnv",mnv2).put("full_name","Beta81 Test B").put("main_position","PACK").put("supplier","TEST").put("department","OPS").put("site","1291").put("warehouse","HY1")))
+                .put("pdas",new JSONArray()
+                  .put(new JSONObject().put("serial","MT90-B81-OLD").put("status","Tốt"))
+                  .put(new JSONObject().put("serial","MT90-B81-FREE").put("status","Tốt")))
+                .put("pda_statuses",new JSONArray().put("Tốt"))
+                .put("user_picks",new JSONArray().put("PICK-B81-OLD").put("PICK-B81-FREE"))
+                .put("pack_bundles",new JSONArray()
+                  .put(new JSONObject().put("table","TABLE-B81-OLD").put("user_pack","PACK-B81-OLD"))
+                  .put(new JSONObject().put("table","TABLE-B81-FREE").put("user_pack","PACK-B81-FREE")));
+          
+              ClassLoader cl=target.getClassLoader();
+              Class<?> mc=cl.loadClass("vn.pickpack1291.app.beta.MasterDataCache");
+              Object mci=mc.getField("INSTANCE").get(null);
+              mc.getMethod("save",Context.class,JSONObject.class).invoke(mci,target,master);
+          
+              Class<?> sc=cl.loadClass("vn.pickpack1291.app.beta.OperationalDataStore");
+              Object store=sc.getConstructor(Context.class).newInstance(target);
+              Method saveDay=sc.getMethod("saveDay",JSONObject.class);
+          
+              JSONObject currentSession=new JSONObject()
+                .put("session_id","beta81-current-active").put("mnv",mnv).put("business_date",today)
+                .put("shift","Ca 2").put("work_choice","PICK").put("state","ACTIVE")
+                .put("enter_at",today+"T12:00:00Z").put("exit_at","").put("version",1);
+              JSONObject currentDay=new JSONObject().put("business_date",today).put("day_revision",81001L)
+                .put("sessions",new JSONArray().put(currentSession)).put("events",new JSONArray()).put("labor",new JSONArray());
+              saveDay.invoke(store,currentDay);
+          
+              open("BUSINESS");
+              waitText("Ca 2 – 1/0",true,false,15000);
+              mark("reconciliation_home_1_0",true);
+              clickText("Quét QR nhân sự",true,15000);
+              waitText("Ca 2 – 1/0",true,false,15000);
+              mark("reconciliation_qr_1_0",true);
+          
+              JSONObject emptyCurrent=new JSONObject().put("business_date",today).put("day_revision",81002L)
+                .put("sessions",new JSONArray()).put("events",new JSONArray()).put("labor",new JSONArray());
+              saveDay.invoke(store,emptyCurrent);
+              JSONObject oldSession=new JSONObject()
+                .put("session_id","beta81-old-active").put("mnv",mnv).put("business_date",oldDate)
+                .put("shift","Ca 2").put("work_choice","PICK").put("state","ACTIVE")
+                .put("enter_at",oldDate+"T16:30:00Z").put("exit_at","").put("version",3)
+                .put("pda_serial","MT90-B81-OLD").put("user_pick","PICK-B81-OLD")
+                .put("pack_table","TABLE-B81-OLD").put("user_pack","PACK-B81-OLD");
+              JSONObject oldDay=new JSONObject().put("business_date",oldDate).put("day_revision",81003L)
+                .put("sessions",new JSONArray().put(oldSession)).put("events",new JSONArray()).put("labor",new JSONArray());
+              saveDay.invoke(store,oldDay);
+          
+              Class<?> pc=cl.loadClass("vn.pickpack1291.app.beta.PdaLocalProjection");
+              Object pci=pc.getField("INSTANCE").get(null);
+              JSONObject ctx=(JSONObject)pc.getMethod("employeeContext",Context.class,String.class).invoke(pci,target,mnv);
+              assertTrue(ctx!=null && "ACTIVE".equals(ctx.optString("state")),"ROLLOVER_STATE_NOT_ACTIVE");
+              assertTrue(today.equals(ctx.optString("business_date")),"ROLLOVER_CONTEXT_DATE_NOT_NEW_DAY");
+              JSONObject ses=ctx.optJSONObject("session");
+              assertTrue(ses!=null && "beta81-old-active".equals(ses.optString("session_id")),"ROLLOVER_WRONG_SESSION");
+              assertTrue(oldDate.equals(ses.optString("business_date")),"ROLLOVER_OLD_DATE_LOST");
+              mark("rollover_old_active_preserved",true);
+          
+              JSONObject options=(JSONObject)pc.getMethod("resourceOptions",Context.class,String.class).invoke(pci,target,mnv2);
+              boolean pdaBusy=true;
+              JSONArray pdas=options.optJSONArray("pdas");
+              for(int i=0;i<(pdas==null?0:pdas.length());i++) if("MT90-B81-OLD".equals(pdas.optJSONObject(i).optString("serial"))) pdaBusy=false;
+              boolean pickBusy=true;
+              JSONArray picks=options.optJSONArray("user_picks");
+              for(int i=0;i<(picks==null?0:picks.length());i++) if("PICK-B81-OLD".equals(picks.optString(i))) pickBusy=false;
+              boolean packBusy=true;
+              JSONArray packs=options.optJSONArray("pack_tables");
+              for(int i=0;i<(packs==null?0:packs.length());i++){
+                JSONObject x=packs.optJSONObject(i);
+                if(x!=null && ("TABLE-B81-OLD".equals(x.optString("table")) || "PACK-B81-OLD".equals(x.optString("user_pack")))) packBusy=false;
+              }
+              assertTrue(pdaBusy && pickBusy && packBusy,"OLD_ACTIVE_RESOURCE_RELEASED");
+              mark("old_resources_preserved",true);
+          
+              seedService(); open("BUSINESS");
+              clickText("Quét QR nhân sự",true,15000);
+              seedService(); setEmployee(mnv);
+              waitText("CẢNH BÁO: PHIÊN CA CŨ",false,false,15000);
+              waitText("Ra ca",true,true,15000);
+              mark("scanned_old_warning",true);
+              ok("BETA81_THREE_FIXES_PASS");
+            }
+          '''
+          idx=s.rfind(marker)
+          if idx<0: raise SystemExit("CLASS_END_NOT_FOUND")
+          s=s[:idx]+method+s[idx:]
+          Path("/tmp/b81h/src/vn/pickpack1291/verify/Beta80VerifyInstrumentation.java").write_text(s,encoding="utf-8")
+          PY
           javac -source 8 -target 8 -cp "$SDK/platforms/android-36/android.jar" \
             -d /tmp/b81h/classes /tmp/b81h/src/vn/pickpack1291/verify/Beta80VerifyInstrumentation.java
           mapfile -t CLASSES < <(find /tmp/b81h/classes -type f -name '*.class' -print | sort)
           test "${#CLASSES[@]}" -ge 2
           "$BT/d8" --lib "$SDK/platforms/android-36/android.jar" --output /tmp/b81h/dex "${CLASSES[@]}"
           cat > /tmp/b81h/AndroidManifest.xml <<'XML'
-<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="vn.pickpack1291.verify">
-  <uses-sdk android:minSdkVersion="29" android:targetSdkVersion="36"/>
-  <application android:label="Beta81 Verify"/>
-  <instrumentation android:name=".Beta80VerifyInstrumentation" android:targetPackage="vn.pickpack1291.app.beta.publicbeta" android:functionalTest="true" android:handleProfiling="false"/>
-</manifest>
-XML
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android" package="vn.pickpack1291.verify">
+            <uses-sdk android:minSdkVersion="29" android:targetSdkVersion="36"/>
+            <application android:label="Beta81 Verify"/>
+            <instrumentation android:name=".Beta80VerifyInstrumentation" android:targetPackage="vn.pickpack1291.app.beta.publicbeta" android:functionalTest="true" android:handleProfiling="false"/>
+          </manifest>
+          XML
           "$BT/aapt" package -f -M /tmp/b81h/AndroidManifest.xml -I "$SDK/platforms/android-36/android.jar" -F /tmp/b81h/harness-unsigned.apk
           (cd /tmp/b81h/dex && "$BT/aapt" add /tmp/b81h/harness-unsigned.apk classes.dex >/dev/null)
           KS=/tmp/b81h/release.jks
@@ -724,125 +724,125 @@ XML
           AUTH_GEN=$(jq -r '.authority.service_generation' "$R")
 
           cat > ops/beta-release-request.json <<EOF
-{
-  "stage": "pass_live",
-  "mode": "PUBLISH_ONLY_EXACT_BYTES",
-  "version_name": "0.4.2-beta.81",
-  "version_code": 87,
-  "base_version": "0.4.2-beta.80",
-  "base_version_code": 86,
-  "source_sha": "$SOURCE_SHA",
-  "candidate_run_id": 33073351925,
-  "candidate_artifact_id": 9646920908,
-  "package": "vn.pickpack1291.app.beta.publicbeta",
-  "apk_sha256": "$APK_SHA",
-  "apk_size": $APK_SIZE,
-  "signer_sha256": "$EXPECTED_SIGNER",
-  "locked_run_id": 33073351925,
-  "locked_artifact_id": 9646920908,
-  "locked_sha256": "$APK_SHA",
-  "locked_size": $APK_SIZE,
-  "locked_signer_sha256": "$EXPECTED_SIGNER",
-  "service_run_id": 33073351925,
-  "service_artifact_id": 9646805806,
-  "final_visual_run_id": 33073351925,
-  "final_visual_artifact_id": 9647045177,
-  "final_visual_artifact_digest": "sha256:ca119c02e7e4133892b337245205bd3a06bd4635fd435f20a74ae7a1cb2d54b7",
-  "stable_publish": "FORBIDDEN",
-  "rebuild": false,
-  "resign": false,
-  "authority_change": "NONE",
-  "scope": "beta81-shift-reconciliation-qr-old-session-midnight-rollover",
-  "owner": "Nguyen Van Tam"
-}
-EOF
+          {
+            "stage": "pass_live",
+            "mode": "PUBLISH_ONLY_EXACT_BYTES",
+            "version_name": "0.4.2-beta.81",
+            "version_code": 87,
+            "base_version": "0.4.2-beta.80",
+            "base_version_code": 86,
+            "source_sha": "$SOURCE_SHA",
+            "candidate_run_id": 33073351925,
+            "candidate_artifact_id": 9646920908,
+            "package": "vn.pickpack1291.app.beta.publicbeta",
+            "apk_sha256": "$APK_SHA",
+            "apk_size": $APK_SIZE,
+            "signer_sha256": "$EXPECTED_SIGNER",
+            "locked_run_id": 33073351925,
+            "locked_artifact_id": 9646920908,
+            "locked_sha256": "$APK_SHA",
+            "locked_size": $APK_SIZE,
+            "locked_signer_sha256": "$EXPECTED_SIGNER",
+            "service_run_id": 33073351925,
+            "service_artifact_id": 9646805806,
+            "final_visual_run_id": 33073351925,
+            "final_visual_artifact_id": 9647045177,
+            "final_visual_artifact_digest": "sha256:ca119c02e7e4133892b337245205bd3a06bd4635fd435f20a74ae7a1cb2d54b7",
+            "stable_publish": "FORBIDDEN",
+            "rebuild": false,
+            "resign": false,
+            "authority_change": "NONE",
+            "scope": "beta81-shift-reconciliation-qr-old-session-midnight-rollover",
+            "owner": "Nguyen Van Tam"
+          }
+          EOF
 
           cat > CURRENT_STATE.md <<EOF
-# CURRENT STATE — PICK PACK 1291
-
-- updated_at: $NOW
-- status: BETA81_PASS_LIVE
-- continuity_branch: $BRANCH
-- source_sha: $SOURCE_SHA
-- workflow_head_sha: $GITHUB_SHA
-- beta_live: 0.4.2-beta.81 (versionCode 87)
-- candidate_run: 33073351925
-- candidate_artifact: 9646920908
-- visual_artifact: 9647045177
-- service_artifact: 9646805806
-- apk_sha256: $APK_SHA
-- apk_size: $APK_SIZE
-- signer_sha256: $EXPECTED_SIGNER
-- terminal_run: $GITHUB_RUN_ID
-- pda_job: $PDA_JOB_ID
-- beta81_device_receipt: đối soát ENDED+exit_at; QR có rà soát; cảnh báo phiên cũ; rollover qua 24:00 giữ ACTIVE và không giải phóng PDA/User — PASS
-- beta_ota: exact Beta81 PASS
-- stable: unchanged
-- main_sha: $MAIN_FRESH (unchanged)
-- authority: SERVICE_PRIMARY / PRODUCTION / epoch $AUTH_EPOCH / generation $AUTH_GEN (unchanged)
-- next_action: WAIT_FOR_OWNER_NEW_SCOPE
-EOF
+          # CURRENT STATE — PICK PACK 1291
+          
+          - updated_at: $NOW
+          - status: BETA81_PASS_LIVE
+          - continuity_branch: $BRANCH
+          - source_sha: $SOURCE_SHA
+          - workflow_head_sha: $GITHUB_SHA
+          - beta_live: 0.4.2-beta.81 (versionCode 87)
+          - candidate_run: 33073351925
+          - candidate_artifact: 9646920908
+          - visual_artifact: 9647045177
+          - service_artifact: 9646805806
+          - apk_sha256: $APK_SHA
+          - apk_size: $APK_SIZE
+          - signer_sha256: $EXPECTED_SIGNER
+          - terminal_run: $GITHUB_RUN_ID
+          - pda_job: $PDA_JOB_ID
+          - beta81_device_receipt: đối soát ENDED+exit_at; QR có rà soát; cảnh báo phiên cũ; rollover qua 24:00 giữ ACTIVE và không giải phóng PDA/User — PASS
+          - beta_ota: exact Beta81 PASS
+          - stable: unchanged
+          - main_sha: $MAIN_FRESH (unchanged)
+          - authority: SERVICE_PRIMARY / PRODUCTION / epoch $AUTH_EPOCH / generation $AUTH_GEN (unchanged)
+          - next_action: WAIT_FOR_OWNER_NEW_SCOPE
+          EOF
 
           mkdir -p docs/handovers
           cat > docs/handovers/HANDOVER_CURRENT.md <<EOF
-# PICK PACK 1291 — HANDOFF SCHEMA V2
-
-- schema_version: 2
-- status: READY
-- time: $NOW
-- owner: Nguyễn Văn Tâm
-- branch: $BRANCH
-- working_head_sha: $GITHUB_SHA
-- archive_file: $ARCHIVE
-
-## Mục tiêu + DoD
-Hoàn tất Beta81 bằng exact candidate 9646920908: OTA LIVE, hash/size/signer khớp, ba lỗi Beta81 PASS trên bản cài từ OTA; Stable/main/signer/authority không đổi.
-
-## LIVE / TARGET / CANDIDATE
-- LIVE BETA: 0.4.2-beta.81 / versionCode 87.
-- TARGET: PASS/LIVE hoàn tất.
-- CANDIDATE LOCKED: run 33073351925; artifact 9646920908; source $SOURCE_SHA; SHA256 $APK_SHA; size $APK_SIZE; signer $EXPECTED_SIGNER.
-- Visual: artifact 9647045177 PASS.
-- Service evidence: artifact 9646805806 PASS.
-- Stable: unchanged.
-- main: $MAIN_FRESH unchanged.
-- authority: SERVICE_PRIMARY / PRODUCTION / epoch $AUTH_EPOCH / generation $AUTH_GEN unchanged.
-
-## Evidence / locked identity
-- Terminal workflow run: $GITHUB_RUN_ID.
-- pda-verify job: $PDA_JOB_ID SUCCESS.
-- Exact OTA from Beta80 -> Beta81 + Android PackageInstaller: PASS.
-- Installed base APK SHA/size/signer equals exact candidate: PASS.
-- Rà soát chỉ tính RA khi ENDED + exit_at, Ca 2 1/0 cảnh báo: PASS.
-- QR nhân viên có rà soát ngày hiện tại + cảnh báo phiên cũ: PASS.
-- Qua 24:00 giữ prior-day ACTIVE và khóa PDA/User không giải phóng nhầm: PASS.
-- Final receipt artifact: beta81-final-$GITHUB_RUN_ID.
-
-## File / commit đã đổi
-- .github/workflows/beta-release.yml: Beta81 exact publish/device gates + always() TXT finalizer.
-- ops/beta-release-request.json, CURRENT_STATE.md và handoff canonical/archive do finalize cập nhật.
-- Không rebuild/resign candidate Beta81.
-
-## Lỗi + root cause + đường PASS / cấm lặp
-- NONE — release Beta81 đi đúng exact candidate/gates đã khóa.
-- Cấm lặp candidate/visual/service run 33073351925 khi source/artifact không đổi.
-
-## Workspace / CI / external state
-- Beta81 OTA readback PASS; Stable/main/authority unchanged.
-- Exact candidate bytes giữ nguyên từ artifact 9646920908.
-
-## Việc còn lại
-Không còn việc trong scope Beta81.
-
-## Blocker / quyền
-Không có blocker OWNER.
-
-## Invariants
-Không đổi Stable/main/signer/authority; không rebuild/resign exact candidate; không thêm backend/provider/authority.
-
-## NEXT_ACTION
-WAIT_FOR_OWNER_NEW_SCOPE
-EOF
+          # PICK PACK 1291 — HANDOFF SCHEMA V2
+          
+          - schema_version: 2
+          - status: READY
+          - time: $NOW
+          - owner: Nguyễn Văn Tâm
+          - branch: $BRANCH
+          - working_head_sha: $GITHUB_SHA
+          - archive_file: $ARCHIVE
+          
+          ## Mục tiêu + DoD
+          Hoàn tất Beta81 bằng exact candidate 9646920908: OTA LIVE, hash/size/signer khớp, ba lỗi Beta81 PASS trên bản cài từ OTA; Stable/main/signer/authority không đổi.
+          
+          ## LIVE / TARGET / CANDIDATE
+          - LIVE BETA: 0.4.2-beta.81 / versionCode 87.
+          - TARGET: PASS/LIVE hoàn tất.
+          - CANDIDATE LOCKED: run 33073351925; artifact 9646920908; source $SOURCE_SHA; SHA256 $APK_SHA; size $APK_SIZE; signer $EXPECTED_SIGNER.
+          - Visual: artifact 9647045177 PASS.
+          - Service evidence: artifact 9646805806 PASS.
+          - Stable: unchanged.
+          - main: $MAIN_FRESH unchanged.
+          - authority: SERVICE_PRIMARY / PRODUCTION / epoch $AUTH_EPOCH / generation $AUTH_GEN unchanged.
+          
+          ## Evidence / locked identity
+          - Terminal workflow run: $GITHUB_RUN_ID.
+          - pda-verify job: $PDA_JOB_ID SUCCESS.
+          - Exact OTA from Beta80 -> Beta81 + Android PackageInstaller: PASS.
+          - Installed base APK SHA/size/signer equals exact candidate: PASS.
+          - Rà soát chỉ tính RA khi ENDED + exit_at, Ca 2 1/0 cảnh báo: PASS.
+          - QR nhân viên có rà soát ngày hiện tại + cảnh báo phiên cũ: PASS.
+          - Qua 24:00 giữ prior-day ACTIVE và khóa PDA/User không giải phóng nhầm: PASS.
+          - Final receipt artifact: beta81-final-$GITHUB_RUN_ID.
+          
+          ## File / commit đã đổi
+          - .github/workflows/beta-release.yml: Beta81 exact publish/device gates + always() TXT finalizer.
+          - ops/beta-release-request.json, CURRENT_STATE.md và handoff canonical/archive do finalize cập nhật.
+          - Không rebuild/resign candidate Beta81.
+          
+          ## Lỗi + root cause + đường PASS / cấm lặp
+          - NONE — release Beta81 đi đúng exact candidate/gates đã khóa.
+          - Cấm lặp candidate/visual/service run 33073351925 khi source/artifact không đổi.
+          
+          ## Workspace / CI / external state
+          - Beta81 OTA readback PASS; Stable/main/authority unchanged.
+          - Exact candidate bytes giữ nguyên từ artifact 9646920908.
+          
+          ## Việc còn lại
+          Không còn việc trong scope Beta81.
+          
+          ## Blocker / quyền
+          Không có blocker OWNER.
+          
+          ## Invariants
+          Không đổi Stable/main/signer/authority; không rebuild/resign exact candidate; không thêm backend/provider/authority.
+          
+          ## NEXT_ACTION
+          WAIT_FOR_OWNER_NEW_SCOPE
+          EOF
           cp docs/handovers/HANDOVER_CURRENT.md "$ARCHIVE"
           mapfile -t OLD_ARCHIVES < <(find docs/handovers -maxdepth 1 -type f -name 'HANDOVER_20????????-??????_*.md' | sort)
           if (( ${#OLD_ARCHIVES[@]} > 5 )); then
