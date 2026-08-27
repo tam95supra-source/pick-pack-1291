@@ -2,45 +2,45 @@
 
 - schema_version: 2
 - status: READY
-- time: 2026-08-27T22:57:00+0700
+- time: 2026-08-27T23:20:00+0700
 - owner: Nguyễn Văn Tâm
 - branch: feature/beta78-old-session-outbound-service-20260826
-- working_head_sha: SELF / resolve fresh branch HEAD
-- archive_file: docs/handovers/HANDOVER_20260827-225700_beta81-preflight-parser-recovery.md
+- working_head_sha: aa40900cf576634e67730bbe53cb94ea6c7048f8
+- archive_file: docs/handovers/HANDOVER_20260827-232000_beta81-hydrated-fixture-recovery.md
 
 ## Mục tiêu + DoD
 Chốt Beta81 exact candidate 9646920908: device gate đủ ba lỗi PASS, finalize CURRENT_STATE + handoff READY, terminal TXT; không rebuild/resign/rerun candidate/visual/service/publish.
 
-## LIVE / TARGET / CANDIDATE
-- BETA OTA contract LIVE: 0.4.2-beta.81 / code 87.
-- Release acceptance: PENDING device gate.
-- Exact candidate: source 963ed28a90d2bb3e4a950ae8100fef15edfa86c5; artifact 9646920908; SHA256 f796bf8db5ec4575bb9d6d0880650c49abc682fe07c68aed916270f2afea3789; size 13196221; signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e.
-- Publish 33078179831 / 98537863151 PASS and must be reused.
+## Locked / PASS
+- Source 963ed28a90d2bb3e4a950ae8100fef15edfa86c5.
+- Candidate 33073351925 / 9646920908; SHA256 f796bf8db5ec4575bb9d6d0880650c49abc682fe07c68aed916270f2afea3789; size 13196221; signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e.
+- Visual 9647045177 PASS; Service 9646805806 PASS.
+- Publish 33078179831 / 98537863151 PASS; exact Beta81 OTA bytes already LIVE.
 
 ## Latest terminal evidence
-- workflow_dispatch run 33088945149: FAILURE.
-- pda-verify 98576199140 failed at "Validate exact locked inputs without republish"; emulator/device gate never started.
-- Root error: jq "Cannot index array with string files" while parsing the main approval compare response.
-- This run did not republish, rebuild, resign, rerun candidate/visual/service, or alter Beta OTA.
-- Fix: replace compare-response predicate with exact main commit readback: main commit must have parent a8c0c0d92522c7173230d4175b4f0d3a4906c8bb and exactly one changed file .github/workflows/beta-release.yml.
-- Secondary artifact-upload error downgraded to warn when preflight fails before /tmp/beta81-pda-verify exists.
+- Run 33091747263 terminal FAILURE.
+- pda-verify 98586104552 FAILURE only at scanned old-session warning check.
+- Artifact 9654734018 read back.
+- Exact OTA + PackageInstaller install PASS; versionName 0.4.2-beta.81 / code 87; OTA-downloaded and installed base exact SHA/size; signer exact.
+- Flags PASS: reconciliation_home_1_0, reconciliation_qr_1_0, rollover_old_active_preserved, old_resources_preserved.
+- Root error: IllegalStateException:TEXT_NOT_FOUND:CẢNH BÁO: PHIÊN CA CŨ.
 
-## Device evidence retained from run 33088069684
-- Exact Beta81 OTA download + PackageInstaller install PASS.
-- Installed APK SHA/size/signer exact.
-- Four flags PASS: reconciliation_home_1_0, reconciliation_qr_1_0, rollover_old_active_preserved, old_resources_preserved.
-- Harness QR navigation root cause already fixed by reusing the existing QR screen.
+## Root cause + fix
+- Local projection already proved prior-day ACTIVE session and resources preserved.
+- Harness fixture omitted resource_assignments_v64; renderEmployee therefore entered session_resource_snapshot hydration before attaching the employee tree.
+- Deterministic harness intentionally pointed Service to offline loopback, so hydration could not complete.
+- This is harness-fixture mismatch, not APK failure.
+- Fix commit 18e50b4a97cba3ae2883efcb00cbefaa554279ad hydrates old-session fixture with positions_v64 + ACTIVE resource_assignments_v64.
+- CURRENT_STATE checkpoint commit aa40900cf576634e67730bbe53cb94ea6c7048f8.
+- Preflight: workflow_dispatch-only, no publish job, reuses beta81-publish-33078179831, no app/ source change.
 
-## Main OWNER approval
-- OWNER explicitly allowed only .github/workflows/beta-release.yml on main for workflow_dispatch.
-- main = 4e728df1265943148a78642123df9dd84f2997c2.
-- Stable/signer/authority unchanged.
-
-## No-rerun
-Cấm rebuild/resign Beta81; cấm candidate/visual/service/publish rerun. Recovery workflow has no publish job and reuses publish artifact 9648823162.
+## Main / invariants
+- main 4e728df1265943148a78642123df9dd84f2997c2 contains only OWNER-approved workflow file addition from pre-publish main.
+- Stable NO_APK, signer and authority unchanged.
+- Cấm rebuild/resign/rerun candidate/visual/service/publish.
 
 ## Blocker / quyền
-ChatGPT GitHub connector has no workflow_dispatch write action. OWNER must click Run workflow once after this preflight parser fix.
+ChatGPT GitHub connector still has no workflow_dispatch action; OWNER must click existing workflow once on this branch. No OAuth/MFA blocker.
 
 ## NEXT_ACTION
 OWNER_RUN_EXISTING_BETA_RELEASE_WORKFLOW_DISPATCH_ONCE_ON_feature/beta78-old-session-outbound-service-20260826
