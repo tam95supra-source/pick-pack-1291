@@ -33,8 +33,9 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
       target=getTargetContext();
       ui=getUiAutomation();
       String mode=args.getString("mode","checks");
-      if(!"checks".equals(mode))throw new IllegalArgumentException("MODE_UNSUPPORTED:"+mode);
-      runChecks();
+      if("checks".equals(mode))runChecks();
+      else if("visual".equals(mode))runVisual();
+      else throw new IllegalArgumentException("MODE_UNSUPPORTED:"+mode);
     }catch(Throwable t){
       Bundle x=new Bundle();
       x.putString("error",t.getClass().getSimpleName()+":"+String.valueOf(t.getMessage()));
@@ -316,6 +317,30 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     saveDay.invoke(store,new JSONObject().put("business_date",oldDate).put("day_revision",83002L)
       .put("sessions",new JSONArray().put(leakedOld))
       .put("events",new JSONArray()).put("labor",new JSONArray()));
+  }
+
+  private void runVisual()throws Exception{
+    String tag=req("tag"),mnv=req("mnv"),mnv2=req("mnv2"),mnv3=req("mnv3");
+    seedAuth();seedService();seedData(mnv,mnv2,mnv3);
+
+    open("BUSINESS");
+    waitText("Quét QR nhân sự",true,true,12000L);
+    shot(tag+"-01-business");
+
+    clickText("Quét QR nhân sự",true,12000L);
+    long end=SystemClock.uptimeMillis()+12000L;
+    while(SystemClock.uptimeMillis()<end&&findEditable()==null)SystemClock.sleep(180L);
+    require(findEditable()!=null,"EMPLOYEE_INPUT_NOT_FOUND_VISUAL");
+    shot(tag+"-02-scan");
+
+    setEmployee(mnv);
+    waitText("THÔNG TIN CA",true,false,12000L);
+    shot(tag+"-03-employee-order");
+
+    showTextOnScreen("DIỄN BIẾN CÔNG VIỆC TRONG CA",12000L);
+    shot(tag+"-04-timeline");
+
+    Bundle done=new Bundle();done.putString("result","BETA83_VISUAL_PASS");finish(0,done);
   }
 
   private void runChecks()throws Exception{
