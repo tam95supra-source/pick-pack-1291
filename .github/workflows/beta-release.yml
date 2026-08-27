@@ -66,6 +66,7 @@ jobs:
           grep -Fq 'PREV_VERSION=0.4.2-beta.79' tools/publish_beta80_ota.sh
           grep -Fq 'service_artifact:9629315986' tools/publish_beta80_ota.sh
           grep -Fq 'session_v2_gate:"ENTER_SNAPSHOT_MUTATE_EXIT_PASS"' tools/publish_beta80_ota.sh
+          grep -Fq 'generic OTA contract already serves Beta80' tools/publish_beta80_ota.sh
           ! grep -Eq 'gradle|assembleBeta|assembleStable|apksigner|jarsigner|signingConfig' tools/publish_beta80_ota.sh
           echo 'beta80_publish_only_preflight=PASS'
 
