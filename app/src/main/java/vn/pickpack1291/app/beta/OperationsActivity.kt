@@ -238,35 +238,81 @@ class OperationsActivity : Activity() {
         setScreen(DropReceiveFeature.build(this,api,login,name,role){businessHome()})
     }
 
-    // S61_BETA60_SHIFT_RECONCILIATION_ACTIONS: exact counts + direct employee RA entry.
-    private fun businessDateVi(v:String):String=runCatching{java.time.LocalDate.parse(v.take(10)).format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}.getOrDefault(v.ifBlank{"—"})
+    // Current-day reconciliation: counts and list are always scoped to the real Asia/Ho_Chi_Minh calendar date.
+    private fun businessDateVi(v:String):String=runCatching{java.time.LocalDate.parse(v.take(10)).format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}.getOrDefault(v.ifBlank{"-"})
+    private fun compactAttendanceTime(v:String):String{
+        val clean=dash(v)
+        if(clean=="-")return "-"
+        return runCatching{Instant.parse(v).atZone(ZoneId.of("Asia/Ho_Chi_Minh")).format(DateTimeFormatter.ofPattern("HH:mm"))}.getOrElse{
+            Regex("""\b\d{2}:\d{2}\b""").find(v)?.value?:clean
+        }
+    }
+    private fun showCurrentDayShiftStaff(date:String,shift:String,rows:List<JSONObject>){
+        screenState="SHIFT_STAFF_LIST"
+        val root=baseRoot("$shift • ${businessDateVi(date)}")
+        val body=body()
+        val clean=rows.distinctBy{it.optString("session_id").ifBlank{"${it.optString("mnv")}|${it.optString("enter_at")}"}}
+            .filter{dash(it.optString("enter_at"))!="-"}.sortedBy{it.optString("enter_at")}
+        if(clean.isEmpty()){
+            body.addView(info("Chưa có nhân sự vào $shift trong ngày ${businessDateVi(date)}."))
+        }else clean.forEach{ses->
+            val mnv=ses.optString("mnv").trim()
+            val emp=MasterDataCache.employee(this,mnv)
+            val display=emp?.optString("full_name").orEmpty().ifBlank{ses.optJSONObject("employee_snapshot")?.optString("full_name").orEmpty()}
+            val ended=ses.optString("state").equals("ENDED",true)&&dash(ses.optString("exit_at"))!="-"
+            val card=listCard("${dash(mnv)} • ${dash(display)}","Vào ${compactAttendanceTime(ses.optString("enter_at"))} • Ra ${if(ended)compactAttendanceTime(ses.optString("exit_at")) else "-"}")
+            card.isClickable=true
+            card.isFocusable=true
+            card.setOnClickListener{if(mnv.isNotBlank())loadEmployee(mnv)}
+            body.addView(card,matchWrap());body.addView(gap(5))
+        }
+        attach(root,body)
+    }
     private fun addBusinessShiftReconciliation(body:LinearLayout){
         val currentDate=operationalStore.businessDate()
-        body.addView(txt("RÀ SOÁT VÀO / RA • ${businessDateVi(currentDate)}",9.4f,navy,true).apply{setPadding(dp(2),0,dp(2),dp(3))})
         val day=operationalStore.loadDay(currentDate)
         if(day==null){body.addView(info("Đang đồng bộ dữ liệu ngày ${businessDateVi(currentDate)}…"));body.addView(gap(4));return}
         val sessions=day.optJSONArray("sessions")?:JSONArray()
         val byShift=linkedMapOf<String,MutableList<JSONObject>>("Ca 1" to mutableListOf(),"Ca HC" to mutableListOf(),"Ca 2" to mutableListOf())
-        for(i in 0 until sessions.length()){val ses=sessions.optJSONObject(i)?:continue;val shift=ses.optString("shift").trim();if(shift in byShift.keys)byShift.getValue(shift).add(JSONObject(ses.toString()))}
+        for(i in 0 until sessions.length()){
+            val ses=sessions.optJSONObject(i)?:continue
+            if(ses.optString("business_date").trim().let{it.isNotBlank()&&it!=currentDate})continue
+            val shift=ses.optString("shift").trim()
+            if(shift in byShift.keys)byShift.getValue(shift).add(JSONObject(ses.toString()))
+        }
         val bar=row(bg).apply{gravity=Gravity.CENTER_VERTICAL}
         byShift.forEach{(shift,raw)->
             val rows=raw.distinctBy{it.optString("session_id").ifBlank{"${it.optString("mnv")}|${it.optString("enter_at")}"}}
-            val entered=rows.filter{dash(it.optString("enter_at"))!="—"}
-            val exited=entered.filter{it.optString("state").equals("ENDED",true)&&dash(it.optString("exit_at"))!="—"}
-            val pending=entered.filterNot{it.optString("state").equals("ENDED",true)&&dash(it.optString("exit_at"))!="—"}
+            val entered=rows.filter{dash(it.optString("enter_at"))!="-" }
+            val exited=entered.filter{it.optString("state").equals("ENDED",true)&&dash(it.optString("exit_at"))!="-" }
+            val pending=entered.filterNot{it.optString("state").equals("ENDED",true)&&dash(it.optString("exit_at"))!="-" }
             val button=reconciliationButton("$shift – ${entered.size}/${exited.size}",entered.size==exited.size)
-            if(entered.size!=exited.size){button.contentDescription="Cảnh báo đối soát $shift chưa khớp: vào ${entered.size}, ra ${exited.size}";button.startAnimation(android.view.animation.AlphaAnimation(1f,0.28f).apply{duration=650L;repeatMode=android.view.animation.Animation.REVERSE;repeatCount=android.view.animation.Animation.INFINITE})}
+            if(entered.size!=exited.size){
+                button.contentDescription="Cảnh báo đối soát $shift chưa khớp: vào ${entered.size}, ra ${exited.size}"
+                button.startAnimation(android.view.animation.AlphaAnimation(1f,0.28f).apply{duration=650L;repeatMode=android.view.animation.Animation.REVERSE;repeatCount=android.view.animation.Animation.INFINITE})
+            }
             button.setOnClickListener{
-                if(pending.isEmpty())TopNotice.show(this,"$shift – ${entered.size}/${exited.size} • đã đối soát đủ.",TopNotice.Kind.SUCCESS) else {
-                    val list=column(surface).apply{setPadding(dp(10),dp(4),dp(10),dp(6))};var dialog:AlertDialog?=null
+                if(pending.isEmpty()){
+                    showCurrentDayShiftStaff(currentDate,shift,entered)
+                }else{
+                    val list=column(surface).apply{setPadding(dp(10),dp(4),dp(10),dp(6))}
+                    var dialog:AlertDialog?=null
+                    list.addView(primary("HIỂN THỊ CHI TIẾT NHÂN SỰ",navy){
+                        dialog?.dismiss()
+                        showCurrentDayShiftStaff(currentDate,shift,entered)
+                    },matchWrap())
+                    list.addView(gap(7))
                     pending.forEach{ses->
-                        val mnv=ses.optString("mnv").trim();val emp=MasterDataCache.employee(this,mnv);val display=emp?.optString("full_name").orEmpty().ifBlank{ses.optJSONObject("employee_snapshot")?.optString("full_name").orEmpty()}
+                        val mnv=ses.optString("mnv").trim()
+                        val emp=MasterDataCache.employee(this,mnv)
+                        val display=emp?.optString("full_name").orEmpty().ifBlank{ses.optJSONObject("employee_snapshot")?.optString("full_name").orEmpty()}
                         val line=row(surface).apply{gravity=Gravity.CENTER_VERTICAL;setPadding(dp(4),dp(3),dp(4),dp(3))}
-                        line.addView(txt("$mnv • ${display.ifBlank{"—"}}",11f,ink,true),LinearLayout.LayoutParams(0,-2,1f))
-                        line.addView(smallButton("RA CA",red).apply{setOnClickListener{dialog?.dismiss();loadEmployee(mnv)}},LinearLayout.LayoutParams(dp(78),dp(38)))
+                        line.addView(txt("${dash(mnv)} • ${dash(display)}",11f,ink,true),LinearLayout.LayoutParams(0,-2,1f))
+                        line.addView(smallButton("RA CA",red).apply{setOnClickListener{dialog?.dismiss();if(mnv.isNotBlank())loadEmployee(mnv)}},LinearLayout.LayoutParams(dp(78),dp(38)))
                         list.addView(line,matchWrap());list.addView(gap(3))
                     }
-                    dialog=AlertDialog.Builder(this).setTitle("$shift • ${pending.size} nhân sự chưa ra").setView(ScrollView(this).apply{addView(list)}).setNegativeButton("Đóng",null).create();dialog.show()
+                    dialog=AlertDialog.Builder(this).setTitle("$shift • ${pending.size} nhân sự chưa ra").setView(ScrollView(this).apply{addView(list)}).setNegativeButton("Đóng",null).create()
+                    dialog.show()
                 }
             }
             bar.addView(button,LinearLayout.LayoutParams(0,dp(38),1f).apply{marginStart=dp(2);marginEnd=dp(2)})
@@ -418,7 +464,7 @@ class OperationsActivity : Activity() {
         val e=ctx.optJSONObject("employee")?:JSONObject();val state=ctx.optString("state");val currentMnv=e.optString("mnv");liveEmployeeMnv=currentMnv;lastEmployeeRenderSignature=employeeRenderSignature(ctx,masters)
         val root=column(bg);root.addView(appBar("QUÉT QR NHÂN SỰ"));val body=column(bg).apply{setPadding(dp(12),dp(8),dp(12),dp(58))}
         addScannedOldSessionWarning(body,ctx)
-        val scan=mnvInput("Scan / Nhập mã nhân viên").apply{setText("")};body.addView(scan,matchWrap());body.addView(gap(5));body.addView(employeeCard(e,state));body.addView(gap(7))
+        val scan=mnvInput("Scan / Nhập mã nhân viên").apply{setText("")};body.addView(scan,matchWrap());body.addView(gap(5));body.addView(employeeCard(e,state));body.addView(gap(7));addBusinessShiftReconciliation(body)
         var busy=false;fun submit(){val v=scan.text.toString().trim();if(v.isBlank()){TopNotice.show(this,"Nhập hoặc quét mã nhân viên.",TopNotice.Kind.WARNING);return};if(busy)return;busy=true;loadEmployee(v);scan.postDelayed({busy=false},600)};bindScannerEnter(scan){submit()}
         val ses=ctx.optJSONObject("session");val sessionId=ses?.optString("session_id").orEmpty().trim()
         if((state=="ACTIVE"||state=="ENDED")&&ses!=null&&!ses.has("resource_assignments_v64")&&sessionId.isNotBlank()){
@@ -748,7 +794,7 @@ class OperationsActivity : Activity() {
         items.forEach{(key,raw)->
             val r=row(Color.TRANSPARENT).apply{gravity=Gravity.TOP;setPadding(0,dp(3),0,dp(3))}
             r.addView(txt("$key:",9.5f,muted,true),LinearLayout.LayoutParams(0,-2,.46f))
-            r.addView(txt(raw.ifBlank{"—"},10f,ink,true).apply{maxLines=5;ellipsize=null},LinearLayout.LayoutParams(0,-2,.54f).apply{marginStart=dp(5)})
+            r.addView(txt(dash(raw),10f,ink,true).apply{maxLines=5;ellipsize=null},LinearLayout.LayoutParams(0,-2,.54f).apply{marginStart=dp(5)})
             addView(r,matchWrap())
         }
         if(!completed)startAnimation(android.view.animation.AlphaAnimation(1f,.92f).apply{duration=900;repeatMode=android.view.animation.Animation.REVERSE;repeatCount=android.view.animation.Animation.INFINITE})
@@ -1457,47 +1503,26 @@ class OperationsActivity : Activity() {
         body.addView(section("Giao diện"))
         body.addView(themePicker(),matchWrap())
         body.addView(section("THÔNG TIN ỨNG DỤNG"))
-        val deviceName="${Build.MANUFACTURER} ${Build.MODEL}".trim()
         val storageUsage=appStorageUsage()
         body.addView(details(listOf(
-            "Tên thiết bị" to deviceName,
-            "Hệ điều hành" to "Android ${Build.VERSION.RELEASE}",
+            "Phiên bản" to BuildConfig.VERSION_NAME,
             "Kênh phát hành" to if(BuildConfig.CHANNEL=="BETA")"Bản thử nghiệm" else "Bản ổn định",
-            "Phiên bản ứng dụng" to BuildConfig.VERSION_NAME,
-            "Mã phiên bản" to BuildConfig.VERSION_CODE.toString(),
             "Dung lượng ứng dụng" to humanBytes(appBinaryBytes()),
-            "Dữ liệu ứng dụng trên máy" to humanBytes(appStorageUsage().userDataBytes),
-            "Bộ nhớ đệm (cache)" to humanBytes(appStorageUsage().cacheBytes),
-            "Tổng dung lượng đang chiếm dụng" to humanBytes(appBinaryBytes()+appStorageUsage().userDataBytes+appStorageUsage().cacheBytes)
+            "Dữ liệu ứng dụng" to humanBytes(storageUsage.userDataBytes),
+            "Bộ nhớ đệm (cache)" to humanBytes(storageUsage.cacheBytes)
         )))
         body.addView(section("CẬP NHẬT PHIÊN BẢN"))
-        body.addView(details(listOf(
-            "Phiên bản đang cài" to BuildConfig.VERSION_NAME,
-            "Mã phiên bản" to BuildConfig.VERSION_CODE.toString(),
-            "Kênh OTA" to BuildConfig.CHANNEL,
-            "Nguồn kiểm tra OTA" to "Google Apps Script",
-            "Kiểm tra APK" to "SHA-256 + chữ ký ứng dụng",
-            "Tự động kiểm tra OTA" to "Khi mở / quay lại ứng dụng",
-            "Nội dung cập nhật" to "Hiển thị từng mục dạng gạch đầu dòng"
-        )))
         val pendingUpdate=UpdateManager.pendingInfo(this)
-        if(pendingUpdate!=null){
-            body.addView(gap(6));body.addView(details(listOf(
-                "Bản cập nhật đang chờ" to pendingUpdate.version,
-                "Trạng thái" to "Chưa cài đặt",
-                "Nội dung thay đổi" to UpdateManager.bulletNotesForDisplay(pendingUpdate.notes)
-            )))
-        }
+        val updateRows=mutableListOf<Pair<String,String>>()
+        updateRows.add("Trạng thái" to if(pendingUpdate==null)"Đang dùng phiên bản mới nhất: ${BuildConfig.VERSION_NAME}" else "Có bản ${pendingUpdate.version} đang chờ cài đặt")
+        if(pendingUpdate!=null)updateRows.add("Nội dung thay đổi" to UpdateManager.bulletNotesForDisplay(pendingUpdate.notes))
+        body.addView(details(updateRows))
         body.addView(gap(7))
         body.addView(primary(if(pendingUpdate!=null)"TIẾP TỤC CẬP NHẬT" else "KIỂM TRA CẬP NHẬT",teal){UpdateManager.openManual(this)},matchWrap())
         body.addView(gap(10))
         body.addView(section("NHẬT KÝ"))
-        val logCounts=runCatching{operationalStore.mutationStatusCounts()}.getOrDefault(OperationalDataStore.MutationStatusCounts(0,0,0,0))
-        body.addView(details(LocalLogManager.detailRows(this)+listOf(
-            "Đang chờ gửi nghiệp vụ" to logCounts.pending.toString(),
-            "Cần kiểm tra nghiệp vụ" to logCounts.review.toString(),
-            "Bị từ chối nghiệp vụ" to logCounts.rejected.toString()
-        )))
+        val basicLogRows=LocalLogManager.detailRows(this).filter{it.first in setOf("Tên tệp nhật ký","Dung lượng tệp","Thời gian cập nhật mới nhất","Trạng thái tải lên / đồng bộ")}
+        body.addView(details(basicLogRows))
         body.addView(gap(7))
         body.addView(primary("GỬI BÁO LỖI",teal){sendDiagnostic()},matchWrap())
         if(isActualSuper()){
@@ -1671,6 +1696,7 @@ class OperationsActivity : Activity() {
             "RESOURCE_EDITOR","RESOURCE_LIST"->resourceHome()
             "ACCOUNT_MANAGER"->settingsScreen()
             "EMPLOYEE","EMPLOYEE_LOADING","EMPLOYEE_LOOKUP_ERROR"->employeeScan()
+            "SHIFT_STAFF_LIST"->employeeScan()
             "SCAN","LABOR_HOME","RESOURCE_HOME","REPORT","LISTS","PDA_EXCHANGE","DROP_RECEIVE"->businessHome()
             "HISTORY_DETAIL"->historyScreen()
             else->{
@@ -1993,11 +2019,11 @@ raw.contains("PDA_STATUS_MISMATCH_NOTIFY_SPECIALIST")->"Tình trạng PDA hiện
         addView(ImageView(this@OperationsActivity).apply{setImageResource(res);imageTintList=ColorStateList.valueOf(color);setPadding(dp(8),dp(8),dp(8),dp(8))},FrameLayout.LayoutParams(-1,-1))
     }
 
-    private fun employeeCard(e:JSONObject,state:String="")=column(surface).apply{val fill=when(state.uppercase()){ "ACTIVE"->Color.rgb(255,249,214);"ENDED"->Color.rgb(231,247,237);else->surface };setPadding(dp(10),dp(8),dp(10),dp(8));background=GradientDrawable().apply{setColor(fill);cornerRadius=dp(11).toFloat();setStroke(dp(1),if(state.equals("ACTIVE",true))Color.rgb(217,165,32) else if(state.equals("ENDED",true))Color.rgb(54,142,91) else line)};addView(txt("${e.optString("mnv")} • ${e.optString("full_name")}",13.2f,navy,true).apply{maxLines=2});addView(txt("${dash(e.optString("main_position"))} • ${dash(e.optString("supplier"))}",9.5f,ink,false).apply{maxLines=2});addView(txt("${dash(e.optString("department"))} • Site ${dash(e.optString("site"))} • Kho ${dash(e.optString("warehouse"))}",9.1f,muted,false).apply{maxLines=3})}
+    private fun employeeCard(e:JSONObject,state:String="")=column(surface).apply{val fill=when(state.uppercase()){ "ACTIVE"->Color.rgb(255,249,214);"ENDED"->Color.rgb(231,247,237);else->surface };setPadding(dp(10),dp(8),dp(10),dp(8));background=GradientDrawable().apply{setColor(fill);cornerRadius=dp(11).toFloat();setStroke(dp(1),if(state.equals("ACTIVE",true))Color.rgb(217,165,32) else if(state.equals("ENDED",true))Color.rgb(54,142,91) else line)};addView(txt("${dash(e.optString("mnv"))} • ${dash(e.optString("full_name"))}",13.2f,navy,true).apply{maxLines=2});addView(txt("${dash(e.optString("main_position"))} • ${dash(e.optString("supplier"))}",9.5f,ink,false).apply{maxLines=2});addView(txt("${dash(e.optString("department"))} • Site ${dash(e.optString("site"))} • Kho ${dash(e.optString("warehouse"))}",9.1f,muted,false).apply{maxLines=3})}
     private fun listCard(title:String,sub:String)=column(surface).apply{setPadding(dp(10),dp(7),dp(10),dp(7));background=outlineBg(surface,10);addView(txt(title,11.6f,ink,true));addView(gap(1));addView(txt(sub,9.3f,muted,false))}
     private fun metric(title:String,value:String,color:Int)=txt("$title: $value",10.2f,color,true).apply{gravity=Gravity.CENTER;setPadding(dp(6),dp(8),dp(6),dp(8));background=outlineBg(surface,10)}
     private fun jsonMapCard(title:String,j:JSONObject?)=column(surface).apply{setPadding(dp(14),dp(11),dp(14),dp(11));background=outlineBg(surface,14);addView(txt(title,11f,navy,true));if(j==null||j.length()==0)addView(txt("Chưa có dữ liệu",10f,muted,false))else{val keys=j.keys();while(keys.hasNext()){val k=keys.next();addView(txt("$k: ${j.optInt(k)}",10.5f,ink,false))}}}
-    private fun details(items:List<Pair<String,String>>)=column(surface).apply{setPadding(dp(9),dp(6),dp(9),dp(6));background=outlineBg(surface,10);items.forEach{(k,raw)->val v=if(raw.isBlank())"—" else raw;val longValue=v.length>26||v.contains(", ")||v.contains(" & ");if(longValue)addView(column(surface).apply{setPadding(0,dp(3),0,dp(3));addView(txt(k,9.3f,muted,false));addView(txt(v,10f,ink,true).apply{maxLines=8;ellipsize=null})})else addView(row(surface).apply{addView(txt(k,9.5f,muted,false),LinearLayout.LayoutParams(0,-2,.42f));addView(txt(v,9.7f,ink,true).apply{gravity=Gravity.END;maxLines=3},LinearLayout.LayoutParams(0,-2,.58f));setPadding(0,dp(2),0,dp(2))})}}
+    private fun details(items:List<Pair<String,String>>)=column(surface).apply{setPadding(dp(9),dp(6),dp(9),dp(6));background=outlineBg(surface,10);items.forEach{(k,raw)->val v=dash(raw);val longValue=v.length>26||v.contains(", ")||v.contains(" & ");if(longValue)addView(column(surface).apply{setPadding(0,dp(3),0,dp(3));addView(txt(k,9.3f,muted,false));addView(txt(v,10f,ink,true).apply{maxLines=8;ellipsize=null})})else addView(row(surface).apply{addView(txt(k,9.5f,muted,false),LinearLayout.LayoutParams(0,-2,.42f));addView(txt(v,9.7f,ink,true).apply{gravity=Gravity.END;maxLines=3},LinearLayout.LayoutParams(0,-2,.58f));setPadding(0,dp(2),0,dp(2))})}}
     private fun section(v:String)=row(bg).apply{
         gravity=Gravity.CENTER_VERTICAL;setPadding(0,dp(8),0,dp(3))
         addView(ImageView(this@OperationsActivity).apply{setImageResource(sectionIconRes(v));imageTintList=ColorStateList.valueOf(teal)},size(dp(20),dp(20)))

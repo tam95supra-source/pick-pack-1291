@@ -1,7 +1,7 @@
 # CURRENT STATE — PICK PACK 1291
 
 - updated_at: 2026-08-27T23:27:19+0700
-- status: BETA81_PASS_LIVE
+- status: BETA82_IN_PROGRESS
 - continuity_branch: feature/beta78-old-session-outbound-service-20260826
 - source_sha: 963ed28a90d2bb3e4a950ae8100fef15edfa86c5
 - workflow_head_sha: 8780c83cc7d9b0d32531bb35dbcd4beb772357bc
@@ -20,4 +20,6 @@
 - stable: unchanged
 - main_sha: 021dac5c6932b3ac5c60ce8fdba562ddf3d9688f (OWNER-approved workflow-only change; unchanged during recovery)
 - authority: SERVICE_PRIMARY / PRODUCTION / epoch 9 / generation m2-prod-reset-20260823-001 (unchanged)
-- next_action: WAIT_FOR_OWNER_NEW_SCOPE
+- target_beta: 0.4.2-beta.82 (versionCode 88)
+- owner_scope: current-day shift reconciliation list + QR cards + null-safe display + simplified settings
+- next_action: APP_FAST_CHECK_THEN_BETA82_RELEASE_GATES

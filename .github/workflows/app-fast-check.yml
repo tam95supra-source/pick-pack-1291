@@ -3,11 +3,14 @@ name: App fast check
 on:
   push:
     branches:
-      - feature/beta78-old-session-outbound-service-20260826
+      - 'feature/**'
+      - 'agent/**'
     paths:
       - app/**
-      - service/**
-      - tools/beta78_service_live_gate.sh
+      - .github/workflows/app-fast-check.yml
+  pull_request:
+    paths:
+      - app/**
       - .github/workflows/app-fast-check.yml
   workflow_dispatch:
 
@@ -16,88 +19,17 @@ permissions:
   actions: read
 
 concurrency:
-  group: beta81-release-active-workflow
-  cancel-in-progress: false
+  group: app-fast-check-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  service-live:
+  fast-check:
     runs-on: ubuntu-24.04
     timeout-minutes: 35
-    env:
-      D1_NAME: pick-pack-1291-service-prod
-      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
-      GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
-      GOOGLE_OAUTH_REFRESH_TOKEN: ${{ secrets.GOOGLE_OAUTH_REFRESH_TOKEN }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 2
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-      - name: Install and typecheck Service
-        working-directory: service
-        shell: bash
-        run: |
-          set -euo pipefail
-          npm install --ignore-scripts --no-audit --no-fund
-          npm run check
-      - name: Deploy exact Service source and run live gates
-        shell: bash
-        run: |
-          set -euo pipefail
-          bash -n tools/beta78_service_live_gate.sh
-          grep -Fq '/v1/session/enter-v2' service/src/entry_product.ts
-          grep -Fq '/v1/session/resources/snapshot' service/src/entry_product.ts
-          grep -Fq '/v1/session/resources/mutate' service/src/entry_product.ts
-          grep -Fq '/v1/session/exit-v2' service/src/entry_product.ts
-          bash tools/beta78_service_live_gate.sh
-          grep -Fq 'beta80_session_v2=ENTER_SNAPSHOT_MUTATE_EXIT_PASS' /tmp/beta78-service-live/gate-summary.txt 2>/dev/null || grep -Fq 'beta80_session_v2' /tmp/beta78-service-live/receipt.json 2>/dev/null || test -f /tmp/beta78-service-live/b80-ended-snapshot.json
-          jq -e '.ok==true and .session.state=="ENDED"' /tmp/beta78-service-live/b80-ended-snapshot.json >/dev/null
-      - name: Upload Beta81 Service evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: beta81-service-live-${{ github.run_id }}
-          path: /tmp/beta78-service-live
-          retention-days: 30
-          if-no-files-found: warn
-
-  candidate:
-    needs: service-live
-    runs-on: ubuntu-24.04
-    timeout-minutes: 45
-    env:
-      EXPECTED_SIGNER_SHA256: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
-      SIGNING_KEY_B64: ${{ secrets.ANDROID_SIGNING_KEY_B64 }}
-      SIGNING_STORE_PASSWORD: ${{ secrets.ANDROID_SIGNING_STORE_PASSWORD }}
-      SIGNING_KEY_PASSWORD: ${{ secrets.ANDROID_SIGNING_KEY_PASSWORD }}
-      SIGNING_ALIAS: ${{ secrets.ANDROID_SIGNING_ALIAS }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 2
-
-      - name: Validate Beta81 source contracts
-        shell: bash
-        run: |
-          set -euo pipefail
-          grep -q 'versionCode = 87' app/build.gradle.kts
-          grep -q 'versionName = "0.4.2-beta.81"' app/build.gradle.kts
-          grep -q 'versionCode = 1' app/build.gradle.kts
-          grep -q 'versionName = "0.1.0-stable"' app/build.gradle.kts
-          grep -Fq 'sessionResourceSnapshotV2' service/src/entry_product.ts
-          grep -Fq 'sessionResourceMutateV2' service/src/entry_product.ts
-          grep -Fq 'attendanceEnterV2' service/src/entry_product.ts
-          grep -Fq 'u.pathname==="/v1/session/exit-v2"' service/src/entry_product.ts
-          grep -Fq 'FileProvider.getUriForFile' app/src/main/java/vn/pickpack1291/app/beta/UpdateManager.kt
-          grep -Fq 'ClipData.newRawUri' app/src/main/java/vn/pickpack1291/app/beta/UpdateManager.kt
-          grep -Fq 'androidx.core.content.FileProvider' app/src/main/AndroidManifest.xml
-          test -f app/src/main/res/xml/file_paths.xml
-          ! grep -Fq 'getUriForDownloadedFile' app/src/main/java/vn/pickpack1291/app/beta/UpdateManager.kt
-          git diff --check HEAD^ HEAD
 
       - uses: actions/setup-java@v5
         with:
@@ -112,7 +44,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if [[ -n "${ANDROID_HOME:-}" && -f "$ANDROID_HOME/platforms/android-36/android.jar" && -x "$ANDROID_HOME/build-tools/36.0.0/apksigner" && -x "$ANDROID_HOME/build-tools/36.0.0/aapt" ]]; then
+          if [[ -n "${ANDROID_HOME:-}" && -f "$ANDROID_HOME/platforms/android-36/android.jar" ]]; then
             echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> "$GITHUB_ENV"
             exit 0
           fi
@@ -128,129 +60,11 @@ jobs:
           yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
           "$SDK/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-36' 'build-tools;36.0.0'
 
-      - name: Build candidate once
+      - name: Static and Android debug gates
         shell: bash
         run: |
           set -euo pipefail
-          gradle --no-daemon --build-cache --parallel :app:testBetaDebugUnitTest :app:assembleBetaDebug :app:assembleStableDebug :app:assembleBetaRelease
-
-      - name: Sign and lock exact candidate
-        shell: bash
-        run: |
-          set -euo pipefail
-          for v in SIGNING_KEY_B64 SIGNING_STORE_PASSWORD SIGNING_KEY_PASSWORD SIGNING_ALIAS; do test -n "${!v:-}"; done
-          BT="$ANDROID_SDK_ROOT/build-tools/36.0.0"
-          U=app/build/outputs/apk/beta/release/app-beta-release-unsigned.apk
-          test -f "$U"
-          "$BT/aapt" dump badging "$U" > /tmp/beta81-badging.txt
-          grep -q "package: name='vn.pickpack1291.app.beta.publicbeta'" /tmp/beta81-badging.txt
-          grep -q "versionCode='87'" /tmp/beta81-badging.txt
-          grep -q "versionName='0.4.2-beta.81'" /tmp/beta81-badging.txt
-          KS="$RUNNER_TEMP/release.jks"
-          printf '%s' "$SIGNING_KEY_B64" | base64 -d > "$KS"
-          printf '%s' "$SIGNING_STORE_PASSWORD" > "$RUNNER_TEMP/store.pass"
-          printf '%s' "$SIGNING_KEY_PASSWORD" > "$RUNNER_TEMP/key.pass"
-          mkdir -p dist/beta81
-          OUT=dist/beta81/pick-pack-1291-public-beta-0.4.2-beta.81.apk
-          "$BT/apksigner" sign --ks "$KS" --ks-key-alias "$SIGNING_ALIAS" --ks-pass "file:$RUNNER_TEMP/store.pass" --key-pass "file:$RUNNER_TEMP/key.pass" --out "$OUT" "$U"
-          "$BT/apksigner" verify --verbose --print-certs "$OUT" > /tmp/beta81-cert.txt
-          CERT=$(grep -m1 'Signer #1 certificate SHA-256 digest:' /tmp/beta81-cert.txt | sed 's/.*digest: //' | tr 'A-F' 'a-f' | tr -d ':[:space:]')
-          test "$CERT" = "$EXPECTED_SIGNER_SHA256"
-          APK_SHA=$(sha256sum "$OUT" | awk '{print $1}')
-          APK_SIZE=$(stat -c '%s' "$OUT")
-          SOURCE_SHA=$(git rev-parse HEAD)
-          printf '%s  %s\n' "$APK_SHA" "$(basename "$OUT")" > dist/beta81/SHA256SUMS-0.4.2-beta.81.txt
-          jq -nc --arg source "$SOURCE_SHA" --arg sha "$APK_SHA" --argjson size "$APK_SIZE" --arg signer "$EXPECTED_SIGNER_SHA256" --argjson run "$GITHUB_RUN_ID" '{version_name:"0.4.2-beta.81",version_code:87,package:"vn.pickpack1291.app.beta.publicbeta",source_sha:$source,build_run:$run,apk_sha256:$sha,apk_size:$size,signer_sha256:$signer,stable_version:"0.1.0-stable",stable_code:1,stable_publish:"FORBIDDEN",apps_script_version:196,service_run:$run,service_artifact:null,service_worker:"pickpack",service_generation:"m2-prod-reset-20260823-001",historical_result:"3/3_SERVICE_D1_EXACT",outbound_result:"CRUD_DUP_GSHEET_PASS",authority_change:"NONE",candidate_locked:true}' > dist/beta81/release-meta.json
-          rm -f "$KS" "$RUNNER_TEMP/store.pass" "$RUNNER_TEMP/key.pass"
-
-      - name: Upload exact candidate
-        uses: actions/upload-artifact@v4
-        with:
-          name: beta81-candidate-${{ github.run_id }}
-          path: dist/beta81/*
-          retention-days: 30
-          if-no-files-found: error
-
-  visual:
-    needs: candidate
-    runs-on: ubuntu-24.04
-    timeout-minutes: 45
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
-        with:
-          name: beta81-candidate-${{ github.run_id }}
-          path: /tmp/beta81-candidate
-
-      - name: Verify exact candidate and materialize fixed harness
-        shell: bash
-        run: |
-          set -euo pipefail
-          META=/tmp/beta81-candidate/release-meta.json
-          APK=/tmp/beta81-candidate/pick-pack-1291-public-beta-0.4.2-beta.81.apk
-          test -f "$META" -a -f "$APK"
-          jq -e --argjson run "$GITHUB_RUN_ID" '.version_name=="0.4.2-beta.81" and .version_code==87 and .build_run==$run and .candidate_locked==true and .stable_publish=="FORBIDDEN" and .service_run==$run and .authority_change=="NONE"' "$META" >/dev/null
-          SHA=$(jq -r '.apk_sha256' "$META"); SIZE=$(jq -r '.apk_size' "$META")
-          test "$(sha256sum "$APK" | awk '{print $1}')" = "$SHA"
-          test "$(stat -c '%s' "$APK")" = "$SIZE"
-          curl -fsSL https://raw.githubusercontent.com/tam95supra-source/pick-pack-1291/e1246e2401211a010192e6126327c6149add6edc/tools/run_beta76_visual.py -o /tmp/run_beta81_visual.py
-          test "$(git hash-object /tmp/run_beta81_visual.py)" = "3d2f84c633c68e7a9ed8ed350e5d5d5ca19f8b12"
-          python3 - <<'PY'
-          from pathlib import Path
-          p=Path('/tmp/run_beta81_visual.py')
-          s=p.read_text(encoding='utf-8')
-          s=s.replace("OUT = Path('/tmp/beta77-visual')", "OUT = Path('/tmp/beta81-visual')")
-          s=s.replace("'token': 'beta77-visual-offline-token'", "'token': 'beta81-visual-offline-token'")
-          s=s.replace("'30012'", "'30010'")
-          s=s.replace("beta77-overnight-active", "07323dde-0456-45f8-a1d6-942e9f2e602e")
-          s=s.replace("candidate_run=32953924512\\nartifact_id=9601304499\\n", "candidate_run={os.environ.get('CANDIDATE_RUN','')}\\nartifact_name={os.environ.get('CANDIDATE_ARTIFACT','')}\\n")
-          s=s.replace("'candidate_run': 32953924512,", "'candidate_run': int(os.environ.get('CANDIDATE_RUN','0')),")
-          s=s.replace("'artifact_id': 9601304499,", "'artifact_name': os.environ.get('CANDIDATE_ARTIFACT',''),")
-          start=s.index('def capture_old_session(tag, size):')
-          end=s.index('\ndef capture_pda_release(tag, size):')
-          replacement="def capture_old_session(tag, size):\n    launch(tag + '-old-session', 'old')\n    shot(f'{tag}-old-session-warning.png', size)\n    rec(f'{tag}-old-session-contract.txt', 'session_id=07323dde-0456-45f8-a1d6-942e9f2e602e\\nmnv=30010\\nbusiness_date=2026-08-25\\nsource_contract=session_id+mnv+business_date\\n')\n    assert_activity(tag + '-old-session-warning')\n\n"
-          s=s[:start]+replacement+s[end+1:]
-          s=s.replace("'overnight_active_warning'", "'overnight_active_warning_exact_identity'")
-          s=s.replace("print('BETA77_EXACT_VISUAL_FULL_MATRIX_CAPTURED')", "print('BETA81_EXACT_VISUAL_FULL_MATRIX_CAPTURED')")
-          p.write_text(s,encoding='utf-8')
-          PY
-          python3 -m py_compile /tmp/run_beta81_visual.py
-          ! grep -Eq 'uiautomator|dump_ui|hierarchy' /tmp/run_beta81_visual.py
-          echo "APK=$APK" >> "$GITHUB_ENV"
-          echo "EXPECTED_SHA=$SHA" >> "$GITHUB_ENV"
-          echo "EXPECTED_SIZE=$SIZE" >> "$GITHUB_ENV"
-          echo "CANDIDATE_RUN=$GITHUB_RUN_ID" >> "$GITHUB_ENV"
-          echo "CANDIDATE_ARTIFACT=beta81-candidate-$GITHUB_RUN_ID" >> "$GITHUB_ENV"
-
-      - name: Enable KVM
-        shell: bash
-        run: |
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules >/dev/null
-          sudo udevadm control --reload-rules
-          sudo udevadm trigger --name-match=kvm || true
-          sudo chmod 666 /dev/kvm || true
-
-      - name: Run exact Beta81 visual matrix
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 29
-          target: default
-          arch: x86_64
-          profile: pixel_2
-          disable-animations: false
-          emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-metrics
-          script: |
-            adb install -r "$APK"
-            adb root >/tmp/beta81-adb-root.txt 2>&1 || true
-            adb wait-for-device
-            test "$(adb shell id -u 2>/dev/null | tr -d '\r')" = "0"
-            python3 /tmp/run_beta81_visual.py
-
-      - name: Upload exact visual evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: beta81-visual-${{ github.run_id }}
-          path: /tmp/beta81-visual
-          retention-days: 30
-          if-no-files-found: error
+          git diff --check HEAD^ HEAD
+          grep -q 'versionCode = 1' app/build.gradle.kts
+          grep -q 'versionName = "0.1.0-stable"' app/build.gradle.kts
+          gradle --no-daemon --build-cache --parallel :app:testBetaDebugUnitTest :app:assembleBetaDebug :app:assembleStableDebug
