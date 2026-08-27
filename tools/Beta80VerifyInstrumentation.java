@@ -193,7 +193,7 @@ public final class Beta80VerifyInstrumentation extends Instrumentation {
     open("SETTINGS");
     clickText("TIẾP TỤC CẬP NHẬT",true,15000);
     mark("ota_prompt_entry_clicked",true);
-    clickText("TẢI APK",true,10000);
+    clickText("TẢI APK",false,30000);
     mark("ota_download_clicked",true);
     long end=SystemClock.uptimeMillis()+90000;
     AccessibilityNodeInfo install=null;
