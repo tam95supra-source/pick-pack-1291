@@ -5,18 +5,68 @@ on:
     branches:
       - feature/beta78-old-session-outbound-service-20260826
     paths:
+      - app/**
+      - service/**
+      - tools/beta78_service_live_gate.sh
       - .github/workflows/app-fast-check.yml
+  workflow_dispatch:
 
 permissions:
   contents: read
   actions: read
 
 concurrency:
-  group: beta79-release-active-workflow
+  group: beta80-release-active-workflow
   cancel-in-progress: false
 
 jobs:
+  service-live:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      D1_NAME: pick-pack-1291-service-prod
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+      GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+      GOOGLE_OAUTH_REFRESH_TOKEN: ${{ secrets.GOOGLE_OAUTH_REFRESH_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install and typecheck Service
+        working-directory: service
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --ignore-scripts --no-audit --no-fund
+          npm run typecheck
+      - name: Deploy exact Service source and run live gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n tools/beta78_service_live_gate.sh
+          grep -Fq '/v1/session/enter-v2' service/src/entry_product.ts
+          grep -Fq '/v1/session/resources/snapshot' service/src/entry_product.ts
+          grep -Fq '/v1/session/resources/mutate' service/src/entry_product.ts
+          grep -Fq '/v1/session/exit-v2' service/src/entry_product.ts
+          bash tools/beta78_service_live_gate.sh
+          grep -Fq 'beta80_session_v2=ENTER_SNAPSHOT_MUTATE_EXIT_PASS' /tmp/beta78-service-live/gate-summary.txt 2>/dev/null || grep -Fq 'beta80_session_v2' /tmp/beta78-service-live/receipt.json 2>/dev/null || test -f /tmp/beta78-service-live/b80-ended-snapshot.json
+          jq -e '.ok==true and .session.state=="ENDED"' /tmp/beta78-service-live/b80-ended-snapshot.json >/dev/null
+      - name: Upload Beta80 Service evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: beta80-service-live-${{ github.run_id }}
+          path: /tmp/beta78-service-live
+          retention-days: 30
+          if-no-files-found: warn
+
   candidate:
+    needs: service-live
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     env:
@@ -30,31 +80,24 @@ jobs:
         with:
           fetch-depth: 2
 
-      - name: Reuse Beta79 service and compile receipts
+      - name: Validate Beta80 source contracts
         shell: bash
         run: |
           set -euo pipefail
-          git diff --quiet HEAD^ HEAD -- app service
-          grep -q 'versionCode = 85' app/build.gradle.kts
-          grep -q 'versionName = "0.4.2-beta.79"' app/build.gradle.kts
+          grep -q 'versionCode = 86' app/build.gradle.kts
+          grep -q 'versionName = "0.4.2-beta.80"' app/build.gradle.kts
           grep -q 'versionCode = 1' app/build.gradle.kts
           grep -q 'versionName = "0.1.0-stable"' app/build.gradle.kts
-          grep -Fq 'historical_session_detail' app/src/main/java/vn/pickpack1291/app/beta/M2RuntimeBridge.kt
-          grep -Fq 'outbound_drop_append' app/src/main/java/vn/pickpack1291/app/beta/M2RuntimeBridge.kt
-          ! grep -Fq 'loadEmployee(' app/src/main/java/vn/pickpack1291/app/beta/OldSessionWarningFeature.kt
-          grep -Fq 'onOpen(j)' app/src/main/java/vn/pickpack1291/app/beta/OldSessionWarningFeature.kt
-          grep -Fq 'OldSessionWarningFeature.build(this,api){raw->openHistoricalSession(raw)}' app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt
-          grep -Fq 'historical_session_detail' app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt
-          grep -Fq 'renderEmployee(ctx,null)' app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt
-          grep -Fq 'smallButton("Thêm",teal)' app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt
-          grep -Fq 'smallButton("Sửa",navy)' app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt
-          grep -Fq 'smallButton("Xóa",orange)' app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt
-          grep -Fq 'val exit=smallButton("Ra ca",red)' app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt
+          grep -Fq 'sessionResourceSnapshotV2' service/src/entry_product.ts
+          grep -Fq 'sessionResourceMutateV2' service/src/entry_product.ts
+          grep -Fq 'attendanceEnterV2' service/src/entry_product.ts
+          grep -Fq 'u.pathname==="/v1/session/exit-v2"' service/src/entry_product.ts
+          grep -Fq 'FileProvider.getUriForFile' app/src/main/java/vn/pickpack1291/app/beta/UpdateManager.kt
+          grep -Fq 'ClipData.newRawUri' app/src/main/java/vn/pickpack1291/app/beta/UpdateManager.kt
+          grep -Fq 'androidx.core.content.FileProvider' app/src/main/AndroidManifest.xml
+          test -f app/src/main/res/xml/file_paths.xml
+          ! grep -Fq 'getUriForDownloadedFile' app/src/main/java/vn/pickpack1291/app/beta/UpdateManager.kt
           git diff --check HEAD^ HEAD
-          echo 'service_live=REUSED_PASS run=32977566159 artifact=9610145160'
-          echo 'historical_3of3=REUSED_PASS run=32975908629'
-          echo 'android_compile=REUSED_PASS run=32974026769'
-          echo 'apps_script_version=194 inherited=true'
 
       - uses: actions/setup-java@v5
         with:
@@ -99,32 +142,32 @@ jobs:
           BT="$ANDROID_SDK_ROOT/build-tools/36.0.0"
           U=app/build/outputs/apk/beta/release/app-beta-release-unsigned.apk
           test -f "$U"
-          "$BT/aapt" dump badging "$U" > /tmp/beta79-badging.txt
-          grep -q "package: name='vn.pickpack1291.app.beta.publicbeta'" /tmp/beta79-badging.txt
-          grep -q "versionCode='85'" /tmp/beta79-badging.txt
-          grep -q "versionName='0.4.2-beta.79'" /tmp/beta79-badging.txt
+          "$BT/aapt" dump badging "$U" > /tmp/beta80-badging.txt
+          grep -q "package: name='vn.pickpack1291.app.beta.publicbeta'" /tmp/beta80-badging.txt
+          grep -q "versionCode='86'" /tmp/beta80-badging.txt
+          grep -q "versionName='0.4.2-beta.80'" /tmp/beta80-badging.txt
           KS="$RUNNER_TEMP/release.jks"
           printf '%s' "$SIGNING_KEY_B64" | base64 -d > "$KS"
           printf '%s' "$SIGNING_STORE_PASSWORD" > "$RUNNER_TEMP/store.pass"
           printf '%s' "$SIGNING_KEY_PASSWORD" > "$RUNNER_TEMP/key.pass"
-          mkdir -p dist/beta79
-          OUT=dist/beta79/pick-pack-1291-public-beta-0.4.2-beta.79.apk
+          mkdir -p dist/beta80
+          OUT=dist/beta80/pick-pack-1291-public-beta-0.4.2-beta.80.apk
           "$BT/apksigner" sign --ks "$KS" --ks-key-alias "$SIGNING_ALIAS" --ks-pass "file:$RUNNER_TEMP/store.pass" --key-pass "file:$RUNNER_TEMP/key.pass" --out "$OUT" "$U"
-          "$BT/apksigner" verify --verbose --print-certs "$OUT" > /tmp/beta79-cert.txt
-          CERT=$(grep -m1 'Signer #1 certificate SHA-256 digest:' /tmp/beta79-cert.txt | sed 's/.*digest: //' | tr 'A-F' 'a-f' | tr -d ':[:space:]')
+          "$BT/apksigner" verify --verbose --print-certs "$OUT" > /tmp/beta80-cert.txt
+          CERT=$(grep -m1 'Signer #1 certificate SHA-256 digest:' /tmp/beta80-cert.txt | sed 's/.*digest: //' | tr 'A-F' 'a-f' | tr -d ':[:space:]')
           test "$CERT" = "$EXPECTED_SIGNER_SHA256"
           APK_SHA=$(sha256sum "$OUT" | awk '{print $1}')
           APK_SIZE=$(stat -c '%s' "$OUT")
           SOURCE_SHA=$(git rev-parse HEAD)
-          printf '%s  %s\n' "$APK_SHA" "$(basename "$OUT")" > dist/beta79/SHA256SUMS-0.4.2-beta.79.txt
-          jq -nc --arg source "$SOURCE_SHA" --arg sha "$APK_SHA" --argjson size "$APK_SIZE" --arg signer "$EXPECTED_SIGNER_SHA256" --argjson run "$GITHUB_RUN_ID" '{version_name:"0.4.2-beta.79",version_code:85,package:"vn.pickpack1291.app.beta.publicbeta",source_sha:$source,build_run:$run,apk_sha256:$sha,apk_size:$size,signer_sha256:$signer,stable_version:"0.1.0-stable",stable_code:1,stable_publish:"FORBIDDEN",apps_script_version:194,service_run:32977566159,service_artifact:9610145160,service_worker:"pickpack",service_generation:"m2-prod-reset-20260823-001",historical_result:"3/3_SERVICE_D1_EXACT",outbound_result:"CRUD_DUP_GSHEET_PASS",authority_change:"NONE",candidate_locked:true}' > dist/beta79/release-meta.json
+          printf '%s  %s\n' "$APK_SHA" "$(basename "$OUT")" > dist/beta80/SHA256SUMS-0.4.2-beta.80.txt
+          jq -nc --arg source "$SOURCE_SHA" --arg sha "$APK_SHA" --argjson size "$APK_SIZE" --arg signer "$EXPECTED_SIGNER_SHA256" --argjson run "$GITHUB_RUN_ID" '{version_name:"0.4.2-beta.80",version_code:86,package:"vn.pickpack1291.app.beta.publicbeta",source_sha:$source,build_run:$run,apk_sha256:$sha,apk_size:$size,signer_sha256:$signer,stable_version:"0.1.0-stable",stable_code:1,stable_publish:"FORBIDDEN",apps_script_version:196,service_run:$run,service_artifact:null,service_worker:"pickpack",service_generation:"m2-prod-reset-20260823-001",historical_result:"3/3_SERVICE_D1_EXACT",outbound_result:"CRUD_DUP_GSHEET_PASS",authority_change:"NONE",candidate_locked:true}' > dist/beta80/release-meta.json
           rm -f "$KS" "$RUNNER_TEMP/store.pass" "$RUNNER_TEMP/key.pass"
 
       - name: Upload exact candidate
         uses: actions/upload-artifact@v4
         with:
-          name: beta79-candidate-${{ github.run_id }}
-          path: dist/beta79/*
+          name: beta80-candidate-${{ github.run_id }}
+          path: dist/beta80/*
           retention-days: 30
           if-no-files-found: error
 
@@ -136,28 +179,28 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
-          name: beta79-candidate-${{ github.run_id }}
-          path: /tmp/beta79-candidate
+          name: beta80-candidate-${{ github.run_id }}
+          path: /tmp/beta80-candidate
 
       - name: Verify exact candidate and materialize fixed harness
         shell: bash
         run: |
           set -euo pipefail
-          META=/tmp/beta79-candidate/release-meta.json
-          APK=/tmp/beta79-candidate/pick-pack-1291-public-beta-0.4.2-beta.79.apk
+          META=/tmp/beta80-candidate/release-meta.json
+          APK=/tmp/beta80-candidate/pick-pack-1291-public-beta-0.4.2-beta.80.apk
           test -f "$META" -a -f "$APK"
-          jq -e --argjson run "$GITHUB_RUN_ID" '.version_name=="0.4.2-beta.79" and .version_code==85 and .build_run==$run and .candidate_locked==true and .stable_publish=="FORBIDDEN" and .service_run==32977566159 and .authority_change=="NONE"' "$META" >/dev/null
+          jq -e --argjson run "$GITHUB_RUN_ID" '.version_name=="0.4.2-beta.80" and .version_code==86 and .build_run==$run and .candidate_locked==true and .stable_publish=="FORBIDDEN" and .service_run==$run and .authority_change=="NONE"' "$META" >/dev/null
           SHA=$(jq -r '.apk_sha256' "$META"); SIZE=$(jq -r '.apk_size' "$META")
           test "$(sha256sum "$APK" | awk '{print $1}')" = "$SHA"
           test "$(stat -c '%s' "$APK")" = "$SIZE"
-          curl -fsSL https://raw.githubusercontent.com/tam95supra-source/pick-pack-1291/e1246e2401211a010192e6126327c6149add6edc/tools/run_beta76_visual.py -o /tmp/run_beta79_visual.py
-          test "$(git hash-object /tmp/run_beta79_visual.py)" = "3d2f84c633c68e7a9ed8ed350e5d5d5ca19f8b12"
+          curl -fsSL https://raw.githubusercontent.com/tam95supra-source/pick-pack-1291/e1246e2401211a010192e6126327c6149add6edc/tools/run_beta76_visual.py -o /tmp/run_beta80_visual.py
+          test "$(git hash-object /tmp/run_beta80_visual.py)" = "3d2f84c633c68e7a9ed8ed350e5d5d5ca19f8b12"
           python3 - <<'PY'
           from pathlib import Path
-          p=Path('/tmp/run_beta79_visual.py')
+          p=Path('/tmp/run_beta80_visual.py')
           s=p.read_text(encoding='utf-8')
-          s=s.replace("OUT = Path('/tmp/beta77-visual')", "OUT = Path('/tmp/beta79-visual')")
-          s=s.replace("'token': 'beta77-visual-offline-token'", "'token': 'beta79-visual-offline-token'")
+          s=s.replace("OUT = Path('/tmp/beta77-visual')", "OUT = Path('/tmp/beta80-visual')")
+          s=s.replace("'token': 'beta77-visual-offline-token'", "'token': 'beta80-visual-offline-token'")
           s=s.replace("'30012'", "'30010'")
           s=s.replace("beta77-overnight-active", "07323dde-0456-45f8-a1d6-942e9f2e602e")
           s=s.replace("candidate_run=32953924512\\nartifact_id=9601304499\\n", "candidate_run={os.environ.get('CANDIDATE_RUN','')}\\nartifact_name={os.environ.get('CANDIDATE_ARTIFACT','')}\\n")
@@ -168,16 +211,16 @@ jobs:
           replacement="def capture_old_session(tag, size):\n    launch(tag + '-old-session', 'old')\n    shot(f'{tag}-old-session-warning.png', size)\n    rec(f'{tag}-old-session-contract.txt', 'session_id=07323dde-0456-45f8-a1d6-942e9f2e602e\\nmnv=30010\\nbusiness_date=2026-08-25\\nsource_contract=session_id+mnv+business_date\\n')\n    assert_activity(tag + '-old-session-warning')\n\n"
           s=s[:start]+replacement+s[end+1:]
           s=s.replace("'overnight_active_warning'", "'overnight_active_warning_exact_identity'")
-          s=s.replace("print('BETA77_EXACT_VISUAL_FULL_MATRIX_CAPTURED')", "print('BETA79_EXACT_VISUAL_FULL_MATRIX_CAPTURED')")
+          s=s.replace("print('BETA77_EXACT_VISUAL_FULL_MATRIX_CAPTURED')", "print('BETA80_EXACT_VISUAL_FULL_MATRIX_CAPTURED')")
           p.write_text(s,encoding='utf-8')
           PY
-          python3 -m py_compile /tmp/run_beta79_visual.py
-          ! grep -Eq 'uiautomator|dump_ui|hierarchy' /tmp/run_beta79_visual.py
+          python3 -m py_compile /tmp/run_beta80_visual.py
+          ! grep -Eq 'uiautomator|dump_ui|hierarchy' /tmp/run_beta80_visual.py
           echo "APK=$APK" >> "$GITHUB_ENV"
           echo "EXPECTED_SHA=$SHA" >> "$GITHUB_ENV"
           echo "EXPECTED_SIZE=$SIZE" >> "$GITHUB_ENV"
           echo "CANDIDATE_RUN=$GITHUB_RUN_ID" >> "$GITHUB_ENV"
-          echo "CANDIDATE_ARTIFACT=beta79-candidate-$GITHUB_RUN_ID" >> "$GITHUB_ENV"
+          echo "CANDIDATE_ARTIFACT=beta80-candidate-$GITHUB_RUN_ID" >> "$GITHUB_ENV"
 
       - name: Enable KVM
         shell: bash
@@ -187,7 +230,7 @@ jobs:
           sudo udevadm trigger --name-match=kvm || true
           sudo chmod 666 /dev/kvm || true
 
-      - name: Run exact Beta79 visual matrix
+      - name: Run exact Beta80 visual matrix
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 29
@@ -198,16 +241,16 @@ jobs:
           emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-metrics
           script: |
             adb install -r "$APK"
-            adb root >/tmp/beta79-adb-root.txt 2>&1 || true
+            adb root >/tmp/beta80-adb-root.txt 2>&1 || true
             adb wait-for-device
             test "$(adb shell id -u 2>/dev/null | tr -d '\r')" = "0"
-            python3 /tmp/run_beta79_visual.py
+            python3 /tmp/run_beta80_visual.py
 
       - name: Upload exact visual evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: beta79-visual-${{ github.run_id }}
-          path: /tmp/beta79-visual
+          name: beta80-visual-${{ github.run_id }}
+          path: /tmp/beta80-visual
           retention-days: 30
           if-no-files-found: error
