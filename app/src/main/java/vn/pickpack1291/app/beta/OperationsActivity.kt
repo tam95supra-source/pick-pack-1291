@@ -239,11 +239,12 @@ class OperationsActivity : Activity() {
     }
 
     // S61_BETA60_SHIFT_RECONCILIATION_ACTIONS: exact counts + direct employee RA entry.
+    private fun businessDateVi(v:String):String=runCatching{java.time.LocalDate.parse(v.take(10)).format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}.getOrDefault(v.ifBlank{"—"})
     private fun addBusinessShiftReconciliation(body:LinearLayout){
         val currentDate=operationalStore.businessDate()
-        body.addView(txt("RÀ SOÁT VÀO / RA • ${dateVi(currentDate)}",9.4f,navy,true).apply{setPadding(dp(2),0,dp(2),dp(3))})
+        body.addView(txt("RÀ SOÁT VÀO / RA • ${businessDateVi(currentDate)}",9.4f,navy,true).apply{setPadding(dp(2),0,dp(2),dp(3))})
         val day=operationalStore.loadDay(currentDate)
-        if(day==null){body.addView(info("Đang đồng bộ dữ liệu ngày ${dateVi(currentDate)}…"));body.addView(gap(4));return}
+        if(day==null){body.addView(info("Đang đồng bộ dữ liệu ngày ${businessDateVi(currentDate)}…"));body.addView(gap(4));return}
         val sessions=day.optJSONArray("sessions")?:JSONArray()
         val byShift=linkedMapOf<String,MutableList<JSONObject>>("Ca 1" to mutableListOf(),"Ca HC" to mutableListOf(),"Ca 2" to mutableListOf())
         for(i in 0 until sessions.length()){val ses=sessions.optJSONObject(i)?:continue;val shift=ses.optString("shift").trim();if(shift in byShift.keys)byShift.getValue(shift).add(JSONObject(ses.toString()))}
@@ -278,7 +279,7 @@ class OperationsActivity : Activity() {
         val sessionDate=s.optString("business_date").trim()
         val currentDate=operationalStore.businessDate()
         if(!ctx.optString("state").equals("ACTIVE",true)||sessionDate.isBlank()||sessionDate>=currentDate)return
-        val warning=status("CẢNH BÁO: PHIÊN CA CŨ ${dateVi(sessionDate)} CHƯA BẮN RA / ĐÓNG PHIÊN",red,Color.rgb(255,238,239))
+        val warning=status("CẢNH BÁO: PHIÊN CA CŨ ${businessDateVi(sessionDate)} CHƯA BẮN RA / ĐÓNG PHIÊN",red,Color.rgb(255,238,239))
         warning.startAnimation(android.view.animation.AlphaAnimation(1f,0.35f).apply{duration=650L;repeatMode=android.view.animation.Animation.REVERSE;repeatCount=android.view.animation.Animation.INFINITE})
         body.addView(warning,matchWrap());body.addView(gap(5))
     }
