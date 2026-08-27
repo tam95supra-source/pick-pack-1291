@@ -263,7 +263,9 @@ jobs:
           XML
           cp tools/Beta80VerifyInstrumentation.java /tmp/b80h/src/vn/pickpack1291/verify/Beta80VerifyInstrumentation.java
           javac -source 8 -target 8 -cp "$SDK/platforms/android-36/android.jar" -d /tmp/b80h/classes /tmp/b80h/src/vn/pickpack1291/verify/Beta80VerifyInstrumentation.java
-          "$BT/d8" --lib "$SDK/platforms/android-36/android.jar" --output /tmp/b80h/dex /tmp/b80h/classes/vn/pickpack1291/verify/Beta80VerifyInstrumentation.class
+          mapfile -t HARNESS_CLASSES < <(find /tmp/b80h/classes -type f -name '*.class' -print | sort)
+          test "${#HARNESS_CLASSES[@]}" -ge 2
+          "$BT/d8" --lib "$SDK/platforms/android-36/android.jar" --output /tmp/b80h/dex "${HARNESS_CLASSES[@]}"
           "$BT/aapt" package -f -M /tmp/b80h/AndroidManifest.xml -I "$SDK/platforms/android-36/android.jar" -F /tmp/b80h/harness-unsigned.apk
           (cd /tmp/b80h/dex && "$BT/aapt" add /tmp/b80h/harness-unsigned.apk classes.dex >/dev/null)
           KS=/tmp/b80h/release.jks
