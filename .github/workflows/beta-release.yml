@@ -25,6 +25,8 @@ jobs:
       candidate_artifact_name: ${{ steps.route.outputs.candidate_artifact_name }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - id: route
         shell: bash
         run: |
