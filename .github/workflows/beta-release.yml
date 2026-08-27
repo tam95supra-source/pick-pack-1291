@@ -1,4 +1,4 @@
-name: Beta79 exact OTA publish
+name: Beta80 exact OTA publish
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
       - feature/beta78-old-session-outbound-service-20260826
     paths:
       - .github/workflows/beta-release.yml
-      - tools/publish_beta79_ota.sh
+      - tools/publish_beta80_ota.sh
   workflow_dispatch:
 
 permissions:
@@ -14,7 +14,7 @@ permissions:
   actions: read
 
 concurrency:
-  group: beta79-exact-ota-publish
+  group: beta80-exact-ota-publish
   cancel-in-progress: false
 
 jobs:
@@ -33,51 +33,55 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Download exact locked Beta79 candidate
+      - name: Download exact locked Beta80 candidate
         uses: actions/download-artifact@v4
         with:
-          name: beta79-candidate-33020009122
-          path: /tmp/beta79-candidate
+          name: beta80-candidate-33028423645
+          path: /tmp/beta80-candidate
           github-token: ${{ github.token }}
           repository: tam95supra-source/pick-pack-1291
-          run-id: 33020009122
+          run-id: 33028423645
 
-      - name: Validate Beta79 exact lock and human visual PASS
+      - name: Validate Beta80 exact lock and human visual PASS
         shell: bash
         run: |
           set -euo pipefail
-          APK=/tmp/beta79-candidate/pick-pack-1291-public-beta-0.4.2-beta.79.apk
-          META=/tmp/beta79-candidate/release-meta.json
+          APK=/tmp/beta80-candidate/pick-pack-1291-public-beta-0.4.2-beta.80.apk
+          META=/tmp/beta80-candidate/release-meta.json
           test -f "$APK" -a -f "$META"
-          test "$(sha256sum "$APK" | awk '{print $1}')" = "547e1242a7d0bb057332ce38c46313771da33235fc0e384a908c14207e26e056"
-          test "$(stat -c '%s' "$APK")" = "13196165"
-          jq -e '.version_name=="0.4.2-beta.79" and .version_code==85 and .package=="vn.pickpack1291.app.beta.publicbeta" and .source_sha=="db96999844a31e7fed7d0f072fd0dd123fae1288" and .build_run==33020009122 and .apk_sha256=="547e1242a7d0bb057332ce38c46313771da33235fc0e384a908c14207e26e056" and .apk_size==13196165 and .signer_sha256=="d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e" and .candidate_locked==true and .stable_publish=="FORBIDDEN"' "$META" >/dev/null
-          jq -e '.status=="PASS" and .result=="HUMAN_VISUAL_PASS" and .candidate.version_name=="0.4.2-beta.79" and .candidate.version_code==85 and .candidate.build_run==33020009122 and .candidate.artifact_id==9626192148 and .candidate.sha256=="547e1242a7d0bb057332ce38c46313771da33235fc0e384a908c14207e26e056" and .visual.run_id==33020009122 and .visual.artifact_id==9626266511 and .visual.android_build_or_sign_in_visual==false and .human_inspection["320x568"].active_actions_visible_after_scroll==true and .human_inspection["360x640"].active_actions_visible_after_scroll==true and .human_inspection["480x800"].active_actions_visible==true and .stable_publish=="FORBIDDEN" and .rebuild_after_candidate_lock==false and .resign_after_candidate_lock==false' ops/beta79-visual-inspection.json >/dev/null
-          jq -e '.stage=="publish" and .mode=="PUBLISH_ONLY_EXACT_BYTES" and .version_name=="0.4.2-beta.79" and .version_code==85 and .candidate_run_id==33020009122 and .candidate_artifact_id==9626192148 and .locked_sha256=="547e1242a7d0bb057332ce38c46313771da33235fc0e384a908c14207e26e056" and .locked_size==13196165 and .locked_signer_sha256=="d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e" and .final_visual_artifact_id==9626266511 and .stable_publish=="FORBIDDEN" and .rebuild==false and .resign==false and .authority_change=="NONE"' ops/beta-release-request.json >/dev/null
-          bash -n tools/publish_beta79_ota.sh
-          grep -Fq 'TARGET_VERSION=0.4.2-beta.79' tools/publish_beta79_ota.sh
-          grep -Fq 'TARGET_CODE=85' tools/publish_beta79_ota.sh
-          grep -Fq 'SOURCE_SHA=db96999844a31e7fed7d0f072fd0dd123fae1288' tools/publish_beta79_ota.sh
-          grep -Fq 'CANDIDATE_RUN=33020009122' tools/publish_beta79_ota.sh
-          grep -Fq 'CANDIDATE_ARTIFACT=9626192148' tools/publish_beta79_ota.sh
-          grep -Fq 'VISUAL_ARTIFACT=9626266511' tools/publish_beta79_ota.sh
-          grep -Fq 'EXPECTED_SHA=547e1242a7d0bb057332ce38c46313771da33235fc0e384a908c14207e26e056' tools/publish_beta79_ota.sh
-          ! grep -Eq 'gradle|assembleBeta|assembleStable|apksigner|jarsigner|signingConfig' tools/publish_beta79_ota.sh
-          echo 'beta79_publish_only_preflight=PASS'
+          test "$(sha256sum "$APK" | awk '{print $1}')" = "1210bf57ff3bb48a723aa40d2efc8ec922c5e632e4c1d9928bf4dbe843654a69"
+          test "$(stat -c '%s' "$APK")" = "13196221"
+          jq -e '.version_name=="0.4.2-beta.80" and .version_code==86 and .package=="vn.pickpack1291.app.beta.publicbeta" and .source_sha=="38d6f08aa63600f4ef09fd524428beccebc4bb6f" and .build_run==33028423645 and .apk_sha256=="1210bf57ff3bb48a723aa40d2efc8ec922c5e632e4c1d9928bf4dbe843654a69" and .apk_size==13196221 and .signer_sha256=="d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e" and .candidate_locked==true and .stable_publish=="FORBIDDEN" and .service_run==33028423645 and .authority_change=="NONE"' "$META" >/dev/null
+          jq -e '.status=="PASS" and .result=="HUMAN_VISUAL_PASS" and .candidate.version_name=="0.4.2-beta.80" and .candidate.version_code==86 and .candidate.build_run==33028423645 and .candidate.artifact_id==9629377960 and .candidate.sha256=="1210bf57ff3bb48a723aa40d2efc8ec922c5e632e4c1d9928bf4dbe843654a69" and .service.live_run==33028423645 and .service.artifact_id==9629315986 and .service.session_v2_gate=="ENTER_SNAPSHOT_MUTATE_EXIT_PASS" and .visual.run_id==33028423645 and .visual.artifact_id==9629445113 and .visual.android_build_or_sign_in_visual==false and .human_inspection["320x568"].active_actions_visible_after_scroll==true and .human_inspection["360x640"].active_actions_visible_after_scroll==true and .human_inspection["480x800"].active_actions_visible==true and .ota_installer_contract.file_provider==true and .ota_installer_contract.direct_android_installer_intent==true and .stable_publish=="FORBIDDEN" and .rebuild_after_candidate_lock==false and .resign_after_candidate_lock==false' ops/beta80-visual-inspection.json >/dev/null
+          jq -e '.stage=="publish" and .mode=="PUBLISH_ONLY_EXACT_BYTES" and .version_name=="0.4.2-beta.80" and .version_code==86 and .candidate_run_id==33028423645 and .candidate_artifact_id==9629377960 and .locked_sha256=="1210bf57ff3bb48a723aa40d2efc8ec922c5e632e4c1d9928bf4dbe843654a69" and .locked_size==13196221 and .locked_signer_sha256=="d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e" and .service_run_id==33028423645 and .service_artifact_id==9629315986 and .service_live_gate=="ENTER_SNAPSHOT_MUTATE_EXIT_PASS" and .final_visual_artifact_id==9629445113 and .stable_publish=="FORBIDDEN" and .rebuild==false and .resign==false and .authority_change=="NONE"' ops/beta-release-request.json >/dev/null
+          bash -n tools/publish_beta80_ota.sh
+          grep -Fq 'TARGET_VERSION=0.4.2-beta.80' tools/publish_beta80_ota.sh
+          grep -Fq 'TARGET_CODE=86' tools/publish_beta80_ota.sh
+          grep -Fq 'SOURCE_SHA=38d6f08aa63600f4ef09fd524428beccebc4bb6f' tools/publish_beta80_ota.sh
+          grep -Fq 'CANDIDATE_RUN=33028423645' tools/publish_beta80_ota.sh
+          grep -Fq 'CANDIDATE_ARTIFACT=9629377960' tools/publish_beta80_ota.sh
+          grep -Fq 'VISUAL_ARTIFACT=9629445113' tools/publish_beta80_ota.sh
+          grep -Fq 'EXPECTED_SHA=1210bf57ff3bb48a723aa40d2efc8ec922c5e632e4c1d9928bf4dbe843654a69' tools/publish_beta80_ota.sh
+          grep -Fq 'EXPECTED_SIZE=13196221' tools/publish_beta80_ota.sh
+          grep -Fq 'PREV_VERSION=0.4.2-beta.79' tools/publish_beta80_ota.sh
+          grep -Fq 'service_artifact:9629315986' tools/publish_beta80_ota.sh
+          grep -Fq 'session_v2_gate:"ENTER_SNAPSHOT_MUTATE_EXIT_PASS"' tools/publish_beta80_ota.sh
+          ! grep -Eq 'gradle|assembleBeta|assembleStable|apksigner|jarsigner|signingConfig' tools/publish_beta80_ota.sh
+          echo 'beta80_publish_only_preflight=PASS'
 
       - name: Publish exact bytes to Drive Beta and OTA
         shell: bash
         run: |
           set -euo pipefail
-          chmod +x tools/publish_beta79_ota.sh
-          bash -n tools/publish_beta79_ota.sh
-          bash tools/publish_beta79_ota.sh
+          chmod +x tools/publish_beta80_ota.sh
+          bash -n tools/publish_beta80_ota.sh
+          bash tools/publish_beta80_ota.sh
 
-      - name: Upload Beta79 publish receipt
+      - name: Upload Beta80 publish receipt
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: beta79-publish-${{ github.run_id }}
-          path: /tmp/beta79-publish
+          name: beta80-publish-${{ github.run_id }}
+          path: /tmp/beta80-publish
           retention-days: 30
           if-no-files-found: warn
