@@ -284,35 +284,21 @@ done
 test -n "$APK_URL"
 echo "::add-mask::$APK_URL"
 
-PUBLISHED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-python3 - "$E/gas-before.json" "$E/gas-target.json" "$APK_URL" "$PUBLISHED_AT" <<'PY'
+# The existing deployed OTA contract already discovers the newest exact Beta APK from
+# Drive. Beta80 public readback proved this path returns the locked SHA/size, so do not
+# mutate Apps Script merely to add a redundant Beta-specific helper.
+python3 - "$E/gas-before.json" "$E/gas-target.json" <<'PY'
 import hashlib,json,sys
 from pathlib import Path
-src_path,target_path,apk_url,published_at=sys.argv[1:]
+src_path,target_path=sys.argv[1:]
 j=json.load(open(src_path,encoding='utf-8'))
 files=j.get('files',[])
-f=next((x for x in files if x.get('name')=='PICK_PACK_API'),None)
-assert f and f.get('source'),'PICK_PACK_API missing'
-s=f['source']
-route="    if (action === 'update_check') return ppJson_(ppBeta80UpdateCheck1210bf57_(body));"
-helper=f'''\n// BETA80_EXACT_OTA_1210BF57: exact locked candidate; Stable remains delegated to pre-existing ppUpdateCheck_.\nfunction ppBeta80UpdateCheck1210bf57_(body) {{\n  const channel=ppFold_(body.channel||body._app_channel)==='STABLE'?'STABLE':'BETA';\n  if(channel==='STABLE') return ppUpdateCheck_(body);\n  const current=String(body.current_version||body._app_version||'').trim();\n  const version='0.4.2-beta.80', available=ppOtaCompare_(version,current)>0;\n  const out={{ok:true,source:'DRIVE_BETA',channel:'BETA',available:available,version_name:version,version_code:86,size:13196221,published_at:{json.dumps(published_at)},notes:'Sửa NOT_FOUND phiên cũ và Vào/Ra bằng Service v2; OTA tải xong tự mở trình cài Android bằng FileProvider; Stable và authority không đổi.',mandatory:false}};\n  if(!available) return out;\n  out.sha256='1210bf57ff3bb48a723aa40d2efc8ec922c5e632e4c1d9928bf4dbe843654a69';\n  out.apk_url={json.dumps(apk_url)};\n  return out;\n}}\n'''
-lines=s.splitlines()
-idx=[i for i,line in enumerate(lines) if "if (action === 'update_check')" in line]
-assert len(idx)==1,f'update_check route count={len(idx)}'
-lines[idx[0]]=route
-s='\n'.join(lines)
-if 'function ppBeta80UpdateCheck1210bf57_(' not in s:
-    s += helper
-else:
-    for needle in ('0.4.2-beta.80','version_code:86','1210bf57ff3bb48a723aa40d2efc8ec922c5e632e4c1d9928bf4dbe843654a69',apk_url):
-        assert needle in s,needle
-f['source']=s
-body={'files':files}
-Path(target_path).write_text(json.dumps(body,ensure_ascii=False),encoding='utf-8')
+Path(target_path).write_text(json.dumps({'files':files},ensure_ascii=False),encoding='utf-8')
 def canon(fs):
     return '\n'.join(str(x.get('name',''))+'\0'+str(x.get('type',''))+'\0'+str(x.get('source','')) for x in fs)
-Path('/tmp/beta80-publish/gas-before.sha256').write_text(hashlib.sha256(canon(j.get('files',[])).encode()).hexdigest())
-Path('/tmp/beta80-publish/gas-target.sha256').write_text(hashlib.sha256(canon(files).encode()).hexdigest())
+h=hashlib.sha256(canon(files).encode()).hexdigest()
+Path('/tmp/beta80-publish/gas-before.sha256').write_text(h)
+Path('/tmp/beta80-publish/gas-target.sha256').write_text(h)
 PY
 
 BEFORE_HASH=$(cat "$E/gas-before.sha256")
