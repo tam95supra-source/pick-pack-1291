@@ -1,25 +1,25 @@
 # CURRENT STATE — PICK PACK 1291
 
-- updated_at: 2026-08-27T23:27:19+0700
-- status: BETA82_IN_PROGRESS
-- continuity_branch: feature/beta78-old-session-outbound-service-20260826
-- source_sha: 963ed28a90d2bb3e4a950ae8100fef15edfa86c5
-- workflow_head_sha: 8780c83cc7d9b0d32531bb35dbcd4beb772357bc
-- beta_live: 0.4.2-beta.81 (versionCode 87)
-- candidate_run: 33073351925
-- candidate_artifact: 9646920908
-- visual_artifact: 9647045177
-- service_artifact: 9646805806
-- apk_sha256: f796bf8db5ec4575bb9d6d0880650c49abc682fe07c68aed916270f2afea3789
+- updated_at: 2026-08-27T17:54:17Z
+- status: BETA82_PASS_LIVE
+- continuity_branch: release/beta82-current-day-reconciliation-20260827
+- source_sha: 70c2be4c2866fc71607bb4ad48229cc3ed2d231f
+- beta_live: 0.4.2-beta.82 (versionCode 88)
+- candidate_run: 33097369281
+- candidate_artifact: 9657063583
+- verify_run: 33099453424
+- verify_artifact: 9657879443
+- apk_sha256: 6b09f5ed289e9a26b3fa93e95ee0885b2d2736c13cf7b1be0245f4f3cd216dbc
 - apk_size: 13196221
 - signer_sha256: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
-- terminal_run: 33093042245
-- pda_job: 98590681116
-- beta81_device_receipt: đối soát ENDED+exit_at; QR có rà soát; cảnh báo phiên cũ; rollover qua 24:00 giữ ACTIVE và không giải phóng PDA/User — PASS
-- beta_ota: exact Beta81 PASS
+- terminal_run: 33100449476
+- fast_check: PASS
+- service_gate: inherited PASS; Service source unchanged
+- visual_matrix: PASS 320x568 / 360x640 / 480x800
+- human_visual: PASS
+- pda_functional: PASS
+- beta_ota: exact Beta82 PASS
 - stable: unchanged
-- main_sha: 021dac5c6932b3ac5c60ce8fdba562ddf3d9688f (OWNER-approved workflow-only change; unchanged during recovery)
-- authority: SERVICE_PRIMARY / PRODUCTION / epoch 9 / generation m2-prod-reset-20260823-001 (unchanged)
-- target_beta: 0.4.2-beta.82 (versionCode 88)
-- owner_scope: current-day shift reconciliation list + QR cards + null-safe display + simplified settings
-- next_action: APP_FAST_CHECK_THEN_BETA82_RELEASE_GATES
+- main_sha: 021dac5c6932b3ac5c60ce8fdba562ddf3d9688f
+- authority: SERVICE_PRIMARY / PRODUCTION / epoch 9 / generation m2-prod-reset-20260823-001
+- next_action: WAIT_FOR_OWNER_NEW_SCOPE

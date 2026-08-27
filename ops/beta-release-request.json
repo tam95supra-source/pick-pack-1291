@@ -1,6 +1,6 @@
 {
-  "stage": "PUBLISH",
-  "mode": "PUBLISH_EXACT_LOCKED_BYTES_AFTER_ALL_PRE_OTA_GATES",
+  "stage": "pass_live",
+  "mode": "PASS_LIVE_EXACT_BYTES",
   "version_name": "0.4.2-beta.82",
   "version_code": 88,
   "base_version": "0.4.2-beta.81",
@@ -43,5 +43,7 @@
   "scope": "beta82-current-day-reconciliation-list-qr-cards-null-settings",
   "owner": "Nguyen Van Tam",
   "transport_revision": 2,
-  "last_publish_failure": "MALFORMED_GAS_JSON_BEFORE_WRITE"
+  "last_publish_failure": "MALFORMED_GAS_JSON_BEFORE_WRITE",
+  "publish_run_id": "33100449476",
+  "live": true
 }
