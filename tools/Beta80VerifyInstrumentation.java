@@ -198,9 +198,13 @@ public final class Beta80VerifyInstrumentation extends Instrumentation {
     long end=SystemClock.uptimeMillis()+90000;
     AccessibilityNodeInfo install=null;
     while(SystemClock.uptimeMillis()<end){
-      for(String t:new String[]{"INSTALL","CÀI ĐẶT","UPDATE","CẬP NHẬT"}){
-        AccessibilityNodeInfo n=findText(t,true,true);
-        if(n!=null){install=n;break;}
+      AccessibilityNodeInfo rr=root();
+      String pkg=rr==null?"":String.valueOf(rr.getPackageName()).toLowerCase(Locale.ROOT);
+      if(pkg.contains("packageinstaller")){
+        for(String t:new String[]{"INSTALL","CÀI ĐẶT","UPDATE","CẬP NHẬT"}){
+          AccessibilityNodeInfo n=findText(t,true,true);
+          if(n!=null){install=n;break;}
+        }
       }
       if(install!=null)break;
       SystemClock.sleep(300);
@@ -245,9 +249,13 @@ public final class Beta80VerifyInstrumentation extends Instrumentation {
     long end=SystemClock.uptimeMillis()+90000;
     AccessibilityNodeInfo install=null;
     while(SystemClock.uptimeMillis()<end){
-      for(String t:new String[]{"INSTALL","CÀI ĐẶT","UPDATE","CẬP NHẬT"}){
-        AccessibilityNodeInfo n=findText(t,true,true);
-        if(n!=null){install=n;break;}
+      AccessibilityNodeInfo rr=root();
+      String pkg=rr==null?"":String.valueOf(rr.getPackageName()).toLowerCase(Locale.ROOT);
+      if(pkg.contains("packageinstaller")){
+        for(String t:new String[]{"INSTALL","CÀI ĐẶT","UPDATE","CẬP NHẬT"}){
+          AccessibilityNodeInfo n=findText(t,true,true);
+          if(n!=null){install=n;break;}
+        }
       }
       if(install!=null)break;
       SystemClock.sleep(300);
