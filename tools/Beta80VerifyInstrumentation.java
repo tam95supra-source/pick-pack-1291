@@ -275,7 +275,9 @@ public final class Beta80VerifyInstrumentation extends Instrumentation {
   private void enter(){
     seedAuth();seedService();open("BUSINESS");
     clickText("Quét QR nhân sự",true,15000);
+    seedService();
     setEmployee(req("mnv"));
+    seedService();
     clickText("VÀO CA",true,20000);
     mark("enter_ui_clicked",true);
     SystemClock.sleep(5000);
@@ -289,20 +291,24 @@ public final class Beta80VerifyInstrumentation extends Instrumentation {
     clickActionNear(mnv,"MỞ ĐÚNG PHIÊN",20000);
     waitText("QUÉT QR NHÂN SỰ",false,false,20000);
     waitText(mnv,false,false,10000);
+    seedService();
     waitText("Sửa",true,true,10000);
     waitText("Ra ca",true,true,10000);
     mark("historical_shared_ui",true);
 
     clickText("Sửa",true,10000);
+    seedService();
     clickText("Chọn nội dung cần sửa",true,10000);
     clickText("Ca",true,10000);
     SystemClock.sleep(500);
     clickText("Ca 1",true,10000);
     clickText("Ca 2",true,10000);
+    seedService();
     clickText("LƯU",true,10000);
     mark("historical_edit_clicked",true);
     SystemClock.sleep(5000);
 
+    seedService();
     clickText("Ra ca",true,15000);
     mark("historical_exit_clicked",true);
     SystemClock.sleep(5000);
