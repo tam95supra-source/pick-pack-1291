@@ -210,13 +210,15 @@ jobs:
           test -n "$TEST_TODAY" -a -n "$TEST_OLD_DATE" -a "$TEST_TODAY" != "$TEST_OLD_DATE"
           SUFFIX=$(printf '%s' "$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" | sha256sum | cut -c1-10)
           TEST_LOGIN="__B80PDA_LOGIN_$SUFFIX"
-          TEST_MNV="__B80PDA_MNV_$SUFFIX"
+          TEST_MNV="98${GITHUB_RUN_ID: -9}${GITHUB_RUN_ATTEMPT}"
           DEVICE="__B80PDA_DEVICE_$SUFFIX"
           AUTH_SESSION="__B80PDA_AUTH_$SUFFIX"
           VH="b80pda_${SUFFIX}_vh"
           NOW=$(date -u +%Y-%m-%dT%H:%M:%SZ)
           for v in "$TEST_LOGIN" "$TEST_MNV" "$DEVICE" "$AUTH_SESSION" "$VH"; do echo "::add-mask::$v"; done
-          sql "DELETE FROM auth_sessions WHERE login_id='$TEST_LOGIN'; DELETE FROM accounts WHERE login_id='$TEST_LOGIN'; DELETE FROM employees WHERE mnv='$TEST_MNV';" >/dev/null
+          EXISTING_MNV=$(sql "SELECT COUNT(*) n FROM employees WHERE mnv='$TEST_MNV';")
+          test "$(jq -r '.[0].results[0].n' <<<"$EXISTING_MNV")" = "0"
+          sql "DELETE FROM auth_sessions WHERE login_id='$TEST_LOGIN'; DELETE FROM accounts WHERE login_id='$TEST_LOGIN';" >/dev/null
           sql "INSERT INTO accounts(login_id,verifier,verifier_hash,role,display_name,position,email,status,source_row,source_checksum,is_shadow_test) VALUES('$TEST_LOGIN','b80-pda-test','$VH','SUPERADMIN','Beta80 PDA Verify','TEST','verify@example.invalid','ACTIVE',-80,'b80-pda-test',1); INSERT INTO auth_sessions(login_id,session_id,device_id,issued_at) VALUES('$TEST_LOGIN','$AUTH_SESSION','$DEVICE','$NOW'); INSERT INTO employees(mnv,full_name,main_position,source_row,source_checksum) VALUES('$TEST_MNV','Beta80 PDA Verify','TEST',-80,'b80-pda-test');" >/dev/null
           SERVICE_TOKEN_SECRET=$(printf '%s' "$CLOUDFLARE_ACCOUNT_ID|$GOOGLE_OAUTH_CLIENT_SECRET|pick-pack-1291-m2-service-token-v1" | sha256sum | awk '{print $1}')
           echo "::add-mask::$SERVICE_TOKEN_SECRET"
