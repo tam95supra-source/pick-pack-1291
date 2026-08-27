@@ -52,6 +52,9 @@ grep -Fq 'name="ota_installer_clicked" value="true"' "$OUT/ota-flags.xml"
 
 # Installed Beta80 self-reinstall proves its FileProvider route opens Android installer with no file picker.
 adb install -r "$VERIFY_HARNESS_APK" >"$OUT/reinstall-verify-harness.txt"
+adb shell dumpsys package "$PKG" >"$OUT/package-before-fileprovider-reinstall.txt"
+FP_UPDATE_BEFORE=$(sed -n 's/^[[:space:]]*lastUpdateTime=//p' "$OUT/package-before-fileprovider-reinstall.txt" | head -n1)
+test -n "$FP_UPDATE_BEFORE"
 OTA_URL_B64=$(printf '%s' "$OTA_URL" | base64 -w0)
 adb shell am instrument -w -r   -e mode fileprovider   -e version '0.4.2-beta.80'   -e url_b64 "$OTA_URL_B64"   -e sha "$EXPECTED_SHA"   "$VERIFY_COMPONENT" >"$OUT/fileprovider-instrument.txt" 2>&1 &
 FP_PID=$!
@@ -66,10 +69,28 @@ for _ in $(seq 1 180); do
   sleep 0.5
 done
 test "$FP_CLICKED" = 1
-kill "$FP_PID" >/dev/null 2>&1 || true
-wait "$FP_PID" || true
 
-adb shell dumpsys package "$PKG" >"$OUT/package-beta80-after-fileprovider.txt"
+# Same-version FileProvider self-reinstall is asynchronous and force-stops the target package.
+# Wait for the package replacement to finish before starting the historical-session instrumentation.
+FP_REINSTALL_DONE=0
+for _ in $(seq 1 180); do
+  adb shell dumpsys package "$PKG" >"$OUT/package-fileprovider-current.txt" 2>/dev/null || true
+  FP_UPDATE_AFTER=$(sed -n 's/^[[:space:]]*lastUpdateTime=//p' "$OUT/package-fileprovider-current.txt" | head -n1)
+  adb shell dumpsys activity activities >"$OUT/activity-after-fileprovider-current.txt" 2>/dev/null || true
+  if [[ -n "$FP_UPDATE_AFTER" && "$FP_UPDATE_AFTER" != "$FP_UPDATE_BEFORE" ]] \
+     && grep -Fq 'versionName=0.4.2-beta.80' "$OUT/package-fileprovider-current.txt" \
+     && grep -Eq 'versionCode=86([[:space:]]|$)' "$OUT/package-fileprovider-current.txt" \
+     && ! grep -Fq 'PackageInstallerActivity' "$OUT/activity-after-fileprovider-current.txt"; then
+    cp "$OUT/package-fileprovider-current.txt" "$OUT/package-beta80-after-fileprovider.txt"
+    FP_REINSTALL_DONE=1
+    break
+  fi
+  sleep 0.5
+done
+test "$FP_REINSTALL_DONE" = 1
+wait "$FP_PID" || true
+sleep 2
+
 grep -Fq 'versionName=0.4.2-beta.80' "$OUT/package-beta80-after-fileprovider.txt"
 grep -Eq 'versionCode=86([[:space:]]|$)' "$OUT/package-beta80-after-fileprovider.txt"
 grep -Fqi "$PKG.fileprovider" "$OUT/package-beta80-after-fileprovider.txt"
