@@ -22,24 +22,51 @@ OTA_URL_B64=$(printf '%s' "$OTA_URL" | base64 -w0)
 adb shell am instrument -w -r   -e mode ota   -e version '0.4.2-beta.80'   -e url_b64 "$OTA_URL_B64"   -e sha "$EXPECTED_SHA"   "$VERIFY_COMPONENT" >"$OUT/ota-instrument.txt" 2>&1 &
 OTA_PID=$!
 
-INSTALLER_SEEN=0
-FILEPROVIDER_GRANT_SEEN=0
+tap_installer_button(){
+  local tag="$1" xml="$OUT/${tag}-installer.xml"
+  local coords=""
+  for _ in $(seq 1 20); do
+    adb shell uiautomator dump /sdcard/installer.xml >/dev/null 2>&1 || true
+    adb pull /sdcard/installer.xml "$xml" >/dev/null 2>&1 || true
+    if [[ -s "$xml" ]]; then
+      coords=$(python3 - "$xml" <<'PY'
+import re,sys,xml.etree.ElementTree as ET
+root=ET.parse(sys.argv[1]).getroot()
+wanted={"INSTALL","UPDATE","CÀI ĐẶT","CẬP NHẬT"}
+for n in root.iter("node"):
+    text=(n.attrib.get("text") or "").strip().upper()
+    if text not in wanted: continue
+    m=re.fullmatch(r"\[(\d+),(\d+)\]\[(\d+),(\d+)\]",n.attrib.get("bounds",""))
+    if not m: continue
+    x1,y1,x2,y2=map(int,m.groups())
+    print((x1+x2)//2,(y1+y2)//2)
+    raise SystemExit(0)
+raise SystemExit(1)
+PY
+) || true
+    fi
+    [[ -n "$coords" ]] && break
+    sleep 0.25
+  done
+  test -n "$coords"
+  read -r x y <<<"$coords"
+  adb shell input tap "$x" "$y"
+}
+
+# Beta79 positive OTA: app downloads exact OTA URL and opens Android installer automatically.
+OLD_INSTALLER_SEEN=0
 for _ in $(seq 1 240); do
-  adb shell dumpsys activity activities >"$OUT/installer-activity-current.txt" 2>/dev/null || true
-  adb shell dumpsys activity uri-permissions >"$OUT/installer-uri-permissions-current.txt" 2>/dev/null || true
-  if grep -Eqi 'packageinstaller|installer' "$OUT/installer-activity-current.txt"; then
-    cp "$OUT/installer-activity-current.txt" "$OUT/installer-activity.txt"
-    INSTALLER_SEEN=1
+  adb shell dumpsys activity activities >"$OUT/old-installer-current.txt" 2>/dev/null || true
+  if grep -Eqi 'com\.android\.packageinstaller|PackageInstallerActivity' "$OUT/old-installer-current.txt"; then
+    cp "$OUT/old-installer-current.txt" "$OUT/old-installer.txt"
+    OLD_INSTALLER_SEEN=1
+    break
   fi
-  if grep -Fqi "$PKG.fileprovider" "$OUT/installer-uri-permissions-current.txt"; then
-    cp "$OUT/installer-uri-permissions-current.txt" "$OUT/installer-uri-permissions.txt"
-    FILEPROVIDER_GRANT_SEEN=1
-  fi
-  if [[ "$INSTALLER_SEEN" == 1 && "$FILEPROVIDER_GRANT_SEEN" == 1 ]]; then break; fi
   sleep 0.25
 done
-test "$INSTALLER_SEEN" = 1
-test "$FILEPROVIDER_GRANT_SEEN" = 1
+test "$OLD_INSTALLER_SEEN" = 1
+! grep -Eqi 'documentsui|com\.android\.documents' "$OUT/old-installer.txt"
+tap_installer_button old
 
 UPDATED=0
 for _ in $(seq 1 120); do
@@ -55,15 +82,47 @@ test "$UPDATED" = 1
 wait "$OTA_PID" || true
 
 DOWNLOADED="/sdcard/Android/data/$PKG/files/Download/pick-pack-1291-beta-0.4.2-beta.80.apk"
-adb pull "$DOWNLOADED" "$OUT/ota-downloaded.apk" >/dev/null
-test "$(sha256sum "$OUT/ota-downloaded.apk" | awk '{print $1}')" = "$EXPECTED_SHA"
-test "$(stat -c '%s' "$OUT/ota-downloaded.apk")" = "$EXPECTED_SIZE"
-grep -Fqi "$PKG.fileprovider" "$OUT/installer-uri-permissions.txt"
-
+adb pull "$DOWNLOADED" "$OUT/ota-downloaded-old.apk" >/dev/null
+test "$(sha256sum "$OUT/ota-downloaded-old.apk" | awk '{print $1}')" = "$EXPECTED_SHA"
+test "$(stat -c '%s' "$OUT/ota-downloaded-old.apk")" = "$EXPECTED_SIZE"
 adb shell cat "/data/user/0/$PKG/shared_prefs/pp_beta80_verify.xml" >"$OUT/ota-flags.xml"
 grep -Fq 'name="ota_prompt_entry_clicked" value="true"' "$OUT/ota-flags.xml"
 grep -Fq 'name="ota_download_clicked" value="true"' "$OUT/ota-flags.xml"
 grep -Fq 'name="ota_installer_seen" value="true"' "$OUT/ota-flags.xml"
+
+# Installed Beta80 self-reinstall proves the new FileProvider path reaches Android installer.
+adb install -r "$VERIFY_HARNESS_APK" >"$OUT/reinstall-verify-harness.txt"
+OTA_URL_B64=$(printf '%s' "$OTA_URL" | base64 -w0)
+adb shell am instrument -w -r   -e mode fileprovider   -e version '0.4.2-beta.80'   -e url_b64 "$OTA_URL_B64"   -e sha "$EXPECTED_SHA"   "$VERIFY_COMPONENT" >"$OUT/fileprovider-instrument.txt" 2>&1 &
+FP_PID=$!
+FP_INSTALLER_SEEN=0
+for _ in $(seq 1 240); do
+  adb shell dumpsys activity activities >"$OUT/fileprovider-installer-current.txt" 2>/dev/null || true
+  if grep -Eqi 'com\.android\.packageinstaller|PackageInstallerActivity' "$OUT/fileprovider-installer-current.txt"; then
+    cp "$OUT/fileprovider-installer-current.txt" "$OUT/fileprovider-installer.txt"
+    if grep -Fqi "$PKG.fileprovider" "$OUT/fileprovider-installer.txt"; then
+      FP_INSTALLER_SEEN=1
+      break
+    fi
+  fi
+  sleep 0.25
+done
+test "$FP_INSTALLER_SEEN" = 1
+! grep -Eqi 'documentsui|com\.android\.documents' "$OUT/fileprovider-installer.txt"
+tap_installer_button fileprovider
+for _ in $(seq 1 120); do
+  adb shell dumpsys package "$PKG" >"$OUT/package-current.txt" 2>/dev/null || true
+  if grep -Fq 'versionName=0.4.2-beta.80' "$OUT/package-current.txt" && grep -Eq 'versionCode=86([[:space:]]|$)' "$OUT/package-current.txt"; then break; fi
+  sleep 0.5
+done
+wait "$FP_PID" || true
+adb pull "$DOWNLOADED" "$OUT/ota-downloaded-fileprovider.apk" >/dev/null
+test "$(sha256sum "$OUT/ota-downloaded-fileprovider.apk" | awk '{print $1}')" = "$EXPECTED_SHA"
+test "$(stat -c '%s' "$OUT/ota-downloaded-fileprovider.apk")" = "$EXPECTED_SIZE"
+adb shell cat "/data/user/0/$PKG/shared_prefs/pp_beta80_verify.xml" >"$OUT/fileprovider-flags.xml"
+grep -Fq 'name="fileprovider_download_invoked" value="true"' "$OUT/fileprovider-flags.xml"
+grep -Fq 'name="fileprovider_installer_seen" value="true"' "$OUT/fileprovider-flags.xml"
+
 adb shell am start -W -n "$PKG/vn.pickpack1291.app.beta.FullBetaActivity" >"$OUT/open-beta80.txt"
 adb shell dumpsys activity activities >"$OUT/activity-beta80-open.txt"
 grep -Fq "$PKG" "$OUT/activity-beta80-open.txt"
