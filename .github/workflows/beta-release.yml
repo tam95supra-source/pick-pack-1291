@@ -1,0 +1,204 @@
+name: Beta81 exact OTA publish
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: beta81-exact-ota-recovery
+  cancel-in-progress: false
+
+env:
+  SOURCE_SHA: 963ed28a90d2bb3e4a950ae8100fef15edfa86c5
+  APK_SHA: f796bf8db5ec4575bb9d6d0880650c49abc682fe07c68aed916270f2afea3789
+  APK_SIZE: '13196221'
+  EXPECTED_SIGNER: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
+  PUBLISH_RUN: '33078179831'
+
+jobs:
+  pda_verify:
+    name: pda-verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GAS_DEPLOYMENT_ID: ${{ secrets.GAS_DEPLOYMENT_ID }}
+      SIGNING_KEY_B64: ${{ secrets.ANDROID_SIGNING_KEY_B64 }}
+      SIGNING_STORE_PASSWORD: ${{ secrets.ANDROID_SIGNING_STORE_PASSWORD }}
+      SIGNING_KEY_PASSWORD: ${{ secrets.ANDROID_SIGNING_KEY_PASSWORD }}
+      SIGNING_ALIAS: ${{ secrets.ANDROID_SIGNING_ALIAS }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download exact Beta80 baseline
+        uses: actions/download-artifact@v4
+        with:
+          name: beta80-candidate-33028423645
+          path: /tmp/beta80
+          github-token: ${{ github.token }}
+          repository: tam95supra-source/pick-pack-1291
+          run-id: 33028423645
+
+      - name: Download exact Beta81 candidate
+        uses: actions/download-artifact@v4
+        with:
+          name: beta81-candidate-33073351925
+          path: /tmp/beta81
+          github-token: ${{ github.token }}
+          repository: tam95supra-source/pick-pack-1291
+          run-id: 33073351925
+
+      - name: Reuse successful Beta81 publish receipt
+        uses: actions/download-artifact@v4
+        with:
+          name: beta81-publish-33078179831
+          path: /tmp/beta81-publish
+          github-token: ${{ github.token }}
+          repository: tam95supra-source/pick-pack-1291
+          run-id: 33078179831
+
+      - name: Validate exact locked inputs without republish
+        shell: bash
+        run: |
+          set -euo pipefail
+          OLD=/tmp/beta80/pick-pack-1291-public-beta-0.4.2-beta.80.apk
+          NEW=/tmp/beta81/pick-pack-1291-public-beta-0.4.2-beta.81.apk
+          META=/tmp/beta81/release-meta.json
+          R=/tmp/beta81-publish/receipt.json
+          test -f "$OLD" -a -f "$NEW" -a -f "$META" -a -f "$R"
+          test "$(sha256sum "$OLD" | awk '{print $1}')" = 1210bf57ff3bb48a723aa40d2efc8ec922c5e632e4c1d9928bf4dbe843654a69
+          test "$(stat -c '%s' "$OLD")" = 13196221
+          test "$(sha256sum "$NEW" | awk '{print $1}')" = "$APK_SHA"
+          test "$(stat -c '%s' "$NEW")" = "$APK_SIZE"
+          jq -e --arg source "$SOURCE_SHA" --arg h "$APK_SHA" --argjson z "$APK_SIZE" --arg signer "$EXPECTED_SIGNER" '
+            .source_sha==$source and .apk_sha256==$h and .apk_size==$z and .signer_sha256==$signer and
+            .version_name=="0.4.2-beta.81" and .version_code==87 and
+            .package=="vn.pickpack1291.app.beta.publicbeta" and .candidate_locked==true
+          ' "$META" >/dev/null
+          jq -e --arg h "$APK_SHA" --argjson z "$APK_SIZE" --arg signer "$EXPECTED_SIGNER" '
+            .status=="PASS" and .version_name=="0.4.2-beta.81" and .version_code==87 and
+            .candidate_artifact==9646920908 and .apk_sha256==$h and .apk_size==$z and
+            .signer_sha256==$signer and .ota_exact_bytes==true and
+            .stable_unchanged==true and .main_unchanged==true and .authority_change=="NONE"
+          ' "$R" >/dev/null
+          OTA_URL=$(jq -r '.apk_url' "$R")
+          MAIN_BEFORE=$(jq -r '.main_sha' "$R")
+          test -n "$OTA_URL" -a "$OTA_URL" != null
+          test -n "$MAIN_BEFORE" -a "$MAIN_BEFORE" != null
+          echo "::add-mask::$OTA_URL"
+          echo "OLD_APK=$OLD" >> "$GITHUB_ENV"
+          echo "NEW_APK=$NEW" >> "$GITHUB_ENV"
+          echo "OTA_URL=$OTA_URL" >> "$GITHUB_ENV"
+          echo "MAIN_BEFORE=$MAIN_BEFORE" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Build separate signed verification harness only
+        shell: bash
+        run: bash tools/build_beta81_verify_harness.sh
+
+      - name: Enable KVM
+        shell: bash
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules >/dev/null
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm || true
+          sudo chmod 666 /dev/kvm || true
+
+      - name: OTA install and verify three Beta81 fixes
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 29
+          target: default
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: false
+          emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-metrics
+          script: bash tools/beta81_pda_device_gate.sh
+
+      - name: Upload Beta81 PDA receipt
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: beta81-pda-functional-${{ github.run_id }}
+          path: /tmp/beta81-pda-verify
+          retention-days: 30
+          if-no-files-found: error
+
+  finalize:
+    name: finalize
+    needs: pda_verify
+    if: ${{ needs.pda_verify.result == 'success' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download Beta81 PDA receipt
+        uses: actions/download-artifact@v4
+        with:
+          name: beta81-pda-functional-${{ github.run_id }}
+          path: /tmp/beta81-pda
+
+      - name: Finalize canonical state and handoff
+        shell: bash
+        run: bash tools/finalize_beta81.sh
+
+      - name: Upload final Beta81 receipt
+        uses: actions/upload-artifact@v4
+        with:
+          name: beta81-final-${{ github.run_id }}
+          path: /tmp/beta81-final/receipt.json
+          retention-days: 90
+          if-no-files-found: error
+
+  handoff_finalizer:
+    name: handoff-finalizer
+    needs: [pda_verify, finalize]
+    if: ${{ always() }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PUBLISH_RESULT: success
+      PDA_RESULT: ${{ needs.pda_verify.result }}
+      FINALIZE_RESULT: ${{ needs.finalize.result }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download locked candidate metadata
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: beta81-candidate-33073351925
+          path: /tmp/beta81-handoff-candidate
+          github-token: ${{ github.token }}
+          repository: tam95supra-source/pick-pack-1291
+          run-id: 33073351925
+
+      - name: Create deterministic TXT handoff
+        shell: bash
+        run: bash tools/beta81_handoff_finalizer.sh
+
+      - name: Upload automatic TXT handoff
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: PICK_PACK_1291_HANDOFF_${{ github.run_id }}
+          path: /tmp/PICK_PACK_1291_HANDOFF_${{ github.run_id }}.txt
+          retention-days: 90
+          if-no-files-found: error
