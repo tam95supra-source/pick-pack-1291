@@ -1,4 +1,5 @@
 name: Beta80 exact OTA publish
+# PDA functional trigger: reseed-bearer-05f07643
 
 on:
   push:
