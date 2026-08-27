@@ -253,43 +253,12 @@ jobs:
           <manifest xmlns:android="http://schemas.android.com/apk/res/android" package="vn.pickpack1291.verify">
             <uses-sdk android:minSdkVersion="29" android:targetSdkVersion="36"/>
             <application android:label="Beta80 Verify"/>
-            <instrumentation android:name=".VerifyInstrumentation" android:targetPackage="vn.pickpack1291.app.beta.publicbeta" android:functionalTest="true" android:handleProfiling="false"/>
+            <instrumentation android:name=".Beta80VerifyInstrumentation" android:targetPackage="vn.pickpack1291.app.beta.publicbeta" android:functionalTest="true" android:handleProfiling="false"/>
           </manifest>
           XML
-          cat > /tmp/b80h/src/vn/pickpack1291/verify/VerifyInstrumentation.java <<'JAVA'
-          package vn.pickpack1291.verify;
-          import android.app.Activity;
-          import android.app.Instrumentation;
-          import android.content.Intent;
-          import android.os.Bundle;
-          import java.lang.reflect.Field;
-          import java.lang.reflect.Method;
-          public final class VerifyInstrumentation extends Instrumentation {
-            private Bundle args;
-            @Override public void onCreate(Bundle b){super.onCreate(b);args=b;start();}
-            @Override public void onStart(){
-              try{
-                final String url=args.getString("url"),sha=args.getString("sha"),version=args.getString("version");
-                final Intent i=new Intent();
-                i.setClassName(getTargetContext(),"vn.pickpack1291.app.beta.OperationsActivity");
-                i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                i.putExtra("module","SETTINGS");i.putExtra("login","pda_verify");i.putExtra("name","Beta80 PDA Verify");i.putExtra("role","SUPERADMIN");
-                final Activity a=startActivitySync(i);
-                final Class<?> c=getTargetContext().getClassLoader().loadClass("vn.pickpack1291.app.beta.UpdateManager");
-                final Field f=c.getField("INSTANCE");final Object instance=f.get(null);
-                Method picked=null;
-                for(Method m:c.getDeclaredMethods())if(m.getName().equals("download")&&m.getParameterTypes().length==4){picked=m;break;}
-                if(picked==null)throw new IllegalStateException("DOWNLOAD_METHOD_NOT_FOUND");
-                final Method m=picked;m.setAccessible(true);
-                runOnMainSync(new Runnable(){public void run(){try{m.invoke(instance,a,version,url,sha);}catch(Exception e){throw new RuntimeException(e);}}});
-                Bundle st=new Bundle();st.putString("result","BETA80_UPDATE_MANAGER_DOWNLOAD_INVOKED");sendStatus(0,st);
-                while(true)Thread.sleep(1000);
-              }catch(Throwable t){Bundle x=new Bundle();x.putString("error",t.toString());finish(1,x);}
-            }
-          }
-          JAVA
-          javac -source 8 -target 8 -cp "$SDK/platforms/android-36/android.jar" -d /tmp/b80h/classes /tmp/b80h/src/vn/pickpack1291/verify/VerifyInstrumentation.java
-          "$BT/d8" --lib "$SDK/platforms/android-36/android.jar" --output /tmp/b80h/dex /tmp/b80h/classes/vn/pickpack1291/verify/VerifyInstrumentation.class
+          cp tools/Beta80VerifyInstrumentation.java /tmp/b80h/src/vn/pickpack1291/verify/Beta80VerifyInstrumentation.java
+          javac -source 8 -target 8 -cp "$SDK/platforms/android-36/android.jar" -d /tmp/b80h/classes /tmp/b80h/src/vn/pickpack1291/verify/Beta80VerifyInstrumentation.java
+          "$BT/d8" --lib "$SDK/platforms/android-36/android.jar" --output /tmp/b80h/dex /tmp/b80h/classes/vn/pickpack1291/verify/Beta80VerifyInstrumentation.class
           "$BT/aapt" package -f -M /tmp/b80h/AndroidManifest.xml -I "$SDK/platforms/android-36/android.jar" -F /tmp/b80h/harness-unsigned.apk
           (cd /tmp/b80h/dex && "$BT/aapt" add /tmp/b80h/harness-unsigned.apk classes.dex >/dev/null)
           KS=/tmp/b80h/release.jks
