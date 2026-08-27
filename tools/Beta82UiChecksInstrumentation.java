@@ -6,6 +6,7 @@ import android.app.UiAutomation;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
+import android.graphics.Rect;
 import android.os.Bundle;
 import android.os.SystemClock;
 import android.view.accessibility.AccessibilityNodeInfo;
@@ -131,7 +132,14 @@ public final class Beta82UiChecksInstrumentation extends Instrumentation {
   private void clickText(String text,boolean exact,long timeout){
     AccessibilityNodeInfo n=waitText(text,exact,true,timeout);
     AccessibilityNodeInfo c=clickableNode(n);
-    if(c==null||!c.performAction(AccessibilityNodeInfo.ACTION_CLICK))throw new IllegalStateException("CLICK_FAILED:"+text);
+    if(c==null)throw new IllegalStateException("CLICK_TARGET_MISSING:"+text);
+    if(!c.performAction(AccessibilityNodeInfo.ACTION_CLICK)){
+      Rect b=new Rect();
+      c.getBoundsInScreen(b);
+      if(b.isEmpty())throw new IllegalStateException("CLICK_BOUNDS_EMPTY:"+text);
+      try{ui.executeShellCommand("input tap "+b.centerX()+" "+b.centerY()).close();}
+      catch(Exception e){throw new IllegalStateException("CLICK_FALLBACK_FAILED:"+text+":"+e.getMessage());}
+    }
     SystemClock.sleep(450L);
   }
   private boolean scrollForward(){

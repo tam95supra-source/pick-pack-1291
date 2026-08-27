@@ -23,5 +23,7 @@
   "fast_check_run_id": 33096409068,
   "fast_check": "PASS",
   "scope": "beta82-current-day-reconciliation-list-qr-cards-null-settings",
-  "owner": "Nguyen Van Tam"
+  "owner": "Nguyen Van Tam",
+  "harness_revision": 3,
+  "last_verify_failure": "ACCESSIBILITY_ACTION_CLICK_FALSE_CA_HC"
 }
