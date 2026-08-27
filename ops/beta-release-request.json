@@ -1,6 +1,6 @@
 {
-  "stage": "BUILD_VERIFY",
-  "mode": "LOCK_BUILD_VISUAL_PDA_PRE_OTA",
+  "stage": "VERIFY_ONLY",
+  "mode": "EXACT_LOCKED_CANDIDATE_VERIFY_ONLY",
   "version_name": "0.4.2-beta.83",
   "version_code": 89,
   "base_version": "0.4.2-beta.82",
@@ -18,8 +18,8 @@
   "fast_check_run_id": 33104514278,
   "fast_check": "PASS",
   "service_gate_inherited": "BETA82_PASS_SERVICE_UNCHANGED",
-  "visual_matrix": "PENDING",
-  "pda_functional_pre_ota": "PENDING",
+  "visual_matrix": "PENDING_VERIFY_ONLY",
+  "pda_functional_pre_ota": "PENDING_VERIFY_ONLY",
   "human_visual_pass": false,
   "human_visual_sizes": [
     "320x568",
@@ -33,6 +33,13 @@
   "scope": "beta83-session-reconciliation-order-timeline-before-after-hhmm-auth",
   "owner": "Nguyen Van Tam",
   "live": false,
-  "pre_ota_attempt": 3,
-  "last_pre_ota_failure": "CANDIDATE_PREFLIGHT_BOUNDARY_FIXED"
+  "pre_ota_attempt": 4,
+  "last_pre_ota_failure": "HARNESS_EXACT_RECONCILIATION_LABEL_AT_360_FIXED_NO_APK_CHANGE",
+  "candidate_locked": true,
+  "candidate_run_id": 33105240232,
+  "candidate_artifact_id": 9660297032,
+  "candidate_artifact_name": "beta83-candidate-33105240232",
+  "candidate_artifact_digest": "sha256:8b2d710ae6cc968cc8ad194cf8f2c4cf6bca856d9a95f5c75a6cb75d3755d65d",
+  "apk_sha256": "580c0c79f0a52db22872c40c21a62cff0ec10e46f4d72b3164c08e1437482727",
+  "apk_size": 13196221
 }
