@@ -161,6 +161,7 @@ jobs:
           python3 -m py_compile /tmp/beta80_pda_verify.py
           grep -Fq 'url_b64' tools/Beta80VerifyInstrumentation.java
           grep -Fq 'OTA_URL_B64=' tools/beta80_pda_device_gate.sh
+          grep -Fq 'installer-uri-permissions' tools/beta80_pda_device_gate.sh
           ! grep -Eq 'gradle|assembleBeta|assembleStable|apksigner.*pick-pack|jarsigner' /tmp/beta80_pda_verify.py
 
       - uses: actions/setup-node@v4
