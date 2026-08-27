@@ -1,0 +1,80 @@
+{
+  "status": "PASS",
+  "result": "HUMAN_VISUAL_PASS",
+  "inspected_at": "2026-08-27T08:05:00+07:00",
+  "candidate": {
+    "version_name": "0.4.2-beta.80",
+    "version_code": 86,
+    "package": "vn.pickpack1291.app.beta.publicbeta",
+    "source_sha": "38d6f08aa63600f4ef09fd524428beccebc4bb6f",
+    "build_run": 33028423645,
+    "artifact_id": 9629377960,
+    "sha256": "1210bf57ff3bb48a723aa40d2efc8ec922c5e632e4c1d9928bf4dbe843654a69",
+    "size": 13196221,
+    "signer_sha256": "d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e"
+  },
+  "service": {
+    "live_run": 33028423645,
+    "artifact_id": 9629315986,
+    "artifact_digest": "sha256:8806c5303d6580c755ee8d0971a40e44c9c16b63ef8995c7c2b003ad754ffb95",
+    "session_v2_gate": "ENTER_SNAPSHOT_MUTATE_EXIT_PASS",
+    "authority_change": "NONE"
+  },
+  "visual": {
+    "run_id": 33028423645,
+    "artifact_id": 9629445113,
+    "artifact_digest": "sha256:c48656794a129b39d40eb39aaeadcfc918de28c51831b9164de75159b6bfc719",
+    "android_build_or_sign_in_visual": false,
+    "matrix": [
+      "320x568",
+      "360x640",
+      "480x800"
+    ]
+  },
+  "human_inspection": {
+    "320x568": {
+      "old_session_warning": true,
+      "active_actions_visible_after_scroll": true,
+      "actions": [
+        "Thêm",
+        "Sửa",
+        "Xóa",
+        "Ra ca"
+      ],
+      "layout_break": false
+    },
+    "360x640": {
+      "old_session_warning": true,
+      "active_actions_visible_after_scroll": true,
+      "actions": [
+        "Thêm",
+        "Sửa",
+        "Xóa",
+        "Ra ca"
+      ],
+      "layout_break": false
+    },
+    "480x800": {
+      "old_session_warning": true,
+      "active_actions_visible": true,
+      "actions": [
+        "Thêm",
+        "Sửa",
+        "Xóa",
+        "Ra ca"
+      ],
+      "layout_break": false
+    }
+  },
+  "old_session_identity_contract": "session_id+mnv+business_date",
+  "ota_installer_contract": {
+    "request_install_packages": true,
+    "file_provider": true,
+    "verified_apk_sha_before_install": true,
+    "direct_android_installer_intent": true,
+    "download_manager_file_picker_removed": true
+  },
+  "stable_publish": "FORBIDDEN",
+  "rebuild_after_candidate_lock": false,
+  "resign_after_candidate_lock": false
+}
