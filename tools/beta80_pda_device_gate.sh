@@ -18,7 +18,8 @@ grep -Eq 'versionCode=85([[:space:]]|$)' "$OUT/package-beta79.txt"
 adb shell appops set "$PKG" REQUEST_INSTALL_PACKAGES allow >/dev/null 2>&1 || true
 adb install -r "$VERIFY_HARNESS_APK" >"$OUT/install-verify-harness.txt"
 
-adb shell am instrument -w -r   -e mode ota   -e version '0.4.2-beta.80'   -e url "$OTA_URL"   -e sha "$EXPECTED_SHA"   "$VERIFY_COMPONENT" >"$OUT/ota-instrument.txt" 2>&1 &
+OTA_URL_B64=$(printf '%s' "$OTA_URL" | base64 -w0)
+adb shell am instrument -w -r   -e mode ota   -e version '0.4.2-beta.80'   -e url_b64 "$OTA_URL_B64"   -e sha "$EXPECTED_SHA"   "$VERIFY_COMPONENT" >"$OUT/ota-instrument.txt" 2>&1 &
 OTA_PID=$!
 
 INSTALLER_SEEN=0
