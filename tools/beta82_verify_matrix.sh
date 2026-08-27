@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+REQ=ops/beta-release-request.json
+VERSION=$(jq -r '.version_name' "$REQ");CODE=$(jq -r '.version_code' "$REQ");PKG=$(jq -r '.package' "$REQ")
+META=/tmp/beta82-candidate/release-meta.json;APK=/tmp/beta82-candidate/pick-pack-1291-public-beta-$VERSION.apk
+test -f "$META" -a -f "$APK" -a -f "$VERIFY_HARNESS_APK"
+SHA=$(jq -r '.apk_sha256' "$META");SIZE=$(jq -r '.apk_size' "$META")
+test "$(sha256sum "$APK"|awk '{print $1}')" = "$SHA";test "$(stat -c '%s' "$APK")" = "$SIZE"
+OUT=/tmp/beta82-verify;rm -rf "$OUT";mkdir -p "$OUT"
+adb root >"$OUT/adb-root.txt" 2>&1 || true;timeout 30s adb wait-for-device
+test "$(adb shell id -u 2>/dev/null|tr -d '\r')" = 0
+adb install -r "$APK" >"$OUT/install-candidate.txt";adb install -r "$VERIFY_HARNESS_APK" >"$OUT/install-harness.txt"
+for spec in '320 568 160' '360 640 180' '480 800 240'; do
+  read -r W H D <<<"$spec";TAG="${W}x${H}"
+  adb shell wm size "${W}x${H}" >/dev/null;adb shell wm density "$D" >/dev/null
+  adb shell pm clear "$PKG" >/dev/null
+  adb shell svc wifi disable >/dev/null 2>&1 || true;adb shell svc data disable >/dev/null 2>&1 || true
+  set +e
+  timeout 150s adb shell am instrument -w -r -e mode checks -e tag "$TAG" -e mnv 981820081 -e mnv2 981820082 -e mnv3 981820083 vn.pickpack1291.verify/.Beta82UiChecksInstrumentation >"$OUT/$TAG-instrument.txt" 2>&1
+  RC=$?
+  set -e
+  test "$RC" = 0;grep -Fq 'INSTRUMENTATION_CODE: 0' "$OUT/$TAG-instrument.txt"
+  mkdir -p "$OUT/$TAG"
+  adb pull "/sdcard/Android/data/$PKG/files/beta82-visual/." "$OUT/$TAG/" >/dev/null
+  adb shell cat "/data/user/0/$PKG/shared_prefs/pp_beta82_verify.xml" >"$OUT/$TAG-flags.xml"
+  for flag in current_day_filter header_removed old_warning_preserved qr_reconciliation null_sanitized incomplete_detail_button staff_list_to_qr complete_direct_list settings_simplified; do
+    grep -Fq "name=\"$flag\" value=\"true\"" "$OUT/$TAG-flags.xml"
+  done
+done
+python3 - <<'PY'
+from pathlib import Path
+expected={"320x568":(320,568),"360x640":(360,640),"480x800":(480,800)}
+root=Path("/tmp/beta82-verify")
+total=0
+for tag,size in expected.items():
+    files=sorted((root/tag).glob("*.png"))
+    assert len(files)==8,(tag,len(files),[p.name for p in files])
+    for p in files:
+        b=p.read_bytes()
+        assert b[:8]==b"\x89PNG\r\n\x1a\n",p
+        wh=(int.from_bytes(b[16:20],"big"),int.from_bytes(b[20:24],"big"))
+        assert wh==size,(p,wh,size)
+        total+=1
+(root/"visual-summary.txt").write_text(f"screenshots={total}\nsizes=320x568,360x640,480x800\nhuman_inspection_required=true\n",encoding="utf-8")
+PY
+jq -nc --arg version "$VERSION" --argjson code "$CODE" --arg sha "$SHA" --argjson size "$SIZE" --argjson run "$GITHUB_RUN_ID" '{status:"PASS",version_name:$version,version_code:$code,apk_sha256:$sha,apk_size:$size,run:$run,functional_pass:true,current_day_only:true,incomplete_and_complete_paths:true,qr_session_cards:true,null_sanitized:true,settings_simplified:true,old_warning_preserved:true,visual_sizes:["320x568","360x640","480x800"],screenshot_count:24,human_inspection_required:true}' > "$OUT/receipt.json"
+cat "$OUT/receipt.json"
