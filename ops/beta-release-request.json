@@ -33,6 +33,6 @@
   "scope": "beta83-session-reconciliation-order-timeline-before-after-hhmm-auth",
   "owner": "Nguyen Van Tam",
   "live": false,
-  "pre_ota_attempt": 2,
-  "last_pre_ota_failure": "CANDIDATE_GUARD_STALE_BETA82_FIXED"
+  "pre_ota_attempt": 3,
+  "last_pre_ota_failure": "CANDIDATE_PREFLIGHT_BOUNDARY_FIXED"
 }
