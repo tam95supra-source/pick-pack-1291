@@ -140,6 +140,31 @@ public final class Beta80VerifyInstrumentation extends Instrumentation {
     SystemClock.sleep(350);
   }
 
+  private boolean scrollForward(){
+    AccessibilityNodeInfo r=root();if(r==null)return false;
+    ArrayDeque<AccessibilityNodeInfo> dq=new ArrayDeque<>();dq.add(r);
+    while(!dq.isEmpty()){
+      AccessibilityNodeInfo n=dq.removeFirst();
+      if(n.isScrollable()&&n.performAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD)){SystemClock.sleep(450);return true;}
+      for(int i=0;i<n.getChildCount();i++){AccessibilityNodeInfo c=n.getChild(i);if(c!=null)dq.addLast(c);}
+    }
+    return false;
+  }
+
+  private void clickTextScrolling(String text, boolean exact, long timeout){
+    long end=SystemClock.uptimeMillis()+timeout;
+    while(SystemClock.uptimeMillis()<end){
+      AccessibilityNodeInfo n=findText(text,exact,true);
+      if(n!=null){
+        AccessibilityNodeInfo c=clickableNode(n);
+        if(c!=null&&c.performAction(AccessibilityNodeInfo.ACTION_CLICK)){SystemClock.sleep(350);return;}
+      }
+      scrollForward();
+      SystemClock.sleep(250);
+    }
+    throw new IllegalStateException("TEXT_NOT_FOUND_AFTER_SCROLL:"+text);
+  }
+
   private void clickActionNear(String identity,String action,long timeout){
     long end=SystemClock.uptimeMillis()+timeout;
     while(SystemClock.uptimeMillis()<end){
@@ -278,7 +303,7 @@ public final class Beta80VerifyInstrumentation extends Instrumentation {
     seedService();
     setEmployee(req("mnv"));
     seedService();
-    clickText("VÀO CA",true,20000);
+    clickTextScrolling("VÀO CA",true,30000);
     mark("enter_ui_clicked",true);
     SystemClock.sleep(5000);
     ok("ENTER_UI_CLICKED");
