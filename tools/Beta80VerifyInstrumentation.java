@@ -206,8 +206,14 @@ public final class Beta80VerifyInstrumentation extends Instrumentation {
       SystemClock.sleep(300);
     }
     if(install==null)throw new IllegalStateException("ANDROID_INSTALL_BUTTON_NOT_FOUND");
+    AccessibilityNodeInfo r=root();
+    String installerPkg=r==null?"":String.valueOf(r.getPackageName()).toLowerCase(Locale.ROOT);
+    if(!installerPkg.contains("packageinstaller"))throw new IllegalStateException("UNEXPECTED_INSTALLER_PACKAGE:"+installerPkg);
     mark("ota_installer_seen",true);
     Bundle st=new Bundle();st.putString("result","INSTALLER_SEEN");sendStatus(0,st);
+    AccessibilityNodeInfo c=clickableNode(install);
+    if(c==null||!c.performAction(AccessibilityNodeInfo.ACTION_CLICK))throw new IllegalStateException("ANDROID_INSTALL_CLICK_FAILED");
+    mark("ota_installer_clicked",true);
     while(true)SystemClock.sleep(1000);
   }
 
@@ -247,8 +253,14 @@ public final class Beta80VerifyInstrumentation extends Instrumentation {
       SystemClock.sleep(300);
     }
     if(install==null)throw new IllegalStateException("FILEPROVIDER_INSTALL_BUTTON_NOT_FOUND");
+    AccessibilityNodeInfo r=root();
+    String installerPkg=r==null?"":String.valueOf(r.getPackageName()).toLowerCase(Locale.ROOT);
+    if(!installerPkg.contains("packageinstaller"))throw new IllegalStateException("UNEXPECTED_FILEPROVIDER_INSTALLER_PACKAGE:"+installerPkg);
     mark("fileprovider_installer_seen",true);
     Bundle st=new Bundle();st.putString("result","FILEPROVIDER_INSTALLER_SEEN");sendStatus(0,st);
+    AccessibilityNodeInfo c=clickableNode(install);
+    if(c==null||!c.performAction(AccessibilityNodeInfo.ACTION_CLICK))throw new IllegalStateException("FILEPROVIDER_INSTALL_CLICK_FAILED");
+    mark("fileprovider_installer_clicked",true);
     while(true)SystemClock.sleep(1000);
   }
 
