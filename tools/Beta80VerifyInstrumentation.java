@@ -11,6 +11,8 @@ import android.util.Base64;
 import android.view.accessibility.AccessibilityNodeInfo;
 import java.util.ArrayDeque;
 import java.util.Locale;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 
 public final class Beta80VerifyInstrumentation extends Instrumentation {
   private Bundle args;
@@ -27,6 +29,7 @@ public final class Beta80VerifyInstrumentation extends Instrumentation {
       ui=getUiAutomation();
       String mode=req("mode");
       if("ota".equals(mode)) ota();
+      else if("fileprovider".equals(mode)) fileprovider();
       else if("enter".equals(mode)) enter();
       else if("historical".equals(mode)) historical();
       else throw new IllegalArgumentException("MODE_UNSUPPORTED:"+mode);
@@ -205,11 +208,48 @@ public final class Beta80VerifyInstrumentation extends Instrumentation {
     if(install==null)throw new IllegalStateException("ANDROID_INSTALL_BUTTON_NOT_FOUND");
     mark("ota_installer_seen",true);
     Bundle st=new Bundle();st.putString("result","INSTALLER_SEEN");sendStatus(0,st);
-    SystemClock.sleep(4000);
-    AccessibilityNodeInfo c=clickableNode(install);
-    if(c==null||!c.performAction(AccessibilityNodeInfo.ACTION_CLICK))throw new IllegalStateException("ANDROID_INSTALL_CLICK_FAILED");
-    SystemClock.sleep(15000);
-    ok("OTA_INSTALL_CLICKED");
+    while(true)SystemClock.sleep(1000);
+  }
+
+  private void invokeBeta80Download(Activity a,String version,String url,String sha){
+    try{
+      Class<?> c=target.getClassLoader().loadClass("vn.pickpack1291.app.beta.UpdateManager");
+      Field f=c.getField("INSTANCE");
+      Object instance=f.get(null);
+      Method picked=null;
+      for(Method m:c.getDeclaredMethods()){
+        if(m.getName().equals("download")&&m.getParameterTypes().length==4){picked=m;break;}
+      }
+      if(picked==null)throw new IllegalStateException("DOWNLOAD_METHOD_NOT_FOUND");
+      final Method m=picked;m.setAccessible(true);
+      final Object obj=instance;
+      final String v=version,u=url,h=sha;
+      runOnMainSync(new Runnable(){public void run(){
+        try{m.invoke(obj,a,v,u,h);}catch(Exception e){throw new RuntimeException(e);}
+      }});
+    }catch(RuntimeException e){throw e;}catch(Exception e){throw new RuntimeException(e);}
+  }
+
+  private void fileprovider(){
+    seedAuth();
+    String version=req("version"), url=new String(Base64.decode(req("url_b64"),Base64.NO_WRAP),java.nio.charset.StandardCharsets.UTF_8), sha=req("sha");
+    Activity a=open("SETTINGS");
+    invokeBeta80Download(a,version,url,sha);
+    mark("fileprovider_download_invoked",true);
+    long end=SystemClock.uptimeMillis()+90000;
+    AccessibilityNodeInfo install=null;
+    while(SystemClock.uptimeMillis()<end){
+      for(String t:new String[]{"INSTALL","CÀI ĐẶT","UPDATE","CẬP NHẬT"}){
+        AccessibilityNodeInfo n=findText(t,true,true);
+        if(n!=null){install=n;break;}
+      }
+      if(install!=null)break;
+      SystemClock.sleep(300);
+    }
+    if(install==null)throw new IllegalStateException("FILEPROVIDER_INSTALL_BUTTON_NOT_FOUND");
+    mark("fileprovider_installer_seen",true);
+    Bundle st=new Bundle();st.putString("result","FILEPROVIDER_INSTALLER_SEEN");sendStatus(0,st);
+    while(true)SystemClock.sleep(1000);
   }
 
   private void enter(){
