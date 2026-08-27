@@ -298,15 +298,27 @@ public final class Beta80VerifyInstrumentation extends Instrumentation {
   }
 
   private void enter(){
-    seedAuth();seedService();open("BUSINESS");
-    clickText("Quét QR nhân sự",true,15000);
-    seedService();
-    setEmployee(req("mnv"));
-    seedService();
-    clickTextScrolling("VÀO CA",true,30000);
-    mark("enter_ui_clicked",true);
-    SystemClock.sleep(5000);
-    ok("ENTER_UI_CLICKED");
+    String mnv=req("mnv");
+    IllegalStateException last=null;
+    for(int attempt=0;attempt<3;attempt++){
+      seedAuth();seedService();open("BUSINESS");
+      clickText("Quét QR nhân sự",true,15000);
+      seedService();
+      setEmployee(mnv);
+      seedService();
+      try{
+        clickTextScrolling("VÀO CA",true,20000);
+        mark("enter_ui_clicked",true);
+        SystemClock.sleep(5000);
+        ok("ENTER_UI_CLICKED");
+        return;
+      }catch(IllegalStateException e){
+        if(e.getMessage()==null||!e.getMessage().startsWith("TEXT_NOT_FOUND_AFTER_SCROLL:VÀO CA"))throw e;
+        last=e;
+        SystemClock.sleep(1500);
+      }
+    }
+    throw last==null?new IllegalStateException("ENTER_UI_RETRY_EXHAUSTED"):last;
   }
 
   private void historical(){
