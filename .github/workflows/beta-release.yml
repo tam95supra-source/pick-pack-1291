@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
   actions: read
 
 concurrency:
@@ -20,68 +20,70 @@ jobs:
   route:
     runs-on: ubuntu-24.04
     outputs:
-      stage: ${{ steps.r.outputs.stage }}
+      stage: ${{ steps.route.outputs.stage }}
     steps:
       - uses: actions/checkout@v4
-        with: {fetch-depth: 0}
-      - id: r
+      - id: route
         shell: bash
         run: |
           set -euo pipefail
-          R=ops/beta-release-request.json
-          jq -e '.stage=="PUBLISH" and .version_name=="0.4.2-beta.82" and .version_code==88 and .human_visual_pass==true and .rebuild==false and .resign==false and .stable_publish=="FORBIDDEN" and .authority_change=="NONE"' "$R" >/dev/null
-          git diff --quiet "$(jq -r '.source_sha' "$R")" HEAD -- app service google-apps-script
-          echo "stage=PUBLISH" >> "$GITHUB_OUTPUT"
+          jq -e '.version_name=="0.4.2-beta.83" and .version_code==89 and .stable_publish=="FORBIDDEN" and .authority_change=="NONE"' ops/beta-release-request.json >/dev/null
+          echo "stage=$(jq -r '.stage' ops/beta-release-request.json)" >> "$GITHUB_OUTPUT"
 
-  publish:
-    name: publish
+  candidate:
+    name: candidate
     needs: route
-    if: ${{ needs.route.outputs.stage == 'PUBLISH' }}
+    if: ${{ needs.route.outputs.stage == 'BUILD_VERIFY' }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 45
     env:
-      GH_TOKEN: ${{ github.token }}
-      GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
-      GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
-      GOOGLE_OAUTH_REFRESH_TOKEN: ${{ secrets.GOOGLE_OAUTH_REFRESH_TOKEN }}
-      GAS_DEPLOYMENT_ID: ${{ secrets.GAS_DEPLOYMENT_ID }}
+      SIGNING_KEY_B64: ${{ secrets.ANDROID_SIGNING_KEY_B64 }}
+      SIGNING_STORE_PASSWORD: ${{ secrets.ANDROID_SIGNING_STORE_PASSWORD }}
+      SIGNING_KEY_PASSWORD: ${{ secrets.ANDROID_SIGNING_KEY_PASSWORD }}
+      SIGNING_ALIAS: ${{ secrets.ANDROID_SIGNING_ALIAS }}
     steps:
       - uses: actions/checkout@v4
-        with: {fetch-depth: 0}
-      - uses: actions/download-artifact@v4
         with:
-          name: beta82-candidate-33097369281
-          path: /tmp/beta82-candidate
-          github-token: ${{ github.token }}
-          repository: ${{ github.repository }}
-          run-id: 33097369281
-      - uses: actions/download-artifact@v4
+          fetch-depth: 0
+      - uses: actions/setup-java@v5
         with:
-          name: beta82-verify-33099453424
-          path: /tmp/beta82-verify
-          github-token: ${{ github.token }}
-          repository: ${{ github.repository }}
-          run-id: 33099453424
-      - name: Publish exact Beta82 bytes after fresh production readbacks
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.4.1'
+      - name: Resolve Android SDK
         shell: bash
-        run: bash tools/beta82_publish_ota.sh
+        run: |
+          set -euo pipefail
+          if [[ -n "${ANDROID_HOME:-}" && -x "$ANDROID_HOME/build-tools/36.0.0/apksigner" && -f "$ANDROID_HOME/platforms/android-36/android.jar" ]]; then
+            echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> "$GITHUB_ENV"
+            exit 0
+          fi
+          SDK="$RUNNER_TEMP/android-sdk";ZIP="$RUNNER_TEMP/commandlinetools.zip"
+          curl -fsSL https://dl.google.com/android/repository/commandlinetools-linux-15859902_latest.zip -o "$ZIP"
+          echo "4e4c464f145a7512b57d088ac6c278c03c9eea610886b35a5e0804e74eedf583  $ZIP" | sha256sum -c -
+          mkdir -p "$SDK/cmdline-tools";unzip -q "$ZIP" -d "$RUNNER_TEMP/android-cmdline";mv "$RUNNER_TEMP/android-cmdline/cmdline-tools" "$SDK/cmdline-tools/latest"
+          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV";echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
+          yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
+          "$SDK/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-36' 'build-tools;36.0.0'
+      - name: Build sign and lock Beta83 candidate
+        shell: bash
+        run: bash tools/beta83_candidate.sh
       - uses: actions/upload-artifact@v4
-        if: always()
         with:
-          name: beta82-publish-${{ github.run_id }}
-          path: /tmp/beta82-publish
+          name: beta83-candidate-${{ github.run_id }}
+          path: /tmp/beta83-candidate/*
           retention-days: 30
           if-no-files-found: error
 
-  pda_verify:
-    name: pda-verify
-    needs: publish
-    if: ${{ needs.publish.result == 'success' }}
+  verify:
+    name: visual-pda-verify
+    needs: [route,candidate]
+    if: ${{ needs.route.outputs.stage == 'BUILD_VERIFY' && needs.candidate.result == 'success' }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    timeout-minutes: 45
     env:
-      GH_TOKEN: ${{ github.token }}
-      GAS_DEPLOYMENT_ID: ${{ secrets.GAS_DEPLOYMENT_ID }}
       SIGNING_KEY_B64: ${{ secrets.ANDROID_SIGNING_KEY_B64 }}
       SIGNING_STORE_PASSWORD: ${{ secrets.ANDROID_SIGNING_STORE_PASSWORD }}
       SIGNING_KEY_PASSWORD: ${{ secrets.ANDROID_SIGNING_KEY_PASSWORD }}
@@ -90,27 +92,15 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
-          name: beta81-candidate-33073351925
-          path: /tmp/beta81
-          github-token: ${{ github.token }}
-          repository: ${{ github.repository }}
-          run-id: 33073351925
-      - uses: actions/download-artifact@v4
-        with:
-          name: beta82-candidate-33097369281
-          path: /tmp/beta82-candidate
-          github-token: ${{ github.token }}
-          repository: ${{ github.repository }}
-          run-id: 33097369281
-      - uses: actions/download-artifact@v4
-        with:
-          name: beta82-publish-${{ github.run_id }}
-          path: /tmp/beta82-publish
+          name: beta83-candidate-${{ github.run_id }}
+          path: /tmp/beta83-candidate
       - uses: actions/setup-java@v5
-        with: {distribution: temurin, java-version: '17'}
-      - name: Build separate OTA verification harness
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Build separate verification harness
         shell: bash
-        run: bash tools/build_beta82_verify_harness.sh
+        run: bash tools/build_beta83_verify_harness.sh
       - name: Enable KVM
         shell: bash
         run: |
@@ -118,7 +108,7 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm || true
           sudo chmod 666 /dev/kvm || true
-      - name: Install Beta81 then OTA to exact Beta82 and read back
+      - name: Run visual matrix and direct candidate PDA functional gate
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 29
@@ -127,85 +117,32 @@ jobs:
           profile: pixel_2
           disable-animations: false
           emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-metrics
-          script: bash tools/beta82_ota_device_gate.sh
-      - uses: actions/upload-artifact@v4
+          script: bash tools/beta83_verify_matrix.sh
+      - name: Upload visual and functional evidence
         if: always()
+        uses: actions/upload-artifact@v4
         with:
-          name: beta82-pda-${{ github.run_id }}
-          path: /tmp/beta82-pda
+          name: beta83-verify-${{ github.run_id }}
+          path: /tmp/beta83-verify
           retention-days: 30
           if-no-files-found: error
 
-  rollback:
-    name: rollback-beta81
-    needs: [publish,pda_verify]
-    if: ${{ always() && needs.publish.result == 'success' && needs.pda_verify.result != 'success' }}
-    runs-on: ubuntu-24.04
-    timeout-minutes: 12
-    env:
-      GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
-      GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
-      GOOGLE_OAUTH_REFRESH_TOKEN: ${{ secrets.GOOGLE_OAUTH_REFRESH_TOKEN }}
-      GAS_DEPLOYMENT_ID: ${{ secrets.GAS_DEPLOYMENT_ID }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
-        with:
-          name: beta82-publish-${{ github.run_id }}
-          path: /tmp/beta82-publish
-      - name: Restore Beta81 OTA
-        shell: bash
-        run: bash tools/beta82_rollback.sh
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: beta82-rollback-${{ github.run_id }}
-          path: /tmp/beta82-rollback
-          retention-days: 30
-          if-no-files-found: error
-
-  finalize:
-    name: finalize
-    needs: [publish,pda_verify]
-    if: ${{ needs.publish.result == 'success' && needs.pda_verify.result == 'success' }}
-    runs-on: ubuntu-24.04
-    timeout-minutes: 12
-    env:
-      GH_TOKEN: ${{ github.token }}
-    steps:
-      - uses: actions/checkout@v4
-        with: {fetch-depth: 0}
-      - uses: actions/download-artifact@v4
-        with:
-          name: beta82-publish-${{ github.run_id }}
-          path: /tmp/beta82-publish-final
-      - uses: actions/download-artifact@v4
-        with:
-          name: beta82-pda-${{ github.run_id }}
-          path: /tmp/beta82-pda-final
-      - name: Finalize state and canonical handoff
-        shell: bash
-        run: bash tools/finalize_beta82.sh
-      - uses: actions/upload-artifact@v4
-        with:
-          name: beta82-final-${{ github.run_id }}
-          path: /tmp/beta82-final/receipt.json
-          retention-days: 90
-          if-no-files-found: error
-
-  handoff_finalizer:
+  handoff-finalizer:
     name: handoff-finalizer
-    needs: [publish,pda_verify,rollback,finalize]
+    needs: [route,candidate,verify]
     if: ${{ always() }}
     runs-on: ubuntu-24.04
     timeout-minutes: 8
+    permissions:
+      contents: read
+      actions: read
     env:
       GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
-      - name: Create deterministic handoff TXT
+      - name: Create automatic handoff
         shell: bash
-        run: bash tools/beta82_handoff_finalizer.sh
+        run: bash tools/beta83_handoff_finalizer.sh
       - uses: actions/upload-artifact@v4
         if: always()
         with:
