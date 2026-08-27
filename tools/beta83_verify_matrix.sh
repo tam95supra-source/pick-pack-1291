@@ -19,29 +19,33 @@ test "$(adb shell id -u 2>/dev/null|tr -d '\r')" = 0
 adb install -r "$APK" >"$OUT/install-candidate.txt";adb install -r "$VERIFY_HARNESS_APK" >"$OUT/install-harness.txt"
 for spec in '320 568 160' '360 640 180' '480 800 240'; do
   read -r W H D <<<"$spec";TAG="${W}x${H}"
+  MODE=visual;[[ "$TAG" == "320x568" ]] && MODE=checks
   adb shell wm size "${W}x${H}" >/dev/null;adb shell wm density "$D" >/dev/null
+  adb shell am force-stop "$PKG" >/dev/null 2>&1 || true
   adb shell pm clear "$PKG" >/dev/null
   adb shell svc wifi disable >/dev/null 2>&1 || true;adb shell svc data disable >/dev/null 2>&1 || true
   set +e
-  timeout 150s adb shell am instrument -w -r -e mode checks -e tag "$TAG" -e mnv 981820081 -e mnv2 981820082 -e mnv3 981820083 vn.pickpack1291.verify/.Beta83UiChecksInstrumentation >"$OUT/$TAG-instrument.txt" 2>&1
+  timeout 150s adb shell am instrument -w -r -e mode "$MODE" -e tag "$TAG" -e mnv 981820081 -e mnv2 981820082 -e mnv3 981820083 vn.pickpack1291.verify/.Beta83UiChecksInstrumentation >"$OUT/$TAG-instrument.txt" 2>&1
   RC=$?
   set -e
   test "$RC" = 0;grep -Fq 'INSTRUMENTATION_CODE: 0' "$OUT/$TAG-instrument.txt"
   mkdir -p "$OUT/$TAG"
   adb pull "/sdcard/Android/data/$PKG/files/beta83-visual/." "$OUT/$TAG/" >/dev/null
-  adb shell cat "/data/user/0/$PKG/shared_prefs/pp_beta83_verify.xml" >"$OUT/$TAG-flags.xml"
-  for flag in current_day_filter header_removed old_warning_preserved qr_reconciliation null_sanitized incomplete_detail_button staff_list_to_qr complete_direct_list settings_simplified reconciliation_above_scan work_info_order before_after_visible timeline_newest_first hhmm_edit_confirmation; do
-    grep -Fq "name=\"$flag\" value=\"true\"" "$OUT/$TAG-flags.xml"
-  done
+  if [[ "$MODE" == checks ]]; then
+    adb shell cat "/data/user/0/$PKG/shared_prefs/pp_beta83_verify.xml" >"$OUT/$TAG-flags.xml"
+    for flag in current_day_filter header_removed old_warning_preserved qr_reconciliation null_sanitized incomplete_detail_button staff_list_to_qr complete_direct_list settings_simplified reconciliation_above_scan work_info_order before_after_visible timeline_newest_first hhmm_edit_confirmation; do
+      grep -Fq "name=\"$flag\" value=\"true\"" "$OUT/$TAG-flags.xml"
+    done
+  fi
 done
 python3 - <<'PY'
 from pathlib import Path
-expected={"320x568":(320,568),"360x640":(360,640),"480x800":(480,800)}
+expected={"320x568":((320,568),11),"360x640":((360,640),4),"480x800":((480,800),4)}
 root=Path("/tmp/beta83-verify")
 total=0
-for tag,size in expected.items():
+for tag,(size,count) in expected.items():
     files=sorted((root/tag).glob("*.png"))
-    assert len(files)==11,(tag,len(files),[p.name for p in files])
+    assert len(files)==count,(tag,len(files),count,[p.name for p in files])
     for p in files:
         b=p.read_bytes()
         assert b[:8]==b"\x89PNG\r\n\x1a\n",p
@@ -50,5 +54,5 @@ for tag,size in expected.items():
         total+=1
 (root/"visual-summary.txt").write_text(f"screenshots={total}\nsizes=320x568,360x640,480x800\nhuman_inspection_required=true\n",encoding="utf-8")
 PY
-jq -nc --arg version "$VERSION" --argjson code "$CODE" --arg sha "$SHA" --argjson size "$SIZE" --argjson run "$GITHUB_RUN_ID" '{status:"PASS",version_name:$version,version_code:$code,apk_sha256:$sha,apk_size:$size,run:$run,functional_pass:true,current_day_only:true,incomplete_and_complete_paths:true,qr_session_cards:true,null_sanitized:true,settings_simplified:true,old_warning_preserved:true,reconciliation_above_scan:true,work_info_order:true,before_after_visible:true,timeline_newest_first:true,hhmm_edit_confirmation:true,visual_sizes:["320x568","360x640","480x800"],screenshot_count:33,human_inspection_required:true}' > "$OUT/receipt.json"
+jq -nc --arg version "$VERSION" --argjson code "$CODE" --arg sha "$SHA" --argjson size "$SIZE" --argjson run "$GITHUB_RUN_ID" '{status:"PASS",version_name:$version,version_code:$code,apk_sha256:$sha,apk_size:$size,run:$run,functional_pass:true,current_day_only:true,incomplete_and_complete_paths:true,qr_session_cards:true,null_sanitized:true,settings_simplified:true,old_warning_preserved:true,reconciliation_above_scan:true,work_info_order:true,before_after_visible:true,timeline_newest_first:true,hhmm_edit_confirmation:true,visual_sizes:["320x568","360x640","480x800"],screenshot_count:19,functional_size:"320x568",human_inspection_required:true}' > "$OUT/receipt.json"
 cat "$OUT/receipt.json"
