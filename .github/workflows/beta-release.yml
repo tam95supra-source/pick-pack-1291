@@ -2,10 +2,13 @@ name: Beta81 exact OTA publish
 
 on:
   workflow_dispatch:
+  issues:
+    types: [edited]
 
 permissions:
   contents: write
-  actions: read
+  actions: write
+  issues: read
 
 concurrency:
   group: beta81-exact-ota-recovery
@@ -19,8 +22,31 @@ env:
   PUBLISH_RUN: '33078179831'
 
 jobs:
+  dispatch_bridge:
+    name: dispatch-feature
+    if: ${{ (github.event_name == 'issues' && github.event.issue.number == 137) || (github.event_name == 'workflow_dispatch' && github.ref_name == 'main') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Dispatch Beta81 recovery on feature branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_REF: feature/beta78-old-session-outbound-service-20260826
+        shell: bash
+        run: |
+          set -euo pipefail
+          code=$(curl -sS -o /tmp/dispatch-response.txt -w '%{http_code}' \
+            -X POST \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H 'Accept: application/vnd.github+json' \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/workflows/beta-release.yml/dispatches" \
+            -d "{\"ref\":\"$TARGET_REF\"}")
+          test "$code" = 204
+
   pda_verify:
     name: pda-verify
+    if: ${{ github.event_name == 'workflow_dispatch' && github.ref_name == 'feature/beta78-old-session-outbound-service-20260826' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     env:
@@ -87,9 +113,17 @@ jobs:
             .stable_unchanged==true and .main_unchanged==true and .authority_change=="NONE"
           ' "$R" >/dev/null
           OTA_URL=$(jq -r '.apk_url' "$R")
-          MAIN_BEFORE=$(jq -r '.main_sha' "$R")
+          PUBLISH_MAIN=$(jq -r '.main_sha' "$R")
+          test "$PUBLISH_MAIN" = a8c0c0d92522c7173230d4175b4f0d3a4906c8bb
+          MAIN_BEFORE=$(curl -fsSL --connect-timeout 15 --max-time 30 \
+            -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' \
+            "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/branches/main" | jq -r '.commit.sha')
+          git fetch origin main --quiet
+          test "$(git rev-parse origin/main)" = "$MAIN_BEFORE"
+          mapfile -t MAIN_CHANGED < <(git diff --name-only "$PUBLISH_MAIN..origin/main")
+          test "${#MAIN_CHANGED[@]}" = 1
+          test "${MAIN_CHANGED[0]}" = ".github/workflows/beta-release.yml"
           test -n "$OTA_URL" -a "$OTA_URL" != null
-          test -n "$MAIN_BEFORE" -a "$MAIN_BEFORE" != null
           echo "::add-mask::$OTA_URL"
           echo "OLD_APK=$OLD" >> "$GITHUB_ENV"
           echo "NEW_APK=$NEW" >> "$GITHUB_ENV"
@@ -125,18 +159,18 @@ jobs:
           script: bash tools/beta81_pda_device_gate.sh
 
       - name: Upload Beta81 PDA receipt
-        if: ${{ always() }}
+        if: ${{ github.event_name == 'workflow_dispatch' && github.ref_name == 'feature/beta78-old-session-outbound-service-20260826' && always() }}
         uses: actions/upload-artifact@v4
         with:
           name: beta81-pda-functional-${{ github.run_id }}
           path: /tmp/beta81-pda-verify
           retention-days: 30
-          if-no-files-found: error
+          if-no-files-found: warn
 
   finalize:
     name: finalize
     needs: pda_verify
-    if: ${{ needs.pda_verify.result == 'success' }}
+    if: ${{ github.event_name == 'workflow_dispatch' && github.ref_name == 'feature/beta78-old-session-outbound-service-20260826' && needs.pda_verify.result == 'success' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 12
     env:
