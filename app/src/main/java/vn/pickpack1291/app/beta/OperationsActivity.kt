@@ -464,7 +464,8 @@ class OperationsActivity : Activity() {
         val e=ctx.optJSONObject("employee")?:JSONObject();val state=ctx.optString("state");val currentMnv=e.optString("mnv");liveEmployeeMnv=currentMnv;lastEmployeeRenderSignature=employeeRenderSignature(ctx,masters)
         val root=column(bg);root.addView(appBar("QUÉT QR NHÂN SỰ"));val body=column(bg).apply{setPadding(dp(12),dp(8),dp(12),dp(58))}
         addScannedOldSessionWarning(body,ctx)
-        val scan=mnvInput("Scan / Nhập mã nhân viên").apply{setText("")};body.addView(scan,matchWrap());body.addView(gap(5));body.addView(employeeCard(e,state));body.addView(gap(7));addBusinessShiftReconciliation(body)
+        addBusinessShiftReconciliation(body)
+        val scan=mnvInput("Scan / Nhập mã nhân viên").apply{setText("")};body.addView(scan,matchWrap());body.addView(gap(5));body.addView(employeeCard(e,state));body.addView(gap(7))
         var busy=false;fun submit(){val v=scan.text.toString().trim();if(v.isBlank()){TopNotice.show(this,"Nhập hoặc quét mã nhân viên.",TopNotice.Kind.WARNING);return};if(busy)return;busy=true;loadEmployee(v);scan.postDelayed({busy=false},600)};bindScannerEnter(scan){submit()}
         val ses=ctx.optJSONObject("session");val sessionId=ses?.optString("session_id").orEmpty().trim()
         if((state=="ACTIVE"||state=="ENDED")&&ses!=null&&!ses.has("resource_assignments_v64")&&sessionId.isNotBlank()){
@@ -547,7 +548,7 @@ class OperationsActivity : Activity() {
         val pa=s.optJSONArray("positions_v64")?:s.optJSONArray("positions")?:JSONArray();val pos=mutableListOf<String>()
         for(i in 0 until pa.length()){val x=pa.optJSONObject(i)?:continue;if(x.optString("state").uppercase() !in setOf("","ACTIVE"))continue;val v=x.optString("position_label").ifBlank{x.optString("position_key")}.trim();if(v.isNotBlank())pos.add(v)}
         val position=pos.distinct().joinToString(" & ").ifBlank{s.optString("work_choice").ifBlank{"—"}}
-        return listOf("Vị trí trong ca" to position,"PDA" to directOrAssignment("pda_serial","PDA"),"Bàn Pack" to directOrAssignment("pack_table","PACK_TABLE"),"User Pick" to directOrAssignment("user_pick","USER_PICK"),"User Pack" to directOrAssignment("user_pack","USER_PACK"))
+        return listOf("Vị trí trong ca" to position,"User Pick" to directOrAssignment("user_pick","USER_PICK"),"PDA" to directOrAssignment("pda_serial","PDA"),"Bàn Pack" to directOrAssignment("pack_table","PACK_TABLE"),"User Pack" to directOrAssignment("user_pack","USER_PACK"))
     }
     private fun auditWorkBlock(title:String,s:JSONObject):String=buildString{
         append(title).append(":\n")
@@ -555,18 +556,47 @@ class OperationsActivity : Activity() {
     }.trimEnd()
 
     private fun sessionWorkSnapshotDetail(s:JSONObject):String{
-        val parts=mutableListOf<String>();val pa=s.optJSONArray("positions_v64")?:s.optJSONArray("positions")?:JSONArray();for(i in 0 until pa.length()){val x=pa.optJSONObject(i)?:continue;if(x.optString("state").uppercase() !in setOf("","ACTIVE"))continue;val v=x.optString("position_label").ifBlank{x.optString("position_key")};if(v.isNotBlank())parts.add("Vị trí $v")}
-        val ra=s.optJSONArray("resource_assignments_v64")?:s.optJSONArray("resource_assignments")?:s.optJSONArray("assignments")?:JSONArray();for(i in 0 until ra.length()){val x=ra.optJSONObject(i)?:continue;if(x.optString("state").uppercase() !in setOf("","ACTIVE"))continue;val t=when(x.optString("resource_type").uppercase()){ "PDA"->"PDA";"USER_PICK"->"User Pick";"PACK_TABLE"->"Bàn Pack";"USER_PACK"->"User Pack";else->x.optString("resource_type")};val id=x.optString("resource_id");if(id.isNotBlank())parts.add("$t $id")};return parts.distinct().joinToString(" • ")
+        if(s.length()==0)return ""
+        fun directOrAssignment(key:String,type:String):String{
+            val direct=s.optString(key).trim().takeUnless{it.equals("null",true)}.orEmpty();if(direct.isNotBlank())return direct
+            val a=s.optJSONArray("resource_assignments_v64")?:s.optJSONArray("resource_assignments")?:s.optJSONArray("assignments")?:JSONArray()
+            val values=mutableListOf<String>();for(i in 0 until a.length()){val x=a.optJSONObject(i)?:continue;if(!x.optString("resource_type").equals(type,true))continue;if(x.optString("state").uppercase() !in setOf("","ACTIVE"))continue;val id=x.optString("resource_id").trim();if(id.isNotBlank())values.add(id)}
+            return values.distinct().joinToString(" • ")
+        }
+        val pa=s.optJSONArray("positions_v64")?:s.optJSONArray("positions")?:JSONArray();val positions=mutableListOf<String>()
+        for(i in 0 until pa.length()){val x=pa.optJSONObject(i)?:continue;if(x.optString("state").uppercase() !in setOf("","ACTIVE"))continue;val v=x.optString("position_label").ifBlank{x.optString("position_key")}.trim();if(v.isNotBlank())positions.add(v)}
+        val directWork=when(s.optString("work_choice").trim().uppercase()){"PICK"->"Pick";"PACK"->"Pack";"BOTH","PICK_PACK"->"Pick & Pack";"KHONG","NONE","NO"->"Làm theo vị trí chính";else->s.optString("work_choice").trim()}
+        val position=positions.distinct().joinToString(" & ").ifBlank{directWork}.ifBlank{"—"}
+        val rows=listOf(
+            "Vị trí" to position,
+            "User Pick" to directOrAssignment("user_pick","USER_PICK").ifBlank{"—"},
+            "PDA" to directOrAssignment("pda_serial","PDA").ifBlank{"—"},
+            "Bàn Pack" to directOrAssignment("pack_table","PACK_TABLE").ifBlank{"—"},
+            "User Pack" to directOrAssignment("user_pack","USER_PACK").ifBlank{"—"}
+        )
+        return rows.joinToString(" • "){"${it.first}: ${it.second}"}
     }
     private fun sessionTimelineItems(mnv:String,ses:JSONObject):MutableList<JSONObject>{
         val merged=LinkedHashMap<String,JSONObject>();val date=ses.optString("business_date").ifBlank{operationalStore.businessDate()};val currentSessionId=ses.optString("session_id").trim();val enterMs=runCatching{Instant.parse(ses.optString("enter_at")).toEpochMilli()}.getOrDefault(0L);val exitMs=runCatching{Instant.parse(ses.optString("exit_at")).toEpochMilli()}.getOrDefault(Long.MAX_VALUE)
         fun sameSession(e:JSONObject,p:JSONObject,localAt:Long=0L):Boolean{val sid=e.optString("session_id").ifBlank{p.optString("session_id")}.trim();if(currentSessionId.isNotBlank()&&sid.isNotBlank())return sid==currentSessionId;val ms=if(localAt>0L)localAt else runCatching{Instant.parse(e.optString("committed_at").ifBlank{e.optString("occurred_at").ifBlank{e.optString("at_iso").ifBlank{e.optString("at")}}}).toEpochMilli()}.getOrDefault(0L);return enterMs>0L&&ms>=enterMs&&ms<=exitMs}
         val allowed=setOf("ATTENDANCE_ENTER","ENTER","RESOURCE_CHANGE","RESOURCE","LABOR_START","LABOR_FINISH","ATTENDANCE_EXIT","EXIT","ATTENDANCE_TIME_CORRECTED","ATTENDANCE_EXIT_DELETED")
-        fun payload(e:JSONObject):JSONObject{val raw=e.optString("payload_json");if(raw.isNotBlank())return runCatching{JSONObject(raw)}.getOrDefault(JSONObject());return e.optJSONObject("payload")?:JSONObject()}
+        fun payload(e:JSONObject):JSONObject{
+            e.optJSONObject("payload")?.let{return it}
+            return when(val raw=e.opt("payload_json")){is JSONObject->raw;is String->if(raw.isBlank())JSONObject() else runCatching{JSONObject(raw)}.getOrDefault(JSONObject());else->JSONObject()}
+        }
         fun detail(type:String,e:JSONObject,p:JSONObject):String{
             if(type=="ATTENDANCE_TIME_CORRECTED"){val field=if(p.optString("field")=="enter_at")"Giờ vào" else "Giờ ra";return "$field: ${formatIso(p.optString("before_value"))} → ${formatIso(p.optString("after_value"))} • Lý do: ${p.optString("reason").ifBlank{"—"}}"}
             if(type=="ATTENDANCE_EXIT_DELETED")return "Xóa mốc ra ca ${formatIso(p.optString("before_exit_at"))} • Lý do: ${p.optString("reason").ifBlank{"—"}}"
-            if(type=="RESOURCE_CHANGE"){val delta=sessionWorkChangeDetail(p);val before=p.optJSONObject("before")?:JSONObject();val after=p.optJSONObject("after")?:JSONObject();val beforeText=sessionWorkSnapshotDetail(before).ifBlank{sessionWorkDetail(before).ifBlank{"—"}};val afterText=sessionWorkSnapshotDetail(after).ifBlank{sessionWorkDetail(after).ifBlank{"—"}};return "Trước cập nhật: $beforeText\nSau cập nhật: $afterText${if(delta.isNotBlank())"\nThay đổi: $delta" else ""}"}
+            if(type=="RESOURCE_CHANGE"){
+                val delta=sessionWorkChangeDetail(p);val before=p.optJSONObject("before");val after=p.optJSONObject("after")
+                if(before!=null||after!=null){
+                    val beforeText=before?.let{sessionWorkSnapshotDetail(it).ifBlank{sessionWorkDetail(it)}}.orEmpty().ifBlank{"Không có dữ liệu trước"}
+                    val afterText=after?.let{sessionWorkSnapshotDetail(it).ifBlank{sessionWorkDetail(it)}}.orEmpty().ifBlank{"Không có dữ liệu sau"}
+                    return "Trước cập nhật: $beforeText\nSau cập nhật: $afterText${if(delta.isNotBlank())"\nThay đổi: $delta" else ""}"
+                }
+                val current=sessionWorkSnapshotDetail(p).ifBlank{sessionWorkDetail(p)}
+                return listOfNotNull(if(delta.isNotBlank())"Thay đổi: $delta" else null,if(current.isNotBlank())"Sau cập nhật: $current" else null,e.optString("detail").takeIf{it.isNotBlank()}).distinct().joinToString("\n").ifBlank{"Không có chi tiết thay đổi trong bản ghi cũ."}
+            }
             return e.optString("detail").ifBlank{sessionWorkDetail(p)}
         }
         val day=operationalStore.loadDay(date);val events=day?.optJSONArray("events")?:JSONArray()
@@ -588,7 +618,7 @@ class OperationsActivity : Activity() {
             val actor=body.optString("actor_name").ifBlank{body.optString("actor").ifBlank{body.optString("actor_id").ifBlank{"Thiết bị này"}}}
             merged[id]=JSONObject().put("event_id",id).put("event_type",type).put("label",label).put("mnv",mnv).put("actor",actor).put("detail",detail(type,body,p)).put("at_iso",eventIso).put("timeline_source","LOCAL_PDA").put("local_status",local.optString("status")).put("local_error",localError).put("local_queued_at",queuedAt)
         }
-        val out=merged.values.toMutableList();fun atMillis(e:JSONObject):Long{val q=e.optLong("local_queued_at",0L);if(q>0L)return q;return runCatching{Instant.parse(e.optString("at_iso").ifBlank{e.optString("at")}).toEpochMilli()}.getOrDefault(0L)};out.sortBy{atMillis(it)};return out
+        val out=merged.values.toMutableList();fun atMillis(e:JSONObject):Long{val q=e.optLong("local_queued_at",0L);if(q>0L)return q;return runCatching{Instant.parse(e.optString("at_iso").ifBlank{e.optString("at")}).toEpochMilli()}.getOrDefault(0L)};out.sortByDescending{atMillis(it)};return out
     }
 
     private fun sessionEventTitle(typeRaw:String,label:String):String=when(typeRaw.uppercase()){
@@ -643,12 +673,24 @@ class OperationsActivity : Activity() {
     private fun returnedSessionContext(ctx:JSONObject,r:BetaApiClient.Result):JSONObject?{val ss=r.json?.optJSONObject("session")?:return null;return JSONObject(ctx.toString()).put("session",ss).put("state",ss.optString("state"))}
 
     // S50_BETA44_OWNER_USER_PROJECTION_ADMIN_BULK_SYNC_VI
-    private fun verifyDeletePassword(actionLabel:String,after:()->Unit){
-        val pw=input("Nhập mật khẩu thực tế",true)
-        val dialog=AlertDialog.Builder(this).setTitle("Xác thực trước khi xóa").setMessage("Nhập mật khẩu thực tế").setView(pw).setNegativeButton("Hủy",null).setPositiveButton("XÁC THỰC",null).create()
-        dialog.setOnShowListener{val btn=dialog.getButton(AlertDialog.BUTTON_POSITIVE);btn.setOnClickListener{val value=pw.text.toString();if(value.isBlank()){showError("Nhập mật khẩu thực tế");return@setOnClickListener};btn.isEnabled=false;btn.text="ĐANG XÁC THỰC...";api.login(login,value){r->runOnUiThread{btn.isEnabled=true;btn.text="XÁC THỰC";if(!r.ok){showError("Không thể xác thực");return@runOnUiThread};dialog.dismiss();after()}}}}
+    // Beta83 OWNER confirmation policy: authorized actions accept current Vietnam HH:mm.
+    // The actual SUPERADMIN may alternatively authenticate with the fixed account password.
+    private fun currentActionPassword():String=java.time.LocalTime.now(ZoneId.of("Asia/Ho_Chi_Minh")).format(DateTimeFormatter.ofPattern("HH:mm"))
+    private fun verifyActionPassword(actionLabel:String,after:()->Unit){
+        val pw=input("Mật khẩu xác nhận",true)
+        val extra=if(isActualSuper())" Hoặc dùng mật khẩu cố định của SUPERADMIN." else ""
+        val dialog=AlertDialog.Builder(this).setTitle("Xác thực $actionLabel").setMessage("Nhập mật khẩu HH:mm hiện tại.$extra").setView(pw).setNegativeButton("Hủy",null).setPositiveButton("XÁC THỰC",null).create()
+        dialog.setOnShowListener{val btn=dialog.getButton(AlertDialog.BUTTON_POSITIVE);btn.setOnClickListener{
+            val value=pw.text.toString().trim()
+            if(value.isBlank()){showError("Nhập mật khẩu xác nhận.");return@setOnClickListener}
+            if(value==currentActionPassword()){dialog.dismiss();after();return@setOnClickListener}
+            if(!isActualSuper()){showError("Mật khẩu xác nhận không đúng.");return@setOnClickListener}
+            btn.isEnabled=false;btn.text="ĐANG XÁC THỰC..."
+            api.login(login,value){r->runOnUiThread{btn.isEnabled=true;btn.text="XÁC THỰC";if(!r.ok){showError("Mật khẩu xác nhận không đúng.");return@runOnUiThread};dialog.dismiss();after()}}
+        }}
         dialog.show();pw.requestFocus()
     }
+    private fun verifyDeletePassword(actionLabel:String,after:()->Unit)=verifyActionPassword(actionLabel,after)
 
     private fun mergeResourceSnapshot(ctx:JSONObject,snap:JSONObject):JSONObject{
         val out=JSONObject(ctx.toString());val base=snap.optJSONObject("session")?:out.optJSONObject("session")?:JSONObject();val s=JSONObject(base.toString())
@@ -696,9 +738,9 @@ class OperationsActivity : Activity() {
         send(original.optInt("version"),UUID.randomUUID().toString(),0)
     }
 
-    private fun sessionWorkEditor(ctx:JSONObject,mode:String){
+    private fun sessionWorkEditor(ctx:JSONObject,mode:String,verified:Boolean=false){
         val s=ctx.optJSONObject("session")?:return;if(!s.optString("state").equals("ACTIVE",true)){showError("Phiên không còn hoạt động.");return}
-        val edit=mode.equals("EDIT",true);val server=s.optJSONObject("resource_options_v64")?:JSONObject();val local=PdaLocalProjection.resourceOptions(this,s.optString("mnv"))
+        val edit=mode.equals("EDIT",true);if(edit&&!verified){verifyEditPassword("sửa thông tin trong ca"){sessionWorkEditor(ctx,mode,true)};return}val server=s.optJSONObject("resource_options_v64")?:JSONObject();val local=PdaLocalProjection.resourceOptions(this,s.optString("mnv"))
         fun arr(key:String):JSONArray{val a=server.optJSONArray(key);return if(a!=null&&a.length()>0)a else local.optJSONArray(key)?:JSONArray()}
         fun ids(key:String):MutableList<String>{val out=mutableListOf<String>();val a=arr(key);for(i in 0 until a.length()){val x=a.opt(i);val v=when(x){is JSONObject->x.optString("id").ifBlank{x.optString("resource_id").ifBlank{x.optString("serial")}};else->a.optString(i)}.trim();if(v.isNotBlank()&&!out.contains(v))out.add(v)};out.sortWith(Comparator{a,b->naturalUserCompare(a,b)});return out}
         class PackMap(val table:String,val user:String,val used:Boolean)
@@ -746,12 +788,12 @@ class OperationsActivity : Activity() {
         selector.onItemSelectedListener=object:android.widget.AdapterView.OnItemSelectedListener{override fun onItemSelected(p:android.widget.AdapterView<*>?,v:View?,i:Int,id:Long){render(i)};override fun onNothingSelected(p:android.widget.AdapterView<*>?)=Unit}
         val full=smallButton("XÓA TOÀN BỘ PHIÊN VÀO – RA",red);box.addView(gap(10));box.addView(full,matchWrap());var dialog:AlertDialog?=null
         full.setOnClickListener{val r=input("Lý do xóa toàn bộ phiên",false).apply{setText("Xóa phiên theo xác nhận thực tế")};AlertDialog.Builder(this).setTitle("Xóa toàn bộ phiên?").setView(r).setNegativeButton("Hủy",null).setPositiveButton("XÁC NHẬN"){_,_->if(r.text.toString().trim().length<3){showError("Nhập lý do xóa phiên.");return@setPositiveButton};verifyDeletePassword("xóa toàn bộ phiên"){api.call("attendance_session_delete",JSONObject().put("session_id",s.optString("session_id")).put("reason",r.text.toString().trim()).put("idempotency_key",UUID.randomUUID().toString())){x->runOnUiThread{if(!x.ok){showError(x.error?:"Không xóa được phiên");return@runOnUiThread};dialog?.dismiss();TopNotice.show(this,"Đã xóa phiên; audit chi tiết vẫn được giữ.",TopNotice.Kind.SUCCESS);employeeScan()}}}}.show()}
-        dialog=AlertDialog.Builder(this).setTitle("Xóa thông tin trong ca").setView(ScrollView(this).apply{addView(box)}).setNegativeButton("Hủy",null).setPositiveButton("XÓA"){_,_->val x=selected?:run{showError("Chọn nội dung cần xóa.");return@setPositiveButton};val why=reason?.text?.toString()?.trim().orEmpty();if(why.length<2){showError("Nhập lý do xóa.");return@setPositiveButton};val ops=JSONArray();if(x.assignment!=null)ops.put(JSONObject().put("op","REMOVE_RESOURCE").put("assignment_id",x.assignment.optString("assignment_id")).put("resource_type",x.assignment.optString("resource_type")).put("resource_id",x.assignment.optString("resource_id")).put("reason",why).put("disposition",if(disposition?.selectedItemPosition==1)"AVAILABLE" else "USED"))else x.position?.let{ops.put(JSONObject().put("op","REMOVE_POSITION").put("position_key",it.optString("position_key")).put("reason",why))};submitResourceMutation(ctx,ops,"Xóa thông tin trong ca")}.create();dialog?.show()
+        dialog=AlertDialog.Builder(this).setTitle("Xóa thông tin trong ca").setView(ScrollView(this).apply{addView(box)}).setNegativeButton("Hủy",null).setPositiveButton("XÓA"){_,_->val x=selected?:run{showError("Chọn nội dung cần xóa.");return@setPositiveButton};val why=reason?.text?.toString()?.trim().orEmpty();if(why.length<2){showError("Nhập lý do xóa.");return@setPositiveButton};val ops=JSONArray();if(x.assignment!=null)ops.put(JSONObject().put("op","REMOVE_RESOURCE").put("assignment_id",x.assignment.optString("assignment_id")).put("resource_type",x.assignment.optString("resource_type")).put("resource_id",x.assignment.optString("resource_id")).put("reason",why).put("disposition",if(disposition?.selectedItemPosition==1)"AVAILABLE" else "USED"))else x.position?.let{ops.put(JSONObject().put("op","REMOVE_POSITION").put("position_key",it.optString("position_key")).put("reason",why))};verifyDeletePassword("xóa thông tin trong ca"){submitResourceMutation(ctx,ops,"Xóa thông tin trong ca")}}.create();dialog?.show()
     }
     private fun editableTime(iso:String):String=runCatching{Instant.parse(iso).atZone(ZoneId.of("Asia/Ho_Chi_Minh")).format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss"))}.getOrDefault(iso)
     private fun parseEditableTime(v:String):String?=runCatching{java.time.LocalDateTime.parse(v.trim(),DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss")).atZone(ZoneId.of("Asia/Ho_Chi_Minh")).toInstant().toString()}.getOrNull()
-    private fun editAttendanceTime(ctx:JSONObject,field:String){
-        if(!isAdmin())return;val ses=ctx.optJSONObject("session")?:return;val old=ses.optString(field);if(old.isBlank()){showError("Chưa có mốc thời gian để sửa.");return};val box=column(surface).apply{setPadding(dp(10),dp(4),dp(10),dp(8))};val time=input("dd/MM/yyyy HH:mm:ss",false).apply{setText(editableTime(old))};val reason=input("Lý do điều chỉnh",false).apply{setText("Điều chỉnh theo xác nhận thực tế")};box.addView(info("Giờ ghi nhận ban đầu vẫn được giữ trong lịch sử audit. Sheet RA/VÀO chỉ hiển thị giờ sửa sau cùng."));box.addView(gap(7));box.addView(labelled(if(field=="enter_at")"Giờ vào ca mới" else "Giờ ra ca mới",time));box.addView(gap(7));box.addView(labelled("Lý do",reason));AlertDialog.Builder(this).setTitle(if(field=="enter_at")"Sửa giờ vào ca" else "Sửa giờ ra ca").setView(box).setNegativeButton("Hủy",null).setPositiveButton("LƯU"){_,_->val parsed=parseEditableTime(time.text.toString());if(parsed==null){showError("Thời gian phải đúng định dạng dd/MM/yyyy HH:mm:ss.");return@setPositiveButton};if(reason.text.toString().trim().length<3){showError("Nhập lý do điều chỉnh.");return@setPositiveButton};api.call("attendance_time_correct",JSONObject().put("session_id",ses.optString("session_id")).put("field",field).put("corrected_at",parsed).put("reason",reason.text.toString().trim()).put("idempotency_key",UUID.randomUUID().toString())){r->runOnUiThread{if(handleAuth(r))return@runOnUiThread;if(!r.ok){showError(r.error?:"Không sửa được thời gian");return@runOnUiThread};TopNotice.show(this,"Đã sửa thời gian và lưu audit.",TopNotice.Kind.SUCCESS);foregroundSync.requestSync();val next=returnedSessionContext(ctx,r);if(next!=null)renderEmployee(next,PdaLocalProjection.resourceOptions(this,ses.optString("mnv")))else loadEmployee(ses.optString("mnv"))}}}.show()
+    private fun editAttendanceTime(ctx:JSONObject,field:String,verified:Boolean=false){
+        if(!isAdmin())return;if(!verified){verifyEditPassword("sửa thời gian vào / ra ca"){editAttendanceTime(ctx,field,true)};return};val ses=ctx.optJSONObject("session")?:return;val old=ses.optString(field);if(old.isBlank()){showError("Chưa có mốc thời gian để sửa.");return};val box=column(surface).apply{setPadding(dp(10),dp(4),dp(10),dp(8))};val time=input("dd/MM/yyyy HH:mm:ss",false).apply{setText(editableTime(old))};val reason=input("Lý do điều chỉnh",false).apply{setText("Điều chỉnh theo xác nhận thực tế")};box.addView(info("Giờ ghi nhận ban đầu vẫn được giữ trong lịch sử audit. Sheet RA/VÀO chỉ hiển thị giờ sửa sau cùng."));box.addView(gap(7));box.addView(labelled(if(field=="enter_at")"Giờ vào ca mới" else "Giờ ra ca mới",time));box.addView(gap(7));box.addView(labelled("Lý do",reason));AlertDialog.Builder(this).setTitle(if(field=="enter_at")"Sửa giờ vào ca" else "Sửa giờ ra ca").setView(box).setNegativeButton("Hủy",null).setPositiveButton("LƯU"){_,_->val parsed=parseEditableTime(time.text.toString());if(parsed==null){showError("Thời gian phải đúng định dạng dd/MM/yyyy HH:mm:ss.");return@setPositiveButton};if(reason.text.toString().trim().length<3){showError("Nhập lý do điều chỉnh.");return@setPositiveButton};api.call("attendance_time_correct",JSONObject().put("session_id",ses.optString("session_id")).put("field",field).put("corrected_at",parsed).put("reason",reason.text.toString().trim()).put("idempotency_key",UUID.randomUUID().toString())){r->runOnUiThread{if(handleAuth(r))return@runOnUiThread;if(!r.ok){showError(r.error?:"Không sửa được thời gian");return@runOnUiThread};TopNotice.show(this,"Đã sửa thời gian và lưu audit.",TopNotice.Kind.SUCCESS);foregroundSync.requestSync();val next=returnedSessionContext(ctx,r);if(next!=null)renderEmployee(next,PdaLocalProjection.resourceOptions(this,ses.optString("mnv")))else loadEmployee(ses.optString("mnv"))}}}.show()
     }
 
     private fun editAttendanceTimes(ctx:JSONObject){
@@ -783,7 +825,7 @@ class OperationsActivity : Activity() {
         val positions=(if(ended)allPositionLabels(s) else activePositionLabels(s)).distinct().toMutableList()
         if(positions.isEmpty()){if(s.optString("pda_serial").isNotBlank()||s.optString("user_pick").isNotBlank())positions.add("Pick");if(s.optString("pack_table").isNotBlank()||s.optString("user_pack").isNotBlank())positions.add("Pack")}
         val rawPick=shiftResourceValue(s,"USER_PICK",ended);val hasPick=positions.any{it.equals("Pick",true)}||shiftResourceValue(s,"PDA",ended)!="—";val pickDisplay=if(hasPick&&rawPick=="—")"Đang dùng tài khoản ${login.ifBlank{"—"}} / ${name.ifBlank{"—"}} cố định" else rawPick
-        return listOf("Vị trí trong ca" to if(positions.isEmpty())"Làm theo vị trí chính" else positions.joinToString(" & "),"PDA" to shiftResourceValue(s,"PDA",ended),"Bàn Pack" to shiftResourceValue(s,"PACK_TABLE",ended),"User Pick" to pickDisplay,"User Pack" to shiftResourceValue(s,"USER_PACK",ended))
+        return listOf("Vị trí trong ca" to if(positions.isEmpty())"Làm theo vị trí chính" else positions.joinToString(" & "),"User Pick" to pickDisplay,"PDA" to shiftResourceValue(s,"PDA",ended),"Bàn Pack" to shiftResourceValue(s,"PACK_TABLE",ended),"User Pack" to shiftResourceValue(s,"USER_PACK",ended))
     }
     private fun sessionInfoPanel(title:String,items:List<Pair<String,String>>,completed:Boolean)=column(surface).apply{
         val fill=if(completed)Color.rgb(236,253,245) else Color.rgb(255,251,235)
@@ -927,8 +969,9 @@ class OperationsActivity : Activity() {
         if(out.isEmpty())out.addAll(catalogValues(ns));return out.distinct().toMutableList()
     }
 
-    private fun resourceEditDialog(type:String,existing:JSONObject?,catalogs:JSONArray?,all:JSONArray?){
+    private fun resourceEditDialog(type:String,existing:JSONObject?,catalogs:JSONArray?,all:JSONArray?,verified:Boolean=false){
         if(!isAdmin())return
+        if(existing!=null&&!verified){verifyEditPassword("sửa tài nguyên"){resourceEditDialog(type,existing,catalogs,all,true)};return}
         val meta=runCatching{JSONObject(existing?.optString("metadata_json","{}")?:"{}")}.getOrDefault(JSONObject());val box=column(surface).apply{setPadding(dp(10),dp(4),dp(10),dp(8))}
         val id=input("Mã / tên tài nguyên",false).apply{setText(existing?.optString("resource_id").orEmpty());isEnabled=existing==null}
         val statuses=resourceStatusValues(type,catalogs);val statusSp=spinner((if(statuses.isEmpty())listOf("Hoạt động")else statuses).toTypedArray());selectByValue(statusSp,statuses,existing?.optString("status_label").orEmpty())
@@ -975,12 +1018,7 @@ class OperationsActivity : Activity() {
         staffEditorUnlocked(null)
     }
 
-    private fun verifyEditPassword(after:()->Unit){
-        val pw=input("Nhập mật khẩu thực tế",true)
-        val dialog=AlertDialog.Builder(this).setTitle("Xác nhận quyền sửa").setMessage("Nhập mật khẩu thực tế").setView(pw).setNegativeButton("Hủy",null).setPositiveButton("XÁC NHẬN",null).create()
-        dialog.setOnShowListener{val btn=dialog.getButton(AlertDialog.BUTTON_POSITIVE);btn.setOnClickListener{val value=pw.text.toString();if(value.isBlank()){showError("Nhập mật khẩu thực tế");return@setOnClickListener};btn.isEnabled=false;api.login(login,value){r->runOnUiThread{btn.isEnabled=true;if(!r.ok){showError("Không thể xác thực");return@runOnUiThread};dialog.dismiss();after()}}}}
-        dialog.show();pw.requestFocus()
-    }
+    private fun verifyEditPassword(actionLabel:String="quyền sửa",after:()->Unit)=verifyActionPassword(actionLabel,after)
 
     private fun staffEditorUnlocked(existing:JSONObject?){
         val box=column(surface).apply{setPadding(dp(10),dp(4),dp(10),dp(8))};val mnv=mnvInput("Mã nhân viên").apply{setText(existing?.optString("mnv").orEmpty());isEnabled=existing==null};val full=input("Họ và tên",false).apply{setText(existing?.optString("full_name").orEmpty())};val phone=input("Số điện thoại",false).apply{setText(existing?.optString("phone").orEmpty());inputType=InputType.TYPE_CLASS_PHONE;keyListener=DigitsKeyListener.getInstance("0123456789")}
@@ -1644,7 +1682,7 @@ class OperationsActivity : Activity() {
                         }
                         val newStatus=if(x.optString("status")=="ACTIVE")"DISABLED" else "ACTIVE"
                         actions.addView(smallButton(if(newStatus=="DISABLED")"VÔ HIỆU" else "KÍCH HOẠT",if(newStatus=="DISABLED")orange else green).apply{
-                            setOnClickListener{api.call("account_status",JSONObject().put("login_id",id).put("status",newStatus)){rr->runOnUiThread{if(!rr.ok)showError(rr.error?:"Không cập nhật được")else accountManager()}}}
+                            setOnClickListener{verifyEditPassword("đổi trạng thái tài khoản"){api.call("account_status",JSONObject().put("login_id",id).put("status",newStatus)){rr->runOnUiThread{if(!rr.ok)showError(rr.error?:"Không cập nhật được")else accountManager()}}}}
                         },LinearLayout.LayoutParams(0,dp(38),1f).apply{marginStart=dp(3);marginEnd=dp(3)})
                         if(isSuper()&&!isProtectedAccount){
                             actions.addView(smallButton("XÓA",red).apply{setOnClickListener{deleteAccountsBulk(listOf(id))}},LinearLayout.LayoutParams(0,dp(38),1f).apply{marginStart=dp(3)})
@@ -1659,8 +1697,8 @@ class OperationsActivity : Activity() {
         attach(root,body)
     }
 
-    private fun accountEditDialog(x:JSONObject){
-        if(!isSuper())return;val box=column(surface).apply{setPadding(dp(10),dp(4),dp(10),dp(8))};val display=input("Tên hiển thị",false).apply{setText(x.optString("display_name"))};val mail=input("Mail",false).apply{setText(x.optString("email"))};val roles=arrayOf("USER","ADMIN");val roleSp=spinner(roles);roleSp.setSelection(if(x.optString("role")=="ADMIN")1 else 0);box.addView(labelled("Tên hiển thị",display));box.addView(gap(7));box.addView(labelled("Quyền",roleSp));box.addView(gap(7));box.addView(labelled("Mail",mail));AlertDialog.Builder(this).setTitle("Sửa tài khoản ${x.optString("login_id")}").setView(box).setNegativeButton("Hủy",null).setPositiveButton("LƯU"){_,_->val rr=roleSp.selectedItem.toString();api.call("account_upsert",JSONObject().put("login_id",x.optString("login_id")).put("display_name",display.text.toString().trim()).put("position",rr.lowercase()).put("email",mail.text.toString().trim()).put("role",rr)){r->runOnUiThread{if(!r.ok)showError(r.error?:"Không sửa được tài khoản")else accountManager()}}}.show()
+    private fun accountEditDialog(x:JSONObject,verified:Boolean=false){
+        if(!isSuper())return;if(!verified){verifyEditPassword("sửa tài khoản"){accountEditDialog(x,true)};return};val box=column(surface).apply{setPadding(dp(10),dp(4),dp(10),dp(8))};val display=input("Tên hiển thị",false).apply{setText(x.optString("display_name"))};val mail=input("Mail",false).apply{setText(x.optString("email"))};val roles=arrayOf("USER","ADMIN");val roleSp=spinner(roles);roleSp.setSelection(if(x.optString("role")=="ADMIN")1 else 0);box.addView(labelled("Tên hiển thị",display));box.addView(gap(7));box.addView(labelled("Quyền",roleSp));box.addView(gap(7));box.addView(labelled("Mail",mail));AlertDialog.Builder(this).setTitle("Sửa tài khoản ${x.optString("login_id")}").setView(box).setNegativeButton("Hủy",null).setPositiveButton("LƯU"){_,_->val rr=roleSp.selectedItem.toString();api.call("account_upsert",JSONObject().put("login_id",x.optString("login_id")).put("display_name",display.text.toString().trim()).put("position",rr.lowercase()).put("email",mail.text.toString().trim()).put("role",rr)){r->runOnUiThread{if(!r.ok)showError(r.error?:"Không sửa được tài khoản")else accountManager()}}}.show()
     }
 
     private fun deleteAccountsBulk(ids:List<String>){
