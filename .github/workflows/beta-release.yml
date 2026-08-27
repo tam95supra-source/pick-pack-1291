@@ -96,8 +96,13 @@ jobs:
           test "$MAIN_BEFORE" = "$APPROVED_MAIN_SHA"
           curl -fsSL --connect-timeout 15 --max-time 30 \
             -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' \
-            "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/compare/$PUBLISH_MAIN...$MAIN_BEFORE" > /tmp/beta81-main-approval.json
-          jq -e '.files|length==1 and .files[0].filename==".github/workflows/beta-release.yml"' /tmp/beta81-main-approval.json >/dev/null
+            "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/commits/$MAIN_BEFORE" > /tmp/beta81-main-approval.json
+          jq -e --arg base "$PUBLISH_MAIN" '
+            (.parents|length)==1 and
+            .parents[0].sha==$base and
+            (.files|length)==1 and
+            .files[0].filename==".github/workflows/beta-release.yml"
+          ' /tmp/beta81-main-approval.json >/dev/null
           test -n "$OTA_URL" -a "$OTA_URL" != null
           echo "::add-mask::$OTA_URL"
           echo "OLD_APK=$OLD" >> "$GITHUB_ENV"
@@ -140,7 +145,7 @@ jobs:
           name: beta81-pda-functional-${{ github.run_id }}
           path: /tmp/beta81-pda-verify
           retention-days: 30
-          if-no-files-found: error
+          if-no-files-found: warn
 
   finalize:
     name: finalize

@@ -1,6 +1,6 @@
 # CURRENT STATE — PICK PACK 1291
 
-- updated_at: 2026-08-27T22:36:00+0700
+- updated_at: 2026-08-27T22:57:00+0700
 - status: BETA81_OTA_LIVE_DEVICE_GATE_RECOVERY_READY
 - continuity_branch: feature/beta78-old-session-outbound-service-20260826
 - source_sha: 963ed28a90d2bb3e4a950ae8100fef15edfa86c5
@@ -13,10 +13,10 @@
 - apk_size: 13196221
 - signer_sha256: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
 - publish_run/job: 33078179831 / 98537863151 SUCCESS; exact Drive/BETA OTA bytes already LIVE
-- failed_recovery_run/job: 33088069684 / 98573171301
-- failure_root: harness UI reopened BUSINESS after already being on QR screen; first four Beta81 checks PASS, then TEXT_NOT_FOUND:Quét QR nhân sự
-- failure_receipt: reconciliation_home_1_0=true; reconciliation_qr_1_0=true; rollover_old_active_preserved=true; old_resources_preserved=true; installed Beta81 exact bytes/signer PASS
-- harness_fix: reuse the existing QR screen for old-session scan; no second activity reopen
+- previous_device_run/job: 33088069684 / 98573171301; harness reached exact install and four Beta81 checks before QR navigation verifier error
+- latest_recovery_run/job: 33088945149 / 98576199140 FAILURE before device gate
+- latest_root_cause: CI preflight parser used compare endpoint response shape incompatibly; jq failed before any emulator/device action
+- fix: validate OWNER-approved main change using exact main commit parent + exact changed-file list; no publish/candidate/device gate rerun occurred in failed run 33088945149
 - stable: NO_APK unchanged
 - main_sha: 4e728df1265943148a78642123df9dd84f2997c2; OWNER-approved workflow-only change from a8c0c0d92522c7173230d4175b4f0d3a4906c8bb
 - authority: SERVICE_PRIMARY / PRODUCTION / epoch 9 / generation m2-prod-reset-20260823-001 unchanged
