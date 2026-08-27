@@ -60,8 +60,9 @@ SUFFIX=$(printf '%s' "$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" | sha256sum | cut -c1-
 LOGIN="__B78_LOGIN_${SUFFIX}"; DEVICE="__B78_DEVICE_${SUFFIX}"; AUTH_SESSION="__B78_AUTH_${SUFFIX}"; VH="b78_${SUFFIX}_vh"
 LOC1="__B78_LOC_${SUFFIX}"; LOC2="__B78_LOC2_${SUFFIX}"; DROP_ID="__B78_DROP_${SUFFIX}"; BASE_ID="__B78_BASE_${SUFFIX}"
 EV_CREATE="__B78_LOC_CREATE_${SUFFIX}"; EV_UPDATE="__B78_LOC_UPDATE_${SUFFIX}"; EV_DELETE="__B78_LOC_DELETE_${SUFFIX}"
+B80_MNV="__B80_MNV_${SUFFIX}"; B80_PDA="__B80_PDA_${SUFFIX}"; B80_ENTER="__B80_ENTER_${SUFFIX}"; B80_MUTATE="__B80_MUTATE_${SUFFIX}"; B80_EXIT="__B80_EXIT_${SUFFIX}"
 NOW=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-for v in "$LOGIN" "$DEVICE" "$AUTH_SESSION" "$LOC1" "$LOC2" "$DROP_ID" "$BASE_ID"; do echo "::add-mask::$v"; done
+for v in "$LOGIN" "$DEVICE" "$AUTH_SESSION" "$LOC1" "$LOC2" "$DROP_ID" "$BASE_ID" "$B80_MNV" "$B80_PDA"; do echo "::add-mask::$v"; done
 SERVICE_TOKEN_SECRET=$(printf '%s' "$CLOUDFLARE_ACCOUNT_ID|$GOOGLE_OAUTH_CLIENT_SECRET|pick-pack-1291-m2-service-token-v1" | sha256sum | awk '{print $1}')
 echo "::add-mask::$SERVICE_TOKEN_SECRET"
 TOKEN=$(node - <<'NODE' "$SERVICE_TOKEN_SECRET" "$LOGIN" "$VH" "$AUTH_SESSION" "$DEVICE"
@@ -74,12 +75,33 @@ sql(){ npx wrangler d1 execute "$D1_NAME" --remote --config wrangler.live.jsonc 
 read_api(){ local name=$1 body=$2; curl -fsS --connect-timeout 10 --max-time 20 -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' --data-binary "$body" "$SERVICE_URL/v1/mobile/read" > "$D/$name.json"; }
 cleanup_d1(){
   set +e
-  sql "DELETE FROM outbound_replication_outbox WHERE event_id IN (SELECT event_id FROM events WHERE actor_id='$LOGIN'); DELETE FROM outbound_drop_records WHERE record_id='$DROP_ID'; DELETE FROM outbound_locations WHERE location_key LIKE '__B78%'; DELETE FROM events WHERE actor_id='$LOGIN'; DELETE FROM auth_sessions WHERE login_id='$LOGIN'; DELETE FROM accounts WHERE login_id='$LOGIN';" >/dev/null 2>&1
+  sql "DELETE FROM outbound_replication_outbox WHERE event_id IN (SELECT event_id FROM events WHERE actor_id='$LOGIN'); DELETE FROM outbound_drop_records WHERE record_id='$DROP_ID'; DELETE FROM outbound_locations WHERE location_key LIKE '__B78%'; DELETE FROM resource_daily_consumption WHERE mnv='$B80_MNV'; DELETE FROM resource_leases WHERE mnv='$B80_MNV'; DELETE FROM attendance_sessions WHERE mnv='$B80_MNV'; DELETE FROM events WHERE actor_id='$LOGIN'; DELETE FROM resources WHERE resource_id='$B80_PDA'; DELETE FROM employees WHERE mnv='$B80_MNV'; DELETE FROM auth_sessions WHERE login_id='$LOGIN'; DELETE FROM accounts WHERE login_id='$LOGIN';" >/dev/null 2>&1
   set -e
 }
 trap 'rc=$?; cleanup_d1; exit $rc' EXIT
 cleanup_d1
-sql "INSERT INTO accounts(login_id,verifier,verifier_hash,role,display_name,position,email,status,source_row,source_checksum,is_shadow_test) VALUES('$LOGIN','b78-test','$VH','SUPERADMIN','Beta78 Test','TEST','tam95.supra@gmail.com','ACTIVE',-78,'b78-test',1); INSERT INTO auth_sessions(login_id,session_id,device_id,issued_at) VALUES('$LOGIN','$AUTH_SESSION','$DEVICE','$NOW');" >/dev/null
+sql "INSERT INTO accounts(login_id,verifier,verifier_hash,role,display_name,position,email,status,source_row,source_checksum,is_shadow_test) VALUES('$LOGIN','b78-test','$VH','SUPERADMIN','Beta78 Test','TEST','tam95.supra@gmail.com','ACTIVE',-78,'b78-test',1); INSERT INTO auth_sessions(login_id,session_id,device_id,issued_at) VALUES('$LOGIN','$AUTH_SESSION','$DEVICE','$NOW'); INSERT INTO employees(mnv,full_name,main_position,source_row,source_checksum) VALUES('$B80_MNV','Beta80 Session Fixture','Pick',-80,'b80-fixture'); INSERT INTO resources(resource_type,resource_id,status_label,available,metadata_json,source_row,source_checksum) VALUES('PDA','$B80_PDA','Tốt',1,'{}',-80,'b80-fixture');" >/dev/null
+
+owner_api(){ local path=$1 name=$2 body=$3; curl -fsS --connect-timeout 10 --max-time 20 -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' --data-binary "$body" "$SERVICE_URL$path" > "$D/$name.json"; }
+
+# Beta80 exact Service v2 contract: ENTER -> SNAPSHOT -> MUTATE -> EXIT, all on disposable D1 fixture.
+owner_api /v1/session/enter-v2 b80-enter "{\"mnv\":\"$B80_MNV\",\"shift\":\"Ca 1\",\"positions\":[{\"position_key\":\"PICK\",\"position_label\":\"Pick\"}],\"resources\":[{\"resource_type\":\"PDA\",\"resource_id\":\"$B80_PDA\",\"pda_enter_status\":\"Tốt\"}],\"idempotency_key\":\"$B80_ENTER\"}"
+jq -e --arg m "$B80_MNV" --arg p "$B80_PDA" '.ok==true and .session.mnv==$m and .session.state=="ACTIVE" and (.resource_assignments|map(select(.resource_type=="PDA" and .resource_id==$p and .state=="ACTIVE"))|length)==1' "$D/b80-enter.json" >/dev/null
+B80_SID=$(jq -r '.session.session_id' "$D/b80-enter.json"); B80_VER=$(jq -r '.session.version' "$D/b80-enter.json")
+test -n "$B80_SID" -a "$B80_SID" != null -a "$B80_VER" -gt 0
+
+owner_api /v1/session/resources/snapshot b80-snapshot "{\"session_id\":\"$B80_SID\",\"mnv\":\"$B80_MNV\"}"
+jq -e --arg sid "$B80_SID" --arg p "$B80_PDA" '.ok==true and .source=="SERVICE_D1" and .session.session_id==$sid and (.resource_assignments|map(select(.resource_type=="PDA" and .resource_id==$p))|length)==1' "$D/b80-snapshot.json" >/dev/null
+
+owner_api /v1/session/resources/mutate b80-mutate "{\"session_id\":\"$B80_SID\",\"mnv\":\"$B80_MNV\",\"expected_version\":$B80_VER,\"idempotency_key\":\"$B80_MUTATE\",\"audit_note\":\"Beta80 route gate\",\"operations\":[{\"op\":\"UPDATE_SHIFT\",\"shift\":\"Ca 2\"}]}"
+jq -e --arg sid "$B80_SID" '.ok==true and .session.session_id==$sid and .session.shift=="Ca 2" and .session.state=="ACTIVE"' "$D/b80-mutate.json" >/dev/null
+
+owner_api /v1/session/exit-v2 b80-exit "{\"session_id\":\"$B80_SID\",\"mnv\":\"$B80_MNV\",\"pda_exit_status\":\"Tốt\",\"idempotency_key\":\"$B80_EXIT\"}"
+jq -e --arg sid "$B80_SID" '.ok==true and .session.session_id==$sid and .session.state=="ENDED"' "$D/b80-exit.json" >/dev/null
+
+owner_api /v1/session/resources/snapshot b80-ended-snapshot "{\"session_id\":\"$B80_SID\",\"mnv\":\"$B80_MNV\"}"
+jq -e --arg sid "$B80_SID" '.ok==true and .session.session_id==$sid and .session.state=="ENDED" and (.resource_assignments|all(.state=="USED"))' "$D/b80-ended-snapshot.json" >/dev/null
+echo 'beta80_session_v2=ENTER_SNAPSHOT_MUTATE_EXIT_PASS'
 
 # Exact historical session gate: use production identity row, then request all three identity fields.
 IDS="'07323dde-0456-45f8-a1d6-942e9f2e602e','03b1337f-08fd-46a1-ab94-8b0700763df3','d94d968a-0cf6-4086-8352-85154a5ec62e'"
