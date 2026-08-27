@@ -8,6 +8,7 @@ on:
     paths:
       - .github/workflows/beta-release.yml
       - tools/publish_beta80_ota.sh
+      - tools/beta80_pda_device_gate.sh
   workflow_dispatch:
 
 permissions:
