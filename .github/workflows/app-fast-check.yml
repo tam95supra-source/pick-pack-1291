@@ -43,7 +43,7 @@ jobs:
         run: |
           set -euo pipefail
           npm install --ignore-scripts --no-audit --no-fund
-          npm run typecheck
+          npm run check
       - name: Deploy exact Service source and run live gates
         shell: bash
         run: |
