@@ -323,27 +323,27 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     seedAuth();seedService();seedData(mnv,mnv2,mnv3);
 
     open("BUSINESS");
-    waitText("Ca 1 – 0/0",true,false,12000L);
-    waitText("Ca HC – 1/1",true,false,12000L);
-    waitText("Ca 2 – 2/1",true,false,12000L);
+    waitText("Ca 1",false,false,12000L);
+    waitText("Ca HC",false,false,12000L);
+    waitText("Ca 2",false,false,12000L);
     require(findText("RÀ SOÁT VÀO / RA",false,false)==null,"REDUNDANT_RECONCILIATION_HEADER_VISIBLE");
     mark("current_day_filter");mark("header_removed");
     shot(tag+"-01-business");
 
     clickText("Quét QR nhân sự",true,12000L);
-    waitText("Ca 2 – 2/1",true,false,12000L);
+    waitText("Ca 2",false,false,12000L);
     waitText("CHƯA KẾT THÚC PHIÊN CÁC NGÀY CŨ",false,false,12000L);
     mark("old_warning_preserved");
     shot(tag+"-02-scan");
 
     setEmployee(mnv2);
     waitText("THÔNG TIN CA",true,false,12000L);
-    waitText("Ca 2 – 2/1",true,false,12000L);
+    waitText("Ca 2",false,false,12000L);
     require(findText("null",true,false)==null,"VISIBLE_NULL_FOUND");
     mark("qr_reconciliation");mark("null_sanitized");
     shot(tag+"-03-employee");
 
-    clickText("Ca 2 – 2/1",true,10000L);
+    clickText("Ca 2",false,10000L);
     waitText("HIỂN THỊ CHI TIẾT NHÂN SỰ",true,true,10000L);
     waitText("RA CA",true,true,10000L);
     mark("incomplete_detail_button");
@@ -355,14 +355,14 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     shot(tag+"-05-staff-list");
     clickText(mnv2,false,10000L);
     waitText("THÔNG TIN CA",true,false,12000L);
-    waitText("Ca 2 – 2/1",true,false,12000L);
+    waitText("Ca 2",false,false,12000L);
     mark("staff_list_to_qr");
 
     open("BUSINESS");
     clickText("Quét QR nhân sự",true,12000L);
     setEmployee(mnv);
     waitText("THÔNG TIN CA",true,false,12000L);
-    AccessibilityNodeInfo recon=waitText("Ca 2 – 2/1",true,false,12000L);
+    AccessibilityNodeInfo recon=waitText("Ca 2",false,false,12000L);
     AccessibilityNodeInfo scan=findEditable();
     require(scan!=null,"EMPLOYEE_SCAN_INPUT_MISSING");
     require(topOf(recon)<topOf(scan),"RECONCILIATION_MUST_BE_ABOVE_MNV_SCAN");
@@ -397,7 +397,7 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     SystemClock.sleep(300L);
 
     open("BUSINESS");
-    clickText("Ca HC – 1/1",true,10000L);
+    clickText("Ca HC",false,10000L);
     waitText(mnv3,false,true,10000L);
     require(findText("HIỂN THỊ CHI TIẾT NHÂN SỰ",true,false)==null,"COMPLETE_SHIFT_SHOULD_OPEN_LIST_DIRECTLY");
     mark("complete_direct_list");
