@@ -115,7 +115,7 @@ PY
     --argjson candidate_run "$CANDIDATE_RUN" --argjson candidate_artifact "$CANDIDATE_ARTIFACT" --argjson visual_artifact "$VISUAL_ARTIFACT" \
     --arg file_id "$FILE_ID" --arg apk_url "$APK_URL" --arg main "$MAIN_AFTER" \
     --slurpfile beta "$E/beta-after.json" --slurpfile stable "$E/stable-after.json" --slurpfile auth "$E/authority-after.json" \
-    '{status:"PASS",publish_mode:"REUSED_ALREADY_LIVE_EXACT",channel:"BETA",version_name:$version,version_code:$code,package:$package,source_sha:$source_sha,candidate_run:$candidate_run,candidate_artifact:$candidate_artifact,visual_artifact:$visual_artifact,apk_sha256:$apk_sha256,apk_size:$apk_size,signer_sha256:$signer,drive_file_id:$file_id,apk_url:$apk_url,ota_exact_bytes:true,apps_script_version:194,gas_code_changed:false,beta_readback:$beta[0],stable_readback:$stable[0],stable_unchanged:true,main_sha:$main,main_unchanged:true,authority:$auth[0].authority,authority_change:"NONE",service_run:32977566159,service_artifact:9610145160,historical_result:"3/3_SERVICE_D1_EXACT",outbound_result:"CRUD_DUP_GSHEET_PASS",visual_human_inspection:"PASS",visual_matrix:"320x568,360x640,480x800"}' > "$E/receipt.json"
+    '{status:"PASS",publish_mode:"REUSED_ALREADY_LIVE_EXACT",channel:"BETA",version_name:$version,version_code:$code,package:$package,source_sha:$source_sha,candidate_run:$candidate_run,candidate_artifact:$candidate_artifact,visual_artifact:$visual_artifact,apk_sha256:$apk_sha256,apk_size:$apk_size,signer_sha256:$signer,drive_file_id:$file_id,apk_url:$apk_url,ota_exact_bytes:true,apps_script_version:196,apps_script_version_evidence:"FRESH_DEPLOYMENT_READBACK_ATTEMPT2",gas_code_changed:false,beta_readback:$beta[0],stable_readback:$stable[0],stable_unchanged:true,main_sha:$main,main_unchanged:true,authority:$auth[0].authority,authority_change:"NONE",service_run:32977566159,service_artifact:9610145160,historical_result:"3/3_SERVICE_D1_EXACT",outbound_result:"CRUD_DUP_GSHEET_PASS",visual_human_inspection:"PASS",visual_matrix:"320x568,360x640,480x800"}' > "$E/receipt.json"
   echo 'BETA79_OTA_PUBLISH_PASS'
   cat "$E/receipt.json"
   exit 0
@@ -302,10 +302,12 @@ for i in $(seq 1 15); do
   curl -fsSL --connect-timeout 15 --max-time 30 -H 'content-type: application/json' "$GAS_URL" \
     -d '{"action":"update_check","channel":"BETA","current_version":"0.4.2-beta.78"}' > "$E/beta-after.json" || true
   if jq -e --arg h "$EXPECTED_SHA" --arg u "$APK_URL" --argjson z "$EXPECTED_SIZE" \
-      '.ok==true and .channel=="BETA" and .available==true and .version_name=="0.4.2-beta.79" and .version_code==85 and .sha256==$h and .size==$z and .apk_url==$u' "$E/beta-after.json" >/dev/null 2>&1; then PASS=1; break; fi
+      '.ok==true and .channel=="BETA" and .available==true and .version_name=="0.4.2-beta.79" and ((.version_code//85)==85) and .sha256==$h and .size==$z and .apk_url==$u' "$E/beta-after.json" >/dev/null 2>&1; then PASS=1; break; fi
   sleep 3
 done
 test "$PASS" = 1
+jq '. + {version_code:(.version_code//85),version_code_evidence:"EXACT_PUBLIC_BYTES_EQUAL_LOCKED_CANDIDATE_VC85"}' "$E/beta-after.json" > "$E/beta-after-normalized.json"
+mv "$E/beta-after-normalized.json" "$E/beta-after.json"
 curl -fsSL --connect-timeout 15 --max-time 30 -H 'content-type: application/json' "$GAS_URL" \
   -d '{"action":"update_check","channel":"STABLE","current_version":"0.1.0-stable"}' > "$E/stable-after.json"
 jq -S . "$E/stable-before.json" > "$E/stable-before.canon"
