@@ -23,7 +23,8 @@ adb shell am instrument -w -r   -e mode ota   -e version '0.4.2-beta.80'   -e ur
 OTA_PID=$!
 
 tap_installer_button(){
-  local tag="$1" xml="$OUT/${tag}-installer.xml"
+  local tag="$1"
+  local xml="$OUT/${tag}-installer.xml"
   local coords=""
   for _ in $(seq 1 20); do
     adb shell uiautomator dump /sdcard/installer.xml >/dev/null 2>&1 || true
