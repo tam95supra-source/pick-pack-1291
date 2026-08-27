@@ -24,7 +24,7 @@ python3 - <<'PY'
 from pathlib import Path
 s=Path("app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt").read_text(encoding="utf-8")
 p=s.index("private fun renderEmployee(")
-q=s.index("private fun renderEndedEmployee",p)
+q=s.index("private fun renderActive(",p)
 x=s[p:q]
 assert x.index("addBusinessShiftReconciliation(body)") < x.index('val scan=mnvInput("Scan / Nhập mã nhân viên")')
 assert '"Vị trí trong ca" to if(positions.isEmpty())' in s
