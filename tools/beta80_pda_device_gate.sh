@@ -58,7 +58,7 @@ PY
 OLD_INSTALLER_SEEN=0
 for _ in $(seq 1 240); do
   adb shell dumpsys activity activities >"$OUT/old-installer-current.txt" 2>/dev/null || true
-  if grep -Eqi 'com\.android\.packageinstaller|PackageInstallerActivity' "$OUT/old-installer-current.txt"; then
+  if grep -Fqi 'PackageInstallerActivity' "$OUT/old-installer-current.txt"; then
     cp "$OUT/old-installer-current.txt" "$OUT/old-installer.txt"
     OLD_INSTALLER_SEEN=1
     break
@@ -99,7 +99,7 @@ FP_PID=$!
 FP_INSTALLER_SEEN=0
 for _ in $(seq 1 240); do
   adb shell dumpsys activity activities >"$OUT/fileprovider-installer-current.txt" 2>/dev/null || true
-  if grep -Eqi 'com\.android\.packageinstaller|PackageInstallerActivity' "$OUT/fileprovider-installer-current.txt"; then
+  if grep -Fqi 'PackageInstallerActivity' "$OUT/fileprovider-installer-current.txt"; then
     cp "$OUT/fileprovider-installer-current.txt" "$OUT/fileprovider-installer.txt"
     if grep -Fqi "$PKG.fileprovider" "$OUT/fileprovider-installer.txt"; then
       FP_INSTALLER_SEEN=1
