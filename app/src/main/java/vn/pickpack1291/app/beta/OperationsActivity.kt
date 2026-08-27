@@ -740,7 +740,9 @@ class OperationsActivity : Activity() {
 
     private fun sessionWorkEditor(ctx:JSONObject,mode:String,verified:Boolean=false){
         val s=ctx.optJSONObject("session")?:return;if(!s.optString("state").equals("ACTIVE",true)){showError("Phiên không còn hoạt động.");return}
-        val edit=mode.equals("EDIT",true);if(edit&&!verified){verifyEditPassword("sửa thông tin trong ca"){sessionWorkEditor(ctx,mode,true)};return}val server=s.optJSONObject("resource_options_v64")?:JSONObject();val local=PdaLocalProjection.resourceOptions(this,s.optString("mnv"))
+        val edit=mode.equals("EDIT",true)
+        if(edit&&!verified){verifyEditPassword("sửa thông tin trong ca"){sessionWorkEditor(ctx,mode,true)};return}
+        val server=s.optJSONObject("resource_options_v64")?:JSONObject();val local=PdaLocalProjection.resourceOptions(this,s.optString("mnv"))
         fun arr(key:String):JSONArray{val a=server.optJSONArray(key);return if(a!=null&&a.length()>0)a else local.optJSONArray(key)?:JSONArray()}
         fun ids(key:String):MutableList<String>{val out=mutableListOf<String>();val a=arr(key);for(i in 0 until a.length()){val x=a.opt(i);val v=when(x){is JSONObject->x.optString("id").ifBlank{x.optString("resource_id").ifBlank{x.optString("serial")}};else->a.optString(i)}.trim();if(v.isNotBlank()&&!out.contains(v))out.add(v)};out.sortWith(Comparator{a,b->naturalUserCompare(a,b)});return out}
         class PackMap(val table:String,val user:String,val used:Boolean)
