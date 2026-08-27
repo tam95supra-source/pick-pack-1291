@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   actions: read
 
 concurrency:
@@ -23,6 +23,10 @@ jobs:
       stage: ${{ steps.route.outputs.stage }}
       candidate_run_id: ${{ steps.route.outputs.candidate_run_id }}
       candidate_artifact_name: ${{ steps.route.outputs.candidate_artifact_name }}
+      verify_run_id: ${{ steps.route.outputs.verify_run_id }}
+      verify_artifact_name: ${{ steps.route.outputs.verify_artifact_name }}
+      base_candidate_run_id: ${{ steps.route.outputs.base_candidate_run_id }}
+      base_candidate_artifact_name: ${{ steps.route.outputs.base_candidate_artifact_name }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -44,6 +48,16 @@ jobs:
                      (.source_sha|type=="string" and length==40) and (.signer_sha256|type=="string" and length==64)' "$R" >/dev/null
               git diff --quiet "$(jq -r '.source_sha' "$R")" HEAD -- app service google-apps-script
               ;;
+            PUBLISH)
+              jq -e '.candidate_locked==true and .human_visual_pass==true and .visual_matrix=="PASS" and .pda_functional_pre_ota=="PASS" and
+                     .rebuild==false and .resign==false and
+                     (.candidate_run_id|type=="number") and (.candidate_artifact_name|type=="string" and length>0) and
+                     (.verify_run_id|type=="number") and (.verify_artifact_name|type=="string" and length>0) and
+                     (.base_candidate_run_id|type=="number") and (.base_candidate_artifact_name|type=="string" and length>0) and
+                     (.apk_sha256|type=="string" and length==64) and (.apk_size|type=="number") and
+                     ((.human_visual_sizes|sort)==(["320x568","360x640","480x800"]|sort))' "$R" >/dev/null
+              git diff --quiet "$(jq -r '.source_sha' "$R")" HEAD -- app service google-apps-script
+              ;;
             *)
               echo "Unsupported stage: $STAGE" >&2
               exit 1
@@ -52,6 +66,10 @@ jobs:
           echo "stage=$STAGE" >> "$GITHUB_OUTPUT"
           echo "candidate_run_id=$(jq -r '.candidate_run_id // empty' "$R")" >> "$GITHUB_OUTPUT"
           echo "candidate_artifact_name=$(jq -r '.candidate_artifact_name // empty' "$R")" >> "$GITHUB_OUTPUT"
+          echo "verify_run_id=$(jq -r '.verify_run_id // empty' "$R")" >> "$GITHUB_OUTPUT"
+          echo "verify_artifact_name=$(jq -r '.verify_artifact_name // empty' "$R")" >> "$GITHUB_OUTPUT"
+          echo "base_candidate_run_id=$(jq -r '.base_candidate_run_id // empty' "$R")" >> "$GITHUB_OUTPUT"
+          echo "base_candidate_artifact_name=$(jq -r '.base_candidate_artifact_name // empty' "$R")" >> "$GITHUB_OUTPUT"
 
   candidate:
     name: candidate
@@ -159,22 +177,191 @@ jobs:
           retention-days: 30
           if-no-files-found: error
 
-  handoff-finalizer:
-    name: handoff-finalizer
-    needs: [route,candidate,verify]
-    if: ${{ always() }}
+  publish:
+    name: publish
+    needs: route
+    if: ${{ needs.route.outputs.stage == 'PUBLISH' }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 8
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+      GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+      GOOGLE_OAUTH_REFRESH_TOKEN: ${{ secrets.GOOGLE_OAUTH_REFRESH_TOKEN }}
+      GAS_DEPLOYMENT_ID: ${{ secrets.GAS_DEPLOYMENT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.route.outputs.candidate_artifact_name }}
+          path: /tmp/beta83-candidate
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ needs.route.outputs.candidate_run_id }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.route.outputs.verify_artifact_name }}
+          path: /tmp/beta83-verify
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ needs.route.outputs.verify_run_id }}
+      - name: Publish exact Beta83 bytes after fresh production readbacks
+        shell: bash
+        run: bash tools/beta83_publish_ota.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: beta83-publish-${{ github.run_id }}
+          path: /tmp/beta83-publish
+          retention-days: 30
+          if-no-files-found: error
+
+  pda_verify:
+    name: pda-verify
+    needs: [route,publish]
+    if: ${{ needs.publish.result == 'success' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GAS_DEPLOYMENT_ID: ${{ secrets.GAS_DEPLOYMENT_ID }}
+      SIGNING_KEY_B64: ${{ secrets.ANDROID_SIGNING_KEY_B64 }}
+      SIGNING_STORE_PASSWORD: ${{ secrets.ANDROID_SIGNING_STORE_PASSWORD }}
+      SIGNING_KEY_PASSWORD: ${{ secrets.ANDROID_SIGNING_KEY_PASSWORD }}
+      SIGNING_ALIAS: ${{ secrets.ANDROID_SIGNING_ALIAS }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.route.outputs.base_candidate_artifact_name }}
+          path: /tmp/beta82
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ needs.route.outputs.base_candidate_run_id }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.route.outputs.candidate_artifact_name }}
+          path: /tmp/beta83-candidate
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ needs.route.outputs.candidate_run_id }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: beta83-publish-${{ github.run_id }}
+          path: /tmp/beta83-publish
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Build separate OTA verification harness
+        shell: bash
+        run: bash tools/build_beta83_verify_harness.sh
+      - name: Enable KVM
+        shell: bash
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules >/dev/null
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm || true
+          sudo chmod 666 /dev/kvm || true
+      - name: Install Beta82 then OTA to exact Beta83 and read back
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 29
+          target: default
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: false
+          emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-metrics
+          script: bash tools/beta83_ota_device_gate.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: beta83-pda-${{ github.run_id }}
+          path: /tmp/beta83-pda
+          retention-days: 30
+          if-no-files-found: error
+
+  rollback:
+    name: rollback-beta82
+    needs: [route,publish,pda_verify]
+    if: ${{ always() && needs.route.outputs.stage == 'PUBLISH' && needs.publish.result == 'success' && needs.pda_verify.result != 'success' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    env:
+      GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+      GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+      GOOGLE_OAUTH_REFRESH_TOKEN: ${{ secrets.GOOGLE_OAUTH_REFRESH_TOKEN }}
+      GAS_DEPLOYMENT_ID: ${{ secrets.GAS_DEPLOYMENT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: beta83-publish-${{ github.run_id }}
+          path: /tmp/beta83-publish
+      - name: Restore Beta82 OTA
+        shell: bash
+        run: bash tools/beta83_rollback.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: beta83-rollback-${{ github.run_id }}
+          path: /tmp/beta83-rollback
+          retention-days: 30
+          if-no-files-found: error
+
+  finalize:
+    name: finalize
+    needs: [route,publish,pda_verify]
+    if: ${{ needs.publish.result == 'success' && needs.pda_verify.result == 'success' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
     permissions:
-      contents: read
+      contents: write
       actions: read
     env:
       GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
-      - name: Create automatic handoff
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          name: beta83-publish-${{ github.run_id }}
+          path: /tmp/beta83-publish-final
+      - uses: actions/download-artifact@v4
+        with:
+          name: beta83-pda-${{ github.run_id }}
+          path: /tmp/beta83-pda-final
+      - name: Finalize state and canonical handoff
+        shell: bash
+        run: bash tools/finalize_beta83.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: beta83-final-${{ github.run_id }}
+          path: /tmp/beta83-final/receipt.json
+          retention-days: 90
+          if-no-files-found: error
+
+  handoff-finalizer:
+    name: handoff-finalizer
+    needs: [route,candidate,verify,publish,pda_verify,rollback,finalize]
+    if: ${{ always() }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create pre-OTA handoff
+        if: ${{ needs.route.outputs.stage != 'PUBLISH' }}
         shell: bash
         run: bash tools/beta83_handoff_finalizer.sh
+      - name: Create release handoff
+        if: ${{ needs.route.outputs.stage == 'PUBLISH' }}
+        shell: bash
+        run: bash tools/beta83_release_handoff_finalizer.sh
       - uses: actions/upload-artifact@v4
         if: always()
         with:
