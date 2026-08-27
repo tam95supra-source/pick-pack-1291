@@ -1,5 +1,4 @@
-name: Beta80 exact OTA publish
-# PDA functional trigger: device-bound-live-bearer
+name: Beta81 exact OTA publish
 
 on:
   push:
@@ -7,9 +6,6 @@ on:
       - feature/beta78-old-session-outbound-service-20260826
     paths:
       - .github/workflows/beta-release.yml
-      - tools/publish_beta80_ota.sh
-      - tools/beta80_pda_device_gate.sh
-      - tools/Beta80VerifyInstrumentation.java
   workflow_dispatch:
 
 permissions:
@@ -17,113 +13,326 @@ permissions:
   actions: read
 
 concurrency:
-  group: beta80-exact-ota-publish
+  group: beta81-exact-ota-publish
   cancel-in-progress: false
+
+env:
+  SOURCE_SHA: 963ed28a90d2bb3e4a950ae8100fef15edfa86c5
+  CANDIDATE_RUN: '33073351925'
+  CANDIDATE_ARTIFACT_ID: '9646920908'
+  CANDIDATE_ARTIFACT_NAME: beta81-candidate-33073351925
+  VISUAL_ARTIFACT_ID: '9647045177'
+  VISUAL_ARTIFACT_NAME: beta81-visual-33073351925
+  SERVICE_ARTIFACT_ID: '9646805806'
+  SERVICE_ARTIFACT_NAME: beta81-service-live-33073351925
+  EXPECTED_SIGNER: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
+  TARGET_VERSION: 0.4.2-beta.81
+  TARGET_CODE: '87'
+  PREV_VERSION: 0.4.2-beta.80
+  PREV_CODE: '86'
+  PREV_SHA: 1210bf57ff3bb48a723aa40d2efc8ec922c5e632e4c1d9928bf4dbe843654a69
+  PREV_SIZE: '13196221'
+  PREV_DRIVE_FILE_ID: 1ylv495ZdXtUONI663KockKn9SxVn_tZy
+  BETA_FOLDER_ID: 1WMXI-8-Z1mbY2v11noYFHe_eoMNiNZXg
+  SERVICE_URL: https://pickpack.1291.workers.dev
 
 jobs:
   publish:
-    if: ${{ github.event_name != 'push' || !contains(github.event.head_commit.message, '[pda-verify-only]') }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    timeout-minutes: 30
+    outputs:
+      apk_sha: ${{ steps.identity.outputs.apk_sha }}
+      apk_size: ${{ steps.identity.outputs.apk_size }}
+      drive_file_id: ${{ steps.publish.outputs.drive_file_id }}
+      apk_url_b64: ${{ steps.publish.outputs.apk_url_b64 }}
     env:
       GH_TOKEN: ${{ github.token }}
       GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
       GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
       GOOGLE_OAUTH_REFRESH_TOKEN: ${{ secrets.GOOGLE_OAUTH_REFRESH_TOKEN }}
-      GAS_SCRIPT_ID: ${{ secrets.GAS_SCRIPT_ID }}
       GAS_DEPLOYMENT_ID: ${{ secrets.GAS_DEPLOYMENT_ID }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Download exact locked Beta80 candidate
+      - name: Download exact locked Beta81 candidate
         uses: actions/download-artifact@v4
         with:
-          name: beta80-candidate-33028423645
-          path: /tmp/beta80-candidate
+          name: ${{ env.CANDIDATE_ARTIFACT_NAME }}
+          path: /tmp/beta81-candidate
           github-token: ${{ github.token }}
           repository: tam95supra-source/pick-pack-1291
-          run-id: 33028423645
+          run-id: 33073351925
 
-      - name: Validate Beta80 exact lock and human visual PASS
+      - name: Validate exact candidate and locked evidence
+        id: identity
         shell: bash
         run: |
           set -euo pipefail
-          APK=/tmp/beta80-candidate/pick-pack-1291-public-beta-0.4.2-beta.80.apk
-          META=/tmp/beta80-candidate/release-meta.json
+          APK=/tmp/beta81-candidate/pick-pack-1291-public-beta-0.4.2-beta.81.apk
+          META=/tmp/beta81-candidate/release-meta.json
           test -f "$APK" -a -f "$META"
-          test "$(sha256sum "$APK" | awk '{print $1}')" = "1210bf57ff3bb48a723aa40d2efc8ec922c5e632e4c1d9928bf4dbe843654a69"
-          test "$(stat -c '%s' "$APK")" = "13196221"
-          jq -e '.version_name=="0.4.2-beta.80" and .version_code==86 and .package=="vn.pickpack1291.app.beta.publicbeta" and .source_sha=="38d6f08aa63600f4ef09fd524428beccebc4bb6f" and .build_run==33028423645 and .apk_sha256=="1210bf57ff3bb48a723aa40d2efc8ec922c5e632e4c1d9928bf4dbe843654a69" and .apk_size==13196221 and .signer_sha256=="d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e" and .candidate_locked==true and .stable_publish=="FORBIDDEN" and .service_run==33028423645 and .authority_change=="NONE"' "$META" >/dev/null
-          jq -e '.status=="PASS" and .result=="HUMAN_VISUAL_PASS" and .candidate.version_name=="0.4.2-beta.80" and .candidate.version_code==86 and .candidate.build_run==33028423645 and .candidate.artifact_id==9629377960 and .candidate.sha256=="1210bf57ff3bb48a723aa40d2efc8ec922c5e632e4c1d9928bf4dbe843654a69" and .service.live_run==33028423645 and .service.artifact_id==9629315986 and .service.session_v2_gate=="ENTER_SNAPSHOT_MUTATE_EXIT_PASS" and .visual.run_id==33028423645 and .visual.artifact_id==9629445113 and .visual.android_build_or_sign_in_visual==false and .human_inspection["320x568"].active_actions_visible_after_scroll==true and .human_inspection["360x640"].active_actions_visible_after_scroll==true and .human_inspection["480x800"].active_actions_visible==true and .ota_installer_contract.file_provider==true and .ota_installer_contract.direct_android_installer_intent==true and .stable_publish=="FORBIDDEN" and .rebuild_after_candidate_lock==false and .resign_after_candidate_lock==false' ops/beta80-visual-inspection.json >/dev/null
-          jq -e '.stage=="publish" and .mode=="PUBLISH_ONLY_EXACT_BYTES" and .version_name=="0.4.2-beta.80" and .version_code==86 and .candidate_run_id==33028423645 and .candidate_artifact_id==9629377960 and .locked_sha256=="1210bf57ff3bb48a723aa40d2efc8ec922c5e632e4c1d9928bf4dbe843654a69" and .locked_size==13196221 and .locked_signer_sha256=="d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e" and .service_run_id==33028423645 and .service_artifact_id==9629315986 and .service_live_gate=="ENTER_SNAPSHOT_MUTATE_EXIT_PASS" and .final_visual_artifact_id==9629445113 and .stable_publish=="FORBIDDEN" and .rebuild==false and .resign==false and .authority_change=="NONE"' ops/beta-release-request.json >/dev/null
-          bash -n tools/publish_beta80_ota.sh
-          grep -Fq 'TARGET_VERSION=0.4.2-beta.80' tools/publish_beta80_ota.sh
-          grep -Fq 'TARGET_CODE=86' tools/publish_beta80_ota.sh
-          grep -Fq 'SOURCE_SHA=38d6f08aa63600f4ef09fd524428beccebc4bb6f' tools/publish_beta80_ota.sh
-          grep -Fq 'CANDIDATE_RUN=33028423645' tools/publish_beta80_ota.sh
-          grep -Fq 'CANDIDATE_ARTIFACT=9629377960' tools/publish_beta80_ota.sh
-          grep -Fq 'VISUAL_ARTIFACT=9629445113' tools/publish_beta80_ota.sh
-          grep -Fq 'EXPECTED_SHA=1210bf57ff3bb48a723aa40d2efc8ec922c5e632e4c1d9928bf4dbe843654a69' tools/publish_beta80_ota.sh
-          grep -Fq 'EXPECTED_SIZE=13196221' tools/publish_beta80_ota.sh
-          grep -Fq 'PREV_VERSION=0.4.2-beta.79' tools/publish_beta80_ota.sh
-          grep -Fq 'service_artifact:9629315986' tools/publish_beta80_ota.sh
-          grep -Fq 'session_v2_gate:"ENTER_SNAPSHOT_MUTATE_EXIT_PASS"' tools/publish_beta80_ota.sh
-          grep -Fq 'generic OTA contract already serves Beta80' tools/publish_beta80_ota.sh
-          ! grep -Eq 'gradle|assembleBeta|assembleStable|apksigner|jarsigner|signingConfig' tools/publish_beta80_ota.sh
-          echo 'beta80_publish_only_preflight=PASS'
+          jq -e --arg s "$SOURCE_SHA" --arg signer "$EXPECTED_SIGNER" '
+            .version_name=="0.4.2-beta.81" and .version_code==87 and
+            .package=="vn.pickpack1291.app.beta.publicbeta" and
+            .source_sha==$s and .build_run==33073351925 and
+            .signer_sha256==$signer and .candidate_locked==true and
+            .stable_publish=="FORBIDDEN" and .service_run==33073351925 and
+            .authority_change=="NONE"
+          ' "$META" >/dev/null
+          APK_SHA=$(jq -r '.apk_sha256' "$META")
+          APK_SIZE=$(jq -r '.apk_size' "$META")
+          test "$(sha256sum "$APK" | awk '{print $1}')" = "$APK_SHA"
+          test "$(stat -c '%s' "$APK")" = "$APK_SIZE"
+          test "$APK_SHA" != "null" -a ${#APK_SHA} -eq 64
+          test "$APK_SIZE" -gt 1000000
 
-      - name: Publish exact bytes to Drive Beta and OTA
+          check_artifact(){
+            local id="$1" expected="$2"
+            curl -fsS -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' \
+              "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/artifacts/$id" > "/tmp/artifact-$id.json"
+            jq -e --arg n "$expected" --argjson id "$id" '.id==$id and .name==$n and .expired==false' "/tmp/artifact-$id.json" >/dev/null
+          }
+          check_artifact "$CANDIDATE_ARTIFACT_ID" "$CANDIDATE_ARTIFACT_NAME"
+          check_artifact "$VISUAL_ARTIFACT_ID" "$VISUAL_ARTIFACT_NAME"
+          check_artifact "$SERVICE_ARTIFACT_ID" "$SERVICE_ARTIFACT_NAME"
+          jq -e '.digest=="sha256:16b79ea2fef49c7a1091cb1f02a2a9e0dce7708aabbe51c830cee3f67b9b95e2"' "/tmp/artifact-$CANDIDATE_ARTIFACT_ID.json" >/dev/null
+          jq -e '.digest=="sha256:ca119c02e7e4133892b337245205bd3a06bd4635fd435f20a74ae7a1cb2d54b7"' "/tmp/artifact-$VISUAL_ARTIFACT_ID.json" >/dev/null
+          jq -e '.digest=="sha256:e5503a019509a2c8a31bf7a169c4fd15c07581f9aa4a3bef7e42135ad5e4c3ec"' "/tmp/artifact-$SERVICE_ARTIFACT_ID.json" >/dev/null
+
+          git diff --quiet "$SOURCE_SHA" HEAD -- app service google-apps-script
+          git diff --check "$SOURCE_SHA" HEAD
+          echo "apk_sha=$APK_SHA" >> "$GITHUB_OUTPUT"
+          echo "apk_size=$APK_SIZE" >> "$GITHUB_OUTPUT"
+          echo "APK_SHA=$APK_SHA" >> "$GITHUB_ENV"
+          echo "APK_SIZE=$APK_SIZE" >> "$GITHUB_ENV"
+
+      - name: Publish exact Beta81 bytes and read back OTA
+        id: publish
         shell: bash
         run: |
-          set -euo pipefail
-          chmod +x tools/publish_beta80_ota.sh
-          bash -n tools/publish_beta80_ota.sh
-          bash tools/publish_beta80_ota.sh
+          set -Eeuo pipefail
+          for n in GOOGLE_OAUTH_CLIENT_ID GOOGLE_OAUTH_CLIENT_SECRET GOOGLE_OAUTH_REFRESH_TOKEN GAS_DEPLOYMENT_ID GH_TOKEN; do test -n "${!n:-}"; done
+          E=/tmp/beta81-publish
+          mkdir -p "$E"
+          APK=/tmp/beta81-candidate/pick-pack-1291-public-beta-0.4.2-beta.81.apk
+          test "$(sha256sum "$APK" | awk '{print $1}')" = "$APK_SHA"
+          test "$(stat -c '%s' "$APK")" = "$APK_SIZE"
 
-      - name: Upload Beta80 publish receipt
+          MAIN_BEFORE=$(curl -fsSL --connect-timeout 15 --max-time 30 \
+            -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' \
+            "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/branches/main" | jq -r '.commit.sha')
+          test -n "$MAIN_BEFORE" -a "$MAIN_BEFORE" != null
+          curl -fsSL --connect-timeout 15 --max-time 30 "$SERVICE_URL/v1/authority" > "$E/authority-before.json"
+          jq -e '.ok==true and .authority.mode=="SERVICE_PRIMARY" and .authority.scope=="PRODUCTION"' "$E/authority-before.json" >/dev/null
+
+          RAW=$(printf '%s' "$GAS_DEPLOYMENT_ID" | tr -d '\r\n\t ')
+          DEPLOYMENT_ID="$RAW"
+          if [[ "$RAW" == *"/s/"* ]]; then DEPLOYMENT_ID="${RAW#*/s/}"; DEPLOYMENT_ID="${DEPLOYMENT_ID%%/*}"; fi
+          test -n "$DEPLOYMENT_ID"
+          GAS_URL="https://script.google.com/macros/s/$DEPLOYMENT_ID/exec"
+          echo "::add-mask::$DEPLOYMENT_ID"
+          echo "::add-mask::$GAS_URL"
+
+          read_update(){
+            local channel="$1" current="$2" out="$3" attempt
+            for attempt in 0 1 2; do
+              if curl -fsSL --connect-timeout 15 --max-time 30 -H 'content-type: application/json' "$GAS_URL" \
+                -d "{\"action\":\"update_check\",\"channel\":\"$channel\",\"current_version\":\"$current\"}" > "$out" \
+                && jq -e --arg ch "$channel" '.ok==true and .channel==$ch and (.available==true or .available==false)' "$out" >/dev/null 2>&1; then return 0; fi
+              [[ "$attempt" -lt 2 ]] || break
+              sleep $((2 + attempt * 4))
+            done
+            jq -c . "$out" 2>/dev/null >&2 || true
+            return 1
+          }
+
+          read_update STABLE 0.1.0-stable "$E/stable-before.json"
+          jq -e '.ok==true and .channel=="STABLE" and .available==false and .reason=="NO_APK"' "$E/stable-before.json" >/dev/null
+          read_update BETA "$PREV_VERSION" "$E/beta-before.json"
+
+          TARGET_ALREADY=0
+          if jq -e --arg h "$APK_SHA" --argjson z "$APK_SIZE" \
+            '.ok==true and .channel=="BETA" and .available==true and .version_name=="0.4.2-beta.81" and .sha256==$h and .size==$z and ((.apk_url//"")|length)>0' \
+            "$E/beta-before.json" >/dev/null 2>&1; then
+            TARGET_ALREADY=1
+          else
+            jq -e --arg h "$PREV_SHA" --argjson z "$PREV_SIZE" \
+              '.ok==true and .channel=="BETA" and .available==true and .version_name=="0.4.2-beta.80" and .sha256==$h and .size==$z and ((.apk_url//"")|length)>0' \
+              "$E/beta-before.json" >/dev/null
+          fi
+
+          TOKEN_JSON=$(curl -fsS --connect-timeout 15 --max-time 30 https://oauth2.googleapis.com/token \
+            -H 'Content-Type: application/x-www-form-urlencoded' \
+            --data-urlencode "client_id=$GOOGLE_OAUTH_CLIENT_ID" \
+            --data-urlencode "client_secret=$GOOGLE_OAUTH_CLIENT_SECRET" \
+            --data-urlencode "refresh_token=$GOOGLE_OAUTH_REFRESH_TOKEN" \
+            --data-urlencode grant_type=refresh_token)
+          ACCESS_TOKEN=$(jq -r '.access_token // empty' <<<"$TOKEN_JSON")
+          test -n "$ACCESS_TOKEN"
+          echo "::add-mask::$ACCESS_TOKEN"
+
+          DRIVE_OK=0
+          for attempt in 0 1 2; do
+            HTTP=$(curl -sS --connect-timeout 15 --max-time 30 -o "$E/drive-folder.json" -w '%{http_code}' \
+              -H "Authorization: Bearer $ACCESS_TOKEN" \
+              "https://www.googleapis.com/drive/v3/files/$BETA_FOLDER_ID?fields=id,name,mimeType" || printf '000')
+            if [[ "$HTTP" == 200 ]] && jq -e --arg id "$BETA_FOLDER_ID" '.id==$id' "$E/drive-folder.json" >/dev/null 2>&1; then DRIVE_OK=1; break; fi
+            [[ "$attempt" -lt 2 ]] || break
+            sleep $((2 + attempt * 4))
+          done
+          test "$DRIVE_OK" = 1
+
+          FILE_ID=""
+          APK_URL=""
+          if [[ "$TARGET_ALREADY" == 1 ]]; then
+            APK_URL=$(jq -r '.apk_url' "$E/beta-before.json")
+            FILE_ID=$(python3 - "$APK_URL" <<'PY'
+import sys,urllib.parse
+u=urllib.parse.urlparse(sys.argv[1]); q=urllib.parse.parse_qs(u.query)
+print((q.get("id") or [""])[0])
+PY
+)
+            test -n "$FILE_ID"
+          else
+            APK_NAME=pick-pack-1291-public-beta-0.4.2-beta.81.apk
+            Q="'$BETA_FOLDER_ID' in parents and name='$APK_NAME' and trashed=false"
+            curl -fsS --get --connect-timeout 15 --max-time 30 -H "Authorization: Bearer $ACCESS_TOKEN" \
+              --data-urlencode "q=$Q" --data-urlencode 'fields=files(id,name,size,modifiedTime)' \
+              https://www.googleapis.com/drive/v3/files > "$E/drive-search.json"
+            COUNT=$(jq '.files|length' "$E/drive-search.json")
+            while read -r id; do
+              [[ -n "$id" ]] || continue
+              curl -fsS --connect-timeout 15 --max-time 120 -H "Authorization: Bearer $ACCESS_TOKEN" \
+                "https://www.googleapis.com/drive/v3/files/$id?alt=media" -o "$E/existing.apk" || continue
+              if [[ "$(sha256sum "$E/existing.apk" | awk '{print $1}')" == "$APK_SHA" && "$(stat -c '%s' "$E/existing.apk")" == "$APK_SIZE" ]]; then FILE_ID="$id"; break; fi
+            done < <(jq -r '.files[]?.id' "$E/drive-search.json")
+            if [[ -z "$FILE_ID" && "$COUNT" -gt 0 ]]; then
+              echo "BETA81_NAME_COLLISION_NONEXACT" >&2
+              exit 31
+            fi
+            if [[ -z "$FILE_ID" ]]; then
+              META_JSON=$(jq -nc --arg n "$APK_NAME" --arg p "$BETA_FOLDER_ID" '{name:$n,parents:[$p]}')
+              curl -fsS --connect-timeout 15 --max-time 120 -X POST \
+                -H "Authorization: Bearer $ACCESS_TOKEN" \
+                -F "metadata=$META_JSON;type=application/json;charset=UTF-8" \
+                -F "file=@$APK;type=application/vnd.android.package-archive" \
+                'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,size' > "$E/drive-upload.json"
+              FILE_ID=$(jq -r '.id // empty' "$E/drive-upload.json")
+              test -n "$FILE_ID"
+            fi
+            echo "::add-mask::$FILE_ID"
+            DESC="Beta81 exact OTA; SHA256 $APK_SHA; candidate run $CANDIDATE_RUN; artifact $CANDIDATE_ARTIFACT_ID; signer $EXPECTED_SIGNER"
+            jq -nc --arg d "$DESC" '{description:$d}' > "$E/drive-meta.json"
+            curl -fsS --connect-timeout 15 --max-time 30 -X PATCH -H "Authorization: Bearer $ACCESS_TOKEN" -H 'Content-Type: application/json' \
+              --data-binary @"$E/drive-meta.json" "https://www.googleapis.com/drive/v3/files/$FILE_ID?fields=id,name,size,description" > "$E/drive-meta-out.json"
+
+            curl -fsS --connect-timeout 15 --max-time 30 -H "Authorization: Bearer $ACCESS_TOKEN" \
+              "https://www.googleapis.com/drive/v3/files/$FILE_ID/permissions?fields=permissions(id,type,role)" > "$E/permissions.json"
+            if ! jq -e '.permissions[]? | select(.type=="anyone" and .role=="reader")' "$E/permissions.json" >/dev/null; then
+              curl -fsS --connect-timeout 15 --max-time 30 -X POST -H "Authorization: Bearer $ACCESS_TOKEN" -H 'Content-Type: application/json' \
+                -d '{"type":"anyone","role":"reader"}' \
+                "https://www.googleapis.com/drive/v3/files/$FILE_ID/permissions?fields=id,type,role" > "$E/permission-created.json"
+            fi
+            for u in \
+              "https://drive.usercontent.google.com/download?id=$FILE_ID&export=download&confirm=t" \
+              "https://drive.google.com/uc?export=download&id=$FILE_ID"; do
+              rm -f "$E/public.apk"
+              if curl -fsSL --retry 2 --retry-delay 2 --connect-timeout 15 --max-time 120 "$u" -o "$E/public.apk" \
+                && [[ "$(sha256sum "$E/public.apk" | awk '{print $1}')" == "$APK_SHA" ]] \
+                && [[ "$(stat -c '%s' "$E/public.apk")" == "$APK_SIZE" ]]; then APK_URL="$u"; break; fi
+            done
+            test -n "$APK_URL"
+          fi
+          echo "::add-mask::$FILE_ID"
+          echo "::add-mask::$APK_URL"
+
+          curl -fsSL --retry 2 --retry-delay 2 --connect-timeout 15 --max-time 120 "$APK_URL" -o "$E/ota-readback.apk"
+          test "$(sha256sum "$E/ota-readback.apk" | awk '{print $1}')" = "$APK_SHA"
+          test "$(stat -c '%s' "$E/ota-readback.apk")" = "$APK_SIZE"
+          cmp -s "$APK" "$E/ota-readback.apk"
+
+          PASS=0
+          for attempt in 0 1 2; do
+            read_update BETA "$PREV_VERSION" "$E/beta-after.json" || true
+            if jq -e --arg h "$APK_SHA" --argjson z "$APK_SIZE" \
+              '.ok==true and .channel=="BETA" and .available==true and .version_name=="0.4.2-beta.81" and .sha256==$h and .size==$z and ((.apk_url//"")|length)>0' \
+              "$E/beta-after.json" >/dev/null 2>&1; then PASS=1; break; fi
+            [[ "$attempt" -lt 2 ]] && sleep $((2 + attempt * 4))
+          done
+          test "$PASS" = 1
+          RETURNED_URL=$(jq -r '.apk_url' "$E/beta-after.json")
+          curl -fsSL --retry 2 --retry-delay 2 --connect-timeout 15 --max-time 120 "$RETURNED_URL" -o "$E/ota-contract-readback.apk"
+          test "$(sha256sum "$E/ota-contract-readback.apk" | awk '{print $1}')" = "$APK_SHA"
+          test "$(stat -c '%s' "$E/ota-contract-readback.apk")" = "$APK_SIZE"
+          cmp -s "$APK" "$E/ota-contract-readback.apk"
+
+          read_update BETA "$TARGET_VERSION" "$E/beta-current-target.json"
+          jq -e '.ok==true and .channel=="BETA" and .available==false and .version_name=="0.4.2-beta.81"' "$E/beta-current-target.json" >/dev/null
+          read_update STABLE 0.1.0-stable "$E/stable-after.json"
+          jq -e '.ok==true and .channel=="STABLE" and .available==false and .reason=="NO_APK"' "$E/stable-after.json" >/dev/null
+          jq -S . "$E/stable-before.json" > "$E/stable-before.canon"
+          jq -S . "$E/stable-after.json" > "$E/stable-after.canon"
+          cmp -s "$E/stable-before.canon" "$E/stable-after.canon"
+
+          MAIN_AFTER=$(curl -fsSL --connect-timeout 15 --max-time 30 \
+            -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' \
+            "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/branches/main" | jq -r '.commit.sha')
+          test "$MAIN_AFTER" = "$MAIN_BEFORE"
+          curl -fsSL --connect-timeout 15 --max-time 30 "$SERVICE_URL/v1/authority" > "$E/authority-after.json"
+          jq -e --slurpfile b "$E/authority-before.json" \
+            '.ok==true and .authority.mode==$b[0].authority.mode and .authority.scope==$b[0].authority.scope and .authority.authority_epoch==$b[0].authority.authority_epoch and .authority.service_generation==$b[0].authority.service_generation' \
+            "$E/authority-after.json" >/dev/null
+
+          jq -n \
+            --arg version "$TARGET_VERSION" --argjson code "$TARGET_CODE" --arg source "$SOURCE_SHA" \
+            --arg h "$APK_SHA" --argjson z "$APK_SIZE" --arg signer "$EXPECTED_SIGNER" \
+            --arg file "$FILE_ID" --arg url "$RETURNED_URL" --arg main "$MAIN_AFTER" \
+            --argjson target_already "$TARGET_ALREADY" \
+            --slurpfile beta "$E/beta-after.json" --slurpfile current "$E/beta-current-target.json" \
+            --slurpfile stable "$E/stable-after.json" --slurpfile auth "$E/authority-after.json" \
+            '{status:"PASS",channel:"BETA",version_name:$version,version_code:$code,package:"vn.pickpack1291.app.beta.publicbeta",
+              source_sha:$source,candidate_run:33073351925,candidate_artifact:9646920908,visual_artifact:9647045177,service_artifact:9646805806,
+              apk_sha256:$h,apk_size:$z,signer_sha256:$signer,drive_file_id:$file,apk_url:$url,ota_exact_bytes:true,
+              publish_mode:(if $target_already==1 then "REUSED_ALREADY_LIVE_EXACT" else "PUBLISHED_EXACT_BYTES" end),
+              beta_readback:$beta[0],target_current_readback:$current[0],stable_readback:$stable[0],stable_unchanged:true,
+              main_sha:$main,main_unchanged:true,authority:$auth[0].authority,authority_change:"NONE",gas_code_changed:false}' > "$E/receipt.json"
+          jq -e '.status=="PASS" and .ota_exact_bytes==true and .stable_unchanged==true and .main_unchanged==true and .authority_change=="NONE"' "$E/receipt.json" >/dev/null
+          echo "drive_file_id=$FILE_ID" >> "$GITHUB_OUTPUT"
+          printf '%s' "$RETURNED_URL" | base64 -w0 | sed 's/^/apk_url_b64=/' >> "$GITHUB_OUTPUT"
+          cat "$E/receipt.json"
+
+      - name: Upload Beta81 publish receipt
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: beta80-publish-${{ github.run_id }}
-          path: /tmp/beta80-publish
+          name: beta81-publish-${{ github.run_id }}
+          path: /tmp/beta81-publish
           retention-days: 30
           if-no-files-found: warn
 
   pda-verify:
-    if: ${{ github.event_name == 'push' && contains(github.event.head_commit.message, '[pda-verify-only]') }}
+    needs: publish
+    if: ${{ needs.publish.result == 'success' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 55
     env:
       GH_TOKEN: ${{ github.token }}
-      D1_NAME: pick-pack-1291-service-prod
-      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      APK_SHA: ${{ needs.publish.outputs.apk_sha }}
+      APK_SIZE: ${{ needs.publish.outputs.apk_size }}
       GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+      GAS_DEPLOYMENT_ID: ${{ secrets.GAS_DEPLOYMENT_ID }}
       SIGNING_KEY_B64: ${{ secrets.ANDROID_SIGNING_KEY_B64 }}
       SIGNING_STORE_PASSWORD: ${{ secrets.ANDROID_SIGNING_STORE_PASSWORD }}
       SIGNING_KEY_PASSWORD: ${{ secrets.ANDROID_SIGNING_KEY_PASSWORD }}
       SIGNING_ALIAS: ${{ secrets.ANDROID_SIGNING_ALIAS }}
-      EXPECTED_SHA: 1210bf57ff3bb48a723aa40d2efc8ec922c5e632e4c1d9928bf4dbe843654a69
-      EXPECTED_SIZE: '13196221'
-      EXPECTED_SIGNER: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
-      SERVICE_URL: https://pickpack.1291.workers.dev
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 2
+          fetch-depth: 0
 
-      - name: Download exact old Beta79
-        uses: actions/download-artifact@v4
-        with:
-          name: beta79-candidate-33020009122
-          path: /tmp/beta79
-          github-token: ${{ github.token }}
-          repository: tam95supra-source/pick-pack-1291
-          run-id: 33020009122
-
-      - name: Download exact locked Beta80
+      - name: Download exact Beta80 baseline
         uses: actions/download-artifact@v4
         with:
           name: beta80-candidate-33028423645
@@ -132,137 +341,44 @@ jobs:
           repository: tam95supra-source/pick-pack-1291
           run-id: 33028423645
 
-      - name: Download successful Beta80 publish receipt
+      - name: Download exact Beta81 candidate
         uses: actions/download-artifact@v4
         with:
-          name: beta80-publish-33030927064
-          path: /tmp/beta80-publish-receipt
+          name: ${{ env.CANDIDATE_ARTIFACT_NAME }}
+          path: /tmp/beta81
           github-token: ${{ github.token }}
           repository: tam95supra-source/pick-pack-1291
-          run-id: 33030927064
+          run-id: 33073351925
 
-      - name: Validate exact artifacts and materialize PDA harness
+      - name: Download Beta81 publish receipt
+        uses: actions/download-artifact@v4
+        with:
+          name: beta81-publish-${{ github.run_id }}
+          path: /tmp/beta81-publish
+
+      - name: Validate exact OTA inputs
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p /tmp/beta80-pda-verify
-          OLD=/tmp/beta79/pick-pack-1291-public-beta-0.4.2-beta.79.apk
-          NEW=/tmp/beta80/pick-pack-1291-public-beta-0.4.2-beta.80.apk
-          test -f "$OLD" -a -f "$NEW"
-          test "$(sha256sum "$OLD" | awk '{print $1}')" = "547e1242a7d0bb057332ce38c46313771da33235fc0e384a908c14207e26e056"
-          test "$(sha256sum "$NEW" | awk '{print $1}')" = "$EXPECTED_SHA"
-          test "$(stat -c '%s' "$NEW")" = "$EXPECTED_SIZE"
-          jq -e --arg h "$EXPECTED_SHA" --argjson z "$EXPECTED_SIZE" '.status=="PASS" and .version_name=="0.4.2-beta.80" and .version_code==86 and .candidate_artifact==9629377960 and .apk_sha256==$h and .apk_size==$z and .ota_exact_bytes==true and .stable_unchanged==true and .main_unchanged==true and .authority_change=="NONE"' /tmp/beta80-publish-receipt/receipt.json >/dev/null
-          OTA_URL=$(jq -r '.apk_url' /tmp/beta80-publish-receipt/receipt.json)
+          OLD=/tmp/beta80/pick-pack-1291-public-beta-0.4.2-beta.80.apk
+          NEW=/tmp/beta81/pick-pack-1291-public-beta-0.4.2-beta.81.apk
+          META=/tmp/beta81/release-meta.json
+          R=/tmp/beta81-publish/receipt.json
+          test -f "$OLD" -a -f "$NEW" -a -f "$META" -a -f "$R"
+          test "$(sha256sum "$OLD" | awk '{print $1}')" = "$PREV_SHA"
+          test "$(stat -c '%s' "$OLD")" = "$PREV_SIZE"
+          test "$(sha256sum "$NEW" | awk '{print $1}')" = "$APK_SHA"
+          test "$(stat -c '%s' "$NEW")" = "$APK_SIZE"
+          jq -e --arg h "$APK_SHA" --argjson z "$APK_SIZE" --arg signer "$EXPECTED_SIGNER" \
+            '.status=="PASS" and .version_name=="0.4.2-beta.81" and .version_code==87 and .candidate_artifact==9646920908 and .apk_sha256==$h and .apk_size==$z and .signer_sha256==$signer and .ota_exact_bytes==true and .stable_unchanged==true and .main_unchanged==true' "$R" >/dev/null
+          OTA_URL=$(jq -r '.apk_url' "$R")
           test -n "$OTA_URL" -a "$OTA_URL" != null
           echo "::add-mask::$OTA_URL"
-          echo "OTA_URL=$OTA_URL" >> "$GITHUB_ENV"
-          echo "OLD_APK=$OLD" >> "$GITHUB_ENV"
-          echo "NEW_APK=$NEW" >> "$GITHUB_ENV"
-          tail -n +2 tools/beta80_pda_verify.py.gz.b64 | base64 -d | gzip -d > /tmp/beta80_pda_verify.py
-          test "$(sha256sum /tmp/beta80_pda_verify.py | awk '{print $1}')" = "b1917b5b0fd55a432957d46a78c8394edfec30f475d9a4b6b5837c46e783e04b"
-          python3 -m py_compile /tmp/beta80_pda_verify.py
-          grep -Fq 'url_b64' tools/Beta80VerifyInstrumentation.java
-          grep -Fq 'pkg.contains("packageinstaller")' tools/Beta80VerifyInstrumentation.java
-          grep -Fq 'OTA_URL_B64=' tools/beta80_pda_device_gate.sh
-          grep -Fq 'fileprovider_installer_clicked' tools/beta80_pda_device_gate.sh
-          grep -Fq 'ota_installer_clicked' tools/beta80_pda_device_gate.sh
-          grep -Fq 'device-logcat.txt' tools/beta80_pda_device_gate.sh
-          grep -Fq 'FP_REINSTALL_DONE' tools/beta80_pda_device_gate.sh
-          grep -Fq 'direct-owner-after-enter.xml' tools/beta80_pda_device_gate.sh
-          ! grep -Eq 'gradle|assembleBeta|assembleStable|apksigner.*pick-pack|jarsigner' /tmp/beta80_pda_verify.py
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-
-      - name: Prepare isolated D1 fixture and exact Service bearer
-        shell: bash
-        run: |
-          set -euo pipefail
-          for n in CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID; do test -n "${!n:-}"; echo "::add-mask::${!n}"; done
-          cd service
-          npm install --ignore-scripts --no-audit --no-fund >/dev/null
-          LIST=$(npx wrangler d1 list --json)
-          D1_ID=$(node -e 'const a=JSON.parse(process.argv[1]);const x=a.find(v=>v.name===process.env.D1_NAME);process.stdout.write(x?.uuid||x?.id||"")' "$LIST")
-          test -n "$D1_ID"
-          echo "::add-mask::$D1_ID"
-          curl -fsS "$SERVICE_URL/v1/authority" > /tmp/beta80-pda-verify/authority-before.json
-          GEN=$(jq -r '.authority.service_generation' /tmp/beta80-pda-verify/authority-before.json)
-          EPOCH=$(jq -r '.authority.authority_epoch' /tmp/beta80-pda-verify/authority-before.json)
-          jq -e '.ok==true and .authority.mode=="SERVICE_PRIMARY" and .authority.scope=="PRODUCTION"' /tmp/beta80-pda-verify/authority-before.json >/dev/null
-          python3 - "$D1_ID" "$GEN" <<'PY'
-          from pathlib import Path
-          import sys
-          p=Path('wrangler.jsonc');s=p.read_text(encoding='utf-8');d1,generation=sys.argv[1:]
-          repl={
-            '"name": "pick-pack-1291-service-m1-staging"':'"name": "pickpack"',
-            '"SERVICE_GENERATION": "m2-precutover-20260819-001"':f'"SERVICE_GENERATION": "{generation}"',
-            '"database_name": "pick-pack-1291-m1-staging"':'"database_name": "pick-pack-1291-service-prod"',
-            '"database_id": "__M1_D1_DATABASE_ID__"':f'"database_id": "{d1}"',
-          }
-          for a,b in repl.items():
-              if a not in s: raise SystemExit('LIVE_CONFIG_ANCHOR_MISSING:'+a)
-              s=s.replace(a,b,1)
-          Path('wrangler.live.jsonc').write_text(s,encoding='utf-8')
-          PY
-          sql(){ npx wrangler d1 execute "$D1_NAME" --remote --config wrangler.live.jsonc --command "$1" --json; }
-          DATES=$(sql "SELECT business_date FROM business_dates ORDER BY sequence_no DESC LIMIT 2;")
-          TEST_TODAY=$(jq -r '.[0].results[0].business_date // empty' <<<"$DATES")
-          TEST_OLD_DATE=$(jq -r '.[0].results[1].business_date // empty' <<<"$DATES")
-          test -n "$TEST_TODAY" -a -n "$TEST_OLD_DATE" -a "$TEST_TODAY" != "$TEST_OLD_DATE"
-          SUFFIX=$(printf '%s' "$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" | sha256sum | cut -c1-10)
-          TEST_LOGIN="__B80PDA_LOGIN_$SUFFIX"
-          TEST_MNV="98${GITHUB_RUN_ID: -9}${GITHUB_RUN_ATTEMPT}"
-          DEVICE="__B80PDA_DEVICE_$SUFFIX"
-          TEST_PASSWORD="B80-${SUFFIX}-fixture"
-          echo "::add-mask::$TEST_LOGIN"
-          echo "::add-mask::$TEST_MNV"
-          echo "::add-mask::$DEVICE"
-          echo "::add-mask::$TEST_PASSWORD"
-          AUTH_MATERIAL=$(node - "$TEST_PASSWORD" "$SUFFIX" <<'NODE'
-          const c=require('crypto');
-          const [pw,suffix]=process.argv.slice(2);
-          const salt=c.createHash('sha256').update('beta80-pda-salt:'+suffix).digest().subarray(0,16);
-          const key=c.pbkdf2Sync(pw,salt,120000,32,'sha256');
-          const verifier=`pbkdf2_sha256$120000$${salt.toString('base64url')}$${key.toString('base64url')}`;
-          const vh=c.createHash('sha256').update(verifier).digest('hex');
-          process.stdout.write(JSON.stringify({verifier,vh}));
-          NODE
-          )
-          VERIFIER=$(jq -r '.verifier' <<<"$AUTH_MATERIAL")
-          VH=$(jq -r '.vh' <<<"$AUTH_MATERIAL")
-          EXISTING_MNV=$(sql "SELECT COUNT(*) n FROM employees WHERE mnv='$TEST_MNV';")
-          test "$(jq -r '.[0].results[0].n' <<<"$EXISTING_MNV")" = "0"
-          sql "DELETE FROM auth_challenges WHERE login_id='$TEST_LOGIN'; DELETE FROM auth_sessions WHERE login_id='$TEST_LOGIN'; DELETE FROM accounts WHERE login_id='$TEST_LOGIN';" >/dev/null
-          sql "INSERT INTO accounts(login_id,verifier,verifier_hash,role,display_name,position,email,status,source_row,source_checksum,is_shadow_test) VALUES('$TEST_LOGIN','$VERIFIER','$VH','SUPERADMIN','Beta80 PDA Verify','TEST','verify@example.invalid','ACTIVE',-80,'b80-pda-test',1); INSERT INTO employees(mnv,full_name,main_position,source_row,source_checksum) VALUES('$TEST_MNV','Beta80 PDA Verify','TEST',-80,'b80-pda-test');" >/dev/null
-          CHALLENGE=$(curl -fsS -H 'content-type: application/json' "$SERVICE_URL/v1/auth/challenge" -d "$(jq -nc --arg l "$TEST_LOGIN" '{login_id:$l}')")
-          jq -e '.ok==true and (.challenge_id|length)>0 and (.challenge|length)>0 and (.salt|length)>0 and .iterations>=100000' <<<"$CHALLENGE" >/dev/null
-          PROOF=$(node - "$TEST_PASSWORD" "$CHALLENGE" <<'NODE'
-          const c=require('crypto');
-          const [pw,raw]=process.argv.slice(2),j=JSON.parse(raw);
-          const key=c.pbkdf2Sync(pw,Buffer.from(j.salt,'base64url'),Number(j.iterations),32,'sha256');
-          process.stdout.write(c.createHmac('sha256',key).update(j.challenge).digest('base64url'));
-          NODE
-          )
-          LOGIN_BODY=$(jq -nc --arg l "$TEST_LOGIN" --arg cid "$(jq -r '.challenge_id' <<<"$CHALLENGE")" --arg p "$PROOF" --arg d "$DEVICE" '{login_id:$l,challenge_id:$cid,proof:$p,device_id:$d,device_label:"Beta80 PDA Verify",client_source:"PDA"}')
-          LOGIN_RESULT=$(curl -fsS -H 'content-type: application/json' "$SERVICE_URL/v1/auth/login" -d "$LOGIN_BODY")
-          jq -e '.ok==true and (.token|length)>40' <<<"$LOGIN_RESULT" >/dev/null
-          SERVICE_TOKEN=$(jq -r '.token' <<<"$LOGIN_RESULT")
-          echo "::add-mask::$SERVICE_TOKEN"
-          cd ..
-          MAIN_BEFORE=$(curl -fsS -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/$GITHUB_REPOSITORY/branches/main" | jq -r '.commit.sha')
-          test -n "$MAIN_BEFORE" -a "$MAIN_BEFORE" != null
           {
-            echo "TEST_LOGIN=$TEST_LOGIN"
-            echo "TEST_MNV=$TEST_MNV"
-            echo "TEST_TODAY=$TEST_TODAY"
-            echo "TEST_OLD_DATE=$TEST_OLD_DATE"
-            echo "SERVICE_TOKEN=$SERVICE_TOKEN"
-            echo "TEST_PASSWORD=$TEST_PASSWORD"
-            echo "AUTHORITY_EPOCH_BEFORE=$EPOCH"
-            echo "AUTHORITY_GENERATION_BEFORE=$GEN"
-            echo "MAIN_BEFORE=$MAIN_BEFORE"
+            echo "OLD_APK=$OLD"
+            echo "NEW_APK=$NEW"
+            echo "OTA_URL=$OTA_URL"
+            echo "MAIN_BEFORE=$(jq -r '.main_sha' "$R")"
           } >> "$GITHUB_ENV"
 
       - uses: actions/setup-java@v5
@@ -270,7 +386,7 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Build separate signed instrumentation harness only
+      - name: Build separate signed Beta81 verification harness only
         shell: bash
         run: |
           set -euo pipefail
@@ -282,31 +398,140 @@ jobs:
           fi
           BT="$SDK/build-tools/36.0.0"
           test -x "$BT/d8" -a -x "$BT/aapt" -a -x "$BT/apksigner"
-          mkdir -p /tmp/b80h/src/vn/pickpack1291/verify /tmp/b80h/classes /tmp/b80h/dex
-          cat > /tmp/b80h/AndroidManifest.xml <<'XML'
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android" package="vn.pickpack1291.verify">
-            <uses-sdk android:minSdkVersion="29" android:targetSdkVersion="36"/>
-            <application android:label="Beta80 Verify"/>
-            <instrumentation android:name=".Beta80VerifyInstrumentation" android:targetPackage="vn.pickpack1291.app.beta.publicbeta" android:functionalTest="true" android:handleProfiling="false"/>
-          </manifest>
-          XML
-          cp tools/Beta80VerifyInstrumentation.java /tmp/b80h/src/vn/pickpack1291/verify/Beta80VerifyInstrumentation.java
-          javac -source 8 -target 8 -cp "$SDK/platforms/android-36/android.jar" -d /tmp/b80h/classes /tmp/b80h/src/vn/pickpack1291/verify/Beta80VerifyInstrumentation.java
-          mapfile -t HARNESS_CLASSES < <(find /tmp/b80h/classes -type f -name '*.class' -print | sort)
-          test "${#HARNESS_CLASSES[@]}" -ge 2
-          "$BT/d8" --lib "$SDK/platforms/android-36/android.jar" --output /tmp/b80h/dex "${HARNESS_CLASSES[@]}"
-          "$BT/aapt" package -f -M /tmp/b80h/AndroidManifest.xml -I "$SDK/platforms/android-36/android.jar" -F /tmp/b80h/harness-unsigned.apk
-          (cd /tmp/b80h/dex && "$BT/aapt" add /tmp/b80h/harness-unsigned.apk classes.dex >/dev/null)
-          KS=/tmp/b80h/release.jks
+          echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
+          mkdir -p /tmp/b81h/src/vn/pickpack1291/verify /tmp/b81h/classes /tmp/b81h/dex /tmp/beta81-pda-verify
+          python3 - <<'PY'
+from pathlib import Path
+p=Path("tools/Beta80VerifyInstrumentation.java")
+s=p.read_text(encoding="utf-8")
+s=s.replace("import java.lang.reflect.Method;", "import java.lang.reflect.Method;\nimport org.json.JSONArray;\nimport org.json.JSONObject;\nimport java.time.LocalDate;\nimport java.time.ZoneId;")
+s=s.replace('else if("historical".equals(mode)) historical();', 'else if("historical".equals(mode)) historical();\n      else if("beta81checks".equals(mode)) beta81checks();')
+s=s.replace('.putString("notes","Beta80 OTA exact candidate")\n      .putInt("version_code",86)', '.putString("notes","Beta81 OTA exact candidate")\n      .putInt("version_code",87)')
+marker="\n}"
+method=r'''
+  private void assertTrue(boolean v,String msg){ if(!v)throw new IllegalStateException(msg); }
+
+  private void beta81checks() throws Exception {
+    String mnv=req("mnv"), mnv2=req("mnv2");
+    seedAuth(); seedService();
+    String today=LocalDate.now(ZoneId.of("Asia/Ho_Chi_Minh")).toString();
+    String oldDate=LocalDate.parse(today).minusDays(1).toString();
+
+    JSONObject master=new JSONObject().put("ok",true).put("master_revision",81001L)
+      .put("staff",new JSONArray()
+        .put(new JSONObject().put("mnv",mnv).put("full_name","Beta81 Test A").put("main_position","PICK").put("supplier","TEST").put("department","OPS").put("site","1291").put("warehouse","HY1"))
+        .put(new JSONObject().put("mnv",mnv2).put("full_name","Beta81 Test B").put("main_position","PACK").put("supplier","TEST").put("department","OPS").put("site","1291").put("warehouse","HY1")))
+      .put("pdas",new JSONArray()
+        .put(new JSONObject().put("serial","MT90-B81-OLD").put("status","Tốt"))
+        .put(new JSONObject().put("serial","MT90-B81-FREE").put("status","Tốt")))
+      .put("pda_statuses",new JSONArray().put("Tốt"))
+      .put("user_picks",new JSONArray().put("PICK-B81-OLD").put("PICK-B81-FREE"))
+      .put("pack_bundles",new JSONArray()
+        .put(new JSONObject().put("table","TABLE-B81-OLD").put("user_pack","PACK-B81-OLD"))
+        .put(new JSONObject().put("table","TABLE-B81-FREE").put("user_pack","PACK-B81-FREE")));
+
+    ClassLoader cl=target.getClassLoader();
+    Class<?> mc=cl.loadClass("vn.pickpack1291.app.beta.MasterDataCache");
+    Object mci=mc.getField("INSTANCE").get(null);
+    mc.getMethod("save",Context.class,JSONObject.class).invoke(mci,target,master);
+
+    Class<?> sc=cl.loadClass("vn.pickpack1291.app.beta.OperationalDataStore");
+    Object store=sc.getConstructor(Context.class).newInstance(target);
+    Method saveDay=sc.getMethod("saveDay",JSONObject.class);
+
+    JSONObject currentSession=new JSONObject()
+      .put("session_id","beta81-current-active").put("mnv",mnv).put("business_date",today)
+      .put("shift","Ca 2").put("work_choice","PICK").put("state","ACTIVE")
+      .put("enter_at",today+"T12:00:00Z").put("exit_at","").put("version",1);
+    JSONObject currentDay=new JSONObject().put("business_date",today).put("day_revision",81001L)
+      .put("sessions",new JSONArray().put(currentSession)).put("events",new JSONArray()).put("labor",new JSONArray());
+    saveDay.invoke(store,currentDay);
+
+    open("BUSINESS");
+    waitText("Ca 2 – 1/0",true,false,15000);
+    mark("reconciliation_home_1_0",true);
+    clickText("Quét QR nhân sự",true,15000);
+    waitText("Ca 2 – 1/0",true,false,15000);
+    mark("reconciliation_qr_1_0",true);
+
+    JSONObject emptyCurrent=new JSONObject().put("business_date",today).put("day_revision",81002L)
+      .put("sessions",new JSONArray()).put("events",new JSONArray()).put("labor",new JSONArray());
+    saveDay.invoke(store,emptyCurrent);
+    JSONObject oldSession=new JSONObject()
+      .put("session_id","beta81-old-active").put("mnv",mnv).put("business_date",oldDate)
+      .put("shift","Ca 2").put("work_choice","PICK").put("state","ACTIVE")
+      .put("enter_at",oldDate+"T16:30:00Z").put("exit_at","").put("version",3)
+      .put("pda_serial","MT90-B81-OLD").put("user_pick","PICK-B81-OLD")
+      .put("pack_table","TABLE-B81-OLD").put("user_pack","PACK-B81-OLD");
+    JSONObject oldDay=new JSONObject().put("business_date",oldDate).put("day_revision",81003L)
+      .put("sessions",new JSONArray().put(oldSession)).put("events",new JSONArray()).put("labor",new JSONArray());
+    saveDay.invoke(store,oldDay);
+
+    Class<?> pc=cl.loadClass("vn.pickpack1291.app.beta.PdaLocalProjection");
+    Object pci=pc.getField("INSTANCE").get(null);
+    JSONObject ctx=(JSONObject)pc.getMethod("employeeContext",Context.class,String.class).invoke(pci,target,mnv);
+    assertTrue(ctx!=null && "ACTIVE".equals(ctx.optString("state")),"ROLLOVER_STATE_NOT_ACTIVE");
+    assertTrue(today.equals(ctx.optString("business_date")),"ROLLOVER_CONTEXT_DATE_NOT_NEW_DAY");
+    JSONObject ses=ctx.optJSONObject("session");
+    assertTrue(ses!=null && "beta81-old-active".equals(ses.optString("session_id")),"ROLLOVER_WRONG_SESSION");
+    assertTrue(oldDate.equals(ses.optString("business_date")),"ROLLOVER_OLD_DATE_LOST");
+    mark("rollover_old_active_preserved",true);
+
+    JSONObject options=(JSONObject)pc.getMethod("resourceOptions",Context.class,String.class).invoke(pci,target,mnv2);
+    boolean pdaBusy=true;
+    JSONArray pdas=options.optJSONArray("pdas");
+    for(int i=0;i<(pdas==null?0:pdas.length());i++) if("MT90-B81-OLD".equals(pdas.optJSONObject(i).optString("serial"))) pdaBusy=false;
+    boolean pickBusy=true;
+    JSONArray picks=options.optJSONArray("user_picks");
+    for(int i=0;i<(picks==null?0:picks.length());i++) if("PICK-B81-OLD".equals(picks.optString(i))) pickBusy=false;
+    boolean packBusy=true;
+    JSONArray packs=options.optJSONArray("pack_tables");
+    for(int i=0;i<(packs==null?0:packs.length());i++){
+      JSONObject x=packs.optJSONObject(i);
+      if(x!=null && ("TABLE-B81-OLD".equals(x.optString("table")) || "PACK-B81-OLD".equals(x.optString("user_pack")))) packBusy=false;
+    }
+    assertTrue(pdaBusy && pickBusy && packBusy,"OLD_ACTIVE_RESOURCE_RELEASED");
+    mark("old_resources_preserved",true);
+
+    seedService(); open("BUSINESS");
+    clickText("Quét QR nhân sự",true,15000);
+    seedService(); setEmployee(mnv);
+    waitText("CẢNH BÁO: PHIÊN CA CŨ",false,false,15000);
+    waitText("Ra ca",true,true,15000);
+    mark("scanned_old_warning",true);
+    ok("BETA81_THREE_FIXES_PASS");
+  }
+'''
+idx=s.rfind(marker)
+if idx<0: raise SystemExit("CLASS_END_NOT_FOUND")
+s=s[:idx]+method+s[idx:]
+Path("/tmp/b81h/src/vn/pickpack1291/verify/Beta80VerifyInstrumentation.java").write_text(s,encoding="utf-8")
+PY
+          javac -source 8 -target 8 -cp "$SDK/platforms/android-36/android.jar" \
+            -d /tmp/b81h/classes /tmp/b81h/src/vn/pickpack1291/verify/Beta80VerifyInstrumentation.java
+          mapfile -t CLASSES < <(find /tmp/b81h/classes -type f -name '*.class' -print | sort)
+          test "${#CLASSES[@]}" -ge 2
+          "$BT/d8" --lib "$SDK/platforms/android-36/android.jar" --output /tmp/b81h/dex "${CLASSES[@]}"
+          cat > /tmp/b81h/AndroidManifest.xml <<'XML'
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="vn.pickpack1291.verify">
+  <uses-sdk android:minSdkVersion="29" android:targetSdkVersion="36"/>
+  <application android:label="Beta81 Verify"/>
+  <instrumentation android:name=".Beta80VerifyInstrumentation" android:targetPackage="vn.pickpack1291.app.beta.publicbeta" android:functionalTest="true" android:handleProfiling="false"/>
+</manifest>
+XML
+          "$BT/aapt" package -f -M /tmp/b81h/AndroidManifest.xml -I "$SDK/platforms/android-36/android.jar" -F /tmp/b81h/harness-unsigned.apk
+          (cd /tmp/b81h/dex && "$BT/aapt" add /tmp/b81h/harness-unsigned.apk classes.dex >/dev/null)
+          KS=/tmp/b81h/release.jks
           printf '%s' "$SIGNING_KEY_B64" | base64 -d > "$KS"
-          printf '%s' "$SIGNING_STORE_PASSWORD" > /tmp/b80h/store.pass
-          printf '%s' "$SIGNING_KEY_PASSWORD" > /tmp/b80h/key.pass
-          "$BT/apksigner" sign --ks "$KS" --ks-key-alias "$SIGNING_ALIAS" --ks-pass file:/tmp/b80h/store.pass --key-pass file:/tmp/b80h/key.pass --out /tmp/beta80-verify-harness.apk /tmp/b80h/harness-unsigned.apk
-          "$BT/apksigner" verify --print-certs /tmp/beta80-verify-harness.apk > /tmp/b80h/cert.txt
-          CERT=$(grep -m1 'Signer #1 certificate SHA-256 digest:' /tmp/b80h/cert.txt | sed 's/.*digest: //' | tr 'A-F' 'a-f' | tr -d ':[:space:]')
+          printf '%s' "$SIGNING_STORE_PASSWORD" > /tmp/b81h/store.pass
+          printf '%s' "$SIGNING_KEY_PASSWORD" > /tmp/b81h/key.pass
+          "$BT/apksigner" sign --ks "$KS" --ks-key-alias "$SIGNING_ALIAS" --ks-pass file:/tmp/b81h/store.pass --key-pass file:/tmp/b81h/key.pass \
+            --out /tmp/beta81-verify-harness.apk /tmp/b81h/harness-unsigned.apk
+          "$BT/apksigner" verify --print-certs /tmp/beta81-verify-harness.apk > /tmp/b81h/cert.txt
+          CERT=$(grep -m1 'Signer #1 certificate SHA-256 digest:' /tmp/b81h/cert.txt | sed 's/.*digest: //' | tr 'A-F' 'a-f' | tr -d ':[:space:]')
           test "$CERT" = "$EXPECTED_SIGNER"
-          echo "VERIFY_HARNESS_APK=/tmp/beta80-verify-harness.apk" >> "$GITHUB_ENV"
-          rm -f "$KS" /tmp/b80h/store.pass /tmp/b80h/key.pass
+          rm -f "$KS" /tmp/b81h/store.pass /tmp/b81h/key.pass
+          echo "VERIFY_HARNESS_APK=/tmp/beta81-verify-harness.apk" >> "$GITHUB_ENV"
 
       - name: Enable KVM
         shell: bash
@@ -316,7 +541,7 @@ jobs:
           sudo udevadm trigger --name-match=kvm || true
           sudo chmod 666 /dev/kvm || true
 
-      - name: Verify OTA installer and exact historical session on installed Beta80
+      - name: OTA install exact Beta81 and verify three fixes on device
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 29
@@ -325,164 +550,300 @@ jobs:
           profile: pixel_2
           disable-animations: false
           emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-metrics
-          script: bash tools/beta80_pda_device_gate.sh
+          script: |
+            set -euo pipefail
+            OUT=/tmp/beta81-pda-verify
+            PKG=vn.pickpack1291.app.beta.publicbeta
+            VERIFY=vn.pickpack1291.verify/.Beta80VerifyInstrumentation
+            mkdir -p "$OUT"
+            adb root >"$OUT/adb-root.txt" 2>&1 || true
+            adb wait-for-device
+            test "$(adb shell id -u 2>/dev/null | tr -d '\r')" = "0"
 
-      - name: Cleanup isolated D1 fixture
-        if: always()
-        shell: bash
-        run: |
-          set +e
-          if [[ -f service/wrangler.live.jsonc && -n "${TEST_MNV:-}" && -n "${TEST_LOGIN:-}" ]]; then
-            cd service
-            npx wrangler d1 execute "$D1_NAME" --remote --config wrangler.live.jsonc --command "DELETE FROM outbound_replication_outbox WHERE event_id IN (SELECT event_id FROM events WHERE actor_id='$TEST_LOGIN'); DELETE FROM sheet_replication_outbox WHERE event_id IN (SELECT event_id FROM events WHERE actor_id='$TEST_LOGIN'); DELETE FROM mutation_assertions WHERE event_id IN (SELECT event_id FROM events WHERE actor_id='$TEST_LOGIN'); DELETE FROM push_outbox WHERE payload_json LIKE '%$TEST_MNV%'; DELETE FROM resource_daily_consumption WHERE mnv='$TEST_MNV'; DELETE FROM resource_leases WHERE mnv='$TEST_MNV'; DELETE FROM historical_session_snapshots WHERE mnv='$TEST_MNV'; DELETE FROM attendance_sessions WHERE mnv='$TEST_MNV'; DELETE FROM events WHERE actor_id='$TEST_LOGIN'; DELETE FROM auth_challenges WHERE login_id='$TEST_LOGIN'; DELETE FROM auth_sessions WHERE login_id='$TEST_LOGIN'; DELETE FROM accounts WHERE login_id='$TEST_LOGIN'; DELETE FROM employees WHERE mnv='$TEST_MNV';" --json > /tmp/beta80-pda-verify/cleanup.json 2>&1
-          fi
-          exit 0
+            adb uninstall "$PKG" >/dev/null 2>&1 || true
+            adb install "$OLD_APK" >"$OUT/install-beta80.txt"
+            adb shell dumpsys package "$PKG" >"$OUT/package-beta80.txt"
+            grep -Fq 'versionName=0.4.2-beta.80' "$OUT/package-beta80.txt"
+            grep -Eq 'versionCode=86([[:space:]]|$)' "$OUT/package-beta80.txt"
+            adb shell appops set "$PKG" REQUEST_INSTALL_PACKAGES allow >/dev/null 2>&1 || true
+            adb install -r "$VERIFY_HARNESS_APK" >"$OUT/install-harness.txt"
 
-      - name: Upload Beta80 PDA functional receipt
+            URL_B64=$(printf '%s' "$OTA_URL" | base64 -w0)
+            adb shell am instrument -w -r \
+              -e mode ota -e version "$TARGET_VERSION" -e url_b64 "$URL_B64" -e sha "$APK_SHA" \
+              "$VERIFY" >"$OUT/ota-instrument.txt" 2>&1 &
+            OTA_PID=$!
+            UPDATED=0
+            for _ in $(seq 1 180); do
+              adb shell dumpsys package "$PKG" >"$OUT/package-current.txt" 2>/dev/null || true
+              if grep -Fq 'versionName=0.4.2-beta.81' "$OUT/package-current.txt" && grep -Eq 'versionCode=87([[:space:]]|$)' "$OUT/package-current.txt"; then
+                cp "$OUT/package-current.txt" "$OUT/package-beta81.txt"
+                UPDATED=1
+                break
+              fi
+              sleep 0.5
+            done
+            test "$UPDATED" = 1
+            kill "$OTA_PID" >/dev/null 2>&1 || true
+            wait "$OTA_PID" || true
+
+            DOWNLOADED="/sdcard/Android/data/$PKG/files/Download/pick-pack-1291-beta-0.4.2-beta.81.apk"
+            adb pull "$DOWNLOADED" "$OUT/ota-downloaded.apk" >/dev/null
+            test "$(sha256sum "$OUT/ota-downloaded.apk" | awk '{print $1}')" = "$APK_SHA"
+            test "$(stat -c '%s' "$OUT/ota-downloaded.apk")" = "$APK_SIZE"
+
+            BASE_PATH=$(adb shell pm path "$PKG" | head -n1 | sed 's/^package://' | tr -d '\r')
+            test -n "$BASE_PATH"
+            adb pull "$BASE_PATH" "$OUT/installed-base.apk" >/dev/null
+            test "$(sha256sum "$OUT/installed-base.apk" | awk '{print $1}')" = "$APK_SHA"
+            test "$(stat -c '%s' "$OUT/installed-base.apk")" = "$APK_SIZE"
+            "$ANDROID_SDK_ROOT/build-tools/36.0.0/apksigner" verify --print-certs "$OUT/installed-base.apk" >"$OUT/installed-cert.txt"
+            INSTALLED_SIGNER=$(grep -m1 'Signer #1 certificate SHA-256 digest:' "$OUT/installed-cert.txt" | sed 's/.*digest: //' | tr 'A-F' 'a-f' | tr -d ':[:space:]')
+            test "$INSTALLED_SIGNER" = "$EXPECTED_SIGNER"
+
+            adb install -r "$VERIFY_HARNESS_APK" >"$OUT/reinstall-harness.txt"
+            adb shell ip link set eth0 down >/dev/null 2>&1 || true
+            MNV=981810081
+            MNV2=981810082
+            adb shell am instrument -w -r \
+              -e mode beta81checks -e login beta81_verify -e mnv "$MNV" -e mnv2 "$MNV2" \
+              -e service_token offline-beta81 -e service_url http://127.0.0.1:1 \
+              "$VERIFY" >"$OUT/beta81checks.txt" 2>&1
+            grep -Fq 'INSTRUMENTATION_CODE: 0' "$OUT/beta81checks.txt"
+            adb shell cat "/data/user/0/$PKG/shared_prefs/pp_beta80_verify.xml" >"$OUT/beta81-flags.xml"
+            for flag in reconciliation_home_1_0 reconciliation_qr_1_0 rollover_old_active_preserved old_resources_preserved scanned_old_warning; do
+              grep -Fq "name=\"$flag\" value=\"true\"" "$OUT/beta81-flags.xml"
+            done
+
+            RAW=$(printf '%s' "$GAS_DEPLOYMENT_ID" | tr -d '\r\n\t ')
+            DEPLOYMENT_ID="$RAW"
+            if [[ "$RAW" == *"/s/"* ]]; then DEPLOYMENT_ID="${RAW#*/s/}"; DEPLOYMENT_ID="${DEPLOYMENT_ID%%/*}"; fi
+            GAS_URL="https://script.google.com/macros/s/$DEPLOYMENT_ID/exec"
+            echo "::add-mask::$GAS_URL"
+            read_update(){
+              local ch="$1" cur="$2" file="$3" attempt
+              for attempt in 0 1 2; do
+                if curl -fsSL --connect-timeout 15 --max-time 30 -H 'content-type: application/json' "$GAS_URL" \
+                  -d "{\"action\":\"update_check\",\"channel\":\"$ch\",\"current_version\":\"$cur\"}" > "$file"; then return 0; fi
+                [[ "$attempt" -lt 2 ]] || break
+                sleep $((2 + attempt * 4))
+              done
+              return 1
+            }
+            read_update BETA "$PREV_VERSION" "$OUT/beta-old-readback.json"
+            jq -e --arg h "$APK_SHA" --argjson z "$APK_SIZE" \
+              '.ok==true and .channel=="BETA" and .available==true and .version_name=="0.4.2-beta.81" and .sha256==$h and .size==$z' "$OUT/beta-old-readback.json" >/dev/null
+            read_update BETA "$TARGET_VERSION" "$OUT/beta-current-readback.json"
+            jq -e '.ok==true and .channel=="BETA" and .available==false and .version_name=="0.4.2-beta.81"' "$OUT/beta-current-readback.json" >/dev/null
+            read_update STABLE 0.1.0-stable "$OUT/stable-readback.json"
+            jq -e '.ok==true and .channel=="STABLE" and .available==false and .reason=="NO_APK"' "$OUT/stable-readback.json" >/dev/null
+
+            MAIN_AFTER=$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' \
+              "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/branches/main" | jq -r '.commit.sha')
+            test "$MAIN_AFTER" = "$MAIN_BEFORE"
+            curl -fsSL --connect-timeout 15 --max-time 30 "$SERVICE_URL/v1/authority" > "$OUT/authority.json"
+            jq -e '.ok==true and .authority.mode=="SERVICE_PRIMARY" and .authority.scope=="PRODUCTION"' "$OUT/authority.json" >/dev/null
+            AUTH_EPOCH=$(jq -r '.authority.authority_epoch' "$OUT/authority.json")
+            AUTH_GEN=$(jq -r '.authority.service_generation' "$OUT/authority.json")
+            test "$AUTH_EPOCH" = "9"
+            test "$AUTH_GEN" = "m2-prod-reset-20260823-001"
+
+            jq -n \
+              --arg h "$APK_SHA" --argjson z "$APK_SIZE" --arg signer "$INSTALLED_SIGNER" --arg main "$MAIN_AFTER" \
+              --slurpfile beta "$OUT/beta-old-readback.json" --slurpfile current "$OUT/beta-current-readback.json" \
+              --slurpfile stable "$OUT/stable-readback.json" --slurpfile auth "$OUT/authority.json" \
+              '{status:"PASS",version_name:"0.4.2-beta.81",version_code:87,candidate_run:33073351925,candidate_artifact:9646920908,
+                visual_artifact:9647045177,service_artifact:9646805806,apk_sha256:$h,apk_size:$z,signer_sha256:$signer,
+                ota_from_beta80:true,ota_download_exact:true,installed_exact_bytes:true,installed_and_opened_beta81:true,
+                fixes:{reconciliation_ended_exit_only:true,reconciliation_home_1_0:true,reconciliation_qr_1_0:true,
+                       scanned_old_session_warning:true,midnight_rollover_old_active_preserved:true,old_resources_not_released:true},
+                beta_readback:$beta[0],target_current_readback:$current[0],stable_readback:$stable[0],stable_unchanged:true,
+                main_sha:$main,main_unchanged:true,authority:$auth[0].authority,authority_change:"NONE"}' > "$OUT/receipt.json"
+            jq -e '.status=="PASS" and .fixes.reconciliation_ended_exit_only==true and .fixes.reconciliation_qr_1_0==true and .fixes.scanned_old_session_warning==true and .fixes.midnight_rollover_old_active_preserved==true and .fixes.old_resources_not_released==true and .stable_unchanged==true and .main_unchanged==true and .authority_change=="NONE"' "$OUT/receipt.json" >/dev/null
+            cat "$OUT/receipt.json"
+
+      - name: Upload Beta81 PDA receipt
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: beta80-pda-functional-${{ github.run_id }}
-          path: /tmp/beta80-pda-verify
+          name: beta81-pda-functional-${{ github.run_id }}
+          path: /tmp/beta81-pda-verify
           retention-days: 30
           if-no-files-found: error
 
   finalize:
-    needs: pda-verify
-    if: ${{ needs.pda-verify.result == 'success' }}
+    needs: [publish, pda-verify]
+    if: ${{ needs.publish.result == 'success' && needs.pda-verify.result == 'success' }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 12
     env:
       GH_TOKEN: ${{ github.token }}
-      EXPECTED_SHA: 1210bf57ff3bb48a723aa40d2efc8ec922c5e632e4c1d9928bf4dbe843654a69
-      EXPECTED_SIZE: '13196221'
-      EXPECTED_SIGNER: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
+      APK_SHA: ${{ needs.publish.outputs.apk_sha }}
+      APK_SIZE: ${{ needs.publish.outputs.apk_size }}
       BRANCH: feature/beta78-old-session-outbound-service-20260826
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Download final PDA receipt
+      - name: Download Beta81 PDA receipt
         uses: actions/download-artifact@v4
         with:
-          name: beta80-pda-functional-${{ github.run_id }}
-          path: /tmp/beta80-pda
+          name: beta81-pda-functional-${{ github.run_id }}
+          path: /tmp/beta81-pda
 
-      - name: Validate receipt, update state and handoff, push once
+      - name: Validate DoD and finalize canonical state
         shell: bash
         run: |
           set -euo pipefail
-          R=/tmp/beta80-pda/receipt.json
+          R=/tmp/beta81-pda/receipt.json
           test -f "$R"
-          jq -e --arg h "$EXPECTED_SHA" --argjson z "$EXPECTED_SIZE" --arg s "$EXPECTED_SIGNER" '
-            .status=="PASS" and .version_name=="0.4.2-beta.80" and .version_code==86 and
-            .candidate_artifact==9629377960 and .apk_sha256==$h and .apk_size==$z and .signer_sha256==$s and
-            .ota_from_beta79_positive_update_click==true and .ota_downloadmanager_exact_sha==true and
-            .fileprovider_installer_intent_seen==true and .android_installer_clicked==true and
-            .file_picker_required==false and .installed_and_opened_beta80==true and
-            .session.shared_qr_ui==true and .session.not_found==false and .session.wrong_session==false and .session.d1_final=="ENDED" and
-            .beta_readback.ok==true and .beta_readback.channel=="BETA" and .beta_readback.available==true and .beta_readback.version_name=="0.4.2-beta.80" and .beta_readback.sha256==$h and .beta_readback.size==$z and
+          jq -e --arg h "$APK_SHA" --argjson z "$APK_SIZE" --arg signer "$EXPECTED_SIGNER" '
+            .status=="PASS" and .version_name=="0.4.2-beta.81" and .version_code==87 and
+            .candidate_artifact==9646920908 and .apk_sha256==$h and .apk_size==$z and .signer_sha256==$signer and
+            .ota_from_beta80==true and .installed_exact_bytes==true and
+            .fixes.reconciliation_ended_exit_only==true and .fixes.reconciliation_home_1_0==true and .fixes.reconciliation_qr_1_0==true and
+            .fixes.scanned_old_session_warning==true and .fixes.midnight_rollover_old_active_preserved==true and .fixes.old_resources_not_released==true and
+            .beta_readback.ok==true and .beta_readback.version_name=="0.4.2-beta.81" and .beta_readback.sha256==$h and .beta_readback.size==$z and
             .stable_unchanged==true and .main_unchanged==true and .authority.mode=="SERVICE_PRIMARY" and .authority.scope=="PRODUCTION" and .authority_change=="NONE"
           ' "$R" >/dev/null
 
-          JOBS=$(curl -fsS -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/jobs?per_page=100")
+          MAIN_FRESH=$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' \
+            "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/branches/main" | jq -r '.commit.sha')
+          test "$MAIN_FRESH" = "$(jq -r '.main_sha' "$R")"
+          test "$MAIN_FRESH" = "a8c0c0d92522c7173230d4175b4f0d3a4906c8bb"
+
+          JOBS=$(curl -fsS -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' \
+            "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/jobs?per_page=100")
           PDA_JOB_ID=$(jq -r '.jobs[] | select(.name=="pda-verify" and .conclusion=="success") | .id' <<<"$JOBS" | head -n1)
           test -n "$PDA_JOB_ID" -a "$PDA_JOB_ID" != null
-          mkdir -p /tmp/beta80-final
           NOW=$(TZ=Asia/Bangkok date '+%Y-%m-%dT%H:%M:%S%z')
           STAMP=$(TZ=Asia/Bangkok date '+%Y%m%d-%H%M%S')
-          ARCHIVE="docs/handovers/HANDOVER_${STAMP}_beta80-pass-live.md"
-          MAIN_SHA=$(jq -r '.main_sha' "$R")
+          ARCHIVE="docs/handovers/HANDOVER_${STAMP}_beta81-pass-live.md"
           AUTH_EPOCH=$(jq -r '.authority.authority_epoch' "$R")
           AUTH_GEN=$(jq -r '.authority.service_generation' "$R")
-          SID=$(jq -r '.session.session_id' "$R")
-          OLD_DATE=$(jq -r '.session.business_date' "$R")
 
-          jq --argjson run "$GITHUB_RUN_ID" --argjson job "$PDA_JOB_ID" --arg source "38d6f08aa63600f4ef09fd524428beccebc4bb6f" --arg finalized "$NOW" '. + {terminal_run_id:$run,pda_job_id:$job,source_sha:$source,finalized_at:$finalized,final_receipt:true}' "$R" > /tmp/beta80-final/pda-receipt.json
+          cat > ops/beta-release-request.json <<EOF
+{
+  "stage": "pass_live",
+  "mode": "PUBLISH_ONLY_EXACT_BYTES",
+  "version_name": "0.4.2-beta.81",
+  "version_code": 87,
+  "base_version": "0.4.2-beta.80",
+  "base_version_code": 86,
+  "source_sha": "$SOURCE_SHA",
+  "candidate_run_id": 33073351925,
+  "candidate_artifact_id": 9646920908,
+  "package": "vn.pickpack1291.app.beta.publicbeta",
+  "apk_sha256": "$APK_SHA",
+  "apk_size": $APK_SIZE,
+  "signer_sha256": "$EXPECTED_SIGNER",
+  "locked_run_id": 33073351925,
+  "locked_artifact_id": 9646920908,
+  "locked_sha256": "$APK_SHA",
+  "locked_size": $APK_SIZE,
+  "locked_signer_sha256": "$EXPECTED_SIGNER",
+  "service_run_id": 33073351925,
+  "service_artifact_id": 9646805806,
+  "final_visual_run_id": 33073351925,
+  "final_visual_artifact_id": 9647045177,
+  "final_visual_artifact_digest": "sha256:ca119c02e7e4133892b337245205bd3a06bd4635fd435f20a74ae7a1cb2d54b7",
+  "stable_publish": "FORBIDDEN",
+  "rebuild": false,
+  "resign": false,
+  "authority_change": "NONE",
+  "scope": "beta81-shift-reconciliation-qr-old-session-midnight-rollover",
+  "owner": "Nguyen Van Tam"
+}
+EOF
 
           cat > CURRENT_STATE.md <<EOF
-          # CURRENT STATE — PICK PACK 1291
+# CURRENT STATE — PICK PACK 1291
 
-          - updated_at: $NOW
-          - status: BETA80_PASS_LIVE
-          - continuity_branch: $BRANCH
-          - source_sha: 38d6f08aa63600f4ef09fd524428beccebc4bb6f
-          - workflow_head_sha: $GITHUB_SHA
-          - beta_live: 0.4.2-beta.80 (versionCode 86)
-          - candidate_artifact: 9629377960
-          - apk_sha256: $EXPECTED_SHA
-          - apk_size: $EXPECTED_SIZE
-          - signer_sha256: $EXPECTED_SIGNER
-          - terminal_run: $GITHUB_RUN_ID
-          - pda_job: $PDA_JOB_ID
-          - session_receipt: Vào ca UI -> mở đúng session_id $SID -> Sửa Ca 2 -> Bắn ra; final ENDED; NOT_FOUND=false
-          - beta_ota: exact Beta80 PASS
-          - stable: unchanged
-          - main_sha: $MAIN_SHA (unchanged)
-          - authority: SERVICE_PRIMARY / PRODUCTION / epoch $AUTH_EPOCH / generation $AUTH_GEN (unchanged)
-          - next_action: WAIT_FOR_OWNER_NEW_SCOPE
-          EOF
+- updated_at: $NOW
+- status: BETA81_PASS_LIVE
+- continuity_branch: $BRANCH
+- source_sha: $SOURCE_SHA
+- workflow_head_sha: $GITHUB_SHA
+- beta_live: 0.4.2-beta.81 (versionCode 87)
+- candidate_run: 33073351925
+- candidate_artifact: 9646920908
+- visual_artifact: 9647045177
+- service_artifact: 9646805806
+- apk_sha256: $APK_SHA
+- apk_size: $APK_SIZE
+- signer_sha256: $EXPECTED_SIGNER
+- terminal_run: $GITHUB_RUN_ID
+- pda_job: $PDA_JOB_ID
+- beta81_device_receipt: đối soát ENDED+exit_at; QR có rà soát; cảnh báo phiên cũ; rollover qua 24:00 giữ ACTIVE và không giải phóng PDA/User — PASS
+- beta_ota: exact Beta81 PASS
+- stable: unchanged
+- main_sha: $MAIN_FRESH (unchanged)
+- authority: SERVICE_PRIMARY / PRODUCTION / epoch $AUTH_EPOCH / generation $AUTH_GEN (unchanged)
+- next_action: WAIT_FOR_OWNER_NEW_SCOPE
+EOF
 
           mkdir -p docs/handovers
           cat > docs/handovers/HANDOVER_CURRENT.md <<EOF
-          # PICK PACK 1291 — HANDOFF SCHEMA V2
+# PICK PACK 1291 — HANDOFF SCHEMA V2
 
-          - schema_version: 2
-          - status: READY
-          - time: $NOW
-          - owner: Nguyễn Văn Tâm
-          - branch: $BRANCH
-          - working_head_sha: $GITHUB_SHA
-          - archive_file: $ARCHIVE
+- schema_version: 2
+- status: READY
+- time: $NOW
+- owner: Nguyễn Văn Tâm
+- branch: $BRANCH
+- working_head_sha: $GITHUB_SHA
+- archive_file: $ARCHIVE
 
-          ## Mục tiêu + DoD
-          Hoàn tất Beta80 bằng exact locked APK; OTA cài thật; FileProvider/PackageInstaller PASS; chuỗi Vào ca -> mở đúng session_id -> Sửa -> Bắn ra không NOT_FOUND; Stable/main/signer/authority không đổi; receipt terminal thật.
+## Mục tiêu + DoD
+Hoàn tất Beta81 bằng exact candidate 9646920908: OTA LIVE, hash/size/signer khớp, ba lỗi Beta81 PASS trên bản cài từ OTA; Stable/main/signer/authority không đổi.
 
-          ## LIVE / TARGET / CANDIDATE
-          - LIVE BETA: 0.4.2-beta.80 / versionCode 86.
-          - TARGET: PASS/LIVE hoàn tất.
-          - CANDIDATE LOCKED: artifact 9629377960; source 38d6f08aa63600f4ef09fd524428beccebc4bb6f; SHA256 $EXPECTED_SHA; size $EXPECTED_SIZE; signer $EXPECTED_SIGNER.
-          - Stable: unchanged.
-          - main: $MAIN_SHA unchanged.
-          - authority: SERVICE_PRIMARY / PRODUCTION / epoch $AUTH_EPOCH / generation $AUTH_GEN unchanged.
+## LIVE / TARGET / CANDIDATE
+- LIVE BETA: 0.4.2-beta.81 / versionCode 87.
+- TARGET: PASS/LIVE hoàn tất.
+- CANDIDATE LOCKED: run 33073351925; artifact 9646920908; source $SOURCE_SHA; SHA256 $APK_SHA; size $APK_SIZE; signer $EXPECTED_SIGNER.
+- Visual: artifact 9647045177 PASS.
+- Service evidence: artifact 9646805806 PASS.
+- Stable: unchanged.
+- main: $MAIN_FRESH unchanged.
+- authority: SERVICE_PRIMARY / PRODUCTION / epoch $AUTH_EPOCH / generation $AUTH_GEN unchanged.
 
-          ## Evidence / locked identity
-          - Terminal workflow run: $GITHUB_RUN_ID.
-          - pda-verify job: $PDA_JOB_ID SUCCESS.
-          - Exact OTA download + Android PackageInstaller + FileProvider self-update: PASS.
-          - Historical session: business_date $OLD_DATE; exact session_id $SID; edit + exit; final D1 state ENDED; NOT_FOUND=false; wrong_session=false.
-          - Final receipt artifact: beta80-final-$GITHUB_RUN_ID / pda-receipt.json.
+## Evidence / locked identity
+- Terminal workflow run: $GITHUB_RUN_ID.
+- pda-verify job: $PDA_JOB_ID SUCCESS.
+- Exact OTA from Beta80 -> Beta81 + Android PackageInstaller: PASS.
+- Installed base APK SHA/size/signer equals exact candidate: PASS.
+- Rà soát chỉ tính RA khi ENDED + exit_at, Ca 2 1/0 cảnh báo: PASS.
+- QR nhân viên có rà soát ngày hiện tại + cảnh báo phiên cũ: PASS.
+- Qua 24:00 giữ prior-day ACTIVE và khóa PDA/User không giải phóng nhầm: PASS.
+- Final receipt artifact: beta81-final-$GITHUB_RUN_ID.
 
-          ## File / commit đã đổi
-          - .github/workflows/beta-release.yml: fixture dùng live Service challenge/login; finalize needs pda-verify.
-          - CURRENT_STATE.md và handoff canonical/archive do finalize sinh sau PASS.
+## File / commit đã đổi
+- .github/workflows/beta-release.yml: Beta81 exact publish/device gates + always() TXT finalizer.
+- ops/beta-release-request.json, CURRENT_STATE.md và handoff canonical/archive do finalize cập nhật.
+- Không rebuild/resign candidate Beta81.
 
-          ## Lỗi + root cause + đường PASS / cấm lặp
-          - Run 33045490625 / job 98428394466: ATTENDANCE_ENTER_V2_FAILED:401:SERVICE_SESSION_UNAVAILABLE.
-          - Root cause: fixture tự ký bearer bằng secret suy diễn không phải live Service token; APK không lỗi.
-          - PASS: tạo verifier hợp lệ, gọi live /v1/auth/challenge + /v1/auth/login để nhận bearer thật; giữ exact Beta80.
-          - Cấm lặp: không tự suy diễn SERVICE_TOKEN_SECRET; không rebuild/resign APK để sửa lỗi harness auth.
+## Lỗi + root cause + đường PASS / cấm lặp
+- NONE — release Beta81 đi đúng exact candidate/gates đã khóa.
+- Cấm lặp candidate/visual/service run 33073351925 khi source/artifact không đổi.
 
-          ## Workspace / CI / external state
-          - Exact APK/build/visual/Service/publish bytes không đổi.
-          - Beta OTA readback PASS; Stable/main/authority unchanged.
-          - Fixture D1 được cleanup sau gate.
+## Workspace / CI / external state
+- Beta81 OTA readback PASS; Stable/main/authority unchanged.
+- Exact candidate bytes giữ nguyên từ artifact 9646920908.
 
-          ## Việc còn lại
-          Không còn việc trong scope Beta80.
+## Việc còn lại
+Không còn việc trong scope Beta81.
 
-          ## Blocker / quyền
-          Không có blocker OWNER.
+## Blocker / quyền
+Không có blocker OWNER.
 
-          ## Invariants
-          Không đổi Stable/main/signer/authority; publish dùng exact bytes; không thêm backend/provider/authority.
+## Invariants
+Không đổi Stable/main/signer/authority; không rebuild/resign exact candidate; không thêm backend/provider/authority.
 
-          ## NEXT_ACTION
-          WAIT_FOR_OWNER_NEW_SCOPE
-          EOF
+## NEXT_ACTION
+WAIT_FOR_OWNER_NEW_SCOPE
+EOF
           cp docs/handovers/HANDOVER_CURRENT.md "$ARCHIVE"
-
           mapfile -t OLD_ARCHIVES < <(find docs/handovers -maxdepth 1 -type f -name 'HANDOVER_20????????-??????_*.md' | sort)
           if (( ${#OLD_ARCHIVES[@]} > 5 )); then
             for f in "${OLD_ARCHIVES[@]:0:${#OLD_ARCHIVES[@]}-5}"; do rm -f "$f"; done
@@ -490,24 +851,137 @@ jobs:
 
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add CURRENT_STATE.md docs/handovers
-          git diff --cached --quiet && { echo 'FINALIZE_STATE_NOT_CHANGED'; exit 1; }
-          git commit -m '[skip ci] finalize Beta80 PASS/LIVE'
+          git add ops/beta-release-request.json CURRENT_STATE.md docs/handovers
+          git diff --cached --quiet && { echo FINALIZE_STATE_NOT_CHANGED; exit 1; }
+          git commit -m '[skip ci] finalize Beta81 PASS/LIVE'
           FINAL_COMMIT=$(git rev-parse HEAD)
           git push origin "HEAD:$BRANCH"
           git fetch origin "$BRANCH" --quiet
           test "$(git rev-parse origin/$BRANCH)" = "$FINAL_COMMIT"
-          test "$(git show origin/$BRANCH:docs/handovers/HANDOVER_CURRENT.md | sha256sum | awk '{print $1}')" = "$(sha256sum docs/handovers/HANDOVER_CURRENT.md | awk '{print $1}')"
-          test "$(git show origin/$BRANCH:$ARCHIVE | sha256sum | awk '{print $1}')" = "$(sha256sum "$ARCHIVE" | awk '{print $1}')"
-          jq --arg commit "$FINAL_COMMIT" '. + {handoff_commit_sha:$commit,readback:true}' /tmp/beta80-final/pda-receipt.json > /tmp/beta80-final/pda-receipt.final.json
-          mv /tmp/beta80-final/pda-receipt.final.json /tmp/beta80-final/pda-receipt.json
-          jq -e '.status=="PASS" and .final_receipt==true and .readback==true and (.handoff_commit_sha|length)==40' /tmp/beta80-final/pda-receipt.json >/dev/null
-          cat /tmp/beta80-final/pda-receipt.json
+          test "$(git show origin/$BRANCH:CURRENT_STATE.md | grep -c 'BETA81_PASS_LIVE')" = 1
+          test "$(git show origin/$BRANCH:docs/handovers/HANDOVER_CURRENT.md | grep -c 'status: READY')" = 1
 
-      - name: Upload final Beta80 receipt
+          mkdir -p /tmp/beta81-final
+          jq --argjson run "$GITHUB_RUN_ID" --argjson job "$PDA_JOB_ID" --arg source "$SOURCE_SHA" --arg commit "$FINAL_COMMIT" --arg finalized "$NOW" \
+            '. + {terminal_run_id:$run,pda_job_id:$job,source_sha:$source,handoff_commit_sha:$commit,finalized_at:$finalized,final_receipt:true,readback:true}' \
+            "$R" > /tmp/beta81-final/receipt.json
+          jq -e '.status=="PASS" and .final_receipt==true and .readback==true and (.handoff_commit_sha|length)==40' /tmp/beta81-final/receipt.json >/dev/null
+          cat /tmp/beta81-final/receipt.json
+
+      - name: Upload final Beta81 receipt
         uses: actions/upload-artifact@v4
         with:
-          name: beta80-final-${{ github.run_id }}
-          path: /tmp/beta80-final/pda-receipt.json
+          name: beta81-final-${{ github.run_id }}
+          path: /tmp/beta81-final/receipt.json
+          retention-days: 90
+          if-no-files-found: error
+
+  handoff-finalizer:
+    needs: [publish, pda-verify, finalize]
+    if: ${{ always() }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+      BRANCH: feature/beta78-old-session-outbound-service-20260826
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download locked candidate metadata
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.CANDIDATE_ARTIFACT_NAME }}
+          path: /tmp/beta81-handoff-candidate
+          github-token: ${{ github.token }}
+          repository: tam95supra-source/pick-pack-1291
+          run-id: 33073351925
+
+      - name: Create deterministic TXT handoff
+        shell: bash
+        env:
+          PUBLISH_RESULT: ${{ needs.publish.result }}
+          PDA_RESULT: ${{ needs.pda-verify.result }}
+          FINALIZE_RESULT: ${{ needs.finalize.result }}
+        run: |
+          set -uo pipefail
+          OUT="/tmp/PICK_PACK_1291_HANDOFF_$GITHUB_RUN_ID.txt"
+          META=/tmp/beta81-handoff-candidate/release-meta.json
+          APK_SHA="UNKNOWN"; APK_SIZE="UNKNOWN"; SIGNER="$EXPECTED_SIGNER"
+          if [[ -f "$META" ]]; then
+            APK_SHA=$(jq -r '.apk_sha256 // "UNKNOWN"' "$META")
+            APK_SIZE=$(jq -r '.apk_size // "UNKNOWN"' "$META")
+            SIGNER=$(jq -r '.signer_sha256 // "'"$EXPECTED_SIGNER"'"' "$META")
+          fi
+          JOBS=$(curl -fsS -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' \
+            "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/jobs?per_page=100" 2>/dev/null || echo '{"jobs":[]}')
+          ARTS=$(curl -fsS -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' \
+            "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/artifacts?per_page=100" 2>/dev/null || echo '{"artifacts":[]}')
+          FIRST_ERROR="NONE"
+          FAIL_JOB=$(jq -r '.jobs[] | select(.conclusion=="failure") | .id' <<<"$JOBS" | head -n1)
+          if [[ -n "$FAIL_JOB" ]]; then
+            curl -fsSL -H "Authorization: Bearer $GH_TOKEN" "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/jobs/$FAIL_JOB/logs" > /tmp/fail.log 2>/dev/null || true
+            FIRST_ERROR=$(grep -m1 -E '##\[error\]|FAILED|FAILURE|ERROR:' /tmp/fail.log | sed -E 's/^.{0,90}//' | head -c 500)
+            [[ -n "$FIRST_ERROR" ]] || FIRST_ERROR="JOB_$FAIL_JOB_FAILED"
+          elif [[ "$PUBLISH_RESULT" == "cancelled" || "$PDA_RESULT" == "cancelled" || "$FINALIZE_RESULT" == "cancelled" ]]; then
+            FIRST_ERROR="WORKFLOW_CANCELLED"
+          fi
+
+          if [[ "$FINALIZE_RESULT" == "success" ]]; then
+            NEXT_ACTION="WAIT_FOR_OWNER_NEW_SCOPE"
+          elif [[ "$PUBLISH_RESULT" != "success" ]]; then
+            NEXT_ACTION="FIX_PUBLISH_FAILURE_AND_RERUN_RELEASE_WORKFLOW_USING_EXACT_CANDIDATE_9646920908"
+          elif [[ "$PDA_RESULT" != "success" ]]; then
+            NEXT_ACTION="FIX_PDA_VERIFY_FAILURE_DOMAIN_AND_RERUN_WITHOUT_REBUILDING_OR_RESIGNING_CANDIDATE_9646920908"
+          else
+            NEXT_ACTION="FIX_FINALIZE_STATE_HANDOFF_FAILURE_WITHOUT_RERUNNING_PASSED_PUBLISH_OR_PDA_GATES"
+          fi
+
+          git fetch origin "$BRANCH" --quiet >/dev/null 2>&1 || true
+          LIVE="UNKNOWN"
+          if git show "origin/$BRANCH:CURRENT_STATE.md" >/tmp/current-live.txt 2>/dev/null; then
+            LIVE=$(grep -m1 '^- beta_live:' /tmp/current-live.txt | sed 's/^- beta_live:[[:space:]]*//')
+          fi
+          FORBIDDEN="candidate:PASS_NO_RERUN; visual:PASS_NO_RERUN; service-live:PASS_NO_RERUN"
+          [[ "$PUBLISH_RESULT" == "success" ]] && FORBIDDEN="$FORBIDDEN; publish:PASS_NO_RERUN"
+          [[ "$PDA_RESULT" == "success" ]] && FORBIDDEN="$FORBIDDEN; pda-verify:PASS_NO_RERUN"
+
+          {
+            echo "PICK PACK 1291 — AUTOMATED HANDOFF"
+            echo "project_id=PICK_PACK_1291"
+            echo "owner=Nguyễn Văn Tâm"
+            echo "repo=$GITHUB_REPOSITORY"
+            echo "run=$GITHUB_RUN_ID"
+            echo "branch=$GITHUB_REF_NAME"
+            echo "workflow_commit=$GITHUB_SHA"
+            echo "source_sha=$SOURCE_SHA"
+            echo "candidate_run=33073351925"
+            echo "candidate_artifact_id=9646920908"
+            echo "visual_artifact_id=9647045177"
+            echo "service_artifact_id=9646805806"
+            echo "apk_sha256=$APK_SHA"
+            echo "apk_size=$APK_SIZE"
+            echo "signer_sha256=$SIGNER"
+            echo "live=$LIVE"
+            echo "gate_publish=$PUBLISH_RESULT"
+            echo "gate_pda_verify=$PDA_RESULT"
+            echo "gate_finalize=$FINALIZE_RESULT"
+            echo "jobs=$(jq -c '[.jobs[]|{id,name,status,conclusion}]' <<<"$JOBS")"
+            echo "run_artifacts=$(jq -c '[.artifacts[]|{id,name,size_in_bytes,digest}]' <<<"$ARTS")"
+            echo "first_root_error=$FIRST_ERROR"
+            echo "forbidden_rerun_gates=$FORBIDDEN"
+            echo "NEXT_ACTION=$NEXT_ACTION"
+          } > "$OUT"
+          test "$(grep -c '^NEXT_ACTION=' "$OUT")" = 1
+          cat "$OUT"
+
+      - name: Upload automatic TXT handoff
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: PICK_PACK_1291_HANDOFF_${{ github.run_id }}
+          path: /tmp/PICK_PACK_1291_HANDOFF_${{ github.run_id }}.txt
           retention-days: 90
           if-no-files-found: error
