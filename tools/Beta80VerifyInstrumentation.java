@@ -66,6 +66,19 @@ public final class Beta80VerifyInstrumentation extends Instrumentation {
       .commit();
   }
 
+  // The fixture has no GAS bearer. Background legacy reads may receive 401 and BetaApiClient.clearSession()
+  // removes the Service bearer. Keep re-applying only the exact live Service bearer minted by the host.
+  private Thread startServiceBearerGuard(){
+    Thread t=new Thread(()->{
+      while(!Thread.currentThread().isInterrupted()){
+        try{seedService();Thread.sleep(100L);}
+        catch(InterruptedException e){Thread.currentThread().interrupt();break;}
+        catch(Throwable ignored){}
+      }
+    },"beta80-service-bearer-guard");
+    t.setDaemon(true);t.start();return t;
+  }
+
   private Activity open(String module){
     Intent i=new Intent();
     i.setClassName(target,ACT);
@@ -299,29 +312,34 @@ public final class Beta80VerifyInstrumentation extends Instrumentation {
 
   private void enter(){
     String mnv=req("mnv");
-    IllegalStateException last=null;
-    for(int attempt=0;attempt<3;attempt++){
-      seedAuth();seedService();open("BUSINESS");
-      clickText("Quét QR nhân sự",true,15000);
-      seedService();
-      setEmployee(mnv);
-      seedService();
-      try{
-        clickTextScrolling("VÀO CA",true,20000);
-        mark("enter_ui_clicked",true);
-        SystemClock.sleep(5000);
-        ok("ENTER_UI_CLICKED");
-        return;
-      }catch(IllegalStateException e){
-        if(e.getMessage()==null||!e.getMessage().startsWith("TEXT_NOT_FOUND_AFTER_SCROLL:VÀO CA"))throw e;
-        last=e;
-        SystemClock.sleep(1500);
+    Thread bearerGuard=startServiceBearerGuard();
+    try{
+      IllegalStateException last=null;
+      for(int attempt=0;attempt<3;attempt++){
+        seedAuth();seedService();open("BUSINESS");
+        clickText("Quét QR nhân sự",true,15000);
+        seedService();
+        setEmployee(mnv);
+        seedService();
+        try{
+          clickTextScrolling("VÀO CA",true,20000);
+          mark("enter_ui_clicked",true);
+          SystemClock.sleep(5000);
+          ok("ENTER_UI_CLICKED");
+          return;
+        }catch(IllegalStateException e){
+          if(e.getMessage()==null||!e.getMessage().startsWith("TEXT_NOT_FOUND_AFTER_SCROLL:VÀO CA"))throw e;
+          last=e;
+          SystemClock.sleep(1500);
+        }
       }
-    }
-    throw last==null?new IllegalStateException("ENTER_UI_RETRY_EXHAUSTED"):last;
+      throw last==null?new IllegalStateException("ENTER_UI_RETRY_EXHAUSTED"):last;
+    }finally{bearerGuard.interrupt();}
   }
 
   private void historical(){
+    Thread bearerGuard=startServiceBearerGuard();
+    try{
     seedAuth();seedService();open("BUSINESS");
     String mnv=req("mnv");
     clickText("CẢNH BÁO:  CHƯA KẾT THÚC PHIÊN CÁC NGÀY CŨ.",false,20000);
@@ -350,5 +368,6 @@ public final class Beta80VerifyInstrumentation extends Instrumentation {
     mark("historical_exit_clicked",true);
     SystemClock.sleep(5000);
     ok("HISTORICAL_EDIT_EXIT_CLICKED");
+    }finally{bearerGuard.interrupt();}
   }
 }
