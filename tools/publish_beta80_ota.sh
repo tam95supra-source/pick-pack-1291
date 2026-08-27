@@ -15,7 +15,7 @@ EXPECTED_SIZE=13196221
 EXPECTED_SIGNER=d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
 PREV_VERSION=0.4.2-beta.79
 PREV_CODE=85
-PREV_SHA=1210bf57ff3bb48a723aa40d2efc8ec922c5e632e4c1d9928bf4dbe843654a69
+PREV_SHA=547e1242a7d0bb057332ce38c46313771da33235fc0e384a908c14207e26e056
 PREV_SIZE=13196165
 BETA_FOLDER_ID=1WMXI-8-Z1mbY2v11noYFHe_eoMNiNZXg
 APK_NAME=pick-pack-1291-public-beta-0.4.2-beta.80.apk
@@ -74,9 +74,9 @@ read_update_check BETA 0.4.2-beta.79 "$E/beta-before.json"
 read_update_check STABLE 0.1.0-stable "$E/stable-before.json"
 jq -e '.ok==true' "$E/stable-before.json" >/dev/null
 jq -e --arg h "$PREV_SHA" --arg th "$EXPECTED_SHA" \
-  '(.version_name=="0.4.2-beta.79" and (.version_code//86)==85 and ((.sha256//"")==$h or .available==false)) or (.version_name=="0.4.2-beta.80" and (.version_code//86)==86 and ((.sha256//"")==$th or .available==false))' "$E/beta-before.json" >/dev/null
+  '(.version_name=="0.4.2-beta.79" and (.version_code//85)==85 and ((.sha256//"")==$h or .available==false)) or (.version_name=="0.4.2-beta.80" and (.version_code//86)==86 and ((.sha256//"")==$th or .available==false))' "$E/beta-before.json" >/dev/null
 
-# Idempotent terminal path: Beta79 may already be LIVE from the exact locked bytes.
+# Idempotent terminal path: Beta80 may already be LIVE from the exact locked bytes.
 # In that case, do not touch Drive/GAS again; prove the public OTA bytes and invariants only.
 if jq -e --arg h "$EXPECTED_SHA" --argjson z "$EXPECTED_SIZE" \
     '.ok==true and .channel=="BETA" and .available==true and .version_name=="0.4.2-beta.80" and .sha256==$h and .size==$z and ((.apk_url//"")|length)>0' \
@@ -120,13 +120,27 @@ PY
     '.ok==true and .authority.mode==$b[0].authority.mode and .authority.scope==$b[0].authority.scope and .authority.authority_epoch==$b[0].authority.authority_epoch and .authority.service_generation==$b[0].authority.service_generation' \
     "$E/authority-after.json" >/dev/null
 
+  IDEM_TOKEN_JSON=$(curl -fsS --connect-timeout 15 --max-time 30 https://oauth2.googleapis.com/token \
+    -H 'Content-Type: application/x-www-form-urlencoded' \
+    --data-urlencode "client_id=$GOOGLE_OAUTH_CLIENT_ID" \
+    --data-urlencode "client_secret=$GOOGLE_OAUTH_CLIENT_SECRET" \
+    --data-urlencode "refresh_token=$GOOGLE_OAUTH_REFRESH_TOKEN" \
+    --data-urlencode grant_type=refresh_token)
+  IDEM_ACCESS_TOKEN=$(jq -r '.access_token // empty' <<<"$IDEM_TOKEN_JSON")
+  test -n "$IDEM_ACCESS_TOKEN"
+  echo "::add-mask::$IDEM_ACCESS_TOKEN"
+  curl -fsS --connect-timeout 15 --max-time 30 -H "Authorization: Bearer $IDEM_ACCESS_TOKEN" \
+    "https://script.googleapis.com/v1/projects/$SCRIPT_ID/deployments/$DEPLOYMENT_ID" > "$E/deployment-after.json"
+  IDEM_GAS_VERSION=$(jq -r '.deploymentConfig.versionNumber // 0' "$E/deployment-after.json")
+  test "$IDEM_GAS_VERSION" -gt 0
+
   jq -n \
     --arg source_sha "$SOURCE_SHA" --arg version "$TARGET_VERSION" --argjson code "$TARGET_CODE" \
     --arg package "$PACKAGE" --arg apk_sha256 "$EXPECTED_SHA" --argjson apk_size "$EXPECTED_SIZE" --arg signer "$EXPECTED_SIGNER" \
     --argjson candidate_run "$CANDIDATE_RUN" --argjson candidate_artifact "$CANDIDATE_ARTIFACT" --argjson visual_artifact "$VISUAL_ARTIFACT" \
-    --arg file_id "$FILE_ID" --arg apk_url "$APK_URL" --arg main "$MAIN_AFTER" \
+    --arg file_id "$FILE_ID" --arg apk_url "$APK_URL" --arg main "$MAIN_AFTER" --argjson gas_version "$IDEM_GAS_VERSION" \
     --slurpfile beta "$E/beta-after.json" --slurpfile stable "$E/stable-after.json" --slurpfile auth "$E/authority-after.json" \
-    '{status:"PASS",publish_mode:"REUSED_ALREADY_LIVE_EXACT",channel:"BETA",version_name:$version,version_code:$code,package:$package,source_sha:$source_sha,candidate_run:$candidate_run,candidate_artifact:$candidate_artifact,visual_artifact:$visual_artifact,apk_sha256:$apk_sha256,apk_size:$apk_size,signer_sha256:$signer,drive_file_id:$file_id,apk_url:$apk_url,ota_exact_bytes:true,apps_script_version:196,apps_script_version_evidence:"FRESH_DEPLOYMENT_READBACK_ATTEMPT2",gas_code_changed:false,beta_readback:$beta[0],stable_readback:$stable[0],stable_unchanged:true,main_sha:$main,main_unchanged:true,authority:$auth[0].authority,authority_change:"NONE",service_run:33028423645,service_artifact:9629315986,session_v2_gate:"ENTER_SNAPSHOT_MUTATE_EXIT_PASS",historical_result:"3/3_SERVICE_D1_EXACT",outbound_result:"CRUD_DUP_GSHEET_PASS",visual_human_inspection:"PASS",visual_matrix:"320x568,360x640,480x800"}' > "$E/receipt.json"
+    '{status:"PASS",publish_mode:"REUSED_ALREADY_LIVE_EXACT",channel:"BETA",version_name:$version,version_code:$code,package:$package,source_sha:$source_sha,candidate_run:$candidate_run,candidate_artifact:$candidate_artifact,visual_artifact:$visual_artifact,apk_sha256:$apk_sha256,apk_size:$apk_size,signer_sha256:$signer,drive_file_id:$file_id,apk_url:$apk_url,ota_exact_bytes:true,apps_script_version:$gas_version,apps_script_version_evidence:"FRESH_DEPLOYMENT_READBACK",gas_code_changed:false,beta_readback:$beta[0],stable_readback:$stable[0],stable_unchanged:true,main_sha:$main,main_unchanged:true,authority:$auth[0].authority,authority_change:"NONE",service_run:33028423645,service_artifact:9629315986,session_v2_gate:"ENTER_SNAPSHOT_MUTATE_EXIT_PASS",historical_result:"3/3_SERVICE_D1_EXACT",outbound_result:"CRUD_DUP_GSHEET_PASS",visual_human_inspection:"PASS",visual_matrix:"320x568,360x640,480x800"}' > "$E/receipt.json"
   echo 'BETA80_OTA_PUBLISH_PASS'
   cat "$E/receipt.json"
   exit 0
@@ -200,7 +214,7 @@ if [[ -z "$FILE_ID" ]]; then
 fi
 
 echo "::add-mask::$FILE_ID"
-DESC="Beta79 exact OTA; SHA256 $EXPECTED_SHA; candidate run $CANDIDATE_RUN; artifact $CANDIDATE_ARTIFACT; signer $EXPECTED_SIGNER"
+DESC="Beta80 exact OTA; SHA256 $EXPECTED_SHA; candidate run $CANDIDATE_RUN; artifact $CANDIDATE_ARTIFACT; signer $EXPECTED_SIGNER"
 jq -nc --arg d "$DESC" '{description:$d}' > "$E/drive-meta.json"
 curl -fsS --connect-timeout 15 --max-time 30 -X PATCH -H "Authorization: Bearer $ACCESS_TOKEN" -H 'Content-Type: application/json' \
   --data-binary @"$E/drive-meta.json" "https://www.googleapis.com/drive/v3/files/$FILE_ID?fields=id,name,size,description" > "$E/drive-meta-out.json"
@@ -254,7 +268,7 @@ f=next((x for x in files if x.get('name')=='PICK_PACK_API'),None)
 assert f and f.get('source'),'PICK_PACK_API missing'
 s=f['source']
 route="    if (action === 'update_check') return ppJson_(ppBeta80UpdateCheck1210bf57_(body));"
-helper=f'''\n// BETA80_EXACT_OTA_547E1242: exact locked candidate; Stable remains delegated to pre-existing ppUpdateCheck_.\nfunction ppBeta80UpdateCheck1210bf57_(body) {{\n  const channel=ppFold_(body.channel||body._app_channel)==='STABLE'?'STABLE':'BETA';\n  if(channel==='STABLE') return ppUpdateCheck_(body);\n  const current=String(body.current_version||body._app_version||'').trim();\n  const version='0.4.2-beta.80', available=ppOtaCompare_(version,current)>0;\n  const out={{ok:true,source:'DRIVE_BETA',channel:'BETA',available:available,version_name:version,version_code:86,size:13196221,published_at:{json.dumps(published_at)},notes:'Sửa NOT_FOUND phiên cũ và Vào/Ra bằng Service v2; OTA tải xong tự mở trình cài Android bằng FileProvider; Stable và authority không đổi.',mandatory:false}};\n  if(!available) return out;\n  out.sha256='1210bf57ff3bb48a723aa40d2efc8ec922c5e632e4c1d9928bf4dbe843654a69';\n  out.apk_url={json.dumps(apk_url)};\n  return out;\n}}\n'''
+helper=f'''\n// BETA80_EXACT_OTA_1210BF57: exact locked candidate; Stable remains delegated to pre-existing ppUpdateCheck_.\nfunction ppBeta80UpdateCheck1210bf57_(body) {{\n  const channel=ppFold_(body.channel||body._app_channel)==='STABLE'?'STABLE':'BETA';\n  if(channel==='STABLE') return ppUpdateCheck_(body);\n  const current=String(body.current_version||body._app_version||'').trim();\n  const version='0.4.2-beta.80', available=ppOtaCompare_(version,current)>0;\n  const out={{ok:true,source:'DRIVE_BETA',channel:'BETA',available:available,version_name:version,version_code:86,size:13196221,published_at:{json.dumps(published_at)},notes:'Sửa NOT_FOUND phiên cũ và Vào/Ra bằng Service v2; OTA tải xong tự mở trình cài Android bằng FileProvider; Stable và authority không đổi.',mandatory:false}};\n  if(!available) return out;\n  out.sha256='1210bf57ff3bb48a723aa40d2efc8ec922c5e632e4c1d9928bf4dbe843654a69';\n  out.apk_url={json.dumps(apk_url)};\n  return out;\n}}\n'''
 lines=s.splitlines()
 idx=[i for i,line in enumerate(lines) if "if (action === 'update_check')" in line]
 assert len(idx)==1,f'update_check route count={len(idx)}'
@@ -298,11 +312,11 @@ if [[ "$BEFORE_HASH" != "$TARGET_HASH" ]]; then
     --data-binary @"$E/gas-target.json" "$API/content" > "$E/gas-put.json"
   MUTATED=1
   curl -fsS --connect-timeout 15 --max-time 30 -X POST -H "Authorization: Bearer $ACCESS_TOKEN" -H 'Content-Type: application/json' \
-    -d '{"description":"Beta79 exact OTA: old session full QR actions"}' "$API/versions" > "$E/gas-version.json"
+    -d '{"description":"Beta80 exact OTA: session v2 + direct installer"}' "$API/versions" > "$E/gas-version.json"
   GAS_VERSION_AFTER=$(jq -r '.versionNumber // 0' "$E/gas-version.json")
   test "$GAS_VERSION_AFTER" -gt 0
   jq -nc --arg sid "$SCRIPT_ID" --argjson v "$GAS_VERSION_AFTER" \
-    '{deploymentConfig:{scriptId:$sid,versionNumber:$v,manifestFileName:"appsscript",description:"Beta79 exact OTA"}}' > "$E/gas-deploy-put.json"
+    '{deploymentConfig:{scriptId:$sid,versionNumber:$v,manifestFileName:"appsscript",description:"Beta80 exact OTA"}}' > "$E/gas-deploy-put.json"
   curl -fsS --connect-timeout 15 --max-time 30 -X PUT -H "Authorization: Bearer $ACCESS_TOKEN" -H 'Content-Type: application/json' \
     --data-binary @"$E/gas-deploy-put.json" "$API/deployments/$DEPLOYMENT_ID" > "$E/gas-deploy.json"
   GAS_CHANGED=true
@@ -312,7 +326,7 @@ PASS=0
 for i in $(seq 1 15); do
   read_update_check BETA 0.4.2-beta.79 "$E/beta-after.json" || true
   if jq -e --arg h "$EXPECTED_SHA" --arg u "$APK_URL" --argjson z "$EXPECTED_SIZE" \
-      '.ok==true and .channel=="BETA" and .available==true and .version_name=="0.4.2-beta.80" and ((.version_code//86)==85) and .sha256==$h and .size==$z and .apk_url==$u' "$E/beta-after.json" >/dev/null 2>&1; then PASS=1; break; fi
+      '.ok==true and .channel=="BETA" and .available==true and .version_name=="0.4.2-beta.80" and ((.version_code//86)==86) and .sha256==$h and .size==$z and .apk_url==$u' "$E/beta-after.json" >/dev/null 2>&1; then PASS=1; break; fi
   sleep 3
 done
 test "$PASS" = 1
