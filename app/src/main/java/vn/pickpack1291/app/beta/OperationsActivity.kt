@@ -240,14 +240,19 @@ class OperationsActivity : Activity() {
 
     // S61_BETA60_SHIFT_RECONCILIATION_ACTIONS: exact counts + direct employee RA entry.
     private fun addBusinessShiftReconciliation(body:LinearLayout){
-        val day=operationalStore.loadDay(operationalStore.businessDate())?:return
+        val currentDate=operationalStore.businessDate()
+        body.addView(txt("RÀ SOÁT VÀO / RA • ${dateVi(currentDate)}",9.4f,navy,true).apply{setPadding(dp(2),0,dp(2),dp(3))})
+        val day=operationalStore.loadDay(currentDate)
+        if(day==null){body.addView(info("Đang đồng bộ dữ liệu ngày ${dateVi(currentDate)}…"));body.addView(gap(4));return}
         val sessions=day.optJSONArray("sessions")?:JSONArray()
         val byShift=linkedMapOf<String,MutableList<JSONObject>>("Ca 1" to mutableListOf(),"Ca HC" to mutableListOf(),"Ca 2" to mutableListOf())
         for(i in 0 until sessions.length()){val ses=sessions.optJSONObject(i)?:continue;val shift=ses.optString("shift").trim();if(shift in byShift.keys)byShift.getValue(shift).add(JSONObject(ses.toString()))}
         val bar=row(bg).apply{gravity=Gravity.CENTER_VERTICAL}
         byShift.forEach{(shift,raw)->
             val rows=raw.distinctBy{it.optString("session_id").ifBlank{"${it.optString("mnv")}|${it.optString("enter_at")}"}}
-            val entered=rows.filter{dash(it.optString("enter_at"))!="—"};val exited=entered.filter{dash(it.optString("exit_at"))!="—"};val pending=entered.filter{dash(it.optString("exit_at"))=="—"}
+            val entered=rows.filter{dash(it.optString("enter_at"))!="—"}
+            val exited=entered.filter{it.optString("state").equals("ENDED",true)&&dash(it.optString("exit_at"))!="—"}
+            val pending=entered.filterNot{it.optString("state").equals("ENDED",true)&&dash(it.optString("exit_at"))!="—"}
             val button=reconciliationButton("$shift – ${entered.size}/${exited.size}",entered.size==exited.size)
             if(entered.size!=exited.size){button.contentDescription="Cảnh báo đối soát $shift chưa khớp: vào ${entered.size}, ra ${exited.size}";button.startAnimation(android.view.animation.AlphaAnimation(1f,0.28f).apply{duration=650L;repeatMode=android.view.animation.Animation.REVERSE;repeatCount=android.view.animation.Animation.INFINITE})}
             button.setOnClickListener{
@@ -268,10 +273,22 @@ class OperationsActivity : Activity() {
         body.addView(bar,matchWrap());body.addView(gap(4))
     }
 
+    private fun addScannedOldSessionWarning(body:LinearLayout,ctx:JSONObject){
+        val s=ctx.optJSONObject("session")?:return
+        val sessionDate=s.optString("business_date").trim()
+        val currentDate=operationalStore.businessDate()
+        if(!ctx.optString("state").equals("ACTIVE",true)||sessionDate.isBlank()||sessionDate>=currentDate)return
+        val warning=status("CẢNH BÁO: PHIÊN CA CŨ ${dateVi(sessionDate)} CHƯA BẮN RA / ĐÓNG PHIÊN",red,Color.rgb(255,238,239))
+        warning.startAnimation(android.view.animation.AlphaAnimation(1f,0.35f).apply{duration=650L;repeatMode=android.view.animation.Animation.REVERSE;repeatCount=android.view.animation.Animation.INFINITE})
+        body.addView(warning,matchWrap());body.addView(gap(5))
+    }
+
     private fun employeeScan() {
         screenState = "SCAN"; liveEmployeeMnv = ""
         val root=column(bg);root.addView(appBar("QUÉT QR NHÂN SỰ"))
         val body=column(bg).apply{setPadding(dp(10),dp(8),dp(10),dp(84))}
+        body.addView(OldSessionWarningFeature.build(this,api){raw->openHistoricalSession(raw)},matchWrap())
+        addBusinessShiftReconciliation(body)
         val mnv=mnvInput("Scan / Nhập mã nhân viên")
         body.addView(mnv,matchWrap());body.addView(gap(4))
         var busy=false
@@ -399,6 +416,7 @@ class OperationsActivity : Activity() {
         screenState="EMPLOYEE"
         val e=ctx.optJSONObject("employee")?:JSONObject();val state=ctx.optString("state");val currentMnv=e.optString("mnv");liveEmployeeMnv=currentMnv;lastEmployeeRenderSignature=employeeRenderSignature(ctx,masters)
         val root=column(bg);root.addView(appBar("QUÉT QR NHÂN SỰ"));val body=column(bg).apply{setPadding(dp(12),dp(8),dp(12),dp(58))}
+        addScannedOldSessionWarning(body,ctx)
         val scan=mnvInput("Scan / Nhập mã nhân viên").apply{setText("")};body.addView(scan,matchWrap());body.addView(gap(5));body.addView(employeeCard(e,state));body.addView(gap(7))
         var busy=false;fun submit(){val v=scan.text.toString().trim();if(v.isBlank()){TopNotice.show(this,"Nhập hoặc quét mã nhân viên.",TopNotice.Kind.WARNING);return};if(busy)return;busy=true;loadEmployee(v);scan.postDelayed({busy=false},600)};bindScannerEnter(scan){submit()}
         val ses=ctx.optJSONObject("session");val sessionId=ses?.optString("session_id").orEmpty().trim()
