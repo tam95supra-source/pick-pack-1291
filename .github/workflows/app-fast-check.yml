@@ -5,6 +5,7 @@ on:
     branches:
       - 'feature/**'
       - 'agent/**'
+      - 'release/**'
     paths:
       - app/**
       - .github/workflows/app-fast-check.yml
