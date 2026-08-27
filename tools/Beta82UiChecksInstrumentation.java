@@ -129,6 +129,15 @@ public final class Beta82UiChecksInstrumentation extends Instrumentation {
     }
     throw new IllegalStateException("TEXT_NOT_FOUND:"+text);
   }
+  private void showTextOnScreen(String text,long timeout){
+    AccessibilityNodeInfo n=waitText(text,false,false,timeout);
+    if(!n.performAction(AccessibilityNodeInfo.ACTION_SHOW_ON_SCREEN)){
+      AccessibilityNodeInfo p=n.getParent();
+      if(p!=null)p.performAction(AccessibilityNodeInfo.ACTION_SHOW_ON_SCREEN);
+    }
+    SystemClock.sleep(450L);
+  }
+
   private void clickText(String text,boolean exact,long timeout){
     AccessibilityNodeInfo n=waitText(text,exact,true,timeout);
     AccessibilityNodeInfo c=clickableNode(n);
@@ -308,6 +317,7 @@ public final class Beta82UiChecksInstrumentation extends Instrumentation {
 
     open("SETTINGS");
     waitText("THÔNG TIN ỨNG DỤNG",true,false,10000L);
+    showTextOnScreen("THÔNG TIN ỨNG DỤNG",10000L);
     waitText("Phiên bản",true,false,10000L);
     waitText("Kênh phát hành",true,false,10000L);
     waitText("Dung lượng ứng dụng",true,false,10000L);
@@ -315,8 +325,8 @@ public final class Beta82UiChecksInstrumentation extends Instrumentation {
     require(findText("Tổng dung lượng đang chiếm dụng",true,false)==null,"SETTINGS_DUPLICATE_TOTAL_STORAGE_VISIBLE");
     require(findText("Nguồn kiểm tra OTA",true,false)==null,"SETTINGS_TECHNICAL_OTA_SOURCE_VISIBLE");
     shot(tag+"-07-settings-top");
-    waitTextScrolling("NHẬT KÝ",12000L);
-    waitTextScrolling("Tên tệp nhật ký",12000L);
+    showTextOnScreen("NHẬT KÝ",12000L);
+    showTextOnScreen("Tên tệp nhật ký",12000L);
     require(findText("Dung lượng lưu trữ còn trống",true,false)==null,"SETTINGS_LOG_FREE_SPACE_VISIBLE");
     require(findText("Đang chờ gửi nghiệp vụ",true,false)==null,"SETTINGS_OPERATION_COUNTER_VISIBLE");
     mark("settings_simplified");

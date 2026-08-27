@@ -24,6 +24,7 @@
   "fast_check": "PASS",
   "scope": "beta82-current-day-reconciliation-list-qr-cards-null-settings",
   "owner": "Nguyen Van Tam",
-  "harness_revision": 3,
-  "last_verify_failure": "ACCESSIBILITY_ACTION_CLICK_FALSE_CA_HC"
+  "harness_revision": 4,
+  "last_verify_failure": null,
+  "visual_capture_revision": "SETTINGS_SHOW_ON_SCREEN"
 }
