@@ -32,8 +32,8 @@ android {
         create("beta") {
             dimension = "channel"
             applicationId = "vn.pickpack1291.app.beta.publicbeta"
-            versionCode = 85
-            versionName = "0.4.2-beta.79"
+            versionCode = 86
+            versionName = "0.4.2-beta.80"
             manifestPlaceholders["appLabel"] = "Pick Pack 1291 Beta"
             buildConfigField("String", "CHANNEL", "\"BETA\"")
         }
@@ -73,6 +73,7 @@ dependencies {
 // Firebase client identifiers are injected at build time and default blank so source never contains project config.
 // GSHEET_API_URL remains public discovery/fallback configuration and manual update lookup path; no Service URL is compiled into APK.
 // Signing material remains outside this repository and the Android signer is owner-locked.
+// Beta80: restore canonical Service v2 session routes and direct FileProvider OTA installer launch. Stable remains isolated and unchanged.
 // Beta79: old-session warning opens the exact historical session in the normal QR workflow with full Add/Edit/Delete/Exit actions. Stable remains isolated and unchanged.\n// Beta78: exact historical-session identity/detail + Service/D1 primary Nhận hàng rớt with fenced outbox replication. Stable remains isolated and unchanged.
 // Beta77: owner fixes for Nhận hàng rớt latency/CRUD, cross-day active PDA visibility, old-session warning, and employee render stability. Stable remains isolated and unchanged.
 // Beta76: direct GAS/Sheets Nhận hàng rớt workflow; Stable remains isolated and unchanged.
