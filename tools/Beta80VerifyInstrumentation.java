@@ -7,6 +7,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
 import android.os.SystemClock;
+import android.util.Base64;
 import android.view.accessibility.AccessibilityNodeInfo;
 import java.util.ArrayDeque;
 import java.util.Locale;
@@ -182,7 +183,7 @@ public final class Beta80VerifyInstrumentation extends Instrumentation {
 
   private void ota(){
     seedAuth();
-    String version=req("version"), url=req("url"), sha=req("sha");
+    String version=req("version"), url=new String(Base64.decode(req("url_b64"),Base64.NO_WRAP),java.nio.charset.StandardCharsets.UTF_8), sha=req("sha");
     target.getSharedPreferences("pp1291_pending_update_v1",Context.MODE_PRIVATE).edit()
       .putString("version",version).putString("url",url).putString("sha",sha).putString("notes","Beta80 OTA exact candidate")
       .putInt("version_code",86).commit();
