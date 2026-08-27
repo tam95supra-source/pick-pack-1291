@@ -5,6 +5,13 @@ VERSION=$(jq -r '.version_name' "$REQ");CODE=$(jq -r '.version_code' "$REQ");PKG
 META=/tmp/beta83-candidate/release-meta.json;APK=/tmp/beta83-candidate/pick-pack-1291-public-beta-$VERSION.apk
 test -f "$META" -a -f "$APK" -a -f "$VERIFY_HARNESS_APK"
 SHA=$(jq -r '.apk_sha256' "$META");SIZE=$(jq -r '.apk_size' "$META")
+REQ_SOURCE=$(jq -r '.source_sha' "$REQ");REQ_SHA=$(jq -r '.apk_sha256' "$REQ");REQ_SIZE=$(jq -r '.apk_size' "$REQ");REQ_SIGNER=$(jq -r '.signer_sha256' "$REQ")
+jq -e --arg v "$VERSION" --argjson code "$CODE" --arg pkg "$PKG" --arg src "$REQ_SOURCE" --arg sha "$REQ_SHA" --argjson size "$REQ_SIZE" --arg signer "$REQ_SIGNER" '
+  .version_name==$v and .version_code==$code and .package==$pkg and .source_sha==$src and
+  .apk_sha256==$sha and .apk_size==$size and .signer_sha256==$signer and
+  .candidate_locked==true and .stable_publish=="FORBIDDEN" and .authority_change=="NONE"
+' "$META" >/dev/null
+test "$SHA" = "$REQ_SHA";test "$SIZE" = "$REQ_SIZE"
 test "$(sha256sum "$APK"|awk '{print $1}')" = "$SHA";test "$(stat -c '%s' "$APK")" = "$SIZE"
 OUT=/tmp/beta83-verify;rm -rf "$OUT";mkdir -p "$OUT"
 adb root >"$OUT/adb-root.txt" 2>&1 || true;timeout 30s adb wait-for-device
