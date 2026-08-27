@@ -1,6 +1,5 @@
 package vn.pickpack1291.verify;
 
-import android.app.Activity;
 import android.app.Instrumentation;
 import android.app.UiAutomation;
 import android.content.Context;
@@ -65,7 +64,7 @@ public final class Beta81LocalChecksInstrumentation extends Instrumentation {
       .commit();
   }
 
-  private Activity open(String module){
+  private void open(String module){
     Intent i=new Intent();
     i.setClassName(target,ACT);
     i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK|Intent.FLAG_ACTIVITY_CLEAR_TASK);
@@ -74,7 +73,15 @@ public final class Beta81LocalChecksInstrumentation extends Instrumentation {
     i.putExtra("name","Beta81 Verify");
     i.putExtra("role","SUPERADMIN");
     i.putExtra("position","TEST");
-    return startActivitySync(i);
+    target.startActivity(i);
+    long end=SystemClock.uptimeMillis()+10000L;
+    while(SystemClock.uptimeMillis()<end){
+      AccessibilityNodeInfo r=root();
+      CharSequence p=r==null?null:r.getPackageName();
+      if(p!=null&&PKG.equals(p.toString()))return;
+      SystemClock.sleep(200L);
+    }
+    throw new IllegalStateException("ACTIVITY_START_TIMEOUT:"+module);
   }
 
   private AccessibilityNodeInfo root(){ return ui.getRootInActiveWindow(); }
@@ -219,7 +226,9 @@ public final class Beta81LocalChecksInstrumentation extends Instrumentation {
       .put("sessions",new JSONArray().put(currentSession))
       .put("events",new JSONArray()).put("labor",new JSONArray()));
 
+    mark("phase_before_first_open");
     open("BUSINESS");
+    mark("phase_after_first_open");
     waitText("Ca 2 – 1/0",true,false,15000);
     mark("reconciliation_home_1_0");
     clickText("Quét QR nhân sự",true,15000);
@@ -276,7 +285,9 @@ public final class Beta81LocalChecksInstrumentation extends Instrumentation {
     mark("old_resources_preserved");
 
     seedService();
+    mark("phase_before_second_open");
     open("BUSINESS");
+    mark("phase_after_second_open");
     clickText("Quét QR nhân sự",true,15000);
     seedService();
     setEmployee(mnv);

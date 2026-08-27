@@ -1,12 +1,6 @@
 name: Beta81 exact OTA publish
-# Beta81 exact-release trigger after deterministic preflight.
 
 on:
-  push:
-    branches:
-      - feature/beta78-old-session-outbound-service-20260826
-    paths:
-      - .github/workflows/beta-release.yml
   workflow_dispatch:
 
 permissions:
@@ -14,67 +8,23 @@ permissions:
   actions: read
 
 concurrency:
-  group: beta81-exact-ota-publish
+  group: beta81-exact-ota-recovery
   cancel-in-progress: false
 
 env:
   SOURCE_SHA: 963ed28a90d2bb3e4a950ae8100fef15edfa86c5
+  APK_SHA: f796bf8db5ec4575bb9d6d0880650c49abc682fe07c68aed916270f2afea3789
+  APK_SIZE: '13196221'
   EXPECTED_SIGNER: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
+  PUBLISH_RUN: '33078179831'
 
 jobs:
-  publish:
-    name: publish
-    runs-on: ubuntu-24.04
-    timeout-minutes: 30
-    outputs:
-      apk_sha: ${{ steps.publish.outputs.apk_sha }}
-      apk_size: ${{ steps.publish.outputs.apk_size }}
-      drive_file_id: ${{ steps.publish.outputs.drive_file_id }}
-      apk_url_b64: ${{ steps.publish.outputs.apk_url_b64 }}
-    env:
-      GH_TOKEN: ${{ github.token }}
-      GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
-      GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
-      GOOGLE_OAUTH_REFRESH_TOKEN: ${{ secrets.GOOGLE_OAUTH_REFRESH_TOKEN }}
-      GAS_DEPLOYMENT_ID: ${{ secrets.GAS_DEPLOYMENT_ID }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Download exact locked Beta81 candidate
-        uses: actions/download-artifact@v4
-        with:
-          name: beta81-candidate-33073351925
-          path: /tmp/beta81-candidate
-          github-token: ${{ github.token }}
-          repository: tam95supra-source/pick-pack-1291
-          run-id: 33073351925
-
-      - name: Publish exact bytes and read back OTA
-        id: publish
-        shell: bash
-        run: bash tools/publish_beta81_ota.sh
-
-      - name: Upload Beta81 publish receipt
-        if: ${{ always() }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: beta81-publish-${{ github.run_id }}
-          path: /tmp/beta81-publish
-          retention-days: 30
-          if-no-files-found: warn
-
   pda_verify:
     name: pda-verify
-    needs: publish
-    if: ${{ needs.publish.result == 'success' }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 55
+    timeout-minutes: 20
     env:
       GH_TOKEN: ${{ github.token }}
-      APK_SHA: ${{ needs.publish.outputs.apk_sha }}
-      APK_SIZE: ${{ needs.publish.outputs.apk_size }}
       GAS_DEPLOYMENT_ID: ${{ secrets.GAS_DEPLOYMENT_ID }}
       SIGNING_KEY_B64: ${{ secrets.ANDROID_SIGNING_KEY_B64 }}
       SIGNING_STORE_PASSWORD: ${{ secrets.ANDROID_SIGNING_STORE_PASSWORD }}
@@ -103,13 +53,16 @@ jobs:
           repository: tam95supra-source/pick-pack-1291
           run-id: 33073351925
 
-      - name: Download Beta81 publish receipt
+      - name: Reuse successful Beta81 publish receipt
         uses: actions/download-artifact@v4
         with:
-          name: beta81-publish-${{ github.run_id }}
+          name: beta81-publish-33078179831
           path: /tmp/beta81-publish
+          github-token: ${{ github.token }}
+          repository: tam95supra-source/pick-pack-1291
+          run-id: 33078179831
 
-      - name: Validate exact OTA inputs
+      - name: Validate exact locked inputs without republish
         shell: bash
         run: |
           set -euo pipefail
@@ -122,7 +75,17 @@ jobs:
           test "$(stat -c '%s' "$OLD")" = 13196221
           test "$(sha256sum "$NEW" | awk '{print $1}')" = "$APK_SHA"
           test "$(stat -c '%s' "$NEW")" = "$APK_SIZE"
-          jq -e --arg h "$APK_SHA" --argjson z "$APK_SIZE" --arg signer "$EXPECTED_SIGNER" '.status=="PASS" and .version_name=="0.4.2-beta.81" and .version_code==87 and .candidate_artifact==9646920908 and .apk_sha256==$h and .apk_size==$z and .signer_sha256==$signer and .ota_exact_bytes==true and .stable_unchanged==true and .main_unchanged==true' "$R" >/dev/null
+          jq -e --arg source "$SOURCE_SHA" --arg h "$APK_SHA" --argjson z "$APK_SIZE" --arg signer "$EXPECTED_SIGNER" '
+            .source_sha==$source and .apk_sha256==$h and .apk_size==$z and .signer_sha256==$signer and
+            .version_name=="0.4.2-beta.81" and .version_code==87 and
+            .package=="vn.pickpack1291.app.beta.publicbeta" and .candidate_locked==true
+          ' "$META" >/dev/null
+          jq -e --arg h "$APK_SHA" --argjson z "$APK_SIZE" --arg signer "$EXPECTED_SIGNER" '
+            .status=="PASS" and .version_name=="0.4.2-beta.81" and .version_code==87 and
+            .candidate_artifact==9646920908 and .apk_sha256==$h and .apk_size==$z and
+            .signer_sha256==$signer and .ota_exact_bytes==true and
+            .stable_unchanged==true and .main_unchanged==true and .authority_change=="NONE"
+          ' "$R" >/dev/null
           OTA_URL=$(jq -r '.apk_url' "$R")
           MAIN_BEFORE=$(jq -r '.main_sha' "$R")
           test -n "$OTA_URL" -a "$OTA_URL" != null
@@ -172,14 +135,12 @@ jobs:
 
   finalize:
     name: finalize
-    needs: [publish, pda_verify]
-    if: ${{ needs.publish.result == 'success' && needs.pda_verify.result == 'success' }}
+    needs: pda_verify
+    if: ${{ needs.pda_verify.result == 'success' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 12
     env:
       GH_TOKEN: ${{ github.token }}
-      APK_SHA: ${{ needs.publish.outputs.apk_sha }}
-      APK_SIZE: ${{ needs.publish.outputs.apk_size }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -205,13 +166,13 @@ jobs:
 
   handoff_finalizer:
     name: handoff-finalizer
-    needs: [publish, pda_verify, finalize]
+    needs: [pda_verify, finalize]
     if: ${{ always() }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     env:
       GH_TOKEN: ${{ github.token }}
-      PUBLISH_RESULT: ${{ needs.publish.result }}
+      PUBLISH_RESULT: success
       PDA_RESULT: ${{ needs.pda_verify.result }}
       FINALIZE_RESULT: ${{ needs.finalize.result }}
     steps:

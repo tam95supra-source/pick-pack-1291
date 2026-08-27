@@ -14,7 +14,7 @@ for n in OLD_APK NEW_APK OTA_URL APK_SHA APK_SIZE VERIFY_HARNESS_APK ANDROID_SDK
 done
 
 adb root >"$OUT/adb-root.txt" 2>&1 || true
-adb wait-for-device
+timeout 30s adb wait-for-device
 test "$(adb shell id -u 2>/dev/null | tr -d '\r')" = 0
 
 adb uninstall "$PKG" >/dev/null 2>&1 || true
@@ -59,9 +59,18 @@ test "$INSTALLED_SIGNER" = "$EXPECTED_SIGNER"
 
 adb install -r "$VERIFY_HARNESS_APK" >"$OUT/reinstall-harness.txt"
 adb shell ip link set eth0 down >/dev/null 2>&1 || true
-adb shell am instrument -w -r   -e login beta81_verify   -e mnv 981810081   -e mnv2 981810082   -e service_token offline-beta81   -e service_url http://127.0.0.1:1   "$LOCAL_VERIFY" >"$OUT/beta81checks.txt" 2>&1
+set +e
+timeout 120s adb shell am instrument -w -r   -e login beta81_verify   -e mnv 981810081   -e mnv2 981810082   -e service_token offline-beta81   -e service_url http://127.0.0.1:1   "$LOCAL_VERIFY" >"$OUT/beta81checks.txt" 2>&1
+LOCAL_RC=$?
+set -e
+adb shell cat "/data/user/0/$PKG/shared_prefs/pp_beta81_verify.xml" >"$OUT/beta81-flags.xml" 2>/dev/null || true
+adb shell dumpsys window windows >"$OUT/window-after-local.txt" 2>&1 || true
+if [[ "$LOCAL_RC" == 124 ]]; then
+  echo BETA81_LOCAL_VERIFY_TIMEOUT >&2
+  exit 41
+fi
+test "$LOCAL_RC" = 0
 grep -Fq 'INSTRUMENTATION_CODE: 0' "$OUT/beta81checks.txt"
-adb shell cat "/data/user/0/$PKG/shared_prefs/pp_beta81_verify.xml" >"$OUT/beta81-flags.xml"
 for flag in reconciliation_home_1_0 reconciliation_qr_1_0 rollover_old_active_preserved old_resources_preserved scanned_old_warning; do
   grep -Fq "name=\"$flag\" value=\"true\"" "$OUT/beta81-flags.xml"
 done
