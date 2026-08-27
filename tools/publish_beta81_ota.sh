@@ -87,7 +87,7 @@ read_update(){
 
 read_update STABLE 0.1.0-stable "$E/stable-before.json"
 jq -e '.ok==true and .channel=="STABLE" and .available==false and .reason=="NO_APK"' "$E/stable-before.json" >/dev/null
-read_update BETA "$PREV_VERSION" "$E/beta-before.json"
+read_update BETA "0.4.2-beta.79" "$E/beta-before.json"
 
 TARGET_ALREADY=0
 if jq -e --arg h "$APK_SHA" --argjson z "$APK_SIZE"   '.ok==true and .channel=="BETA" and .available==true and .version_name=="0.4.2-beta.81" and .sha256==$h and .size==$z and ((.apk_url//"")|length)>0'   "$E/beta-before.json" >/dev/null 2>&1; then
