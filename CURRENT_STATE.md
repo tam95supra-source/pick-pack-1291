@@ -1,25 +1,23 @@
 # CURRENT STATE — PICK PACK 1291
 
-- updated_at: 2026-08-27T23:20:00+0700
-- status: BETA81_OTA_LIVE_DEVICE_GATE_RECOVERY_READY
+- updated_at: 2026-08-27T23:27:19+0700
+- status: BETA81_PASS_LIVE
 - continuity_branch: feature/beta78-old-session-outbound-service-20260826
 - source_sha: 963ed28a90d2bb3e4a950ae8100fef15edfa86c5
-- beta_ota_live: 0.4.2-beta.81 (versionCode 87)
-- beta_release_pass: false
-- candidate_run/artifact: 33073351925 / 9646920908
-- visual_artifact: 9647045177 PASS
-- service_artifact: 9646805806 PASS
+- workflow_head_sha: 8780c83cc7d9b0d32531bb35dbcd4beb772357bc
+- beta_live: 0.4.2-beta.81 (versionCode 87)
+- candidate_run: 33073351925
+- candidate_artifact: 9646920908
+- visual_artifact: 9647045177
+- service_artifact: 9646805806
 - apk_sha256: f796bf8db5ec4575bb9d6d0880650c49abc682fe07c68aed916270f2afea3789
 - apk_size: 13196221
 - signer_sha256: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
-- publish_run/job: 33078179831 / 98537863151 SUCCESS; exact Drive/BETA OTA bytes already LIVE
-- latest_run/job: 33091747263 / 98586104552 FAILURE
-- retained_device_pass: exact OTA download + PackageInstaller + versionName/code + installed SHA/size/signer PASS
-- retained_logic_pass: reconciliation_home_1_0=true; reconciliation_qr_1_0=true; rollover_old_active_preserved=true; old_resources_preserved=true
-- latest_root_cause: harness fixture omitted resource_assignments_v64, so renderEmployee entered session_resource_snapshot hydration while deterministic test Service was intentionally offline; warning tree was never attached and verifier failed TEXT_NOT_FOUND:CẢNH BÁO: PHIÊN CA CŨ
-- harness_fix_commit: 18e50b4a97cba3ae2883efcb00cbefaa554279ad
-- harness_fix: hydrate old-session fixture with positions_v64/resource_assignments_v64; exact APK/source candidate unchanged
-- stable: NO_APK unchanged
-- main_sha: 4e728df1265943148a78642123df9dd84f2997c2; OWNER-approved workflow-only change
-- authority: SERVICE_PRIMARY / PRODUCTION / epoch 9 / generation m2-prod-reset-20260823-001 unchanged
-- next_action: OWNER_RUN_EXISTING_BETA_RELEASE_WORKFLOW_DISPATCH_ONCE
+- terminal_run: 33093042245
+- pda_job: 98590681116
+- beta81_device_receipt: đối soát ENDED+exit_at; QR có rà soát; cảnh báo phiên cũ; rollover qua 24:00 giữ ACTIVE và không giải phóng PDA/User — PASS
+- beta_ota: exact Beta81 PASS
+- stable: unchanged
+- main_sha: 021dac5c6932b3ac5c60ce8fdba562ddf3d9688f (OWNER-approved workflow-only change; unchanged during recovery)
+- authority: SERVICE_PRIMARY / PRODUCTION / epoch 9 / generation m2-prod-reset-20260823-001 (unchanged)
+- next_action: WAIT_FOR_OWNER_NEW_SCOPE
