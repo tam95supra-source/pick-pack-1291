@@ -110,6 +110,23 @@ sql(){ (cd service && npx wrangler d1 execute "$D1_NAME" --remote --config wrang
 # Installed Beta80 performs Vào ca from the actual QR employee UI.
 adb shell am instrument -w -r   -e mode enter   -e login "$TEST_LOGIN"   -e mnv "$TEST_MNV"   -e service_token "$SERVICE_TOKEN"   -e service_url "$SERVICE_URL"   "$VERIFY_COMPONENT" >"$OUT/enter-instrument.txt" 2>&1
 grep -Fq 'INSTRUMENTATION_CODE: 0' "$OUT/enter-instrument.txt"
+adb shell cat "/data/user/0/$PKG/shared_prefs/pp1291_direct_owner_diag.xml" >"$OUT/direct-owner-after-enter.xml"
+python3 - "$OUT/direct-owner-after-enter.xml" "$TEST_MNV" <<'PY'
+import html,json,sys,xml.etree.ElementTree as ET
+root=ET.parse(sys.argv[1]).getroot()
+raw=''
+for n in root:
+    if n.tag=='string' and n.attrib.get('name')=='rows':
+        raw=n.text or ''
+        break
+rows=json.loads(html.unescape(raw) or '[]')
+hits=[x for x in rows if x.get('action')=='attendance_enter_v2' and str(x.get('mnv',''))==sys.argv[2]]
+if not hits:
+    raise SystemExit('ATTENDANCE_ENTER_V2_DIAG_MISSING')
+x=hits[-1]
+if not x.get('ok'):
+    raise SystemExit(f"ATTENDANCE_ENTER_V2_FAILED:{x.get('code')}:{x.get('error')}")
+PY
 
 ROW=''
 for _ in $(seq 1 20); do
