@@ -201,7 +201,7 @@ jobs:
   handoff_finalizer:
     name: handoff-finalizer
     needs: [pda_verify, finalize]
-    if: ${{ always() }}
+    if: ${{ github.event_name == 'workflow_dispatch' && github.ref_name == 'feature/beta78-old-session-outbound-service-20260826' && always() }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     env:
