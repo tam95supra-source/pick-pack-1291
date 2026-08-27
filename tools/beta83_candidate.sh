@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 REQ=ops/beta-release-request.json
-jq -e '.stage=="BUILD_VERIFY" and .version_name=="0.4.2-beta.82" and .version_code==88 and .stable_publish=="FORBIDDEN" and .authority_change=="NONE" and .human_visual_pass==false' "$REQ" >/dev/null
+jq -e '.stage=="BUILD_VERIFY" and .version_name=="0.4.2-beta.83" and .version_code==89 and .stable_publish=="FORBIDDEN" and .authority_change=="NONE" and .human_visual_pass==false' "$REQ" >/dev/null
 SOURCE_SHA=$(jq -r '.source_sha' "$REQ");VERSION=$(jq -r '.version_name' "$REQ");CODE=$(jq -r '.version_code' "$REQ");PKG=$(jq -r '.package' "$REQ");EXPECTED_SIGNER=$(jq -r '.signer_sha256' "$REQ")
 STATE_SIGNER=$(grep -m1 '^- signer_sha256:' CURRENT_STATE.md | awk '{print $3}')
 test "$EXPECTED_SIGNER" = "$STATE_SIGNER"
