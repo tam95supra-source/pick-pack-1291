@@ -39,12 +39,17 @@ adb shell am start -W -n "$PKG/vn.pickpack1291.app.beta.FullBetaActivity" > "$OU
 
 RAW=$(printf '%s' "$GAS_DEPLOYMENT_ID"|tr -d '\r\n\t ');DEP="$RAW";if [[ "$RAW" == *"/s/"* ]]; then DEP="${RAW#*/s/}";DEP="${DEP%%/*}";fi
 GAS_URL="https://script.google.com/macros/s/$DEP/exec";echo "::add-mask::$GAS_URL"
-update(){ curl -fsSL --retry 2 --retry-delay 2 --connect-timeout 15 --max-time 35 -H 'content-type: application/json' "$GAS_URL" -d "{"action":"update_check","channel":"$1","current_version":"$2"}" > "$3"; }
+update(){
+  local ch="$1" current="$2" out="$3" body
+  body=$(jq -nc --arg ch "$ch" --arg current "$current" '{action:"update_check",channel:$ch,current_version:$current}')
+  curl -fsSL --retry 2 --retry-delay 2 --connect-timeout 15 --max-time 35 -H 'content-type: application/json' "$GAS_URL" --data-binary "$body" > "$out"
+}
 update BETA 0.4.2-beta.81 "$OUT/beta-old.json";jq -e --arg v "$VERSION" --arg h "$SHA" --argjson z "$SIZE" '.ok==true and .available==true and .version_name==$v and .sha256==$h and .size==$z' "$OUT/beta-old.json" >/dev/null
 update BETA "$VERSION" "$OUT/beta-current.json";jq -e --arg v "$VERSION" '.ok==true and .available==false and .version_name==$v' "$OUT/beta-current.json" >/dev/null
 update STABLE 0.1.0-stable "$OUT/stable.json";jq -e '.ok==true and .channel=="STABLE" and .available==false' "$OUT/stable.json" >/dev/null
 MAIN_AFTER=$(curl -fsSL --connect-timeout 15 --max-time 30 -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/branches/main"|jq -r '.commit.sha');test "$MAIN_AFTER" = "$MAIN_BEFORE"
-SERVICE_URL=$(curl -fsSL --connect-timeout 15 --max-time 35 -H 'content-type: application/json' "$GAS_URL" -d '{"action":"service_discovery","_app_channel":"BETA"}'|jq -r '.service_url');[[ "$SERVICE_URL" == https://* ]];echo "::add-mask::$SERVICE_URL"
+DISCOVERY_BODY=$(jq -nc '{action:"service_discovery",_app_channel:"BETA"}')
+SERVICE_URL=$(curl -fsSL --connect-timeout 15 --max-time 35 -H 'content-type: application/json' "$GAS_URL" --data-binary "$DISCOVERY_BODY"|jq -r '.service_url');[[ "$SERVICE_URL" == https://* ]];echo "::add-mask::$SERVICE_URL"
 curl -fsSL --connect-timeout 15 --max-time 30 "$SERVICE_URL/v1/authority" > "$OUT/authority.json"
 jq -S '.authority' "$PUB" > "$OUT/pub-auth";jq -S '.authority' "$OUT/authority.json" > "$OUT/live-auth";cmp -s "$OUT/pub-auth" "$OUT/live-auth"
 jq -n --arg v "$VERSION" --argjson c "$CODE" --arg h "$SHA" --argjson z "$SIZE" --arg signer "$INST_SIGNER" --arg main "$MAIN_AFTER"   --slurpfile beta "$OUT/beta-old.json" --slurpfile current "$OUT/beta-current.json" --slurpfile stable "$OUT/stable.json" --slurpfile auth "$OUT/authority.json"   '{status:"PASS",version_name:$v,version_code:$c,apk_sha256:$h,apk_size:$z,signer_sha256:$signer,ota_from_beta81:true,ota_download_exact:true,

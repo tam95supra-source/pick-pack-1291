@@ -31,16 +31,18 @@ DEP="$RAW";if [[ "$RAW" == *"/s/"* ]]; then DEP="${RAW#*/s/}";DEP="${DEP%%/*}";f
 test -n "$DEP";GAS_URL="https://script.google.com/macros/s/$DEP/exec";echo "::add-mask::$GAS_URL"
 
 gas(){
-  local action="$1" body="$2" out="$3" a
+  local body="$1" out="$2" a
   for a in 0 1 2; do
-    if curl -fsSL --connect-timeout 15 --max-time 35 -H 'content-type: application/json' "$GAS_URL" -d "$body" > "$out"       && jq -e '.ok==true' "$out" >/dev/null 2>&1; then return 0; fi
-    [[ "$a" -lt 2 ]] || break;sleep $((2+a*4))
+    if curl -fsSL --connect-timeout 15 --max-time 35 -H 'content-type: application/json' "$GAS_URL" --data-binary "$body" > "$out"       && jq -e '.ok==true' "$out" >/dev/null 2>&1; then return 0; fi
+    [[ "$a" -lt 2 ]] || break
+    sleep $((2+a*4))
   done
   return 1
 }
 update(){
-  local ch="$1" current="$2" out="$3"
-  gas update_check "{"action":"update_check","channel":"$ch","current_version":"$current"}" "$out"
+  local ch="$1" current="$2" out="$3" body
+  body=$(jq -nc --arg ch "$ch" --arg current "$current" '{action:"update_check",channel:$ch,current_version:$current}')
+  gas "$body" "$out"
 }
 
 MAIN_BEFORE=$(curl -fsSL --connect-timeout 15 --max-time 30 -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/branches/main"|jq -r '.commit.sha')
@@ -51,7 +53,8 @@ update BETA "$(jq -r '.base_probe_version' "$R")" "$E/beta-before.json"
 jq -e --arg v "$PREV" --arg h "$(jq -r '.base_apk_sha256' "$R")" --argjson z "$(jq -r '.base_apk_size' "$R")" '
   .channel=="BETA" and .available==true and .version_name==$v and .sha256==$h and .size==$z and ((.apk_url//"")|length)>0
 ' "$E/beta-before.json" >/dev/null
-gas service_discovery '{"action":"service_discovery","_app_channel":"BETA"}' "$E/discovery-before.json"
+DISCOVERY_BODY=$(jq -nc '{action:"service_discovery",_app_channel:"BETA"}')
+gas "$DISCOVERY_BODY" "$E/discovery-before.json"
 SERVICE_URL=$(jq -r '.service_url' "$E/discovery-before.json")
 jq -e '.authority_mode=="SERVICE_PRIMARY" and .authority.mode=="SERVICE_PRIMARY" and .authority.scope=="PRODUCTION"' "$E/discovery-before.json" >/dev/null
 [[ "$SERVICE_URL" == https://* ]];echo "::add-mask::$SERVICE_URL"

@@ -41,5 +41,7 @@
   "stable_publish": "FORBIDDEN",
   "authority_change": "NONE",
   "scope": "beta82-current-day-reconciliation-list-qr-cards-null-settings",
-  "owner": "Nguyen Van Tam"
+  "owner": "Nguyen Van Tam",
+  "transport_revision": 2,
+  "last_publish_failure": "MALFORMED_GAS_JSON_BEFORE_WRITE"
 }

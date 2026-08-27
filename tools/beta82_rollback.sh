@@ -9,7 +9,8 @@ RAW=$(printf '%s' "$GAS_DEPLOYMENT_ID"|tr -d '\r\n\t ');DEP="$RAW";if [[ "$RAW" 
 URL="https://script.google.com/macros/s/$DEP/exec";echo "::add-mask::$URL"
 PASS=0
 for a in 0 1 2 3; do
-  curl -fsSL --connect-timeout 15 --max-time 35 -H 'content-type: application/json' "$URL" -d "{"action":"update_check","channel":"BETA","current_version":"$(jq -r '.base_probe_version' "$R")"}" > "$E/readback.json" || true
+  BODY=$(jq -nc --arg current "$(jq -r '.base_probe_version' "$R")" '{action:"update_check",channel:"BETA",current_version:$current}')
+  curl -fsSL --connect-timeout 15 --max-time 35 -H 'content-type: application/json' "$URL" --data-binary "$BODY" > "$E/readback.json" || true
   if jq -e --arg v "$(jq -r '.base_version' "$R")" --arg h "$(jq -r '.base_apk_sha256' "$R")" --argjson z "$(jq -r '.base_apk_size' "$R")" '.ok==true and .available==true and .version_name==$v and .sha256==$h and .size==$z' "$E/readback.json" >/dev/null 2>&1; then PASS=1;break;fi
   sleep $((3+a*4))
 done
