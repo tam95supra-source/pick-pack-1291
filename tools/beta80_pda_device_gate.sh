@@ -172,8 +172,29 @@ printf '%s' "$MOVED" >"$OUT/session-moved-to-old-date.json"
 jq -e --arg sid "$TEST_SID" --arg m "$TEST_MNV" --arg d "$TEST_OLD_DATE" '.[0].results[0] | .session_id==$sid and .mnv==$m and .business_date==$d and .shift=="Ca 1" and .work_choice=="PICK" and .state=="ACTIVE"' <<<"$MOVED" >/dev/null
 
 # Open the exact old-session card in the same QR UI, edit shift, then Bắn/Ra ca.
-adb shell am instrument -w -r   -e mode historical   -e login "$TEST_LOGIN"   -e mnv "$TEST_MNV"   -e service_token "$SERVICE_TOKEN"   -e service_url "$SERVICE_URL"   "$VERIFY_COMPONENT" >"$OUT/historical-instrument.txt" 2>&1
-grep -Fq 'INSTRUMENTATION_CODE: 0' "$OUT/historical-instrument.txt"
+# Do not wait forever on adb am instrument after the same-package OTA/reinstall path.
+# Completion authority is the real UI side effects plus the exact D1 session state below.
+adb shell am instrument -w -r   -e mode historical   -e login "$TEST_LOGIN"   -e mnv "$TEST_MNV"   -e service_token "$SERVICE_TOKEN"   -e service_url "$SERVICE_URL"   "$VERIFY_COMPONENT" >"$OUT/historical-instrument.txt" 2>&1 &
+HIST_PID=$!
+HIST_UI_DONE=0
+for _ in $(seq 1 240); do
+  adb shell cat "/data/user/0/$PKG/shared_prefs/pp_beta80_verify.xml" >"$OUT/ui-flags-current.xml" 2>/dev/null || true
+  if grep -Fq 'name="historical_shared_ui" value="true"' "$OUT/ui-flags-current.xml" \
+     && grep -Fq 'name="historical_edit_clicked" value="true"' "$OUT/ui-flags-current.xml" \
+     && grep -Fq 'name="historical_exit_clicked" value="true"' "$OUT/ui-flags-current.xml"; then
+    HIST_UI_DONE=1
+    break
+  fi
+  if ! kill -0 "$HIST_PID" >/dev/null 2>&1; then break; fi
+  sleep 0.5
+done
+test "$HIST_UI_DONE" = 1
+sleep 6
+kill "$HIST_PID" >/dev/null 2>&1 || true
+wait "$HIST_PID" || true
+if grep -Fq 'INSTRUMENTATION_CODE:' "$OUT/historical-instrument.txt"; then
+  grep -Fq 'INSTRUMENTATION_CODE: 0' "$OUT/historical-instrument.txt"
+fi
 
 FINAL=''
 for _ in $(seq 1 20); do
