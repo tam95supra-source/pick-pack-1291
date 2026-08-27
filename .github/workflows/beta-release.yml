@@ -159,6 +159,8 @@ jobs:
           tail -n +2 tools/beta80_pda_verify.py.gz.b64 | base64 -d | gzip -d > /tmp/beta80_pda_verify.py
           test "$(sha256sum /tmp/beta80_pda_verify.py | awk '{print $1}')" = "b1917b5b0fd55a432957d46a78c8394edfec30f475d9a4b6b5837c46e783e04b"
           python3 -m py_compile /tmp/beta80_pda_verify.py
+          grep -Fq 'url_b64' tools/Beta80VerifyInstrumentation.java
+          grep -Fq 'OTA_URL_B64=' tools/beta80_pda_device_gate.sh
           ! grep -Eq 'gradle|assembleBeta|assembleStable|apksigner.*pick-pack|jarsigner' /tmp/beta80_pda_verify.py
 
       - uses: actions/setup-node@v4
