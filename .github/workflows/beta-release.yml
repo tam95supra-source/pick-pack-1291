@@ -1,5 +1,5 @@
 name: Beta80 exact OTA publish
-# PDA functional trigger: scroll-enter-action
+# PDA functional trigger: device-bound-live-bearer
 
 on:
   push:
@@ -256,7 +256,7 @@ jobs:
             echo "TEST_MNV=$TEST_MNV"
             echo "TEST_TODAY=$TEST_TODAY"
             echo "TEST_OLD_DATE=$TEST_OLD_DATE"
-            echo "SERVICE_TOKEN=$SERVICE_TOKEN"
+            echo "SERVICE_TOKEN=$SERVICE_TOKEN"\n            echo "TEST_PASSWORD=$TEST_PASSWORD"
             echo "AUTHORITY_EPOCH_BEFORE=$EPOCH"
             echo "AUTHORITY_GENERATION_BEFORE=$GEN"
             echo "MAIN_BEFORE=$MAIN_BEFORE"

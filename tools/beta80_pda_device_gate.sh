@@ -107,6 +107,30 @@ grep -Fq "$PKG" "$OUT/activity-beta80-open.txt"
 
 sql(){ (cd service && npx wrangler d1 execute "$D1_NAME" --remote --config wrangler.live.jsonc --command "$1" --json); }
 
+# Mint the live Service bearer for the exact emulator identity used by Beta80.
+# This is the same deterministic public device identity as M2DeviceIdentity.id(app);
+# the bearer itself still comes only from live /v1/auth/challenge -> /v1/auth/login.
+ANDROID_ID=$(adb shell settings get secure android_id | tr -d '\r\n')
+test -n "$ANDROID_ID" -a "$ANDROID_ID" != null -a "$ANDROID_ID" != 9774d56d682e549c
+DEVICE_ID=$(printf 'PickPack1291|android-%s' "$ANDROID_ID" | sha256sum | awk '{print "m2-"$1}')
+test -n "$DEVICE_ID"
+CHALLENGE=$(curl -fsS -H 'content-type: application/json' "$SERVICE_URL/v1/auth/challenge" -d "$(jq -nc --arg l "$TEST_LOGIN" '{login_id:$l}')")
+jq -e '.ok==true and (.challenge_id|length)>0 and (.challenge|length)>0 and (.salt|length)>0 and .iterations>=100000' <<<"$CHALLENGE" >/dev/null
+PROOF=$(node - "$TEST_PASSWORD" "$CHALLENGE" <<'NODE'
+const c=require('crypto');
+const [pw,raw]=process.argv.slice(2),j=JSON.parse(raw);
+const key=c.pbkdf2Sync(pw,Buffer.from(j.salt,'base64url'),Number(j.iterations),32,'sha256');
+process.stdout.write(c.createHmac('sha256',key).update(j.challenge).digest('base64url'));
+NODE
+)
+LOGIN_BODY=$(jq -nc --arg l "$TEST_LOGIN" --arg cid "$(jq -r '.challenge_id' <<<"$CHALLENGE")" --arg p "$PROOF" --arg d "$DEVICE_ID" '{login_id:$l,challenge_id:$cid,proof:$p,device_id:$d,device_label:"Beta80 PDA Verify Emulator",client_source:"PDA"}')
+LOGIN_RESULT=$(curl -fsS -H 'content-type: application/json' "$SERVICE_URL/v1/auth/login" -d "$LOGIN_BODY")
+jq -e '.ok==true and (.token|length)>40' <<<"$LOGIN_RESULT" >/dev/null
+SERVICE_TOKEN=$(jq -r '.token' <<<"$LOGIN_RESULT")
+echo "::add-mask::$SERVICE_TOKEN"
+printf '%s\n' "$DEVICE_ID" >"$OUT/device-id.txt"
+printf '%s\n' "$(printf '%s' "$SERVICE_TOKEN" | sha256sum | awk '{print $1}' | cut -c1-12)" >"$OUT/service-token-fingerprint.txt"
+
 # Installed Beta80 performs Vào ca from the actual QR employee UI.
 adb shell am instrument -w -r   -e mode enter   -e login "$TEST_LOGIN"   -e mnv "$TEST_MNV"   -e service_token "$SERVICE_TOKEN"   -e service_url "$SERVICE_URL"   "$VERIFY_COMPONENT" >"$OUT/enter-instrument.txt" 2>&1
 grep -Fq 'INSTRUMENTATION_CODE: 0' "$OUT/enter-instrument.txt"
