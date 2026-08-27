@@ -21,22 +21,44 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       stage: ${{ steps.route.outputs.stage }}
+      candidate_run: ${{ steps.route.outputs.candidate_run }}
+      candidate_name: ${{ steps.route.outputs.candidate_name }}
+      candidate_id: ${{ steps.route.outputs.candidate_id }}
+      candidate_digest: ${{ steps.route.outputs.candidate_digest }}
     steps:
       - uses: actions/checkout@v4
       - id: route
         shell: bash
         run: |
           set -euo pipefail
-          jq -e '.version_name=="0.4.2-beta.82" and .version_code==88 and .stable_publish=="FORBIDDEN" and .authority_change=="NONE"' ops/beta-release-request.json >/dev/null
-          echo "stage=$(jq -r '.stage' ops/beta-release-request.json)" >> "$GITHUB_OUTPUT"
+          R=ops/beta-release-request.json
+          jq -e '
+            .stage=="VERIFY_ONLY" and
+            .version_name=="0.4.2-beta.82" and .version_code==88 and
+            .source_sha=="70c2be4c2866fc71607bb4ad48229cc3ed2d231f" and
+            .candidate_run_id==33097369281 and .candidate_artifact_id==9657063583 and
+            .apk_sha256=="6b09f5ed289e9a26b3fa93e95ee0885b2d2736c13cf7b1be0245f4f3cd216dbc" and
+            .apk_size==13196221 and
+            .signer_sha256=="d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e" and
+            .package=="vn.pickpack1291.app.beta.publicbeta" and
+            .rebuild==false and .resign==false and
+            .stable_publish=="FORBIDDEN" and .authority_change=="NONE"
+          ' "$R" >/dev/null
+          ! grep -R -F 'startActivitySync(' tools/Beta82UiChecksInstrumentation.java
+          echo "stage=$(jq -r '.stage' "$R")" >> "$GITHUB_OUTPUT"
+          echo "candidate_run=$(jq -r '.candidate_run_id' "$R")" >> "$GITHUB_OUTPUT"
+          echo "candidate_name=$(jq -r '.candidate_artifact_name' "$R")" >> "$GITHUB_OUTPUT"
+          echo "candidate_id=$(jq -r '.candidate_artifact_id' "$R")" >> "$GITHUB_OUTPUT"
+          echo "candidate_digest=$(jq -r '.candidate_artifact_digest' "$R")" >> "$GITHUB_OUTPUT"
 
-  candidate:
-    name: candidate
+  verify:
+    name: visual-pda-verify
     needs: route
-    if: ${{ needs.route.outputs.stage == 'BUILD_VERIFY' }}
+    if: ${{ needs.route.outputs.stage == 'VERIFY_ONLY' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     env:
+      GH_TOKEN: ${{ github.token }}
       SIGNING_KEY_B64: ${{ secrets.ANDROID_SIGNING_KEY_B64 }}
       SIGNING_STORE_PASSWORD: ${{ secrets.ANDROID_SIGNING_STORE_PASSWORD }}
       SIGNING_KEY_PASSWORD: ${{ secrets.ANDROID_SIGNING_KEY_PASSWORD }}
@@ -45,59 +67,44 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: '17'
-      - uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '9.4.1'
-      - name: Resolve Android SDK
+      - name: Preflight exact locked candidate artifact
         shell: bash
         run: |
           set -euo pipefail
-          if [[ -n "${ANDROID_HOME:-}" && -x "$ANDROID_HOME/build-tools/36.0.0/apksigner" && -f "$ANDROID_HOME/platforms/android-36/android.jar" ]]; then
-            echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> "$GITHUB_ENV"
-            exit 0
-          fi
-          SDK="$RUNNER_TEMP/android-sdk";ZIP="$RUNNER_TEMP/commandlinetools.zip"
-          curl -fsSL https://dl.google.com/android/repository/commandlinetools-linux-15859902_latest.zip -o "$ZIP"
-          echo "4e4c464f145a7512b57d088ac6c278c03c9eea610886b35a5e0804e74eedf583  $ZIP" | sha256sum -c -
-          mkdir -p "$SDK/cmdline-tools";unzip -q "$ZIP" -d "$RUNNER_TEMP/android-cmdline";mv "$RUNNER_TEMP/android-cmdline/cmdline-tools" "$SDK/cmdline-tools/latest"
-          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV";echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
-          yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
-          "$SDK/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-36' 'build-tools;36.0.0'
-      - name: Build sign and lock Beta82 candidate
-        shell: bash
-        run: bash tools/beta82_candidate.sh
-      - uses: actions/upload-artifact@v4
-        with:
-          name: beta82-candidate-${{ github.run_id }}
-          path: /tmp/beta82-candidate/*
-          retention-days: 30
-          if-no-files-found: error
-
-  verify:
-    name: visual-pda-verify
-    needs: [route,candidate]
-    if: ${{ needs.route.outputs.stage == 'BUILD_VERIFY' && needs.candidate.result == 'success' }}
-    runs-on: ubuntu-24.04
-    timeout-minutes: 45
-    env:
-      SIGNING_KEY_B64: ${{ secrets.ANDROID_SIGNING_KEY_B64 }}
-      SIGNING_STORE_PASSWORD: ${{ secrets.ANDROID_SIGNING_STORE_PASSWORD }}
-      SIGNING_KEY_PASSWORD: ${{ secrets.ANDROID_SIGNING_KEY_PASSWORD }}
-      SIGNING_ALIAS: ${{ secrets.ANDROID_SIGNING_ALIAS }}
-    steps:
-      - uses: actions/checkout@v4
+          A=$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json'             "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/artifacts/${{ needs.route.outputs.candidate_id }}")
+          jq -e             --arg n "${{ needs.route.outputs.candidate_name }}"             --arg d "${{ needs.route.outputs.candidate_digest }}"             --argjson id "${{ needs.route.outputs.candidate_id }}"             '.id==$id and .name==$n and .digest==$d and .expired==false' <<<"$A" >/dev/null
+          git diff --quiet 70c2be4c2866fc71607bb4ad48229cc3ed2d231f HEAD -- app service
+          ! grep -R -F 'startActivitySync(' tools/Beta82UiChecksInstrumentation.java
+          grep -Fq 'target.startActivity(i);' tools/Beta82UiChecksInstrumentation.java
+          grep -Fq 'ACTIVITY_START_TIMEOUT' tools/Beta82UiChecksInstrumentation.java
       - uses: actions/download-artifact@v4
         with:
-          name: beta82-candidate-${{ github.run_id }}
+          name: ${{ needs.route.outputs.candidate_name }}
           path: /tmp/beta82-candidate
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ needs.route.outputs.candidate_run }}
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
+      - name: Validate exact candidate identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          R=ops/beta-release-request.json
+          M=/tmp/beta82-candidate/release-meta.json
+          APK=/tmp/beta82-candidate/pick-pack-1291-public-beta-0.4.2-beta.82.apk
+          test -f "$M" -a -f "$APK"
+          jq -e --arg h "$(jq -r '.apk_sha256' "$R")" --argjson z "$(jq -r '.apk_size' "$R")"             --arg source "$(jq -r '.source_sha' "$R")" --arg signer "$(jq -r '.signer_sha256' "$R")" '
+            .version_name=="0.4.2-beta.82" and .version_code==88 and
+            .package=="vn.pickpack1291.app.beta.publicbeta" and
+            .source_sha==$source and .build_run==33097369281 and
+            .apk_sha256==$h and .apk_size==$z and .signer_sha256==$signer and
+            .candidate_locked==true and .stable_publish=="FORBIDDEN" and .authority_change=="NONE"
+          ' "$M" >/dev/null
+          test "$(sha256sum "$APK" | awk '{print $1}')" = "$(jq -r '.apk_sha256' "$R")"
+          test "$(stat -c '%s' "$APK")" = "$(jq -r '.apk_size' "$R")"
       - name: Build separate verification harness
         shell: bash
         run: bash tools/build_beta82_verify_harness.sh
@@ -129,7 +136,7 @@ jobs:
 
   handoff-finalizer:
     name: handoff-finalizer
-    needs: [route,candidate,verify]
+    needs: [route,verify]
     if: ${{ always() }}
     runs-on: ubuntu-24.04
     timeout-minutes: 8

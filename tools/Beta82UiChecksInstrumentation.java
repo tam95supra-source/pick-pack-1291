@@ -80,9 +80,18 @@ public final class Beta82UiChecksInstrumentation extends Instrumentation {
     i.putExtra("role","SUPERADMIN");
     i.putExtra("position","TEST");
     i.putExtra("email","verify@example.invalid");
-    Activity a=startActivitySync(i);
-    SystemClock.sleep(700L);
-    return a;
+    target.startActivity(i);
+    long end=SystemClock.uptimeMillis()+10000L;
+    while(SystemClock.uptimeMillis()<end){
+      AccessibilityNodeInfo r=root();
+      CharSequence p=r==null?null:r.getPackageName();
+      if(p!=null&&PKG.equals(p.toString())){
+        SystemClock.sleep(250L);
+        return null;
+      }
+      SystemClock.sleep(150L);
+    }
+    throw new IllegalStateException("ACTIVITY_START_TIMEOUT:"+module);
   }
 
   private AccessibilityNodeInfo root(){ return ui.getRootInActiveWindow(); }
