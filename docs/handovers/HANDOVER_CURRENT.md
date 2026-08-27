@@ -5,7 +5,7 @@
 - time: 2026-08-27T23:20:00+0700
 - owner: Nguyễn Văn Tâm
 - branch: feature/beta78-old-session-outbound-service-20260826
-- working_head_sha: aa40900cf576634e67730bbe53cb94ea6c7048f8
+- working_head_sha: SELF / resolve fresh branch HEAD
 - archive_file: docs/handovers/HANDOVER_20260827-232000_beta81-hydrated-fixture-recovery.md
 
 ## Mục tiêu + DoD
