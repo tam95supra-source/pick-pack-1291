@@ -165,6 +165,7 @@ jobs:
           grep -Fq 'fileprovider_installer_clicked' tools/beta80_pda_device_gate.sh
           grep -Fq 'ota_installer_clicked' tools/beta80_pda_device_gate.sh
           grep -Fq 'device-logcat.txt' tools/beta80_pda_device_gate.sh
+          grep -Fq 'FP_REINSTALL_DONE' tools/beta80_pda_device_gate.sh
           ! grep -Eq 'gradle|assembleBeta|assembleStable|apksigner.*pick-pack|jarsigner' /tmp/beta80_pda_verify.py
 
       - uses: actions/setup-node@v4
