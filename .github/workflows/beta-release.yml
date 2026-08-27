@@ -21,14 +21,35 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       stage: ${{ steps.route.outputs.stage }}
+      candidate_run_id: ${{ steps.route.outputs.candidate_run_id }}
+      candidate_artifact_name: ${{ steps.route.outputs.candidate_artifact_name }}
     steps:
       - uses: actions/checkout@v4
       - id: route
         shell: bash
         run: |
           set -euo pipefail
-          jq -e '.version_name=="0.4.2-beta.83" and .version_code==89 and .stable_publish=="FORBIDDEN" and .authority_change=="NONE"' ops/beta-release-request.json >/dev/null
-          echo "stage=$(jq -r '.stage' ops/beta-release-request.json)" >> "$GITHUB_OUTPUT"
+          R=ops/beta-release-request.json
+          jq -e '.version_name=="0.4.2-beta.83" and .version_code==89 and .stable_publish=="FORBIDDEN" and .authority_change=="NONE"' "$R" >/dev/null
+          STAGE=$(jq -r '.stage' "$R")
+          case "$STAGE" in
+            BUILD_VERIFY)
+              jq -e '.human_visual_pass==false' "$R" >/dev/null
+              ;;
+            VERIFY_ONLY)
+              jq -e '.candidate_locked==true and (.candidate_run_id|type=="number") and (.candidate_artifact_name|type=="string" and length>0) and
+                     (.apk_sha256|type=="string" and length==64) and (.apk_size|type=="number") and
+                     (.source_sha|type=="string" and length==40) and (.signer_sha256|type=="string" and length==64)' "$R" >/dev/null
+              git diff --quiet "$(jq -r '.source_sha' "$R")" HEAD -- app service google-apps-script
+              ;;
+            *)
+              echo "Unsupported stage: $STAGE" >&2
+              exit 1
+              ;;
+          esac
+          echo "stage=$STAGE" >> "$GITHUB_OUTPUT"
+          echo "candidate_run_id=$(jq -r '.candidate_run_id // empty' "$R")" >> "$GITHUB_OUTPUT"
+          echo "candidate_artifact_name=$(jq -r '.candidate_artifact_name // empty' "$R")" >> "$GITHUB_OUTPUT"
 
   candidate:
     name: candidate
@@ -80,7 +101,7 @@ jobs:
   verify:
     name: visual-pda-verify
     needs: [route,candidate]
-    if: ${{ needs.route.outputs.stage == 'BUILD_VERIFY' && needs.candidate.result == 'success' }}
+    if: ${{ always() && needs.route.result == 'success' && (needs.route.outputs.stage == 'VERIFY_ONLY' || (needs.route.outputs.stage == 'BUILD_VERIFY' && needs.candidate.result == 'success')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     env:
@@ -91,9 +112,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
+        if: ${{ needs.route.outputs.stage == 'BUILD_VERIFY' }}
         with:
           name: beta83-candidate-${{ github.run_id }}
           path: /tmp/beta83-candidate
+      - uses: actions/download-artifact@v4
+        if: ${{ needs.route.outputs.stage == 'VERIFY_ONLY' }}
+        with:
+          name: ${{ needs.route.outputs.candidate_artifact_name }}
+          path: /tmp/beta83-candidate
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ needs.route.outputs.candidate_run_id }}
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
