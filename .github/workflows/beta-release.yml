@@ -19,6 +19,7 @@ concurrency:
 
 jobs:
   publish:
+    if: ${{ github.event_name != 'push' || !contains(github.event.head_commit.message, '[pda-verify-only]') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     env:
@@ -86,3 +87,315 @@ jobs:
           path: /tmp/beta80-publish
           retention-days: 30
           if-no-files-found: warn
+
+  pda-verify:
+    if: ${{ github.event_name == 'push' && contains(github.event.head_commit.message, '[pda-verify-only]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    env:
+      GH_TOKEN: ${{ github.token }}
+      D1_NAME: pick-pack-1291-service-prod
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+      SIGNING_KEY_B64: ${{ secrets.ANDROID_SIGNING_KEY_B64 }}
+      SIGNING_STORE_PASSWORD: ${{ secrets.ANDROID_SIGNING_STORE_PASSWORD }}
+      SIGNING_KEY_PASSWORD: ${{ secrets.ANDROID_SIGNING_KEY_PASSWORD }}
+      SIGNING_ALIAS: ${{ secrets.ANDROID_SIGNING_ALIAS }}
+      EXPECTED_SHA: 1210bf57ff3bb48a723aa40d2efc8ec922c5e632e4c1d9928bf4dbe843654a69
+      EXPECTED_SIZE: '13196221'
+      EXPECTED_SIGNER: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
+      SERVICE_URL: https://pickpack.1291.workers.dev
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Download exact old Beta79
+        uses: actions/download-artifact@v4
+        with:
+          name: beta79-candidate-33020009122
+          path: /tmp/beta79
+          github-token: ${{ github.token }}
+          repository: tam95supra-source/pick-pack-1291
+          run-id: 33020009122
+
+      - name: Download exact locked Beta80
+        uses: actions/download-artifact@v4
+        with:
+          name: beta80-candidate-33028423645
+          path: /tmp/beta80
+          github-token: ${{ github.token }}
+          repository: tam95supra-source/pick-pack-1291
+          run-id: 33028423645
+
+      - name: Download successful Beta80 publish receipt
+        uses: actions/download-artifact@v4
+        with:
+          name: beta80-publish-33030927064
+          path: /tmp/beta80-publish-receipt
+          github-token: ${{ github.token }}
+          repository: tam95supra-source/pick-pack-1291
+          run-id: 33030927064
+
+      - name: Validate exact artifacts and materialize PDA harness
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/beta80-pda-verify
+          OLD=/tmp/beta79/pick-pack-1291-public-beta-0.4.2-beta.79.apk
+          NEW=/tmp/beta80/pick-pack-1291-public-beta-0.4.2-beta.80.apk
+          test -f "$OLD" -a -f "$NEW"
+          test "$(sha256sum "$OLD" | awk '{print $1}')" = "547e1242a7d0bb057332ce38c46313771da33235fc0e384a908c14207e26e056"
+          test "$(sha256sum "$NEW" | awk '{print $1}')" = "$EXPECTED_SHA"
+          test "$(stat -c '%s' "$NEW")" = "$EXPECTED_SIZE"
+          jq -e --arg h "$EXPECTED_SHA" --argjson z "$EXPECTED_SIZE" '.status=="PASS" and .version_name=="0.4.2-beta.80" and .version_code==86 and .candidate_artifact==9629377960 and .apk_sha256==$h and .apk_size==$z and .ota_exact_bytes==true and .stable_unchanged==true and .main_unchanged==true and .authority_change=="NONE"' /tmp/beta80-publish-receipt/receipt.json >/dev/null
+          OTA_URL=$(jq -r '.apk_url' /tmp/beta80-publish-receipt/receipt.json)
+          test -n "$OTA_URL" -a "$OTA_URL" != null
+          echo "::add-mask::$OTA_URL"
+          echo "OTA_URL=$OTA_URL" >> "$GITHUB_ENV"
+          echo "OLD_APK=$OLD" >> "$GITHUB_ENV"
+          echo "NEW_APK=$NEW" >> "$GITHUB_ENV"
+          tail -n +2 tools/beta80_pda_verify.py.gz.b64 | base64 -d | gzip -d > /tmp/beta80_pda_verify.py
+          test "$(sha256sum /tmp/beta80_pda_verify.py | awk '{print $1}')" = "b1917b5b0fd55a432957d46a78c8394edfec30f475d9a4b6b5837c46e783e04b"
+          python3 -m py_compile /tmp/beta80_pda_verify.py
+          ! grep -Eq 'gradle|assembleBeta|assembleStable|apksigner.*pick-pack|jarsigner' /tmp/beta80_pda_verify.py
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Prepare isolated D1 fixture and exact Service bearer
+        shell: bash
+        run: |
+          set -euo pipefail
+          for n in CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID GOOGLE_OAUTH_CLIENT_SECRET; do test -n "${!n:-}"; echo "::add-mask::${!n}"; done
+          cd service
+          npm install --ignore-scripts --no-audit --no-fund >/dev/null
+          LIST=$(npx wrangler d1 list --json)
+          D1_ID=$(node -e 'const a=JSON.parse(process.argv[1]);const x=a.find(v=>v.name===process.env.D1_NAME);process.stdout.write(x?.uuid||x?.id||"")' "$LIST")
+          test -n "$D1_ID"
+          echo "::add-mask::$D1_ID"
+          curl -fsS "$SERVICE_URL/v1/authority" > /tmp/beta80-pda-verify/authority-before.json
+          GEN=$(jq -r '.authority.service_generation' /tmp/beta80-pda-verify/authority-before.json)
+          EPOCH=$(jq -r '.authority.authority_epoch' /tmp/beta80-pda-verify/authority-before.json)
+          jq -e '.ok==true and .authority.mode=="SERVICE_PRIMARY" and .authority.scope=="PRODUCTION"' /tmp/beta80-pda-verify/authority-before.json >/dev/null
+          python3 - "$D1_ID" "$GEN" <<'PY'
+          from pathlib import Path
+          import sys
+          p=Path('wrangler.jsonc');s=p.read_text(encoding='utf-8');d1,generation=sys.argv[1:]
+          repl={
+            '"name": "pick-pack-1291-service-m1-staging"':'"name": "pickpack"',
+            '"SERVICE_GENERATION": "m2-precutover-20260819-001"':f'"SERVICE_GENERATION": "{generation}"',
+            '"database_name": "pick-pack-1291-m1-staging"':'"database_name": "pick-pack-1291-service-prod"',
+            '"database_id": "__M1_D1_DATABASE_ID__"':f'"database_id": "{d1}"',
+          }
+          for a,b in repl.items():
+              if a not in s: raise SystemExit('LIVE_CONFIG_ANCHOR_MISSING:'+a)
+              s=s.replace(a,b,1)
+          Path('wrangler.live.jsonc').write_text(s,encoding='utf-8')
+          PY
+          sql(){ npx wrangler d1 execute "$D1_NAME" --remote --config wrangler.live.jsonc --command "$1" --json; }
+          DATES=$(sql "SELECT business_date FROM business_dates ORDER BY sequence_no DESC LIMIT 2;")
+          TEST_TODAY=$(jq -r '.[0].results[0].business_date // empty' <<<"$DATES")
+          TEST_OLD_DATE=$(jq -r '.[0].results[1].business_date // empty' <<<"$DATES")
+          test -n "$TEST_TODAY" -a -n "$TEST_OLD_DATE" -a "$TEST_TODAY" != "$TEST_OLD_DATE"
+          SUFFIX=$(printf '%s' "$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" | sha256sum | cut -c1-10)
+          TEST_LOGIN="__B80PDA_LOGIN_$SUFFIX"
+          TEST_MNV="__B80PDA_MNV_$SUFFIX"
+          DEVICE="__B80PDA_DEVICE_$SUFFIX"
+          AUTH_SESSION="__B80PDA_AUTH_$SUFFIX"
+          VH="b80pda_${SUFFIX}_vh"
+          NOW=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          for v in "$TEST_LOGIN" "$TEST_MNV" "$DEVICE" "$AUTH_SESSION" "$VH"; do echo "::add-mask::$v"; done
+          sql "DELETE FROM auth_sessions WHERE login_id='$TEST_LOGIN'; DELETE FROM accounts WHERE login_id='$TEST_LOGIN'; DELETE FROM employees WHERE mnv='$TEST_MNV';" >/dev/null
+          sql "INSERT INTO accounts(login_id,verifier,verifier_hash,role,display_name,position,email,status,source_row,source_checksum,is_shadow_test) VALUES('$TEST_LOGIN','b80-pda-test','$VH','SUPERADMIN','Beta80 PDA Verify','TEST','verify@example.invalid','ACTIVE',-80,'b80-pda-test',1); INSERT INTO auth_sessions(login_id,session_id,device_id,issued_at) VALUES('$TEST_LOGIN','$AUTH_SESSION','$DEVICE','$NOW'); INSERT INTO employees(mnv,full_name,main_position,source_row,source_checksum) VALUES('$TEST_MNV','Beta80 PDA Verify','TEST',-80,'b80-pda-test');" >/dev/null
+          SERVICE_TOKEN_SECRET=$(printf '%s' "$CLOUDFLARE_ACCOUNT_ID|$GOOGLE_OAUTH_CLIENT_SECRET|pick-pack-1291-m2-service-token-v1" | sha256sum | awk '{print $1}')
+          echo "::add-mask::$SERVICE_TOKEN_SECRET"
+          SERVICE_TOKEN=$(node - <<'NODE' "$SERVICE_TOKEN_SECRET" "$TEST_LOGIN" "$VH" "$AUTH_SESSION" "$DEVICE"
+          const c=require('crypto');const [secret,l,v,s,d]=process.argv.slice(2);const p={l,r:'SUPERADMIN',v,s,d,c:'PDA'};const enc=Buffer.from(JSON.stringify(p)).toString('base64url');process.stdout.write(enc+'.'+c.createHmac('sha256',Buffer.from(secret)).update(enc).digest('base64url'));
+          NODE
+          )
+          echo "::add-mask::$SERVICE_TOKEN"
+          cd ..
+          MAIN_BEFORE=$(curl -fsS -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/$GITHUB_REPOSITORY/branches/main" | jq -r '.commit.sha')
+          test -n "$MAIN_BEFORE" -a "$MAIN_BEFORE" != null
+          {
+            echo "TEST_LOGIN=$TEST_LOGIN"
+            echo "TEST_MNV=$TEST_MNV"
+            echo "TEST_TODAY=$TEST_TODAY"
+            echo "TEST_OLD_DATE=$TEST_OLD_DATE"
+            echo "SERVICE_TOKEN=$SERVICE_TOKEN"
+            echo "AUTHORITY_EPOCH_BEFORE=$EPOCH"
+            echo "AUTHORITY_GENERATION_BEFORE=$GEN"
+            echo "MAIN_BEFORE=$MAIN_BEFORE"
+          } >> "$GITHUB_ENV"
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Build separate signed instrumentation harness only
+        shell: bash
+        run: |
+          set -euo pipefail
+          for v in SIGNING_KEY_B64 SIGNING_STORE_PASSWORD SIGNING_KEY_PASSWORD SIGNING_ALIAS; do test -n "${!v:-}"; done
+          SDK="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          if [[ ! -f "$SDK/platforms/android-36/android.jar" ]]; then
+            yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
+            "$SDK/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-36' 'build-tools;36.0.0'
+          fi
+          BT="$SDK/build-tools/36.0.0"
+          test -x "$BT/d8" -a -x "$BT/aapt" -a -x "$BT/apksigner"
+          mkdir -p /tmp/b80h/src/vn/pickpack1291/verify /tmp/b80h/classes /tmp/b80h/dex
+          cat > /tmp/b80h/AndroidManifest.xml <<'XML'
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android" package="vn.pickpack1291.verify">
+            <uses-sdk android:minSdkVersion="29" android:targetSdkVersion="36"/>
+            <application android:label="Beta80 Verify"/>
+            <instrumentation android:name=".VerifyInstrumentation" android:targetPackage="vn.pickpack1291.app.beta.publicbeta" android:functionalTest="true" android:handleProfiling="false"/>
+          </manifest>
+          XML
+          cat > /tmp/b80h/src/vn/pickpack1291/verify/VerifyInstrumentation.java <<'JAVA'
+          package vn.pickpack1291.verify;
+          import android.app.Activity;
+          import android.app.Instrumentation;
+          import android.content.Intent;
+          import android.os.Bundle;
+          import java.lang.reflect.Field;
+          import java.lang.reflect.Method;
+          public final class VerifyInstrumentation extends Instrumentation {
+            private Bundle args;
+            @Override public void onCreate(Bundle b){super.onCreate(b);args=b;start();}
+            @Override public void onStart(){
+              try{
+                final String url=args.getString("url"),sha=args.getString("sha"),version=args.getString("version");
+                final Intent i=new Intent();
+                i.setClassName(getTargetContext(),"vn.pickpack1291.app.beta.OperationsActivity");
+                i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                i.putExtra("module","SETTINGS");i.putExtra("login","pda_verify");i.putExtra("name","Beta80 PDA Verify");i.putExtra("role","SUPERADMIN");
+                final Activity a=startActivitySync(i);
+                final Class<?> c=getTargetContext().getClassLoader().loadClass("vn.pickpack1291.app.beta.UpdateManager");
+                final Field f=c.getField("INSTANCE");final Object instance=f.get(null);
+                Method picked=null;
+                for(Method m:c.getDeclaredMethods())if(m.getName().equals("download")&&m.getParameterTypes().length==4){picked=m;break;}
+                if(picked==null)throw new IllegalStateException("DOWNLOAD_METHOD_NOT_FOUND");
+                final Method m=picked;m.setAccessible(true);
+                runOnMainSync(new Runnable(){public void run(){try{m.invoke(instance,a,version,url,sha);}catch(Exception e){throw new RuntimeException(e);}}});
+                Bundle st=new Bundle();st.putString("result","BETA80_UPDATE_MANAGER_DOWNLOAD_INVOKED");sendStatus(0,st);
+                while(true)Thread.sleep(1000);
+              }catch(Throwable t){Bundle x=new Bundle();x.putString("error",t.toString());finish(1,x);}
+            }
+          }
+          JAVA
+          javac -source 8 -target 8 -cp "$SDK/platforms/android-36/android.jar" -d /tmp/b80h/classes /tmp/b80h/src/vn/pickpack1291/verify/VerifyInstrumentation.java
+          "$BT/d8" --lib "$SDK/platforms/android-36/android.jar" --output /tmp/b80h/dex /tmp/b80h/classes/vn/pickpack1291/verify/VerifyInstrumentation.class
+          "$BT/aapt" package -f -M /tmp/b80h/AndroidManifest.xml -I "$SDK/platforms/android-36/android.jar" -F /tmp/b80h/harness-unsigned.apk
+          (cd /tmp/b80h/dex && "$BT/aapt" add /tmp/b80h/harness-unsigned.apk classes.dex >/dev/null)
+          KS=/tmp/b80h/release.jks
+          printf '%s' "$SIGNING_KEY_B64" | base64 -d > "$KS"
+          printf '%s' "$SIGNING_STORE_PASSWORD" > /tmp/b80h/store.pass
+          printf '%s' "$SIGNING_KEY_PASSWORD" > /tmp/b80h/key.pass
+          "$BT/apksigner" sign --ks "$KS" --ks-key-alias "$SIGNING_ALIAS" --ks-pass file:/tmp/b80h/store.pass --key-pass file:/tmp/b80h/key.pass --out /tmp/beta80-verify-harness.apk /tmp/b80h/harness-unsigned.apk
+          "$BT/apksigner" verify --print-certs /tmp/beta80-verify-harness.apk > /tmp/b80h/cert.txt
+          CERT=$(grep -m1 'Signer #1 certificate SHA-256 digest:' /tmp/b80h/cert.txt | sed 's/.*digest: //' | tr 'A-F' 'a-f' | tr -d ':[:space:]')
+          test "$CERT" = "$EXPECTED_SIGNER"
+          echo "VERIFY_HARNESS_APK=/tmp/beta80-verify-harness.apk" >> "$GITHUB_ENV"
+          rm -f "$KS" /tmp/b80h/store.pass /tmp/b80h/key.pass
+
+      - name: Enable KVM
+        shell: bash
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules >/dev/null
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm || true
+          sudo chmod 666 /dev/kvm || true
+
+      - name: Verify OTA installer and exact historical session on installed Beta80
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 29
+          target: default
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: false
+          emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-metrics
+          script: |
+            set -euo pipefail
+            adb root >/tmp/beta80-pda-verify/adb-root.txt 2>&1 || true
+            adb wait-for-device
+            test "$(adb shell id -u 2>/dev/null | tr -d '')" = "0"
+
+            python3 /tmp/beta80_pda_verify.py ota-old
+            python3 /tmp/beta80_pda_verify.py fileprovider
+            python3 /tmp/beta80_pda_verify.py enter
+
+            sql(){ (cd service && npx wrangler d1 execute "$D1_NAME" --remote --config wrangler.live.jsonc --command "$1" --json); }
+            ROW=$(sql "SELECT session_id,mnv,business_date,shift,work_choice,state,version FROM attendance_sessions WHERE mnv='$TEST_MNV' ORDER BY updated_at DESC LIMIT 1;")
+            printf '%s' "$ROW" > /tmp/beta80-pda-verify/session-after-ui-enter.json
+            TEST_SID=$(jq -r '.[0].results[0].session_id // empty' <<<"$ROW")
+            ENTER_DATE=$(jq -r '.[0].results[0].business_date // empty' <<<"$ROW")
+            ENTER_STATE=$(jq -r '.[0].results[0].state // empty' <<<"$ROW")
+            test -n "$TEST_SID" -a "$ENTER_DATE" = "$TEST_TODAY" -a "$ENTER_STATE" = "ACTIVE"
+            echo "::add-mask::$TEST_SID"
+            sql "UPDATE attendance_sessions SET business_date='$TEST_OLD_DATE',work_choice='PICK' WHERE session_id='$TEST_SID' AND mnv='$TEST_MNV' AND state='ACTIVE';" >/dev/null
+            MOVED=$(sql "SELECT session_id,mnv,business_date,work_choice,state,version FROM attendance_sessions WHERE session_id='$TEST_SID';")
+            printf '%s' "$MOVED" > /tmp/beta80-pda-verify/session-moved-to-old-date.json
+            jq -e --arg sid "$TEST_SID" --arg m "$TEST_MNV" --arg d "$TEST_OLD_DATE" '.[0].results[0] | .session_id==$sid and .mnv==$m and .business_date==$d and .work_choice=="PICK" and .state=="ACTIVE"' <<<"$MOVED" >/dev/null
+            export TEST_SID
+            python3 /tmp/beta80_pda_verify.py historical
+
+            FINAL=$(sql "SELECT session_id,mnv,business_date,shift,work_choice,state,version,pda_serial,user_pick,pack_table,user_pack,exit_at FROM attendance_sessions WHERE session_id='$TEST_SID';")
+            printf '%s' "$FINAL" > /tmp/beta80-pda-verify/d1-final-session.json
+            jq -e --arg sid "$TEST_SID" --arg m "$TEST_MNV" --arg d "$TEST_OLD_DATE" '.[0].results[0] | .session_id==$sid and .mnv==$m and .business_date==$d and .shift=="Ca 2" and .state=="ENDED" and .version>=4 and (.exit_at|length)>0' <<<"$FINAL" >/dev/null
+            EVENTS=$(sql "SELECT event_type,entity_id,business_date,payload_json FROM events WHERE actor_id='$TEST_LOGIN' ORDER BY authority_epoch,authority_seq;")
+            printf '%s' "$EVENTS" > /tmp/beta80-pda-verify/d1-fixture-events.json
+            jq -e --arg sid "$TEST_SID" '[.[0].results[] | select(.entity_id==$sid and .event_type=="ATTENDANCE_ENTER")] | length==1' <<<"$EVENTS" >/dev/null
+            jq -e --arg sid "$TEST_SID" '[.[0].results[] | select(.entity_id==$sid and .event_type=="RESOURCE_CHANGE")] | length>=2' <<<"$EVENTS" >/dev/null
+            jq -e --arg sid "$TEST_SID" '[.[0].results[] | select(.entity_id==$sid and .event_type=="ATTENDANCE_EXIT")] | length==1' <<<"$EVENTS" >/dev/null
+            COUNT=$(sql "SELECT COUNT(*) n FROM attendance_sessions WHERE mnv='$TEST_MNV';")
+            test "$(jq -r '.[0].results[0].n' <<<"$COUNT")" = "1"
+
+            curl -fsS "$SERVICE_URL/v1/authority" > /tmp/beta80-pda-verify/authority-after.json
+            jq -e --slurpfile b /tmp/beta80-pda-verify/authority-before.json '.ok==true and .authority.mode==$b[0].authority.mode and .authority.scope==$b[0].authority.scope and .authority.authority_epoch==$b[0].authority.authority_epoch and .authority.service_generation==$b[0].authority.service_generation' /tmp/beta80-pda-verify/authority-after.json >/dev/null
+            MAIN_AFTER=$(curl -fsS -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/$GITHUB_REPOSITORY/branches/main" | jq -r '.commit.sha')
+            test "$MAIN_AFTER" = "$MAIN_BEFORE"
+            printf '%s
+' "$MAIN_AFTER" > /tmp/beta80-pda-verify/main-after.txt
+
+            PUBLIC_OK=0
+            for attempt in 0 1 2; do
+              if curl -fsSL --connect-timeout 15 --max-time 30 -H 'content-type: application/json' 'https://script.google.com/macros/s/AKfycbzbEoGfbNg6s2HnP-gUpcBJ7mMIkVBtYuQKMndb9seDV2c55lQwSUO1GZ-LtQ2CxMCauA/exec' -d '{"action":"update_check","channel":"BETA","current_version":"0.4.2-beta.79"}' > /tmp/beta80-pda-verify/beta-final.json && jq -e --arg h "$EXPECTED_SHA" --argjson z "$EXPECTED_SIZE" '.ok==true and .channel=="BETA" and .available==true and .version_name=="0.4.2-beta.80" and ((.version_code//86)==86) and .sha256==$h and .size==$z and ((.apk_url//"")|length)>0' /tmp/beta80-pda-verify/beta-final.json >/dev/null 2>&1; then PUBLIC_OK=1; break; fi
+              [[ "$attempt" -lt 2 ]] && sleep $((2+attempt*4))
+            done
+            test "$PUBLIC_OK" = 1
+            STABLE_OK=0
+            for attempt in 0 1 2; do
+              if curl -fsSL --connect-timeout 15 --max-time 30 -H 'content-type: application/json' 'https://script.google.com/macros/s/AKfycbzbEoGfbNg6s2HnP-gUpcBJ7mMIkVBtYuQKMndb9seDV2c55lQwSUO1GZ-LtQ2CxMCauA/exec' -d '{"action":"update_check","channel":"STABLE","current_version":"0.1.0-stable"}' > /tmp/beta80-pda-verify/stable-final.json && jq -e '.ok==true and .channel=="STABLE" and .available==false and .reason=="NO_APK"' /tmp/beta80-pda-verify/stable-final.json >/dev/null 2>&1; then STABLE_OK=1; break; fi
+              [[ "$attempt" -lt 2 ]] && sleep $((2+attempt*4))
+            done
+            test "$STABLE_OK" = 1
+
+            jq -n --arg sha "$EXPECTED_SHA" --argjson size "$EXPECTED_SIZE" --arg signer "$EXPECTED_SIGNER" --arg sid "$TEST_SID" --arg mnv "$TEST_MNV" --arg old_date "$TEST_OLD_DATE" --arg main "$MAIN_AFTER"               --slurpfile beta /tmp/beta80-pda-verify/beta-final.json --slurpfile stable /tmp/beta80-pda-verify/stable-final.json --slurpfile auth /tmp/beta80-pda-verify/authority-after.json               '{status:"PASS",version_name:"0.4.2-beta.80",version_code:86,candidate_artifact:9629377960,apk_sha256:$sha,apk_size:$size,signer_sha256:$signer,ota_from_beta79_direct_installer:true,beta80_fileprovider_actual_self_reinstall:true,file_picker_required:false,installed_and_opened_beta80:true,session:{mnv:$mnv,session_id:$sid,business_date:$old_date,flow:"Vào ca UI -> mở đúng session_id -> Xóa -> Sửa Ca 2 -> Bắn ra",not_found:false,wrong_session:false,d1_final:"ENDED"},beta_readback:$beta[0],stable_readback:$stable[0],stable_unchanged:true,main_sha:$main,main_unchanged:true,authority:$auth[0].authority,authority_change:"NONE"}' > /tmp/beta80-pda-verify/receipt.json
+            cat /tmp/beta80-pda-verify/receipt.json
+
+      - name: Cleanup isolated D1 fixture
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          if [[ -f service/wrangler.live.jsonc && -n "${TEST_MNV:-}" && -n "${TEST_LOGIN:-}" ]]; then
+            cd service
+            npx wrangler d1 execute "$D1_NAME" --remote --config wrangler.live.jsonc --command "DELETE FROM outbound_replication_outbox WHERE event_id IN (SELECT event_id FROM events WHERE actor_id='$TEST_LOGIN'); DELETE FROM sheet_replication_outbox WHERE event_id IN (SELECT event_id FROM events WHERE actor_id='$TEST_LOGIN'); DELETE FROM mutation_assertions WHERE event_id IN (SELECT event_id FROM events WHERE actor_id='$TEST_LOGIN'); DELETE FROM push_outbox WHERE payload_json LIKE '%$TEST_MNV%'; DELETE FROM resource_daily_consumption WHERE mnv='$TEST_MNV'; DELETE FROM resource_leases WHERE mnv='$TEST_MNV'; DELETE FROM historical_session_snapshots WHERE mnv='$TEST_MNV'; DELETE FROM attendance_sessions WHERE mnv='$TEST_MNV'; DELETE FROM events WHERE actor_id='$TEST_LOGIN'; DELETE FROM auth_sessions WHERE login_id='$TEST_LOGIN'; DELETE FROM accounts WHERE login_id='$TEST_LOGIN'; DELETE FROM employees WHERE mnv='$TEST_MNV';" --json > /tmp/beta80-pda-verify/cleanup.json 2>&1
+          fi
+          exit 0
+
+      - name: Upload Beta80 PDA functional receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: beta80-pda-functional-${{ github.run_id }}
+          path: /tmp/beta80-pda-verify
+          retention-days: 30
+          if-no-files-found: error
+
