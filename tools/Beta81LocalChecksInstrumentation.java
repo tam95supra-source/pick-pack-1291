@@ -243,7 +243,14 @@ public final class Beta81LocalChecksInstrumentation extends Instrumentation {
       .put("shift","Ca 2").put("work_choice","PICK").put("state","ACTIVE")
       .put("enter_at",oldDate+"T16:30:00Z").put("exit_at","").put("version",3)
       .put("pda_serial","MT90-B81-OLD").put("user_pick","PICK-B81-OLD")
-      .put("pack_table","TABLE-B81-OLD").put("user_pack","PACK-B81-OLD");
+      .put("pack_table","TABLE-B81-OLD").put("user_pack","PACK-B81-OLD")
+      .put("positions_v64",new JSONArray()
+        .put(new JSONObject().put("position_id","beta81-old-position").put("position_key","PICK").put("position_label","Pick").put("state","ACTIVE")))
+      .put("resource_assignments_v64",new JSONArray()
+        .put(new JSONObject().put("assignment_id","beta81-old-pda").put("resource_type","PDA").put("resource_id","MT90-B81-OLD").put("state","ACTIVE"))
+        .put(new JSONObject().put("assignment_id","beta81-old-pick").put("resource_type","USER_PICK").put("resource_id","PICK-B81-OLD").put("state","ACTIVE"))
+        .put(new JSONObject().put("assignment_id","beta81-old-table").put("resource_type","PACK_TABLE").put("resource_id","TABLE-B81-OLD").put("state","ACTIVE"))
+        .put(new JSONObject().put("assignment_id","beta81-old-pack").put("resource_type","USER_PACK").put("resource_id","PACK-B81-OLD").put("state","ACTIVE")));
     saveDay.invoke(store,new JSONObject()
       .put("business_date",oldDate).put("day_revision",81003L)
       .put("sessions",new JSONArray().put(oldSession))
@@ -283,6 +290,8 @@ public final class Beta81LocalChecksInstrumentation extends Instrumentation {
     }
     require(pdaBusy&&pickBusy&&packBusy,"OLD_ACTIVE_RESOURCE_RELEASED");
     mark("old_resources_preserved");
+    require(ses.has("resource_assignments_v64"),"OLD_SESSION_FIXTURE_NOT_HYDRATED");
+    mark("old_session_fixture_hydrated");
 
     seedService();
     mark("phase_existing_qr_reused");
