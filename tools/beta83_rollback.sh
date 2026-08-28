@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
-R=ops/beta-release-request.json;E=/tmp/beta83-rollback;rm -rf "$E";mkdir -p "$E";PUB=/tmp/beta83-publish/receipt.json;test -f "$PUB"
+R=ops/beta-release-request.json;E=/tmp/beta-rollback;rm -rf "$E";mkdir -p "$E";PUB=/tmp/beta-publish/receipt.json;test -f "$PUB"
 FILE=$(jq -r '.drive_file_id' "$PUB");test -n "$FILE" -a "$FILE" != null
 TOKEN_JSON=$(curl -fsS https://oauth2.googleapis.com/token -H 'Content-Type: application/x-www-form-urlencoded'   --data-urlencode "client_id=$GOOGLE_OAUTH_CLIENT_ID" --data-urlencode "client_secret=$GOOGLE_OAUTH_CLIENT_SECRET"   --data-urlencode "refresh_token=$GOOGLE_OAUTH_REFRESH_TOKEN" --data-urlencode grant_type=refresh_token)
 TOKEN=$(jq -r '.access_token//empty' <<<"$TOKEN_JSON");test -n "$TOKEN";echo "::add-mask::$TOKEN";echo "::add-mask::$FILE"
@@ -15,4 +15,4 @@ for a in 0 1 2 3; do
   sleep $((3+a*4))
 done
 test "$PASS" = 1
-jq -n --slurpfile r "$E/readback.json" '{status:"PASS",rollback_beta82:true,beta_readback:$r[0]}' > "$E/receipt.json";cat "$E/receipt.json"
+jq -n --slurpfile r "$E/readback.json" '{status:"PASS",rollback_base:true,beta_readback:$r[0]}' > "$E/receipt.json";cat "$E/receipt.json"
