@@ -599,8 +599,13 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     String hhmm=java.time.LocalTime.now(ZoneId.of("Asia/Ho_Chi_Minh")).format(java.time.format.DateTimeFormatter.ofPattern("HHmm"));
     setNodeText(pass,hhmm);
     clickText("XÁC THỰC",true,10000L);
-    waitText("Sửa thông tin trong ca",true,false,10000L);
+    // Beta92 intentionally requires authoritative Service options before opening the editor.
+    // This verification matrix is offline by design, so the correct result is the explicit
+    // Service-options blocker instead of rendering an editor from stale local/GSheet cache.
+    waitText("Không đọc được danh sách tài nguyên khả dụng từ Service",false,false,10000L);
+    require(findText("Sửa thông tin trong ca",true,false)==null,"EDITOR_MUST_NOT_OPEN_WITHOUT_AUTHORITATIVE_OPTIONS");
     mark("hhmm_edit_confirmation");
+    mark("authoritative_editor_offline_guard");
     shot(tag+"-11-beta83-hhmm");
     try{ui.executeShellCommand("input keyevent 4").close();}catch(Exception ignored){}
     SystemClock.sleep(300L);
