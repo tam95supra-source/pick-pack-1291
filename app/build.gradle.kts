@@ -32,8 +32,8 @@ android {
         create("beta") {
             dimension = "channel"
             applicationId = "vn.pickpack1291.app.beta.publicbeta"
-            versionCode = 98
-            versionName = "0.4.2-beta.92"
+            versionCode = 99
+            versionName = "0.4.2-beta.93"
             manifestPlaceholders["appLabel"] = "Pick Pack 1291 Beta"
             buildConfigField("String", "CHANNEL", "\"BETA\"")
         }
@@ -73,7 +73,7 @@ dependencies {
 // Firebase client identifiers are injected at build time and default blank so source never contains project config.
 // GSHEET_API_URL remains public discovery/fallback configuration and manual update lookup path; no Service URL is compiled into APK.
 // Signing material remains outside this repository and the Android signer is owner-locked.
-// Beta92: Service-authoritative User Pick/User Pack/Pack Table options, no background employee UI reset, and dual user-facing changelogs. Stable remains isolated and unchanged.\n// Beta91: Pack availability consistency/current-session retention + realtime changed-fields-only employee timeline. Stable remains isolated and unchanged.\n// Beta90: complete first-log metadata persistence after acknowledged upload cleanup; inherits Beta89 API36 Back, canonical before/after projection, and same-session PDA validation fixes. Stable remains isolated and unchanged.
+// Beta93: resolve authoritative ACTIVE session before exit, block blank session_id requests, and single-flight duplicate exit taps. Stable remains isolated and unchanged.\n// Beta92: Service-authoritative User Pick/User Pack/Pack Table options, no background employee UI reset, and dual user-facing changelogs. Stable remains isolated and unchanged.\n// Beta91: Pack availability consistency/current-session retention + realtime changed-fields-only employee timeline. Stable remains isolated and unchanged.\n// Beta90: complete first-log metadata persistence after acknowledged upload cleanup; inherits Beta89 API36 Back, canonical before/after projection, and same-session PDA validation fixes. Stable remains isolated and unchanged.
 // Beta89: superseded pre-OTA; not published because first-log init metadata could still render blank after cleanup.
 // Beta88: owner-approved navigation, staff identity, exact audit before/after, reconciliation detail, attendance card, PDA-return projection, and Pick-account display fixes. Stable remains isolated and unchanged.
 // Beta87: owner UI/data correctness fixes: action placement, Pack pair validation, editable delete reason, authoritative before/after audit, header sync action, compact timeline, and report cleanup. Stable remains isolated and unchanged.
