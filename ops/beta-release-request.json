@@ -1,6 +1,6 @@
 {
-  "stage": "BUILD_VERIFY",
-  "mode": "BUILD_SIGN_LOCK_ONLY",
+  "stage": "VERIFY_ONLY",
+  "mode": "VERIFY_EXACT_LOCKED_CANDIDATE",
   "version_name": "0.4.2-beta.85",
   "version_code": 91,
   "base_version": "0.4.2-beta.83",
@@ -39,6 +39,12 @@
     "apk_size": 13212605,
     "published": false
   },
-  "candidate_locked": false,
-  "next_action": "BUILD_SIGN_LOCK_BETA85_ONLY"
+  "candidate_locked": true,
+  "next_action": "VERIFY_EXACT_BETA85_VISUAL_PDA_PRE_OTA",
+  "candidate_run_id": 33129019651,
+  "candidate_artifact_id": 9669569850,
+  "candidate_artifact_name": "beta85-candidate-33129019651",
+  "candidate_artifact_digest": "sha256:000b404598bfc814489fc7e03e25ce11db5b6b8ca593a455668e94ae776fdadc",
+  "apk_sha256": "113e505139a8bb49b8d513e9f0bf2830246ea3afb25615eb3ade3f52bdfd7776",
+  "apk_size": 13212605
 }
