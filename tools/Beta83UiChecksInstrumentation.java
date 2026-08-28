@@ -24,6 +24,8 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
   private Bundle args;
   private UiAutomation ui;
   private Context target;
+  private String firstLogName="";
+  private long firstLogBytes=0L;
   private static final String PKG="vn.pickpack1291.app.beta.publicbeta";
   private static final String ACT="vn.pickpack1291.app.beta.OperationsActivity";
 
@@ -362,6 +364,7 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
 
   private void runVisual()throws Exception{
     String tag=req("tag"),mnv=req("mnv"),mnv2=req("mnv2"),mnv3=req("mnv3");
+    verifyFirstLogMetadata();
     seedAuth();seedService();seedData(mnv,mnv2,mnv3);
 
     open("BUSINESS");
@@ -390,6 +393,50 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     shot(tag+"-05-report");
 
     Bundle done=new Bundle();done.putString("result","BETA83_VISUAL_PASS");finish(0,done);
+  }
+
+  private static String formatBytes(long v){
+    if(v<1024L)return v+" B";
+    if(v<1024L*1024L)return String.format(Locale.US,"%.1f KB",v/1024.0);
+    return String.format(Locale.US,"%.1f MB",v/(1024.0*1024.0));
+  }
+
+  private void verifyFirstLogMetadata()throws Exception{
+    android.content.SharedPreferences prefs=target.getSharedPreferences("pp1291_log_state",Context.MODE_PRIVATE);
+    prefs.edit().clear().commit();
+    File dir=new File(target.getFilesDir(),"diagnostic_logs");
+    if(dir.exists()){
+      File[] old=dir.listFiles();
+      if(old!=null)for(File f:old)if(f.isFile())f.delete();
+    }else require(dir.mkdirs(),"LOG_DIR_CREATE_FAILED");
+
+    Intent i=new Intent();
+    i.setClassName(target,"vn.pickpack1291.app.beta.FullBetaActivity");
+    i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK|Intent.FLAG_ACTIVITY_CLEAR_TASK);
+    target.startActivity(i);
+
+    long end=SystemClock.uptimeMillis()+12000L;
+    while(SystemClock.uptimeMillis()<end){
+      String n=prefs.getString("log_latest_name_v89","");
+      long b=prefs.getLong("log_latest_file_bytes_v89",0L);
+      long at=prefs.getLong("log_latest_at_v58",0L);
+      if(!n.trim().isEmpty()&&b>0L&&at>0L){firstLogName=n;firstLogBytes=b;break;}
+      SystemClock.sleep(180L);
+    }
+    require(!firstLogName.isEmpty(),"FIRST_LOG_NAME_NOT_RECORDED");
+    require(firstLogBytes>0L,"FIRST_LOG_BYTES_NOT_RECORDED");
+    require(prefs.getLong("log_latest_at_v58",0L)>0L,"FIRST_LOG_TIME_NOT_RECORDED");
+
+    File[] files=dir.listFiles();
+    require(files!=null&&files.length>0,"FIRST_LOG_FILE_NOT_CREATED");
+    for(File f:files)if(f.isFile())require(f.delete(),"FIRST_LOG_DELETE_FAILED:"+f.getName());
+    File[] after=dir.listFiles();
+    require(after==null||after.length==0,"LOCAL_LOG_CLEANUP_FAILED");
+
+    require(firstLogName.equals(prefs.getString("log_latest_name_v89","")),"LOG_NAME_LOST_AFTER_CLEANUP");
+    require(firstLogBytes==prefs.getLong("log_latest_file_bytes_v89",0L),"LOG_BYTES_LOST_AFTER_CLEANUP");
+    require(prefs.getLong("log_latest_at_v58",0L)>0L,"LOG_TIME_LOST_AFTER_CLEANUP");
+    mark("log_metadata_persisted");
   }
 
   private void runChecks()throws Exception{
@@ -545,6 +592,8 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     shot(tag+"-07-settings-top");
     showTextOnScreen("NHẬT KÝ",12000L);
     showTextOnScreen("Tên tệp nhật ký",12000L);
+    waitText(firstLogName,true,false,10000L);
+    waitText(formatBytes(firstLogBytes),true,false,10000L);
     require(findText("Dung lượng lưu trữ còn trống",true,false)==null,"SETTINGS_LOG_FREE_SPACE_VISIBLE");
     require(findText("Đang chờ gửi nghiệp vụ",true,false)==null,"SETTINGS_OPERATION_COUNTER_VISIBLE");
     mark("settings_simplified");
