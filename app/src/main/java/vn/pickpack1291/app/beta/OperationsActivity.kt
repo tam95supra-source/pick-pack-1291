@@ -1837,6 +1837,19 @@ class OperationsActivity : Activity() {
         }}}
         bindScannerEnter(serialField){hideSoftKeyboard(serialField);refreshList(serialField.text.toString())};attach(root,body);foregroundSync.requestSync();refreshList("");serialField.requestFocus()
     }
+    private fun addVersionChangelog(body:LinearLayout,title:String,version:String,notes:String){
+        val preview=UpdateManager.previewNotesForDisplay(notes,4)
+        body.addView(txt("$title • $version",10.8f,navy,true).apply{setPadding(dp(2),dp(4),dp(2),dp(3))})
+        body.addView(details(listOf("Thay đổi" to preview.first)))
+        if(preview.second){
+            body.addView(gap(4))
+            body.addView(smallButton("XEM THÊM",teal).apply{setOnClickListener{
+                AlertDialog.Builder(this@OperationsActivity).setTitle("$title • $version").setMessage(UpdateManager.bulletNotesForDisplay(notes)).setPositiveButton("ĐÓNG",null).show()
+            }},LinearLayout.LayoutParams(-1,dp(40)))
+        }
+        body.addView(gap(7))
+    }
+
     private fun settingsScreen(){
         module="SETTINGS"
         screenState="SETTINGS"
@@ -1875,11 +1888,14 @@ class OperationsActivity : Activity() {
         )))
         body.addView(section("CẬP NHẬT PHIÊN BẢN"))
         val pendingUpdate=UpdateManager.pendingInfo(this)
-        val updateRows=mutableListOf<Pair<String,String>>()
-        updateRows.add("Trạng thái" to if(pendingUpdate==null)"Đang dùng phiên bản mới nhất: ${BuildConfig.VERSION_NAME}" else "Có bản ${pendingUpdate.version} đang chờ cài đặt")
-        if(pendingUpdate!=null)updateRows.add("Nội dung thay đổi" to UpdateManager.bulletNotesForDisplay(pendingUpdate.notes))
-        body.addView(details(updateRows))
+        val latestRelease=UpdateManager.latestInfo(this)
+        val latestVersion=pendingUpdate?.version?:latestRelease?.version?.takeIf{it.isNotBlank()}?:BuildConfig.VERSION_NAME
+        body.addView(details(listOf(
+            "Trạng thái" to if(pendingUpdate==null&&latestVersion==BuildConfig.VERSION_NAME)"Đang dùng bản mới nhất: ${BuildConfig.VERSION_NAME}" else "Bản mới nhất: $latestVersion\nĐang dùng: ${BuildConfig.VERSION_NAME}"
+        )))
         body.addView(gap(7))
+        if(pendingUpdate!=null)addVersionChangelog(body,"THAY ĐỔI BẢN MỚI",pendingUpdate.version,pendingUpdate.notes)
+        addVersionChangelog(body,"THAY ĐỔI BẢN HIỆN TẠI",BuildConfig.VERSION_NAME,ReleaseNotes.currentText())
         body.addView(primary(if(pendingUpdate!=null)"TIẾP TỤC CẬP NHẬT" else "KIỂM TRA CẬP NHẬT",teal){UpdateManager.openManual(this)},matchWrap())
         body.addView(gap(10))
         body.addView(section("NHẬT KÝ"))
