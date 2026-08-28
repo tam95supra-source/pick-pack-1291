@@ -412,7 +412,7 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     clickText("Sửa",true,10000L);
     waitText("Xác thực sửa thông tin trong ca",true,false,10000L);
     AccessibilityNodeInfo pass=findEditableHint("Mật khẩu xác nhận");
-    String hhmm=java.time.LocalTime.now(ZoneId.of("Asia/Ho_Chi_Minh")).format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"));
+    String hhmm=java.time.LocalTime.now(ZoneId.of("Asia/Ho_Chi_Minh")).format(java.time.format.DateTimeFormatter.ofPattern("HHmm"));
     setNodeText(pass,hhmm);
     clickText("XÁC THỰC",true,10000L);
     waitText("Sửa thông tin trong ca",true,false,10000L);
