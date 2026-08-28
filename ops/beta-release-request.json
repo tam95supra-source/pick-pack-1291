@@ -1,6 +1,6 @@
 {
-  "stage": "PUBLISH",
-  "mode": "PUBLISH_EXACT_LOCKED_CANDIDATE_AFTER_ALL_PRE_OTA_PASS",
+  "stage": "pass_live",
+  "mode": "PASS_LIVE_EXACT_BYTES",
   "version_name": "0.4.2-beta.85",
   "version_code": 91,
   "base_version": "0.4.2-beta.83",
@@ -32,7 +32,7 @@
   "authority_change": "NONE",
   "scope": "beta85-ota-storage-staff-sort-hhmm-audit-detail",
   "owner": "Nguyen Van Tam",
-  "live": false,
+  "live": true,
   "pre_ota_attempt": 2,
   "last_pre_ota_failure": "HARNESS_OLD82_SYMBOL_FIXED; OTA_BASELINE_CODE_89_PREPUBLISH_FIXED",
   "abandoned_candidate": {
@@ -55,5 +55,6 @@
   "verify_artifact_id": 9671908222,
   "verify_artifact_name": "beta85-verify-33135526429",
   "verify_artifact_digest": "sha256:30734abcb0d97944ca6b192455108953b04985963815144cb7ad63d786afd293",
-  "human_visual_evidence": "PASS_19_REAL_SCREENSHOTS_INSPECTED"
+  "human_visual_evidence": "PASS_19_REAL_SCREENSHOTS_INSPECTED",
+  "publish_run_id": "33135798671"
 }
