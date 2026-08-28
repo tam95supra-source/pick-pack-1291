@@ -114,6 +114,7 @@ class OperationsActivity : Activity() {
     private val tabHistory=java.util.ArrayDeque<String>()
     private var liveEmployeeMnv=""
     private var employeeLookupGeneration=0L // S39_EMPLOYEE_SESSION_HISTORY
+    private val exitInFlightMnvs=mutableSetOf<String>() // Beta93: one exit flow per employee across rerenders/resolution.
     private var lastEmployeeRenderSignature="" // Beta74: suppress identical employee full-tree rebuilds.
     private val foregroundSync by lazy {
         ForegroundSyncCoordinator(this, syncApi, object : ForegroundSyncCoordinator.Listener {
@@ -1068,28 +1069,66 @@ class OperationsActivity : Activity() {
         }
         if(!completed)startAnimation(android.view.animation.AlphaAnimation(1f,.92f).apply{duration=900;repeatMode=android.view.animation.Animation.REVERSE;repeatCount=android.view.animation.Animation.INFINITE})
     }
+    private fun usableExitSession(session:JSONObject?,mnvRaw:String):Boolean{
+        val s=session?:return false
+        val mnv=mnvRaw.trim();val sid=s.optString("session_id").trim();val who=s.optString("mnv").trim()
+        return mnv.isNotBlank()&&sid.isNotBlank()&&s.optString("state").equals("ACTIVE",true)&&(who.isBlank()||who==mnv)
+    }
+
+    private fun resolveActiveSessionForExit(mnvRaw:String,localSession:JSONObject,done:(JSONObject?,JSONObject?,String?)->Unit){
+        val mnv=mnvRaw.trim()
+        if(mnv.isBlank()){done(null,null,"MNV_REQUIRED");return}
+        if(usableExitSession(localSession,mnv)){done(JSONObject(localSession.toString()),null,null);return}
+        val generation=employeeLookupGeneration
+        api.call("employee_context",JSONObject().put("mnv",mnv).put("include_options",false).put("include_labor",true)){r->runOnUiThread{
+            if(generation!=employeeLookupGeneration||liveEmployeeMnv.trim()!=mnv){done(null,null,"SESSION_EXIT_CONTEXT_STALE");return@runOnUiThread}
+            if(handleAuth(r)){done(null,null,"UNAUTHORIZED");return@runOnUiThread}
+            if(!r.ok){done(null,null,r.error?:"SESSION_EXIT_RESOLVE_FAILED");return@runOnUiThread}
+            val remote=r.json?:JSONObject();val resolved=remote.optJSONObject("session")
+            if(!usableExitSession(resolved,mnv)){
+                val code=if(remote.optString("state").equals("ACTIVE",true))"SESSION_EXIT_FIELDS_REQUIRED" else "SESSION_NOT_ACTIVE"
+                done(null,remote.optJSONObject("active_labor"),code);return@runOnUiThread
+            }
+            done(JSONObject(resolved!!.toString()),remote.optJSONObject("active_labor"),null)
+        }}
+    }
+
     private fun renderActive(body:LinearLayout,ctx:JSONObject){
-        val s=ctx.optJSONObject("session")?:JSONObject();val mnv=s.optString("mnv")
+        val s=ctx.optJSONObject("session")?:JSONObject();val mnv=s.optString("mnv").ifBlank{ctx.optJSONObject("employee")?.optString("mnv").orEmpty()}.trim()
         val exit=smallButton("Ra ca",red)
-        fun doExit(status:String){
-            val gen=employeeLookupGeneration;exit.isEnabled=false
-            api.call("session_exit_v2",JSONObject().put("session_id",s.optString("session_id")).put("mnv",mnv).put("expected_version",s.optInt("version")).put("pda_exit_status",status).put("idempotency_key",UUID.randomUUID().toString())){r->runOnUiThread{
-                exit.isEnabled=true
-                if(!r.ok){if(r.error=="SESSION_CHANGED")loadEmployee(mnv,forceRefresh=true)else showError(r.error?:"RA_CA_FAILED");return@runOnUiThread}
+        fun releaseExitGuard(){exitInFlightMnvs.remove(mnv);exit.isEnabled=true}
+        fun doExit(resolved:JSONObject,status:String){
+            if(!usableExitSession(resolved,mnv)){releaseExitGuard();showError("SESSION_EXIT_FIELDS_REQUIRED");return}
+            val gen=employeeLookupGeneration
+            api.call("session_exit_v2",JSONObject().put("session_id",resolved.optString("session_id")).put("mnv",mnv).put("expected_version",resolved.optInt("version")).put("pda_exit_status",status).put("idempotency_key",UUID.randomUUID().toString())){r->runOnUiThread{
+                releaseExitGuard()
+                if(!r.ok){if(r.error=="SESSION_CHANGED"||r.error=="SESSION_EXIT_CONFLICT")loadEmployee(mnv,forceRefresh=true)else showError(r.error?:"RA_CA_FAILED");return@runOnUiThread}
                 TopNotice.show(this,"Đã ghi nhận ra ca.",TopNotice.Kind.SUCCESS);foregroundSync.requestSync()
                 if(gen==employeeLookupGeneration&&liveEmployeeMnv==mnv)scheduleAttendanceAutoReset(mnv,gen)
             }}
         }
         exit.setOnClickListener{
+            if(mnv.isBlank()){showError("MNV_REQUIRED");return@setOnClickListener}
             if(ctx.optJSONObject("active_labor")!=null){showError("Còn công nhật đang làm. Hoàn thành công nhật trước khi ra ca.");return@setOnClickListener}
-            val pda=activeAssignments(s,"PDA").firstOrNull()
-            if(pda==null){doExit("");return@setOnClickListener}
-            val expected=s.optString("pda_enter_status");val arr=MasterDataCache.resourceOptions(this).optJSONArray("pda_statuses")?:JSONArray();val statuses=mutableListOf<String>()
-            for(i in 0 until arr.length()){val v=arr.optString(i).trim();if(v.isNotBlank()&&!statuses.contains(v))statuses.add(v)}
-            if(expected.isNotBlank()&&!statuses.contains(expected))statuses.add(0,expected)
-            val sp=spinner(statuses.toTypedArray())
-            val wrap=column(surface).apply{setPadding(dp(12),dp(6),dp(12),dp(5));addView(txt("PDA ${pda.optString("resource_id")}",12f,navy,true));addView(labelled("Tình trạng PDA hiện tại",sp))}
-            AlertDialog.Builder(this).setTitle("Đối chiếu PDA trước khi RA CA").setView(wrap).setNegativeButton("Hủy",null).setPositiveButton("KIỂM TRA & RA CA"){_,_->doExit(sp.selectedItem?.toString().orEmpty())}.show()
+            if(!exitInFlightMnvs.add(mnv))return@setOnClickListener
+            exit.isEnabled=false
+            resolveActiveSessionForExit(mnv,s){resolved,remoteLabor,error->
+                if(error!=null||resolved==null){releaseExitGuard();if(error!="SESSION_EXIT_CONTEXT_STALE"&&error!="UNAUTHORIZED")showError(error?:"SESSION_EXIT_RESOLVE_FAILED");return@resolveActiveSessionForExit}
+                if(remoteLabor!=null){releaseExitGuard();showError("Còn công nhật đang làm. Hoàn thành công nhật trước khi ra ca.");return@resolveActiveSessionForExit}
+                val pdaId=activeAssignments(resolved,"PDA").firstOrNull()?.optString("resource_id").orEmpty().ifBlank{resolved.optString("pda_serial")}.trim()
+                if(pdaId.isBlank()){doExit(resolved,"");return@resolveActiveSessionForExit}
+                val expected=resolved.optString("pda_enter_status");val arr=MasterDataCache.resourceOptions(this).optJSONArray("pda_statuses")?:JSONArray();val statuses=mutableListOf<String>()
+                for(i in 0 until arr.length()){val v=arr.optString(i).trim();if(v.isNotBlank()&&!statuses.contains(v))statuses.add(v)}
+                if(expected.isNotBlank()&&!statuses.contains(expected))statuses.add(0,expected)
+                if(statuses.isEmpty()){releaseExitGuard();showError("PDA_EXIT_STATUS_REQUIRED");return@resolveActiveSessionForExit}
+                val sp=spinner(statuses.toTypedArray())
+                val wrap=column(surface).apply{setPadding(dp(12),dp(6),dp(12),dp(5));addView(txt("PDA $pdaId",12f,navy,true));addView(labelled("Tình trạng PDA hiện tại",sp))}
+                val dialog=AlertDialog.Builder(this).setTitle("Đối chiếu PDA trước khi RA CA").setView(wrap)
+                    .setNegativeButton("Hủy"){_,_->releaseExitGuard()}
+                    .setPositiveButton("KIỂM TRA & RA CA"){_,_->doExit(resolved,sp.selectedItem?.toString().orEmpty())}.create()
+                dialog.setOnCancelListener{releaseExitGuard()}
+                dialog.show()
+            }
         }
         val actions=row(bg)
         actions.addView(smallButton("Thêm",teal).apply{setOnClickListener{sessionWorkEditor(ctx,"ADD")}},LinearLayout.LayoutParams(0,dp(40),1f).apply{marginEnd=dp(2)})
@@ -2324,6 +2363,8 @@ raw.contains("EXCLUSIVE_RESOURCE_CONFLICT")->"Tài nguyên vừa bị phiên ho�
 raw.contains("ATTENDANCE_NOT_ACTIVE")||raw.contains("SESSION_NOT_ACTIVE")->"Không còn phiên đang hoạt động để ra ca. Hãy quét lại nhân sự và đồng bộ trạng thái.";
 raw.contains("SESSION_ACTIVE_AMBIGUOUS")->"Có nhiều phiên đang hoạt động cho cùng nhân sự. Không tự chọn phiên để tránh ghi sai dữ liệu.";
 raw.contains("SESSION_EMPLOYEE_MISMATCH")->"Phiên đang mở không khớp mã nhân viên. Hãy quét lại nhân sự.";
+raw.contains("SESSION_EXIT_FIELDS_REQUIRED")->"Chưa xác định được đúng phiên ACTIVE để ra ca. Ứng dụng đã chặn gửi yêu cầu thiếu dữ liệu; hãy đồng bộ rồi quét lại nhân sự.";
+raw.contains("SESSION_EXIT_RESOLVE_FAILED")->"Chưa xác nhận được phiên ACTIVE từ Service. Hãy kiểm tra mạng, đồng bộ rồi quét lại nhân sự.";
 raw.contains("OPEN_LABOR_BLOCKS_EXIT")->"Nhân sự còn công nhật chưa hoàn thành. Hoàn thành công nhật trước khi ra ca.";
 raw.contains("PDA_EXIT_STATUS_REQUIRED")->"Cần chọn tình trạng PDA hiện tại trước khi ra ca.";
 raw.contains("PDA_STATUS_MISMATCH_NOTIFY_SPECIALIST")->"Tình trạng PDA hiện tại khác lúc nhận. Báo chuyên viên phụ trách trước khi ra ca.";
