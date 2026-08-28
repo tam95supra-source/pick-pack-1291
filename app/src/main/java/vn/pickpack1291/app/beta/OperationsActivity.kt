@@ -856,17 +856,20 @@ class OperationsActivity : Activity() {
         send(original.optInt("version"),UUID.randomUUID().toString(),0)
     }
 
-    private fun sessionWorkEditor(ctx:JSONObject,mode:String,verified:Boolean=false){
+    private fun sessionWorkEditor(ctx:JSONObject,mode:String,verified:Boolean=false,authoritativeOptions:JSONObject?=null){
         val s=ctx.optJSONObject("session")?:return;if(!s.optString("state").equals("ACTIVE",true)){showError("Phiên không còn hoạt động.");return}
         val edit=mode.equals("EDIT",true)
-        if(edit&&!verified){verifyEditPassword("sửa thông tin trong ca"){sessionWorkEditor(ctx,mode,true)};return}
-        val server=s.optJSONObject("resource_options_v64")?:JSONObject();val local=PdaLocalProjection.resourceOptions(this,s.optString("mnv"))
-        fun arr(key:String):JSONArray{
-            val preferLocal=key=="pack_tables"||key=="pack_tables_reissue"
-            val first=if(preferLocal)local.optJSONArray(key) else server.optJSONArray(key)
-            val second=if(preferLocal)server.optJSONArray(key) else local.optJSONArray(key)
-            return if(first!=null&&first.length()>0)first else second?:JSONArray()
+        if(edit&&!verified){verifyEditPassword("sửa thông tin trong ca"){sessionWorkEditor(ctx,mode,true,null)};return}
+        if(authoritativeOptions==null){
+            api.call("master_options",JSONObject().put("mnv",s.optString("mnv"))){r->runOnUiThread{
+                if(handleAuth(r))return@runOnUiThread
+                if(!r.ok){showError("Không đọc được danh sách tài nguyên khả dụng từ Service. Đồng bộ lại rồi thử lại.");return@runOnUiThread}
+                sessionWorkEditor(ctx,mode,verified,r.json?:JSONObject())
+            }}
+            return
         }
+        val server=authoritativeOptions
+        fun arr(key:String):JSONArray=server.optJSONArray(key)?:JSONArray()
         fun ids(key:String):MutableList<String>{val out=mutableListOf<String>();val a=arr(key);for(i in 0 until a.length()){val x=a.opt(i);val v=when(x){is JSONObject->x.optString("id").ifBlank{x.optString("resource_id").ifBlank{x.optString("serial")}};else->a.optString(i)}.trim();if(v.isNotBlank()&&!out.contains(v))out.add(v)};out.sortWith(Comparator{a,b->naturalUserCompare(a,b)});return out}
         class PackMap(val table:String,val user:String,val used:Boolean)
         val normalPick=ids("user_picks");val usedPick=optionIds(arr("user_picks_reissue"));val pdaIds=ids("pdas");val normalMaps=mutableListOf<PackMap>();val usedMaps=mutableListOf<PackMap>()
