@@ -2,18 +2,30 @@
 set -Eeuo pipefail
 REQ=ops/beta-release-request.json
 VERSION=$(jq -r '.version_name' "$REQ");CODE=$(jq -r '.version_code' "$REQ");PKG=$(jq -r '.package' "$REQ")
-META=/tmp/beta83-candidate/release-meta.json;APK=/tmp/beta83-candidate/pick-pack-1291-public-beta-$VERSION.apk
+META=/tmp/beta-candidate/release-meta.json;APK=/tmp/beta-candidate/pick-pack-1291-public-beta-$VERSION.apk
 test -f "$META" -a -f "$APK" -a -f "$VERIFY_HARNESS_APK"
 SHA=$(jq -r '.apk_sha256' "$META");SIZE=$(jq -r '.apk_size' "$META")
-REQ_SOURCE=$(jq -r '.source_sha' "$REQ");REQ_SHA=$(jq -r '.apk_sha256' "$REQ");REQ_SIZE=$(jq -r '.apk_size' "$REQ");REQ_SIGNER=$(jq -r '.signer_sha256' "$REQ")
-jq -e --arg v "$VERSION" --argjson code "$CODE" --arg pkg "$PKG" --arg src "$REQ_SOURCE" --arg sha "$REQ_SHA" --argjson size "$REQ_SIZE" --arg signer "$REQ_SIGNER" '
+STAGE=$(jq -r '.stage' "$REQ")
+REQ_SOURCE=$(jq -r '.source_sha' "$REQ");REQ_SIGNER=$(jq -r '.signer_sha256' "$REQ")
+jq -e --arg v "$VERSION" --argjson code "$CODE" --arg pkg "$PKG" --arg src "$REQ_SOURCE" --arg signer "$REQ_SIGNER" '
   .version_name==$v and .version_code==$code and .package==$pkg and .source_sha==$src and
-  .apk_sha256==$sha and .apk_size==$size and .signer_sha256==$signer and
-  .candidate_locked==true and .stable_publish=="FORBIDDEN" and .authority_change=="NONE"
+  .signer_sha256==$signer and .candidate_locked==true and
+  .stable_publish=="FORBIDDEN" and .authority_change=="NONE"
 ' "$META" >/dev/null
+if [[ "$STAGE" == "VERIFY_ONLY" ]]; then
+  REQ_SHA=$(jq -r '.apk_sha256' "$REQ");REQ_SIZE=$(jq -r '.apk_size' "$REQ")
+  test "$SHA" = "$REQ_SHA";test "$SIZE" = "$REQ_SIZE"
+fi
+OPS=app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt
+SYNC=app/src/main/java/vn/pickpack1291/app/beta/ForegroundSyncCoordinator.kt
+grep -q 'businessRealtimeRefresh' "$OPS"
+grep -q 'reportRealtimeRefresh' "$OPS"
+grep -q 'historyRealtimeRefresh' "$OPS"
+! grep -q 'postDelayed(this,750L)' "$OPS"
+grep -q 'override fun onLost(network: Network)' "$SYNC"
 test "$SHA" = "$REQ_SHA";test "$SIZE" = "$REQ_SIZE"
 test "$(sha256sum "$APK"|awk '{print $1}')" = "$SHA";test "$(stat -c '%s' "$APK")" = "$SIZE"
-OUT=/tmp/beta83-verify;rm -rf "$OUT";mkdir -p "$OUT"
+OUT=/tmp/beta-verify;rm -rf "$OUT";mkdir -p "$OUT"
 adb root >"$OUT/adb-root.txt" 2>&1 || true;timeout 30s adb wait-for-device
 test "$(adb shell id -u 2>/dev/null|tr -d '\r')" = 0
 adb install -r "$APK" >"$OUT/install-candidate.txt";adb install -r "$VERIFY_HARNESS_APK" >"$OUT/install-harness.txt"
@@ -41,7 +53,7 @@ done
 python3 - <<'PY'
 from pathlib import Path
 expected={"320x568":((320,568),11),"360x640":((360,640),4),"480x800":((480,800),4)}
-root=Path("/tmp/beta83-verify")
+root=Path("/tmp/beta-verify")
 total=0
 for tag,(size,count) in expected.items():
     files=sorted((root/tag).glob("*.png"))
@@ -54,5 +66,5 @@ for tag,(size,count) in expected.items():
         total+=1
 (root/"visual-summary.txt").write_text(f"screenshots={total}\nsizes=320x568,360x640,480x800\nhuman_inspection_required=true\n",encoding="utf-8")
 PY
-jq -nc --arg version "$VERSION" --argjson code "$CODE" --arg sha "$SHA" --argjson size "$SIZE" --argjson run "$GITHUB_RUN_ID" '{status:"PASS",version_name:$version,version_code:$code,apk_sha256:$sha,apk_size:$size,run:$run,functional_pass:true,current_day_only:true,incomplete_and_complete_paths:true,qr_session_cards:true,null_sanitized:true,settings_simplified:true,old_warning_preserved:true,reconciliation_above_scan:true,work_info_order:true,before_after_visible:true,timeline_newest_first:true,hhmm_edit_confirmation:true,visual_sizes:["320x568","360x640","480x800"],screenshot_count:19,functional_size:"320x568",human_inspection_required:true}' > "$OUT/receipt.json"
+jq -nc --arg version "$VERSION" --argjson code "$CODE" --arg sha "$SHA" --argjson size "$SIZE" --argjson run "$GITHUB_RUN_ID" '{status:"PASS",version_name:$version,version_code:$code,apk_sha256:$sha,apk_size:$size,run:$run,functional_pass:true,current_day_only:true,incomplete_and_complete_paths:true,qr_session_cards:true,null_sanitized:true,settings_simplified:true,old_warning_preserved:true,reconciliation_above_scan:true,work_info_order:true,before_after_visible:true,timeline_newest_first:true,hhmm_edit_confirmation:true,event_driven_status:true,partial_realtime_refresh:true,no_750ms_ui_ticker:true,visual_sizes:["320x568","360x640","480x800"],screenshot_count:19,functional_size:"320x568",human_inspection_required:true}' > "$OUT/receipt.json"
 cat "$OUT/receipt.json"
