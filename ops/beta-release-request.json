@@ -1,6 +1,6 @@
 {
-  "stage": "PUBLISH",
-  "mode": "PUBLISH_EXACT_LOCKED_CANDIDATE",
+  "stage": "pass_live",
+  "mode": "PASS_LIVE_EXACT_BYTES",
   "version_name": "0.4.2-beta.91",
   "version_code": 97,
   "base_version": "0.4.2-beta.90",
@@ -36,7 +36,7 @@
   "authority_change": "NONE",
   "scope": "beta91-pack-table-availability-timeline-realtime-delta-only",
   "owner": "Nguyen Van Tam",
-  "live": false,
+  "live": true,
   "pre_ota_attempt": 1,
   "last_pre_ota_failure": "",
   "candidate_locked": true,
@@ -51,5 +51,6 @@
   "verify_artifact_name": "beta-verify-33177521294",
   "verify_artifact_digest": "sha256:04f03c388d5d6b9dda330fd794c5a88498e2f6480f8d5405d703832e2fc238e3",
   "human_visual_evidence": "PASS_RUN_33177521294_ARTIFACT_9688385703_23_SCREENSHOTS_REALTIME_FUNCTIONAL",
-  "next_action": "PUBLISH_EXACT_BETA91_THEN_OTA_INSTALL_READBACK"
+  "next_action": "PUBLISH_EXACT_BETA91_THEN_OTA_INSTALL_READBACK",
+  "publish_run_id": "33178110385"
 }
