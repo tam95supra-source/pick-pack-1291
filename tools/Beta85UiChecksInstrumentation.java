@@ -359,13 +359,14 @@ public final class Beta85UiChecksInstrumentation extends Instrumentation {
     Class<?> update=target.getClassLoader().loadClass("vn.pickpack1291.app.beta.UpdateManager");
     Object instance=update.getField("INSTANCE").get(null);
     update.getMethod("pendingInfo",Context.class).invoke(instance,target);
-    require(!old83.exists()&&!old82.exists()&&!installed84.exists(),"STALE_OTA_APK_NOT_PRUNED");
+    require(!old83.exists()&&!old84.exists()&&!installed84.exists(),"STALE_OTA_APK_NOT_PRUNED");
     mark("ota_storage_cleanup");
   }
 
   private void runChecks()throws Exception{
     String tag=req("tag"),mnv=req("mnv"),mnv2=req("mnv2"),mnv3=req("mnv3");
     seedAuth();seedService();seedData(mnv,mnv2,mnv3);
+    verifyOtaStorageCleanup();
 
     open("BUSINESS");
     waitText("Ca 1",false,false,12000L);
