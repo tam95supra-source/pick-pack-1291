@@ -453,7 +453,8 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     require(deleteReason!=null,"DELETE_REASON_INPUT_MISSING");
     setNodeText(deleteReason,"Kiểm thử lý do");
     SystemClock.sleep(250L);
-    require(textOf(deleteReason).contains("Kiểm thử lý do"),"DELETE_REASON_NOT_EDITABLE");
+    AccessibilityNodeInfo deleteReasonAfter=findEditableHint("Lý do xóa");
+    require(deleteReasonAfter!=null&&textOf(deleteReasonAfter).contains("Kiểm thử lý do"),"DELETE_REASON_NOT_EDITABLE");
     mark("delete_reason_editable");
     try{ui.executeShellCommand("input keyevent 4").close();}catch(Exception ignored){}
     SystemClock.sleep(300L);
