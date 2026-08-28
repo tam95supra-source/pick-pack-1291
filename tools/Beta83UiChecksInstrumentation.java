@@ -441,6 +441,7 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
 
   private void runChecks()throws Exception{
     String tag=req("tag"),mnv=req("mnv"),mnv2=req("mnv2"),mnv3=req("mnv3");
+    verifyFirstLogMetadata();
     seedAuth();seedService();seedData(mnv,mnv2,mnv3);
 
     open("BUSINESS");
