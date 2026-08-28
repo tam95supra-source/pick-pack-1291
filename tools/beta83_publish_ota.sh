@@ -10,6 +10,9 @@ SOURCE=$(jq -r '.source_sha' "$R");SHA=$(jq -r '.apk_sha256' "$R");SIZE=$(jq -r 
 APK=/tmp/beta-candidate/pick-pack-1291-public-beta-$VERSION.apk
 META=/tmp/beta-candidate/release-meta.json
 VERIFY=/tmp/beta-verify/receipt.json
+if [[ ! -f "$VERIFY" && -f /tmp/beta-verify/beta-verify/receipt.json ]]; then
+  VERIFY=/tmp/beta-verify/beta-verify/receipt.json
+fi
 test -f "$APK" -a -f "$META" -a -f "$VERIFY"
 jq -e --arg v "$VERSION" --argjson c "$CODE" --arg s "$SOURCE" --arg h "$SHA" --argjson z "$SIZE" --arg signer "$SIGNER" '
   .version_name==$v and .version_code==$c and .source_sha==$s and .apk_sha256==$h and .apk_size==$z and
