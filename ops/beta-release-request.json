@@ -1,6 +1,6 @@
 {
-  "stage": "PASS_LIVE",
-  "mode": "PASS_LIVE_EXACT_BYTES",
+  "stage": "PUBLISH",
+  "mode": "PUBLISH_EXACT_LOCKED_CANDIDATE",
   "version_name": "0.4.2-beta.92",
   "version_code": 98,
   "base_version": "0.4.2-beta.91",
