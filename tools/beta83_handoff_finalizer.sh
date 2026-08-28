@@ -5,13 +5,14 @@ OUT="/tmp/PICK_PACK_1291_HANDOFF_${GITHUB_RUN_ID}.txt"
 JOBS=$(curl -fsS -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/jobs?per_page=100" 2>/dev/null || echo '{"jobs":[]}')
 CAND=$(jq -r '.jobs[]?|select(.name=="candidate")|.conclusion' <<<"$JOBS"|head -n1)
 VERIFY=$(jq -r '.jobs[]?|select(.name=="visual-pda-verify")|.conclusion' <<<"$JOBS"|head -n1)
-if [[ "$CAND" != success ]]; then NEXT=FIX_BETA83_CANDIDATE_FAILURE
-elif [[ "$VERIFY" != success ]]; then NEXT=FIX_BETA83_VERIFY_FAILURE_KEEP_LOCKED_CANDIDATE_IF_BYTES_VALID
-else NEXT=HUMAN_INSPECT_BETA83_VISUALS_THEN_PUBLISH_EXACT_LOCKED_CANDIDATE_IF_PASS
+VERSION=$(jq -r '.version_name' "$R")
+if [[ "$CAND" != success ]]; then NEXT=FIX_CANDIDATE_FAILURE
+elif [[ "$VERIFY" != success ]]; then NEXT=FIX_VERIFY_FAILURE_KEEP_LOCKED_CANDIDATE_IF_BYTES_VALID
+else NEXT=HUMAN_INSPECT_VISUALS_THEN_PUBLISH_EXACT_LOCKED_CANDIDATE_IF_PASS
 fi
 {
 echo 'Tiếp tục dự án APK PICK PACK 1291 của OWNER Nguyễn Văn Tâm. Đọc checkpoint dưới đây, kế thừa gate PASS nếu input/source/exact bytes không đổi, không làm lại và thực thi NEXT_ACTION đến DoD PASS hoặc blocker OWNER thật.'
-echo 'PICK PACK 1291 — AUTOMATED BETA83 PRE-OTA HANDOFF'
+echo "PICK PACK 1291 — AUTOMATED $VERSION PRE-OTA HANDOFF"
 echo 'status=READY'
 echo "run=$GITHUB_RUN_ID"
 echo "branch=$GITHUB_REF_NAME"
