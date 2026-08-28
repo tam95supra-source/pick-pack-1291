@@ -87,6 +87,25 @@ class ForegroundSyncCoordinator(
                 }
             }
         }
+
+        override fun onLost(network: Network) {
+            main.post {
+                if (state == State.ACTIVE) {
+                    listener.onStatus(
+                        Status(
+                            state = State.ACTIVE,
+                            connected = false,
+                            serverSeq = lastSeq,
+                            projectionPending = -1,
+                            changed = false,
+                            masterRevision = lastMasterRevision,
+                            masterChanged = false,
+                            error = "NETWORK_LOST",
+                        )
+                    )
+                }
+            }
+        }
     }
 
     fun start() {
