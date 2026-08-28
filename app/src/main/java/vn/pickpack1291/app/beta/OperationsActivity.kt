@@ -535,8 +535,19 @@ class OperationsActivity : Activity() {
         fun label(t:String)=when(t.uppercase()){ "PDA"->"PDA";"USER_PICK"->"User Pick";"PACK_TABLE"->"Bàn Pack";"USER_PACK"->"User Pack";else->t.ifBlank{"Tài nguyên"} }
         fun directKey(t:String)=when(t.uppercase()){ "PDA"->"pda_serial";"USER_PICK"->"user_pick";"PACK_TABLE"->"pack_table";"USER_PACK"->"user_pack";else->"" }
         fun currentResource(x:JSONObject,t:String):String{
-            val direct=directKey(t).takeIf{it.isNotBlank()}?.let{x.optString(it).trim()}.orEmpty();if(direct.isNotBlank())return direct
-            val a=assignments(x);val out=mutableListOf<String>();for(i in 0 until a.length()){val q=a.optJSONObject(i)?:continue;if(!q.optString("resource_type").equals(t,true))continue;if(q.optString("state").uppercase() !in setOf("","ACTIVE"))continue;val id=q.optString("resource_id").trim();if(id.isNotBlank())out.add(id)};return out.distinct().joinToString(" • ")
+            val snapshot=x.optJSONArray("resource_assignments_v64")?:x.optJSONArray("resource_assignments")?:x.optJSONArray("assignments")
+            if(snapshot!=null){
+                val out=mutableListOf<String>()
+                for(i in 0 until snapshot.length()){
+                    val q=snapshot.optJSONObject(i)?:continue
+                    if(!q.optString("resource_type").equals(t,true))continue
+                    if(q.optString("state").uppercase() !in setOf("","ACTIVE"))continue
+                    val id=q.optString("resource_id").trim()
+                    if(id.isNotBlank())out.add(id)
+                }
+                return out.distinct().joinToString(" • ")
+            }
+            return directKey(t).takeIf{it.isNotBlank()}?.let{x.optString(it).trim()}.orEmpty()
         }
         fun assignmentById(x:JSONObject,id:String):JSONObject?{val a=assignments(x);for(i in 0 until a.length()){val q=a.optJSONObject(i)?:continue;if(q.optString("assignment_id")==id)return q};return null}
         fun workText(x:JSONObject):String{
@@ -563,10 +574,19 @@ class OperationsActivity : Activity() {
     }
     private fun auditWorkRows(s:JSONObject):List<Pair<String,String>>{
         fun directOrAssignment(key:String,type:String):String{
-            val direct=s.optString(key).trim();if(direct.isNotBlank())return direct
-            val a=s.optJSONArray("resource_assignments_v64")?:s.optJSONArray("resource_assignments")?:s.optJSONArray("assignments")?:JSONArray()
-            val values=mutableListOf<String>();for(i in 0 until a.length()){val x=a.optJSONObject(i)?:continue;if(!x.optString("resource_type").equals(type,true))continue;if(x.optString("state").uppercase() !in setOf("","ACTIVE"))continue;val id=x.optString("resource_id").trim();if(id.isNotBlank())values.add(id)}
-            return values.distinct().joinToString(" • ").ifBlank{"—"}
+            val snapshot=s.optJSONArray("resource_assignments_v64")?:s.optJSONArray("resource_assignments")?:s.optJSONArray("assignments")
+            if(snapshot!=null){
+                val values=mutableListOf<String>()
+                for(i in 0 until snapshot.length()){
+                    val x=snapshot.optJSONObject(i)?:continue
+                    if(!x.optString("resource_type").equals(type,true))continue
+                    if(x.optString("state").uppercase() !in setOf("","ACTIVE"))continue
+                    val id=x.optString("resource_id").trim()
+                    if(id.isNotBlank())values.add(id)
+                }
+                return values.distinct().joinToString(" • ").ifBlank{"—"}
+            }
+            return s.optString(key).trim().takeUnless{it.equals("null",true)}.orEmpty().ifBlank{"—"}
         }
         val pa=s.optJSONArray("positions_v64")?:s.optJSONArray("positions")?:JSONArray();val pos=mutableListOf<String>()
         for(i in 0 until pa.length()){val x=pa.optJSONObject(i)?:continue;if(x.optString("state").uppercase() !in setOf("","ACTIVE"))continue;val v=x.optString("position_label").ifBlank{x.optString("position_key")}.trim();if(v.isNotBlank())pos.add(v)}
@@ -581,10 +601,19 @@ class OperationsActivity : Activity() {
     private fun sessionWorkSnapshotDetail(s:JSONObject):String{
         if(s.length()==0)return ""
         fun directOrAssignment(key:String,type:String):String{
-            val direct=s.optString(key).trim().takeUnless{it.equals("null",true)}.orEmpty();if(direct.isNotBlank())return direct
-            val a=s.optJSONArray("resource_assignments_v64")?:s.optJSONArray("resource_assignments")?:s.optJSONArray("assignments")?:JSONArray()
-            val values=mutableListOf<String>();for(i in 0 until a.length()){val x=a.optJSONObject(i)?:continue;if(!x.optString("resource_type").equals(type,true))continue;if(x.optString("state").uppercase() !in setOf("","ACTIVE"))continue;val id=x.optString("resource_id").trim();if(id.isNotBlank())values.add(id)}
-            return values.distinct().joinToString(" • ")
+            val snapshot=s.optJSONArray("resource_assignments_v64")?:s.optJSONArray("resource_assignments")?:s.optJSONArray("assignments")
+            if(snapshot!=null){
+                val values=mutableListOf<String>()
+                for(i in 0 until snapshot.length()){
+                    val x=snapshot.optJSONObject(i)?:continue
+                    if(!x.optString("resource_type").equals(type,true))continue
+                    if(x.optString("state").uppercase() !in setOf("","ACTIVE"))continue
+                    val id=x.optString("resource_id").trim()
+                    if(id.isNotBlank())values.add(id)
+                }
+                return values.distinct().joinToString(" • ")
+            }
+            return s.optString(key).trim().takeUnless{it.equals("null",true)}.orEmpty()
         }
         val pa=s.optJSONArray("positions_v64")?:s.optJSONArray("positions")?:JSONArray();val positions=mutableListOf<String>()
         for(i in 0 until pa.length()){val x=pa.optJSONObject(i)?:continue;if(x.optString("state").uppercase() !in setOf("","ACTIVE"))continue;val v=x.optString("position_label").ifBlank{x.optString("position_key")}.trim();if(v.isNotBlank())positions.add(v)}
@@ -709,12 +738,12 @@ class OperationsActivity : Activity() {
         for(e in items){
             val title=sessionEventTitle(e.optString("event_type"),e.optString("label"));val detail=e.optString("detail").trim();val actor=e.optString("actor").ifBlank{"Hệ thống"};val localStatus=e.optString("local_status")
             val card=column(surface).apply{
-                setPadding(dp(12),dp(10),dp(12),dp(10));background=outlineBg(surface,14)
+                setPadding(dp(9),dp(6),dp(9),dp(6));background=outlineBg(surface,12)
                 val top=row(surface).apply{gravity=Gravity.CENTER_VERTICAL;addView(txt(title,10.7f,navy,true),LinearLayout.LayoutParams(0,-2,1f));addView(txt(sessionEventTime(e),9.4f,muted,true))};addView(top,matchWrap())
-                if(detail.isNotBlank()){addView(gap(4));addView(txt(detail,10f,ink,false))}
-                addView(gap(4));val statusText=when(localStatus){"LOCAL_PENDING","PENDING","OFFLINE_PROVISIONAL"->" • Chờ đồng bộ";"RETRY"->" • Chờ gửi lại";"REVIEW_REQUIRED","CONFLICT"->" • Cần kiểm tra";"REJECTED"->" • Bị từ chối";else->""};addView(txt("Người thực hiện: $actor$statusText",9.2f,muted,false))
+                if(detail.isNotBlank()){addView(gap(2));addView(txt(detail,10f,ink,false))}
+                addView(gap(2));val statusText=when(localStatus){"LOCAL_PENDING","PENDING","OFFLINE_PROVISIONAL"->" • Chờ đồng bộ";"RETRY"->" • Chờ gửi lại";"REVIEW_REQUIRED","CONFLICT"->" • Cần kiểm tra";"REJECTED"->" • Bị từ chối";else->""};addView(txt("Người thực hiện: $actor$statusText",9.2f,muted,false))
             }
-            body.addView(card,matchWrap());body.addView(gap(6))
+            body.addView(card,matchWrap());body.addView(gap(3))
         }
     }
 
@@ -800,7 +829,12 @@ class OperationsActivity : Activity() {
         val edit=mode.equals("EDIT",true)
         if(edit&&!verified){verifyEditPassword("sửa thông tin trong ca"){sessionWorkEditor(ctx,mode,true)};return}
         val server=s.optJSONObject("resource_options_v64")?:JSONObject();val local=PdaLocalProjection.resourceOptions(this,s.optString("mnv"))
-        fun arr(key:String):JSONArray{val a=server.optJSONArray(key);return if(a!=null&&a.length()>0)a else local.optJSONArray(key)?:JSONArray()}
+        fun arr(key:String):JSONArray{
+            val preferLocal=key=="pack_tables"||key=="pack_tables_reissue"
+            val first=if(preferLocal)local.optJSONArray(key) else server.optJSONArray(key)
+            val second=if(preferLocal)server.optJSONArray(key) else local.optJSONArray(key)
+            return if(first!=null&&first.length()>0)first else second?:JSONArray()
+        }
         fun ids(key:String):MutableList<String>{val out=mutableListOf<String>();val a=arr(key);for(i in 0 until a.length()){val x=a.opt(i);val v=when(x){is JSONObject->x.optString("id").ifBlank{x.optString("resource_id").ifBlank{x.optString("serial")}};else->a.optString(i)}.trim();if(v.isNotBlank()&&!out.contains(v))out.add(v)};out.sortWith(Comparator{a,b->naturalUserCompare(a,b)});return out}
         class PackMap(val table:String,val user:String,val used:Boolean)
         val normalPick=ids("user_picks");val usedPick=optionIds(arr("user_picks_reissue"));val pdaIds=ids("pdas");val normalMaps=mutableListOf<PackMap>();val usedMaps=mutableListOf<PackMap>()
@@ -814,10 +848,10 @@ class OperationsActivity : Activity() {
         if(choices.isEmpty()){showError(if(edit)"Không có thông tin hiện tại phù hợp để sửa." else "Không còn nội dung phù hợp để thêm.");return}
         val box=column(surface).apply{setPadding(dp(10),dp(5),dp(10),dp(8))};box.addView(info(if(edit)"Chọn đúng nội dung cần sửa. Chỉ control liên quan mới hiển thị." else "Chọn nội dung cần thêm. Chỉ phần cấu hình tương ứng mới mở."));box.addView(gap(7))
         val selector=spinner((listOf(if(edit)"Chọn nội dung cần sửa" else "Chọn nội dung cần thêm")+choices.map{it.first}).toTypedArray());box.addView(selector,matchWrap());box.addView(gap(7));val host=column(surface);box.addView(host,matchWrap())
-        var makeOps:(()->JSONArray)?=null
+        var makeOps:(()->JSONArray)?=null;var validationError=""
         fun replaceOrAdd(active:JSONObject?,type:String,id:String,duplicate:Boolean=false):JSONObject?{if(id.isBlank())return null;return if(active==null)JSONObject().put("op","ADD_RESOURCE").put("resource_type",type).put("resource_id",id).put("duplicate_user",duplicate) else if(active.optString("resource_id")!=id)JSONObject().put("op","REPLACE_RESOURCE").put("assignment_id",active.optString("assignment_id")).put("resource_type",type).put("new_resource_id",id).put("reason","Cập nhật ${resourceLabel(type)} trong ca").put("disposition","USED").put("duplicate_user",duplicate) else null}
         fun render(kind:String){
-            host.removeAllViews();makeOps=null
+            host.removeAllViews();makeOps=null;validationError=""
             when(kind){
                 "SHIFT"->{val values=listOf("Ca 1","Ca HC","Ca 2");val sp=spinner(values.toTypedArray());selectByValue(sp,values,s.optString("shift"));host.addView(labelled("Ca",sp));makeOps={JSONArray().apply{val v=sp.selectedItem?.toString().orEmpty();if(v!=s.optString("shift"))put(JSONObject().put("op","UPDATE_SHIFT").put("shift",v))}}}
                 "PDA"->{val values=pdaIds.toMutableList();activePda?.optString("resource_id")?.takeIf{it.isNotBlank()&&it !in values}?.let{values.add(0,it)};val sp=spinner((listOf("Chọn PDA")+values).toTypedArray());activePda?.optString("resource_id")?.let{val at=values.indexOf(it);if(at>=0)sp.setSelection(at+1)};host.addView(labelled(if(edit)"PDA mới" else "PDA",sp));makeOps={val id=values.getOrNull(sp.selectedItemPosition-1).orEmpty();JSONArray().apply{replaceOrAdd(activePda,"PDA",id)?.let{put(it)}}}}
@@ -825,16 +859,81 @@ class OperationsActivity : Activity() {
                     fun showPick(id:String){chosenUsed=id;pickSp.adapter=ArrayAdapter(this,android.R.layout.simple_spinner_dropdown_item,arrayOf(id));pickSp.setSelection(0);TopNotice.show(this,"Đã chọn User Pick $id.",TopNotice.Kind.INFO)}
                     val row=row(surface).apply{gravity=Gravity.CENTER_VERTICAL;addView(pickSp,LinearLayout.LayoutParams(0,dp(48),1.25f).apply{marginEnd=dp(5)});addView(compactReissueButton("Phát lại",usedPick.isNotEmpty()){showReissueChooser("Phát lại User Pick",usedPick){i->showPick(usedPick[i])}},LinearLayout.LayoutParams(0,dp(44),.75f))};host.addView(labelled("User Pick",row));if(activePda==null){host.addView(gap(6));pdaValues=pdaIds;val sp=spinner((listOf("Chọn PDA bắt buộc")+pdaValues).toTypedArray());pdaSp=sp;host.addView(labelled("PDA — bắt buộc khi cấp User Pick",sp))}
                     makeOps={val id=chosenUsed.ifBlank{normalPick.getOrNull(pickSp.selectedItemPosition-1).orEmpty()};val out=JSONArray();if(activePda==null){val pda=pdaValues.getOrNull((pdaSp?.selectedItemPosition?:0)-1).orEmpty();replaceOrAdd(null,"PDA",pda)?.let{out.put(it)}};replaceOrAdd(activePick,"USER_PICK",id,chosenUsed.isNotBlank())?.let{out.put(it)};out}}
-                "PACK"->{var tableSp:Spinner?=null;var userSp:Spinner?=null;var currentRows=normalMaps.toList();var duplicate=false
-                    fun rebuild(preferredTable:String="",preferredUser:String="",used:Boolean=false){host.removeAllViews();duplicate=used;currentRows=if(used){(normalMaps+usedMaps.filter{it.table==preferredTable&&it.user==preferredUser}).distinctBy{it.table+"|"+it.user}}else normalMaps;val currentTable=activeTable?.optString("resource_id").orEmpty();val allTables=currentRows.map{it.table}.toMutableList();if(currentTable.isNotBlank()&&currentTable !in allTables)allTables.add(currentTable);val tables=allTables.distinct().sortedWith(Comparator{a,b->naturalUserCompare(a,b)});val t=spinner((listOf("Chọn Bàn Pack")+tables).toTypedArray());tableSp=t;val target=preferredTable.ifBlank{currentTable};tables.indexOf(target).takeIf{it>=0}?.let{t.setSelection(it+1)};host.addView(labelled("Bàn Pack",t));host.addView(gap(5));val userHost=column(surface);host.addView(userHost,matchWrap())
-                        fun users(pref:String=""){userHost.removeAllViews();val table=tables.getOrNull(t.selectedItemPosition-1).orEmpty();val rows=currentRows.filter{it.table==table}.sortedWith(Comparator{a,b->naturalUserCompare(a.user,b.user)});val u=spinner((listOf("Chọn User Pack")+rows.map{it.user}).toTypedArray());userSp=u;val currentUser=activePack?.optString("resource_id").orEmpty();val targetUser=pref.ifBlank{currentUser};rows.indexOfFirst{it.user==targetUser}.takeIf{it>=0}?.let{u.setSelection(it+1)};val rr=row(surface).apply{gravity=Gravity.CENTER_VERTICAL;addView(u,LinearLayout.LayoutParams(0,dp(48),1.25f).apply{marginEnd=dp(5)});addView(compactReissueButton("Phát lại",usedMaps.isNotEmpty()){val labels=usedMaps.map{"${it.table} – ${it.user}"};showReissueChooser("Phát lại User Pack",labels){i->val m=usedMaps[i];rebuild(m.table,m.user,true)}},LinearLayout.LayoutParams(0,dp(44),.75f))};userHost.addView(labelled("User Pack",rr))}
-                        t.onItemSelectedListener=object:android.widget.AdapterView.OnItemSelectedListener{override fun onItemSelected(p:android.widget.AdapterView<*>?,v:View?,i:Int,id:Long){users(if(tables.getOrNull(i-1)==preferredTable)preferredUser else "")};override fun onNothingSelected(p:android.widget.AdapterView<*>?)=Unit};users(preferredUser)
-                    };rebuild();makeOps={val table=(tableSp?.selectedItem?.toString()?:"").takeIf{it!="Chọn Bàn Pack"}.orEmpty();val user=(userSp?.selectedItem?.toString()?:"").takeIf{it!="Chọn User Pack"}.orEmpty();JSONArray().apply{replaceOrAdd(activeTable,"PACK_TABLE",table)?.let{put(it)};replaceOrAdd(activePack,"USER_PACK",user,duplicate)?.let{put(it)}}}}
+                "PACK"->{
+                    var tableSp:Spinner?=null
+                    var userSp:Spinner?=null
+                    var currentRows=normalMaps.toList()
+                    var duplicate=false
+                    fun rebuild(preferredTable:String="",preferredUser:String="",used:Boolean=false){
+                        host.removeAllViews()
+                        duplicate=used
+                        currentRows=if(used){(normalMaps+usedMaps.filter{it.table==preferredTable&&it.user==preferredUser}).distinctBy{it.table+"|"+it.user}}else normalMaps
+                        val currentTable=activeTable?.optString("resource_id").orEmpty()
+                        val allTables=currentRows.map{it.table}.toMutableList()
+                        if(currentTable.isNotBlank()&&currentTable !in allTables)allTables.add(currentTable)
+                        val tables=allTables.distinct().sortedWith(Comparator{a,b->naturalUserCompare(a,b)})
+                        val t=spinner((listOf("Chọn Bàn Pack")+tables).toTypedArray());tableSp=t
+                        val target=preferredTable.ifBlank{currentTable}
+                        tables.indexOf(target).takeIf{it>=0}?.let{t.setSelection(it+1)}
+                        host.addView(labelled("Bàn Pack",t));host.addView(gap(5))
+                        val userHost=column(surface);host.addView(userHost,matchWrap())
+                        fun users(pref:String=""){
+                            userHost.removeAllViews()
+                            val table=tables.getOrNull(t.selectedItemPosition-1).orEmpty()
+                            val rows=currentRows.filter{it.table==table}.sortedWith(Comparator{a,b->naturalUserCompare(a.user,b.user)})
+                            val u=spinner((listOf("Chọn User Pack")+rows.map{it.user}).toTypedArray());userSp=u
+                            val currentUser=activePack?.optString("resource_id").orEmpty()
+                            val targetUser=pref.ifBlank{currentUser}
+                            rows.indexOfFirst{it.user==targetUser}.takeIf{it>=0}?.let{u.setSelection(it+1)}
+                            val rr=row(surface).apply{
+                                gravity=Gravity.CENTER_VERTICAL
+                                addView(u,LinearLayout.LayoutParams(0,dp(48),1.25f).apply{marginEnd=dp(5)})
+                                addView(compactReissueButton("Phát lại",usedMaps.isNotEmpty()){
+                                    val labels=usedMaps.map{"${it.table} – ${it.user}"}
+                                    showReissueChooser("Phát lại User Pack",labels){i->val m=usedMaps[i];rebuild(m.table,m.user,true)}
+                                },LinearLayout.LayoutParams(0,dp(44),.75f))
+                            }
+                            userHost.addView(labelled("User Pack",rr))
+                        }
+                        t.onItemSelectedListener=object:android.widget.AdapterView.OnItemSelectedListener{
+                            override fun onItemSelected(p:android.widget.AdapterView<*>?,v:View?,i:Int,id:Long){users(if(tables.getOrNull(i-1)==preferredTable)preferredUser else "")}
+                            override fun onNothingSelected(p:android.widget.AdapterView<*>?)=Unit
+                        }
+                        users(preferredUser)
+                    }
+                    rebuild()
+                    makeOps={
+                        validationError=""
+                        val table=(tableSp?.selectedItem?.toString()?:"").takeIf{it!="Chọn Bàn Pack"}.orEmpty().trim()
+                        val user=(userSp?.selectedItem?.toString()?:"").takeIf{it!="Chọn User Pack"}.orEmpty().trim()
+                        val valid=currentRows.firstOrNull{it.table==table&&it.user==user}
+                        when{
+                            table.isBlank()||user.isBlank()->{validationError="Chọn đủ Bàn Pack và User Pack đúng theo cấu hình hiện tại.";JSONArray()}
+                            valid==null->{validationError="Bàn Pack / User Pack không còn khớp cấu hình hiện tại. Chọn lại đúng cặp.";JSONArray()}
+                            else->JSONArray().apply{
+                                replaceOrAdd(activeTable,"PACK_TABLE",table)?.let{put(it)}
+                                replaceOrAdd(activePack,"USER_PACK",user,duplicate||valid.used)?.let{put(it)}
+                            }
+                        }
+                    }
+                }
                 "POSITION"->{val available=positionCatalog.filter{it.first.uppercase() !in activeKeys};val labels=available.map{it.second};val sp=spinner((listOf("Chọn vị trí cần thêm")+labels).toTypedArray());host.addView(labelled("Vị trí trong ca",sp));makeOps={val x=available.getOrNull(sp.selectedItemPosition-1);JSONArray().apply{if(x!=null)put(JSONObject().put("op","ADD_POSITION").put("position_key",x.first.uppercase()).put("position_label",x.second))}}}
             }
         }
         selector.onItemSelectedListener=object:android.widget.AdapterView.OnItemSelectedListener{override fun onItemSelected(p:android.widget.AdapterView<*>?,v:View?,i:Int,id:Long){render(choices.getOrNull(i-1)?.second.orEmpty())};override fun onNothingSelected(p:android.widget.AdapterView<*>?)=Unit}
-        AlertDialog.Builder(this).setTitle(if(edit)"Sửa thông tin trong ca" else "Thêm thông tin trong ca").setView(ScrollView(this).apply{addView(box)}).setNegativeButton("Hủy",null).setPositiveButton(if(edit)"LƯU" else "THÊM"){_,_->val ops=makeOps?.invoke()?:JSONArray();if(ops.length()==0){showError("Chọn nội dung và giá trị cần ${if(edit)"sửa" else "thêm"}.");return@setPositiveButton};if(ops.toString().contains("\"resource_type\":\"USER_PICK\"")&&activePda==null&&!ops.toString().contains("\"resource_type\":\"PDA\"")){showError("User Pick bắt buộc phải có PDA.");return@setPositiveButton};submitResourceMutation(ctx,ops,if(edit)"Sửa thông tin trong ca" else "Thêm thông tin trong ca")}.show()
+        val editDialog=AlertDialog.Builder(this).setTitle(if(edit)"Sửa thông tin trong ca" else "Thêm thông tin trong ca").setView(ScrollView(this).apply{addView(box)}).setNegativeButton("Hủy",null).setPositiveButton(if(edit)"LƯU" else "THÊM",null).create()
+        editDialog.setOnShowListener{
+            editDialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener{
+                validationError=""
+                val ops=makeOps?.invoke()?:JSONArray()
+                if(validationError.isNotBlank()){showError(validationError);return@setOnClickListener}
+                if(ops.length()==0){showError("Chọn nội dung và giá trị cần ${if(edit)"sửa" else "thêm"}.");return@setOnClickListener}
+                if(ops.toString().contains("\"resource_type\":\"USER_PICK\"")&&activePda==null&&!ops.toString().contains("\"resource_type\":\"PDA\"")){showError("User Pick bắt buộc phải có PDA.");return@setOnClickListener}
+                editDialog.dismiss()
+                submitResourceMutation(ctx,ops,if(edit)"Sửa thông tin trong ca" else "Thêm thông tin trong ca")
+            }
+        }
+        editDialog.show()
     }
     private fun deleteSessionWork(ctx:JSONObject){
         val s=ctx.optJSONObject("session")?:return;val assignments=activeAssignments(s);val positions=activePositions(s)
@@ -843,11 +942,41 @@ class OperationsActivity : Activity() {
         if(items.isEmpty()){showError("Phiên không có thông tin công việc có thể xóa.");return}
         val box=column(surface).apply{setPadding(dp(10),dp(5),dp(10),dp(8))};box.addView(info("Chọn đúng một nội dung đang tồn tại. Chỉ phần xác nhận liên quan mới hiển thị."));box.addView(gap(7));val selector=spinner((listOf("Chọn nội dung cần xóa")+items.map{it.label}).toTypedArray());box.addView(selector,matchWrap());box.addView(gap(7));val host=column(surface);box.addView(host,matchWrap())
         var selected:Item?=null;var disposition:Spinner?=null;var reason:EditText?=null
-        fun render(i:Int){host.removeAllViews();selected=items.getOrNull(i-1);disposition=null;reason=null;val x=selected?:return;if(x.assignment!=null){val d=spinner(arrayOf("Đã sử dụng / có sản lượng","Cấp nhầm / chưa sử dụng"));val r=input("Lý do xóa",false);disposition=d;reason=r;host.addView(labelled("Xử lý tài nguyên sau khi xóa",d));host.addView(gap(6));host.addView(r,matchWrap())}else{val r=input("Lý do xóa vị trí",false);reason=r;host.addView(r,matchWrap())}}
+        fun focusReason(r:EditText){
+            r.post{
+                r.requestFocus();r.setSelection(r.text.length)
+                val imm=getSystemService(INPUT_METHOD_SERVICE) as? android.view.inputmethod.InputMethodManager
+                imm?.showSoftInput(r,android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
+            }
+        }
+        fun render(i:Int){
+            host.removeAllViews();selected=items.getOrNull(i-1);disposition=null;reason=null
+            val x=selected?:return
+            if(x.assignment!=null){
+                val d=spinner(arrayOf("Đã sử dụng / có sản lượng","Cấp nhầm / chưa sử dụng"))
+                val r=input("Lý do xóa",false);disposition=d;reason=r
+                host.addView(labelled("Xử lý tài nguyên sau khi xóa",d));host.addView(gap(6));host.addView(r,matchWrap());focusReason(r)
+            }else{
+                val r=input("Lý do xóa vị trí",false);reason=r;host.addView(r,matchWrap());focusReason(r)
+            }
+        }
         selector.onItemSelectedListener=object:android.widget.AdapterView.OnItemSelectedListener{override fun onItemSelected(p:android.widget.AdapterView<*>?,v:View?,i:Int,id:Long){render(i)};override fun onNothingSelected(p:android.widget.AdapterView<*>?)=Unit}
         val full=smallButton("XÓA TOÀN BỘ PHIÊN VÀO – RA",red);box.addView(gap(10));box.addView(full,matchWrap());var dialog:AlertDialog?=null
         full.setOnClickListener{val r=input("Lý do xóa toàn bộ phiên",false).apply{setText("Xóa phiên theo xác nhận thực tế")};AlertDialog.Builder(this).setTitle("Xóa toàn bộ phiên?").setView(r).setNegativeButton("Hủy",null).setPositiveButton("XÁC NHẬN"){_,_->if(r.text.toString().trim().length<3){showError("Nhập lý do xóa phiên.");return@setPositiveButton};verifyDeletePassword("xóa toàn bộ phiên"){api.call("attendance_session_delete",JSONObject().put("session_id",s.optString("session_id")).put("reason",r.text.toString().trim()).put("idempotency_key",UUID.randomUUID().toString())){x->runOnUiThread{if(!x.ok){showError(x.error?:"Không xóa được phiên");return@runOnUiThread};dialog?.dismiss();TopNotice.show(this,"Đã xóa phiên; audit chi tiết vẫn được giữ.",TopNotice.Kind.SUCCESS);employeeScan()}}}}.show()}
-        dialog=AlertDialog.Builder(this).setTitle("Xóa thông tin trong ca").setView(ScrollView(this).apply{addView(box)}).setNegativeButton("Hủy",null).setPositiveButton("XÓA"){_,_->val x=selected?:run{showError("Chọn nội dung cần xóa.");return@setPositiveButton};val why=reason?.text?.toString()?.trim().orEmpty();if(why.length<2){showError("Nhập lý do xóa.");return@setPositiveButton};val ops=JSONArray();if(x.assignment!=null)ops.put(JSONObject().put("op","REMOVE_RESOURCE").put("assignment_id",x.assignment.optString("assignment_id")).put("resource_type",x.assignment.optString("resource_type")).put("resource_id",x.assignment.optString("resource_id")).put("reason",why).put("disposition",if(disposition?.selectedItemPosition==1)"AVAILABLE" else "USED"))else x.position?.let{ops.put(JSONObject().put("op","REMOVE_POSITION").put("position_key",it.optString("position_key")).put("reason",why))};verifyDeletePassword("xóa thông tin trong ca"){submitResourceMutation(ctx,ops,"Xóa thông tin trong ca")}}.create();dialog?.show()
+        dialog=AlertDialog.Builder(this).setTitle("Xóa thông tin trong ca").setView(ScrollView(this).apply{addView(box)}).setNegativeButton("Hủy",null).setPositiveButton("XÓA",null).create()
+        dialog?.setOnShowListener{
+            dialog?.getButton(AlertDialog.BUTTON_POSITIVE)?.setOnClickListener{
+                val x=selected?:run{showError("Chọn nội dung cần xóa.");return@setOnClickListener}
+                val why=reason?.text?.toString()?.trim().orEmpty()
+                if(why.length<2){showError("Nhập lý do xóa.");reason?.let(::focusReason);return@setOnClickListener}
+                val ops=JSONArray()
+                if(x.assignment!=null)ops.put(JSONObject().put("op","REMOVE_RESOURCE").put("assignment_id",x.assignment.optString("assignment_id")).put("resource_type",x.assignment.optString("resource_type")).put("resource_id",x.assignment.optString("resource_id")).put("reason",why).put("disposition",if(disposition?.selectedItemPosition==1)"AVAILABLE" else "USED"))
+                else x.position?.let{ops.put(JSONObject().put("op","REMOVE_POSITION").put("position_key",it.optString("position_key")).put("reason",why))}
+                dialog?.dismiss()
+                verifyDeletePassword("xóa thông tin trong ca"){submitResourceMutation(ctx,ops,"Xóa thông tin trong ca")}
+            }
+        }
+        dialog?.show()
     }
     private fun editableTime(iso:String):String=runCatching{Instant.parse(iso).atZone(ZoneId.of("Asia/Ho_Chi_Minh")).format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss"))}.getOrDefault(iso)
     private fun parseEditableTime(v:String):String?=runCatching{java.time.LocalDateTime.parse(v.trim(),DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss")).atZone(ZoneId.of("Asia/Ho_Chi_Minh")).toInstant().toString()}.getOrNull()
@@ -902,11 +1031,35 @@ class OperationsActivity : Activity() {
     }
     private fun renderActive(body:LinearLayout,ctx:JSONObject){
         val s=ctx.optJSONObject("session")?:JSONObject();val mnv=s.optString("mnv")
+        val exit=smallButton("Ra ca",red)
+        fun doExit(status:String){
+            val gen=employeeLookupGeneration;exit.isEnabled=false
+            api.call("session_exit_v2",JSONObject().put("session_id",s.optString("session_id")).put("mnv",mnv).put("expected_version",s.optInt("version")).put("pda_exit_status",status).put("idempotency_key",UUID.randomUUID().toString())){r->runOnUiThread{
+                exit.isEnabled=true
+                if(!r.ok){if(r.error=="SESSION_CHANGED")loadEmployee(mnv)else showError(r.error?:"RA_CA_FAILED");return@runOnUiThread}
+                TopNotice.show(this,"Đã ghi nhận ra ca.",TopNotice.Kind.SUCCESS);foregroundSync.requestSync()
+                if(gen==employeeLookupGeneration&&liveEmployeeMnv==mnv)scheduleAttendanceAutoReset(mnv,gen)
+            }}
+        }
+        exit.setOnClickListener{
+            if(ctx.optJSONObject("active_labor")!=null){showError("Còn công nhật đang làm. Hoàn thành công nhật trước khi ra ca.");return@setOnClickListener}
+            val pda=activeAssignments(s,"PDA").firstOrNull()
+            if(pda==null){doExit("");return@setOnClickListener}
+            val expected=s.optString("pda_enter_status");val arr=MasterDataCache.resourceOptions(this).optJSONArray("pda_statuses")?:JSONArray();val statuses=mutableListOf<String>()
+            for(i in 0 until arr.length()){val v=arr.optString(i).trim();if(v.isNotBlank()&&!statuses.contains(v))statuses.add(v)}
+            if(expected.isNotBlank()&&!statuses.contains(expected))statuses.add(0,expected)
+            val sp=spinner(statuses.toTypedArray())
+            val wrap=column(surface).apply{setPadding(dp(12),dp(6),dp(12),dp(5));addView(txt("PDA ${pda.optString("resource_id")}",12f,navy,true));addView(labelled("Tình trạng PDA hiện tại",sp))}
+            AlertDialog.Builder(this).setTitle("Đối chiếu PDA trước khi RA CA").setView(wrap).setNegativeButton("Hủy",null).setPositiveButton("KIỂM TRA & RA CA"){_,_->doExit(sp.selectedItem?.toString().orEmpty())}.show()
+        }
+        val actions=row(bg)
+        actions.addView(smallButton("Thêm",teal).apply{setOnClickListener{sessionWorkEditor(ctx,"ADD")}},LinearLayout.LayoutParams(0,dp(40),1f).apply{marginEnd=dp(2)})
+        actions.addView(smallButton("Sửa",navy).apply{setOnClickListener{sessionWorkEditor(ctx,"EDIT")}},LinearLayout.LayoutParams(0,dp(40),1f).apply{marginStart=dp(2);marginEnd=dp(2)})
+        actions.addView(smallButton("Xóa",orange).apply{setOnClickListener{deleteSessionWork(ctx)}},LinearLayout.LayoutParams(0,dp(40),1f).apply{marginStart=dp(2)})
+        body.addView(actions,matchWrap());body.addView(gap(5));body.addView(exit,matchWrap());body.addView(gap(8))
         body.addView(sessionInfoPanel("THÔNG TIN CA",shiftInfoRows(s,false),false));body.addView(gap(7))
         body.addView(sessionInfoPanel("THÔNG TIN CÔNG VIỆC",workInfoRows(s,false),false));body.addView(gap(8))
-        val exit=smallButton("Ra ca",red);fun doExit(status:String){val gen=employeeLookupGeneration;exit.isEnabled=false;api.call("session_exit_v2",JSONObject().put("session_id",s.optString("session_id")).put("mnv",mnv).put("expected_version",s.optInt("version")).put("pda_exit_status",status).put("idempotency_key",UUID.randomUUID().toString())){r->runOnUiThread{exit.isEnabled=true;if(!r.ok){if(r.error=="SESSION_CHANGED")loadEmployee(mnv)else showError(r.error?:"RA_CA_FAILED");return@runOnUiThread};TopNotice.show(this,"Đã ghi nhận ra ca.",TopNotice.Kind.SUCCESS);foregroundSync.requestSync();if(gen==employeeLookupGeneration&&liveEmployeeMnv==mnv)scheduleAttendanceAutoReset(mnv,gen)}}}
-        exit.setOnClickListener{if(ctx.optJSONObject("active_labor")!=null){showError("Còn công nhật đang làm. Hoàn thành công nhật trước khi ra ca.");return@setOnClickListener};val pda=activeAssignments(s,"PDA").firstOrNull();if(pda==null){doExit("");return@setOnClickListener};val expected=s.optString("pda_enter_status");val arr=MasterDataCache.resourceOptions(this).optJSONArray("pda_statuses")?:JSONArray();val statuses=mutableListOf<String>();for(i in 0 until arr.length()){val v=arr.optString(i).trim();if(v.isNotBlank()&&!statuses.contains(v))statuses.add(v)};if(expected.isNotBlank()&&!statuses.contains(expected))statuses.add(0,expected);val sp=spinner(statuses.toTypedArray());val wrap=column(surface).apply{setPadding(dp(12),dp(6),dp(12),dp(5));addView(txt("PDA ${pda.optString("resource_id")}",12f,navy,true));addView(labelled("Tình trạng PDA hiện tại",sp))};AlertDialog.Builder(this).setTitle("Đối chiếu PDA trước khi RA CA").setView(wrap).setNegativeButton("Hủy",null).setPositiveButton("KIỂM TRA & RA CA"){_,_->doExit(sp.selectedItem?.toString().orEmpty())}.show()}
-        val actions=row(bg);actions.addView(smallButton("Thêm",teal).apply{setOnClickListener{sessionWorkEditor(ctx,"ADD")}},LinearLayout.LayoutParams(0,dp(40),1f).apply{marginEnd=dp(2)});actions.addView(smallButton("Sửa",navy).apply{setOnClickListener{sessionWorkEditor(ctx,"EDIT")}},LinearLayout.LayoutParams(0,dp(40),1f).apply{marginStart=dp(2);marginEnd=dp(2)});actions.addView(smallButton("Xóa",orange).apply{setOnClickListener{deleteSessionWork(ctx)}},LinearLayout.LayoutParams(0,dp(40),1f).apply{marginStart=dp(2)});body.addView(actions,matchWrap());body.addView(gap(5));body.addView(exit,matchWrap());body.addView(gap(8));addSessionTimeline(body,mnv,s)
+        addSessionTimeline(body,mnv,s)
     }
 
 
@@ -1129,8 +1282,16 @@ class OperationsActivity : Activity() {
         module="BUSINESS";screenState="REPORT"
         val root=baseRoot("BÁO CÁO NHÂN SỰ");val body=column(bg).apply{setPadding(dp(3),dp(6),dp(3),dp(42))}
         val period=spinner(arrayOf("Ca 1 + Ca HC","Ca 2","Cả ngày"))
-        var selectedDate=operationalStore.businessDate()
-        val dateButton=Button(this).apply{text=runCatching{java.time.LocalDate.parse(selectedDate).format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}.getOrDefault(selectedDate);textSize=12f;isAllCaps=false;background=outlineBg(surface,14);setTextColor(ink)}
+        fun availableReportDates():List<String> = operationalStore.availableDates().filter{date->
+            val events=operationalStore.loadDay(date)?.optJSONArray("events")
+            events!=null&&(0 until events.length()).any{i->events.optJSONObject(i)?.optString("event_type")?.uppercase()=="ATTENDANCE_ENTER"}
+        }
+        val initialReportDates=availableReportDates()
+        var selectedDate=initialReportDates.firstOrNull()?:operationalStore.businessDate()
+        val dateButton=Button(this).apply{
+            text=runCatching{java.time.LocalDate.parse(selectedDate).format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}.getOrDefault(selectedDate)
+            textSize=12f;isAllCaps=false;background=outlineBg(surface,14);setTextColor(ink);isEnabled=initialReportDates.isNotEmpty()
+        }
         val controls=row(bg).apply{gravity=Gravity.CENTER_VERTICAL;addView(period,LinearLayout.LayoutParams(0,dp(50),1f).apply{marginEnd=dp(5)});addView(dateButton,LinearLayout.LayoutParams(0,dp(50),1f).apply{marginStart=dp(5)})}
         body.addView(section("Phạm vi báo cáo"));body.addView(controls,matchWrap());body.addView(gap(7))
         val box=column(bg);body.addView(box,matchWrap())
@@ -1152,8 +1313,6 @@ class OperationsActivity : Activity() {
         fun renderCached(){
             box.removeAllViews();if(cachedDate!=selectedDate){box.addView(info("Đang đọc snapshot $selectedDate từ bộ nhớ PDA…"));return}
             val selected=cachedEntries.filter{when(period.selectedItemPosition){0->shiftBucket(it.shift) in setOf("CA1","HC");1->shiftBucket(it.shift)=="CA2";else->true}}
-            val shown=runCatching{java.time.LocalDate.parse(selectedDate).format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}.getOrDefault(selectedDate)
-            box.addView(info("Site 1291 • Ngày báo cáo $shown • ${selected.size} nhân sự vào ca • Nhà thầu: IH / NLV / VW / MP / MGL / HGP / HAD"));box.addView(gap(5))
             box.addView(s34ReportGrid("",makeGrid(selected,"position",selectedDate),"Vị trí","position"));box.addView(gap(4));box.addView(s34ReportGrid("",makeGrid(selected,"tenure",selectedDate),"Thâm niên","label"))
             if(cachedEntries.isEmpty())box.addView(info("Chưa có snapshot ngày đã chọn trên PDA. Chọn ngày khác hoặc đồng bộ để tải dữ liệu canonical."))
         }
@@ -1173,8 +1332,12 @@ class OperationsActivity : Activity() {
             }.start()
         }
         dateButton.setOnClickListener{
-            val d=runCatching{java.time.LocalDate.parse(selectedDate)}.getOrDefault(java.time.LocalDate.now(ZoneId.of("Asia/Ho_Chi_Minh")))
-            android.app.DatePickerDialog(this,{_,y,m,day->selectedDate=java.time.LocalDate.of(y,m+1,day).toString();dateButton.text=java.time.LocalDate.parse(selectedDate).format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));loadDate()},d.year,d.monthValue-1,d.dayOfMonth).show()
+            val dates=availableReportDates()
+            if(dates.isEmpty()){TopNotice.show(this,"Chưa có ngày nào có dữ liệu báo cáo trên PDA.",TopNotice.Kind.INFO);return@setOnClickListener}
+            val labels=dates.map{reportDateLabel(it)}
+            AlertDialog.Builder(this).setTitle("Chọn ngày có dữ liệu").setItems(labels.toTypedArray()){_,i->
+                selectedDate=dates[i];dateButton.text=labels[i];loadDate()
+            }.setNegativeButton("Hủy",null).show()
         }
         period.onItemSelectedListener=object:android.widget.AdapterView.OnItemSelectedListener{override fun onItemSelected(p:android.widget.AdapterView<*>?,v:View?,pos:Int,id:Long){if(cachedDate==selectedDate)renderCached()};override fun onNothingSelected(p:android.widget.AdapterView<*>?)=Unit}
         reportRealtimeRefresh={dates->if(screenState=="REPORT"&&(dates.isEmpty()||selectedDate in dates))loadDate()}
@@ -1233,7 +1396,7 @@ class OperationsActivity : Activity() {
         val cols=jsonStrings(data.optJSONArray("columns"));val rows=data.optJSONArray("rows")?:JSONArray()
         val table=TableLayout(this).apply{isStretchAllColumns=true;isShrinkAllColumns=true}
         fun cell(v:String,bold:Boolean=false,header:Boolean=false)=TextView(this).apply{
-            text=v;textSize=if(header)8.2f else 8.5f;setTextColor(if(header)navy else ink);typeface=if(bold)Typeface.DEFAULT_BOLD else Typeface.DEFAULT;gravity=Gravity.CENTER;setPadding(dp(1),dp(3),dp(1),dp(3));maxLines=3;background=GradientDrawable().apply{setColor(if(header)Color.rgb(232,241,246) else Color.WHITE)}
+            text=v;textSize=if(header)8.2f else 8.5f;setTextColor(if(header)navy else ink);typeface=if(bold)Typeface.DEFAULT_BOLD else Typeface.DEFAULT;gravity=Gravity.CENTER;setPadding(dp(1),dp(3),dp(1),dp(3));maxLines=3;background=GradientDrawable().apply{setColor(if(header)Color.rgb(232,241,246) else Color.WHITE);setStroke(dp(1),Color.rgb(105,118,126))}
         }
         val hr=TableRow(this);hr.addView(cell(firstTitle,true,true));cols.forEach{hr.addView(cell(it,true,true))};hr.addView(cell("Tổng",true,true));table.addView(hr)
         for(i in 0 until rows.length()){
@@ -1902,7 +2065,7 @@ class OperationsActivity : Activity() {
         AlertDialog.Builder(this).setTitle(title).setView(ScrollView(this).apply{addView(box)}).setPositiveButton("ĐÓNG",null).show()
     }
 
-    private fun manualRefreshFromHeader(icon:ImageView){
+    private fun manualRefreshFromHeader(icon:View){
         if(manualRefreshInFlight)return
         manualRefreshInFlight=true;icon.isEnabled=false;icon.alpha=.55f
         M2ImmediateOutbox.kick(this);foregroundSync.requestSync();refreshMasterCache();historyLastCanonicalRefreshAt=0L
@@ -1960,32 +2123,32 @@ class OperationsActivity : Activity() {
         }
         if(serviceStatusText?.text?.toString()!=serviceLabel)serviceStatusText?.text=serviceLabel
     }
-    private fun headerStatusChip(iconRes:Int,label:String,valueView:TextView,click:()->Unit)=row(Color.TRANSPARENT).apply{
+    private fun headerStatusChip(iconRes:Int,label:String,valueView:TextView,click:((View)->Unit)?=null)=row(Color.TRANSPARENT).apply{
         gravity=Gravity.CENTER_VERTICAL
         setPadding(dp(5),dp(3),dp(5),dp(3))
         background=round(Color.argb(32,255,255,255),12)
-        isClickable=true;isFocusable=true;setOnClickListener{click()}
+        isClickable=click!=null;isFocusable=click!=null
+        if(click!=null)setOnClickListener{v->click(v)}
         addView(ImageView(this@OperationsActivity).apply{setImageResource(iconRes);imageTintList=ColorStateList.valueOf(Color.WHITE);setPadding(dp(1),dp(1),dp(1),dp(1))},size(dp(19),dp(19)))
         addView(column(Color.TRANSPARENT).apply{
             addView(txt(label,7f,Color.argb(210,255,255,255),false).apply{maxLines=1;setAutoSizeTextTypeUniformWithConfiguration(6,8,1,android.util.TypedValue.COMPLEX_UNIT_SP)})
             addView(valueView.apply{maxLines=1;setAutoSizeTextTypeUniformWithConfiguration(6,9,1,android.util.TypedValue.COMPLEX_UNIT_SP)})
         },LinearLayout.LayoutParams(0,-2,1f).apply{marginStart=dp(3)})
     }
-    private fun greetingText():String{val h=java.time.LocalTime.now(ZoneId.of("Asia/Ho_Chi_Minh")).hour;val part=when(h){in 5..10->"sáng";in 11..13->"trưa";in 14..17->"chiều";else->"tối"};return "Chào buổi $part, ${name.ifBlank{login}}"}
     private fun appBar(title:String)=column(Color.TRANSPARENT).apply{
         setPadding(dp(12),dp(7),dp(12),dp(8));background=gradient(navy,accent,0)
-        val identity=row(Color.TRANSPARENT).apply{gravity=Gravity.CENTER_VERTICAL}
-        if(!isRootScreen())identity.addView(ImageView(this@OperationsActivity).apply{setImageResource(R.drawable.ic_pp_back);imageTintList=ColorStateList.valueOf(Color.WHITE);setPadding(dp(6),dp(6),dp(6),dp(6));setOnClickListener{navigateBack()}},size(dp(32),dp(32)))
-        identity.addView(txt(greetingText(),15.2f,Color.WHITE,true).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END},LinearLayout.LayoutParams(0,-2,1f).apply{if(!isRootScreen())marginStart=dp(2)})
-        identity.addView(ImageView(this@OperationsActivity).apply{contentDescription="Làm mới và đồng bộ dữ liệu";setImageResource(R.drawable.ic_pp_refresh_round);imageTintList=ColorStateList.valueOf(Color.WHITE);setPadding(dp(6),dp(6),dp(6),dp(6));setOnClickListener{manualRefreshFromHeader(this)}},size(dp(32),dp(32)))
-        addView(identity,matchWrap());addView(gap(6))
+        if(!isRootScreen()){
+            val identity=row(Color.TRANSPARENT).apply{gravity=Gravity.CENTER_VERTICAL}
+            identity.addView(ImageView(this@OperationsActivity).apply{contentDescription="Quay lại";setImageResource(R.drawable.ic_pp_back);imageTintList=ColorStateList.valueOf(Color.WHITE);setPadding(dp(6),dp(6),dp(6),dp(6));setOnClickListener{navigateBack()}},size(dp(32),dp(32)))
+            addView(identity,matchWrap());addView(gap(4))
+        }
         val statuses=row(Color.TRANSPARENT).apply{gravity=Gravity.CENTER}
         val net=txt("—",8.8f,Color.WHITE,true);networkStatusText=net
         val syn=txt("—",8.8f,Color.WHITE,true);syncStatusText=syn
         val svc=txt("—",8.8f,Color.WHITE,true);serviceStatusText=svc
-        statuses.addView(headerStatusChip(R.drawable.ic_pp_network,"Mạng",net){showHeaderStatusDetail("NETWORK")},LinearLayout.LayoutParams(0,dp(38),1f).apply{marginEnd=dp(2)})
-        statuses.addView(headerStatusChip(R.drawable.ic_pp_sync,"Đồng bộ",syn){showHeaderStatusDetail("SYNC")},LinearLayout.LayoutParams(0,dp(38),1f).apply{marginStart=dp(1);marginEnd=dp(1)})
-        statuses.addView(headerStatusChip(R.drawable.ic_pp_service,"Dịch vụ",svc){showHeaderStatusDetail("SERVICE")},LinearLayout.LayoutParams(0,dp(38),1f).apply{marginStart=dp(2)})
+        statuses.addView(headerStatusChip(R.drawable.ic_pp_network,"Mạng",net),LinearLayout.LayoutParams(0,dp(38),1f).apply{marginEnd=dp(2)})
+        statuses.addView(headerStatusChip(R.drawable.ic_pp_sync,"Đồng bộ",syn){v->manualRefreshFromHeader(v)},LinearLayout.LayoutParams(0,dp(38),1f).apply{marginStart=dp(1);marginEnd=dp(1)})
+        statuses.addView(headerStatusChip(R.drawable.ic_pp_service,"Dịch vụ",svc),LinearLayout.LayoutParams(0,dp(38),1f).apply{marginStart=dp(2)})
         addView(statuses,matchWrap());refreshHeaderConnection()
     }
     private fun activeTab()=when(module){"STAFF"->"STAFF";"HISTORY"->"HISTORY";"SYNC"->"SYNC";"SETTINGS"->"SETTINGS";"ROLE_MODE"->"ROLE_MODE";else->"BUSINESS"}

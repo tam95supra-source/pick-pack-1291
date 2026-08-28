@@ -23,6 +23,10 @@ grep -q 'reportRealtimeRefresh' "$OPS"
 grep -q 'historyRealtimeRefresh' "$OPS"
 ! grep -q 'postDelayed(this,750L)' "$OPS"
 grep -q 'override fun onLost(network: Network)' "$SYNC"
+grep -q 'Bàn Pack / User Pack không còn khớp cấu hình hiện tại' "$OPS"
+grep -q 'Chọn ngày có dữ liệu' "$OPS"
+! grep -q 'Site 1291 • Ngày báo cáo' "$OPS"
+grep -q 'showSoftInput(r,android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)' "$OPS"
 test "$(sha256sum "$APK"|awk '{print $1}')" = "$SHA";test "$(stat -c '%s' "$APK")" = "$SIZE"
 OUT=/tmp/beta-verify;rm -rf "$OUT";mkdir -p "$OUT"
 adb root >"$OUT/adb-root.txt" 2>&1 || true;timeout 30s adb wait-for-device
@@ -44,7 +48,7 @@ for spec in '320 568 160' '360 640 180' '480 800 240'; do
   adb pull "/sdcard/Android/data/$PKG/files/beta83-visual/." "$OUT/$TAG/" >/dev/null
   if [[ "$MODE" == checks ]]; then
     adb shell cat "/data/user/0/$PKG/shared_prefs/pp_beta83_verify.xml" >"$OUT/$TAG-flags.xml"
-    for flag in current_day_filter header_removed old_warning_preserved qr_reconciliation null_sanitized incomplete_detail_button staff_list_to_qr complete_direct_list settings_simplified reconciliation_above_scan work_info_order before_after_visible timeline_newest_first hhmm_edit_confirmation; do
+    for flag in current_day_filter header_removed header_sync_chip old_warning_preserved qr_reconciliation null_sanitized incomplete_detail_button staff_list_to_qr complete_direct_list settings_simplified reconciliation_above_scan work_info_order owner_actions_above_shift before_after_visible assignment_snapshot_authoritative timeline_newest_first hhmm_edit_confirmation delete_reason_editable; do
       grep -Fq "name=\"$flag\" value=\"true\"" "$OUT/$TAG-flags.xml"
     done
   fi
@@ -65,5 +69,5 @@ for tag,(size,count) in expected.items():
         total+=1
 (root/"visual-summary.txt").write_text(f"screenshots={total}\nsizes=320x568,360x640,480x800\nhuman_inspection_required=true\n",encoding="utf-8")
 PY
-jq -nc --arg version "$VERSION" --argjson code "$CODE" --arg sha "$SHA" --argjson size "$SIZE" --argjson run "$GITHUB_RUN_ID" '{status:"PASS",version_name:$version,version_code:$code,apk_sha256:$sha,apk_size:$size,run:$run,functional_pass:true,current_day_only:true,incomplete_and_complete_paths:true,qr_session_cards:true,null_sanitized:true,settings_simplified:true,old_warning_preserved:true,reconciliation_above_scan:true,work_info_order:true,before_after_visible:true,timeline_newest_first:true,hhmm_edit_confirmation:true,event_driven_status:true,partial_realtime_refresh:true,no_750ms_ui_ticker:true,visual_sizes:["320x568","360x640","480x800"],screenshot_count:19,functional_size:"320x568",human_inspection_required:true}' > "$OUT/receipt.json"
+jq -nc --arg version "$VERSION" --argjson code "$CODE" --arg sha "$SHA" --argjson size "$SIZE" --argjson run "$GITHUB_RUN_ID" '{status:"PASS",version_name:$version,version_code:$code,apk_sha256:$sha,apk_size:$size,run:$run,functional_pass:true,current_day_only:true,incomplete_and_complete_paths:true,qr_session_cards:true,null_sanitized:true,settings_simplified:true,old_warning_preserved:true,reconciliation_above_scan:true,work_info_order:true,owner_actions_above_shift:true,header_sync_chip:true,delete_reason_editable:true,pack_pair_validated:true,before_after_visible:true,assignment_snapshot_authoritative:true,timeline_newest_first:true,hhmm_edit_confirmation:true,event_driven_status:true,partial_realtime_refresh:true,no_750ms_ui_ticker:true,report_available_dates_only:true,report_grid_borders:true,visual_sizes:["320x568","360x640","480x800"],screenshot_count:19,functional_size:"320x568",human_inspection_required:true}' > "$OUT/receipt.json"
 cat "$OUT/receipt.json"

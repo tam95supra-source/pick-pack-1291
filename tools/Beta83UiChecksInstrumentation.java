@@ -304,8 +304,18 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
       .put("state","ACTIVE").put("enter_at",oldDate+"T01:00:00Z").put("exit_at","").put("version",1)
       .put("positions_v64",new JSONArray()).put("resource_assignments_v64",new JSONArray());
 
-    JSONObject before=new JSONObject().put("work_choice","PICK").put("pda_serial","PDA-BEFORE").put("user_pick","PICK-BEFORE").put("pack_table","TABLE-BEFORE").put("user_pack","PACK-BEFORE");
-    JSONObject after=new JSONObject().put("work_choice","PACK").put("pda_serial","PDA-AFTER").put("user_pick","PICK-AFTER").put("pack_table","TABLE-AFTER").put("user_pack","PACK-AFTER");
+    JSONObject before=new JSONObject().put("work_choice","PICK").put("pda_serial","STALE-PDA-BEFORE").put("user_pick","STALE-PICK-BEFORE").put("pack_table","STALE-TABLE-BEFORE").put("user_pack","STALE-PACK-BEFORE")
+      .put("resource_assignments_v64",new JSONArray()
+        .put(new JSONObject().put("resource_type","PDA").put("resource_id","PDA-BEFORE").put("state","ACTIVE"))
+        .put(new JSONObject().put("resource_type","USER_PICK").put("resource_id","PICK-BEFORE").put("state","ACTIVE"))
+        .put(new JSONObject().put("resource_type","PACK_TABLE").put("resource_id","TABLE-BEFORE").put("state","ACTIVE"))
+        .put(new JSONObject().put("resource_type","USER_PACK").put("resource_id","PACK-BEFORE").put("state","ACTIVE")));
+    JSONObject after=new JSONObject().put("work_choice","PACK").put("pda_serial","STALE-PDA-AFTER").put("user_pick","STALE-PICK-AFTER").put("pack_table","STALE-TABLE-AFTER").put("user_pack","STALE-PACK-AFTER")
+      .put("resource_assignments_v64",new JSONArray()
+        .put(new JSONObject().put("resource_type","PDA").put("resource_id","PDA-AFTER").put("state","ACTIVE"))
+        .put(new JSONObject().put("resource_type","USER_PICK").put("resource_id","PICK-AFTER").put("state","ACTIVE"))
+        .put(new JSONObject().put("resource_type","PACK_TABLE").put("resource_id","TABLE-AFTER").put("state","ACTIVE"))
+        .put(new JSONObject().put("resource_type","USER_PACK").put("resource_id","PACK-AFTER").put("state","ACTIVE")));
     JSONObject changePayload=new JSONObject().put("session_id","beta83-current-active").put("mnv",mnv).put("mutation_kind","EDIT").put("before",before).put("after",after);
     JSONArray events=new JSONArray()
       .put(new JSONObject().put("event_id","b83-enter").put("event_type","ATTENDANCE_ENTER").put("session_id","beta83-current-active").put("mnv",mnv).put("actor","admin").put("committed_at",today+"T01:01:00Z").put("payload_json",new JSONObject().put("session_id","beta83-current-active").put("mnv",mnv).toString()))
@@ -352,7 +362,15 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     waitText("Ca HC",false,false,12000L);
     waitText("Ca 2",false,false,12000L);
     require(findText("RÀ SOÁT VÀO / RA",false,false)==null,"REDUNDANT_RECONCILIATION_HEADER_VISIBLE");
-    mark("current_day_filter");mark("header_removed");
+    require(findText("Chào buổi",false,false)==null,"GREETING_MUST_BE_REMOVED");
+    require(findText("Làm mới và đồng bộ dữ liệu",true,false)==null,"REFRESH_ICON_MUST_BE_REMOVED");
+    AccessibilityNodeInfo networkChip=waitText("Mạng",true,false,10000L);
+    AccessibilityNodeInfo syncChip=waitText("Đồng bộ",true,false,10000L);
+    AccessibilityNodeInfo serviceChip=waitText("Dịch vụ",true,false,10000L);
+    require(clickableNode(networkChip)==null,"NETWORK_CHIP_MUST_BE_DISPLAY_ONLY");
+    require(clickableNode(syncChip)!=null,"SYNC_CHIP_MUST_BE_CLICKABLE");
+    require(clickableNode(serviceChip)==null,"SERVICE_CHIP_MUST_BE_DISPLAY_ONLY");
+    mark("current_day_filter");mark("header_removed");mark("header_sync_chip");
     shot(tag+"-01-business");
 
     clickText("Quét QR nhân sự",true,12000L);
@@ -392,7 +410,10 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     require(scan!=null,"EMPLOYEE_SCAN_INPUT_MISSING");
     require(topOf(recon)<topOf(scan),"RECONCILIATION_MUST_BE_ABOVE_MNV_SCAN");
     requireVerticalOrder("Vị trí trong ca:","User Pick:","PDA:","Bàn Pack:","User Pack:");
-    mark("reconciliation_above_scan");mark("work_info_order");
+    AccessibilityNodeInfo addButton=waitText("Thêm",true,true,10000L);
+    AccessibilityNodeInfo shiftPanel=waitText("THÔNG TIN CA",true,false,10000L);
+    require(topOf(addButton)<topOf(shiftPanel),"OWNER_ACTIONS_MUST_BE_ABOVE_SHIFT_INFO");
+    mark("reconciliation_above_scan");mark("work_info_order");mark("owner_actions_above_shift");
     shot(tag+"-09-beta83-employee-order");
 
     showTextOnScreen("DIỄN BIẾN CÔNG VIỆC TRONG CA",12000L);
@@ -405,7 +426,9 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     waitText("User Pick: PICK-AFTER",false,false,12000L);
     int newer=treeIndex("CẬP NHẬT CÔNG VIỆC"),older=treeIndex("VÀO CA");
     require(newer>=0&&older>=0&&newer<older,"TIMELINE_NOT_NEWEST_FIRST:"+newer+":"+older);
-    mark("before_after_visible");mark("timeline_newest_first");
+    require(findText("STALE-PDA-BEFORE",false,false)==null,"STALE_SCALAR_BEFORE_RENDERED");
+    require(findText("STALE-PDA-AFTER",false,false)==null,"STALE_SCALAR_AFTER_RENDERED");
+    mark("before_after_visible");mark("timeline_newest_first");mark("assignment_snapshot_authoritative");
     shot(tag+"-10-beta83-timeline");
 
     showTextOnScreen("Sửa",10000L);
@@ -418,6 +441,20 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     waitText("Sửa thông tin trong ca",true,false,10000L);
     mark("hhmm_edit_confirmation");
     shot(tag+"-11-beta83-hhmm");
+    try{ui.executeShellCommand("input keyevent 4").close();}catch(Exception ignored){}
+    SystemClock.sleep(300L);
+
+    showTextOnScreen("Xóa",10000L);
+    clickText("Xóa",true,10000L);
+    waitText("Xóa thông tin trong ca",true,false,10000L);
+    clickText("Chọn nội dung cần xóa",true,10000L);
+    clickText("PDA: MT90-260817-214675",true,10000L);
+    AccessibilityNodeInfo deleteReason=findEditableHint("Lý do xóa");
+    require(deleteReason!=null,"DELETE_REASON_INPUT_MISSING");
+    setNodeText(deleteReason,"Kiểm thử lý do");
+    SystemClock.sleep(250L);
+    require(textOf(deleteReason).contains("Kiểm thử lý do"),"DELETE_REASON_NOT_EDITABLE");
+    mark("delete_reason_editable");
     try{ui.executeShellCommand("input keyevent 4").close();}catch(Exception ignored){}
     SystemClock.sleep(300L);
 
