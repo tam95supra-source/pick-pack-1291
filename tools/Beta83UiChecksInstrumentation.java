@@ -684,7 +684,7 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     waitText("THAY ĐỔI BẢN MỚI",false,false,10000L);
     waitText("Sửa lỗi tài nguyên bản mới",false,false,10000L);
     waitText("THAY ĐỔI BẢN HIỆN TẠI",false,false,10000L);
-    waitText("Đồng bộ danh sách User Pick, User Pack và Bàn Pack khả dụng trực tiếp từ Service",false,false,10000L);
+    waitText("Sửa lỗi Ra ca gửi thiếu mã phiên",false,false,10000L);
     require(findText("SHA256",false,false)==null,"TECHNICAL_RELEASE_METADATA_VISIBLE_IN_CHANGELOG");
     mark("dual_changelog");
     shot(tag+"-07-settings-top");
