@@ -1,6 +1,6 @@
 {
-  "stage": "PUBLISH",
-  "mode": "PUBLISH_EXACT_LOCKED_CANDIDATE",
+  "stage": "pass_live",
+  "mode": "PASS_LIVE_EXACT_BYTES",
   "version_name": "0.4.2-beta.86",
   "version_code": 92,
   "base_version": "0.4.2-beta.85",
@@ -32,7 +32,7 @@
   "authority_change": "NONE",
   "scope": "beta86-preserve-ui-event-driven-partial-realtime-refresh-remove-750ms-main-thread-status-polling",
   "owner": "Nguyen Van Tam",
-  "live": false,
+  "live": true,
   "pre_ota_attempt": 4,
   "last_pre_ota_failure": "STALE_BASELINE_BETA83_FRESH_READ_FOUND_BETA85_LIVE_NO_PRODUCTION_WRITE",
   "candidate_locked": true,
@@ -47,5 +47,6 @@
   "verify_artifact_name": "beta-verify-33139266627",
   "verify_artifact_digest": "sha256:7e15685cb4555a17f615994143775e5b4baaba25e639d37c206733a68044a97f",
   "human_visual_evidence": "PASS_ARTIFACT_9673305232_RUN_33139266627",
-  "next_action": "PUBLISH_EXACT_BETA86_FROM_BETA85_LIVE_BASELINE_THEN_OTA_INSTALL_READBACK"
+  "next_action": "PUBLISH_EXACT_BETA86_FROM_BETA85_LIVE_BASELINE_THEN_OTA_INSTALL_READBACK",
+  "publish_run_id": "33139688877"
 }
