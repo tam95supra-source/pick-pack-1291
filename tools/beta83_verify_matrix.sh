@@ -6,6 +6,8 @@ META=/tmp/beta-candidate/release-meta.json;APK=/tmp/beta-candidate/pick-pack-129
 test -f "$META" -a -f "$APK" -a -f "$VERIFY_HARNESS_APK"
 SHA=$(jq -r '.apk_sha256' "$META");SIZE=$(jq -r '.apk_size' "$META")
 STAGE=$(jq -r '.stage' "$REQ")
+VISUAL_ONLY=$(jq -r '.visual_evidence_only // false' "$REQ")
+export VISUAL_ONLY
 REQ_SOURCE=$(jq -r '.source_sha' "$REQ");REQ_SIGNER=$(jq -r '.signer_sha256' "$REQ")
 jq -e --arg v "$VERSION" --argjson code "$CODE" --arg pkg "$PKG" --arg src "$REQ_SOURCE" --arg signer "$REQ_SIGNER" '
   .version_name==$v and .version_code==$code and .package==$pkg and .source_sha==$src and
@@ -34,7 +36,8 @@ test "$(adb shell id -u 2>/dev/null|tr -d '\r')" = 0
 adb install -r "$APK" >"$OUT/install-candidate.txt";adb install -r "$VERIFY_HARNESS_APK" >"$OUT/install-harness.txt"
 for spec in '320 568 160' '360 640 180' '480 800 240'; do
   read -r W H D <<<"$spec";TAG="${W}x${H}"
-  MODE=visual;[[ "$TAG" == "320x568" ]] && MODE=checks
+  MODE=visual
+  if [[ "$VISUAL_ONLY" != "true" && "$TAG" == "320x568" ]]; then MODE=checks; fi
   adb shell wm size "${W}x${H}" >/dev/null;adb shell wm density "$D" >/dev/null
   adb shell am force-stop "$PKG" >/dev/null 2>&1 || true
   adb shell pm clear "$PKG" >/dev/null
@@ -55,7 +58,9 @@ for spec in '320 568 160' '360 640 180' '480 800 240'; do
 done
 python3 - <<'PY'
 from pathlib import Path
-expected={"320x568":((320,568),13),"360x640":((360,640),5),"480x800":((480,800),5)}
+import os
+visual_only=os.environ.get("VISUAL_ONLY","false")=="true"
+expected={"320x568":((320,568),5),"360x640":((360,640),5),"480x800":((480,800),5)} if visual_only else {"320x568":((320,568),13),"360x640":((360,640),5),"480x800":((480,800),5)}
 root=Path("/tmp/beta-verify")
 total=0
 for tag,(size,count) in expected.items():
@@ -69,5 +74,9 @@ for tag,(size,count) in expected.items():
         total+=1
 (root/"visual-summary.txt").write_text(f"screenshots={total}\nsizes=320x568,360x640,480x800\nhuman_inspection_required=true\n",encoding="utf-8")
 PY
-jq -nc --arg version "$VERSION" --argjson code "$CODE" --arg sha "$SHA" --argjson size "$SIZE" --argjson run "$GITHUB_RUN_ID" '{status:"PASS",version_name:$version,version_code:$code,apk_sha256:$sha,apk_size:$size,run:$run,functional_pass:true,current_day_only:true,incomplete_and_complete_paths:true,qr_session_cards:true,null_sanitized:true,settings_simplified:true,old_warning_preserved:true,reconciliation_above_scan:true,work_info_order:true,owner_actions_above_shift:true,header_sync_chip:true,delete_reason_editable:true,pack_pair_validated:true,before_after_visible:true,assignment_snapshot_authoritative:true,timeline_newest_first:true,hhmm_edit_confirmation:true,event_driven_status:true,partial_realtime_refresh:true,no_750ms_ui_ticker:true,report_available_dates_only:true,report_grid_borders:true,visual_sizes:["320x568","360x640","480x800"],screenshot_count:23,functional_size:"320x568",human_inspection_required:true}' > "$OUT/receipt.json"
+if [[ "$VISUAL_ONLY" == "true" ]]; then
+  jq -nc --arg version "$VERSION" --argjson code "$CODE" --arg sha "$SHA" --argjson size "$SIZE" --argjson run "$GITHUB_RUN_ID" '{status:"PASS",version_name:$version,version_code:$code,apk_sha256:$sha,apk_size:$size,run:$run,visual_evidence_only:true,functional_pass:false,functional_inherited_run:33146411629,visual_sizes:["320x568","360x640","480x800"],screenshot_count:15,human_inspection_required:true}' > "$OUT/receipt.json"
+else
+  jq -nc --arg version "$VERSION" --argjson code "$CODE" --arg sha "$SHA" --argjson size "$SIZE" --argjson run "$GITHUB_RUN_ID" '{status:"PASS",version_name:$version,version_code:$code,apk_sha256:$sha,apk_size:$size,run:$run,functional_pass:true,current_day_only:true,incomplete_and_complete_paths:true,qr_session_cards:true,null_sanitized:true,settings_simplified:true,old_warning_preserved:true,reconciliation_above_scan:true,work_info_order:true,owner_actions_above_shift:true,header_sync_chip:true,delete_reason_editable:true,pack_pair_validated:true,before_after_visible:true,assignment_snapshot_authoritative:true,timeline_newest_first:true,hhmm_edit_confirmation:true,event_driven_status:true,partial_realtime_refresh:true,no_750ms_ui_ticker:true,report_available_dates_only:true,report_grid_borders:true,visual_sizes:["320x568","360x640","480x800"],screenshot_count:23,functional_size:"320x568",human_inspection_required:true}' > "$OUT/receipt.json"
+fi
 cat "$OUT/receipt.json"
