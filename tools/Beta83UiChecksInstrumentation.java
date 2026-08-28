@@ -308,6 +308,53 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     mark("session_exit_identity_guard");
   }
 
+  private android.widget.TableLayout firstTable(android.view.View v){
+    if(v instanceof android.widget.TableLayout)return (android.widget.TableLayout)v;
+    if(v instanceof android.view.ViewGroup){
+      android.view.ViewGroup g=(android.view.ViewGroup)v;
+      for(int i=0;i<g.getChildCount();i++){android.widget.TableLayout t=firstTable(g.getChildAt(i));if(t!=null)return t;}
+    }
+    return null;
+  }
+
+  private void verifyBeta94OwnerScope(Activity a)throws Exception{
+    Method p=a.getClass().getDeclaredMethod("exitPdaId",JSONObject.class);p.setAccessible(true);
+    JSONObject authoritativeNone=new JSONObject().put("pda_serial","STALE-PDA").put("resource_assignments_v64",new JSONArray());
+    JSONObject authoritativePda=new JSONObject().put("pda_serial","STALE-PDA").put("resource_assignments_v64",new JSONArray()
+      .put(new JSONObject().put("resource_type","PDA").put("resource_id","PDA-ACTIVE").put("state","ACTIVE")));
+    JSONObject legacy=new JSONObject().put("pda_serial","PDA-LEGACY");
+    require("".equals(String.valueOf(p.invoke(a,authoritativeNone))),"EXIT_PDA_STALE_SCALAR_ACCEPTED");
+    require("PDA-ACTIVE".equals(String.valueOf(p.invoke(a,authoritativePda))),"EXIT_PDA_ACTIVE_ASSIGNMENT_MISSING");
+    require("PDA-LEGACY".equals(String.valueOf(p.invoke(a,legacy))),"EXIT_PDA_LEGACY_FALLBACK_BROKEN");
+    mark("pda_exit_only_when_session_has_pda");
+
+    Class<?> warningClass=target.getClassLoader().loadClass("vn.pickpack1291.app.beta.OldSessionWarningFeature");
+    Field warningField=warningClass.getDeclaredField("WARNING_TEXT");warningField.setAccessible(true);
+    require("CẢNH BÁO: CÓ PHIÊN CŨ CHƯA BẮN RA".equals(String.valueOf(warningField.get(null))),"OLD_WARNING_TEXT_NOT_UNIFIED");
+    mark("old_warning_unified");
+
+    Method grid=a.getClass().getDeclaredMethod("s34ReportGrid",String.class,JSONObject.class,String.class,String.class);grid.setAccessible(true);
+    JSONArray cols=new JSONArray().put("IH").put("NLV").put("VW");
+    JSONObject pos=new JSONObject().put("columns",cols).put("rows",new JSONArray()).put("totals",new JSONObject()).put("total",0);
+    JSONObject tenure=new JSONObject().put("columns",new JSONArray(cols.toString())).put("rows",new JSONArray()).put("totals",new JSONObject()).put("total",0);
+    android.view.View gv1=(android.view.View)grid.invoke(a,"",pos,"Vị trí","position");
+    android.view.View gv2=(android.view.View)grid.invoke(a,"",tenure,"Thâm niên","label");
+    android.widget.TableLayout t1=firstTable(gv1),t2=firstTable(gv2);
+    require(t1!=null&&t2!=null&&t1.getChildCount()>0&&t2.getChildCount()>0,"REPORT_TABLE_MISSING");
+    android.widget.TableRow r1=(android.widget.TableRow)t1.getChildAt(0),r2=(android.widget.TableRow)t2.getChildAt(0);
+    require(r1.getChildCount()==r2.getChildCount()&&r1.getChildCount()==5,"REPORT_COLUMN_COUNT_MISMATCH");
+    for(int i=0;i<r1.getChildCount();i++){
+      android.widget.TableRow.LayoutParams a1=(android.widget.TableRow.LayoutParams)r1.getChildAt(i).getLayoutParams();
+      android.widget.TableRow.LayoutParams a2=(android.widget.TableRow.LayoutParams)r2.getChildAt(i).getLayoutParams();
+      require(a1.width==0&&a2.width==0&&Math.abs(a1.weight-a2.weight)<0.001f,"REPORT_COLUMN_GEOMETRY_MISMATCH:"+i);
+    }
+    android.widget.TableRow.LayoutParams first=(android.widget.TableRow.LayoutParams)r1.getChildAt(0).getLayoutParams();
+    android.widget.TableRow.LayoutParams supplier1=(android.widget.TableRow.LayoutParams)r1.getChildAt(1).getLayoutParams();
+    android.widget.TableRow.LayoutParams supplier2=(android.widget.TableRow.LayoutParams)r1.getChildAt(2).getLayoutParams();
+    require(first.weight>supplier1.weight&&Math.abs(supplier1.weight-supplier2.weight)<0.001f,"REPORT_COLUMN_WEIGHTS_INVALID");
+    mark("report_columns_aligned");
+  }
+
   private void mark(String key){
     target.getSharedPreferences("pp_beta83_verify",Context.MODE_PRIVATE).edit()
       .putBoolean(key,true).putLong(key+"_at",System.currentTimeMillis()).commit();
@@ -517,6 +564,7 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
 
     Activity business=open("BUSINESS");
     verifySessionExitGuard(business);
+    verifyBeta94OwnerScope(business);
     waitText("Ca 1",false,false,12000L);
     waitText("Ca HC",false,false,12000L);
     waitText("Ca 2",false,false,12000L);
@@ -538,7 +586,7 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
 
     clickText("Quét QR nhân sự",true,12000L);
     waitText("Ca 2",false,false,12000L);
-    waitText("CHƯA KẾT THÚC PHIÊN CÁC NGÀY CŨ",false,false,12000L);
+    waitText("CÓ PHIÊN CŨ CHƯA BẮN RA",false,false,12000L);
     mark("old_warning_preserved");
     shot(tag+"-02-scan");
 
@@ -684,7 +732,7 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     waitText("THAY ĐỔI BẢN MỚI",false,false,10000L);
     waitText("Sửa lỗi tài nguyên bản mới",false,false,10000L);
     waitText("THAY ĐỔI BẢN HIỆN TẠI",false,false,10000L);
-    waitText("Sửa lỗi Ra ca gửi thiếu mã phiên",false,false,10000L);
+    waitText("Căn đều độ rộng cột",false,false,10000L);
     require(findText("SHA256",false,false)==null,"TECHNICAL_RELEASE_METADATA_VISIBLE_IN_CHANGELOG");
     mark("dual_changelog");
     shot(tag+"-07-settings-top");
