@@ -431,7 +431,7 @@ class OperationsActivity : Activity() {
     // S39_EMPLOYEE_SESSION_HISTORY: normalized master-backed MNV + stale callback fence.
     // S40_OWNER_LOCAL_FIRST_REPAIR: owner lock = SQLite/PDA first, Service reconcile later.
     // S45_BETA40_OWNER_FIXES: never let an N-1 Service response replace current N local context.
-    private fun loadEmployee(mnv: String, button: Button? = null) {
+    private fun loadEmployee(mnv: String, button: Button? = null, forceRefresh:Boolean=false) {
         val resolved=MasterDataCache.resolveEmployeeMnv(this,mnv)
         if(resolved.isBlank()){button?.isEnabled=true;showError("MNV_REQUIRED");return}
         val generation=++employeeLookupGeneration
@@ -439,32 +439,42 @@ class OperationsActivity : Activity() {
         val localNow=PdaLocalProjection.employeeContext(this,resolved)
         val localOptions=PdaLocalProjection.resourceOptions(this,resolved)
         val cached=MasterDataCache.employee(this,resolved)
-        if(localNow!=null)renderEmployeeIfChanged(localNow,localOptions)else if(cached!=null)renderCachedEmployee(cached)
+        val localInteractive=localNow!=null&&localNow.optBoolean("session_known",true)&&!localNow.optString("state").equals("NOT_ENTERED",true)
+        when{
+            localNow!=null&&localNow.optString("state").equals("NOT_ENTERED",true)->renderCachedEmployee(localNow.optJSONObject("employee")?:cached?:JSONObject().put("mnv",resolved))
+            localNow!=null->renderEmployeeIfChanged(localNow,localOptions)
+            cached!=null->renderCachedEmployee(cached)
+        }
         api.call("employee_context",JSONObject().put("mnv",resolved).put("include_options",true).put("include_labor",true)){result->runOnUiThread{
             if(generation!=employeeLookupGeneration)return@runOnUiThread
             button?.isEnabled=true
             val overlay=PdaLocalProjection.employeeContext(this@OperationsActivity,resolved)
             val refreshedOptions=PdaLocalProjection.resourceOptions(this@OperationsActivity,resolved)
             if(!result.ok){
-                if(overlay!=null){renderEmployeeIfChanged(overlay,refreshedOptions);TopNotice.show(this@OperationsActivity,"Service chưa xác nhận được; thao tác vẫn lưu local và sẽ đồng bộ khi ứng dụng ở foreground.",TopNotice.Kind.WARNING)}
-                else if(result.code==401)sessionExpired()
+                if(overlay!=null){
+                    if(forceRefresh||!localInteractive)renderEmployeeIfChanged(overlay,refreshedOptions)
+                    TopNotice.show(this@OperationsActivity,"Service chưa xác nhận được; đang giữ dữ liệu PDA hiện có.",TopNotice.Kind.WARNING)
+                }else if(result.code==401)sessionExpired()
                 else showError(result.error?:"Không kiểm tra được mã nhân viên")
                 return@runOnUiThread
             }
-            if(overlay!=null&&overlay.optString("reconciliation_state")=="LOCAL_PENDING"){renderEmployeeIfChanged(overlay,refreshedOptions);return@runOnUiThread}
+            if(overlay!=null&&overlay.optString("reconciliation_state")=="LOCAL_PENDING"){
+                if(forceRefresh||!localInteractive)renderEmployeeIfChanged(overlay,refreshedOptions)
+                return@runOnUiThread
+            }
             val ctx=result.json?:JSONObject()
             val remoteDate=ctx.optString("business_date").trim()
             if(remoteDate.isNotBlank()&&remoteDate!=currentDate){
-                if(overlay!=null)renderEmployeeIfChanged(overlay,refreshedOptions)else if(cached!=null)renderCachedEmployee(cached)
+                if(forceRefresh||!localInteractive){
+                    if(overlay!=null)renderEmployeeIfChanged(overlay,refreshedOptions)else if(cached!=null)renderCachedEmployee(cached)
+                }
                 return@runOnUiThread
             }
-            val remote=ctx.optJSONObject("options")
-            val options=if(remote==null)refreshedOptions else JSONObject(remote.toString()).apply{
-                for(k in listOf("user_picks_reissue","pack_tables_reissue")){
-                    val local=refreshedOptions.optJSONArray(k)
-                    if((optJSONArray(k)?.length()?:0)==0&&local!=null&&local.length()>0)put(k,local)
-                }
-            }
+            val options=ctx.optJSONObject("options")?:refreshedOptions
+            // Beta92: a background Service response for the employee already on screen must not
+            // rebuild the interactive tree and erase selections. Explicit forceRefresh remains available
+            // for conflict recovery; realtime changes update only their dedicated regions.
+            if(!forceRefresh&&localInteractive&&screenState=="EMPLOYEE"&&liveEmployeeMnv==resolved)return@runOnUiThread
             renderEmployeeIfChanged(ctx,options)
         }}
     }
@@ -1062,7 +1072,7 @@ class OperationsActivity : Activity() {
             val gen=employeeLookupGeneration;exit.isEnabled=false
             api.call("session_exit_v2",JSONObject().put("session_id",s.optString("session_id")).put("mnv",mnv).put("expected_version",s.optInt("version")).put("pda_exit_status",status).put("idempotency_key",UUID.randomUUID().toString())){r->runOnUiThread{
                 exit.isEnabled=true
-                if(!r.ok){if(r.error=="SESSION_CHANGED")loadEmployee(mnv)else showError(r.error?:"RA_CA_FAILED");return@runOnUiThread}
+                if(!r.ok){if(r.error=="SESSION_CHANGED")loadEmployee(mnv,forceRefresh=true)else showError(r.error?:"RA_CA_FAILED");return@runOnUiThread}
                 TopNotice.show(this,"Đã ghi nhận ra ca.",TopNotice.Kind.SUCCESS);foregroundSync.requestSync()
                 if(gen==employeeLookupGeneration&&liveEmployeeMnv==mnv)scheduleAttendanceAutoReset(mnv,gen)
             }}
