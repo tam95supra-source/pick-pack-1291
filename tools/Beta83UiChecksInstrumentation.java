@@ -607,8 +607,9 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     mark("hhmm_edit_confirmation");
     mark("authoritative_editor_offline_guard");
     shot(tag+"-11-beta83-hhmm");
-    try{ui.executeShellCommand("input keyevent 4").close();}catch(Exception ignored){}
-    SystemClock.sleep(300L);
+    // TopNotice is an in-activity banner, not a modal dialog. Do not press Back here:
+    // doing so would leave the employee screen and invalidate subsequent controls.
+    SystemClock.sleep(500L);
 
     showTextOnScreen("Xóa",10000L);
     clickText("Xóa",true,10000L);
