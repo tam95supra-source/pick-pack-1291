@@ -5,7 +5,7 @@
   "version_code": 96,
   "base_version": "0.4.2-beta.88",
   "base_version_code": 94,
-  "base_probe_version": "0.4.2-beta.88",
+  "base_probe_version": "0.4.2-beta.87",
   "base_candidate_run_id": 33164047646,
   "base_candidate_artifact_id": 9682911659,
   "base_candidate_artifact_name": "beta-candidate-33164047646",
@@ -37,8 +37,8 @@
   "scope": "beta90-log-audit-back-pda-validation-first-log-metadata",
   "owner": "Nguyen Van Tam",
   "live": false,
-  "pre_ota_attempt": 4,
-  "last_pre_ota_failure": "PUBLISH_HARNESS_NESTED_VERIFY_RECEIPT_PATH_NO_PRODUCTION_WRITE",
+  "pre_ota_attempt": 5,
+  "last_pre_ota_failure": "PREFLIGHT_BASE_PROBE_EQUAL_LIVE_RETURNED_AVAILABLE_FALSE_NO_PRODUCTION_WRITE",
   "candidate_locked": true,
   "candidate_run_id": 33171110016,
   "candidate_artifact_id": 9685712954,
@@ -51,5 +51,5 @@
   "verify_artifact_name": "beta-verify-33171626028",
   "verify_artifact_digest": "sha256:0a43690ad8a887769aa015c9dfa1c0a9612474a742a9080e4d35f6d93a893eb9",
   "human_visual_evidence": "PASS_RUN_33171626028_ARTIFACT_9685944321_23_SCREENSHOTS",
-  "next_action": "RERUN_PUBLISH_EXACT_BETA90_AFTER_RECEIPT_PATH_FIX"
+  "next_action": "RERUN_PUBLISH_EXACT_BETA90_WITH_PREVIOUS_VERSION_PROBE"
 }
