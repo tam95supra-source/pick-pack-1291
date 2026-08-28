@@ -1,24 +1,24 @@
 # CURRENT STATE — PICK PACK 1291
 
-- updated_at: 2026-08-28T15:27:49Z
-- status: BETA92_PASS_LIVE
-- continuity_branch: release/beta92-availability-ui-changelog-20260828
-- source_sha: 07a09ee7d555bb1c5f6117ce2deab16ea24c2031
-- beta_live: 0.4.2-beta.92 (versionCode 98)
-- candidate_run: 33182370577
-- candidate_artifact: 9690348624
-- verify_run: 33184299969
-- verify_artifact: 9691140872
-- apk_sha256: 87653b32f35ec37bfef1800ee3b957f60ad43390e0ae405872aea88e8bb5e6b9
+- updated_at: 2026-08-28T22:03:33Z
+- status: BETA93_PASS_LIVE
+- continuity_branch: release/beta93-session-exit-guard-20260828
+- source_sha: 9fb55090efba1ff38e86c05caa83d4475a56ec13
+- beta_live: 0.4.2-beta.93 (versionCode 99)
+- candidate_run: 33187558643
+- candidate_artifact: 9692453312
+- verify_run: 33188794178
+- verify_artifact: 9692977848
+- apk_sha256: 9e5b773c0cee8f823a510019b3e6b24132ec5b46636e40d9fc01fc55b57067f9
 - apk_size: 13233141
 - signer_sha256: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
-- terminal_run: 33184968910
+- terminal_run: 33214935578
 - fast_check: PASS
 - service_gate: null
 - visual_matrix: PASS 320x568 / 360x640 / 480x800
 - human_visual: PASS
 - pda_functional_pre_ota: PASS
-- beta_ota: exact 0.4.2-beta.92 PASS
+- beta_ota: exact 0.4.2-beta.93 PASS
 - stable: unchanged
 - main_sha: 021dac5c6932b3ac5c60ce8fdba562ddf3d9688f
 - authority: SERVICE_PRIMARY / PRODUCTION / epoch 9 / generation m2-prod-reset-20260823-001
