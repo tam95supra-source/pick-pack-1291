@@ -63,7 +63,7 @@ cat > docs/handovers/HANDOVER_CURRENT.md <<EOF
 - archive_file: $ARCH
 
 ## Mục tiêu + DoD
-Beta85 sửa vị trí rà soát nhân sự, thứ tự thông tin công việc, chi tiết trước/sau cập nhật, timeline mới tới cũ và xác thực thao tác HH:mm; toàn bộ pre-OTA + OTA install/readback PASS.
+Beta85 hoàn tất 4 yêu cầu OWNER: dọn APK OTA cũ để không tăng storage theo phiên bản; danh sách rà soát hiển thị Nhà cung cấp • MNV • Họ tên và sort Nhà cung cấp → MNV → Họ tên; xác thực HHmm ±2 phút không text hướng dẫn dư; lịch sử chỉnh sửa đọc đúng payload/payload_json và before/after. Toàn bộ pre-OTA + OTA install/readback PASS.
 
 ## LIVE / TARGET / CANDIDATE
 - LIVE BETA: $VERSION / versionCode $CODE.
@@ -76,19 +76,18 @@ Beta85 sửa vị trí rà soát nhân sự, thứ tự thông tin công việc,
 - Stable/main/signer/authority: unchanged.
 
 ## Evidence
-- 3 ô rà soát nhân sự nằm trên ô quét MNV: PASS.
-- Thứ tự công việc: Vị trí → User Pick → PDA → Bàn Pack → User Pack: PASS.
-- RESOURCE_CHANGE hiển thị dữ liệu Trước cập nhật / Sau cập nhật khi service có snapshot; bản ghi cũ fallback rõ ràng: PASS.
-- Diễn biến trong ca sắp xếp mới nhất → cũ nhất: PASS.
-- Sửa/xóa và các thao tác chỉnh sửa được gate bằng mật khẩu HH:mm hiện tại theo Asia/Ho_Chi_Minh: PASS.
-- SUPERADMIN thực tế được phép dùng thêm mật khẩu tài khoản cố định qua login verification; không hardcode secret: PASS.
-- OTA Beta83 → Beta85 exact bytes, SHA/size/signer/version và mở app: PASS.
+- Dung lượng: chỉ dọn file APK OTA do app quản lý trong thư mục Download; không đụng SQLite/cache nghiệp vụ/offline. Regression dọn APK cũ PASS; OTA hậu cài đặt mở app và xác minh APK tải tạm đã bị xóa PASS.
+- Rà soát nhân sự: hiển thị Nhà cung cấp • MNV • Họ tên; sort Nhà cung cấp → MNV → Họ tên; UI thật 320x568 xác minh PASS.
+- Mật khẩu: HHmm, không phải HH:mm; ±2 phút PASS; không text hướng dẫn dư; Sửa/Xóa dùng chung gate; actual SUPERADMIN giữ fallback mật khẩu tài khoản qua login verification, không hardcode secret.
+- Chi tiết chỉnh sửa: merge payload_json + payload; before/after và delta hiện đúng khi có evidence; bản ghi cũ thiếu snapshot không bị bịa dữ liệu: PASS.
+- Visual human 320x568 / 360x640 / 480x800: PASS.
+- OTA Beta83 → Beta85 exact bytes, SHA/size/signer/version/package và mở app: PASS.
 
 ## Lỗi/root cause/PASS path
-- Trước cập nhật bị “—”: Android renderer/payload parser không đọc đầy đủ snapshot; Service đã lưu before/after, không đổi backend.
-- Candidate attempt đầu dừng trước build vì guard script còn beta.82/code 88; sửa guard, không có APK bị khóa từ attempt lỗi.
-- Fast Check đầu tiên lỗi cú pháp nối dòng Kotlin; sửa đúng điểm, run sau PASS.
-- Không rebuild/resign candidate sau khi lock.
+- Beta84 bị loại trước OTA vì regex raw-string dùng escape sai khiến mọi HHmm bị từ chối. Beta85 sửa đúng regex số 4 chữ số; Fast Check + functional ±2 phút PASS.
+- Verify attempt đầu Beta85 lỗi harness tham chiếu biến old82 sau khi nâng baseline; sửa harness old84 + gọi storage regression, giữ exact candidate.
+- Pre-publish phát hiện OTA harness kiểm Beta83 versionCode 88 thay vì 89; sửa verifier trước production write, không đổi APK.
+- Không rebuild/resign candidate Beta85 sau khi lock.
 
 ## Blocker
 Không có.
