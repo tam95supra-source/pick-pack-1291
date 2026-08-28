@@ -642,6 +642,15 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     ui.waitForIdle(1000L,5000L);SystemClock.sleep(700L);
     shot(tag+"-12-beta87-report");
 
+    target.getSharedPreferences("pp1291_pending_update_v1",Context.MODE_PRIVATE).edit()
+      .putString("version","0.4.2-beta.999")
+      .putString("url","https://example.invalid/pick-pack-1291-beta999.apk")
+      .putString("sha","")
+      .putString("notes","Sửa lỗi tài nguyên bản mới\nTối ưu giao diện bản mới")
+      .putInt("version_code",999)
+      .putString("latest_version","0.4.2-beta.999")
+      .putString("latest_notes","Sửa lỗi tài nguyên bản mới\nTối ưu giao diện bản mới")
+      .commit();
     open("SETTINGS");
     waitText("THÔNG TIN ỨNG DỤNG",true,false,10000L);
     showTextOnScreen("THÔNG TIN ỨNG DỤNG",10000L);
@@ -651,6 +660,14 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     require(findText("Mã phiên bản",true,false)==null,"SETTINGS_DUPLICATE_VERSION_CODE_VISIBLE");
     require(findText("Tổng dung lượng đang chiếm dụng",true,false)==null,"SETTINGS_DUPLICATE_TOTAL_STORAGE_VISIBLE");
     require(findText("Nguồn kiểm tra OTA",true,false)==null,"SETTINGS_TECHNICAL_OTA_SOURCE_VISIBLE");
+    showTextOnScreen("CẬP NHẬT PHIÊN BẢN",12000L);
+    waitText("Bản mới nhất: 0.4.2-beta.999",false,false,10000L);
+    waitText("THAY ĐỔI BẢN MỚI",false,false,10000L);
+    waitText("Sửa lỗi tài nguyên bản mới",false,false,10000L);
+    waitText("THAY ĐỔI BẢN HIỆN TẠI",false,false,10000L);
+    waitText("Đồng bộ danh sách User Pick, User Pack và Bàn Pack khả dụng trực tiếp từ Service",false,false,10000L);
+    require(findText("SHA256",false,false)==null,"TECHNICAL_RELEASE_METADATA_VISIBLE_IN_CHANGELOG");
+    mark("dual_changelog");
     shot(tag+"-07-settings-top");
     showTextOnScreen("NHẬT KÝ",12000L);
     showTextOnScreen("Tên tệp nhật ký",12000L);
