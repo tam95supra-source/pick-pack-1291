@@ -13,12 +13,12 @@
   "base_apk_sha256": "8e946ccff556cf74117b53fda0b24fd804aee17e9f08fe877faab24ac777bbaa",
   "base_apk_size": 13216757,
   "base_source_sha": "a97aa2383ec7d40961ead86f03b8771bc66cce26",
-  "source_sha": "dd6928e921c99fe799637ac5dd540d14bd55ba88",
+  "source_sha": "a82fcff43e4d8787b4a3b0e3d621d9f1ae3dfb82",
   "package": "vn.pickpack1291.app.beta.publicbeta",
   "signer_sha256": "d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e",
-  "fast_check_run_id": 33170428114,
+  "fast_check_run_id": 33170923870,
   "fast_check": "PASS",
-  "fast_check_source_sha": "dd6928e921c99fe799637ac5dd540d14bd55ba88",
+  "fast_check_source_sha": "a82fcff43e4d8787b4a3b0e3d621d9f1ae3dfb82",
   "service_gate_required": false,
   "service_gate": "PASS_INHERITED_RUN_33169195271_SERVICE_SOURCE_UNCHANGED",
   "visual_matrix": "PENDING",
@@ -33,8 +33,8 @@
   "scope": "beta90-log-audit-back-pda-validation-first-log-metadata",
   "owner": "Nguyen Van Tam",
   "live": false,
-  "pre_ota_attempt": 1,
-  "last_pre_ota_failure": "BETA89_SUPERSEDED_FIRST_LOG_INIT_METADATA_GAP",
+  "pre_ota_attempt": 2,
+  "last_pre_ota_failure": "CANDIDATE_GUARD_VERSION_METADATA_MISMATCH_NO_ARTIFACT_NO_PRODUCTION_WRITE",
   "candidate_locked": false,
   "candidate_run_id": null,
   "candidate_artifact_id": null,
@@ -47,5 +47,5 @@
   "verify_artifact_name": "",
   "verify_artifact_digest": "",
   "human_visual_evidence": "PENDING",
-  "next_action": "BUILD_VERIFY_BETA90_EXACT_SOURCE"
+  "next_action": "BUILD_VERIFY_BETA90_AFTER_VERSION_METADATA_FIX"
 }
