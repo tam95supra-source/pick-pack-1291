@@ -61,11 +61,12 @@ class OperationsActivity : Activity() {
     private val operationalSync by lazy {
         OperationalSyncEngine(this, cacheApi, operationalStore) { changedDates ->
             runOnUiThread {
-                if(changedDates.isEmpty()) return@runOnUiThread
-                when(screenState){
-                    "REPORT" -> reportScreen()
-                    "HISTORY" -> historyScreen()
-                    "EMPLOYEE", "EMPLOYEE_LOADING", "PDA_EXCHANGE" -> Unit // Beta73: background sync never rebuilds an interactive form.
+                if (changedDates.isEmpty()) return@runOnUiThread
+                when (screenState) {
+                    "BUSINESS" -> businessRealtimeRefresh?.invoke(changedDates)
+                    "REPORT" -> reportRealtimeRefresh?.invoke(changedDates)
+                    "HISTORY" -> historyRealtimeRefresh?.invoke(changedDates)
+                    "EMPLOYEE", "EMPLOYEE_LOADING", "PDA_EXCHANGE" -> Unit // Interactive forms are never rebuilt by background sync.
                 }
             }
         }
@@ -97,13 +98,11 @@ class OperationsActivity : Activity() {
     private var serviceProviderCache = "—"
     private var historyDetailMnv = ""
     private var historyDetailName = ""
-    private val statusTickerHandler = android.os.Handler(android.os.Looper.getMainLooper())
-    private val statusTicker = object:Runnable {
-        override fun run(){
-            refreshHeaderConnection()
-            statusTickerHandler.postDelayed(this,750L)
-        }
-    }
+    // Beta86: keep realtime event-driven and update only the data region that changed.
+    private var businessRealtimeRefresh: ((Set<String>) -> Unit)? = null
+    private var listsRealtimeRefresh: (() -> Unit)? = null
+    private var reportRealtimeRefresh: ((Set<String>) -> Unit)? = null
+    private var historyRealtimeRefresh: ((Set<String>) -> Unit)? = null
     private var lastPingMs: Long? = null
     private var lastStatusUpdateAt: Long = 0L
     private var contentHost: FrameLayout? = null
@@ -137,14 +136,11 @@ class OperationsActivity : Activity() {
                 }
                 if(status.masterChanged || status.masterRevision != MasterDataCache.revision(this@OperationsActivity)) refreshMasterCache()
                 if (!status.connected || !status.changed) return
-                if(screenState=="HISTORY"){historyLastCanonicalRefreshAt=0L;refreshHistoryCanonical()}
-                if(module=="BUSINESS" && liveEmployeeMnv.isNotBlank()) return
-                when (screenState) {
-                    "BUSINESS" -> businessHome()
-                    "LISTS" -> listsScreen()
-                    "REPORT" -> reportScreen()
-                    "HISTORY" -> historyScreen()
-                }
+                if (screenState=="HISTORY") { historyLastCanonicalRefreshAt=0L; refreshHistoryCanonical() }
+                if (module=="BUSINESS" && liveEmployeeMnv.isNotBlank()) return
+                // Service-backed list can refresh its result box immediately. Local-projection screens
+                // wait for OperationalSyncEngine to commit the new revision, then update in place.
+                if (screenState=="LISTS") listsRealtimeRefresh?.invoke()
             }
 
             override fun onAuthExpired() { api.clearSession(); finishAffinity() }
@@ -193,12 +189,9 @@ class OperationsActivity : Activity() {
             }
             foregroundSync.start()
         }
-        statusTickerHandler.removeCallbacks(statusTicker)
-        statusTickerHandler.post(statusTicker)
     }
 
     override fun onStop() {
-        statusTickerHandler.removeCallbacks(statusTicker)
         PpForegroundGate.leave()
         foregroundSync.stop()
         super.onStop()
@@ -212,8 +205,21 @@ class OperationsActivity : Activity() {
     private fun businessHome(){
         module="BUSINESS";screenState="BUSINESS"
         val root=baseRoot("NGHIỆP VỤ");val body=body().apply{setPadding(dp(8),dp(6),dp(8),dp(76))}
-        body.addView(OldSessionWarningFeature.build(this,api){raw->openHistoricalSession(raw)},matchWrap())
-        addBusinessShiftReconciliation(body)
+        val dynamic=column(bg)
+        fun renderDynamic(){
+            dynamic.suppressLayout(true)
+            try {
+                dynamic.removeAllViews()
+                dynamic.addView(OldSessionWarningFeature.build(this,api){raw->openHistoricalSession(raw)},matchWrap())
+                addBusinessShiftReconciliation(dynamic)
+            } finally { dynamic.suppressLayout(false) }
+        }
+        body.addView(dynamic,matchWrap())
+        businessRealtimeRefresh={dates->
+            val current=operationalStore.businessDate()
+            if(screenState=="BUSINESS"&&(current.isBlank()||current in dates))renderDynamic()
+        }
+        renderDynamic()
         val cards=listOf(
             businessCard(R.drawable.ic_pp_scan,"Quét QR nhân sự","",true){employeeScan()},
             businessCard(R.drawable.ic_pp_pda_exchange,"Đổi / trả PDA","",true){pdaExchangeScreen()},
@@ -1103,10 +1109,13 @@ class OperationsActivity : Activity() {
     private fun listsScreen(){
         screenState = "LISTS"
         val root=baseRoot("DANH SÁCH");val body=body();val q=scanSearchInput("Scan / Nhập mã nhân viên, họ tên để tìm kiếm");body.addView(q,matchWrap());body.addView(gap(8));val buttons=row(bg);val sessions=smallButton("PHIÊN HÔM NAY",blue);val labor=smallButton("CÔNG NHẬT",green);val staff=smallButton("NHÂN SỰ",navy);buttons.addView(sessions,LinearLayout.LayoutParams(0,dp(44),1f).apply{marginEnd=dp(3)});buttons.addView(labor,LinearLayout.LayoutParams(0,dp(44),1f).apply{marginStart=dp(3);marginEnd=dp(3)});buttons.addView(staff,LinearLayout.LayoutParams(0,dp(44),1f).apply{marginStart=dp(3)});body.addView(buttons,matchWrap());body.addView(gap(9));val box=column(bg);body.addView(box,matchWrap())
-        fun loadSessions(){box.removeAllViews();box.addView(txt("Đang tải...",10.5f,muted,false));api.call("list_sessions",JSONObject().put("query",q.text.toString())){r->runOnUiThread{box.removeAllViews();if(handleAuth(r))return@runOnUiThread;if(!r.ok){box.addView(info(r.error?:"Lỗi"));return@runOnUiThread};val a=r.json?.optJSONArray("items")?:JSONArray();if(a.length()==0)box.addView(info("Chưa có phiên phù hợp."));for(i in 0 until a.length()){val s=a.optJSONObject(i)?:continue;val e=s.optJSONObject("employee_snapshot")?:JSONObject();box.addView(listCard("${s.optString("mnv")} • ${e.optString("full_name")}","${s.optString("state")} • ${s.optString("shift")} • ${workText(s.optString("work_choice"))}\nPDA ${dash(s.optString("pda_serial"))} • Pick ${dash(s.optString("user_pick"))} • Pack ${dash(s.optString("pack_table"))}"));box.addView(gap(6))}}}}
-        fun loadLabor(){box.removeAllViews();if(!isAdmin()){box.addView(info("Công nhật chỉ hiển thị cho ADMIN/SUPERADMIN."));return};api.call("list_labor"){r->runOnUiThread{box.removeAllViews();if(handleAuth(r))return@runOnUiThread;if(!r.ok){box.addView(info(r.error?:"Lỗi"));return@runOnUiThread};val a=r.json?.optJSONArray("items")?:JSONArray();if(a.length()==0)box.addView(info("Chưa có công nhật hôm nay."));for(i in 0 until a.length()){val l=a.optJSONObject(i)?:continue;val e=l.optJSONObject("employee_snapshot")?:JSONObject();box.addView(listCard("${l.optString("mnv")} • ${e.optString("full_name")}","${l.optString("state")} • ${l.optString("labor_type")}\n${formatIso(l.optString("start_at"))} → ${formatIso(l.optString("end_at"))}"));box.addView(gap(6))}}}}
+        var active="SESSIONS"
+        fun loadSessions(){box.removeAllViews();box.addView(txt("Đang tải...",10.5f,muted,false));api.call("list_sessions",JSONObject().put("query",q.text.toString())){r->runOnUiThread{if(screenState!="LISTS"||active!="SESSIONS")return@runOnUiThread;box.removeAllViews();if(handleAuth(r))return@runOnUiThread;if(!r.ok){box.addView(info(r.error?:"Lỗi"));return@runOnUiThread};val a=r.json?.optJSONArray("items")?:JSONArray();if(a.length()==0)box.addView(info("Chưa có phiên phù hợp."));for(i in 0 until a.length()){val s=a.optJSONObject(i)?:continue;val e=s.optJSONObject("employee_snapshot")?:JSONObject();box.addView(listCard("${s.optString("mnv")} • ${e.optString("full_name")}","${s.optString("state")} • ${s.optString("shift")} • ${workText(s.optString("work_choice"))}\nPDA ${dash(s.optString("pda_serial"))} • Pick ${dash(s.optString("user_pick"))} • Pack ${dash(s.optString("pack_table"))}"));box.addView(gap(6))}}}}
+        fun loadLabor(){box.removeAllViews();if(!isAdmin()){box.addView(info("Công nhật chỉ hiển thị cho ADMIN/SUPERADMIN."));return};api.call("list_labor"){r->runOnUiThread{if(screenState!="LISTS"||active!="LABOR")return@runOnUiThread;box.removeAllViews();if(handleAuth(r))return@runOnUiThread;if(!r.ok){box.addView(info(r.error?:"Lỗi"));return@runOnUiThread};val a=r.json?.optJSONArray("items")?:JSONArray();if(a.length()==0)box.addView(info("Chưa có công nhật hôm nay."));for(i in 0 until a.length()){val l=a.optJSONObject(i)?:continue;val e=l.optJSONObject("employee_snapshot")?:JSONObject();box.addView(listCard("${l.optString("mnv")} • ${e.optString("full_name")}","${l.optString("state")} • ${l.optString("labor_type")}\n${formatIso(l.optString("start_at"))} → ${formatIso(l.optString("end_at"))}"));box.addView(gap(6))}}}}
         fun searchStaff(){val query=q.text.toString().trim();box.removeAllViews();if(query.length<2){box.addView(info("Nhập ít nhất 2 ký tự để tìm nhân sự."));return};val a=MasterDataCache.searchStaff(this,query);for(i in 0 until a.length()){val e=a.optJSONObject(i)?:continue;box.addView(listCard("${e.optString("mnv")} • ${e.optString("full_name")}","${e.optString("main_position")} • ${e.optString("supplier")} • ${e.optString("department")}"));box.addView(gap(6))};if(a.length()==0)box.addView(info("Không tìm thấy nhân sự phù hợp."))}
-        sessions.setOnClickListener{loadSessions()};labor.setOnClickListener{loadLabor()};staff.setOnClickListener{searchStaff()};q.setOnEditorActionListener{_,_,_->searchStaff();true};loadSessions();attach(root,body)
+        fun refreshActive(){when(active){"LABOR"->loadLabor();"STAFF"->searchStaff();else->loadSessions()}}
+        listsRealtimeRefresh={if(screenState=="LISTS")refreshActive()}
+        sessions.setOnClickListener{active="SESSIONS";loadSessions()};labor.setOnClickListener{active="LABOR";loadLabor()};staff.setOnClickListener{active="STAFF";searchStaff()};q.setOnEditorActionListener{_,_,_->active="STAFF";searchStaff();true};loadSessions();attach(root,body)
     }
 
     private fun reportDateLabel(iso:String):String=runCatching{
@@ -1168,6 +1177,7 @@ class OperationsActivity : Activity() {
             android.app.DatePickerDialog(this,{_,y,m,day->selectedDate=java.time.LocalDate.of(y,m+1,day).toString();dateButton.text=java.time.LocalDate.parse(selectedDate).format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));loadDate()},d.year,d.monthValue-1,d.dayOfMonth).show()
         }
         period.onItemSelectedListener=object:android.widget.AdapterView.OnItemSelectedListener{override fun onItemSelected(p:android.widget.AdapterView<*>?,v:View?,pos:Int,id:Long){if(cachedDate==selectedDate)renderCached()};override fun onNothingSelected(p:android.widget.AdapterView<*>?)=Unit}
+        reportRealtimeRefresh={dates->if(screenState=="REPORT"&&(dates.isEmpty()||selectedDate in dates))loadDate()}
         attach(root,body);loadDate()
     }
 
@@ -1245,7 +1255,7 @@ class OperationsActivity : Activity() {
             val changed=ok&&before!=operationalStore.revisions().toString()
             runOnUiThread{
                 historySyncInFlight=false;historyLastCanonicalRefreshAt=System.currentTimeMillis()
-                if(ok&&screenState=="HISTORY"&&(force||changed))historyScreen()
+                if(ok&&screenState=="HISTORY"&&(force||changed))historyRealtimeRefresh?.invoke(emptySet())
             }
         }.start()
     }
@@ -1326,6 +1336,7 @@ class OperationsActivity : Activity() {
         allBtn.setOnClickListener{filter="ALL";pageStart=0;render()};pendingBtn.setOnClickListener{filter="PENDING";pageStart=0;render()};failBtn.setOnClickListener{filter="FAILED";pageStart=0;render()}
         q.addTextChangedListener(object:TextWatcher{override fun beforeTextChanged(v:CharSequence?,st:Int,c:Int,a:Int)=Unit;override fun onTextChanged(v:CharSequence?,st:Int,b:Int,c:Int){query=v?.toString().orEmpty();pageStart=0;render()};override fun afterTextChanged(v:Editable?)=Unit})
         dateButton.setOnClickListener{val d=runCatching{java.time.LocalDate.parse(selectedDate)}.getOrDefault(java.time.LocalDate.now(ZoneId.of("Asia/Ho_Chi_Minh")));android.app.DatePickerDialog(this,{_,y,m,day->selectedDate=java.time.LocalDate.of(y,m+1,day).toString();dateButton.text=java.time.LocalDate.parse(selectedDate).format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));query="";q.setText("");pageStart=0;render()},d.year,d.monthValue-1,d.dayOfMonth).show()}
+        historyRealtimeRefresh={dates->if(screenState=="HISTORY"&&(dates.isEmpty()||query.isNotBlank()||selectedDate in dates))render()}
         attach(root,body);render();refreshHistoryCanonical()
     }
 
@@ -1811,8 +1822,11 @@ class OperationsActivity : Activity() {
     private fun setScreen(content:View){
         val frame=contentHost
         if(frame==null){setContentView(host(content));return}
-        frame.removeAllViews()
-        frame.addView(content,FrameLayout.LayoutParams(-1,-1))
+        frame.suppressLayout(true)
+        try {
+            frame.removeAllViews()
+            frame.addView(content,FrameLayout.LayoutParams(-1,-1))
+        } finally { frame.suppressLayout(false) }
         refreshBottomNav()
     }
     private fun isRootScreen()=screenState=="BUSINESS"||screenState=="STAFF"||screenState=="HISTORY"||screenState=="SYNC"||screenState=="SETTINGS"||screenState=="ROLE_MODE"
@@ -1923,25 +1937,28 @@ class OperationsActivity : Activity() {
     private fun connectionSummary():String{val network=when(lastConnected){true->lastSyncLatencyMs?.let{"$it ms"}?:"Có mạng";false->"Mất kết nối";null->"Chưa kiểm tra"};val pending=runCatching{operationalStore.pendingMutationCount()}.getOrDefault(0);return "Mạng: $network | Đồng bộ: ${if(pending==0)"Hoàn tất" else "Đang chờ đồng bộ"} | Dịch vụ: ${serviceProviderFromRuntime()}"}
     private fun refreshHeaderConnection(){
         val net=runCatching{DeviceNetworkStatus.snapshot(this)}.getOrNull()
-        networkStatusText?.text=when{
+        val networkLabel=when{
             net==null->"Đang kiểm tra"
             !net.hasInternet->"Không Internet"
             else->transportViHeader(net.transport)
         }
+        if(networkStatusText?.text?.toString()!=networkLabel)networkStatusText?.text=networkLabel
         val counts=runCatching{operationalStore.mutationStatusCounts()}.getOrDefault(OperationalDataStore.MutationStatusCounts(0,0,0,0))
         val queue=(counts.pending+counts.review+counts.rejected).coerceAtLeast(0)
-        syncStatusText?.text=when{
+        val syncLabel=when{
             queue>0->"Chờ đồng bộ: $queue"
             lastConnected==true->"Đã đồng bộ"
             else->"Chờ kết nối"
         }
+        if(syncStatusText?.text?.toString()!=syncLabel)syncStatusText?.text=syncLabel
         val provider=serviceProviderFromRuntime()
-        serviceStatusText?.text=when(provider){
+        val serviceLabel=when(provider){
             "Cloudflare"->"Hoạt động"
             "Google Drive"->"Dự phòng"
             "OFFLINE","Service OFFLINE (test)"->"Ngoại tuyến"
             else->"Đang kiểm tra"
         }
+        if(serviceStatusText?.text?.toString()!=serviceLabel)serviceStatusText?.text=serviceLabel
     }
     private fun headerStatusChip(iconRes:Int,label:String,valueView:TextView,click:()->Unit)=row(Color.TRANSPARENT).apply{
         gravity=Gravity.CENTER_VERTICAL
