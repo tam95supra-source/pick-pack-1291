@@ -227,7 +227,7 @@ public final class Beta80VerifyInstrumentation extends Instrumentation {
     String version=req("version"), url=new String(Base64.decode(req("url_b64"),Base64.NO_WRAP),java.nio.charset.StandardCharsets.UTF_8), sha=req("sha");
     target.getSharedPreferences("pp1291_pending_update_v1",Context.MODE_PRIVATE).edit()
       .putString("version",version).putString("url",url).putString("sha",sha).putString("notes","Beta80 OTA exact candidate")
-      .putInt("version_code",86).commit();
+      .putInt("version_code",92).commit();
     open("SETTINGS");
     clickText("TIẾP TỤC CẬP NHẬT",true,15000);
     mark("ota_prompt_entry_clicked",true);
