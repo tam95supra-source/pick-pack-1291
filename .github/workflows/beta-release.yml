@@ -284,7 +284,7 @@ jobs:
           if-no-files-found: error
 
   rollback:
-    name: rollback-beta-base
+    name: rollback-beta82
     needs: [route,publish,pda_verify]
     if: ${{ always() && needs.route.outputs.stage == 'PUBLISH' && needs.publish.result == 'success' && needs.pda_verify.result != 'success' }}
     runs-on: ubuntu-24.04
