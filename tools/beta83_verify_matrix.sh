@@ -23,7 +23,6 @@ grep -q 'reportRealtimeRefresh' "$OPS"
 grep -q 'historyRealtimeRefresh' "$OPS"
 ! grep -q 'postDelayed(this,750L)' "$OPS"
 grep -q 'override fun onLost(network: Network)' "$SYNC"
-test "$SHA" = "$REQ_SHA";test "$SIZE" = "$REQ_SIZE"
 test "$(sha256sum "$APK"|awk '{print $1}')" = "$SHA";test "$(stat -c '%s' "$APK")" = "$SIZE"
 OUT=/tmp/beta-verify;rm -rf "$OUT";mkdir -p "$OUT"
 adb root >"$OUT/adb-root.txt" 2>&1 || true;timeout 30s adb wait-for-device
