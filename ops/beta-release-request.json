@@ -29,8 +29,8 @@
   "scope": "beta87-owner-ui-data-correctness-actions-pack-delete-audit-header-report",
   "owner": "Nguyen Van Tam",
   "live": false,
-  "pre_ota_attempt": 2,
-  "last_pre_ota_failure": "HARNESS_STALE_ACCESSIBILITY_NODE_AFTER_SUCCESSFUL_ACTION_SET_TEXT",
+  "pre_ota_attempt": 3,
+  "last_pre_ota_failure": "HUMAN_VISUAL_EVIDENCE_INCOMPLETE_TIMELINE_CARD_AND_REPORT_SCREEN",
   "candidate_locked": true,
   "candidate_run_id": 33145848295,
   "candidate_artifact_id": 9675780824,
@@ -43,5 +43,5 @@
   "verify_artifact_name": "",
   "verify_artifact_digest": "",
   "human_visual_evidence": "PENDING",
-  "next_action": "VERIFY_EXACT_LOCKED_BETA87_CANDIDATE"
+  "next_action": "VERIFY_EXACT_LOCKED_BETA87_WITH_COMPLETE_VISUAL_EVIDENCE"
 }
