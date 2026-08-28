@@ -1,6 +1,7 @@
 package vn.pickpack1291.verify;
 
 import android.app.Activity;
+import android.app.Application;
 import android.app.Instrumentation;
 import android.app.UiAutomation;
 import android.content.Context;
@@ -12,11 +13,14 @@ import android.os.SystemClock;
 import android.view.accessibility.AccessibilityNodeInfo;
 import java.io.File;
 import java.io.FileOutputStream;
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayDeque;
+import java.util.HashSet;
 import java.util.Locale;
+import java.util.Set;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -26,6 +30,7 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
   private Context target;
   private String firstLogName="";
   private long firstLogBytes=0L;
+  private volatile Activity currentActivity;
   private static final String PKG="vn.pickpack1291.app.beta.publicbeta";
   private static final String ACT="vn.pickpack1291.app.beta.OperationsActivity";
 
@@ -34,6 +39,16 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     try{
       target=getTargetContext();
       ui=getUiAutomation();
+      Application app=(Application)target.getApplicationContext();
+      app.registerActivityLifecycleCallbacks(new Application.ActivityLifecycleCallbacks(){
+        @Override public void onActivityCreated(Activity a,Bundle b){}
+        @Override public void onActivityStarted(Activity a){}
+        @Override public void onActivityResumed(Activity a){if(PKG.equals(a.getPackageName()))currentActivity=a;}
+        @Override public void onActivityPaused(Activity a){}
+        @Override public void onActivityStopped(Activity a){}
+        @Override public void onActivitySaveInstanceState(Activity a,Bundle b){}
+        @Override public void onActivityDestroyed(Activity a){if(currentActivity==a)currentActivity=null;}
+      });
       String mode=args.getString("mode","checks");
       if("checks".equals(mode))runChecks();
       else if("visual".equals(mode))runVisual();
@@ -90,13 +105,54 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     while(SystemClock.uptimeMillis()<end){
       AccessibilityNodeInfo r=root();
       CharSequence p=r==null?null:r.getPackageName();
-      if(p!=null&&PKG.equals(p.toString())){
+      if(p!=null&&PKG.equals(p.toString())&&currentActivity!=null){
         SystemClock.sleep(250L);
-        return null;
+        return currentActivity;
       }
       SystemClock.sleep(150L);
     }
     throw new IllegalStateException("ACTIVITY_START_TIMEOUT:"+module);
+  }
+
+  private void appendRealtimeTimelineEventAndNotify(String mnv)throws Exception{
+    Activity a=currentActivity;
+    require(a!=null&&PKG.equals(a.getPackageName()),"CURRENT_ACTIVITY_MISSING_REALTIME");
+    String today=LocalDate.now(ZoneId.of("Asia/Ho_Chi_Minh")).toString();
+    ClassLoader cl=target.getClassLoader();
+    Class<?> storeClass=cl.loadClass("vn.pickpack1291.app.beta.OperationalDataStore");
+    Object store=storeClass.getConstructor(Context.class).newInstance(target);
+    Method loadDay=storeClass.getMethod("loadDay",String.class);
+    Method saveDay=storeClass.getMethod("saveDay",JSONObject.class);
+    JSONObject original=(JSONObject)loadDay.invoke(store,today);
+    require(original!=null,"REALTIME_DAY_MISSING");
+    JSONObject day=new JSONObject(original.toString());
+    JSONArray events=day.optJSONArray("events");
+    if(events==null){events=new JSONArray();day.put("events",events);}
+    JSONObject before=new JSONObject()
+      .put("work_choice","PACK").put("pda_serial","PDA-SCALAR-AFTER").put("user_pick","PICK-SCALAR-AFTER")
+      .put("pack_table","TABLE-SCALAR-AFTER").put("user_pack","PACK-SCALAR-AFTER");
+    JSONObject after=new JSONObject(before.toString()).put("user_pack","PACK-REALTIME-B91");
+    JSONObject payload=new JSONObject().put("session_id","beta83-current-active").put("mnv",mnv)
+      .put("mutation_kind","EDIT").put("before",before).put("after",after);
+    events.put(new JSONObject().put("event_id","b91-realtime-change").put("event_type","RESOURCE_CHANGE")
+      .put("session_id","beta83-current-active").put("mnv",mnv).put("actor","REALTIME-ACTOR-B91")
+      .put("committed_at",today+"T01:24:30Z").put("payload_json",payload.toString()));
+    day.put("day_revision",83003L);
+    saveDay.invoke(store,day);
+
+    Field field=a.getClass().getDeclaredField("employeeTimelineRealtimeRefresh");
+    field.setAccessible(true);
+    Object callback=field.get(a);
+    require(callback!=null,"EMPLOYEE_REALTIME_CALLBACK_MISSING");
+    final Throwable[] failure=new Throwable[1];
+    Set<String> changed=new HashSet<>();changed.add(today);
+    runOnMainSync(new Runnable(){@Override public void run(){
+      try{callback.getClass().getMethod("invoke",Object.class).invoke(callback,changed);}
+      catch(Throwable t){failure[0]=t;}
+    }});
+    if(failure[0]!=null)throw new IllegalStateException("EMPLOYEE_REALTIME_CALLBACK_FAILED",failure[0]);
+    waitText("User Pack: PACK-SCALAR-AFTER → PACK-REALTIME-B91",false,false,12000L);
+    waitText("Người thực hiện: REALTIME-ACTOR-B91",false,false,12000L);
   }
 
   private AccessibilityNodeInfo root(){ return ui.getRootInActiveWindow(); }
@@ -392,6 +448,7 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     waitText("Vị trí",true,false,12000L);
     waitText("Thâm niên",true,false,12000L);
     require(findText("Site 1291 •",false,false)==null,"REPORT_SCOPE_TEXT_MUST_BE_REMOVED");
+    ui.waitForIdle(1000L,5000L);SystemClock.sleep(700L);
     shot(tag+"-05-report");
 
     Bundle done=new Bundle();done.putString("result","BETA83_VISUAL_PASS");finish(0,done);
@@ -529,7 +586,8 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     require(findText("STALE-PDA-BEFORE",false,false)==null,"STALE_SCALAR_BEFORE_RENDERED");
     require(findText("STALE-PDA-AFTER",false,false)==null,"STALE_SCALAR_AFTER_RENDERED");
     waitText("PDA: PDA-SCALAR-BEFORE → PDA-SCALAR-AFTER",false,false,12000L);
-    mark("before_after_visible");mark("timeline_changed_fields_only");mark("timeline_newest_first");mark("assignment_snapshot_authoritative");mark("scalar_snapshot_fallback");
+    appendRealtimeTimelineEventAndNotify(mnv);
+    mark("before_after_visible");mark("timeline_changed_fields_only");mark("employee_timeline_realtime_functional");mark("timeline_newest_first");mark("assignment_snapshot_authoritative");mark("scalar_snapshot_fallback");
     shot(tag+"-10-beta83-timeline");
     showTextOnScreen("PDA: PDA-SCALAR-BEFORE → PDA-SCALAR-AFTER",12000L);
     shot(tag+"-10b-beta87-timeline-card");
@@ -581,6 +639,7 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     AccessibilityNodeInfo reportDate=waitText(LocalDate.now(ZoneId.of("Asia/Ho_Chi_Minh")).format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")),true,true,10000L);
     require(clickableNode(reportDate)!=null,"REPORT_AVAILABLE_DATE_CONTROL_MISSING");
     mark("report_compact_grid");mark("report_available_dates_only");
+    ui.waitForIdle(1000L,5000L);SystemClock.sleep(700L);
     shot(tag+"-12-beta87-report");
 
     open("SETTINGS");
