@@ -5,7 +5,7 @@
   "version_code": 93,
   "base_version": "0.4.2-beta.86",
   "base_version_code": 92,
-  "base_probe_version": "0.4.2-beta.86",
+  "base_probe_version": "0.4.2-beta.85",
   "base_candidate_run_id": 33138581709,
   "base_candidate_artifact_id": 9673061903,
   "base_candidate_artifact_name": "beta-candidate-33138581709",
@@ -33,8 +33,8 @@
   "scope": "beta87-owner-ui-data-correctness-actions-pack-delete-audit-header-report",
   "owner": "Nguyen Van Tam",
   "live": false,
-  "pre_ota_attempt": 5,
-  "last_pre_ota_failure": "",
+  "pre_ota_attempt": 6,
+  "last_pre_ota_failure": "BASE_PROBE_EQUAL_LIVE_BETA86_RETURNED_AVAILABLE_FALSE_NO_PRODUCTION_WRITE",
   "candidate_locked": true,
   "candidate_run_id": 33145848295,
   "candidate_artifact_id": 9675780824,
@@ -47,5 +47,5 @@
   "verify_artifact_name": "beta-verify-33146411629",
   "verify_artifact_digest": "sha256:e4130a44a52d3c84214f0c74888f1e7cc0816d47b2419b9f35f9e235a1c07016",
   "human_visual_evidence": "PASS_SUPPLEMENTAL_ARTIFACT_9676427691_RUN_33147609936",
-  "next_action": "PUBLISH_EXACT_BETA87_THEN_OTA_INSTALL_READBACK"
+  "next_action": "PUBLISH_EXACT_BETA87_FROM_CONFIRMED_BETA86_LIVE_BASELINE"
 }
