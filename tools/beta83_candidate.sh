@@ -13,7 +13,7 @@ grep -q "versionName = \"$VERSION\"" app/build.gradle.kts
 grep -q 'versionCode = 1' app/build.gradle.kts
 grep -q 'versionName = "0.1.0-stable"' app/build.gradle.kts
 OPS=app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt
-grep -Fq 'currentActionPassword()' "$OPS"
+grep -Fq 'validActionTimePassword(value:String)' "$OPS"
 grep -Fq 'out.sortByDescending{atMillis(it)}' "$OPS"
 grep -Fq '"User Pick" to pickDisplay,"PDA"' "$OPS"
 grep -Fq 'verifyDeletePassword("xóa thông tin trong ca")' "$OPS"
