@@ -1,6 +1,6 @@
 {
-  "stage": "VERIFY_ONLY",
-  "mode": "VERIFY_EXACT_LOCKED_CANDIDATE",
+  "stage": "PUBLISH",
+  "mode": "PUBLISH_EXACT_LOCKED_CANDIDATE_AFTER_ALL_PRE_OTA_PASS",
   "version_name": "0.4.2-beta.85",
   "version_code": 91,
   "base_version": "0.4.2-beta.83",
@@ -18,10 +18,14 @@
   "fast_check_run_id": 33128870720,
   "fast_check": "PASS",
   "service_gate_inherited": "BETA83_PASS_SERVICE_UNCHANGED",
-  "visual_matrix": "PENDING",
-  "pda_functional_pre_ota": "PENDING",
-  "human_visual_pass": false,
-  "human_visual_sizes": [],
+  "visual_matrix": "PASS",
+  "pda_functional_pre_ota": "PASS",
+  "human_visual_pass": true,
+  "human_visual_sizes": [
+    "320x568",
+    "360x640",
+    "480x800"
+  ],
   "rebuild": false,
   "resign": false,
   "stable_publish": "FORBIDDEN",
@@ -30,7 +34,7 @@
   "owner": "Nguyen Van Tam",
   "live": false,
   "pre_ota_attempt": 2,
-  "last_pre_ota_failure": "HARNESS_COMPILE_OLD82_SYMBOL_AND_MISSING_STORAGE_CHECK_CALL_FIXED",
+  "last_pre_ota_failure": "HARNESS_OLD82_SYMBOL_FIXED; OTA_BASELINE_CODE_89_PREPUBLISH_FIXED",
   "abandoned_candidate": {
     "version_name": "0.4.2-beta.84",
     "run_id": 33128354413,
@@ -40,11 +44,16 @@
     "published": false
   },
   "candidate_locked": true,
-  "next_action": "VERIFY_EXACT_BETA85_VISUAL_PDA_PRE_OTA",
+  "next_action": "PUBLISH_EXACT_BETA85_THEN_OTA_INSTALL_READBACK_FINALIZE",
   "candidate_run_id": 33129019651,
   "candidate_artifact_id": 9669569850,
   "candidate_artifact_name": "beta85-candidate-33129019651",
   "candidate_artifact_digest": "sha256:000b404598bfc814489fc7e03e25ce11db5b6b8ca593a455668e94ae776fdadc",
   "apk_sha256": "113e505139a8bb49b8d513e9f0bf2830246ea3afb25615eb3ade3f52bdfd7776",
-  "apk_size": 13212605
+  "apk_size": 13212605,
+  "verify_run_id": 33135526429,
+  "verify_artifact_id": 9671908222,
+  "verify_artifact_name": "beta85-verify-33135526429",
+  "verify_artifact_digest": "sha256:30734abcb0d97944ca6b192455108953b04985963815144cb7ad63d786afd293",
+  "human_visual_evidence": "PASS_19_REAL_SCREENSHOTS_INSPECTED"
 }
