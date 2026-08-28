@@ -20,8 +20,10 @@ jq -e --arg v "$VERSION" --arg h "$SHA" --argjson z "$SIZE" '
   .functional_pass==true and .current_day_only==true and .incomplete_and_complete_paths==true and
   .qr_session_cards==true and .null_sanitized==true and .settings_simplified==true and .old_warning_preserved==true and
   .reconciliation_above_scan==true and .work_info_order==true and .before_after_visible==true and
-  .timeline_newest_first==true and .hhmm_edit_confirmation==true and .functional_size=="320x568" and
-  .screenshot_count==19 and (.visual_sizes|sort)==(["320x568","360x640","480x800"]|sort)
+  .timeline_newest_first==true and .hhmm_edit_confirmation==true and
+  .hhmm_tolerance_no_guidance==true and .staff_identity_sort==true and .ota_storage_cleanup==true and .audit_payload_merge==true and
+  .functional_size=="320x568" and .screenshot_count==19 and
+  (.visual_sizes|sort)==(["320x568","360x640","480x800"]|sort)
 ' "$VERIFY" >/dev/null
 jq -e '.human_visual_pass==true and .rebuild==false and .resign==false and .stable_publish=="FORBIDDEN" and .authority_change=="NONE"' "$R" >/dev/null
 test "$(sha256sum "$APK"|awk '{print $1}')" = "$SHA"
