@@ -32,8 +32,8 @@ android {
         create("beta") {
             dimension = "channel"
             applicationId = "vn.pickpack1291.app.beta.publicbeta"
-            versionCode = 91
-            versionName = "0.4.2-beta.85"
+            versionCode = 92
+            versionName = "0.4.2-beta.86"
             manifestPlaceholders["appLabel"] = "Pick Pack 1291 Beta"
             buildConfigField("String", "CHANNEL", "\"BETA\"")
         }
@@ -73,7 +73,7 @@ dependencies {
 // Firebase client identifiers are injected at build time and default blank so source never contains project config.
 // GSHEET_API_URL remains public discovery/fallback configuration and manual update lookup path; no Service URL is compiled into APK.
 // Signing material remains outside this repository and the Android signer is owner-locked.
-// Beta85: correct HHmm numeric validation after Beta84 pre-OTA rejection; keeps Beta84 four owner fixes. Stable remains isolated and unchanged.
+// Beta86: preserve the current UI while making realtime refresh event-driven and partial to reduce main-thread churn/jank. Stable remains isolated and unchanged.\n// Beta85: correct HHmm numeric validation after Beta84 pre-OTA rejection; keeps Beta84 four owner fixes. Stable remains isolated and unchanged.
 // Beta84: pre-OTA candidate only; never published because HHmm validation regression was caught before OTA.
 // Beta83: owner session UI ordering/timeline detail + HH:mm privileged action confirmation; actual SUPERADMIN also keeps fixed account-password confirmation. Stable remains isolated and unchanged.
 // Beta82: current-day shift reconciliation lists, QR-session reconciliation cards, null-safe display, and simplified Settings information. Stable remains isolated and unchanged.
