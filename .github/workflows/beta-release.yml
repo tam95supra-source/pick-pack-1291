@@ -300,14 +300,14 @@ jobs:
         with:
           name: beta-publish-${{ github.run_id }}
           path: /tmp/beta-publish
-      - name: Restore Beta82 OTA
+      - name: Restore Beta baseline OTA
         shell: bash
         run: bash tools/beta83_rollback.sh
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: beta83-rollback-${{ github.run_id }}
-          path: /tmp/beta83-rollback
+          path: /tmp/beta-rollback
           retention-days: 30
           if-no-files-found: error
 
