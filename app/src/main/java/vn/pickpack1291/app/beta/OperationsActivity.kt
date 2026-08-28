@@ -355,7 +355,7 @@ class OperationsActivity : Activity() {
         val sessionDate=s.optString("business_date").trim()
         val currentDate=operationalStore.businessDate()
         if(!ctx.optString("state").equals("ACTIVE",true)||sessionDate.isBlank()||sessionDate>=currentDate)return
-        val warning=status("CẢNH BÁO: PHIÊN CA CŨ ${businessDateVi(sessionDate)} CHƯA BẮN RA / ĐÓNG PHIÊN",red,Color.rgb(255,238,239))
+        val warning=status(OldSessionWarningFeature.WARNING_TEXT,red,Color.rgb(255,238,239))
         warning.startAnimation(android.view.animation.AlphaAnimation(1f,0.35f).apply{duration=650L;repeatMode=android.view.animation.Animation.REVERSE;repeatCount=android.view.animation.Animation.INFINITE})
         body.addView(warning,matchWrap());body.addView(gap(5))
     }
@@ -820,6 +820,13 @@ class OperationsActivity : Activity() {
     private fun positionArray(s:JSONObject):JSONArray=s.optJSONArray("positions_v64")?:JSONArray()
     private fun activePositions(s:JSONObject):List<JSONObject>{val out=mutableListOf<JSONObject>();val a=positionArray(s);for(i in 0 until a.length()){val x=a.optJSONObject(i)?:continue;if(x.optString("state").equals("ACTIVE",true))out.add(x)};return out}
     private fun activeAssignments(s:JSONObject,type:String=""):List<JSONObject>{val out=mutableListOf<JSONObject>();val a=assignmentArray(s);for(i in 0 until a.length()){val x=a.optJSONObject(i)?:continue;if(!x.optString("state").equals("ACTIVE",true))continue;if(type.isNotBlank()&&!x.optString("resource_type").equals(type,true))continue;out.add(x)};return out}
+    // Beta94: if the authoritative assignment array exists, only an ACTIVE PDA assignment means this session currently has a PDA.
+    // Legacy pda_serial is used only for old snapshots that do not contain resource_assignments_v64 at all.
+    private fun exitPdaId(s:JSONObject):String{
+        val active=activeAssignments(s,"PDA").firstOrNull()?.optString("resource_id").orEmpty().trim()
+        if(active.isNotBlank())return active
+        return if(s.has("resource_assignments_v64"))"" else s.optString("pda_serial").trim()
+    }
     private fun visibleAssignments(s:JSONObject,type:String=""):List<JSONObject>{val out=mutableListOf<JSONObject>();val a=assignmentArray(s);for(i in 0 until a.length()){val x=a.optJSONObject(i)?:continue;if(x.optString("state").uppercase() !in setOf("ACTIVE","USED"))continue;if(type.isNotBlank()&&!x.optString("resource_type").equals(type,true))continue;out.add(x)};return out}
     private fun activePositionLabels(s:JSONObject):List<String>{val out=mutableListOf<String>();val a=positionArray(s);for(i in 0 until a.length()){val x=a.optJSONObject(i)?:continue;if(x.optString("state").equals("ACTIVE",true)){val v=x.optString("position_label").ifBlank{x.optString("position_key")};if(v.isNotBlank()&&!out.contains(v))out.add(v)}};return out}
     private fun allPositionLabels(s:JSONObject):List<String>{val out=mutableListOf<String>();val a=positionArray(s);for(i in 0 until a.length()){val x=a.optJSONObject(i)?:continue;if(x.optString("state").uppercase() !in setOf("ACTIVE","USED"))continue;val v=x.optString("position_label").ifBlank{x.optString("position_key")};if(v.isNotBlank()&&!out.contains(v))out.add(v)};return out}
@@ -1115,7 +1122,7 @@ class OperationsActivity : Activity() {
             resolveActiveSessionForExit(mnv,s){resolved,remoteLabor,error->
                 if(error!=null||resolved==null){releaseExitGuard();if(error!="SESSION_EXIT_CONTEXT_STALE"&&error!="UNAUTHORIZED")showError(error?:"SESSION_EXIT_RESOLVE_FAILED");return@resolveActiveSessionForExit}
                 if(remoteLabor!=null){releaseExitGuard();showError("Còn công nhật đang làm. Hoàn thành công nhật trước khi ra ca.");return@resolveActiveSessionForExit}
-                val pdaId=activeAssignments(resolved,"PDA").firstOrNull()?.optString("resource_id").orEmpty().ifBlank{resolved.optString("pda_serial")}.trim()
+                val pdaId=exitPdaId(resolved)
                 if(pdaId.isBlank()){doExit(resolved,"");return@resolveActiveSessionForExit}
                 val expected=resolved.optString("pda_enter_status");val arr=MasterDataCache.resourceOptions(this).optJSONArray("pda_statuses")?:JSONArray();val statuses=mutableListOf<String>()
                 for(i in 0 until arr.length()){val v=arr.optString(i).trim();if(v.isNotBlank()&&!statuses.contains(v))statuses.add(v)}
@@ -1517,16 +1524,23 @@ class OperationsActivity : Activity() {
         if(title.isNotBlank())wrap.addView(txt(title,11f,navy,true).apply{gravity=Gravity.CENTER;setPadding(0,0,0,dp(3))})
         if(data==null){wrap.addView(txt("Chưa có dữ liệu",10f,muted,false));return wrap}
         val cols=jsonStrings(data.optJSONArray("columns"));val rows=data.optJSONArray("rows")?:JSONArray()
-        val table=TableLayout(this).apply{isStretchAllColumns=true;isShrinkAllColumns=true}
+        // Beta94: every report grid uses the same proportional column geometry so stacked tables align exactly.
+        val table=TableLayout(this).apply{isStretchAllColumns=false;isShrinkAllColumns=false}
+        val firstWeight=3.4f;val dataWeight=1f;val totalWeight=1.1f
         fun cell(v:String,bold:Boolean=false,header:Boolean=false)=TextView(this).apply{
-            text=v;textSize=if(header)8.2f else 8.5f;setTextColor(if(header)navy else ink);typeface=if(bold)Typeface.DEFAULT_BOLD else Typeface.DEFAULT;gravity=Gravity.CENTER;setPadding(dp(1),dp(3),dp(1),dp(3));maxLines=3;background=GradientDrawable().apply{setColor(if(header)Color.rgb(232,241,246) else Color.WHITE);setStroke(dp(1),Color.rgb(105,118,126))}
+            text=v;textSize=if(header)8.2f else 8.5f;setTextColor(if(header)navy else ink);typeface=if(bold)Typeface.DEFAULT_BOLD else Typeface.DEFAULT;gravity=Gravity.CENTER;setPadding(dp(1),dp(3),dp(1),dp(3));maxLines=3;background=GradientDrawable().apply{
+                setColor(if(header)Color.rgb(232,241,246) else Color.WHITE)
+                setStroke(1,Color.rgb(105,118,126))
+            }
         }
-        val hr=TableRow(this);hr.addView(cell(firstTitle,true,true));cols.forEach{hr.addView(cell(it,true,true))};hr.addView(cell("Tổng",true,true));table.addView(hr)
+        fun addCell(row:TableRow,view:View,weight:Float){row.addView(view,TableRow.LayoutParams(0,-2,weight))}
+        fun newRow()=TableRow(this).apply{layoutParams=TableLayout.LayoutParams(-1,-2)}
+        val hr=newRow();addCell(hr,cell(firstTitle,true,true),firstWeight);cols.forEach{addCell(hr,cell(it,true,true),dataWeight)};addCell(hr,cell("Tổng",true,true),totalWeight);table.addView(hr)
         for(i in 0 until rows.length()){
-            val row=rows.optJSONObject(i)?:continue;val tr=TableRow(this);tr.addView(cell(row.optString(rowKey),true));val counts=row.optJSONObject("counts")?:JSONObject();cols.forEach{c->val n=counts.optInt(c);tr.addView(cell(if(n==0)"" else n.toString()))};val total=row.optInt("total");tr.addView(cell(if(total==0)"" else total.toString(),true));table.addView(tr)
+            val row=rows.optJSONObject(i)?:continue;val tr=newRow();addCell(tr,cell(row.optString(rowKey),true),firstWeight);val counts=row.optJSONObject("counts")?:JSONObject();cols.forEach{c->val n=counts.optInt(c);addCell(tr,cell(if(n==0)"" else n.toString()),dataWeight)};val total=row.optInt("total");addCell(tr,cell(if(total==0)"" else total.toString(),true),totalWeight);table.addView(tr)
         }
         val totals=data.optJSONObject("totals")
-        if(totals!=null){val tr=TableRow(this);tr.addView(cell("Tổng",true,true));cols.forEach{c->val n=totals.optInt(c);tr.addView(cell(if(n==0)"" else n.toString(),true,true))};val total=data.optInt("total");tr.addView(cell(if(total==0)"" else total.toString(),true,true));table.addView(tr)}
+        if(totals!=null){val tr=newRow();addCell(tr,cell("Tổng",true,true),firstWeight);cols.forEach{c->val n=totals.optInt(c);addCell(tr,cell(if(n==0)"" else n.toString(),true,true),dataWeight)};val total=data.optInt("total");addCell(tr,cell(if(total==0)"" else total.toString(),true,true),totalWeight);table.addView(tr)}
         wrap.addView(table,matchWrap());return wrap
     }
 

@@ -16,6 +16,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 object OldSessionWarningFeature {
+    const val WARNING_TEXT = "CẢNH BÁO: CÓ PHIÊN CŨ CHƯA BẮN RA"
     private data class Item(val sessionId:String,val mnv:String,val name:String,val date:String,val shift:String,val pda:String,val enterAt:String)
 
     fun build(activity:Activity,api:BetaApiClient,onOpen:(JSONObject)->Unit):View{
@@ -26,7 +27,7 @@ object OldSessionWarningFeature {
         fun dash(v:Any?):String=(v?.toString().orEmpty()).trim().ifBlank{"—"}
         val root=LinearLayout(activity).apply{orientation=LinearLayout.VERTICAL;visibility=View.GONE;setPadding(0,0,0,dp(6))}
         val button=Button(activity).apply{
-            text="CẢNH BÁO:  CHƯA KẾT THÚC PHIÊN CÁC NGÀY CŨ."
+            text=WARNING_TEXT
             textSize=10.2f;setTextColor(Color.WHITE);typeface=Typeface.DEFAULT_BOLD;isAllCaps=false;gravity=Gravity.CENTER
             background=round(Color.rgb(139,0,0),11);minHeight=dp(46);setPadding(dp(8),dp(5),dp(8),dp(5))
         }
@@ -99,7 +100,7 @@ object OldSessionWarningFeature {
                 card.addView(Button(activity).apply{text="MỞ ĐÚNG PHIÊN";textSize=9.5f;setTextColor(Color.WHITE);typeface=Typeface.DEFAULT_BOLD;isAllCaps=false;background=round(Color.rgb(139,0,0),8);setOnClickListener{open()}},LinearLayout.LayoutParams(-1,dp(38)).apply{topMargin=dp(5)})
                 list.addView(card,LinearLayout.LayoutParams(-1,-2).apply{bottomMargin=dp(6)})
             }
-            dialog=AlertDialog.Builder(activity).setTitle("Phiên ngày cũ chưa kết thúc (${items.size})").setView(ScrollView(activity).apply{addView(list)}).setNegativeButton("Đóng",null).create();dialog?.show()
+            dialog=AlertDialog.Builder(activity).setTitle("Phiên cũ chưa bắn ra (${items.size})").setView(ScrollView(activity).apply{addView(list)}).setNegativeButton("Đóng",null).create();dialog?.show()
         }
         button.setOnClickListener{showList()}
         apply(local())
