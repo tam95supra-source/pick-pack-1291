@@ -78,19 +78,33 @@ FOLDER=$(jq -r '.files[0].id' "$E/folders.json");test -n "$FOLDER";echo "::add-m
 
 APK_NAME=$(basename "$APK")
 Q="'$FOLDER' in parents and name='$APK_NAME' and trashed=false"
-curl -fsS --get --connect-timeout 15 --max-time 30 -H "Authorization: Bearer $ACCESS_TOKEN"   --data-urlencode "q=$Q" --data-urlencode 'fields=files(id,name,size,modifiedTime)' https://www.googleapis.com/drive/v3/files > "$E/preexisting.json"
-test "$(jq '.files|length' "$E/preexisting.json")" = 0
-
-META_JSON=$(jq -nc --arg n "$APK_NAME" --arg p "$FOLDER" '{name:$n,parents:[$p]}')
-curl -fsS --connect-timeout 15 --max-time 120 -X POST -H "Authorization: Bearer $ACCESS_TOKEN"   -F "metadata=$META_JSON;type=application/json;charset=UTF-8" -F "file=@$APK;type=application/vnd.android.package-archive"   'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,size' > "$E/upload.json"
-FILE_ID=$(jq -r '.id//empty' "$E/upload.json");test -n "$FILE_ID";echo "::add-mask::$FILE_ID"
+curl -fsS --get --connect-timeout 15 --max-time 30 -H "Authorization: Bearer $ACCESS_TOKEN" \
+  --data-urlencode "q=$Q" --data-urlencode 'fields=files(id,name,size,modifiedTime)' https://www.googleapis.com/drive/v3/files > "$E/preexisting.json"
+COUNT=$(jq '.files|length' "$E/preexisting.json");test "$COUNT" -le 1
+UPLOADED_NEW=false
+if [[ "$COUNT" = 0 ]]; then
+  META_JSON=$(jq -nc --arg n "$APK_NAME" --arg p "$FOLDER" '{name:$n,parents:[$p]}')
+  curl -fsS --connect-timeout 15 --max-time 120 -X POST -H "Authorization: Bearer $ACCESS_TOKEN" \
+    -F "metadata=$META_JSON;type=application/json;charset=UTF-8" -F "file=@$APK;type=application/vnd.android.package-archive" \
+    'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,size' > "$E/upload.json"
+  FILE_ID=$(jq -r '.id//empty' "$E/upload.json");test -n "$FILE_ID"
+  UPLOADED_NEW=true
+else
+  FILE_ID=$(jq -r '.files[0].id//empty' "$E/preexisting.json");test -n "$FILE_ID"
+  test "$(jq -r '.files[0].size//empty' "$E/preexisting.json")" = "$SIZE"
+  jq -nc --arg id "$FILE_ID" --arg name "$APK_NAME" --argjson size "$SIZE" '{id:$id,name:$name,size:$size,reused_exact:true}' > "$E/upload.json"
+fi
+echo "::add-mask::$FILE_ID"
 jq -nc --arg d "$RELEASE_NOTES" '{description:$d}' > "$E/meta.json"
-curl -fsS --connect-timeout 15 --max-time 30 -X PATCH -H "Authorization: Bearer $ACCESS_TOKEN" -H 'Content-Type: application/json'   --data-binary @"$E/meta.json" "https://www.googleapis.com/drive/v3/files/$FILE_ID?fields=id,name,size,description" > "$E/meta-out.json"
-curl -fsS --connect-timeout 15 --max-time 30 -X POST -H "Authorization: Bearer $ACCESS_TOKEN" -H 'Content-Type: application/json'   -d '{"type":"anyone","role":"reader"}' "https://www.googleapis.com/drive/v3/files/$FILE_ID/permissions?fields=id,type,role" > "$E/permission.json" || true
+curl -fsS --connect-timeout 15 --max-time 30 -X PATCH -H "Authorization: Bearer $ACCESS_TOKEN" -H 'Content-Type: application/json' \
+  --data-binary @"$E/meta.json" "https://www.googleapis.com/drive/v3/files/$FILE_ID?fields=id,name,size,description" > "$E/meta-out.json"
+curl -fsS --connect-timeout 15 --max-time 30 -X POST -H "Authorization: Bearer $ACCESS_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"type":"anyone","role":"reader"}' "https://www.googleapis.com/drive/v3/files/$FILE_ID/permissions?fields=id,type,role" > "$E/permission.json" || true
 
 APK_URL=""
 for u in "https://drive.usercontent.google.com/download?id=$FILE_ID&export=download&confirm=t" "https://drive.google.com/uc?export=download&id=$FILE_ID"; do
-  if curl -fsSL --retry 2 --retry-delay 2 --connect-timeout 15 --max-time 120 "$u" -o "$E/public.apk"     && [[ "$(sha256sum "$E/public.apk"|awk '{print $1}')" == "$SHA" ]] && [[ "$(stat -c '%s' "$E/public.apk")" == "$SIZE" ]]; then APK_URL="$u";break;fi
+  if curl -fsSL --retry 2 --retry-delay 2 --connect-timeout 15 --max-time 120 "$u" -o "$E/public.apk" \
+    && [[ "$(sha256sum "$E/public.apk"|awk '{print $1}')" == "$SHA" ]] && [[ "$(stat -c '%s' "$E/public.apk")" == "$SIZE" ]]; then APK_URL="$u";break;fi
 done
 test -n "$APK_URL";echo "::add-mask::$APK_URL";cmp -s "$APK" "$E/public.apk"
 
@@ -113,7 +127,10 @@ MAIN_AFTER=$(curl -fsSL --connect-timeout 15 --max-time 30 -H "Authorization: Be
 curl -fsSL --connect-timeout 15 --max-time 30 "$SERVICE_URL/v1/authority" > "$E/authority-after.json"
 jq -S '.authority' "$E/authority-before.json" > "$E/ab";jq -S '.authority' "$E/authority-after.json" > "$E/aa";cmp -s "$E/ab" "$E/aa"
 
-jq -n --arg v "$VERSION" --argjson c "$CODE" --arg source "$SOURCE" --arg h "$SHA" --argjson z "$SIZE" --arg signer "$SIGNER"   --arg file "$FILE_ID" --arg url "$RETURNED_URL" --arg main "$MAIN_AFTER"   --slurpfile beta "$E/beta-after.json" --slurpfile current "$E/beta-current.json" --slurpfile stable "$E/stable-after.json" --slurpfile auth "$E/authority-after.json"   '{status:"PASS",channel:"BETA",version_name:$v,version_code:$c,source_sha:$source,apk_sha256:$h,apk_size:$z,signer_sha256:$signer,
-    drive_file_id:$file,apk_url:$url,uploaded_new:true,ota_exact_bytes:true,beta_readback:$beta[0],target_current_readback:$current[0],
+jq -n --arg v "$VERSION" --argjson c "$CODE" --arg source "$SOURCE" --arg h "$SHA" --argjson z "$SIZE" --arg signer "$SIGNER" \
+  --arg file "$FILE_ID" --arg url "$RETURNED_URL" --arg main "$MAIN_AFTER" --argjson uploaded "$UPLOADED_NEW" \
+  --slurpfile beta "$E/beta-after.json" --slurpfile current "$E/beta-current.json" --slurpfile stable "$E/stable-after.json" --slurpfile auth "$E/authority-after.json" \
+  '{status:"PASS",channel:"BETA",version_name:$v,version_code:$c,source_sha:$source,apk_sha256:$h,apk_size:$z,signer_sha256:$signer,
+    drive_file_id:$file,apk_url:$url,uploaded_new:$uploaded,ota_exact_bytes:true,beta_readback:$beta[0],target_current_readback:$current[0],
     stable_readback:$stable[0],stable_unchanged:true,main_sha:$main,main_unchanged:true,authority:$auth[0].authority,authority_change:"NONE"}' > "$E/receipt.json"
 cat "$E/receipt.json"
