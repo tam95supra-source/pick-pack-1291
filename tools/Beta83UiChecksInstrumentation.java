@@ -261,9 +261,9 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     JSONObject master=new JSONObject()
       .put("ok",true).put("master_revision",83001L)
       .put("staff",new JSONArray()
-        .put(new JSONObject().put("mnv",mnv).put("full_name","Beta83 Test A").put("main_position","PICK").put("supplier","TEST").put("department","OPS").put("site","1291").put("warehouse","HY1"))
-        .put(new JSONObject().put("mnv",mnv2).put("full_name","Beta83 Test B").put("main_position","PACK").put("supplier",JSONObject.NULL).put("department","OPS").put("site","1291").put("warehouse","HY1"))
-        .put(new JSONObject().put("mnv",mnv3).put("full_name","Beta83 Test C").put("main_position","PACK").put("supplier","TEST").put("department","OPS").put("site","1291").put("warehouse","HY1")))
+        .put(new JSONObject().put("mnv",mnv).put("full_name","Beta83 Test A").put("phone","0900000081").put("start_date","01/08/2026").put("main_position","PICK").put("supplier","TEST").put("department","OPS").put("site","1291").put("warehouse","HY1"))
+        .put(new JSONObject().put("mnv",mnv2).put("full_name","Beta83 Test B").put("phone","0900000082").put("start_date","02/08/2026").put("main_position","PACK").put("supplier",JSONObject.NULL).put("department","OPS").put("site","1291").put("warehouse","HY1"))
+        .put(new JSONObject().put("mnv",mnv3).put("full_name","Beta83 Test C").put("phone","0900000083").put("start_date","03/08/2026").put("main_position","PACK").put("supplier","TEST").put("department","OPS").put("site","1291").put("warehouse","HY1")))
       .put("pdas",new JSONArray()).put("pda_statuses",new JSONArray().put("Tốt"))
       .put("user_picks",new JSONArray()).put("pack_bundles",new JSONArray());
 
@@ -280,11 +280,10 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     JSONObject a=new JSONObject()
       .put("session_id","beta83-current-active").put("mnv",mnv).put("business_date",today).put("shift","Ca 2")
       .put("state","ACTIVE").put("enter_at",today+"T01:00:00Z").put("exit_at","").put("version",1)
-      .put("work_choice","PICK").put("pda_serial","MT90-260817-214675").put("user_pick","hy1.outbound06").put("pack_table","B83-TABLE").put("user_pack","PACK-B83")
+      .put("work_choice","PICK").put("pda_serial","MT90-260817-214675").put("user_pick","").put("pack_table","B83-TABLE").put("user_pack","PACK-B83")
       .put("positions_v64",new JSONArray().put(new JSONObject().put("position_key","PICK").put("position_label","Pick").put("state","ACTIVE")))
       .put("resource_assignments_v64",new JSONArray()
         .put(new JSONObject().put("assignment_id","b83-pda").put("resource_type","PDA").put("resource_id","MT90-260817-214675").put("state","ACTIVE"))
-        .put(new JSONObject().put("assignment_id","b83-pick").put("resource_type","USER_PICK").put("resource_id","hy1.outbound06").put("state","ACTIVE"))
         .put(new JSONObject().put("assignment_id","b83-table").put("resource_type","PACK_TABLE").put("resource_id","B83-TABLE").put("state","ACTIVE"))
         .put(new JSONObject().put("assignment_id","b83-pack").put("resource_type","USER_PACK").put("resource_id","PACK-B83").put("state","ACTIVE")));
     JSONObject b=new JSONObject()
@@ -317,9 +316,13 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
         .put(new JSONObject().put("resource_type","PACK_TABLE").put("resource_id","TABLE-AFTER").put("state","ACTIVE"))
         .put(new JSONObject().put("resource_type","USER_PACK").put("resource_id","PACK-AFTER").put("state","ACTIVE")));
     JSONObject changePayload=new JSONObject().put("session_id","beta83-current-active").put("mnv",mnv).put("mutation_kind","EDIT").put("before",before).put("after",after);
+    JSONObject scalarBefore=new JSONObject().put("work_choice","PICK").put("pda_serial","PDA-SCALAR-BEFORE").put("user_pick","PICK-SCALAR-BEFORE").put("pack_table","TABLE-SCALAR-BEFORE").put("user_pack","PACK-SCALAR-BEFORE");
+    JSONObject scalarAfter=new JSONObject().put("work_choice","PACK").put("pda_serial","PDA-SCALAR-AFTER").put("user_pick","PICK-SCALAR-AFTER").put("pack_table","TABLE-SCALAR-AFTER").put("user_pack","PACK-SCALAR-AFTER");
+    JSONObject scalarPayload=new JSONObject().put("session_id","beta83-current-active").put("mnv",mnv).put("mutation_kind","EDIT").put("before",scalarBefore).put("after",scalarAfter);
     JSONArray events=new JSONArray()
       .put(new JSONObject().put("event_id","b83-enter").put("event_type","ATTENDANCE_ENTER").put("session_id","beta83-current-active").put("mnv",mnv).put("actor","admin").put("committed_at",today+"T01:01:00Z").put("payload_json",new JSONObject().put("session_id","beta83-current-active").put("mnv",mnv).toString()))
-      .put(new JSONObject().put("event_id","b83-change").put("event_type","RESOURCE_CHANGE").put("session_id","beta83-current-active").put("mnv",mnv).put("actor","admin").put("committed_at",today+"T01:22:00Z").put("payload_json",changePayload.toString()));
+      .put(new JSONObject().put("event_id","b83-change").put("event_type","RESOURCE_CHANGE").put("session_id","beta83-current-active").put("mnv",mnv).put("actor","admin").put("committed_at",today+"T01:22:00Z").put("payload_json",changePayload.toString()))
+      .put(new JSONObject().put("event_id","b88-scalar-change").put("event_type","RESOURCE_CHANGE").put("session_id","beta83-current-active").put("mnv",mnv).put("actor","admin").put("committed_at",today+"T01:23:00Z").put("payload_json",scalarPayload.toString()));
     saveDay.invoke(store,new JSONObject().put("business_date",today).put("day_revision",83001L)
       .put("sessions",new JSONArray().put(a).put(b).put(c).put(leakedOld))
       .put("events",events).put("labor",new JSONArray()));
@@ -378,7 +381,11 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     require(clickableNode(networkChip)==null,"NETWORK_CHIP_MUST_BE_DISPLAY_ONLY");
     require(clickableNode(syncChip)!=null,"SYNC_CHIP_MUST_BE_CLICKABLE");
     require(clickableNode(serviceChip)==null,"SERVICE_CHIP_MUST_BE_DISPLAY_ONLY");
-    mark("current_day_filter");mark("header_removed");mark("header_sync_chip");
+    waitText("Điểm danh nhân sự",true,true,10000L);
+    try{ui.executeShellCommand("input keyevent 4").close();}catch(Exception ignored){}
+    SystemClock.sleep(250L);
+    waitText("Quét QR nhân sự",true,true,10000L);
+    mark("current_day_filter");mark("header_removed");mark("header_sync_chip");mark("attendance_card");mark("root_back_stays");
     shot(tag+"-01-business");
 
     clickText("Quét QR nhân sự",true,12000L);
@@ -403,6 +410,8 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     clickText("HIỂN THỊ CHI TIẾT NHÂN SỰ",true,10000L);
     waitText(mnv,false,true,10000L);
     waitText(mnv2,false,true,10000L);
+    waitText("Ca 1",false,false,10000L);waitText("Ca HC",false,false,10000L);waitText("Ca 2",false,false,10000L);
+    mark("detail_reconciliation_visible");
     shot(tag+"-05-staff-list");
     clickText(mnv2,false,10000L);
     waitText("THÔNG TIN CA",true,false,12000L);
@@ -418,6 +427,10 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     require(scan!=null,"EMPLOYEE_SCAN_INPUT_MISSING");
     require(topOf(recon)<topOf(scan),"RECONCILIATION_MUST_BE_ABOVE_MNV_SCAN");
     requireVerticalOrder("Vị trí trong ca:","User Pick:","PDA:","Bàn Pack:","User Pack:");
+    waitText("SĐT: 0900000081",false,false,10000L);
+    waitText("Bắt đầu: 01/08/2026",false,false,10000L);
+    waitText("Tài khoản 0900000081 / Beta83 Test A",false,false,10000L);
+    mark("qr_employee_contact");mark("pick_phone_account");
     AccessibilityNodeInfo addButton=waitText("Thêm",true,true,10000L);
     AccessibilityNodeInfo shiftPanel=waitText("THÔNG TIN CA",true,false,10000L);
     require(topOf(addButton)<topOf(shiftPanel),"OWNER_ACTIONS_MUST_BE_ABOVE_SHIFT_INFO");
@@ -436,7 +449,9 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     require(newer>=0&&older>=0&&newer<older,"TIMELINE_NOT_NEWEST_FIRST:"+newer+":"+older);
     require(findText("STALE-PDA-BEFORE",false,false)==null,"STALE_SCALAR_BEFORE_RENDERED");
     require(findText("STALE-PDA-AFTER",false,false)==null,"STALE_SCALAR_AFTER_RENDERED");
-    mark("before_after_visible");mark("timeline_newest_first");mark("assignment_snapshot_authoritative");
+    waitText("PDA: PDA-SCALAR-BEFORE",false,false,12000L);
+    waitText("PDA: PDA-SCALAR-AFTER",false,false,12000L);
+    mark("before_after_visible");mark("timeline_newest_first");mark("assignment_snapshot_authoritative");mark("scalar_snapshot_fallback");
     shot(tag+"-10-beta83-timeline");
     showTextOnScreen("Trước cập nhật",12000L);
     shot(tag+"-10b-beta87-timeline-card");
@@ -476,6 +491,10 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     mark("complete_direct_list");
     shot(tag+"-06-complete-list");
 
+    open("STAFF");
+    waitText("0900000081",false,false,10000L);waitText("Bắt đầu: 01/08/2026",false,false,10000L);
+    require(findEditableHint("Tìm mã nhân viên, họ tên hoặc số điện thoại")!=null,"STAFF_FIXED_SEARCH_MISSING");
+    mark("staff_contact_layout");mark("staff_search_fixed");
     open("REPORT");
     waitText("Phạm vi báo cáo",true,false,12000L);
     waitText("Vị trí",true,false,12000L);

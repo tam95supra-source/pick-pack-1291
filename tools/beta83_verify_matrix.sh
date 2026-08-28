@@ -29,6 +29,16 @@ grep -q 'Bàn Pack / User Pack không còn khớp cấu hình hiện tại' "$OP
 grep -q 'Chọn ngày có dữ liệu' "$OPS"
 ! grep -q 'Site 1291 • Ngày báo cáo' "$OPS"
 grep -q 'showSoftInput(r,android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)' "$OPS"
+! grep -Fq 'contentDescription="Quay lại"' "$OPS"
+grep -Fq 'contentDescription="Tìm kiếm nhân sự cố định"' "$OPS"
+grep -Fq 'Điểm danh nhân sự' "$OPS"
+grep -Fq 'cleanPdaSerial' "$OPS"
+grep -Fq 'if(kind=="Trả")' "$OPS"
+grep -Fq 'tag=h.serial' "$OPS"
+grep -Fq 'Tài khoản $phone / $employeeName' "$OPS"
+grep -Fq 'addBusinessShiftReconciliation(body);body.addView(gap(5))' "$OPS"
+test "$(grep -Fc 'if(projected.isNotBlank())return projected' "$OPS")" -ge 3
+! grep -Fq 'super.onBackPressed()' "$OPS"
 test "$(sha256sum "$APK"|awk '{print $1}')" = "$SHA";test "$(stat -c '%s' "$APK")" = "$SIZE"
 OUT=/tmp/beta-verify;rm -rf "$OUT";mkdir -p "$OUT"
 adb root >"$OUT/adb-root.txt" 2>&1 || true;timeout 30s adb wait-for-device
@@ -51,7 +61,7 @@ for spec in '320 568 160' '360 640 180' '480 800 240'; do
   adb pull "/sdcard/Android/data/$PKG/files/beta83-visual/." "$OUT/$TAG/" >/dev/null
   if [[ "$MODE" == checks ]]; then
     adb shell cat "/data/user/0/$PKG/shared_prefs/pp_beta83_verify.xml" >"$OUT/$TAG-flags.xml"
-    for flag in current_day_filter header_removed header_sync_chip old_warning_preserved qr_reconciliation null_sanitized incomplete_detail_button staff_list_to_qr complete_direct_list settings_simplified reconciliation_above_scan work_info_order owner_actions_above_shift before_after_visible assignment_snapshot_authoritative timeline_newest_first hhmm_edit_confirmation delete_reason_editable report_compact_grid report_available_dates_only; do
+    for flag in current_day_filter header_removed header_sync_chip attendance_card root_back_stays old_warning_preserved qr_reconciliation null_sanitized incomplete_detail_button detail_reconciliation_visible staff_list_to_qr complete_direct_list staff_contact_layout staff_search_fixed settings_simplified reconciliation_above_scan work_info_order qr_employee_contact pick_phone_account owner_actions_above_shift before_after_visible assignment_snapshot_authoritative scalar_snapshot_fallback timeline_newest_first hhmm_edit_confirmation delete_reason_editable report_compact_grid report_available_dates_only; do
       grep -Fq "name=\"$flag\" value=\"true\"" "$OUT/$TAG-flags.xml"
     done
   fi
@@ -77,6 +87,6 @@ PY
 if [[ "$VISUAL_ONLY" == "true" ]]; then
   jq -nc --arg version "$VERSION" --argjson code "$CODE" --arg sha "$SHA" --argjson size "$SIZE" --argjson run "$GITHUB_RUN_ID" '{status:"PASS",version_name:$version,version_code:$code,apk_sha256:$sha,apk_size:$size,run:$run,visual_evidence_only:true,functional_pass:false,functional_inherited_run:33146411629,visual_sizes:["320x568","360x640","480x800"],screenshot_count:15,human_inspection_required:true}' > "$OUT/receipt.json"
 else
-  jq -nc --arg version "$VERSION" --argjson code "$CODE" --arg sha "$SHA" --argjson size "$SIZE" --argjson run "$GITHUB_RUN_ID" '{status:"PASS",version_name:$version,version_code:$code,apk_sha256:$sha,apk_size:$size,run:$run,functional_pass:true,current_day_only:true,incomplete_and_complete_paths:true,qr_session_cards:true,null_sanitized:true,settings_simplified:true,old_warning_preserved:true,reconciliation_above_scan:true,work_info_order:true,owner_actions_above_shift:true,header_sync_chip:true,delete_reason_editable:true,pack_pair_validated:true,before_after_visible:true,assignment_snapshot_authoritative:true,timeline_newest_first:true,hhmm_edit_confirmation:true,event_driven_status:true,partial_realtime_refresh:true,no_750ms_ui_ticker:true,report_available_dates_only:true,report_grid_borders:true,visual_sizes:["320x568","360x640","480x800"],screenshot_count:23,functional_size:"320x568",human_inspection_required:true}' > "$OUT/receipt.json"
+  jq -nc --arg version "$VERSION" --argjson code "$CODE" --arg sha "$SHA" --argjson size "$SIZE" --argjson run "$GITHUB_RUN_ID" '{status:"PASS",version_name:$version,version_code:$code,apk_sha256:$sha,apk_size:$size,run:$run,functional_pass:true,current_day_only:true,incomplete_and_complete_paths:true,qr_session_cards:true,null_sanitized:true,settings_simplified:true,old_warning_preserved:true,reconciliation_above_scan:true,work_info_order:true,owner_actions_above_shift:true,header_sync_chip:true,delete_reason_editable:true,pack_pair_validated:true,before_after_visible:true,assignment_snapshot_authoritative:true,timeline_newest_first:true,hhmm_edit_confirmation:true,event_driven_status:true,partial_realtime_refresh:true,no_750ms_ui_ticker:true,report_available_dates_only:true,report_grid_borders:true,root_back_stays:true,header_back_removed:true,staff_contact_layout:true,staff_search_fixed:true,qr_employee_contact:true,attendance_card:true,detail_reconciliation_visible:true,pda_return_projection_sanitized:true,pick_phone_account:true,scalar_snapshot_fallback:true,reconciliation_emphasis:true,visual_sizes:["320x568","360x640","480x800"],screenshot_count:23,functional_size:"320x568",human_inspection_required:true}' > "$OUT/receipt.json"
 fi
 cat "$OUT/receipt.json"
