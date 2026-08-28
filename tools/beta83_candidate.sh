@@ -20,6 +20,10 @@ grep -Fq 'verifyDeletePassword("xóa thông tin trong ca")' "$OPS"
 grep -Fq 'verifyEditPassword("sửa thông tin trong ca")' "$OPS"
 grep -Fq 'if(!isActualSuper())' "$OPS"
 grep -Fq 'api.login(login,value)' "$OPS"
+grep -Fq 'private fun usableExitSession' "$OPS"
+grep -Fq 'private val exitInFlightMnvs=mutableSetOf<String>()' "$OPS"
+grep -Fq 'api.call("employee_context",JSONObject().put("mnv",mnv).put("include_options",false).put("include_labor",true))' "$OPS"
+grep -Fq 'if(!usableExitSession(resolved,mnv)){releaseExitGuard();showError("SESSION_EXIT_FIELDS_REQUIRED");return}' "$OPS"
 python3 - <<'PY'
 from pathlib import Path
 s=Path("app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt").read_text(encoding="utf-8")
