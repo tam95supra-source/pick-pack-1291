@@ -65,8 +65,10 @@ B89_PDA2="__B89_PDA2_${SUFFIX}"; B89_PICK="__B89_PICK_${SUFFIX}"; B89_BLOCKED_PI
 B89_RETURN="__B89_RETURN_${SUFFIX}"; B89_EXCHANGE="__B89_EXCHANGE_${SUFFIX}"; B89_BLOCKED="__B89_BLOCKED_${SUFFIX}"
 B91_TABLE="__B91_TABLE_${SUFFIX}"; B91_PACK="__B91_PACK_${SUFFIX}"; B91_BLOCKED_TABLE="__B91_BLOCKED_TABLE_${SUFFIX}"; B91_BLOCKED_PACK="__B91_BLOCKED_PACK_${SUFFIX}"
 B91_ADD="__B91_ADD_${SUFFIX}"; B91_RETAIN="__B91_RETAIN_${SUFFIX}"; B91_BLOCKED="__B91_BLOCKED_${SUFFIX}"
+B92_USED_PICK="__B92_USED_PICK_${SUFFIX}"; B92_USED_TABLE="__B92_USED_TABLE_${SUFFIX}"; B92_USED_PACK="__B92_USED_PACK_${SUFFIX}"
+B92_BLOCKED_TABLE="__B92_BLOCKED_TABLE_${SUFFIX}"; B92_BLOCKED_PACK="__B92_BLOCKED_PACK_${SUFFIX}"; B92_BLOCKED="__B92_BLOCKED_${SUFFIX}"
 NOW=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-for v in "$LOGIN" "$DEVICE" "$AUTH_SESSION" "$LOC1" "$LOC2" "$DROP_ID" "$BASE_ID" "$B80_MNV" "$B80_PDA" "$B89_PDA2" "$B89_PICK" "$B89_BLOCKED_PICK" "$B91_TABLE" "$B91_PACK" "$B91_BLOCKED_TABLE" "$B91_BLOCKED_PACK"; do echo "::add-mask::$v"; done
+for v in "$LOGIN" "$DEVICE" "$AUTH_SESSION" "$LOC1" "$LOC2" "$DROP_ID" "$BASE_ID" "$B80_MNV" "$B80_PDA" "$B89_PDA2" "$B89_PICK" "$B89_BLOCKED_PICK" "$B91_TABLE" "$B91_PACK" "$B91_BLOCKED_TABLE" "$B91_BLOCKED_PACK" "$B92_USED_PICK" "$B92_USED_TABLE" "$B92_USED_PACK" "$B92_BLOCKED_TABLE" "$B92_BLOCKED_PACK"; do echo "::add-mask::$v"; done
 SERVICE_TOKEN_SECRET=$(printf '%s' "$CLOUDFLARE_ACCOUNT_ID|$GOOGLE_OAUTH_CLIENT_SECRET|pick-pack-1291-m2-service-token-v1" | sha256sum | awk '{print $1}')
 echo "::add-mask::$SERVICE_TOKEN_SECRET"
 TOKEN=$(node - <<'NODE' "$SERVICE_TOKEN_SECRET" "$LOGIN" "$VH" "$AUTH_SESSION" "$DEVICE"
@@ -79,12 +81,12 @@ sql(){ npx wrangler d1 execute "$D1_NAME" --remote --config wrangler.live.jsonc 
 read_api(){ local name=$1 body=$2; curl -fsS --connect-timeout 10 --max-time 20 -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' --data-binary "$body" "$SERVICE_URL/v1/mobile/read" > "$D/$name.json"; }
 cleanup_d1(){
   set +e
-  sql "DELETE FROM outbound_replication_outbox WHERE event_id IN (SELECT event_id FROM events WHERE actor_id='$LOGIN'); DELETE FROM outbound_drop_records WHERE record_id='$DROP_ID'; DELETE FROM outbound_locations WHERE location_key LIKE '__B78%'; DELETE FROM resource_daily_consumption WHERE mnv='$B80_MNV'; DELETE FROM resource_leases WHERE mnv='$B80_MNV'; DELETE FROM attendance_sessions WHERE mnv='$B80_MNV'; DELETE FROM events WHERE actor_id='$LOGIN'; DELETE FROM resource_pack_map WHERE pack_table IN ('$B91_TABLE','$B91_BLOCKED_TABLE') OR user_pack IN ('$B91_PACK','$B91_BLOCKED_PACK'); DELETE FROM resources WHERE resource_id IN ('$B80_PDA','$B89_PDA2','$B89_PICK','$B89_BLOCKED_PICK','$B91_TABLE','$B91_PACK','$B91_BLOCKED_TABLE','$B91_BLOCKED_PACK'); DELETE FROM employees WHERE mnv='$B80_MNV'; DELETE FROM auth_sessions WHERE login_id='$LOGIN'; DELETE FROM accounts WHERE login_id='$LOGIN';" >/dev/null 2>&1
+  sql "DELETE FROM outbound_replication_outbox WHERE event_id IN (SELECT event_id FROM events WHERE actor_id='$LOGIN'); DELETE FROM outbound_drop_records WHERE record_id='$DROP_ID'; DELETE FROM outbound_locations WHERE location_key LIKE '__B78%'; DELETE FROM resource_daily_consumption WHERE mnv='$B80_MNV'; DELETE FROM resource_leases WHERE mnv='$B80_MNV'; DELETE FROM attendance_sessions WHERE mnv='$B80_MNV'; DELETE FROM events WHERE actor_id='$LOGIN'; DELETE FROM resource_pack_map WHERE pack_table IN ('$B91_TABLE','$B91_BLOCKED_TABLE','$B92_USED_TABLE','$B92_BLOCKED_TABLE') OR user_pack IN ('$B91_PACK','$B91_BLOCKED_PACK','$B92_USED_PACK','$B92_BLOCKED_PACK'); DELETE FROM resources WHERE resource_id IN ('$B80_PDA','$B89_PDA2','$B89_PICK','$B89_BLOCKED_PICK','$B91_TABLE','$B91_PACK','$B91_BLOCKED_TABLE','$B91_BLOCKED_PACK','$B92_USED_PICK','$B92_USED_TABLE','$B92_USED_PACK','$B92_BLOCKED_TABLE','$B92_BLOCKED_PACK'); DELETE FROM employees WHERE mnv='$B80_MNV'; DELETE FROM auth_sessions WHERE login_id='$LOGIN'; DELETE FROM accounts WHERE login_id='$LOGIN';" >/dev/null 2>&1
   set -e
 }
 trap 'rc=$?; cleanup_d1; exit $rc' EXIT
 cleanup_d1
-sql "INSERT INTO accounts(login_id,verifier,verifier_hash,role,display_name,position,email,status,source_row,source_checksum,is_shadow_test) VALUES('$LOGIN','b78-test','$VH','SUPERADMIN','Beta78 Test','TEST','tam95.supra@gmail.com','ACTIVE',-78,'b78-test',1); INSERT INTO auth_sessions(login_id,session_id,device_id,issued_at) VALUES('$LOGIN','$AUTH_SESSION','$DEVICE','$NOW'); INSERT INTO employees(mnv,full_name,main_position,source_row,source_checksum) VALUES('$B80_MNV','Beta80 Session Fixture','Pick',-80,'b80-fixture'); INSERT INTO resources(resource_type,resource_id,status_label,available,metadata_json,source_row,source_checksum) VALUES('PDA','$B80_PDA','Tốt',1,'{}',-80,'b80-fixture'),('PDA','$B89_PDA2','Tốt',1,'{}',-89,'b89-fixture'),('USER_PICK','$B89_PICK','Hoạt động',1,'{}',-89,'b89-fixture'),('USER_PICK','$B89_BLOCKED_PICK','Không khả dụng',0,'{}',-89,'b89-fixture'),('PACK_TABLE','$B91_TABLE','Khả dụng',1,'{}',-91,'b91-fixture'),('USER_PACK','$B91_PACK','Khả dụng',1,'{}',-91,'b91-fixture'),('PACK_TABLE','$B91_BLOCKED_TABLE','Không khả dụng',0,'{}',-91,'b91-fixture'),('USER_PACK','$B91_BLOCKED_PACK','Khả dụng',1,'{}',-91,'b91-fixture'); INSERT INTO resource_pack_map(pack_table,shift,user_pack,label,available,source_row,source_checksum) VALUES('$B91_TABLE','Ca 2','$B91_PACK','Ca 2-91',1,-91,'b91-fixture'),('$B91_BLOCKED_TABLE','Ca 2','$B91_BLOCKED_PACK','Ca 2-92',1,-91,'b91-fixture');" >/dev/null
+sql "INSERT INTO accounts(login_id,verifier,verifier_hash,role,display_name,position,email,status,source_row,source_checksum,is_shadow_test) VALUES('$LOGIN','b78-test','$VH','SUPERADMIN','Beta78 Test','TEST','tam95.supra@gmail.com','ACTIVE',-78,'b78-test',1); INSERT INTO auth_sessions(login_id,session_id,device_id,issued_at) VALUES('$LOGIN','$AUTH_SESSION','$DEVICE','$NOW'); INSERT INTO employees(mnv,full_name,main_position,source_row,source_checksum) VALUES('$B80_MNV','Beta80 Session Fixture','Pick',-80,'b80-fixture'); INSERT INTO resources(resource_type,resource_id,status_label,available,metadata_json,source_row,source_checksum) VALUES('PDA','$B80_PDA','Tốt',1,'{}',-80,'b80-fixture'),('PDA','$B89_PDA2','Tốt',1,'{}',-89,'b89-fixture'),('USER_PICK','$B89_PICK','Hoạt động',1,'{}',-89,'b89-fixture'),('USER_PICK','$B89_BLOCKED_PICK','Không khả dụng',0,'{}',-89,'b89-fixture'),('PACK_TABLE','$B91_TABLE','Khả dụng',1,'{}',-91,'b91-fixture'),('USER_PACK','$B91_PACK','Khả dụng',1,'{}',-91,'b91-fixture'),('PACK_TABLE','$B91_BLOCKED_TABLE','Không khả dụng',0,'{}',-91,'b91-fixture'),('USER_PACK','$B91_BLOCKED_PACK','Khả dụng',1,'{}',-91,'b91-fixture'),('USER_PICK','$B92_USED_PICK','Hoạt động',1,'{}',-92,'b92-fixture'),('PACK_TABLE','$B92_USED_TABLE','Khả dụng',1,'{}',-92,'b92-fixture'),('USER_PACK','$B92_USED_PACK','Khả dụng',1,'{}',-92,'b92-fixture'),('PACK_TABLE','$B92_BLOCKED_TABLE','Khả dụng',1,'{}',-92,'b92-fixture'),('USER_PACK','$B92_BLOCKED_PACK','Không khả dụng',0,'{}',-92,'b92-fixture'); INSERT INTO resource_pack_map(pack_table,shift,user_pack,label,available,source_row,source_checksum) VALUES('$B91_TABLE','Ca 2','$B91_PACK','Ca 2-91',1,-91,'b91-fixture'),('$B91_BLOCKED_TABLE','Ca 2','$B91_BLOCKED_PACK','Ca 2-92',1,-91,'b91-fixture'),('$B92_USED_TABLE','Ca 2','$B92_USED_PACK','Ca 2-93',1,-92,'b92-fixture'),('$B92_BLOCKED_TABLE','Ca 2','$B92_BLOCKED_PACK','Ca 2-94',1,-92,'b92-fixture');" >/dev/null
 
 owner_api(){ local path=$1 name=$2 body=$3; curl -fsS --connect-timeout 10 --max-time 20 -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' --data-binary "$body" "$SERVICE_URL$path" > "$D/$name.json"; }
 
@@ -140,6 +142,26 @@ B91_HTTP=$(curl -sS --connect-timeout 10 --max-time 20 -o "$D/b91-blocked.json" 
 [[ "$B91_HTTP" == 409 ]]
 jq -e '.error.code=="PACK_TABLE_UNAVAILABLE"' "$D/b91-blocked.json" >/dev/null
 echo 'beta91_pack_contract=PASS current_pair_retained=PASS unavailable_new_table_blocked=PASS'
+
+# Beta92: options shown to Android must be the same D1 availability contract used by submit validation.
+sql "INSERT OR REPLACE INTO resource_daily_consumption(business_date,resource_type,resource_id,mnv,first_event_id) VALUES('$B80_DATE','USER_PICK','$B92_USED_PICK','__B92_OTHER__','__B92_USED_PICK_EVENT__'),('$B80_DATE','USER_PACK','$B92_USED_PACK','__B92_OTHER__','__B92_USED_PACK_EVENT__');" >/dev/null
+read_api b92-options "{\"action\":\"master_options\",\"mnv\":\"$B80_MNV\"}"
+jq -e --arg currentPick "$B89_PICK" --arg blockedPick "$B89_BLOCKED_PICK" --arg usedPick "$B92_USED_PICK" --arg currentTable "$B91_TABLE" --arg currentPack "$B91_PACK" --arg usedTable "$B92_USED_TABLE" --arg usedPack "$B92_USED_PACK" --arg blockedTable "$B92_BLOCKED_TABLE" '
+  .ok==true and
+  (.user_picks|index($currentPick))!=null and
+  (.user_picks|index($blockedPick))==null and
+  ([.user_picks_reissue[]|select(.id==$usedPick and .duplicate_user==true)]|length)==1 and
+  ([.pack_tables[]|select(.table==$currentTable and .user_pack==$currentPack)]|length)==1 and
+  ([.pack_tables_reissue[]|select(.table==$usedTable and .user_pack==$usedPack and .duplicate_user==true)]|length)==1 and
+  ([.pack_tables[]|select(.table==$blockedTable)]|length)==0 and
+  ([.pack_tables_reissue[]|select(.table==$blockedTable)]|length)==0
+' "$D/b92-options.json" >/dev/null
+read_api b92-active-context "{\"action\":\"employee_context\",\"mnv\":\"$B80_MNV\",\"include_options\":true}"
+jq -e --arg currentPick "$B89_PICK" --arg usedPick "$B92_USED_PICK" '.ok==true and .state=="ACTIVE" and .options.ok==true and (.options.user_picks|index($currentPick))!=null and ([.options.user_picks_reissue[]|select(.id==$usedPick)]|length)==1' "$D/b92-active-context.json" >/dev/null
+B92_HTTP=$(curl -sS --connect-timeout 10 --max-time 20 -o "$D/b92-blocked-user-pack.json" -w '%{http_code}' -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' --data-binary "{\"session_id\":\"$B80_SID\",\"idempotency_key\":\"$B92_BLOCKED\",\"shift\":\"Ca 2\",\"pack_table\":\"$B92_BLOCKED_TABLE\",\"user_pack\":\"$B92_BLOCKED_PACK\"}" "$SERVICE_URL/v1/session/work")
+[[ "$B92_HTTP" == 409 ]]
+jq -e '.error.code=="USER_PACK_UNAVAILABLE"' "$D/b92-blocked-user-pack.json" >/dev/null
+echo 'beta92_authoritative_options=PASS active_options=PASS user_pick_unavailable_filtered=PASS user_pack_unavailable_filtered=PASS reissue_authoritative=PASS'
 
 owner_api /v1/session/exit-v2 b80-exit "{\"session_id\":\"$B80_SID\",\"mnv\":\"$B80_MNV\",\"pda_exit_status\":\"Tốt\",\"idempotency_key\":\"$B80_EXIT\"}"
 jq -e --arg sid "$B80_SID" '.ok==true and .session.session_id==$sid and .session.state=="ENDED"' "$D/b80-exit.json" >/dev/null
