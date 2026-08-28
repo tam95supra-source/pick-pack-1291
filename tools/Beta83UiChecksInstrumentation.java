@@ -352,7 +352,7 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     shot(tag+"-04-timeline");
 
     open("REPORT");
-    waitText("BÁO CÁO NHÂN SỰ",true,false,12000L);
+    waitText("Phạm vi báo cáo",true,false,12000L);
     waitText("Vị trí",true,false,12000L);
     waitText("Thâm niên",true,false,12000L);
     require(findText("Site 1291 •",false,false)==null,"REPORT_SCOPE_TEXT_MUST_BE_REMOVED");
@@ -477,7 +477,7 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     shot(tag+"-06-complete-list");
 
     open("REPORT");
-    waitText("BÁO CÁO NHÂN SỰ",true,false,12000L);
+    waitText("Phạm vi báo cáo",true,false,12000L);
     waitText("Vị trí",true,false,12000L);
     waitText("Thâm niên",true,false,12000L);
     require(findText("Site 1291 •",false,false)==null,"REPORT_SCOPE_TEXT_MUST_BE_REMOVED");
