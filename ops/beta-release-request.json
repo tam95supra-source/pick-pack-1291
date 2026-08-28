@@ -1,6 +1,6 @@
 {
-  "stage": "PUBLISH",
-  "mode": "PUBLISH_EXACT_BYTES",
+  "stage": "pass_live",
+  "mode": "PASS_LIVE_EXACT_BYTES",
   "version_name": "0.4.2-beta.94",
   "version_code": 100,
   "base_version": "0.4.2-beta.93",
@@ -36,7 +36,7 @@
   "authority_change": "NONE",
   "scope": "beta94-report-columns-pda-exit-old-warning",
   "owner": "Nguyen Van Tam",
-  "live": false,
+  "live": true,
   "pre_ota_attempt": 2,
   "last_pre_ota_failure": "PDA_VERIFY_HARNESS_STABLE_GAS_HTTP_404_AFTER_EXACT_OTA_INSTALL",
   "candidate_locked": true,
@@ -56,5 +56,6 @@
     "Căn đều độ rộng cột giữa các bảng Báo cáo nhân sự và làm đường kẻ mảnh hơn.",
     "Chỉ đối chiếu tình trạng PDA khi phiên đang thực sự giữ PDA; phiên không có PDA ra ca trực tiếp.",
     "Đồng nhất cảnh báo phiên cũ chưa bắn ra bằng một nội dung ngắn gọn."
-  ]
+  ],
+  "publish_run_id": "33218314535"
 }
