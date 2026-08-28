@@ -81,14 +81,14 @@ Release $VERSION hoàn tất scope $(jq -r '.scope' "$R"); toàn bộ pre-OTA + 
 - Thứ tự công việc: Vị trí → User Pick → PDA → Bàn Pack → User Pack: PASS.
 - RESOURCE_CHANGE hiển thị dữ liệu Trước cập nhật / Sau cập nhật khi service có snapshot; bản ghi cũ fallback rõ ràng: PASS.
 - Diễn biến trong ca sắp xếp mới nhất → cũ nhất: PASS.
-- Sửa/xóa và các thao tác chỉnh sửa được gate bằng mật khẩu HH:mm hiện tại theo Asia/Ho_Chi_Minh: PASS.
+- Sửa/xóa và các thao tác chỉnh sửa được gate bằng mật khẩu HHmm hiện tại theo Asia/Ho_Chi_Minh: PASS.
 - SUPERADMIN thực tế được phép dùng thêm mật khẩu tài khoản cố định qua login verification; không hardcode secret: PASS.
 - OTA baseline → $VERSION exact bytes, SHA/size/signer/version và mở app: PASS.
 
 ## Lỗi/root cause/PASS path
-- Trước cập nhật bị “—”: Android renderer/payload parser không đọc đầy đủ snapshot; Service đã lưu before/after, không đổi backend.
+- Scope Beta86: bỏ polling UI 750 ms, chuyển refresh realtime sang event-driven/partial; không đổi backend/authority.
 - Candidate được build/sign đúng một lần từ exact source đã khóa; release harness nhận version từ request.
-- Fast Check đầu tiên lỗi cú pháp nối dòng Kotlin; sửa đúng điểm, run sau PASS.
+- Fast Check exact source PASS; verifier stale HH:mm đã được sửa sang HHmm và chạy VERIFY_ONLY trên exact locked candidate.
 - Không rebuild/resign candidate sau khi lock.
 
 ## Blocker
