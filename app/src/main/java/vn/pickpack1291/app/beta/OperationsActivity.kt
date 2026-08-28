@@ -723,7 +723,7 @@ class OperationsActivity : Activity() {
     // Beta84 OWNER confirmation policy: Vietnam HHmm with an inclusive ±2 minute tolerance.
     // The actual SUPERADMIN may alternatively authenticate with the fixed account password.
     private fun validActionTimePassword(value:String):Boolean{
-        if(!Regex("""\\d{4}""").matches(value))return false
+        if(!Regex("""\d{4}""").matches(value))return false
         val now=java.time.ZonedDateTime.now(ZoneId.of("Asia/Ho_Chi_Minh"))
         val formatter=DateTimeFormatter.ofPattern("HHmm")
         return (-2L..2L).any{delta->now.plusMinutes(delta).format(formatter)==value}
