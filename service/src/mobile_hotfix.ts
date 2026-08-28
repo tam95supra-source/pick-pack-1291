@@ -71,13 +71,36 @@ async function resourceOptions(db:D1Database,date:string,mnv:string):Promise<Rec
   const used=new Set(usedRows.filter(x=>x.mnv!==mnv).map(x=>`${x.resource_type}|${x.resource_id}`));
   const current=await db.prepare("SELECT pda_serial,user_pick,pack_table,user_pack FROM attendance_sessions WHERE mnv=?1 AND state='ACTIVE' ORDER BY business_date DESC,enter_at DESC LIMIT 1").bind(mnv).first<{pda_serial:string|null;user_pick:string|null;pack_table:string|null;user_pack:string|null}>();
 
-  const pdasRaw=(await db.prepare("SELECT resource_id,status_label,metadata_json FROM resources WHERE resource_type='PDA' AND available=1 ORDER BY resource_id").all<{resource_id:string;status_label:string;metadata_json:string}>()).results??[];
-  const pdas=pdasRaw.filter(x=>!busy.has(`PDA|${x.resource_id}`)||x.resource_id===current?.pda_serial).map(x=>{let m:Record<string,unknown>={};try{m=JSON.parse(x.metadata_json) as Record<string,unknown>;}catch{}return{serial:x.resource_id,last5:String(m["5 số cuối Seri"]||x.resource_id.slice(-5)),status:x.status_label};});
-  const picksRaw=(await db.prepare("SELECT resource_id FROM resources WHERE resource_type='USER_PICK' AND available=1 ORDER BY resource_id").all<{resource_id:string}>()).results??[];
-  const user_picks=picksRaw.map(x=>x.resource_id).filter(id=>(!busy.has(`USER_PICK|${id}`)&&!used.has(`USER_PICK|${id}`))||id===current?.user_pick);
-  const packsRaw=(await db.prepare("SELECT m.pack_table,m.shift,m.user_pack,m.available mapping_available,COALESCE(t.available,0) table_available,COALESCE(u.available,0) user_pack_available FROM resource_pack_map m LEFT JOIN resources t ON t.resource_type=\'PACK_TABLE\' AND t.resource_id=m.pack_table LEFT JOIN resources u ON u.resource_type=\'USER_PACK\' AND u.resource_id=m.user_pack ORDER BY m.pack_table,m.shift,m.user_pack").all<{pack_table:string;shift:string;user_pack:string;mapping_available:number;table_available:number;user_pack_available:number}>()).results??[];
-  const pack_tables=packsRaw.filter(x=>{const currentPair=x.pack_table===current?.pack_table&&x.user_pack===current?.user_pack;if(currentPair)return true;return Number(x.mapping_available)===1&&Number(x.table_available)===1&&Number(x.user_pack_available)===1&&!busy.has(`PACK_TABLE|${x.pack_table}`)&&!busy.has(`USER_PACK|${x.user_pack}`);}).map(x=>({table:x.pack_table,shift:x.shift,user_pack:x.user_pack}));
-  return{ok:true,business_date:date,pdas,user_picks,pack_tables,current};
+  const pdasRaw=(await db.prepare("SELECT resource_id,status_label,available,metadata_json FROM resources WHERE resource_type='PDA' ORDER BY resource_id").all<{resource_id:string;status_label:string;available:number;metadata_json:string}>()).results??[];
+  const pdas=pdasRaw.filter(x=>{
+    const isCurrent=x.resource_id===current?.pda_serial;
+    return isCurrent||(Number(x.available)===1&&!busy.has(`PDA|${x.resource_id}`));
+  }).map(x=>{let m:Record<string,unknown>={};try{m=JSON.parse(x.metadata_json) as Record<string,unknown>;}catch{}return{serial:x.resource_id,last5:String(m["5 số cuối Seri"]||x.resource_id.slice(-5)),status:x.status_label};});
+
+  const picksRaw=(await db.prepare("SELECT resource_id,available FROM resources WHERE resource_type='USER_PICK' ORDER BY resource_id").all<{resource_id:string;available:number}>()).results??[];
+  const user_picks:string[]=[];
+  const user_picks_reissue:Array<Record<string,unknown>>=[];
+  for(const x of picksRaw){
+    const id=x.resource_id,currentPick=id===current?.user_pick;
+    if(currentPick){user_picks.push(id);continue;}
+    if(Number(x.available)!==1||busy.has(`USER_PICK|${id}`))continue;
+    if(used.has(`USER_PICK|${id}`))user_picks_reissue.push({id,busy:false,used_today:true,duplicate_user:true,note:"TRÙNG USER"});
+    else user_picks.push(id);
+  }
+
+  const packsRaw=(await db.prepare("SELECT m.pack_table,m.shift,m.user_pack,m.available mapping_available,COALESCE(t.available,0) table_available,COALESCE(u.available,0) user_pack_available FROM resource_pack_map m LEFT JOIN resources t ON t.resource_type='PACK_TABLE' AND t.resource_id=m.pack_table LEFT JOIN resources u ON u.resource_type='USER_PACK' AND u.resource_id=m.user_pack ORDER BY m.pack_table,m.shift,m.user_pack").all<{pack_table:string;shift:string;user_pack:string;mapping_available:number;table_available:number;user_pack_available:number}>()).results??[];
+  const pack_tables:Array<Record<string,unknown>>=[];
+  const pack_tables_reissue:Array<Record<string,unknown>>=[];
+  for(const x of packsRaw){
+    const currentPair=x.pack_table===current?.pack_table&&x.user_pack===current?.user_pack;
+    const row={table:x.pack_table,shift:x.shift,user_pack:x.user_pack};
+    if(currentPair){pack_tables.push(row);continue;}
+    if(Number(x.mapping_available)!==1||Number(x.table_available)!==1||Number(x.user_pack_available)!==1)continue;
+    if(busy.has(`PACK_TABLE|${x.pack_table}`)||busy.has(`USER_PACK|${x.user_pack}`))continue;
+    if(used.has(`USER_PACK|${x.user_pack}`))pack_tables_reissue.push({...row,duplicate_user:true,note:"TRÙNG USER"});
+    else pack_tables.push(row);
+  }
+  return{ok:true,business_date:date,pdas,user_picks,user_picks_reissue,pack_tables,pack_tables_reissue,current};
 }
 
 async function employeeContext(env:Env,body:Record<string,unknown>):Promise<Response>{
@@ -91,7 +114,7 @@ async function employeeContext(env:Env,body:Record<string,unknown>):Promise<Resp
   const state=!session?"NOT_ENTERED":String(session.state)==="ACTIVE"?"ACTIVE":"ENDED";
   const sessionOut:Record<string,unknown>|null=session?{...session,work_choice:visibleWork(String(session.work_choice||""))}:null;
   const activeLabor=body.include_labor===true?await env.DB.prepare("SELECT labor_id,mnv,business_date,shift,labor_type,time_marker,state,start_at,end_at,note,deduct_staff,start_event_id,finish_event_id,version FROM labor_sessions WHERE business_date=?1 AND mnv=?2 AND state='OPEN' ORDER BY start_at DESC LIMIT 1").bind(date,mnv).first<Record<string,unknown>>():null;
-  const options=body.include_options===true&&state==="NOT_ENTERED"?await resourceOptions(env.DB,date,mnv):null;
+  const options=body.include_options===true?await resourceOptions(env.DB,date,mnv):null;
   return json({ok:true,source:"SERVICE_D1",business_date:date,employee:employeeJson(employee),state,session:sessionOut,active_labor:activeLabor,options});
 }
 
