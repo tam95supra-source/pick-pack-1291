@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 REQ=ops/beta-release-request.json
-jq -e '.stage=="BUILD_VERIFY" and .version_name=="0.4.2-beta.83" and .version_code==89 and .stable_publish=="FORBIDDEN" and .authority_change=="NONE" and .human_visual_pass==false' "$REQ" >/dev/null
+jq -e '.stage=="BUILD_VERIFY" and (.version_name|type=="string" and test("^0\\.4\\.2-beta\\.[0-9]+$")) and (.version_code|type=="number") and .stable_publish=="FORBIDDEN" and .authority_change=="NONE" and .human_visual_pass==false' "$REQ" >/dev/null
 SOURCE_SHA=$(jq -r '.source_sha' "$REQ");VERSION=$(jq -r '.version_name' "$REQ");CODE=$(jq -r '.version_code' "$REQ");PKG=$(jq -r '.package' "$REQ");EXPECTED_SIGNER=$(jq -r '.signer_sha256' "$REQ")
 STATE_SIGNER=$(grep -m1 '^- signer_sha256:' CURRENT_STATE.md | awk '{print $3}')
 test "$EXPECTED_SIGNER" = "$STATE_SIGNER"
@@ -33,13 +33,13 @@ PY
 for v in SIGNING_KEY_B64 SIGNING_STORE_PASSWORD SIGNING_KEY_PASSWORD SIGNING_ALIAS; do test -n "${!v:-}"; done
 gradle --no-daemon --build-cache --parallel :app:testBetaDebugUnitTest :app:assembleBetaDebug :app:assembleStableDebug :app:assembleBetaRelease
 BT="$ANDROID_SDK_ROOT/build-tools/36.0.0";U=app/build/outputs/apk/beta/release/app-beta-release-unsigned.apk
-test -f "$U";"$BT/aapt" dump badging "$U" > /tmp/beta83-badging.txt
-grep -q "package: name='$PKG'" /tmp/beta83-badging.txt
-grep -q "versionCode='$CODE'" /tmp/beta83-badging.txt
-grep -q "versionName='$VERSION'" /tmp/beta83-badging.txt
+test -f "$U";"$BT/aapt" dump badging "$U" > /tmp/beta-badging.txt
+grep -q "package: name='$PKG'" /tmp/beta-badging.txt
+grep -q "versionCode='$CODE'" /tmp/beta-badging.txt
+grep -q "versionName='$VERSION'" /tmp/beta-badging.txt
 KS="$RUNNER_TEMP/release.jks";printf '%s' "$SIGNING_KEY_B64" | base64 -d > "$KS"
 printf '%s' "$SIGNING_STORE_PASSWORD" > "$RUNNER_TEMP/store.pass";printf '%s' "$SIGNING_KEY_PASSWORD" > "$RUNNER_TEMP/key.pass"
-OUT=/tmp/beta83-candidate;rm -rf "$OUT";mkdir -p "$OUT"
+OUT=/tmp/beta-candidate;rm -rf "$OUT";mkdir -p "$OUT"
 APK="$OUT/pick-pack-1291-public-beta-$VERSION.apk"
 "$BT/apksigner" sign --ks "$KS" --ks-key-alias "$SIGNING_ALIAS" --ks-pass "file:$RUNNER_TEMP/store.pass" --key-pass "file:$RUNNER_TEMP/key.pass" --out "$APK" "$U"
 "$BT/apksigner" verify --verbose --print-certs "$APK" > "$OUT/cert.txt"
