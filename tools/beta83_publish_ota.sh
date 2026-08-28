@@ -6,7 +6,7 @@ rm -rf "$E";mkdir -p "$E"
 for n in GH_TOKEN GOOGLE_OAUTH_CLIENT_ID GOOGLE_OAUTH_CLIENT_SECRET GOOGLE_OAUTH_REFRESH_TOKEN GAS_DEPLOYMENT_ID GITHUB_REPOSITORY GITHUB_API_URL; do test -n "${!n:-}"; done
 
 VERSION=$(jq -r '.version_name' "$R");CODE=$(jq -r '.version_code' "$R");PREV=$(jq -r '.base_version' "$R")
-SOURCE=$(jq -r '.source_sha' "$R");SHA=$(jq -r '.apk_sha256' "$R");SIZE=$(jq -r '.apk_size' "$R");SIGNER=$(jq -r '.signer_sha256' "$R")
+SOURCE=$(jq -r '.source_sha' "$R");SHA=$(jq -r '.apk_sha256' "$R");SIZE=$(jq -r '.apk_size' "$R");SIGNER=$(jq -r '.signer_sha256' "$R")\nRELEASE_NOTES=$(jq -r '.release_notes | if type=="array" then map("• "+.)|join("\\n") else "" end' "$R");test -n "$RELEASE_NOTES"
 APK=/tmp/beta-candidate/pick-pack-1291-public-beta-$VERSION.apk
 META=/tmp/beta-candidate/release-meta.json
 VERIFY=/tmp/beta-verify/receipt.json
@@ -81,7 +81,7 @@ test "$(jq '.files|length' "$E/preexisting.json")" = 0
 META_JSON=$(jq -nc --arg n "$APK_NAME" --arg p "$FOLDER" '{name:$n,parents:[$p]}')
 curl -fsS --connect-timeout 15 --max-time 120 -X POST -H "Authorization: Bearer $ACCESS_TOKEN"   -F "metadata=$META_JSON;type=application/json;charset=UTF-8" -F "file=@$APK;type=application/vnd.android.package-archive"   'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,size' > "$E/upload.json"
 FILE_ID=$(jq -r '.id//empty' "$E/upload.json");test -n "$FILE_ID";echo "::add-mask::$FILE_ID"
-jq -nc --arg d "$VERSION exact OTA; SHA256 $SHA; candidate run $(jq -r '.candidate_run_id' "$R"); artifact $(jq -r '.candidate_artifact_id' "$R"); signer $SIGNER" '{description:$d}' > "$E/meta.json"
+jq -nc --arg d "$RELEASE_NOTES" '{description:$d}' > "$E/meta.json"
 curl -fsS --connect-timeout 15 --max-time 30 -X PATCH -H "Authorization: Bearer $ACCESS_TOKEN" -H 'Content-Type: application/json'   --data-binary @"$E/meta.json" "https://www.googleapis.com/drive/v3/files/$FILE_ID?fields=id,name,size,description" > "$E/meta-out.json"
 curl -fsS --connect-timeout 15 --max-time 30 -X POST -H "Authorization: Bearer $ACCESS_TOKEN" -H 'Content-Type: application/json'   -d '{"type":"anyone","role":"reader"}' "https://www.googleapis.com/drive/v3/files/$FILE_ID/permissions?fields=id,type,role" > "$E/permission.json" || true
 
