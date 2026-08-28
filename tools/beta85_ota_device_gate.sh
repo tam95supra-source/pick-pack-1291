@@ -15,7 +15,7 @@ adb root > "$OUT/adb-root.txt" 2>&1 || true;timeout 30s adb wait-for-device
 test "$(adb shell id -u 2>/dev/null|tr -d '\r')" = 0
 adb uninstall "$PKG" >/dev/null 2>&1 || true
 adb install "$OLD" > "$OUT/install-beta81.txt"
-adb shell dumpsys package "$PKG" > "$OUT/pkg81.txt";grep -Fq 'versionName=0.4.2-beta.83' "$OUT/pkg81.txt";grep -Eq 'versionCode=88([[:space:]]|$)' "$OUT/pkg81.txt"
+adb shell dumpsys package "$PKG" > "$OUT/pkg81.txt";grep -Fq 'versionName=0.4.2-beta.83' "$OUT/pkg81.txt";grep -Eq 'versionCode=89([[:space:]]|$)' "$OUT/pkg81.txt"
 adb shell appops set "$PKG" REQUEST_INSTALL_PACKAGES allow >/dev/null 2>&1 || true
 adb install -r "$VERIFY_HARNESS_APK" > "$OUT/install-harness.txt"
 URL_B64=$(printf '%s' "$OTA_URL"|base64 -w0)
@@ -36,6 +36,13 @@ test "$(sha256sum "$OUT/installed.apk"|awk '{print $1}')" = "$SHA";test "$(stat 
 "$ANDROID_SDK_ROOT/build-tools/36.0.0/apksigner" verify --print-certs "$OUT/installed.apk" > "$OUT/cert.txt"
 INST_SIGNER=$(grep -m1 'Signer #1 certificate SHA-256 digest:' "$OUT/cert.txt"|sed 's/.*digest: //'|tr 'A-F' 'a-f'|tr -d ':[:space:]');test "$INST_SIGNER" = "$SIGNER"
 adb shell am start -W -n "$PKG/vn.pickpack1291.app.beta.FullBetaActivity" > "$OUT/launch.txt";! grep -Eq 'Error type|Permission Denial' "$OUT/launch.txt"
+CLEANED=0
+for _ in $(seq 1 30); do
+  if ! adb shell test -e "$DOWN"; then CLEANED=1;break;fi
+  sleep .2
+done
+test "$CLEANED" = 1
+echo 'managed_ota_apk_cleanup_after_launch=PASS' > "$OUT/storage-cleanup.txt"
 
 RAW=$(printf '%s' "$GAS_DEPLOYMENT_ID"|tr -d '\r\n\t ');DEP="$RAW";if [[ "$RAW" == *"/s/"* ]]; then DEP="${RAW#*/s/}";DEP="${DEP%%/*}";fi
 GAS_URL="https://script.google.com/macros/s/$DEP/exec";echo "::add-mask::$GAS_URL"
