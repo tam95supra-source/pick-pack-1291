@@ -121,7 +121,7 @@ jobs:
   verify:
     name: visual-pda-verify
     needs: [route,candidate]
-    if: ${{ always() && needs.route.result == 'success' && (needs.route.outputs.stage == 'VERIFY_ONLY' || (needs.route.outputs.stage == 'BUILD_VERIFY' && needs.candidate.result == 'success')) }}
+    if: ${{ always() && needs.route.result == 'success' && needs.route.outputs.stage == 'VERIFY_ONLY' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     env:
