@@ -296,6 +296,18 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     }
   }
 
+  private void verifySessionExitGuard(Activity a)throws Exception{
+    Method m=a.getClass().getDeclaredMethod("usableExitSession",JSONObject.class,String.class);
+    m.setAccessible(true);
+    JSONObject blank=new JSONObject().put("session_id","").put("mnv","93001").put("state","ACTIVE").put("version",1);
+    JSONObject wrong=new JSONObject().put("session_id","beta93-active").put("mnv","93002").put("state","ACTIVE").put("version",1);
+    JSONObject valid=new JSONObject().put("session_id","beta93-active").put("mnv","93001").put("state","ACTIVE").put("version",1);
+    require(!((Boolean)m.invoke(a,blank,"93001")).booleanValue(),"EXIT_GUARD_ACCEPTED_BLANK_SESSION_ID");
+    require(!((Boolean)m.invoke(a,wrong,"93001")).booleanValue(),"EXIT_GUARD_ACCEPTED_WRONG_MNV");
+    require(((Boolean)m.invoke(a,valid,"93001")).booleanValue(),"EXIT_GUARD_REJECTED_VALID_ACTIVE_SESSION");
+    mark("session_exit_identity_guard");
+  }
+
   private void mark(String key){
     target.getSharedPreferences("pp_beta83_verify",Context.MODE_PRIVATE).edit()
       .putBoolean(key,true).putLong(key+"_at",System.currentTimeMillis()).commit();
@@ -503,7 +515,8 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     verifyFirstLogMetadata();
     seedAuth();seedService();seedData(mnv,mnv2,mnv3);
 
-    open("BUSINESS");
+    Activity business=open("BUSINESS");
+    verifySessionExitGuard(business);
     waitText("Ca 1",false,false,12000L);
     waitText("Ca HC",false,false,12000L);
     waitText("Ca 2",false,false,12000L);
