@@ -128,7 +128,7 @@ jobs:
   service_live:
     name: service-live-regression
     needs: [route,candidate]
-    if: ${{ always() && needs.route.result == 'success' && needs.route.outputs.stage == 'BUILD_VERIFY' && needs.candidate.result == 'success' && needs.route.outputs.service_gate_required == 'true' }}
+    if: ${{ always() && needs.route.result == 'success' && needs.route.outputs.service_gate_required == 'true' && (needs.route.outputs.stage == 'VERIFY_ONLY' || (needs.route.outputs.stage == 'BUILD_VERIFY' && needs.candidate.result == 'success')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     env:
@@ -147,13 +147,13 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - name: Typecheck exact service source
+      - name: Generate Worker types and typecheck exact service source
         shell: bash
         run: |
           set -euo pipefail
           git diff --quiet "$SERVICE_SOURCE_SHA" HEAD -- app service google-apps-script
           npm --prefix service install --ignore-scripts --no-audit --no-fund
-          npm --prefix service run typecheck
+          npm --prefix service run check
       - name: Deploy and verify exact service source with automatic recovery
         shell: bash
         run: |
