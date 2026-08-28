@@ -66,7 +66,8 @@ class OperationsActivity : Activity() {
                     "BUSINESS" -> businessRealtimeRefresh?.invoke(changedDates)
                     "REPORT" -> reportRealtimeRefresh?.invoke(changedDates)
                     "HISTORY" -> historyRealtimeRefresh?.invoke(changedDates)
-                    "EMPLOYEE", "EMPLOYEE_LOADING", "PDA_EXCHANGE" -> Unit // Interactive forms are never rebuilt by background sync.
+                    "EMPLOYEE" -> employeeTimelineRealtimeRefresh?.invoke(changedDates) // Timeline only; never rebuild the interactive employee form.
+                    "EMPLOYEE_LOADING", "PDA_EXCHANGE" -> Unit
                 }
             }
         }
@@ -103,6 +104,7 @@ class OperationsActivity : Activity() {
     private var listsRealtimeRefresh: (() -> Unit)? = null
     private var reportRealtimeRefresh: ((Set<String>) -> Unit)? = null
     private var historyRealtimeRefresh: ((Set<String>) -> Unit)? = null
+    private var employeeTimelineRealtimeRefresh: ((Set<String>) -> Unit)? = null
     private var lastPingMs: Long? = null
     private var lastStatusUpdateAt: Long = 0L
     private var contentHost: FrameLayout? = null
@@ -487,6 +489,7 @@ class OperationsActivity : Activity() {
     }
 
     private fun renderEmployee(ctx: JSONObject, masters: JSONObject?) {
+        employeeTimelineRealtimeRefresh=null
         screenState="EMPLOYEE"
         val e=ctx.optJSONObject("employee")?:JSONObject();val state=ctx.optString("state");val currentMnv=e.optString("mnv");liveEmployeeMnv=currentMnv;lastEmployeeRenderSignature=employeeRenderSignature(ctx,masters)
         val root=column(bg);root.addView(appBar("QUÉT QR NHÂN SỰ"));val body=column(bg).apply{setPadding(dp(12),dp(8),dp(12),dp(58))}
@@ -678,11 +681,7 @@ class OperationsActivity : Activity() {
             if(type=="ATTENDANCE_EXIT_DELETED")return "Xóa mốc ra ca ${formatIso(p.optString("before_exit_at"))} • Lý do: ${p.optString("reason").ifBlank{"—"}}"
             if(type=="RESOURCE_CHANGE"){
                 val delta=sessionWorkChangeDetail(p);val before=p.optJSONObject("before");val after=p.optJSONObject("after")
-                if(before!=null||after!=null){
-                    val beforeText=before?.let{sessionWorkSnapshotDetail(it).ifBlank{sessionWorkDetail(it)}}.orEmpty().ifBlank{"Không có dữ liệu trước"}
-                    val afterText=after?.let{sessionWorkSnapshotDetail(it).ifBlank{sessionWorkDetail(it)}}.orEmpty().ifBlank{"Không có dữ liệu sau"}
-                    return "Trước cập nhật: $beforeText\nSau cập nhật: $afterText${if(delta.isNotBlank())"\nThay đổi: $delta" else ""}"
-                }
+                if(before!=null||after!=null)return delta
                 val current=sessionWorkSnapshotDetail(p).ifBlank{sessionWorkDetail(p)}
                 return listOfNotNull(if(delta.isNotBlank())"Thay đổi: $delta" else null,if(current.isNotBlank())"Sau cập nhật: $current" else null,e.optString("detail").takeIf{it.isNotBlank()}).distinct().joinToString("\n").ifBlank{"Không có chi tiết thay đổi trong bản ghi cũ."}
             }
@@ -692,6 +691,7 @@ class OperationsActivity : Activity() {
         for(i in 0 until events.length()){
             val e=events.optJSONObject(i)?:continue;val p=payload(e);val who=e.optString("mnv").ifBlank{p.optString("mnv")}.trim();if(who!=mnv||!sameSession(e,p))continue
             val type=e.optString("event_type").uppercase();if(type !in allowed)continue
+            if(type=="RESOURCE_CHANGE"&&(p.optJSONObject("before")!=null||p.optJSONObject("after")!=null)&&sessionWorkChangeDetail(p).isBlank())continue
             val copy=JSONObject(e.toString()).put("timeline_source","CANONICAL").put("mnv",mnv).put("detail",detail(type,e,p)).put("actor",e.optString("actor").ifBlank{e.optString("actor_id")})
             if(copy.optString("at_iso").isBlank())copy.put("at_iso",e.optString("committed_at").ifBlank{e.optString("occurred_at")})
             val id=copy.optString("event_id").ifBlank{"canonical:$date:$i:${copy.optString("at_iso")}"};merged[id]=copy
@@ -702,6 +702,7 @@ class OperationsActivity : Activity() {
             val eventIso=body.optString("created_at").ifBlank{body.optString("updated_at").ifBlank{body.optString("at_iso").ifBlank{p.optString("created_at")}}};val queuedAt=local.optLong("queued_at",0L);val eventMs=runCatching{Instant.parse(eventIso).toEpochMilli()}.getOrDefault(queuedAt)
             if(sid.isBlank()&&enterMs>0L&&eventMs>0L&&(eventMs<enterMs||eventMs>exitMs))continue
             val action=body.optString("action").trim().lowercase();val explicit=body.optString("event_type").trim().uppercase();val type=when(explicit){"ENTER"->"ATTENDANCE_ENTER";"RESOURCE"->"RESOURCE_CHANGE";"EXIT"->"ATTENDANCE_EXIT";in allowed->explicit;else->when(action){"enter"->"ATTENDANCE_ENTER";"resource_change"->"RESOURCE_CHANGE";"labor_start"->"LABOR_START";"labor_finish"->"LABOR_FINISH";"exit"->"ATTENDANCE_EXIT";else->""}};if(type.isBlank())continue
+            if(type=="RESOURCE_CHANGE"&&(p.optJSONObject("before")!=null||p.optJSONObject("after")!=null)&&sessionWorkChangeDetail(p).isBlank())continue
             val localError=local.optString("error").ifBlank{local.optString("last_error")};val existing=merged[id];if(existing!=null){existing.put("local_status",local.optString("status")).put("local_error",localError).put("local_queued_at",queuedAt);continue}
             val label=body.optString("label").ifBlank{when(type){"ATTENDANCE_ENTER"->"Vào ca";"RESOURCE_CHANGE"->"Cập nhật công việc";"LABOR_START"->"Bắt đầu công nhật";"LABOR_FINISH"->"Hoàn thành công nhật";"ATTENDANCE_EXIT"->"Ra ca";else->action}}
             val actor=body.optString("actor_name").ifBlank{body.optString("actor").ifBlank{body.optString("actor_id").ifBlank{"Thiết bị này"}}}
@@ -752,6 +753,20 @@ class OperationsActivity : Activity() {
             }
             body.addView(card,matchWrap());body.addView(gap(3))
         }
+    }
+
+    private fun addRealtimeSessionTimeline(body:LinearLayout,mnv:String,ses:JSONObject){
+        val host=column(bg)
+        val date=ses.optString("business_date").ifBlank{operationalStore.businessDate()}
+        fun renderTimeline(){
+            host.suppressLayout(true)
+            try{host.removeAllViews();addSessionTimeline(host,mnv,ses)}finally{host.suppressLayout(false)}
+        }
+        employeeTimelineRealtimeRefresh={dates->
+            if(screenState=="EMPLOYEE"&&liveEmployeeMnv==mnv&&(date.isBlank()||date in dates))renderTimeline()
+        }
+        renderTimeline()
+        body.addView(host,matchWrap())
     }
 
     // S49_BETA43_SESSION_ADMIN_CORRECTIONS
@@ -1070,7 +1085,7 @@ class OperationsActivity : Activity() {
         body.addView(actions,matchWrap());body.addView(gap(5));body.addView(exit,matchWrap());body.addView(gap(8))
         body.addView(sessionInfoPanel("THÔNG TIN CA",shiftInfoRows(s,false),false));body.addView(gap(7))
         body.addView(sessionInfoPanel("THÔNG TIN CÔNG VIỆC",workInfoRows(s,false,ctx.optJSONObject("employee")),false));body.addView(gap(8))
-        addSessionTimeline(body,mnv,s)
+        addRealtimeSessionTimeline(body,mnv,s)
     }
 
 
@@ -1078,7 +1093,7 @@ class OperationsActivity : Activity() {
         val s=ctx.optJSONObject("session")?:JSONObject();val mnv=s.optString("mnv")
         body.addView(sessionInfoPanel("THÔNG TIN CA",shiftInfoRows(s,true),true));body.addView(gap(7))
         body.addView(sessionInfoPanel("THÔNG TIN CÔNG VIỆC",workInfoRows(s,true,ctx.optJSONObject("employee")),true));body.addView(gap(8))
-        addSessionTimeline(body,mnv,s);body.addView(gap(8))
+        addRealtimeSessionTimeline(body,mnv,s);body.addView(gap(8))
         if(isAdmin()){val act=row(bg);act.addView(smallButton("Sửa giờ vào",navy).apply{setOnClickListener{editAttendanceTime(ctx,"enter_at")}},LinearLayout.LayoutParams(0,dp(40),1f).apply{marginEnd=dp(2)});act.addView(smallButton("Sửa giờ ra",teal).apply{setOnClickListener{editAttendanceTime(ctx,"exit_at")}},LinearLayout.LayoutParams(0,dp(40),1f).apply{marginStart=dp(2)});body.addView(act,matchWrap());body.addView(gap(5));body.addView(primary("XÓA GHI NHẬN RA CA",red){deleteExitRecord(ctx)},matchWrap())}
         body.addView(gap(5));body.addView(primary("XÓA TOÀN BỘ PHIÊN",red){deleteSessionWork(ctx)},matchWrap())
     }
