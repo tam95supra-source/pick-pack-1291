@@ -162,6 +162,7 @@ class OperationsActivity : Activity() {
         email = intent.getStringExtra("email") ?: api.restoredAccount()?.optString("email").orEmpty()
         initialMnv = intent.getStringExtra("mnv") ?: ""
         if (api.token == null) { finish(); return }
+        installSystemBackHandler()
         when(module){
             "BUSINESS"->businessHome()
             "LABOR"->{module="BUSINESS";laborHome()}
@@ -2018,10 +2019,14 @@ class OperationsActivity : Activity() {
     }
 
     private fun refreshMasterCache(){cacheApi.call("master_snapshot"){r->if(r.ok&&r.json!=null)MasterDataCache.save(applicationContext,r.json)}}
-    @Suppress("DEPRECATION")
-    override fun onBackPressed(){
-        if(!isRootScreen())navigateBack()
+    private fun installSystemBackHandler(){
+        if(Build.VERSION.SDK_INT>=33){
+            onBackInvokedDispatcher.registerOnBackInvokedCallback(android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT){handleBackNavigation()}
+        }
     }
+    private fun handleBackNavigation(){if(!isRootScreen())navigateBack()}
+    @Suppress("DEPRECATION")
+    override fun onBackPressed(){handleBackNavigation()}
 
     private fun navigateBack(){
         when(screenState){
@@ -2488,7 +2493,7 @@ raw.contains("PDA_STATUS_MISMATCH_NOTIFY_SPECIALIST")->"Tình trạng PDA hiện
         background=GradientDrawable().apply{setColor(fill);cornerRadius=dp(10).toFloat();setStroke(dp(2),Color.argb(220,Color.red(fg),Color.green(fg),Color.blue(fg)))}
     }
     private fun host(content:View):View{
-        val root=EdgeSwipeBackLayout(this){if(!isRootScreen())navigateBack()}.apply{setBackgroundColor(bg)}
+        val root=EdgeSwipeBackLayout(this){handleBackNavigation()}.apply{setBackgroundColor(bg)}
         val contentFrame=FrameLayout(this).apply{addView(content,FrameLayout.LayoutParams(-1,-1))}
         val navFrame=FrameLayout(this).apply{setPadding(dp(8),0,dp(8),0);addView(bottomNav(),FrameLayout.LayoutParams(-1,-1))}
         contentHost=contentFrame;navHost=navFrame

@@ -32,8 +32,8 @@ android {
         create("beta") {
             dimension = "channel"
             applicationId = "vn.pickpack1291.app.beta.publicbeta"
-            versionCode = 94
-            versionName = "0.4.2-beta.88"
+            versionCode = 95
+            versionName = "0.4.2-beta.89"
             manifestPlaceholders["appLabel"] = "Pick Pack 1291 Beta"
             buildConfigField("String", "CHANNEL", "\"BETA\"")
         }
@@ -73,6 +73,7 @@ dependencies {
 // Firebase client identifiers are injected at build time and default blank so source never contains project config.
 // GSHEET_API_URL remains public discovery/fallback configuration and manual update lookup path; no Service URL is compiled into APK.
 // Signing material remains outside this repository and the Android signer is owner-locked.
+// Beta89: preserve uploaded log metadata, API36 system Back at root/child screens, canonical before/after payload projection, and same-session resource validation for PDA exchange/return. Stable remains isolated and unchanged.
 // Beta88: owner-approved navigation, staff identity, exact audit before/after, reconciliation detail, attendance card, PDA-return projection, and Pick-account display fixes. Stable remains isolated and unchanged.
 // Beta87: owner UI/data correctness fixes: action placement, Pack pair validation, editable delete reason, authoritative before/after audit, header sync action, compact timeline, and report cleanup. Stable remains isolated and unchanged.
 // Beta86: preserve the current UI while making realtime refresh event-driven and partial to reduce main-thread churn/jank. Stable remains isolated and unchanged.\n// Beta85: correct HHmm numeric validation after Beta84 pre-OTA rejection; keeps Beta84 four owner fixes. Stable remains isolated and unchanged.

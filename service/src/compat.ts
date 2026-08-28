@@ -11,8 +11,8 @@ interface SessionJoinedRow extends SessionRow {
   emp_full_name:string|null; emp_phone:string|null; emp_main_position:string|null; emp_supplier:string|null; emp_department:string|null; emp_site:string|null; emp_warehouse:string|null; emp_start_date:string|null; emp_note:string|null;
 }
 interface LaborRow { labor_id:string; mnv:string; business_date:string; shift:string; labor_type:string; time_marker:string; state:string; start_at:string|null; end_at:string|null; note:string; deduct_staff:number; start_event_id:string; finish_event_id:string|null; version:number; }
-interface CompatEvent { event_id:string; mnv:string; full_name:string; shift:string; event_type:string; label:string; at:string; at_iso:string; actor:string; detail:string; authority_seq:number; }
-interface EventRaw { event_id:string; business_date:string; event_type:string; actor_id:string; committed_at:string; authority_seq:number; payload_json:string; }
+interface CompatEvent { event_id:string; mnv:string; full_name:string; shift:string; event_type:string; label:string; at:string; at_iso:string; actor:string; actor_role:string; device_id:string; origin:string; detail:string; authority_seq:number; payload_json:string; }
+interface EventRaw { event_id:string; business_date:string; event_type:string; actor_id:string; actor_role:string; device_id:string; origin:string; committed_at:string; authority_seq:number; payload_json:string; }
 interface RevisionRow { business_date:string; sequence_no:number; max_seq:number|null; }
 
 const REPORT_ROWS=["Trưởng nhóm","Chuyên viên","Tổ trưởng","Điều phối khu pack","Điều phối khu chờ xuất","Kéo hàng","5S","Picker","Packer","Phúc Long"];
@@ -84,7 +84,7 @@ async function loadDaysBulk(db:D1Database,wanted:string[],rev:Record<string,numb
     e.full_name AS emp_full_name,e.phone AS emp_phone,e.main_position AS emp_main_position,e.supplier AS emp_supplier,e.department AS emp_department,e.site AS emp_site,e.warehouse AS emp_warehouse,e.start_date AS emp_start_date,e.note AS emp_note
     FROM attendance_sessions s LEFT JOIN employees e ON e.mnv=s.mnv WHERE s.business_date IN (${marks}) ORDER BY s.business_date,s.mnv`;
   const laborSql=`SELECT labor_id,mnv,business_date,shift,labor_type,time_marker,state,start_at,end_at,note,deduct_staff,start_event_id,finish_event_id,version FROM labor_sessions WHERE business_date IN (${marks}) ORDER BY business_date,start_at`;
-  const eventSql=`SELECT event_id,business_date,event_type,actor_id,committed_at,authority_seq,payload_json FROM events WHERE business_date IN (${marks}) ORDER BY business_date,authority_seq`;
+  const eventSql=`SELECT event_id,business_date,event_type,actor_id,actor_role,device_id,origin,committed_at,authority_seq,payload_json FROM events WHERE business_date IN (${marks}) ORDER BY business_date,authority_seq`;
   const [sessionsRaw,laborRaw,eventRaw]=await Promise.all([
     db.prepare(sessionSql).bind(...wanted).all<SessionJoinedRow>(),
     db.prepare(laborSql).bind(...wanted).all<LaborRow>(),
@@ -98,7 +98,7 @@ async function loadDaysBulk(db:D1Database,wanted:string[],rev:Record<string,numb
   for(const l of laborRaw.results??[]){const list=laborByDate.get(l.business_date)??[];list.push(l);laborByDate.set(l.business_date,list);}
   for(const e of eventRaw.results??[]){
     let p:Record<string,unknown>={};try{p=JSON.parse(e.payload_json) as Record<string,unknown>;}catch{}const mnv=String(p.mnv??""),key=`${e.business_date}|${mnv}`,session=sessionByKey.get(key),emp=staff.get(key);
-    const item:CompatEvent={event_id:e.event_id,mnv,full_name:emp?.full_name??String(p.target_label??""),shift:String(session?.shift??p.shift??""),event_type:e.event_type,label:labelFor(e.event_type),at:e.committed_at,at_iso:e.committed_at,actor:e.actor_id,detail:String(p.note??p.labor_type??p.detail??""),authority_seq:e.authority_seq};const list=eventsByDate.get(e.business_date)??[];list.push(item);eventsByDate.set(e.business_date,list);
+    const item:CompatEvent={event_id:e.event_id,mnv,full_name:emp?.full_name??String(p.target_label??""),shift:String(session?.shift??p.shift??""),event_type:e.event_type,label:labelFor(e.event_type),at:e.committed_at,at_iso:e.committed_at,actor:e.actor_id,actor_role:e.actor_role??"",device_id:e.device_id??"",origin:e.origin??"SERVICE",detail:String(p.note??p.labor_type??p.detail??""),authority_seq:e.authority_seq,payload_json:e.payload_json};const list=eventsByDate.get(e.business_date)??[];list.push(item);eventsByDate.set(e.business_date,list);
   }
   return wanted.map(date=>{
     const sessions=(sessionsByDate.get(date)??[]) as Array<{mnv:string;shift:string;work_choice:string;employee_snapshot:Employee}>,labor=laborByDate.get(date)??[],events=eventsByDate.get(date)??[];
