@@ -322,10 +322,12 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     JSONObject scalarBefore=new JSONObject().put("work_choice","PICK").put("pda_serial","PDA-SCALAR-BEFORE").put("user_pick","PICK-SCALAR-BEFORE").put("pack_table","TABLE-SCALAR-BEFORE").put("user_pack","PACK-SCALAR-BEFORE");
     JSONObject scalarAfter=new JSONObject().put("work_choice","PACK").put("pda_serial","PDA-SCALAR-AFTER").put("user_pick","PICK-SCALAR-AFTER").put("pack_table","TABLE-SCALAR-AFTER").put("user_pack","PACK-SCALAR-AFTER");
     JSONObject scalarPayload=new JSONObject().put("session_id","beta83-current-active").put("mnv",mnv).put("mutation_kind","EDIT").put("before",scalarBefore).put("after",scalarAfter);
+    JSONObject noopPayload=new JSONObject().put("session_id","beta83-current-active").put("mnv",mnv).put("mutation_kind","EDIT").put("before",new JSONObject(scalarAfter.toString())).put("after",new JSONObject(scalarAfter.toString()));
     JSONArray events=new JSONArray()
       .put(new JSONObject().put("event_id","b83-enter").put("event_type","ATTENDANCE_ENTER").put("session_id","beta83-current-active").put("mnv",mnv).put("actor","admin").put("committed_at",today+"T01:01:00Z").put("payload_json",new JSONObject().put("session_id","beta83-current-active").put("mnv",mnv).toString()))
       .put(new JSONObject().put("event_id","b83-change").put("event_type","RESOURCE_CHANGE").put("session_id","beta83-current-active").put("mnv",mnv).put("actor","admin").put("committed_at",today+"T01:22:00Z").put("payload_json",changePayload.toString()))
-      .put(new JSONObject().put("event_id","b88-scalar-change").put("event_type","RESOURCE_CHANGE").put("session_id","beta83-current-active").put("mnv",mnv).put("actor","admin").put("committed_at",today+"T01:23:00Z").put("payload_json",scalarPayload.toString()));
+      .put(new JSONObject().put("event_id","b88-scalar-change").put("event_type","RESOURCE_CHANGE").put("session_id","beta83-current-active").put("mnv",mnv).put("actor","admin").put("committed_at",today+"T01:23:00Z").put("payload_json",scalarPayload.toString()))
+      .put(new JSONObject().put("event_id","b91-noop-change").put("event_type","RESOURCE_CHANGE").put("session_id","beta83-current-active").put("mnv",mnv).put("actor","NOOP-ACTOR-B91").put("committed_at",today+"T01:24:00Z").put("payload_json",noopPayload.toString()));
     saveDay.invoke(store,new JSONObject().put("business_date",today).put("day_revision",83001L)
       .put("sessions",new JSONArray().put(a).put(b).put(c).put(leakedOld))
       .put("events",events).put("labor",new JSONArray()));
@@ -382,7 +384,7 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     shot(tag+"-03-employee-order");
 
     showTextOnScreen("DIỄN BIẾN CÔNG VIỆC TRONG CA",12000L);
-    showTextOnScreen("Trước cập nhật",12000L);
+    showTextOnScreen("PDA: PDA-SCALAR-BEFORE → PDA-SCALAR-AFTER",12000L);
     shot(tag+"-04-timeline");
 
     open("REPORT");
@@ -514,22 +516,22 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     shot(tag+"-09-beta83-employee-order");
 
     showTextOnScreen("DIỄN BIẾN CÔNG VIỆC TRONG CA",12000L);
-    waitText("Trước cập nhật: Vị trí: Pick",false,false,12000L);
-    waitText("User Pick: PICK-BEFORE",false,false,12000L);
-    waitText("PDA: PDA-BEFORE",false,false,12000L);
-    waitText("Bàn Pack: TABLE-BEFORE",false,false,12000L);
-    waitText("User Pack: PACK-BEFORE",false,false,12000L);
-    waitText("Sau cập nhật: Vị trí: Pack",false,false,12000L);
-    waitText("User Pick: PICK-AFTER",false,false,12000L);
+    waitText("Công việc trong ca: Pick → Pack",false,false,12000L);
+    waitText("User Pick: PICK-BEFORE → PICK-AFTER",false,false,12000L);
+    waitText("PDA: PDA-BEFORE → PDA-AFTER",false,false,12000L);
+    waitText("Bàn Pack: TABLE-BEFORE → TABLE-AFTER",false,false,12000L);
+    waitText("User Pack: PACK-BEFORE → PACK-AFTER",false,false,12000L);
+    require(findText("Trước cập nhật:",false,false)==null,"UNCHANGED_FULL_BEFORE_SNAPSHOT_VISIBLE");
+    require(findText("Sau cập nhật:",false,false)==null,"UNCHANGED_FULL_AFTER_SNAPSHOT_VISIBLE");
+    require(findText("NOOP-ACTOR-B91",false,false)==null,"NOOP_RESOURCE_CHANGE_VISIBLE");
     int newer=treeIndex("CẬP NHẬT CÔNG VIỆC"),older=treeIndex("VÀO CA");
     require(newer>=0&&older>=0&&newer<older,"TIMELINE_NOT_NEWEST_FIRST:"+newer+":"+older);
     require(findText("STALE-PDA-BEFORE",false,false)==null,"STALE_SCALAR_BEFORE_RENDERED");
     require(findText("STALE-PDA-AFTER",false,false)==null,"STALE_SCALAR_AFTER_RENDERED");
-    waitText("PDA: PDA-SCALAR-BEFORE",false,false,12000L);
-    waitText("PDA: PDA-SCALAR-AFTER",false,false,12000L);
-    mark("before_after_visible");mark("timeline_newest_first");mark("assignment_snapshot_authoritative");mark("scalar_snapshot_fallback");
+    waitText("PDA: PDA-SCALAR-BEFORE → PDA-SCALAR-AFTER",false,false,12000L);
+    mark("before_after_visible");mark("timeline_changed_fields_only");mark("timeline_newest_first");mark("assignment_snapshot_authoritative");mark("scalar_snapshot_fallback");
     shot(tag+"-10-beta83-timeline");
-    showTextOnScreen("Trước cập nhật",12000L);
+    showTextOnScreen("PDA: PDA-SCALAR-BEFORE → PDA-SCALAR-AFTER",12000L);
     shot(tag+"-10b-beta87-timeline-card");
 
     showTextOnScreen("Sửa",10000L);
