@@ -40,10 +40,20 @@ adb shell am start -W -n "$PKG/vn.pickpack1291.app.beta.FullBetaActivity" > "$OU
 
 RAW=$(printf '%s' "$GAS_DEPLOYMENT_ID"|tr -d '\r\n\t ');DEP="$RAW";if [[ "$RAW" == *"/s/"* ]]; then DEP="${RAW#*/s/}";DEP="${DEP%%/*}";fi
 GAS_URL="https://script.google.com/macros/s/$DEP/exec";echo "::add-mask::$GAS_URL"
+gas(){
+  local body="$1" out="$2" a
+  for a in 0 1 2; do
+    if curl -fsSL --connect-timeout 15 --max-time 35 -H 'content-type: application/json' "$GAS_URL" --data-binary "$body" > "$out" \
+      && jq -e '.ok==true' "$out" >/dev/null 2>&1; then return 0; fi
+    [[ "$a" -lt 2 ]] || break
+    sleep $((2+a*4))
+  done
+  return 1
+}
 update(){
   local ch="$1" current="$2" out="$3" body
   body=$(jq -nc --arg ch "$ch" --arg current "$current" '{action:"update_check",channel:$ch,current_version:$current}')
-  curl -fsSL --retry 2 --retry-delay 2 --connect-timeout 15 --max-time 35 -H 'content-type: application/json' "$GAS_URL" --data-binary "$body" > "$out"
+  gas "$body" "$out"
 }
 update BETA "$BASE" "$OUT/beta-old.json";jq -e --arg v "$VERSION" --arg h "$SHA" --argjson z "$SIZE" '.ok==true and .available==true and .version_name==$v and .sha256==$h and .size==$z' "$OUT/beta-old.json" >/dev/null
 update BETA "$VERSION" "$OUT/beta-current.json";jq -e --arg v "$VERSION" '.ok==true and .available==false and .version_name==$v' "$OUT/beta-current.json" >/dev/null
