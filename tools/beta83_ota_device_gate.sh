@@ -32,7 +32,7 @@ test "$UPDATED" = 1;kill "$PID" >/dev/null 2>&1 || true;wait "$PID" || true
 DOWN="/sdcard/Android/data/$PKG/files/Download/pick-pack-1291-beta-$VERSION.apk"
 adb pull "$DOWN" "$OUT/ota-downloaded.apk" >/dev/null
 test "$(sha256sum "$OUT/ota-downloaded.apk"|awk '{print $1}')" = "$SHA";test "$(stat -c '%s' "$OUT/ota-downloaded.apk")" = "$SIZE"
-BASE=$(adb shell pm path "$PKG"|head -n1|sed 's/^package://'|tr -d '\r');test -n "$BASE";adb pull "$BASE" "$OUT/installed.apk" >/dev/null
+INSTALLED_APK_PATH=$(adb shell pm path "$PKG"|head -n1|sed 's/^package://'|tr -d '\r');test -n "$INSTALLED_APK_PATH";adb pull "$INSTALLED_APK_PATH" "$OUT/installed.apk" >/dev/null
 test "$(sha256sum "$OUT/installed.apk"|awk '{print $1}')" = "$SHA";test "$(stat -c '%s' "$OUT/installed.apk")" = "$SIZE"
 "$ANDROID_SDK_ROOT/build-tools/36.0.0/apksigner" verify --print-certs "$OUT/installed.apk" > "$OUT/cert.txt"
 INST_SIGNER=$(grep -m1 'Signer #1 certificate SHA-256 digest:' "$OUT/cert.txt"|sed 's/.*digest: //'|tr 'A-F' 'a-f'|tr -d ':[:space:]');test "$INST_SIGNER" = "$SIGNER"
