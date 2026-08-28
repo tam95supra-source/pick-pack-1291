@@ -23,7 +23,18 @@ object UpdateManager {
     private const val AUTO_DEDUP_MS=30_000L
     private const val PREFS="pp1291_pending_update_v1"
     data class PendingUpdate(val version:String,val url:String,val sha:String,val notes:String,val versionCode:Int)
+    data class LatestRelease(val version:String,val notes:String,val versionCode:Int,val publishedAt:String)
     private fun prefs(c:Context)=c.getSharedPreferences(PREFS,Context.MODE_PRIVATE)
+    private fun clearPending(c:Context){prefs(c).edit().remove("version").remove("url").remove("sha").remove("notes").remove("version_code").apply()}
+    fun latestInfo(c:Context):LatestRelease?{
+        val p=prefs(c);val version=p.getString("latest_version","").orEmpty().trim()
+        if(version.isBlank())return null
+        return LatestRelease(version,p.getString("latest_notes","").orEmpty(),p.getInt("latest_version_code",0),p.getString("latest_published_at","").orEmpty())
+    }
+    private fun saveLatest(c:Context,version:String,notes:String,code:Int,publishedAt:String){
+        if(version.isBlank())return
+        prefs(c).edit().putString("latest_version",version).putString("latest_notes",notes).putInt("latest_version_code",code).putString("latest_published_at",publishedAt).apply()
+    }
     private fun managedApkName(version:String)="pick-pack-1291-${BuildConfig.CHANNEL.lowercase()}-$version.apk"
     private fun managedDownloadDir(c:Context)=c.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)
     private fun pruneManagedUpdateApks(c:Context,keepName:String?=null){
@@ -40,7 +51,7 @@ object UpdateManager {
             return null
         }
         if(v==BuildConfig.VERSION_NAME){
-            p.edit().clear().apply()
+            clearPending(c)
             pruneManagedUpdateApks(c)
             return null
         }
@@ -83,11 +94,13 @@ object UpdateManager {
             }
             val j=result.json
             if(j==null){if(manual)AlertDialog.Builder(activity).setTitle("Không có dữ liệu cập nhật").setMessage("Hệ thống không trả về thông tin phiên bản.").setPositiveButton("OK",null).show();return@runOnUiThread}
+            val version=j.optString("version_name").trim();val url=j.optString("apk_url").trim();val sha=j.optString("sha256").trim();val notes=j.optString("notes").trim().take(4000);val versionCode=j.optInt("version_code",0);val publishedAt=j.optString("published_at").trim()
+            if(version.isNotBlank())saveLatest(activity,version,notes,versionCode,publishedAt)
             if(!j.optBoolean("available",false)){
+                clearPending(activity)
                 if(manual)AlertDialog.Builder(activity).setTitle("Đang dùng phiên bản mới nhất").setMessage("Phiên bản hiện tại: ${BuildConfig.VERSION_NAME}\nKhông có bản cập nhật mới cho ${channelLabel()}.").setPositiveButton("OK",null).show()
                 return@runOnUiThread
             }
-            val version=j.optString("version_name").trim();val url=j.optString("apk_url").trim();val sha=j.optString("sha256").trim();val notes=j.optString("notes").trim().take(4000);val versionCode=j.optInt("version_code",0)
             if(version.isBlank()||url.isBlank()){
                 if(manual)AlertDialog.Builder(activity).setTitle("Thông tin cập nhật chưa đầy đủ").setMessage("Bản phát hành chưa có đủ phiên bản hoặc đường dẫn tải APK.").setPositiveButton("OK",null).show()
                 return@runOnUiThread
@@ -99,14 +112,18 @@ object UpdateManager {
 
     private fun channelLabel():String=if(BuildConfig.CHANNEL=="BETA")"kênh Bản thử nghiệm" else "kênh Bản ổn định"
 
-    fun bulletNotesForDisplay(raw:String):String=bulletNotes(raw)
-    private fun bulletNotes(raw:String):String{
-        val lines=raw.replace("\r","\n").split('\n').map{it.trim()}.filter{it.isNotBlank()}.map{
-            it.replace(Regex("^(?:[-•*]+|\\d+[.)])\\s*"),"").trim()
-        }.filter{it.isNotBlank()}
-        val items=if(lines.isEmpty())listOf("Chưa có ghi chú chi tiết cho bản phát hành này.") else lines
-        return items.joinToString("\n"){"• $it"}
+    fun noteItemsForDisplay(raw:String):List<String>{
+        val lines=raw.replace("\r","\n").split('\n').map{it.trim()}.filter{it.isNotBlank()}.flatMap{line->
+            if(line.contains(" • "))line.split(" • ").map{it.trim()} else listOf(line)
+        }.map{it.replace(Regex("^(?:[-•*]+|\\d+[.)])\\s*"),"").trim()}.filter{it.isNotBlank()}
+        return if(lines.isEmpty())listOf("Chưa có ghi chú chi tiết cho bản phát hành này.") else lines
     }
+    fun bulletNotesForDisplay(raw:String):String=noteItemsForDisplay(raw).joinToString("\n"){"• $it"}
+    fun previewNotesForDisplay(raw:String,limit:Int=4):Pair<String,Boolean>{
+        val items=noteItemsForDisplay(raw);val shown=items.take(limit.coerceAtLeast(1))
+        return shown.joinToString("\n"){"• $it"} to (items.size>shown.size)
+    }
+    private fun bulletNotes(raw:String):String=bulletNotesForDisplay(raw)
 
     private fun showRelease(activity:Activity,version:String,url:String,sha:String,notes:String){
         val message=buildString{
