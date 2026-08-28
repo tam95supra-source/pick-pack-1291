@@ -348,7 +348,15 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     shot(tag+"-03-employee-order");
 
     showTextOnScreen("DIỄN BIẾN CÔNG VIỆC TRONG CA",12000L);
+    showTextOnScreen("Trước cập nhật",12000L);
     shot(tag+"-04-timeline");
+
+    open("REPORT");
+    waitText("BÁO CÁO NHÂN SỰ",true,false,12000L);
+    waitText("Vị trí",true,false,12000L);
+    waitText("Thâm niên",true,false,12000L);
+    require(findText("Site 1291 •",false,false)==null,"REPORT_SCOPE_TEXT_MUST_BE_REMOVED");
+    shot(tag+"-05-report");
 
     Bundle done=new Bundle();done.putString("result","BETA83_VISUAL_PASS");finish(0,done);
   }
@@ -430,6 +438,8 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     require(findText("STALE-PDA-AFTER",false,false)==null,"STALE_SCALAR_AFTER_RENDERED");
     mark("before_after_visible");mark("timeline_newest_first");mark("assignment_snapshot_authoritative");
     shot(tag+"-10-beta83-timeline");
+    showTextOnScreen("Trước cập nhật",12000L);
+    shot(tag+"-10b-beta87-timeline-card");
 
     showTextOnScreen("Sửa",10000L);
     clickText("Sửa",true,10000L);
@@ -465,6 +475,16 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     require(findText("HIỂN THỊ CHI TIẾT NHÂN SỰ",true,false)==null,"COMPLETE_SHIFT_SHOULD_OPEN_LIST_DIRECTLY");
     mark("complete_direct_list");
     shot(tag+"-06-complete-list");
+
+    open("REPORT");
+    waitText("BÁO CÁO NHÂN SỰ",true,false,12000L);
+    waitText("Vị trí",true,false,12000L);
+    waitText("Thâm niên",true,false,12000L);
+    require(findText("Site 1291 •",false,false)==null,"REPORT_SCOPE_TEXT_MUST_BE_REMOVED");
+    AccessibilityNodeInfo reportDate=waitText(LocalDate.now(ZoneId.of("Asia/Ho_Chi_Minh")).format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")),true,true,10000L);
+    require(clickableNode(reportDate)!=null,"REPORT_AVAILABLE_DATE_CONTROL_MISSING");
+    mark("report_compact_grid");mark("report_available_dates_only");
+    shot(tag+"-12-beta87-report");
 
     open("SETTINGS");
     waitText("THÔNG TIN ỨNG DỤNG",true,false,10000L);
