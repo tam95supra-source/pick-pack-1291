@@ -35,6 +35,7 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
       String mode=args.getString("mode","checks");
       if("checks".equals(mode))runChecks();
       else if("visual".equals(mode))runVisual();
+      else if("back36".equals(mode))runBack36();
       else throw new IllegalArgumentException("MODE_UNSUPPORTED:"+mode);
     }catch(Throwable t){
       Bundle x=new Bundle();
@@ -330,6 +331,33 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     saveDay.invoke(store,new JSONObject().put("business_date",oldDate).put("day_revision",83002L)
       .put("sessions",new JSONArray().put(leakedOld))
       .put("events",new JSONArray()).put("labor",new JSONArray()));
+  }
+
+  private void pressSystemBack(){
+    try{ui.executeShellCommand("input keyevent 4").close();}catch(Exception e){throw new IllegalStateException("BACK_KEYEVENT_FAILED",e);}
+    SystemClock.sleep(450L);
+  }
+
+  private void runBack36()throws Exception{
+    String mnv=req("mnv"),mnv2=req("mnv2"),mnv3=req("mnv3");
+    seedAuth();seedService();seedData(mnv,mnv2,mnv3);
+    open("BUSINESS");
+    waitText("Quét QR nhân sự",true,true,12000L);
+    pressSystemBack();
+    waitText("Quét QR nhân sự",true,true,12000L);
+    AccessibilityNodeInfo r0=root();require(r0!=null&&PKG.equals(String.valueOf(r0.getPackageName())),"ROOT_BACK_EXITED_APP");
+
+    clickText("Quét QR nhân sự",true,12000L);
+    long end=SystemClock.uptimeMillis()+12000L;while(SystemClock.uptimeMillis()<end&&findEditable()==null)SystemClock.sleep(180L);
+    require(findEditable()!=null,"SCAN_INPUT_MISSING_BACK36");
+    setEmployee(mnv2);waitText("THÔNG TIN CA",true,false,12000L);
+    pressSystemBack();
+    end=SystemClock.uptimeMillis()+12000L;while(SystemClock.uptimeMillis()<end&&findEditable()==null)SystemClock.sleep(180L);
+    require(findEditable()!=null,"CHILD_BACK_DID_NOT_RETURN_ONE_LEVEL");
+    pressSystemBack();waitText("Quét QR nhân sự",true,true,12000L);
+    pressSystemBack();waitText("Quét QR nhân sự",true,true,12000L);
+    AccessibilityNodeInfo r1=root();require(r1!=null&&PKG.equals(String.valueOf(r1.getPackageName())),"SECOND_ROOT_BACK_EXITED_APP");
+    Bundle done=new Bundle();done.putString("result","BETA89_BACK_API36_PASS");finish(0,done);
   }
 
   private void runVisual()throws Exception{

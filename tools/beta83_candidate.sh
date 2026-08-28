@@ -6,7 +6,7 @@ SOURCE_SHA=$(jq -r '.source_sha' "$REQ");VERSION=$(jq -r '.version_name' "$REQ")
 STATE_SIGNER=$(grep -m1 '^- signer_sha256:' CURRENT_STATE.md | awk '{print $3}')
 test "$EXPECTED_SIGNER" = "$STATE_SIGNER"
 test "$(git rev-parse "$SOURCE_SHA")" = "$SOURCE_SHA"
-git diff --quiet "$SOURCE_SHA" HEAD -- app
+git diff --quiet "$SOURCE_SHA" HEAD -- app service google-apps-script
 git diff --check "$SOURCE_SHA" HEAD
 grep -q "versionCode = $CODE" app/build.gradle.kts
 grep -q "versionName = \"$VERSION\"" app/build.gradle.kts
