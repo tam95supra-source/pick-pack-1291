@@ -1,6 +1,6 @@
 {
-  "stage": "PUBLISH",
-  "mode": "PUBLISH_EXACT_LOCKED_CANDIDATE",
+  "stage": "pass_live",
+  "mode": "PASS_LIVE_EXACT_BYTES",
   "version_name": "0.4.2-beta.92",
   "version_code": 98,
   "base_version": "0.4.2-beta.91",
@@ -36,7 +36,7 @@
   "authority_change": "NONE",
   "scope": "beta92-authoritative-resource-options-no-ui-reset-dual-changelog",
   "owner": "Nguyen Van Tam",
-  "live": false,
+  "live": true,
   "pre_ota_attempt": 2,
   "last_pre_ota_failure": "",
   "candidate_locked": true,
@@ -56,5 +56,6 @@
     "Sửa lỗi User Pick, User Pack và Bàn Pack unavailable bằng danh sách tài nguyên khả dụng trực tiếp từ Service.",
     "Giữ nguyên màn hình và lựa chọn đang thao tác; đồng bộ hoặc snapshot nền không còn tự dựng lại toàn bộ UI nhân viên.",
     "Cập nhật mục phiên bản với trạng thái bản mới nhất, changelog bản mới và changelog bản hiện tại."
-  ]
+  ],
+  "publish_run_id": "33184968910"
 }
