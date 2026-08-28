@@ -203,6 +203,8 @@ object LocalLogManager {
                 .putLong(KEY_TOTAL_FILES,files.size.toLong())
                 .putLong(KEY_TOTAL_BYTES,files.sumOf{it.length()})
                 .putLong(KEY_LATEST_AT,files.maxOfOrNull{it.lastModified()}?:file.lastModified())
+                .putString(KEY_LATEST_NAME,files.maxByOrNull{it.lastModified()}?.name?:file.name)
+                .putLong(KEY_LATEST_FILE_BYTES,files.maxByOrNull{it.lastModified()}?.length()?:file.length())
                 .commit()
             return
         }
