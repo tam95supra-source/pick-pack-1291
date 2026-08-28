@@ -36,7 +36,7 @@ jobs:
         run: |
           set -euo pipefail
           R=ops/beta-release-request.json
-          jq -e '.version_name=="0.4.2-beta.83" and .version_code==89 and .stable_publish=="FORBIDDEN" and .authority_change=="NONE"' "$R" >/dev/null
+          jq -e '.version_name=="0.4.2-beta.84" and .version_code==90 and .stable_publish=="FORBIDDEN" and .authority_change=="NONE"' "$R" >/dev/null
           STAGE=$(jq -r '.stage' "$R")
           case "$STAGE" in
             BUILD_VERIFY)
@@ -108,13 +108,13 @@ jobs:
           echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV";echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
           yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
           "$SDK/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-36' 'build-tools;36.0.0'
-      - name: Build sign and lock Beta83 candidate
+      - name: Build sign and lock Beta84 candidate
         shell: bash
-        run: bash tools/beta83_candidate.sh
+        run: bash tools/beta84_candidate.sh
       - uses: actions/upload-artifact@v4
         with:
-          name: beta83-candidate-${{ github.run_id }}
-          path: /tmp/beta83-candidate/*
+          name: beta84-candidate-${{ github.run_id }}
+          path: /tmp/beta84-candidate/*
           retention-days: 30
           if-no-files-found: error
 
@@ -134,13 +134,13 @@ jobs:
       - uses: actions/download-artifact@v4
         if: ${{ needs.route.outputs.stage == 'BUILD_VERIFY' }}
         with:
-          name: beta83-candidate-${{ github.run_id }}
-          path: /tmp/beta83-candidate
+          name: beta84-candidate-${{ github.run_id }}
+          path: /tmp/beta84-candidate
       - uses: actions/download-artifact@v4
         if: ${{ needs.route.outputs.stage == 'VERIFY_ONLY' }}
         with:
           name: ${{ needs.route.outputs.candidate_artifact_name }}
-          path: /tmp/beta83-candidate
+          path: /tmp/beta84-candidate
           github-token: ${{ github.token }}
           repository: ${{ github.repository }}
           run-id: ${{ needs.route.outputs.candidate_run_id }}
@@ -150,7 +150,7 @@ jobs:
           java-version: '17'
       - name: Build separate verification harness
         shell: bash
-        run: bash tools/build_beta83_verify_harness.sh
+        run: bash tools/build_beta84_verify_harness.sh
       - name: Enable KVM
         shell: bash
         run: |
@@ -167,13 +167,13 @@ jobs:
           profile: pixel_2
           disable-animations: false
           emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-metrics
-          script: bash tools/beta83_verify_matrix.sh
+          script: bash tools/beta84_verify_matrix.sh
       - name: Upload visual and functional evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: beta83-verify-${{ github.run_id }}
-          path: /tmp/beta83-verify
+          name: beta84-verify-${{ github.run_id }}
+          path: /tmp/beta84-verify
           retention-days: 30
           if-no-files-found: error
 
@@ -196,25 +196,25 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: ${{ needs.route.outputs.candidate_artifact_name }}
-          path: /tmp/beta83-candidate
+          path: /tmp/beta84-candidate
           github-token: ${{ github.token }}
           repository: ${{ github.repository }}
           run-id: ${{ needs.route.outputs.candidate_run_id }}
       - uses: actions/download-artifact@v4
         with:
           name: ${{ needs.route.outputs.verify_artifact_name }}
-          path: /tmp/beta83-verify
+          path: /tmp/beta84-verify
           github-token: ${{ github.token }}
           repository: ${{ github.repository }}
           run-id: ${{ needs.route.outputs.verify_run_id }}
-      - name: Publish exact Beta83 bytes after fresh production readbacks
+      - name: Publish exact Beta84 bytes after fresh production readbacks
         shell: bash
-        run: bash tools/beta83_publish_ota.sh
+        run: bash tools/beta84_publish_ota.sh
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: beta83-publish-${{ github.run_id }}
-          path: /tmp/beta83-publish
+          name: beta84-publish-${{ github.run_id }}
+          path: /tmp/beta84-publish
           retention-days: 30
           if-no-files-found: error
 
@@ -236,28 +236,28 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: ${{ needs.route.outputs.base_candidate_artifact_name }}
-          path: /tmp/beta82
+          path: /tmp/beta83
           github-token: ${{ github.token }}
           repository: ${{ github.repository }}
           run-id: ${{ needs.route.outputs.base_candidate_run_id }}
       - uses: actions/download-artifact@v4
         with:
           name: ${{ needs.route.outputs.candidate_artifact_name }}
-          path: /tmp/beta83-candidate
+          path: /tmp/beta84-candidate
           github-token: ${{ github.token }}
           repository: ${{ github.repository }}
           run-id: ${{ needs.route.outputs.candidate_run_id }}
       - uses: actions/download-artifact@v4
         with:
-          name: beta83-publish-${{ github.run_id }}
-          path: /tmp/beta83-publish
+          name: beta84-publish-${{ github.run_id }}
+          path: /tmp/beta84-publish
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
       - name: Build separate OTA verification harness
         shell: bash
-        run: bash tools/build_beta83_verify_harness.sh
+        run: bash tools/build_beta84_verify_harness.sh
       - name: Enable KVM
         shell: bash
         run: |
@@ -265,7 +265,7 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm || true
           sudo chmod 666 /dev/kvm || true
-      - name: Install Beta82 then OTA to exact Beta83 and read back
+      - name: Install Beta83 then OTA to exact Beta84 and read back
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 29
@@ -274,17 +274,17 @@ jobs:
           profile: pixel_2
           disable-animations: false
           emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-metrics
-          script: bash tools/beta83_ota_device_gate.sh
+          script: bash tools/beta84_ota_device_gate.sh
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: beta83-pda-${{ github.run_id }}
-          path: /tmp/beta83-pda
+          name: beta84-pda-${{ github.run_id }}
+          path: /tmp/beta84-pda
           retention-days: 30
           if-no-files-found: error
 
   rollback:
-    name: rollback-beta82
+    name: rollback-beta83
     needs: [route,publish,pda_verify]
     if: ${{ always() && needs.route.outputs.stage == 'PUBLISH' && needs.publish.result == 'success' && needs.pda_verify.result != 'success' }}
     runs-on: ubuntu-24.04
@@ -298,16 +298,16 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
-          name: beta83-publish-${{ github.run_id }}
-          path: /tmp/beta83-publish
-      - name: Restore Beta82 OTA
+          name: beta84-publish-${{ github.run_id }}
+          path: /tmp/beta84-publish
+      - name: Restore Beta83 OTA
         shell: bash
-        run: bash tools/beta83_rollback.sh
+        run: bash tools/beta84_rollback.sh
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: beta83-rollback-${{ github.run_id }}
-          path: /tmp/beta83-rollback
+          name: beta84-rollback-${{ github.run_id }}
+          path: /tmp/beta84-rollback
           retention-days: 30
           if-no-files-found: error
 
@@ -328,19 +328,19 @@ jobs:
           fetch-depth: 0
       - uses: actions/download-artifact@v4
         with:
-          name: beta83-publish-${{ github.run_id }}
-          path: /tmp/beta83-publish-final
+          name: beta84-publish-${{ github.run_id }}
+          path: /tmp/beta84-publish-final
       - uses: actions/download-artifact@v4
         with:
-          name: beta83-pda-${{ github.run_id }}
-          path: /tmp/beta83-pda-final
+          name: beta84-pda-${{ github.run_id }}
+          path: /tmp/beta84-pda-final
       - name: Finalize state and canonical handoff
         shell: bash
-        run: bash tools/finalize_beta83.sh
+        run: bash tools/finalize_beta84.sh
       - uses: actions/upload-artifact@v4
         with:
-          name: beta83-final-${{ github.run_id }}
-          path: /tmp/beta83-final/receipt.json
+          name: beta84-final-${{ github.run_id }}
+          path: /tmp/beta84-final/receipt.json
           retention-days: 90
           if-no-files-found: error
 
@@ -357,11 +357,11 @@ jobs:
       - name: Create pre-OTA handoff
         if: ${{ needs.route.outputs.stage != 'PUBLISH' }}
         shell: bash
-        run: bash tools/beta83_handoff_finalizer.sh
+        run: bash tools/beta84_handoff_finalizer.sh
       - name: Create release handoff
         if: ${{ needs.route.outputs.stage == 'PUBLISH' }}
         shell: bash
-        run: bash tools/beta83_release_handoff_finalizer.sh
+        run: bash tools/beta84_release_handoff_finalizer.sh
       - uses: actions/upload-artifact@v4
         if: always()
         with:
