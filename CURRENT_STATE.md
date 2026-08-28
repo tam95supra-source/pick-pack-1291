@@ -1,24 +1,24 @@
 # CURRENT STATE — PICK PACK 1291
 
-- updated_at: 2026-08-28T03:46:02Z
-- status: BETA86_PASS_LIVE
-- continuity_branch: release/beta86-ui-performance-20260828
-- source_sha: ee20aeccae89909114569da6e69ed66a550acf7e
-- beta_live: 0.4.2-beta.86 (versionCode 92)
-- candidate_run: 33138581709
-- candidate_artifact: 9673061903
-- verify_run: 33139266627
-- verify_artifact: 9673305232
-- apk_sha256: 52b10b0b2eefc94aceb78160d5ec7149cb1d9a0c51bcf180e0127febf45363b4
+- updated_at: 2026-08-28T06:29:47Z
+- status: BETA87_PASS_LIVE
+- continuity_branch: release/beta87-owner-ui-data-fixes-20260828
+- source_sha: 51e67280d81b1e9070c97f652098c341038d6882
+- beta_live: 0.4.2-beta.87 (versionCode 93)
+- candidate_run: 33145848295
+- candidate_artifact: 9675780824
+- verify_run: 33146411629
+- verify_artifact: 9675981318
+- apk_sha256: 4591e4c5842b9af6da6a4898ff56d4b8ad16765acca9294272444ce7b267f865
 - apk_size: 13212605
 - signer_sha256: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
-- terminal_run: 33139688877
+- terminal_run: 33147923886
 - fast_check: PASS
-- service_gate: BETA85_LIVE_INHERITS_BETA83_SERVICE_PASS_SERVICE_SOURCE_UNCHANGED
+- service_gate: BETA86_LIVE_INHERITS_BETA83_SERVICE_PASS_SERVICE_SOURCE_UNCHANGED
 - visual_matrix: PASS 320x568 / 360x640 / 480x800
 - human_visual: PASS
 - pda_functional_pre_ota: PASS
-- beta_ota: exact 0.4.2-beta.86 PASS
+- beta_ota: exact 0.4.2-beta.87 PASS
 - stable: unchanged
 - main_sha: 021dac5c6932b3ac5c60ce8fdba562ddf3d9688f
 - authority: SERVICE_PRIMARY / PRODUCTION / epoch 9 / generation m2-prod-reset-20260823-001
