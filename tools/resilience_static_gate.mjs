@@ -57,3 +57,7 @@ must(gasRes.includes("EMERGENCY EVENT INDEX")&&gasRes.includes("EMERGENCY LEDGER
 must(gasRes.includes("allFinal")&&gasRes.includes("60*86400000"),"EMERGENCY_LEDGER_SAFE_RETENTION_MISSING");
 must(gasRes.includes("EMERGENCY_PAYLOAD_TOO_LARGE"),"EMERGENCY_LEDGER_PAYLOAD_GUARD_MISSING");
 must(read("app/src/main/java/vn/pickpack1291/app/beta/M2ServiceTransport.kt").includes('capturedIds.size==pending.size'),"EMERGENCY_CAPTURE_PER_EVENT_ACK_MISSING");
+
+const rollover=read("tools/d1_generation_rehearsal.sh");
+must(rollover.includes("ROLLOVER_1_CHECKSUM_MISMATCH")&&rollover.includes("ROLLOVER_2_CHECKSUM_MISMATCH"),"D1_ROLLOVER_2X_REHEARSAL_MISSING");
+must(rollover.includes("COUNT+3 <= MAX")&&rollover.includes("trap cleanup EXIT"),"D1_ROLLOVER_FREE_QUOTA_OR_CLEANUP_MISSING");
