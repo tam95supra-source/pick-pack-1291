@@ -1,6 +1,6 @@
 {
   "stage": "PUBLISH",
-  "mode": "PUBLISH_EXACT_BETA97_CANONICAL_GITHUB_RELEASE_OTA_RECOVERY",
+  "mode": "PUBLISH_EXACT_BETA97_GITHUB_RELEASE_ONLY",
   "version_name": "0.4.2-beta.97",
   "version_code": 103,
   "base_version": "0.4.2-beta.96",
@@ -24,12 +24,12 @@
   "owner": "Nguyen Van Tam",
   "live": false,
   "release_notes": [
-    "Exact Beta97 candidate reused; no rebuild/resign.",
-    "All pre-OTA gates remain PASS from run 33250391599; app/service exact inputs unchanged.",
-    "Exact APK remains staged in Drive BẢN THỬ NGHIỆM. Public OTA transport uses the repository's existing GITHUB_RELEASE canonical path because Google public download now rejects APK as infected while OAuth exact-byte readback passes.",
-    "GAS changes only ppUpdateCheck_ to the exact manifest. Rollback restores exact Beta96 manifest before cleanup. Stable/main/signer/authority unchanged."
+    "Exact Beta97 candidate reused from locked GitHub Actions artifact; no rebuild/resign.",
+    "All pre-OTA gates remain PASS from exact candidate/verify evidence; app/service bytes unchanged.",
+    "From Beta97 onward, Beta APK release/OTA/rollback is GITHUB_RELEASE_ONLY. Google Drive APK backup/staging/mirror/upload/download/rollback/distribution is FORBIDDEN.",
+    "Rollback target Beta96 is backed by terminal final receipt run 33229586853 plus exact GitHub Release asset. GSheet/GAS business functions remain unchanged; only Beta update manifest is activated."
   ],
-  "next_action": "PUBLISH_EXACT_BETA97_CANONICAL_TRANSPORT_THEN_OTA_INSTALL_READBACK",
+  "next_action": "PUBLISH_EXACT_BETA97_GITHUB_RELEASE_THEN_OTA_INSTALL_READBACK_FINALIZE",
   "signer_sha256": "d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e",
   "candidate_run_id": 33247859614,
   "candidate_artifact_id": 9713456764,
@@ -56,6 +56,12 @@
   ],
   "human_visual_screenshot_count": 26,
   "base_probe_version": "0.4.2-beta.95",
-  "transport_recovery": "DRIVE_STAGING_PLUS_GITHUB_RELEASE_CANONICAL_PLUS_GAS_STATIC_EXACT",
-  "transport_recovery_seq": 3
+  "transport_recovery": "MIGRATE_LEGACY_BETA_MANIFEST_TO_GITHUB_RELEASE_ONLY",
+  "transport_recovery_seq": 4,
+  "apk_transport": "GITHUB_RELEASE_ONLY",
+  "google_drive_apk": "FORBIDDEN",
+  "base_live_final_run_id": 33229586853,
+  "base_live_final_artifact_id": 9708079627,
+  "base_live_final_artifact_name": "beta-final-33229586853",
+  "base_live_final_artifact_digest": "sha256:066b7309dc9c459bd9eb72004d531efdd0475633da329cdbf82d562f3274fdeb"
 }
