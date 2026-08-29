@@ -6,6 +6,8 @@ Mục tiêu: mọi sửa lỗi/tính năng phải giữ nguyên các hành vi đ
 
 ## Quy tắc bắt buộc
 
+0. Mọi phiên phải đọc `docs/STABLE_INVARIANTS.md`. Đây là registry tích lũy các hành vi đã PASS/OWNER-lock; mọi change phải lập impact matrix với các invariant ACTIVE liên quan trước khi sửa.
+
 1. Mỗi hành vi đã được OWNER chốt phải được coi là invariant cho tới khi OWNER trực tiếp thay đổi.
 2. Mỗi bug đã từng xảy ra phải có regression test tương ứng; bug chỉ được coi là sửa xong khi test đó PASS trên exact candidate.
 3. Mỗi quyết định nghiệp vụ quan trọng chỉ có một authority và một helper/canonical decision path. UI không tự suy đoán lại bằng field/cache/fallback khác.
@@ -14,6 +16,8 @@ Mục tiêu: mọi sửa lỗi/tính năng phải giữ nguyên các hành vi đ
 6. Release không PASS nếu chỉ case mới PASS; mọi invariant liên quan cũ phải tiếp tục PASS trên cùng exact bytes.
 7. Không refactor lan rộng. Sửa nhỏ nhất đúng root cause. Nếu cần thay đổi hành vi đã PASS khác, phải dừng và xin OWNER chốt trước.
 8. Regression gate phải có cả positive + negative cases, đặc biệt cho các nhánh dễ bị dữ liệu stale/legacy/cache tác động.
+9. Sau mỗi task/DoD PASS, phải cập nhật `docs/STABLE_INVARIANTS.md`: thêm hành vi mới đã PASS hoặc cập nhật evidence/last_verified cho invariant cũ. Đây là bước bắt buộc trước handoff/finalizer.
+10. Invariant ACTIVE chỉ được đổi business rule khi OWNER Nguyễn Văn Tâm trực tiếp chốt. Implementation có thể đổi nhưng semantics đã khóa phải giữ nguyên.
 
 ## Mẫu áp dụng bắt buộc
 
@@ -33,3 +37,11 @@ Business rule duy nhất → authority duy nhất → helper duy nhất → UI c
 Các nhóm QR nhân sự, Điểm danh, Ra ca, Đổi/Trả PDA, User Pick, User Pack, realtime UI, History role, 3 ô Mạng-Đồng bộ-Dịch vụ, OTA/release đều áp dụng cùng policy này.
 
 Policy này chỉ thay đổi khi OWNER Nguyễn Văn Tâm trực tiếp yêu cầu.
+
+
+## Registry tích lũy
+
+- Canonical: `docs/STABLE_INVARIANTS.md`.
+- ACTIVE_PASS = đã có evidence PASS và phải được bảo vệ trong mọi change liên quan.
+- LOCKED_REQUIREMENT_PENDING_FIX = OWNER đã khóa rule nhưng implementation hiện chưa đạt; không được giả vờ coi là PASS.
+- SUPERSEDED = chỉ dùng khi OWNER trực tiếp thay rule; giữ lịch sử, không xóa.
