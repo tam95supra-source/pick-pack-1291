@@ -9,6 +9,7 @@ import java.util.concurrent.*
 internal class LanCoordinator private constructor(context:Context):LanSocketTransport.Listener {
     enum class NodeRole { NONE, PEER, CANDIDATE, MASTER, BACKUP, CLIENT }
     data class Result(val handled:Boolean,val ok:Boolean,val generation:Long,val error:String?=null)
+    fun interface StateListener { fun onState(state:LanAuthorityPolicy.HealthState) }
 
     private val app=context.applicationContext
     private val prefs=app.getSharedPreferences(PREFS,Context.MODE_PRIVATE)
@@ -18,6 +19,7 @@ internal class LanCoordinator private constructor(context:Context):LanSocketTran
     private val timer=Executors.newSingleThreadScheduledExecutor()
     private val io=Executors.newCachedThreadPool()
     private val stateLock=Any()
+    private val stateListeners=CopyOnWriteArrayList<StateListener>()
     @Volatile private var cloudConnected=true
     @Volatile private var outageStartedAt=0L
     @Volatile private var recovering=false
@@ -44,17 +46,18 @@ internal class LanCoordinator private constructor(context:Context):LanSocketTran
                 if(isLanActive()){
                     recovering=true
                     M2ImmediateOutbox.kick(app)
+                    notifyState()
                 }else{
                     recovering=false
                     stopPeerPresence()
                 }
             }else{
-                if(outageStartedAt==0L)outageStartedAt=now
+                if(outageStartedAt==0L){outageStartedAt=now;notifyState()}
                 val remain=(LanAuthorityPolicy.SERVICE_UNAVAILABLE_AFTER_MS-(now-outageStartedAt)).coerceAtLeast(0L)
                 unavailableTask?.cancel(false)
                 unavailableTask=timer.schedule({
                     synchronized(stateLock){
-                        if(!cloudConnected&&outageAgeMs()>=LanAuthorityPolicy.SERVICE_UNAVAILABLE_AFTER_MS)startPeerPresence()
+                        if(!cloudConnected&&outageAgeMs()>=LanAuthorityPolicy.SERVICE_UNAVAILABLE_AFTER_MS){startPeerPresence();notifyState()}
                     }
                 },remain,TimeUnit.MILLISECONDS)
             }
@@ -80,6 +83,10 @@ internal class LanCoordinator private constructor(context:Context):LanSocketTran
             cloudDrActive=prefs.getBoolean("cloud_dr_active",false),
         )
 
+    fun addStateListener(listener:StateListener){stateListeners.addIfAbsent(listener);listener.onState(healthState())}
+    fun removeStateListener(listener:StateListener){stateListeners.remove(listener)}
+    private fun notifyState(){val state=healthState();stateListeners.forEach{runCatching{it.onState(state)}}}
+
     fun status():JSONObject=JSONObject()
         .put("health_state",healthState().name)
         .put("node_role",nodeRole.name)
@@ -101,7 +108,7 @@ internal class LanCoordinator private constructor(context:Context):LanSocketTran
             val peerPolicy=discovery.snapshot().values.map{LanAuthorityPolicy.Peer(it.deviceId,it.accountRole,it.generation,it.seenAt)}
             val lease=masterId.takeIf{it.isNotBlank()}?.let{LanAuthorityPolicy.Lease(it,backupId,currentGeneration,leaseUntil)}
             if(!LanAuthorityPolicy.candidateAllowed(userRole,self,peerPolicy,System.currentTimeMillis(),lease)){callback(false,"LAN_CANDIDATE_NOT_ELIGIBLE");return@execute}
-            nodeRole=NodeRole.CANDIDATE
+            nodeRole=NodeRole.CANDIDATE;notifyState()
             val acquired=googleAcquire(userRole)
             if(acquired?.optBoolean("ok",false)==true){
                 val l=acquired.optJSONObject("lease")?:JSONObject()
@@ -191,6 +198,7 @@ internal class LanCoordinator private constructor(context:Context):LanSocketTran
             if(newGeneration<currentGeneration)return
             currentGeneration=newGeneration;lanEpoch=newEpoch;leaseUntil=newLeaseUntil
             masterId=M2DeviceIdentity.id(app);backupId="";nodeRole=NodeRole.MASTER;recovering=false
+            notifyState()
             if(serverPort<=0)serverPort=socket.startServer()
             socket.setMode(LanSocketTransport.Mode.MASTER)
             persistState()
@@ -206,6 +214,7 @@ internal class LanCoordinator private constructor(context:Context):LanSocketTran
         synchronized(stateLock){
             if(!LanAuthorityPolicy.acceptsMasterGeneration(currentGeneration,ep.generation))return
             currentGeneration=ep.generation;masterId=ep.deviceId;nodeRole=NodeRole.CLIENT;recovering=false
+            notifyState()
             socket.setMode(LanSocketTransport.Mode.CLIENT)
             if(socket.connectMaster(ep)){
                 persistState();discovery.stopDiscovery();startForeground()
@@ -329,6 +338,7 @@ internal class LanCoordinator private constructor(context:Context):LanSocketTran
         heartbeatTask?.cancel(false);heartbeatTask=null;presenceTask?.cancel(false);presenceTask=null;takeoverTask?.cancel(false);takeoverTask=null
         discovery.close();socket.close();serverPort=0
         nodeRole=NodeRole.NONE;masterId="";backupId="";leaseUntil=0L;recovering=false
+        notifyState()
         persistState();runCatching{app.stopService(Intent(app,LanForegroundService::class.java))}
     }
 
@@ -371,6 +381,7 @@ internal class LanCoordinator private constructor(context:Context):LanSocketTran
 
     override fun onBackupAssigned(frame:JSONObject){
         nodeRole=NodeRole.BACKUP
+        notifyState()
         currentGeneration=frame.optLong("generation",currentGeneration)
         masterId=frame.optString("master_device_id",masterId)
         lanEpoch=frame.optLong("lan_epoch",lanEpoch)
