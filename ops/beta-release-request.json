@@ -1,6 +1,6 @@
 {
   "stage": "PUBLISH",
-  "mode": "PUBLISH_EXACT_BETA97_GITHUB_RELEASE_ONLY_GAS_PROPAGATION_RECOVERY",
+  "mode": "PUBLISH_EXACT_BETA97_GITHUB_RELEASE_ONLY_OTA_HARNESS_RECOVERY",
   "version_name": "0.4.2-beta.97",
   "version_code": 103,
   "base_version": "0.4.2-beta.96",
@@ -24,12 +24,12 @@
   "owner": "Nguyen Van Tam",
   "live": false,
   "release_notes": [
-    "Exact Beta97 candidate and existing GitHub Release asset reused; no rebuild/resign/reupload if exact asset matches.",
-    "All pre-OTA gates remain PASS from exact candidate/verify evidence; app/service bytes unchanged.",
-    "Beta APK release/OTA/rollback is GITHUB_RELEASE_ONLY; Google Drive APK remains FORBIDDEN.",
-    "Recovery handles transient GAS web-app propagation between old/new deployments and automatically restores exact Beta96 manifest if convergence or any post-activation check fails."
+    "Exact Beta97 candidate and existing GitHub Release asset reused; no rebuild/resign/reupload.",
+    "All pre-OTA gates remain inherited PASS; app/service bytes unchanged.",
+    "Beta APK release/OTA/rollback remains GITHUB_RELEASE_ONLY; Google Drive APK is FORBIDDEN.",
+    "OTA harness recovery removes stale UI-text dependency and invokes the app UpdateManager with the exact GitHub Release URL, while retaining Android installer and exact installed-byte/signer/version/package readback."
   ],
-  "next_action": "CONVERGE_GAS_BETA97_MANIFEST_THEN_OTA_INSTALL_READBACK_FINALIZE",
+  "next_action": "PUBLISH_EXACT_BETA97_THEN_OTA_DIRECT_GITHUB_DOWNLOAD_READBACK_FINALIZE",
   "signer_sha256": "d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e",
   "candidate_run_id": 33247859614,
   "candidate_artifact_id": 9713456764,
@@ -57,12 +57,14 @@
   "human_visual_screenshot_count": 26,
   "base_probe_version": "0.4.2-beta.95",
   "transport_recovery": "MIGRATE_LEGACY_BETA_MANIFEST_TO_GITHUB_RELEASE_ONLY",
-  "transport_recovery_seq": 5,
+  "transport_recovery_seq": 6,
   "apk_transport": "GITHUB_RELEASE_ONLY",
   "google_drive_apk": "FORBIDDEN",
   "base_live_final_run_id": 33229586853,
   "base_live_final_artifact_id": 9708079627,
   "base_live_final_artifact_name": "beta-final-33229586853",
   "base_live_final_artifact_digest": "sha256:066b7309dc9c459bd9eb72004d531efdd0475633da329cdbf82d562f3274fdeb",
-  "last_publish_failure": "GAS_WEBAPP_PROPAGATION_MIXED_OLD_NEW_AFTER_CONTROL_PLANE_PASS"
+  "last_publish_failure": "GAS_WEBAPP_PROPAGATION_MIXED_OLD_NEW_AFTER_CONTROL_PLANE_PASS",
+  "last_pda_failure": "HARNESS_TEXT_NOT_FOUND_TIEP_TUC_CAP_NHAT_BEFORE_DOWNLOAD",
+  "rollback_after_last_failure": "PASS_RUN_33252610609_ARTIFACT_9714875422_BETA96_GITHUB_RELEASE"
 }
