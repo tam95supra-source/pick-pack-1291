@@ -129,6 +129,6 @@ jobs:
           grep -q 'versionName = "0.1.0-stable"' app/build.gradle.kts
           gradle --no-daemon --build-cache --parallel :app:testBetaDebugUnitTest :app:assembleBetaDebug :app:assembleStableDebug
 
-      - name: Validate free cloud DR provider credentials
+      - name: Validate cloud DR credentials without paid actions
         shell: bash
         run: bash tools/cloud_dr_provider_preflight.sh

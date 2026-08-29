@@ -139,10 +139,8 @@ NODE
       usage_code=$(curl -sS --connect-timeout 10 --max-time 30 -o "$OUT/turso-usage.json" -w '%{http_code}' \
         -H "Authorization: Bearer $TURSO_API_TOKEN" -H 'Accept: application/json' \
         "https://api.turso.tech/v1/organizations/$TURSO_ORG/usage" || true)
-      [[ "$plans_code" == 200 && "$usage_code" == 200 ]] || {
-        echo "TURSO_ZERO_COST_CAPACITY_METADATA_UNAVAILABLE:plans=$plans_code:usage=$usage_code" >&2; exit 54;
-      }
-      node - "$OUT/turso-plans.json" "$OUT/turso-usage.json" "$ZERO_COST_PLANS" "$OUT/turso-databases.json" <<'NODE'
+      if [[ "$plans_code" == 200 && "$usage_code" == 200 ]]; then
+        node - "$OUT/turso-plans.json" "$OUT/turso-usage.json" "$ZERO_COST_PLANS" "$OUT/turso-databases.json" <<'NODE'
 const fs=require('fs');
 const plansJ=JSON.parse(fs.readFileSync(process.argv[2],'utf8')),usageJ=JSON.parse(fs.readFileSync(process.argv[3],'utf8')),
       allowed=new Set(JSON.parse(process.argv[4]).map(x=>String(x).toLowerCase())),
@@ -151,18 +149,19 @@ const plans=Array.isArray(plansJ)?plansJ:(plansJ.plans||[]);
 const free=plans.find(p=>allowed.has(String(p.name||p.id||'').toLowerCase())&&Number(p.price??p.monthly_price??0)===0);
 if(!free)throw new Error('TURSO_ZERO_COST_PLAN_NOT_VISIBLE');
 const q=free.quotas||{},u=(usageJ.organization||usageJ).usage||{},dbs=dbJ.databases||[];
-const pairs=[
- ['rows_read','rowsRead'],['rows_written','rowsWritten'],['databases','databases'],
- ['locations','locations'],['storage_bytes','storage'],['groups','groups'],['bytes_synced','bytesSynced']
-];
-for(const [uk,qk] of pairs){
-  if(q[qk]===undefined||u[uk]===undefined)continue;
-  const used=Number(u[uk]),limit=Number(q[qk]);
-  if(!Number.isFinite(used)||!Number.isFinite(limit)||limit<=0||used>limit)throw new Error('TURSO_FREE_CAPACITY_EXCEEDED:'+uk+':'+used+'/'+limit);
-}
+const pairs=[['rows_read','rowsRead'],['rows_written','rowsWritten'],['databases','databases'],['locations','locations'],['storage_bytes','storage'],['groups','groups'],['bytes_synced','bytesSynced']];
+for(const [uk,qk] of pairs){if(q[qk]===undefined||u[uk]===undefined)continue;const used=Number(u[uk]),limit=Number(q[qk]);if(!Number.isFinite(used)||!Number.isFinite(limit)||limit<=0||used>limit)throw new Error('TURSO_FREE_CAPACITY_EXCEEDED:'+uk+':'+used+'/'+limit);}
 if(Number.isFinite(Number(q.databases))&&dbs.length>Number(q.databases))throw new Error('TURSO_FREE_DATABASE_COUNT_EXCEEDED');
-console.log('turso_zero_cost_capacity=PASS plan='+String(free.name||free.id)+' dbs='+dbs.length+' billing_scope=resource no_paid_action=true');
+console.log('turso_zero_cost_capacity=PASS plan='+String(free.name||free.id)+' dbs='+dbs.length+' billing_scope=readable no_paid_action=true');
 NODE
+      elif [[ "$plans_code" == 403 && "$usage_code" == 403 ]]; then
+        # Least-privilege org token deliberately cannot read billing. This preflight must not
+        # mutate provider state; require an already-existing DB + valid DB credential below.
+        TURSO_EXISTING_RESOURCE_ONLY=1
+        echo "turso_billing_scope=READ_DENIED existing_resource_only=true no_paid_action=true"
+      else
+        echo "TURSO_ZERO_COST_CAPACITY_METADATA_UNAVAILABLE:plans=$plans_code:usage=$usage_code" >&2; exit 54
+      fi
     else
       echo "TURSO_BILLING_METADATA_UNAVAILABLE:subscription=$sub_code:organization=$org_code" >&2
       exit 54
@@ -176,6 +175,9 @@ fi
 
 if [[ "$TURSO_DB_AUTH_OK" != 1 ]]; then
   [[ -f "$OUT/turso-databases.json" ]] || { echo "TURSO_DATABASE_LIST_UNAVAILABLE" >&2; exit 53; }
+  if [[ "${TURSO_EXISTING_RESOURCE_ONLY:-0}" == 1 ]]; then
+    jq -e '(.databases|type=="array") and (.databases|length>0)' "$OUT/turso-databases.json" >/dev/null || { echo "TURSO_EXISTING_DB_REQUIRED_FOR_SCOPED_BILLING" >&2; exit 55; }
+  fi
   pushd services/cloud-dr >/dev/null
   TURSO_AUTH_TOKEN="$TURSO_AUTH_TOKEN" TURSO_DATABASES_JSON="$OUT/turso-databases.json" node --input-type=module <<'NODE'
 import fs from 'node:fs';import {createClient} from '@libsql/client';
@@ -187,9 +189,14 @@ NODE
   popd >/dev/null
 fi
 
+# Hard safety invariant: credential preflight is GET/readback only; provider creation, plan
+# upgrade, overages, PATCH/POST/PUT/DELETE are forbidden here.
+if grep -Eq 'curl[^\n]*(--request|-X)[[:space:]]*(POST|PUT|PATCH|DELETE)' "$0"; then
+  echo "DR_PREFLIGHT_PAID_CAPABLE_MUTATION_FORBIDDEN" >&2; exit 56
+fi
 http deno-apps "https://api.deno.com/v2/apps?limit=100" "$DENO_DEPLOY_TOKEN"
 node - "$OUT/deno-apps.json" <<'NODE'
 const fs=require('fs'),j=JSON.parse(fs.readFileSync(process.argv[2],'utf8')),rows=Array.isArray(j)?j:(j.items||j.apps||[]);if(!Array.isArray(rows))throw new Error('DENO_APPS_RESPONSE_INVALID');console.log('deno_token=PASS existing_apps='+rows.length);
 NODE
-jq -n '{status:"PASS",secrets:"4/4_VALIDATED",render_token:"PASS",turso_platform_token:"PASS",turso_database_token:"PASS",deno_token:"PASS",no_secret_output:true,no_paid_action:true}' > "$OUT/receipt.json"
+jq -n --arg turso_mode "${TURSO_EXISTING_RESOURCE_ONLY:+EXISTING_RESOURCE_ONLY}" '{status:"PASS",secrets:"4/4_VALIDATED",render_token:"PASS",turso_platform_token:"PASS",turso_database_token:"PASS",turso_billing_mode:($turso_mode|select(length>0)//"ZERO_COST_METADATA_VERIFIED"),deno_token:"PASS",no_secret_output:true,no_paid_action:true}' > "$OUT/receipt.json"
 cat "$OUT/receipt.json"
