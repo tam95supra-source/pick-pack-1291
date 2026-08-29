@@ -13,6 +13,7 @@ import { replicateOutboundPending } from "./outbound_beta78";
 import { enqueueInvalidation } from "./push";
 import { claimMaintenance, d1CapacitySnapshot, recordVerifiedBackup, runD1Retention } from "./d1_maintenance";
 import { apiError, json, nowIso } from "./util";
+import { lanReplayBatch } from "./lan_recovery";
 
 export { RealtimeHub };
 
@@ -56,6 +57,7 @@ export default {
     if(u.pathname==="/v1/admin/infra/capacity"&&method==="GET")return infraCapacity(request,env);
     if(u.pathname==="/v1/admin/infra/backup-verification"&&method==="POST")return infraBackupVerified(request,env);
     if(u.pathname==="/v1/service/connections"&&method==="GET")return serviceConnectionsV47(request,env);
+    if(u.pathname==="/v1/lan-replay/batch"&&method==="POST")return lanReplayBatch(request,env);
     if(u.pathname==="/v1/admin/accounts/delete"&&method==="POST")return superadminDeleteAccounts(request,env);
     if(u.pathname==="/v1/admin/resources"&&method==="GET")return resourceAdminList(request,env);
     if(u.pathname==="/v1/admin/resources"&&method==="POST")return resourceAdminMutate(request,env);
