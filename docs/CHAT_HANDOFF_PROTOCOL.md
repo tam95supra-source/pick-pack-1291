@@ -28,12 +28,13 @@ Quy tắc retention:
 
 1. Hoàn thành hoặc dừng tại một điểm atomic an toàn; không để write/deploy mơ hồ.
 2. Thu thập trạng thái từ tool output, receipt, commit và evidence đã có; không chạy lại gate PASS chỉ để viết bàn giao.
-3. Nếu LIVE thay đổi, cập nhật `CURRENT_STATE.md` trước handoff.
-4. Xác định `working_head_sha` là commit cuối chứa thay đổi công việc/cấu hình trước commit handoff.
-5. Tạo archive timestamp mới, cập nhật canonical bằng đúng cùng nội dung, rồi áp retention 5 archive.
-6. Commit/push vào đúng active branch; không ghi `main` nếu OWNER chưa cho phép.
-7. Readback canonical và archive mới; xác minh cùng nội dung, `status: READY`, đủ trường và không có secret.
-8. Chỉ final sau khi file đọc được; đưa link canonical và đúng một câu resume.
+3. Nếu task/DoD PASS, cập nhật `docs/STABLE_INVARIANTS.md` trước handoff: thêm/cập nhật các hành vi đã PASS và exact evidence; không được đổi invariant ACTIVE nếu OWNER chưa chốt.
+4. Nếu LIVE thay đổi, cập nhật `CURRENT_STATE.md` trước handoff.
+5. Xác định `working_head_sha` là commit cuối chứa thay đổi công việc/cấu hình trước commit handoff.
+6. Tạo archive timestamp mới, cập nhật canonical bằng đúng cùng nội dung, rồi áp retention 5 archive.
+7. Commit/push vào đúng active branch; không ghi `main` nếu OWNER chưa cho phép.
+8. Readback canonical và archive mới; xác minh cùng nội dung, `status: READY`, đủ trường và không có secret.
+9. Chỉ final sau khi file đọc được; đưa link canonical và đúng một câu resume.
 
 Nếu remote write thật sự bị chặn, tạo file cùng schema trong workspace và nêu đúng blocker. Không thay bằng một đoạn tóm tắt rời trong chat.
 
@@ -103,12 +104,13 @@ Mục không áp dụng phải ghi `NONE — lý do`, không được xóa. `wor
 Áp dụng ở **mọi phiên mới**, kể cả khi OWNER chưa ghi yêu cầu cụ thể:
 
 1. Đọc `docs/handovers/HANDOVER_CURRENT.md` trước.
-2. Nếu canonical thiếu, không đọc được, `status != READY`, thiếu `NEXT_ACTION`, hoặc `archive_file` không hợp lệ: liệt kê các archive timestamp, chọn tên có timestamp lớn nhất và dùng bản `status: READY` mới nhất. Không hỏi OWNER chọn file và không crawl repo.
-3. Lệnh OWNER mới nhất luôn có ưu tiên cao nhất. Nếu có yêu cầu mới, nạp handoff để lấy trạng thái rồi thực thi yêu cầu mới theo `AGENTS.md`.
-4. Nếu không có yêu cầu mới và `task_state: IN_PROGRESS`, tiếp tục ngay từ `NEXT_ACTION` trong đúng scope đã được OWNER cho phép.
+2. Đọc `docs/REGRESSION_GUARD_POLICY.md` và `docs/STABLE_INVARIANTS.md`; nạp toàn bộ invariant ACTIVE làm baseline không được phá.
+3. Nếu canonical thiếu, không đọc được, `status != READY`, thiếu `NEXT_ACTION`, hoặc `archive_file` không hợp lệ: liệt kê các archive timestamp, chọn tên có timestamp lớn nhất và dùng bản `status: READY` mới nhất. Không hỏi OWNER chọn file và không crawl repo.
+4. Lệnh OWNER mới nhất luôn có ưu tiên cao nhất. Nếu có yêu cầu mới, nạp handoff để lấy trạng thái rồi thực thi yêu cầu mới theo `AGENTS.md`.
+6. Nếu không có yêu cầu mới và `task_state: IN_PROGRESS`, tiếp tục ngay từ `NEXT_ACTION` trong đúng scope đã được OWNER cho phép.
 5. Nếu không có yêu cầu mới và `task_state: PASS`, hoặc `next_action: WAIT_FOR_OWNER_NEW_SCOPE`, chỉ xác nhận một câu đã nạp snapshot và chờ scope; không tự phát sinh việc.
-6. Nếu `task_state: BLOCKED`, nêu đúng blocker và đúng thao tác OWNER đã ghi; không rà soát lại phần PASS.
-7. Không mở log/evidence cũ hoặc rerun PASS khi input, source SHA và artifact bytes không đổi. Chỉ fresh-read external state có thể đổi sau `created_at` hoặc ngay trước production write.
+7. Nếu `task_state: BLOCKED`, nêu đúng blocker và đúng thao tác OWNER đã ghi; không rà soát lại phần PASS.
+8. Không mở log/evidence cũ hoặc rerun PASS khi input, source SHA và artifact bytes không đổi. Chỉ fresh-read external state có thể đổi sau `created_at` hoặc ngay trước production write.
 
 ## 6. Tiêu chuẩn PASS
 
@@ -117,6 +119,7 @@ Handoff chỉ PASS khi:
 - canonical và archive mới cùng nội dung;
 - schema v2, `status: READY`, branch, working head, `archive_file` và đúng một `NEXT_ACTION` hợp lệ;
 - đầy đủ việc đã làm/còn lại/lỗi/đường PASS/invariants/evidence;
+- nếu task PASS, `docs/STABLE_INVARIANTS.md` đã được cập nhật và readback với exact evidence;
 - không chứa secret;
 - active tree có không quá 5 archive timestamp;
 - phiên mới có thể tiếp tục mà không yêu cầu OWNER kể lại hoặc kiểm tra lại phần đã PASS.
