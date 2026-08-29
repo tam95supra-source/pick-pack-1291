@@ -217,6 +217,7 @@ class OperationsActivity : Activity() {
             try {
                 dynamic.removeAllViews()
                 dynamic.addView(OldSessionWarningFeature.build(this,api){raw->openHistoricalSession(raw)},matchWrap())
+                dynamic.addView(PostMealAttendanceFeature.buildHomeWarning(this,api){postMealAttendanceScreen()},matchWrap())
                 addBusinessShiftReconciliation(dynamic)
             } finally { dynamic.suppressLayout(false) }
         }
@@ -249,13 +250,17 @@ class OperationsActivity : Activity() {
     private fun postMealAttendanceScreen(){
         module="BUSINESS"
         screenState="MEAL_ATTENDANCE"
-        setScreen(PostMealAttendanceFeature.build(this,api){businessHome()})
+        val root=baseRoot("ĐIỂM DANH NHÂN SỰ")
+        root.addView(PostMealAttendanceFeature.build(this,api){businessHome()},LinearLayout.LayoutParams(-1,0,1f))
+        setScreen(root)
     }
 
     private fun dropReceiveScreen(){
         module="BUSINESS"
         screenState="DROP_RECEIVE"
-        setScreen(DropReceiveFeature.build(this,api,login,name,role){businessHome()})
+        val root=baseRoot("NHẬN HÀNG RỚT")
+        root.addView(DropReceiveFeature.build(this,api,login,name,role){businessHome()},LinearLayout.LayoutParams(-1,0,1f))
+        setScreen(root)
     }
 
     // Current-day reconciliation: counts and list are always scoped to the real Asia/Ho_Chi_Minh calendar date.
@@ -1584,6 +1589,7 @@ class OperationsActivity : Activity() {
     // S36_PERF_HISTORY_REPORT_SERVICE: selected-date history, bounded global search, pagination and Service telemetry.
     // S36B_COMPILE_HOTFIX
     private fun historyScreen(){
+        if(!isAdmin()){module="BUSINESS";businessHome();return}
         module="HISTORY";screenState="HISTORY";historyDetailMnv="";historyDetailName=""
         // S52_BETA46_SUPERADMIN_HISTORY_DELETE: SUPERADMIN bulk logical delete with immutable tombstone audit.
         if(isSuper())android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({flushDeferredHistoryDeletes()},500L)
@@ -2343,10 +2349,10 @@ class OperationsActivity : Activity() {
         gravity=Gravity.CENTER;setPadding(dp(3),dp(5),dp(3),dp(5));background=outlineBg(surface,16);elevation=dp(8).toFloat();navRefs.clear()
         val items=mutableListOf(
             Triple(R.drawable.ic_pp_business,"Nghiệp vụ","BUSINESS"),
-            Triple(R.drawable.ic_pp_staff,"Nhân sự","STAFF"),
-            Triple(R.drawable.ic_pp_history,"Lịch sử","HISTORY"),
-            Triple(R.drawable.ic_pp_settings,"Cài đặt","SETTINGS")
+            Triple(R.drawable.ic_pp_staff,"Nhân sự","STAFF")
         )
+        if(isAdmin())items.add(Triple(R.drawable.ic_pp_history,"Lịch sử","HISTORY"))
+        items.add(Triple(R.drawable.ic_pp_settings,"Cài đặt","SETTINGS"))
         if(isActualSuper())items.add(Triple(R.drawable.ic_pp_account,"Quyền","ROLE_MODE"))
         items.forEach{item->
             val iconView=ImageView(this@OperationsActivity).apply{setImageResource(item.first);setPadding(dp(4),dp(4),dp(4),dp(2))}
@@ -2358,6 +2364,7 @@ class OperationsActivity : Activity() {
 
     private fun refreshBottomNav(){val active=activeTab();navRefs.forEach{(key,ref)->val chosen=key==active;ref.cell.background=if(chosen)round(ThemeManager.soft(this@OperationsActivity),10)else null;ref.icon.imageTintList=ColorStateList.valueOf(if(chosen)teal else muted);ref.label.setTextColor(if(chosen)teal else muted);ref.label.typeface=if(chosen)Typeface.DEFAULT_BOLD else Typeface.DEFAULT}}
     private fun navigateTab(target:String,remember:Boolean=true){
+        if(target=="HISTORY"&&!isAdmin()){module="BUSINESS";businessHome();return}
         val current=activeTab()
         if(target==current&&isRootScreen())return
         if(remember&&target!=current)tabHistory.addLast(current)
