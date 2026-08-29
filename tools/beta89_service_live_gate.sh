@@ -11,6 +11,26 @@ done
 for n in CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID GOOGLE_OAUTH_CLIENT_ID GOOGLE_OAUTH_CLIENT_SECRET GOOGLE_OAUTH_REFRESH_TOKEN; do echo "::add-mask::${!n}"; done
 
 cd service
+rm -rf /tmp/b95-meal-policy && mkdir -p /tmp/b95-meal-policy
+npx tsc src/meal_policy.ts --module commonjs --target es2022 --outDir /tmp/b95-meal-policy --skipLibCheck
+node - <<'NODE'
+const p=require('/tmp/b95-meal-policy/meal_policy.js');
+const now=Date.parse('2026-08-29T05:00:00Z');
+function sev(shift,minutes){return p.mealAlert([{mnv:'T',shift,status:'PENDING'}],minutes,now).severity}
+for(const [m,want] of [[719,'NONE'],[720,'WARNING'],[749,'WARNING'],[750,'SEVERE']]){
+  const got=sev('Ca 1',m);if(got!==want)throw new Error('CA1_ALERT_THRESHOLD:'+m+':'+got+':'+want);
+}
+for(const [m,want] of [[1139,'NONE'],[1140,'WARNING'],[1169,'WARNING'],[1170,'SEVERE']]){
+  const got=sev('Ca 2',m);if(got!==want)throw new Error('CA2_ALERT_THRESHOLD:'+m+':'+got+':'+want);
+}
+let row={mnv:'L',shift:'Ca 1',status:'LATE_EXPECTED',expected_return_at:new Date(now+60000).toISOString()};
+if(p.mealStatusView(row,now)!=='LATE_EXPECTED')throw new Error('LATE_NOT_DUE_WRONG');
+if(p.mealAlert([row],750,now).severity!=='NONE')throw new Error('LATE_NOT_DUE_ALERTED');
+row={...row,expected_return_at:new Date(now-60000).toISOString()};
+if(p.mealStatusView(row,now)!=='OVERDUE_LATE')throw new Error('LATE_OVERDUE_NOT_DERIVED');
+if(p.mealAlert([row],750,now).severity!=='SEVERE')throw new Error('LATE_OVERDUE_NOT_ALERTED');
+console.log('beta95_meal_policy=PASS ca1_1200_1230=PASS ca2_1900_1930=PASS late_due=PASS');
+NODE
 LIST=$(npx wrangler d1 list --json)
 D1_ID=$(node -e 'const a=JSON.parse(process.argv[1]);const x=a.find(v=>v.name===process.env.D1_NAME);process.stdout.write(x?.uuid||x?.id||"")' "$LIST")
 test -n "$D1_ID" || { echo PROD_D1_NOT_FOUND >&2; exit 3; }
