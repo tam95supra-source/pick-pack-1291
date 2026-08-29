@@ -7,6 +7,8 @@ VERSION=$(jq -r '.version_name' "$META"); PKG=$(jq -r '.package' "$META")
 APK=$(find /tmp/beta-candidate -maxdepth 1 -type f -name '*.apk' | head -1)
 test -n "$APK" -a -f "$APK" -a -f /tmp/beta83-verify-harness.apk
 OUT=/tmp/beta-back36;rm -rf "$OUT";mkdir -p "$OUT"
+. tools/adb_stable_guard.sh
+adb_wait_stable 150 5
 test "$(adb shell getprop ro.build.version.sdk | tr -d '\r')" = 36
 adb install -r "$APK" > "$OUT/install-candidate.txt"
 adb install -r /tmp/beta83-verify-harness.apk > "$OUT/install-harness.txt"

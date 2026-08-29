@@ -67,27 +67,9 @@ grep -Fq 'if(!forceRefresh&&localInteractive&&screenState=="EMPLOYEE"&&liveEmplo
 ! grep -Fq 'val preferLocal=key=="pack_tables"||key=="pack_tables_reissue"' "$OPS"
 grep -Fq 'THAY ĐỔI BẢN HIỆN TẠI' "$OPS"
 grep -Fq 'THAY ĐỔI BẢN MỚI' "$OPS"
-adb_recover(){
-  local attempt serial
-  for attempt in 1 2 3; do
-    adb start-server >/dev/null 2>&1 || true
-    adb reconnect offline >/dev/null 2>&1 || true
-    if timeout 25s adb wait-for-device; then
-      serial="$(adb devices | awk 'NR>1 && $2=="device"{print $1;exit}')"
-      if [[ -n "$serial" ]]; then
-        export ANDROID_SERIAL="$serial"
-        return 0
-      fi
-    fi
-    adb kill-server >/dev/null 2>&1 || true
-    sleep $((attempt*2))
-  done
-  return 1
-}
-adb_recover
-adb root >"$OUT/adb-root.txt" 2>&1 || true
-adb_recover
-test "$(adb shell id -u 2>/dev/null|tr -d '\r')" = 0
+. tools/adb_stable_guard.sh
+adb_root_stable 150
+cp /tmp/adb-root-stable.txt "$OUT/adb-root.txt" 2>/dev/null || true
 adb install -r "$APK" >"$OUT/install-candidate.txt";adb install -r "$VERIFY_HARNESS_APK" >"$OUT/install-harness.txt"
 for spec in '320 568 160' '360 640 180' '480 800 240'; do
   read -r W H D <<<"$spec";TAG="${W}x${H}"

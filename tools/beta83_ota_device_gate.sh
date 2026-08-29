@@ -16,8 +16,9 @@ jq -e --arg p "$PKG" --arg h "$SHA" --argjson z "$SIZE" '
 OTA_URL=$(jq -r '.apk_url' "$PUB");MAIN_BEFORE=$(jq -r '.main_sha' "$PUB")
 [[ "$OTA_URL" == https://github.com/*/releases/download/* ]];echo "::add-mask::$OTA_URL"
 
-adb root > "$OUT/adb-root.txt" 2>&1 || true;timeout 30s adb wait-for-device
-test "$(adb shell id -u 2>/dev/null|tr -d '\r')" = 0
+. tools/adb_stable_guard.sh
+adb_root_stable 150
+cp /tmp/adb-root-stable.txt "$OUT/adb-root.txt" 2>/dev/null || true
 adb uninstall "$PKG" >/dev/null 2>&1 || true
 adb install "$OLD" > "$OUT/install-beta81.txt"
 adb shell dumpsys package "$PKG" > "$OUT/pkg81.txt";grep -Fq "versionName=$BASE" "$OUT/pkg81.txt";grep -Eq "versionCode=$BASE_CODE([[:space:]]|$)" "$OUT/pkg81.txt"
