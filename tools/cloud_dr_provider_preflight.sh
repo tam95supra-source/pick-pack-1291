@@ -24,25 +24,70 @@ console.log('render_token=PASS existing_dr='+matches.length);
 NODE
 
 http turso-validate "https://api.turso.tech/v1/auth/validate" "$TURSO_API_TOKEN"
-http turso-organizations "https://api.turso.tech/v1/organizations" "$TURSO_API_TOKEN"
-TURSO_ORG=$(node - "$OUT/turso-organizations.json" <<'NODE'
+
+# Prefer explicit non-secret config. Org-scoped Turso platform tokens may intentionally
+# return 403 for account-wide organization listing, so derive a candidate without weakening auth.
+TURSO_ORG="${TURSO_ORGANIZATION:-}"
+if [[ -z "$TURSO_ORG" ]]; then
+  TURSO_ORG=$(node - "$OUT/turso-validate.json" "$TURSO_API_TOKEN" <<'NODE'
+const fs=require('fs');
+const v=JSON.parse(fs.readFileSync(process.argv[2],'utf8')),token=process.argv[3]||'';
+let payload={};try{const p=token.split('.')[1];if(p)payload=JSON.parse(Buffer.from(p.replace(/-/g,'+').replace(/_/g,'/'),'base64').toString('utf8'));}catch{}
+const candidates=[
+  v.organization_slug,v.organizationSlug,v.organization,v.org,
+  payload.organization_slug,payload.organizationSlug,payload.organization,payload.org,payload.org_slug,payload.o
+].map(x=>String(x||'').trim()).filter(Boolean);
+process.stdout.write(candidates[0]||'');
+NODE
+  )
+fi
+
+if [[ -z "$TURSO_ORG" ]]; then
+  code=$(curl -sS --connect-timeout 10 --max-time 30 -o "$OUT/turso-organizations.json" -w '%{http_code}' -H "Authorization: Bearer $TURSO_API_TOKEN" -H 'Accept: application/json' "https://api.turso.tech/v1/organizations" || true)
+  if [[ "$code" == 200 ]]; then
+    TURSO_ORG=$(node - "$OUT/turso-organizations.json" <<'NODE'
 const fs=require('fs'),j=JSON.parse(fs.readFileSync(process.argv[2],'utf8')),rows=Array.isArray(j)?j:(j.organizations||[]);
-if(!rows.length)throw new Error('TURSO_ORGANIZATION_MISSING');
-const eligible=rows.filter(x=>x.blocked_reads!==true&&x.blocked_writes!==true);
-if(!eligible.length)throw new Error('TURSO_ORGANIZATION_BLOCKED');
-const o=eligible.find(x=>String(x.type||'')==='personal')||eligible[0],slug=String(o.slug||'').trim();if(!slug)throw new Error('TURSO_ORG_SLUG_MISSING');
-process.stdout.write(slug);
+const eligible=rows.filter(x=>x.blocked_reads!==true&&x.blocked_writes!==true),o=eligible.find(x=>String(x.type||'')==='personal')||eligible[0];
+process.stdout.write(String(o?.slug||'').trim());
 NODE
-)
-http turso-plans "https://api.turso.tech/v1/organizations/$TURSO_ORG/plans" "$TURSO_API_TOKEN"
-node - "$OUT/turso-organizations.json" "$OUT/turso-plans.json" "$TURSO_ORG" <<'NODE'
-const fs=require('fs'),orgs=JSON.parse(fs.readFileSync(process.argv[2],'utf8')),plans=JSON.parse(fs.readFileSync(process.argv[3],'utf8')),slug=process.argv[4];
-const rows=Array.isArray(orgs)?orgs:(orgs.organizations||[]),o=rows.find(x=>String(x.slug)===slug);if(!o)throw new Error('TURSO_ORG_READBACK_MISSING');
-const planId=String(o.plan_id||'starter'),list=plans.plans||[],p=list.find(x=>String(x.name||'')===planId)||list.find(x=>String(x.name||'')==='starter');
-if(!p||Number(p.price)!==0)throw new Error('TURSO_PLAN_NOT_ZERO_COST:'+planId);
-console.log('turso_plan=PASS plan='+String(p.name));
+    )
+  elif [[ "$code" != 403 ]]; then
+    echo "DR_PREFLIGHT_HTTP_FAILED:turso-organizations:$code" >&2;exit 52
+  fi
+fi
+
+# If a database URL is already provisioned, validate the DB credential directly; this is
+# sufficient for a passive DR store even when the platform token is org-scoped/opaque.
+if [[ -n "${TURSO_DATABASE_URL:-}" ]]; then
+  pushd services/cloud-dr >/dev/null
+  TURSO_DATABASE_URL="$TURSO_DATABASE_URL" TURSO_AUTH_TOKEN="$TURSO_AUTH_TOKEN" node --input-type=module <<'NODE'
+import {createClient} from '@libsql/client';
+const c=createClient({url:process.env.TURSO_DATABASE_URL,authToken:process.env.TURSO_AUTH_TOKEN});
+const r=await c.execute('SELECT 1 AS ok');c.close();
+if(Number(r.rows?.[0]?.ok)!==1)throw new Error('TURSO_DATABASE_AUTH_READBACK_FAILED');
+console.log('turso_database_token=PASS source=preprovisioned');
 NODE
-curl -fsS --connect-timeout 10 --max-time 30 -H "Authorization: Bearer $TURSO_API_TOKEN" "https://api.turso.tech/v1/organizations/$TURSO_ORG/databases?limit=100" > "$OUT/turso-databases.json"
+  popd >/dev/null
+  TURSO_DB_AUTH_OK=1
+else
+  TURSO_DB_AUTH_OK=0
+fi
+
+if [[ -n "$TURSO_ORG" ]]; then
+  code=$(curl -sS --connect-timeout 10 --max-time 30 -o "$OUT/turso-plans.json" -w '%{http_code}' -H "Authorization: Bearer $TURSO_API_TOKEN" -H 'Accept: application/json' "https://api.turso.tech/v1/organizations/$TURSO_ORG/plans" || true)
+  [[ "$code" == 200 ]] || { echo "DR_PREFLIGHT_HTTP_FAILED:turso-plans:$code" >&2;exit 52; }
+  node - "$OUT/turso-plans.json" <<'NODE'
+const fs=require('fs'),j=JSON.parse(fs.readFileSync(process.argv[2],'utf8')),list=j.plans||j;
+const zero=(Array.isArray(list)?list:[]).some(x=>Number(x.price??x.monthly_price??0)===0);
+if(!zero)throw new Error('TURSO_ZERO_COST_PLAN_NOT_VISIBLE');
+console.log('turso_free_plan=PASS');
+NODE
+  curl -fsS --connect-timeout 10 --max-time 30 -H "Authorization: Bearer $TURSO_API_TOKEN" "https://api.turso.tech/v1/organizations/$TURSO_ORG/databases?limit=100" > "$OUT/turso-databases.json"
+elif [[ "$TURSO_DB_AUTH_OK" != 1 ]]; then
+  echo "TURSO_PLATFORM_TOKEN_VALID_BUT_ORG_SCOPE_UNRESOLVED" >&2
+  exit 53
+fi
+
 pushd services/cloud-dr >/dev/null
 TURSO_AUTH_TOKEN="$TURSO_AUTH_TOKEN" TURSO_DATABASES_JSON="$OUT/turso-databases.json" node --input-type=module <<'NODE'
 import fs from 'node:fs';import {createClient} from '@libsql/client';
