@@ -45,9 +45,17 @@ export async function mealAttendanceList(env:Env,body:{business_date?:string}):P
     const mnv=String(a.mnv||"").localeCompare(String(b.mnv||""),"vi",{numeric:true,sensitivity:"base"});if(mnv)return mnv;
     return String(a.full_name_snapshot||"").localeCompare(String(b.full_name_snapshot||""),"vi",{sensitivity:"base"});
   });
-  const bp=nowBangkokParts(),eligibleShifts=bp.minutes>=19*60?new Set(["Ca 2"]):bp.minutes>=12*60?new Set(["Ca 1","Ca HC"]):new Set<string>();
+  const bp=nowBangkokParts(),eligibleShifts=new Set<string>();
+  if(bp.minutes>=12*60){eligibleShifts.add("Ca 1");eligibleShifts.add("Ca HC");}
+  if(bp.minutes>=19*60)eligibleShifts.add("Ca 2");
   const unresolved=items.filter(x=>eligibleShifts.has(String(x.shift||""))&&(x.status_view==="PENDING"||x.status_view==="OVERDUE_LATE"));
-  let severity="NONE";if(unresolved.length){if((bp.minutes>=12*60+30&&bp.minutes<19*60)||(bp.minutes>=19*60+30))severity="SEVERE";else severity="WARNING";}
+  let severity="NONE";
+  if(unresolved.length){
+    const severe=unresolved.some(x=>x.status_view==="OVERDUE_LATE"||
+      ((String(x.shift||"")==="Ca 1"||String(x.shift||"")==="Ca HC")&&bp.minutes>=12*60+30)||
+      (String(x.shift||"")==="Ca 2"&&bp.minutes>=19*60+30));
+    severity=severe?"SEVERE":"WARNING";
+  }
   return json({ok:true,source:"SERVICE_D1",business_date:date,current_day:date===current,retention_days:14,items,
     alert:{severity,unresolved_count:unresolved.length,unresolved_mnvs:unresolved.map(x=>String(x.mnv||"")).slice(0,50)}});
 }
