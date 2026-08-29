@@ -169,6 +169,14 @@ internal class LanCoordinator private constructor(context:Context):LanSocketTran
     }
 
     fun isLanActive():Boolean=nodeRole in setOf(NodeRole.MASTER,NodeRole.BACKUP,NodeRole.CLIENT)&&masterId.isNotBlank()
+    fun canRoute():Boolean{
+        if(recovering||!isLanActive())return false
+        return when(nodeRole){
+            NodeRole.MASTER->backupId.isNotBlank()&&socket.hasConnection(backupId)
+            NodeRole.BACKUP,NodeRole.CLIENT->masterId.isNotBlank()
+            else->false
+        }
+    }
     fun outageAgeMs():Long=if(outageStartedAt<=0L)0L else (System.currentTimeMillis()-outageStartedAt).coerceAtLeast(0L)
 
     private fun startPeerPresence(){
