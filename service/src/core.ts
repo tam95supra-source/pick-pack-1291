@@ -35,6 +35,25 @@ interface LaborRow {
   version: number;
 }
 
+interface MealRow {
+  business_date: string;
+  mnv: string;
+  shift: string;
+  full_name_snapshot: string;
+  supplier_snapshot: string;
+  status: "PENDING" | "CHECKED_IN" | "NO_RETURN" | "LATE_EXPECTED";
+  checked_at: string | null;
+  reason_code: string | null;
+  reason_note: string | null;
+  expected_return_at: string | null;
+  actual_return_at: string | null;
+  actor_id: string | null;
+  device_id: string | null;
+  version: number;
+  created_at: string;
+  updated_at: string;
+}
+
 export class CoreError extends Error {
   constructor(
     public code: string,
@@ -80,7 +99,7 @@ function normalizeMutation(req: CanonicalMutationRequest): CanonicalMutationRequ
   if (!deviceId || deviceId.length > 180) throw new CoreError("DEVICE_ID_REQUIRED", "VALIDATION", 400);
   if (!validIsoDate(String(req.business_date ?? ""))) throw new CoreError("BUSINESS_DATE_INVALID", "VALIDATION", 400);
   if (!Number.isInteger(req.base_version) || req.base_version < 0) throw new CoreError("BASE_VERSION_INVALID", "VALIDATION", 400);
-  if (!["ATTENDANCE_ENTER","ATTENDANCE_EXIT","RESOURCE_CHANGE","LABOR_START","LABOR_FINISH","M1_SHADOW_PROBE"].includes(String(req.event_type))) throw new CoreError("EVENT_TYPE_UNSUPPORTED","VALIDATION",400);
+  if (!["ATTENDANCE_ENTER","ATTENDANCE_EXIT","RESOURCE_CHANGE","LABOR_START","LABOR_FINISH","MEAL_CHECKIN","MEAL_STATUS_UPDATE","M1_SHADOW_PROBE"].includes(String(req.event_type))) throw new CoreError("EVENT_TYPE_UNSUPPORTED","VALIDATION",400);
   if (req.schema_version !== 1) throw new CoreError("SCHEMA_VERSION_UNSUPPORTED", "SCHEMA", 409);
   return {
     ...req,
@@ -233,6 +252,59 @@ async function commitLaborFinish(db:D1Database, auth:AuthContext, req:CanonicalM
 
 async function commitProbe(db:D1Database,auth:AuthContext,req:CanonicalMutationRequest,a:AuthorityRow):Promise<EventRow>{const event=await buildEvent(req,auth,a,req.base_version+1);await db.batch(eventStatements(db,event,a.authority_seq));return event;}
 
+async function commitMealAttendance(db:D1Database,auth:AuthContext,req:CanonicalMutationRequest,a:AuthorityRow):Promise<EventRow>{
+  const p=req.payload,mnv=text(p,"mnv",80);
+  if(!mnv)throw new CoreError("MNV_REQUIRED","VALIDATION",400);
+  const checks=await db.batch([
+    db.prepare("SELECT business_date,mnv,shift,full_name_snapshot,supplier_snapshot,status,checked_at,reason_code,reason_note,expected_return_at,actual_return_at,actor_id,device_id,version,created_at,updated_at FROM post_meal_attendance WHERE business_date=?1 AND mnv=?2").bind(req.business_date,mnv),
+    db.prepare("SELECT s.shift,s.state,e.full_name,e.supplier FROM attendance_sessions s JOIN employees e ON e.mnv=s.mnv WHERE s.business_date=?1 AND s.mnv=?2").bind(req.business_date,mnv),
+  ]);
+  const current=(checks[0]?.results?.[0]??null) as MealRow|null;
+  const staff=(checks[1]?.results?.[0]??null) as {shift?:string;state?:string;full_name?:string;supplier?:string}|null;
+  if(!staff||staff.state!=="ACTIVE")throw new CoreError("MEAL_EMPLOYEE_NOT_ACTIVE","CONFLICT",409,false);
+  const currentVersion=current?.version??0;
+  if(currentVersion!==req.base_version)throw new CoreError("STALE_BASE_VERSION","CONFLICT",409,false,{current_version:currentVersion});
+  if(req.event_type==="MEAL_CHECKIN"&&current?.status==="CHECKED_IN"){
+    throw new CoreError("MEAL_ALREADY_CHECKED_IN","CONFLICT",409,false,{checked_at:current.actual_return_at??current.checked_at});
+  }
+  const event=await buildEvent(req,auth,a,currentVersion+1);
+  const before=current?JSON.stringify(current):"{}";
+  const status=req.event_type==="MEAL_CHECKIN"?"CHECKED_IN":text(p,"status",40);
+  if(!["CHECKED_IN","NO_RETURN","LATE_EXPECTED"].includes(status))throw new CoreError("MEAL_STATUS_INVALID","VALIDATION",400);
+  const reason=text(p,"reason_code",120),note=text(p,"reason_note",500),expected=text(p,"expected_return_at",80);
+  if(status==="NO_RETURN"||status==="LATE_EXPECTED"){
+    const allowed=new Set(["Xin về sớm","Đi hỗ trợ bộ phận/vị trí khác","Xin vào muộn","Nghỉ đột xuất","Có việc cá nhân","Được quản lý điều chuyển","Khác"]);
+    if(!allowed.has(reason))throw new CoreError("MEAL_REASON_INVALID","VALIDATION",400);
+    if(reason==="Khác"&&!note)throw new CoreError("MEAL_REASON_NOTE_REQUIRED","VALIDATION",400);
+    if((status==="LATE_EXPECTED"||reason==="Xin vào muộn")&&(!expected||Number.isNaN(Date.parse(expected))))throw new CoreError("MEAL_EXPECTED_TIME_REQUIRED","VALIDATION",400);
+  }
+  const checkedAt=status==="CHECKED_IN"?event.committed_at:(current?.checked_at??null);
+  const actual=status==="CHECKED_IN"?event.committed_at:(current?.actual_return_at??null);
+  const finalReason=status==="CHECKED_IN"?(current?.reason_code??null):(reason||null);
+  const finalNote=status==="CHECKED_IN"?(current?.reason_note??null):(note||null);
+  const finalExpected=status==="CHECKED_IN"?(current?.expected_return_at??null):(expected||null);
+  const created=current?.created_at??event.committed_at;
+  const after={
+    business_date:req.business_date,mnv,shift:String(staff.shift??""),full_name_snapshot:String(staff.full_name??""),
+    supplier_snapshot:String(staff.supplier??""),status,checked_at:checkedAt,reason_code:finalReason,reason_note:finalNote,
+    expected_return_at:finalExpected,actual_return_at:actual,actor_id:auth.login_id,device_id:req.device_id,
+    version:event.new_version,created_at:created,updated_at:event.committed_at
+  };
+  const stmts=eventStatements(db,event,a.authority_seq);
+  stmts.push(db.prepare(`INSERT INTO post_meal_attendance(
+      business_date,mnv,shift,full_name_snapshot,supplier_snapshot,status,checked_at,reason_code,reason_note,expected_return_at,actual_return_at,actor_id,device_id,version,created_at,updated_at)
+    VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16)
+    ON CONFLICT(business_date,mnv) DO UPDATE SET
+      shift=excluded.shift,full_name_snapshot=excluded.full_name_snapshot,supplier_snapshot=excluded.supplier_snapshot,status=excluded.status,
+      checked_at=excluded.checked_at,reason_code=excluded.reason_code,reason_note=excluded.reason_note,expected_return_at=excluded.expected_return_at,
+      actual_return_at=excluded.actual_return_at,actor_id=excluded.actor_id,device_id=excluded.device_id,version=excluded.version,updated_at=excluded.updated_at`)
+    .bind(after.business_date,after.mnv,after.shift,after.full_name_snapshot,after.supplier_snapshot,after.status,after.checked_at,after.reason_code,after.reason_note,after.expected_return_at,after.actual_return_at,after.actor_id,after.device_id,after.version,after.created_at,after.updated_at));
+  stmts.push(db.prepare("INSERT INTO post_meal_attendance_audit(event_id,business_date,mnv,before_json,after_json,created_at) VALUES(?1,?2,?3,?4,?5,?6)")
+    .bind(event.event_id,req.business_date,mnv,before,JSON.stringify(after),event.committed_at));
+  await db.batch(stmts);
+  return event;
+}
+
 export async function commitMutation(db:D1Database,env:Env,auth:AuthContext,input:CanonicalMutationRequest):Promise<{event:EventRow;duplicate:boolean}>{
   const req=normalizeMutation(input);if(req.event_type==="M1_SHADOW_PROBE"&&auth.role!=="SUPERADMIN")throw new CoreError("SHADOW_PROBE_SUPERADMIN_REQUIRED","PERMISSION",403);const preflightStatements:D1PreparedStatement[]=[
     db.prepare("SELECT * FROM events WHERE event_id=?1 OR idempotency_key=?2 ORDER BY committed_at LIMIT 1").bind(req.event_id,req.idempotency_key),
@@ -249,7 +321,7 @@ export async function commitMutation(db:D1Database,env:Env,auth:AuthContext,inpu
     const allowed=new Set((preflight[2]?.results??[]).map(r=>String((r as {business_date?:string}).business_date??"")));if(!allowed.has(req.business_date))throw new CoreError(auth.role==="SUPERADMIN"?"BUSINESS_DATE_OUTSIDE_PDA_7_DAY_WINDOW":"BUSINESS_DATE_NOT_N_N_MINUS_1","PERMISSION",403,false,{allowed:[...allowed]});
   }
   try{
-    const event= req.event_type==="ATTENDANCE_ENTER"?await commitAttendanceEnter(db,auth,req,a):req.event_type==="ATTENDANCE_EXIT"?await commitAttendanceExit(db,auth,req,a):req.event_type==="RESOURCE_CHANGE"?await commitResourceChange(db,auth,req,a):req.event_type==="LABOR_START"?await commitLaborStart(db,auth,req,a):req.event_type==="LABOR_FINISH"?await commitLaborFinish(db,auth,req,a):await commitProbe(db,auth,req,a);
+    const event= req.event_type==="ATTENDANCE_ENTER"?await commitAttendanceEnter(db,auth,req,a):req.event_type==="ATTENDANCE_EXIT"?await commitAttendanceExit(db,auth,req,a):req.event_type==="RESOURCE_CHANGE"?await commitResourceChange(db,auth,req,a):req.event_type==="LABOR_START"?await commitLaborStart(db,auth,req,a):req.event_type==="LABOR_FINISH"?await commitLaborFinish(db,auth,req,a):(req.event_type==="MEAL_CHECKIN"||req.event_type==="MEAL_STATUS_UPDATE")?await commitMealAttendance(db,auth,req,a):await commitProbe(db,auth,req,a);
     return{event,duplicate:false};
   }catch(e){
     if(e instanceof CoreError)throw e;
