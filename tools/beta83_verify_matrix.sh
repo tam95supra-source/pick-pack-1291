@@ -8,8 +8,8 @@ SHA=$(jq -r '.apk_sha256' "$META");SIZE=$(jq -r '.apk_size' "$META")
 STAGE=$(jq -r '.stage' "$REQ")
 VISUAL_ONLY=$(jq -r '.visual_evidence_only // false' "$REQ")
 export VISUAL_ONLY
-REQ_SOURCE=$(jq -r '.source_sha' "$REQ");REQ_SIGNER=$(jq -r '.signer_sha256' "$REQ")
-jq -e --arg v "$VERSION" --argjson code "$CODE" --arg pkg "$PKG" --arg src "$REQ_SOURCE" --arg signer "$REQ_SIGNER" '
+REQ_SOURCE=$(jq -r '.source_sha' "$REQ");REQ_CANDIDATE_SOURCE=$(jq -r '.candidate_source_sha // .source_sha' "$REQ");REQ_SIGNER=$(jq -r '.signer_sha256' "$REQ")
+jq -e --arg v "$VERSION" --argjson code "$CODE" --arg pkg "$PKG" --arg src "$REQ_CANDIDATE_SOURCE" --arg signer "$REQ_SIGNER" '
   .version_name==$v and .version_code==$code and .package==$pkg and .source_sha==$src and
   .signer_sha256==$signer and .candidate_locked==true and
   .stable_publish=="FORBIDDEN" and .authority_change=="NONE"
