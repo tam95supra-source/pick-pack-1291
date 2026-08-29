@@ -14,7 +14,7 @@ BASE_APK_NAME="pick-pack-1291-public-beta-$PREV.apk";BQ="'$FOLDER' in parents an
 curl -fsS --get -H "Authorization: Bearer $ACCESS_TOKEN" --data-urlencode "q=$BQ" --data-urlencode 'fields=files(id,name,size)' https://www.googleapis.com/drive/v3/files > "$E/base-files.json"
 test "$(jq '.files|length' "$E/base-files.json")" = 1
 BASE_FILE=$(jq -r '.files[0].id' "$E/base-files.json");test "$(jq -r '.files[0].size' "$E/base-files.json")" = "$BASE_SIZE";echo "::add-mask::$BASE_FILE"
-curl -fsS -H "Authorization: Bearer $ACCESS_TOKEN" "https://www.googleapis.com/drive/v3/files/$BASE_FILE?alt=media" -o "$E/base-auth.apk"
+curl -fsS -H "Authorization: Bearer $ACCESS_TOKEN" "https://www.googleapis.com/drive/v3/files/$BASE_FILE?alt=media&acknowledgeAbuse=true" -o "$E/base-auth.apk"
 test "$(sha256sum "$E/base-auth.apk"|awk '{print $1}')" = "$BASE_SHA";test "$(stat -c '%s' "$E/base-auth.apk")" = "$BASE_SIZE"
 BASE_URL="https://drive.usercontent.google.com/download?id=$BASE_FILE&export=download&confirm=t";echo "::add-mask::$BASE_URL"
 curl -fsSL --retry 2 --retry-delay 2 --connect-timeout 15 --max-time 120 "$BASE_URL" -o "$E/base-public.apk"
