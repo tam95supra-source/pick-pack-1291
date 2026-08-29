@@ -1,6 +1,6 @@
 {
-  "stage": "PUBLISH",
-  "mode": "PUBLISH_EXACT_BETA96_AFTER_ALL_PRE_OTA_PASS",
+  "stage": "pass_live",
+  "mode": "PASS_LIVE_EXACT_BYTES",
   "version_name": "0.4.2-beta.96",
   "version_code": 102,
   "base_version": "0.4.2-beta.94",
@@ -20,7 +20,7 @@
   "resign": false,
   "scope": "beta96-api29-meal-cache-fix-inherits-beta95-scope",
   "owner": "Nguyen Van Tam",
-  "live": false,
+  "live": true,
   "release_notes": [
     "Sửa cache Điểm danh sau giờ ăn tương thích Android API29 bằng SQLite conflict API tương thích, không dùng cú pháp UPSERT mới.",
     "Kế thừa tối ưu D1 Free: dữ liệu nghiệp vụ 45 ngày, Điểm danh sau giờ ăn 14 ngày, repair sweep 30 phút và gate đo dung lượng D1.",
@@ -62,5 +62,6 @@
   "verify_artifact_name": "beta-verify-33228713454",
   "verify_artifact_digest": "sha256:a99c4fff0cc304baa02509644d5bed399be4a10bae442b7430355726b22a1925",
   "api29_regression": "PASS_RUN_33228713454",
-  "human_visual_evidence": "PASS_RUN_33228713454_ARTIFACT_9707862827_26_SCREENSHOTS_AI_INSPECTION"
+  "human_visual_evidence": "PASS_RUN_33228713454_ARTIFACT_9707862827_26_SCREENSHOTS_AI_INSPECTION",
+  "publish_run_id": "33229586853"
 }
