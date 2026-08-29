@@ -36,7 +36,8 @@ grep -Fq 'postMealAttendanceScreen()' "$OPS"
 grep -Fq '"MEAL_ATTENDANCE" -> PostMealAttendanceFeature.onRealtime(changedDates)' "$OPS"
 grep -Fq 'localInteractive=localNow!=null&&localNow.optBoolean("session_known",true)' "$OPS"
 grep -Fq 'QrPerformanceDiagnostics.recordLocal' "$OPS"
-grep -Fq 'retention_days' app/src/main/java/vn/pickpack1291/app/beta/PostMealAttendanceFeature.kt
+grep -Fq 'minusDays(13)' app/src/main/java/vn/pickpack1291/app/beta/PostMealAttendanceFeature.kt
+grep -Fq 'minusDays(13)' app/src/main/java/vn/pickpack1291/app/beta/MealAttendanceLocalStore.kt
 grep -Fq 'pp_meal_attendance_14d.db' app/src/main/java/vn/pickpack1291/app/beta/MealAttendanceLocalStore.kt
 grep -Fq 'cleanPdaSerial' "$OPS"
 grep -Fq 'if(kind=="Trả")' "$OPS"
