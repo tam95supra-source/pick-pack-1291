@@ -54,8 +54,17 @@ object PostMealAttendanceFeature {
         }
         fun nowIso()=Instant.now().toString()
         fun today()=LocalDate.now(ZoneId.of(TZ))
+        fun effectiveStatus(item:JSONObject):String{
+            val raw=item.optString("status_view").ifBlank{item.optString("status")}
+            if(raw=="OVERDUE_LATE")return raw
+            if(raw=="LATE_EXPECTED"&&item.optString("actual_return_at").isBlank()){
+                val expected=item.optString("expected_return_at")
+                if(expected.isNotBlank()&&runCatching{Instant.parse(expected).toEpochMilli()<=System.currentTimeMillis()}.getOrDefault(false))return "OVERDUE_LATE"
+            }
+            return raw
+        }
         fun statusLabel(item:JSONObject):String{
-            return when(item.optString("status_view").ifBlank{item.optString("status")}){
+            return when(effectiveStatus(item)){
                 "OVERDUE_LATE"->"QUÁ GIỜ VÀO MUỘN"
                 "PENDING"->"Chưa điểm danh"
                 "CHECKED_IN"->"Đã điểm danh"
@@ -64,15 +73,16 @@ object PostMealAttendanceFeature {
                 else->item.optString("status").ifBlank{"Chưa điểm danh"}
             }
         }
-        fun statusColor(item:JSONObject)=when(item.optString("status_view").ifBlank{item.optString("status")}){
+        fun statusColor(item:JSONObject)=when(effectiveStatus(item)){
             "OVERDUE_LATE"->red;"PENDING"->orange;"CHECKED_IN"->green;"NO_RETURN"->muted;"LATE_EXPECTED"->teal;else->muted
         }
 
         val store=MealAttendanceLocalStore(activity)
+        store.prune()
         val root=column()
         val header=column().apply{setPadding(dp(12),dp(9),dp(12),dp(8));background=GradientDrawable(GradientDrawable.Orientation.TL_BR,intArrayOf(navy,ThemeManager.accent(activity))).apply{cornerRadius=0f}}
         header.addView(text("ĐIỂM DANH SAU GIỜ ĂN",15f,Color.WHITE,true))
-        header.addView(text("Dữ liệu hiện tại ghi trên D1 • lịch sử 14 ngày chỉ đọc",9f,Color.WHITE,false))
+        header.addView(text("Ngày hiện tại có thể cập nhật • lịch sử 14 ngày chỉ xem",9f,Color.WHITE,false))
         root.addView(header,LinearLayout.LayoutParams(-1,-2))
 
         val controls=column().apply{setPadding(dp(10),dp(8),dp(10),dp(6))}
@@ -103,11 +113,10 @@ object PostMealAttendanceFeature {
         }
 
         fun localAlert(source:JSONObject):JSONObject{
-            source.optJSONObject("alert")?.let{return JSONObject(it.toString())}
             val now=java.time.ZonedDateTime.now(ZoneId.of(TZ));val minutes=now.hour*60+now.minute
             val unresolved=mutableListOf<String>();var severe=false
             for(x in itemList(source)){
-                val shift=x.optString("shift");val st=x.optString("status_view").ifBlank{x.optString("status")}
+                val shift=x.optString("shift");val st=effectiveStatus(x)
                 val shiftDue=(shift in setOf("Ca 1","Ca HC")&&minutes>=12*60)||(shift=="Ca 2"&&minutes>=19*60)
                 if(!shiftDue)continue
                 val unresolvedNow=st=="PENDING"||st=="OVERDUE_LATE"||(st=="LATE_EXPECTED"&&x.optString("expected_return_at").let{it.isNotBlank()&&runCatching{Instant.parse(it).toEpochMilli()<=System.currentTimeMillis()}.getOrDefault(false)})
@@ -269,15 +278,20 @@ object PostMealAttendanceFeature {
         fun scheduleBoundary(){
             main.removeCallbacksAndMessages(null)
             val z=java.time.ZonedDateTime.now(ZoneId.of(TZ))
-            val candidates=listOf(12*60,12*60+30,19*60,19*60+30).filter{it>z.hour*60+z.minute}
-            val delay=if(candidates.isEmpty()){
-                val next=z.toLocalDate().plusDays(1).atStartOfDay(ZoneId.of(TZ)).plusHours(12)
-                java.time.Duration.between(z,next).toMillis()
-            }else{
-                val n=candidates.first();val next=z.toLocalDate().atTime(n/60,n%60).atZone(ZoneId.of(TZ))
-                java.time.Duration.between(z,next).toMillis()
-            }.coerceAtLeast(1_000L)
-            main.postDelayed({if(activeDate==selected.toString()){render();remoteLoad();scheduleBoundary()}},delay)
+            val day=z.toLocalDate()
+            val points=mutableListOf<java.time.ZonedDateTime>()
+            for(n in listOf(12*60,12*60+30,19*60,19*60+30)){
+                val p=day.atTime(n/60,n%60).atZone(ZoneId.of(TZ))
+                if(p.isAfter(z))points+=p
+            }
+            points+=day.plusDays(1).atStartOfDay(ZoneId.of(TZ))
+            val next=points.minByOrNull{it.toInstant()}!!
+            val delay=java.time.Duration.between(z,next).toMillis().coerceAtLeast(1_000L)
+            main.postDelayed({
+                val nowDay=today()
+                if(selected.isBefore(nowDay))load(nowDay) else {render();remoteLoad()}
+                scheduleBoundary()
+            },delay)
         }
 
         activeRefresh={activity.runOnUiThread{if(activeDate==selected.toString())remoteLoad()}}
