@@ -119,11 +119,22 @@ PY
 )
 fi
 
-BASELINE_READBACK=LIVE_GAS
+BASELINE_READBACK=LIVE_GAS_BASELINE
 if update BETA "$BASE_PROBE" "$E/beta-before.json"; then
-  jq -e --arg v "$PREV" --arg h "$BASE_SHA" --argjson z "$BASE_SIZE" '
+  if jq -e --arg v "$PREV" --arg h "$BASE_SHA" --argjson z "$BASE_SIZE" '
     .channel=="BETA" and .available==true and .version_name==$v and .sha256==$h and .size==$z
-  ' "$E/beta-before.json" >/dev/null
+  ' "$E/beta-before.json" >/dev/null 2>&1; then
+    BASELINE_READBACK=LIVE_GAS_BASELINE
+  elif jq -e --arg v "$VERSION" --arg p "$PKG" --arg h "$SHA" --argjson z "$SIZE" '
+    .source=="GITHUB_RELEASE" and .channel=="BETA" and .available==true and
+    .version_name==$v and .package==$p and .sha256==$h and .size==$z
+  ' "$E/beta-before.json" >/dev/null 2>&1; then
+    BASELINE_READBACK=PARTIAL_TARGET_ACTIVE_FROM_PRIOR_PUBLISH
+  else
+    echo "Unexpected Beta manifest state before publish" >&2
+    cat "$E/beta-before.json" >&2
+    exit 1
+  fi
 else
   jq -e '(.error//"")|contains("DriveApp")' "$E/beta-before.json" >/dev/null
   BASELINE_READBACK=LEGACY_GAS_DRIVEAPP_BROKEN_BUT_FINAL_RECEIPT_PASS
@@ -157,16 +168,27 @@ restore_baseline(){
     --notes-file "$E/base-notes.txt" --receipt "$E/gas-contract-recovery.json" \
     --description "Pick Pack 1291 restore exact $PREV GitHub Release OTA contract"
   local restored=0 a
-  for a in 0 1 2 3 4; do
+  for a in 0 1 2 3 4 5 6 7; do
     update BETA "$BASE_PROBE" "$E/beta-restored.json" || true
     if jq -e --arg v "$PREV" --arg p "$PKG" --arg h "$BASE_SHA" --argjson z "$BASE_SIZE" '
       .ok==true and .channel=="BETA" and .source=="GITHUB_RELEASE" and .available==true and
       .version_name==$v and .package==$p and .sha256==$h and .size==$z
     ' "$E/beta-restored.json" >/dev/null 2>&1; then restored=1; break; fi
-    sleep $((3+a*4))
+    sleep $((2+a*3))
   done
   test "$restored" = 1
 }
+
+ACTIVATED=0
+rollback_on_error(){
+  local rc=$?
+  if [[ "$ACTIVATED" == 1 ]]; then
+    trap - ERR
+    restore_baseline || true
+  fi
+  exit "$rc"
+}
+trap rollback_on_error ERR
 
 if ! python3 tools/gas_ota_static_contract.py --version "$VERSION" --version-code "$CODE" --package "$PKG" \
   --sha256 "$SHA" --size "$SIZE" --apk-url "$APK_URL" --published-at "$PUBLISHED_AT" \
@@ -175,9 +197,10 @@ if ! python3 tools/gas_ota_static_contract.py --version "$VERSION" --version-cod
   restore_baseline || true
   exit 1
 fi
+ACTIVATED=1
 
 PASS=0
-for a in 0 1 2 3 4; do
+for a in 0 1 2 3 4 5 6 7; do
   update BETA "$PREV" "$E/beta-after.json" || true
   if jq -e --arg v "$VERSION" --arg p "$PKG" --arg h "$SHA" --argjson z "$SIZE" '
     .ok==true and .channel=="BETA" and .source=="GITHUB_RELEASE" and .available==true and
@@ -185,10 +208,7 @@ for a in 0 1 2 3 4; do
   ' "$E/beta-after.json" >/dev/null 2>&1; then PASS=1; break; fi
   [[ "$a" -lt 4 ]] && sleep $((3+a*4))
 done
-if [[ "$PASS" != 1 ]]; then
-  restore_baseline
-  exit 1
-fi
+test "$PASS" = 1
 
 RETURNED_URL=$(jq -r '.apk_url' "$E/beta-after.json")
 test "$RETURNED_URL" = "$APK_URL"
@@ -198,10 +218,15 @@ test "$(sha256sum "$E/contract.apk"|awk '{print $1}')" = "$SHA"
 test "$(stat -c '%s' "$E/contract.apk")" = "$SIZE"
 cmp -s "$APK" "$E/contract.apk"
 
-update BETA "$VERSION" "$E/beta-current.json"
-jq -e --arg v "$VERSION" --arg p "$PKG" '
-  .ok==true and .channel=="BETA" and .source=="GITHUB_RELEASE" and .available==false and .version_name==$v and .package==$p
-' "$E/beta-current.json" >/dev/null
+CURRENT_PASS=0
+for a in 0 1 2 3 4 5 6 7; do
+  update BETA "$VERSION" "$E/beta-current.json" || true
+  if jq -e --arg v "$VERSION" --arg p "$PKG" '
+    .ok==true and .channel=="BETA" and .source=="GITHUB_RELEASE" and .available==false and .version_name==$v and .package==$p
+  ' "$E/beta-current.json" >/dev/null 2>&1; then CURRENT_PASS=1; break; fi
+  sleep $((2+a*3))
+done
+test "$CURRENT_PASS" = 1
 
 update STABLE 0.1.0-stable "$E/stable-after.json"
 jq -S . "$E/stable-before.json" > "$E/sb"
@@ -230,4 +255,6 @@ jq -n \
     stable_unchanged:true,main_sha:$main,main_unchanged:true,authority:$auth[0].authority,authority_change:"NONE"
   }' > "$E/receipt.json"
 
+ACTIVATED=0
+trap - ERR
 cat "$E/receipt.json"
