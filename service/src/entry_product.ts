@@ -11,6 +11,7 @@ import { reconcileBeta47OperationalProjection } from "./beta47_projection";
 import { historyDelete } from "./history_delete";
 import { replicateOutboundPending } from "./outbound_beta78";
 import { enqueueInvalidation } from "./push";
+import { claimMaintenance, runD1Retention } from "./d1_maintenance";
 import { apiError, json } from "./util";
 
 export { RealtimeHub };
@@ -61,9 +62,19 @@ export default {
     await flushSessionSpecialProjections(env);
     try{const outbound=await replicateOutboundPending(env);console.log(JSON.stringify({level:"info",kind:"beta78_outbound_replication",...outbound}));}
     catch(e){console.log(JSON.stringify({level:"error",kind:"beta78_outbound_replication_failed",error:String(e).slice(0,500)}));}
-    try{const r=await reconcileBeta47OperationalProjection(env);if(r.catalog_changed)await broadcastCatalogRevision(env);console.log(JSON.stringify({level:"info",kind:"beta47_projection",...r}));}
-    catch(e){console.log(JSON.stringify({level:"error",kind:"beta47_projection_failed",error:String(e).slice(0,500)}));}
-    try{const historyRows=await backfillAllHistoryAudit(env);console.log(JSON.stringify({level:"info",kind:"beta47_history_audit",history_rows:historyRows}));}
-    catch(e){console.log(JSON.stringify({level:"error",kind:"beta47_history_audit_failed",error:String(e).slice(0,500)}));}
+    try{
+      if(await claimMaintenance(env.DB,"repair-30m",30*60_000)){
+        const r=await reconcileBeta47OperationalProjection(env);
+        if(r.catalog_changed)await broadcastCatalogRevision(env);
+        const historyRows=await backfillAllHistoryAudit(env);
+        console.log(JSON.stringify({level:"info",kind:"beta95_bounded_repair",history_rows:historyRows,...r}));
+      }
+    }catch(e){console.log(JSON.stringify({level:"error",kind:"beta95_bounded_repair_failed",error:String(e).slice(0,500)}));}
+    try{
+      if(await claimMaintenance(env.DB,"retention-daily",24*60*60_000)){
+        const r=await runD1Retention(env.DB);
+        console.log(JSON.stringify({level:"info",kind:"beta95_d1_retention",...r}));
+      }
+    }catch(e){console.log(JSON.stringify({level:"error",kind:"beta95_d1_retention_failed",error:String(e).slice(0,500)}));}
   },
 } satisfies ExportedHandler<Env>;
