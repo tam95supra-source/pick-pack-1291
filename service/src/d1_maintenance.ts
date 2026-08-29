@@ -45,7 +45,7 @@ async function deleteBusinessDate(db:D1Database,date:string):Promise<void>{
   ]);
 }
 
-export async function runD1Retention(db:D1Database):Promise<{operational_dates:number;meal_rows:number;meal_audit_rows:number;push_rows:number}>{
+export async function runD1Retention(db:D1Database):Promise<{operational_dates:number;meal_rows:number;meal_audit_rows:number;push_rows:number;import_batches:number;bootstrap_runs:number}>{
   const today=new Date(Date.now()+7*3600_000).toISOString().slice(0,10);
   const operationalCutoff=new Date(Date.parse(today+"T00:00:00Z")-44*86_400_000).toISOString().slice(0,10);
   const mealCutoff=new Date(Date.parse(today+"T00:00:00Z")-13*86_400_000).toISOString().slice(0,10);
@@ -53,9 +53,12 @@ export async function runD1Retention(db:D1Database):Promise<{operational_dates:n
   for(const date of dates)await deleteBusinessDate(db,date);
   const mealAudit=await db.prepare("DELETE FROM post_meal_attendance_audit WHERE business_date<?1").bind(mealCutoff).run();
   const meal=await db.prepare("DELETE FROM post_meal_attendance WHERE business_date<?1").bind(mealCutoff).run();
-  const push=await db.prepare("DELETE FROM push_outbox WHERE created_at<?1 AND status IN ('SENT','FAILED')").bind(new Date(Date.now()-45*86_400_000).toISOString()).run();
-  const mealRows=Number((meal.meta as MetaResult|undefined)?.changes??0),mealAuditRows=Number((mealAudit.meta as MetaResult|undefined)?.changes??0),pushRows=Number((push.meta as MetaResult|undefined)?.changes??0);
+  const technicalCutoff=new Date(Date.now()-45*86_400_000).toISOString();
+  const push=await db.prepare("DELETE FROM push_outbox WHERE created_at<?1 AND status IN ('SENT','FAILED')").bind(technicalCutoff).run();
+  const imports=await db.prepare("DELETE FROM import_batches WHERE started_at<?1").bind(technicalCutoff).run();
+  const bootstrap=await db.prepare("DELETE FROM bootstrap_runs WHERE started_at<?1 AND status IN ('COMPLETE','FAILED') AND run_id NOT IN (SELECT run_id FROM bootstrap_runs WHERE status='COMPLETE' ORDER BY completed_at DESC LIMIT 3)").bind(technicalCutoff).run();
+  const mealRows=Number((meal.meta as MetaResult|undefined)?.changes??0),mealAuditRows=Number((mealAudit.meta as MetaResult|undefined)?.changes??0),pushRows=Number((push.meta as MetaResult|undefined)?.changes??0),importBatches=Number((imports.meta as MetaResult|undefined)?.changes??0),bootstrapRuns=Number((bootstrap.meta as MetaResult|undefined)?.changes??0);
   await db.prepare("UPDATE service_maintenance SET checkpoint=?1,updated_at=?2 WHERE task_key='retention-daily'")
     .bind(JSON.stringify({at:nowIso(),operational_cutoff:operationalCutoff,meal_cutoff:mealCutoff,dates}),nowIso()).run();
-  return{operational_dates:dates.length,meal_rows:mealRows,meal_audit_rows:mealAuditRows,push_rows:pushRows};
+  return{operational_dates:dates.length,meal_rows:mealRows,meal_audit_rows:mealAuditRows,push_rows:pushRows,import_batches:importBatches,bootstrap_runs:bootstrapRuns};
 }
