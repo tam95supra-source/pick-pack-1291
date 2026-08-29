@@ -374,6 +374,24 @@ class OperationalDataStore(context: Context) {
 
     fun lanReplicaCount():Int=withDbLock{readableDb().rawQuery("SELECT COUNT(*) FROM lan_event_replicas",null).use{c->if(c.moveToFirst())c.getInt(0)else 0}}
 
+    data class LanReplica(val eventId:String,val body:JSONObject,val generation:Long)
+
+    fun pendingLanReplicas(limit:Int=100):List<LanReplica> = withDbLock {
+        val out=ArrayList<LanReplica>()
+        readableDb().query("lan_event_replicas",arrayOf("event_id","body_json","generation"),"canonical_status IN ('PENDING','RETRY')",null,null,null,"stored_at ASC",limit.coerceIn(1,500).toString()).use{c->
+            while(c.moveToNext())runCatching{JSONObject(c.getString(1))}.getOrNull()?.let{out+=LanReplica(c.getString(0),it,c.getLong(2))}
+        }
+        out
+    }
+
+    fun pendingLanReplicaCount():Int=withDbLock{
+        readableDb().rawQuery("SELECT COUNT(*) FROM lan_event_replicas WHERE canonical_status IN ('PENDING','RETRY')",null).use{c->if(c.moveToFirst())c.getInt(0)else 0}
+    }
+
+    fun markLanReplicaCanonical(eventId:String,status:String,error:String="")=withDbLock{
+        writableDb().execSQL("UPDATE lan_event_replicas SET canonical_status=?,canonical_error=?,canonical_at=? WHERE event_id=?",arrayOf(status,error.take(1200),System.currentTimeMillis(),eventId))
+    }
+
     /** Google Emergency Ledger ACK is provisional capture only; the local event remains replayable. */
     fun markEmergencyCaptured(eventId:String)=withDbLock{
         val now=System.currentTimeMillis();val db=writableDb();db.beginTransaction()
@@ -497,12 +515,13 @@ class OperationalDataStore(context: Context) {
 
     private class DbHelper(context: Context) : SQLiteOpenHelper(context, DB_NAME, null, DB_VERSION) {
         init { setWriteAheadLoggingEnabled(false) }
-        override fun onCreate(db: SQLiteDatabase) { createV1(db); createV2(db); createV3(db); createV4(db) }
+        override fun onCreate(db: SQLiteDatabase) { createV1(db); createV2(db); createV3(db); createV4(db); createV5(db) }
         override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
             // Never drop day_snapshot, mutation_outbox, or local_history during an installed-Beta upgrade.
             if (oldVersion < 2) createV2(db)
             if (oldVersion < 3) createV3(db)
             if (oldVersion < 4) createV4(db)
+            if (oldVersion < 5) createV5(db)
         }
         private fun createV1(db: SQLiteDatabase) {
             db.execSQL("""CREATE TABLE IF NOT EXISTS day_snapshot(
@@ -569,13 +588,19 @@ class OperationalDataStore(context: Context) {
                 updated_at INTEGER NOT NULL
             )""".trimIndent())
         }
+        private fun createV5(db:SQLiteDatabase){
+            runCatching{db.execSQL("ALTER TABLE lan_event_replicas ADD COLUMN canonical_status TEXT NOT NULL DEFAULT 'PENDING'")}
+            runCatching{db.execSQL("ALTER TABLE lan_event_replicas ADD COLUMN canonical_error TEXT NOT NULL DEFAULT ''")}
+            runCatching{db.execSQL("ALTER TABLE lan_event_replicas ADD COLUMN canonical_at INTEGER NOT NULL DEFAULT 0")}
+            db.execSQL("CREATE INDEX IF NOT EXISTS idx_lan_event_canonical ON lan_event_replicas(canonical_status,stored_at)")
+        }
 
     }
 
     companion object {
         // Legacy filename retained intentionally for in-place migration; semantics are exact N..N-6.
         private const val DB_NAME = "pp_operational_45d.db"
-        private const val DB_VERSION = 4
+        private const val DB_VERSION = 5
         private const val TZ = "Asia/Ho_Chi_Minh"
         private val DB_LOCK = Any()
         private val MEMORY = ConcurrentHashMap<String, JSONObject>()
