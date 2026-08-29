@@ -7,7 +7,7 @@ import { b64u, b64uDecode, hmacB64u, json, nowIso } from "../../../service/src/u
 
 export type DrRuntimeEnv={TURSO_DATABASE_URL:string;TURSO_AUTH_TOKEN:string;SERVICE_TOKEN_SECRET:string;SERVICE_GENERATION:string;DISCOVERY_URL:string;DR_WRITER_MODE:string};
 const err=(code:string,status=400)=>json({ok:false,error:{code,error_class:status===401?"AUTH":"VALIDATION",retryable:status>=500}},status);
-const envFor=(db:D1Database,e:DrRuntimeEnv):Env=>({DB:db,SERVICE_TOKEN_SECRET:e.SERVICE_TOKEN_SECRET,SERVICE_GENERATION:e.SERVICE_GENERATION});
+const envFor=(db:D1Database,e:DrRuntimeEnv):Env=>({DB:db,SERVICE_TOKEN_SECRET:e.SERVICE_TOKEN_SECRET,SERVICE_GENERATION:e.SERVICE_GENERATION,M1_ADMIN_TOKEN:''});
 
 async function exchangeGasSession(request:Request,db:D1Database,e:DrRuntimeEnv):Promise<Response>{
   const input=await request.json() as {gas_token?:string;device_id?:string;device_label?:string};
