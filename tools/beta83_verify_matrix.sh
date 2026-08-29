@@ -86,9 +86,11 @@ for spec in '320 568 160' '360 640 180' '480 800 240'; do
   adb shell am force-stop "$PKG" >/dev/null 2>&1 || true
   adb shell pm clear "$PKG" >/dev/null
   adb shell svc wifi disable >/dev/null 2>&1 || true;adb shell svc data disable >/dev/null 2>&1 || true
+  adb logcat -c >/dev/null 2>&1 || true
   set +e
   timeout 150s adb shell am instrument -w -r -e mode "$MODE" -e tag "$TAG" -e mnv 981820081 -e mnv2 981820082 -e mnv3 981820083 vn.pickpack1291.verify/.Beta83UiChecksInstrumentation >"$OUT/$TAG-instrument.txt" 2>&1
   RC=$?
+  adb logcat -d -v threadtime >"$OUT/$TAG-logcat.txt" 2>&1 || true
   set -e
   test "$RC" = 0;grep -Fq 'INSTRUMENTATION_CODE: 0' "$OUT/$TAG-instrument.txt"
   mkdir -p "$OUT/$TAG"
