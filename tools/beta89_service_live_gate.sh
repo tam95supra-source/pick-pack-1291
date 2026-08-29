@@ -72,9 +72,8 @@ Path('wrangler.live.jsonc').write_text(s,encoding='utf-8')
 PY
 
 npx wrangler d1 migrations apply "$D1_NAME" --remote --config wrangler.live.jsonc 2>&1 | tee "$D/migrations.log"
-DB_SPACE=$(npx wrangler d1 execute "$D1_NAME" --remote --config wrangler.live.jsonc --command "PRAGMA page_count; PRAGMA page_size;" --json)
-printf '%s' "$DB_SPACE" > "$D/d1-space-before.json"
-DB_BYTES=$(node -e 'const j=JSON.parse(process.argv[1]);const pc=Number(j?.[0]?.results?.[0]?.page_count||0),ps=Number(j?.[1]?.results?.[0]?.page_size||0);if(!pc||!ps)throw new Error("D1_SPACE_PRAGMA_INVALID");process.stdout.write(String(pc*ps))' "$DB_SPACE")
+curl -fsS -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN"   "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/d1/database/$D1_ID" > "$D/d1-space-before.json"
+DB_BYTES=$(jq -er '.result.file_size | numbers' "$D/d1-space-before.json")
 DB_LIMIT=524288000
 [[ "$DB_BYTES" -lt 471859200 ]] || { echo "D1_STORAGE_EMERGENCY:$DB_BYTES" >&2; exit 11; }
 npx wrangler deploy --config wrangler.live.jsonc 2>&1 | tee "$D/deploy.log"
