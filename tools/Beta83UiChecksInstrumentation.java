@@ -89,15 +89,16 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
       .commit();
   }
 
-  private Activity open(String module){
+  private Activity openRole(String module,String roleValue){
     seedAuth();seedService();
+    target.getSharedPreferences("pick_pack_auth_session_v2",Context.MODE_PRIVATE).edit().putString("role",roleValue).commit();
     Intent i=new Intent();
     i.setClassName(target,ACT);
     i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK|Intent.FLAG_ACTIVITY_CLEAR_TASK);
     i.putExtra("module",module);
     i.putExtra("login","beta83_verify");
     i.putExtra("name","Beta83 Verify");
-    i.putExtra("role","SUPERADMIN");
+    i.putExtra("role",roleValue);
     i.putExtra("position","TEST");
     i.putExtra("email","verify@example.invalid");
     target.startActivity(i);
@@ -111,8 +112,10 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
       }
       SystemClock.sleep(150L);
     }
-    throw new IllegalStateException("ACTIVITY_START_TIMEOUT:"+module);
+    throw new IllegalStateException("ACTIVITY_START_TIMEOUT:"+module+":"+roleValue);
   }
+
+  private Activity open(String module){return openRole(module,"SUPERADMIN");}
 
   private void appendRealtimeTimelineEventAndNotify(String mnv)throws Exception{
     Activity a=currentActivity;
@@ -382,7 +385,8 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
         .put(new JSONObject().put("mnv",mnv).put("full_name","Beta83 Test A").put("phone","0900000081").put("start_date","01/08/2026").put("main_position","PICK").put("supplier","TEST").put("department","OPS").put("site","1291").put("warehouse","HY1"))
         .put(new JSONObject().put("mnv",mnv2).put("full_name","Beta83 Test B").put("phone","0900000082").put("start_date","02/08/2026").put("main_position","PACK").put("supplier",JSONObject.NULL).put("department","OPS").put("site","1291").put("warehouse","HY1"))
         .put(new JSONObject().put("mnv",mnv3).put("full_name","Beta83 Test C").put("phone","0900000083").put("start_date","03/08/2026").put("main_position","PACK").put("supplier","TEST").put("department","OPS").put("site","1291").put("warehouse","HY1"))
-        .put(new JSONObject().put("mnv","981820084").put("full_name","Beta95 Local New").put("phone","0900000084").put("start_date","04/08/2026").put("main_position","PICK").put("supplier","TEST").put("department","OPS").put("site","1291").put("warehouse","HY1")))
+        .put(new JSONObject().put("mnv","981820084").put("full_name","Beta95 Local New").put("phone","0900000084").put("start_date","04/08/2026").put("main_position","PICK").put("supplier","TEST").put("department","OPS").put("site","1291").put("warehouse","HY1"))
+        .put(new JSONObject().put("mnv","981810099").put("full_name","Beta97 Old Active").put("phone","0900000099").put("start_date","01/08/2026").put("main_position","PICK").put("supplier","TEST").put("department","OPS").put("site","1291").put("warehouse","HY1")))
       .put("pdas",new JSONArray()).put("pda_statuses",new JSONArray().put("Tốt"))
       .put("user_picks",new JSONArray()).put("pack_bundles",new JSONArray());
 
@@ -589,10 +593,15 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     clickText("Điểm danh nhân sự",true,10000L);
     waitText("ĐIỂM DANH SAU GIỜ ĂN",true,false,10000L);
     waitText("Quét MNV điểm danh trở lại",false,false,10000L);
+    waitText("Mạng",true,false,10000L);waitText("Đồng bộ",true,false,10000L);waitText("Dịch vụ",true,false,10000L);
+    mark("status_header_meal");
     shot(tag+"-00-beta95-meal");
     setEmployee("981829999");
     waitText("Nhân sự không có phiên đang hoạt động trong ngày",false,false,10000L);
     mark("meal_invalid_employee_guard");
+    setEmployee("981810099");
+    waitText("Nhân sự không có phiên đang hoạt động trong ngày",false,false,10000L);
+    mark("meal_old_session_blocked");
     setEmployee(mnv);
     waitText("Đã điểm danh",false,false,10000L);
     setEmployee(mnv);
@@ -601,6 +610,17 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     try{ui.executeShellCommand("input keyevent 4").close();}catch(Exception ignored){}
     SystemClock.sleep(300L);
     waitText("Điểm danh nhân sự",true,true,10000L);
+
+    openRole("BUSINESS","USER");
+    waitText("Quét QR nhân sự",true,true,10000L);
+    require(findText("Lịch sử",true,false)==null,"USER_HISTORY_TAB_VISIBLE");
+    mark("history_hidden_user");
+    openRole("HISTORY","USER");
+    waitText("Quét QR nhân sự",true,true,10000L);
+    require(findText("Lịch sử",true,false)==null,"USER_HISTORY_DEEPLINK_VISIBLE");
+    mark("history_deeplink_blocked_user");
+    open("BUSINESS");
+    waitText("Quét QR nhân sự",true,true,10000L);
 
     clickText("Quét QR nhân sự",true,12000L);
     setEmployee("981820084");
