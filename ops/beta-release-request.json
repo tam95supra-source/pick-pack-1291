@@ -1,6 +1,6 @@
 {
   "stage": "PUBLISH",
-  "mode": "PUBLISH_EXACT_BETA97_AFTER_ALL_PREOTA_PASS",
+  "mode": "PUBLISH_EXACT_BETA97_GAS_STATIC_CONTRACT_RECOVERY",
   "version_name": "0.4.2-beta.97",
   "version_code": 103,
   "base_version": "0.4.2-beta.96",
@@ -25,11 +25,11 @@
   "live": false,
   "release_notes": [
     "Exact Beta97 candidate reused; no rebuild/resign.",
-    "Fast Check, inherited Service regression, visual/PDA functional, Android 16/API36 Back and human visual 320x568/360x640/480x800 all PASS.",
-    "Verifier confirms exact-current-day meal scan fence, status header on meal screen, USER History hidden/deeplink blocked, and home meal warning placement.",
-    "Publish must activate only exact candidate SHA256 522cfd16cc71b416c8c3efe222f8763cbfd159c355359ad781258ea0292d9231; Stable/main/signer/authority unchanged."
+    "All pre-OTA gates remain PASS from run 33250391599 and exact candidate/service inputs are unchanged.",
+    "Publish recovery verifies Beta96/Beta97 bytes through Drive API and changes only ppUpdateCheck_ in the live GAS project to an exact static OTA contract; operational GAS files/functions are preserved.",
+    "If activation or post-publish OTA fails, restore exact Beta96 manifest before candidate cleanup. Stable/main/signer/authority unchanged."
   ],
-  "next_action": "PUBLISH_EXACT_LOCKED_BETA97_THEN_OTA_INSTALL_READBACK",
+  "next_action": "PUBLISH_EXACT_BETA97_WITH_STATIC_GAS_OTA_CONTRACT_THEN_OTA_READBACK",
   "signer_sha256": "d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e",
   "candidate_run_id": 33247859614,
   "candidate_artifact_id": 9713456764,
@@ -54,5 +54,7 @@
     "360x640",
     "480x800"
   ],
-  "human_visual_screenshot_count": 26
+  "human_visual_screenshot_count": 26,
+  "base_probe_version": "0.4.2-beta.95",
+  "transport_recovery": "GAS_DRIVEAPP_READBACK_TO_STATIC_EXACT_CONTRACT"
 }
