@@ -29,8 +29,11 @@ if [[ "$STATE" == "PREPARE_REQUIRED" || "$STATE" == "CUTOVER_REQUIRED" ]]; then
     (( COUNT < MAX_DBS )) || { echo "D1_PREPARE_BLOCKED_DB_COUNT" >&2; exit 32; }
     awk -v p="$TPCT" -v t="$OWNER_TOTAL" 'BEGIN{exit !(p<t)}' || { echo "D1_PREPARE_BLOCKED_TOTAL_QUOTA" >&2; exit 33; }
     NEXT="pick-pack-1291-service-gen-$(date -u +%Y%m%d%H%M%S)"
-    CREATE=$(npx wrangler d1 create "$NEXT" --location apac --json)
-    NEXT_ID=$(jq -r '.uuid // .id // .database_id // empty' <<<"$CREATE"); test -n "$NEXT_ID"
+    CREATE=$(npx wrangler d1 create "$NEXT" --location apac 2>&1)
+    printf '%s\n' "$CREATE" > "$OUT/create-next.log"
+    NEXT_ID=$(sed -nE 's/.*database_id[[:space:]]*=[[:space:]]*"([0-9a-fA-F-]{36})".*/\1/p' "$OUT/create-next.log" | tail -n1)
+    [[ -n "$NEXT_ID" ]] || NEXT_ID=$(grep -Eo '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}' "$OUT/create-next.log" | tail -n1 || true)
+    [[ -n "$NEXT_ID" ]] || { cat "$OUT/create-next.log" >&2; echo D1_PREPARE_CREATE_PARSE_FAILED >&2; exit 34; }
     NEXT_CONFIG="$OUT/wrangler-next.jsonc"
     node - "$CONFIG" "$NEXT_CONFIG" "$NEXT" "$NEXT_ID" <<'NODE'
 const fs=require('fs');const [input,out,name,id]=process.argv.slice(2);let s=fs.readFileSync(input,'utf8');s=s.replace(/"database_name"\s*:\s*"[^"]+"/,'"database_name": "'+name+'"').replace(/"database_id"\s*:\s*"[^"]+"/,'"database_id": "'+id+'"');fs.writeFileSync(out,s);

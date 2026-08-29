@@ -22,10 +22,11 @@ MAX=$(jq -er '.cloudflare_workers_free.d1_database_count' ../config/provider_fre
 
 create_db(){
   local name="$1" out="$2"
-  npx wrangler d1 create "$name" --location apac --json >"$out"
+  npx wrangler d1 create "$name" --location apac >"$out" 2>&1
   local id
-  id=$(jq -r '.uuid // .id // .database_id // empty' "$out")
-  [[ -n "$id" ]] || { echo "ROLLOVER_CREATE_FAILED:$name" >&2; exit 42; }
+  id=$(sed -nE 's/.*database_id[[:space:]]*=[[:space:]]*"([0-9a-fA-F-]{36})".*/\1/p' "$out" | tail -n1)
+  [[ -n "$id" ]] || id=$(grep -Eo '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}' "$out" | tail -n1 || true)
+  [[ -n "$id" ]] || { cat "$out" >&2; echo "ROLLOVER_CREATE_FAILED:$name" >&2; exit 42; }
   IDS+=("$id");printf '%s' "$id"
 }
 make_cfg(){
