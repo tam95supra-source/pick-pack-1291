@@ -1003,58 +1003,108 @@ function onEdit(e){
 
 
 // === RESILIENCE_V1 GOOGLE EMERGENCY LEDGER ===
-function ppEmergencyLedgerSheet_(){
-  const ss=SpreadsheetApp.openById(PP.SHEET_ID),name='EMERGENCY EVENT LEDGER';
-  let sh=ss.getSheetByName(name);if(!sh)sh=ss.insertSheet(name);
-  const h=['event_id','idempotency_key','event_type','schema_version','received_at','business_date','actor','device_id','device_sequence','depends_on_event_id','authority_epoch','service_generation','checksum','payload_json','capture_status','canonical_status','canonical_event_id_ref','apply_attempts','last_error_code','finalized_at'];
-  if(sh.getLastRow()===0||String(sh.getRange(1,1).getValue())!=='event_id')sh.getRange(1,1,1,h.length).setValues([h]);
-  return sh;
-}
+const PP_EMERGENCY_HEADERS=['event_id','idempotency_key','event_type','schema_version','received_at','business_date','actor','device_id','device_sequence','depends_on_event_id','authority_epoch','service_generation','checksum','payload_json','capture_status','canonical_status','canonical_event_id_ref','apply_attempts','last_error_code','finalized_at'];
+const PP_EMERGENCY_INDEX_HEADERS=['event_id','sheet_name','row_no','actor','capture_status','canonical_status','finalized_at','updated_at'];
+
 function ppEmergencySanitize_(v){
   if(v===null||typeof v!=='object')return v;
   if(Array.isArray(v))return v.map(ppEmergencySanitize_);
   const o={};Object.keys(v).forEach(function(k){const f=String(k).toLowerCase();if(/password|secret|token|signing|api.?key|credential|verifier|proof/.test(f))return;o[k]=ppEmergencySanitize_(v[k]);});return o;
 }
-function ppEmergencyExisting_(sh){
+function ppEmergencyIndex_(){
+  const ss=SpreadsheetApp.openById(PP.SHEET_ID),name='EMERGENCY EVENT INDEX';
+  let sh=ss.getSheetByName(name);if(!sh)sh=ss.insertSheet(name);
+  if(sh.getLastRow()===0||String(sh.getRange(1,1).getValue())!=='event_id')sh.getRange(1,1,1,PP_EMERGENCY_INDEX_HEADERS.length).setValues([PP_EMERGENCY_INDEX_HEADERS]);
+  return sh;
+}
+function ppEmergencyPartitionName_(businessDate,receivedAt){
+  const date=String(businessDate||'').trim();
+  let ym=/^\d{4}-\d{2}/.test(date)?date.slice(0,7).replace('-',''):'';
+  if(!ym){const iso=String(receivedAt||ppNowIso_());ym=/^\d{4}-\d{2}/.test(iso)?iso.slice(0,7).replace('-',''):Utilities.formatDate(new Date(),'Asia/Bangkok','yyyyMM');}
+  return 'EMERGENCY LEDGER '+ym;
+}
+function ppEmergencyPartition_(name){
+  const ss=SpreadsheetApp.openById(PP.SHEET_ID);let sh=ss.getSheetByName(name);if(!sh)sh=ss.insertSheet(name);
+  if(sh.getLastRow()===0||String(sh.getRange(1,1).getValue())!=='event_id')sh.getRange(1,1,1,PP_EMERGENCY_HEADERS.length).setValues([PP_EMERGENCY_HEADERS]);
+  return sh;
+}
+function ppEmergencyIndexMap_(sh){
   const m={};if(sh.getLastRow()<2)return m;
-  const ids=sh.getRange(2,1,sh.getLastRow()-1,1).getDisplayValues();
-  ids.forEach(function(r,i){if(r[0])m[String(r[0])]=i+2;});return m;
+  const values=sh.getRange(2,1,sh.getLastRow()-1,PP_EMERGENCY_INDEX_HEADERS.length).getDisplayValues();
+  values.forEach(function(v,i){if(v[0])m[String(v[0])]={index_row:i+2,sheet_name:String(v[1]||''),row_no:Number(v[2]||0),actor:String(v[3]||''),capture_status:String(v[4]||''),canonical_status:String(v[5]||''),finalized_at:String(v[6]||'')};});
+  return m;
+}
+function ppEmergencyHousekeeping_(){
+  const props=PropertiesService.getScriptProperties(),today=Utilities.formatDate(new Date(),'Asia/Bangkok','yyyy-MM-dd');
+  if(props.getProperty('PP_EMERGENCY_SWEEP_DATE')===today)return;
+  props.setProperty('PP_EMERGENCY_SWEEP_DATE',today);
+  const ss=SpreadsheetApp.openById(PP.SHEET_ID),idx=ppEmergencyIndex_();if(idx.getLastRow()<2)return;
+  const rows=idx.getRange(2,1,idx.getLastRow()-1,PP_EMERGENCY_INDEX_HEADERS.length).getDisplayValues();
+  const bySheet={};rows.forEach(function(v){const name=String(v[1]||'');if(!/^EMERGENCY LEDGER \d{6}$/.test(name))return;(bySheet[name]||(bySheet[name]=[])).push(v);});
+  const cutoff=new Date(Date.now()-60*86400000),remove={};
+  Object.keys(bySheet).forEach(function(name){
+    const m=name.match(/(\d{4})(\d{2})$/);if(!m)return;
+    const end=new Date(Date.UTC(Number(m[1]),Number(m[2]),1));
+    const allFinal=bySheet[name].length>0&&bySheet[name].every(function(v){return String(v[5]||'').trim()!=='';});
+    if(allFinal&&end<cutoff){const sh=ss.getSheetByName(name);if(sh)ss.deleteSheet(sh);remove[name]=true;}
+  });
+  const keep=rows.filter(function(v){return !remove[String(v[1]||'')];});
+  if(keep.length!==rows.length){
+    idx.getRange(2,1,Math.max(1,idx.getMaxRows()-1),PP_EMERGENCY_INDEX_HEADERS.length).clearContent();
+    if(keep.length)idx.getRange(2,1,keep.length,PP_EMERGENCY_INDEX_HEADERS.length).setValues(keep);
+  }
 }
 function ppEmergencyLedgerCapture_(auth,body){
-  const events=Array.isArray(body.events)?body.events:[],sh=ppEmergencyLedgerSheet_(),lock=LockService.getScriptLock();lock.waitLock(10000);
+  const events=Array.isArray(body.events)?body.events:[],lock=LockService.getScriptLock();lock.waitLock(10000);
   try{
-    const existing=ppEmergencyExisting_(sh),rows=[],now=ppNowIso_(),captured=[];
+    const idx=ppEmergencyIndex_(),existing=ppEmergencyIndexMap_(idx),now=ppNowIso_(),captured=[],rejected=[],groups={};
     events.slice(0,100).forEach(function(raw){
-      const e=ppEmergencySanitize_(raw||{}),id=String(e.event_id||'').trim();if(!id)return;
+      const e=ppEmergencySanitize_(raw||{}),id=String(e.event_id||'').trim();if(!id){rejected.push({event_id:'',error:'EVENT_ID_REQUIRED'});return;}
       if(existing[id]){captured.push({event_id:id,status:'CAPTURED',duplicate:true});return;}
-      const payload=ppEmergencySanitize_(e.payload||{});
-      rows.push([id,String(e.idempotency_key||id),String(e.event_type||''),Number(e.schema_version||1),now,String(e.business_date||''),String(e.actor_mnv||e.user_id||auth.login_id||''),String(e.device_id||''),Number(e.device_sequence||0),String(e.depends_on_event_id||''),Number(e.authority_epoch||0),String(e.service_generation||''),String(e.checksum||''),JSON.stringify(payload),'CAPTURED','','',0,'','']);
-      existing[id]=true;captured.push({event_id:id,status:'CAPTURED'});
+      const payload=ppEmergencySanitize_(e.payload||{}),payloadJson=JSON.stringify(payload);
+      if(payloadJson.length>45000){rejected.push({event_id:id,error:'EMERGENCY_PAYLOAD_TOO_LARGE'});return;}
+      const name=ppEmergencyPartitionName_(e.business_date,now);
+      const row=[id,String(e.idempotency_key||id),String(e.event_type||''),Number(e.schema_version||1),now,String(e.business_date||''),String(e.actor_mnv||e.user_id||auth.login_id||''),String(e.device_id||''),Number(e.device_sequence||0),String(e.depends_on_event_id||''),Number(e.authority_epoch||0),String(e.service_generation||''),String(e.checksum||''),payloadJson,'CAPTURED','','',0,'',''];
+      (groups[name]||(groups[name]=[])).push({event_id:id,row:row,actor:String(row[6])});
     });
-    if(rows.length)sh.getRange(sh.getLastRow()+1,1,rows.length,20).setValues(rows);
-    return {ok:true,capture_status:'CAPTURED',captured:captured};
+    const indexRows=[];
+    Object.keys(groups).forEach(function(name){
+      const sh=ppEmergencyPartition_(name),items=groups[name],first=sh.getLastRow()+1;
+      sh.getRange(first,1,items.length,PP_EMERGENCY_HEADERS.length).setValues(items.map(function(x){return x.row;}));
+      items.forEach(function(x,i){const rowNo=first+i;indexRows.push([x.event_id,name,rowNo,x.actor,'CAPTURED','','',now]);existing[x.event_id]={sheet_name:name,row_no:rowNo};captured.push({event_id:x.event_id,status:'CAPTURED'});});
+    });
+    if(indexRows.length)idx.getRange(idx.getLastRow()+1,1,indexRows.length,PP_EMERGENCY_INDEX_HEADERS.length).setValues(indexRows);
+    ppEmergencyHousekeeping_();
+    return {ok:true,capture_status:'CAPTURED',captured:captured,rejected:rejected,partitioned:true};
   }finally{lock.releaseLock();}
 }
 function ppEmergencyLedgerFinalize_(auth,body){
-  const items=Array.isArray(body.items)?body.items:[],sh=ppEmergencyLedgerSheet_(),lock=LockService.getScriptLock();lock.waitLock(10000);
+  const items=Array.isArray(body.items)?body.items:[],lock=LockService.getScriptLock();lock.waitLock(10000);
   try{
-    const existing=ppEmergencyExisting_(sh),now=ppNowIso_(),out=[];
+    const idx=ppEmergencyIndex_(),existing=ppEmergencyIndexMap_(idx),ss=SpreadsheetApp.openById(PP.SHEET_ID),now=ppNowIso_(),out=[];
     items.slice(0,100).forEach(function(x){
-      const id=String((x||{}).event_id||''),row=existing[id];if(!row)return;
+      const id=String((x||{}).event_id||''),hit=existing[id];if(!hit||!hit.sheet_name||!hit.row_no)return;
+      if(String(auth.role)!=='SUPERADMIN'&&hit.actor&&hit.actor!==String(auth.login_id||'')&&hit.actor!==String((x||{}).actor_mnv||''))return;
       const status=String((x||{}).status||'').toUpperCase(),canonical=status==='CONFIRMED'?'APPLIED':status==='DUPLICATE'?'DUPLICATE':status==='REVIEW_REQUIRED'?'REVIEW_REQUIRED':status==='REJECTED'?'REJECTED':'';
       if(!canonical)return;
-      const currentActor=String(sh.getRange(row,7).getDisplayValue()||'');
-      if(String(auth.role)!=='SUPERADMIN'&&currentActor&&currentActor!==String(auth.login_id||'')&&currentActor!==String((x||{}).actor_mnv||''))return;
+      const sh=ss.getSheetByName(hit.sheet_name);if(!sh)return;
+      const row=Number(hit.row_no),idAtRow=String(sh.getRange(row,1).getDisplayValue()||'');if(idAtRow!==id)return;
       const attempts=Number(sh.getRange(row,18).getValue()||0)+1;
       sh.getRange(row,16,1,5).setValues([[canonical,String((x||{}).canonical_event_id||id),attempts,String((x||{}).last_error_code||''),now]]);
+      idx.getRange(hit.index_row,5,1,4).setValues([['CAPTURED',canonical,now,now]]);
       out.push({event_id:id,canonical_status:canonical});
     });
+    ppEmergencyHousekeeping_();
     return {ok:true,finalized:out};
   }finally{lock.releaseLock();}
 }
 function ppEmergencyLedgerQuery_(auth,body){
-  const ids=Array.isArray(body.event_ids)?body.event_ids.map(String):[],sh=ppEmergencyLedgerSheet_(),existing=ppEmergencyExisting_(sh),out=[];
-  ids.slice(0,100).forEach(function(id){const row=existing[id];if(!row)return;const v=sh.getRange(row,1,1,20).getDisplayValues()[0];if(String(auth.role)!=='SUPERADMIN'&&v[6]&&v[6]!==String(auth.login_id||''))return;out.push({event_id:v[0],capture_status:v[14],canonical_status:v[15],canonical_event_id_ref:v[16],apply_attempts:Number(v[17]||0),last_error_code:v[18],finalized_at:v[19]});});
+  const ids=Array.isArray(body.event_ids)?body.event_ids.map(String):[],idx=ppEmergencyIndex_(),existing=ppEmergencyIndexMap_(idx),ss=SpreadsheetApp.openById(PP.SHEET_ID),out=[];
+  ids.slice(0,100).forEach(function(id){
+    const hit=existing[id];if(!hit||!hit.sheet_name||!hit.row_no)return;if(String(auth.role)!=='SUPERADMIN'&&hit.actor&&hit.actor!==String(auth.login_id||''))return;
+    const sh=ss.getSheetByName(hit.sheet_name);if(!sh)return;const v=sh.getRange(Number(hit.row_no),1,1,PP_EMERGENCY_HEADERS.length).getDisplayValues()[0];if(String(v[0]||'')!==id)return;
+    out.push({event_id:v[0],capture_status:v[14],canonical_status:v[15],canonical_event_id_ref:v[16],apply_attempts:Number(v[17]||0),last_error_code:v[18],finalized_at:v[19],partition:hit.sheet_name});
+  });
   return {ok:true,items:out};
 }
 

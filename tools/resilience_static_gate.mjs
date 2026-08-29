@@ -51,3 +51,9 @@ must(drAdapter.includes("@libsql/client/web"),"DR_PROVIDER_ADAPTER_MISSING");
 must(providerLimits.cloudflare_workers_free?.d1_database_bytes===524288000,"CF_D1_FREE_DB_LIMIT_MISMATCH");
 must(providerLimits.cloudflare_workers_free?.d1_account_bytes===5368709120,"CF_D1_FREE_ACCOUNT_LIMIT_MISMATCH");
 must(providerLimits.turso?.required_plan_price_usd===0&&providerLimits.deno?.required_plan_price_usd===0,"DR_FREE_PLAN_GUARD_MISSING");
+
+const gasRes=read("google-apps-script/PICK_PACK_API.gs");
+must(gasRes.includes("EMERGENCY EVENT INDEX")&&gasRes.includes("EMERGENCY LEDGER "+'')&&gasRes.includes("ppEmergencyPartitionName_"),"EMERGENCY_LEDGER_PARTITION_MISSING");
+must(gasRes.includes("allFinal")&&gasRes.includes("60*86400000"),"EMERGENCY_LEDGER_SAFE_RETENTION_MISSING");
+must(gasRes.includes("EMERGENCY_PAYLOAD_TOO_LARGE"),"EMERGENCY_LEDGER_PAYLOAD_GUARD_MISSING");
+must(read("app/src/main/java/vn/pickpack1291/app/beta/M2ServiceTransport.kt").includes('capturedIds.size==pending.size'),"EMERGENCY_CAPTURE_PER_EVENT_ACK_MISSING");

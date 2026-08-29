@@ -296,8 +296,11 @@ class M2ServiceTransport(context: Context) {
             .put("_device_id",M2DeviceIdentity.id(app)).put("_app_version",BuildConfig.VERSION_NAME).put("_app_channel",BuildConfig.CHANNEL)
         val r=httpJson(BuildConfig.GSHEET_API_URL,req,null,requireServiceHost=false)
         if(!r.ok)return false
-        pending.forEach{store.markEmergencyCaptured(it.eventId)}
-        return true
+        val captured=r.json?.optJSONArray("captured")?:JSONArray()
+        val capturedIds=HashSet<String>()
+        for(i in 0 until captured.length())captured.optJSONObject(i)?.optString("event_id")?.takeIf{it.isNotBlank()}?.let{capturedIds.add(it)}
+        pending.filter{it.eventId in capturedIds}.forEach{store.markEmergencyCaptured(it.eventId)}
+        return capturedIds.size==pending.size
     }
 
     private fun finalizeEmergency(items:JSONArray){
