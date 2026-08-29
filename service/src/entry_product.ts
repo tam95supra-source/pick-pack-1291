@@ -11,10 +11,21 @@ import { reconcileBeta47OperationalProjection } from "./beta47_projection";
 import { historyDelete } from "./history_delete";
 import { replicateOutboundPending } from "./outbound_beta78";
 import { enqueueInvalidation } from "./push";
-import { claimMaintenance, runD1Retention } from "./d1_maintenance";
-import { apiError, json } from "./util";
+import { claimMaintenance, d1CapacitySnapshot, recordVerifiedBackup, runD1Retention } from "./d1_maintenance";
+import { apiError, json, nowIso } from "./util";
 
 export { RealtimeHub };
+
+async function infraCapacity(request:Request,env:Env):Promise<Response>{
+  const auth=await authenticate(env.DB,env,request);if(!auth)return apiError("UNAUTHORIZED","AUTH",401);if(auth.role!=="SUPERADMIN")return apiError("SUPERADMIN_REQUIRED","PERMISSION",403);
+  return json({ok:true,capacity:await d1CapacitySnapshot(env.DB)});
+}
+async function infraBackupVerified(request:Request,env:Env):Promise<Response>{
+  const auth=await authenticate(env.DB,env,request);if(!auth)return apiError("UNAUTHORIZED","AUTH",401);if(auth.role!=="SUPERADMIN")return apiError("SUPERADMIN_REQUIRED","PERMISSION",403);
+  let body:Record<string,unknown>;try{body=await request.json() as Record<string,unknown>;}catch{return apiError("JSON_INVALID","VALIDATION",400);}
+  try{await recordVerifiedBackup(env.DB,{backup_id:String(body.backup_id||""),created_at:String(body.created_at||nowIso()),source:String(body.source||""),first_event:String(body.first_event||""),last_event:String(body.last_event||""),first_business_date:String(body.first_business_date||""),last_business_date:String(body.last_business_date||""),row_counts_json:JSON.stringify(body.row_counts||{}),table_counts_json:JSON.stringify(body.table_counts||{}),checksum:String(body.checksum||""),schema_version:Number(body.schema_version||0),checkpoint:String(body.checkpoint||"")});return json({ok:true});}
+  catch(e){return apiError(String(e).includes("BACKUP_MANIFEST_REQUIRED")?"BACKUP_MANIFEST_REQUIRED":"BACKUP_VERIFY_RECORD_FAILED","VALIDATION",400);}
+}
 
 async function historicalBusinessDates(request:Request,env:Env):Promise<Response>{
   const auth=await authenticate(env.DB,env,request);if(!auth)return apiError("UNAUTHORIZED","AUTH",401);if(auth.role!=="SUPERADMIN")return apiError("SUPERADMIN_REQUIRED","PERMISSION",403);
@@ -42,6 +53,8 @@ export default {
     if(u.pathname==="/v1/auth/gas-session"&&method==="POST")return exchangeGasSession(request,env);
     if(u.pathname==="/v1/mobile/read"&&method==="POST")return mobileRead(request,env);
     if(u.pathname==="/v1/admin/business-dates"&&method==="GET")return historicalBusinessDates(request,env);
+    if(u.pathname==="/v1/admin/infra/capacity"&&method==="GET")return infraCapacity(request,env);
+    if(u.pathname==="/v1/admin/infra/backup-verification"&&method==="POST")return infraBackupVerified(request,env);
     if(u.pathname==="/v1/service/connections"&&method==="GET")return serviceConnectionsV47(request,env);
     if(u.pathname==="/v1/admin/accounts/delete"&&method==="POST")return superadminDeleteAccounts(request,env);
     if(u.pathname==="/v1/admin/resources"&&method==="GET")return resourceAdminList(request,env);
@@ -70,6 +83,12 @@ export default {
         console.log(JSON.stringify({level:"info",kind:"beta95_bounded_repair",...r,history_backfill_rows:historyRows}));
       }
     }catch(e){console.log(JSON.stringify({level:"error",kind:"beta95_bounded_repair_failed",error:String(e).slice(0,500)}));}
+    try{
+      if(await claimMaintenance(env.DB,"capacity-30m",30*60_000)){
+        const r=await d1CapacitySnapshot(env.DB);
+        console.log(JSON.stringify({level:"info",kind:"resilience_capacity",...r}));
+      }
+    }catch(e){console.log(JSON.stringify({level:"error",kind:"resilience_capacity_failed",error:String(e).slice(0,500)}));}
     try{
       if(await claimMaintenance(env.DB,"retention-daily",24*60*60_000)){
         const r=await runD1Retention(env.DB);
