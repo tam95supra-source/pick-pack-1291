@@ -86,7 +86,7 @@ LOGIN="__B78_LOGIN_${SUFFIX}"; DEVICE="__B78_DEVICE_${SUFFIX}"; AUTH_SESSION="__
 LOC1="__B78_LOC_${SUFFIX}"; LOC2="__B78_LOC2_${SUFFIX}"; DROP_ID="__B78_DROP_${SUFFIX}"; BASE_ID="__B78_BASE_${SUFFIX}"
 EV_CREATE="__B78_LOC_CREATE_${SUFFIX}"; EV_UPDATE="__B78_LOC_UPDATE_${SUFFIX}"; EV_DELETE="__B78_LOC_DELETE_${SUFFIX}"
 B80_MNV="__B80_MNV_${SUFFIX}"; B80_PDA="__B80_PDA_${SUFFIX}"; B80_ENTER="__B80_ENTER_${SUFFIX}"; B80_MUTATE="__B80_MUTATE_${SUFFIX}"; B80_EXIT="__B80_EXIT_${SUFFIX}"
-B95_LATE="__B95_LATE_${SUFFIX}"; B95_CHECK="__B95_CHECK_${SUFFIX}"; B95_DUP_SCAN="__B95_DUP_SCAN_${SUFFIX}"
+B95_LATE="__B95_LATE_${SUFFIX}"; B95_CHECK="__B95_CHECK_${SUFFIX}"; B95_DUP_SCAN="__B95_DUP_SCAN_${SUFFIX}"; B95_OTHER_BAD="__B95_OTHER_BAD_${SUFFIX}"; B95_NO_RETURN="__B95_NO_RETURN_${SUFFIX}"; B95_LATE_EDIT="__B95_LATE_EDIT_${SUFFIX}"
 B89_PDA2="__B89_PDA2_${SUFFIX}"; B89_PICK="__B89_PICK_${SUFFIX}"; B89_BLOCKED_PICK="__B89_BLOCKED_PICK_${SUFFIX}"
 B89_RETURN="__B89_RETURN_${SUFFIX}"; B89_EXCHANGE="__B89_EXCHANGE_${SUFFIX}"; B89_BLOCKED="__B89_BLOCKED_${SUFFIX}"
 B91_TABLE="__B91_TABLE_${SUFFIX}"; B91_PACK="__B91_PACK_${SUFFIX}"; B91_BLOCKED_TABLE="__B91_BLOCKED_TABLE_${SUFFIX}"; B91_BLOCKED_PACK="__B91_BLOCKED_PACK_${SUFFIX}"
@@ -192,13 +192,28 @@ echo 'beta92_authoritative_options=PASS active_options=PASS user_pick_unavailabl
 
 
 # Beta95: post-meal attendance uses the canonical ledger, current-day write only, idempotent scan and 14-day read window.
-B95_EXPECTED=$(date -u -d '+1 hour' +%Y-%m-%dT%H:%M:%SZ)
-mutation_api b95-late "{\"events\":[{\"action\":\"meal_status\",\"event_id\":\"$B95_LATE\",\"business_date\":\"$B80_DATE\",\"payload\":{\"mnv\":\"$B80_MNV\",\"status\":\"LATE_EXPECTED\",\"reason_code\":\"Xin vào muộn\",\"expected_return_at\":\"$B95_EXPECTED\"}}]}"
+mutation_api b95-other-bad "{\"events\":[{\"action\":\"meal_status\",\"event_id\":\"$B95_OTHER_BAD\",\"business_date\":\"$B80_DATE\",\"payload\":{\"mnv\":\"$B80_MNV\",\"status\":\"NO_RETURN\",\"reason_code\":\"Khác\",\"reason_note\":\"\"}}]}"
+jq -e '.ok==true and .results[0].status=="REJECTED" and .results[0].error_code=="MEAL_REASON_NOTE_REQUIRED"' "$D/b95-other-bad.json" >/dev/null
+
+mutation_api b95-no-return "{\"events\":[{\"action\":\"meal_status\",\"event_id\":\"$B95_NO_RETURN\",\"business_date\":\"$B80_DATE\",\"payload\":{\"mnv\":\"$B80_MNV\",\"status\":\"NO_RETURN\",\"reason_code\":\"Có việc cá nhân\"}}]}"
+jq -e '.ok==true and .results[0].status=="CONFIRMED"' "$D/b95-no-return.json" >/dev/null
+
+B95_EXPECTED1=$(date -u -d '+2 hour' +%Y-%m-%dT%H:%M:%SZ)
+mutation_api b95-late "{\"events\":[{\"action\":\"meal_status\",\"event_id\":\"$B95_LATE\",\"business_date\":\"$B80_DATE\",\"payload\":{\"mnv\":\"$B80_MNV\",\"status\":\"LATE_EXPECTED\",\"reason_code\":\"Xin vào muộn\",\"expected_return_at\":\"$B95_EXPECTED1\"}}]}"
 jq -e '.ok==true and .results[0].status=="CONFIRMED"' "$D/b95-late.json" >/dev/null
-mutation_api b95-late-dup "{\"events\":[{\"action\":\"meal_status\",\"event_id\":\"$B95_LATE\",\"business_date\":\"$B80_DATE\",\"payload\":{\"mnv\":\"$B80_MNV\",\"status\":\"LATE_EXPECTED\",\"reason_code\":\"Xin vào muộn\",\"expected_return_at\":\"$B95_EXPECTED\"}}]}"
-jq -e '.ok==true and .results[0].status=="DUPLICATE"' "$D/b95-late-dup.json" >/dev/null
+
+B95_EXPECTED2=$(date -u -d '+1 hour' +%Y-%m-%dT%H:%M:%SZ)
+mutation_api b95-late-edit "{\"events\":[{\"action\":\"meal_status\",\"event_id\":\"$B95_LATE_EDIT\",\"business_date\":\"$B80_DATE\",\"payload\":{\"mnv\":\"$B80_MNV\",\"status\":\"LATE_EXPECTED\",\"reason_code\":\"Xin vào muộn\",\"expected_return_at\":\"$B95_EXPECTED2\"}}]}"
+jq -e '.ok==true and .results[0].status=="CONFIRMED"' "$D/b95-late-edit.json" >/dev/null
+mutation_api b95-late-edit-dup "{\"events\":[{\"action\":\"meal_status\",\"event_id\":\"$B95_LATE_EDIT\",\"business_date\":\"$B80_DATE\",\"payload\":{\"mnv\":\"$B80_MNV\",\"status\":\"LATE_EXPECTED\",\"reason_code\":\"Xin vào muộn\",\"expected_return_at\":\"$B95_EXPECTED2\"}}]}"
+jq -e '.ok==true and .results[0].status=="DUPLICATE"' "$D/b95-late-edit-dup.json" >/dev/null
 read_api b95-list "{\"action\":\"meal_attendance_list\",\"business_date\":\"$B80_DATE\"}"
-jq -e --arg m "$B80_MNV" --arg t "$B95_EXPECTED" '.ok==true and .retention_days==14 and .current_day==true and ([.items[]|select(.mnv==$m and .status=="LATE_EXPECTED" and .expected_return_at==$t)]|length)==1' "$D/b95-list.json" >/dev/null
+jq -e --arg m "$B80_MNV" --arg t "$B95_EXPECTED2" '.ok==true and .retention_days==14 and .current_day==true and ([.items[]|select(.mnv==$m and .status=="LATE_EXPECTED" and .expected_return_at==$t)]|length)==1' "$D/b95-list.json" >/dev/null
+B95_EDIT_AUDIT=$(sql "SELECT before_json,after_json FROM post_meal_attendance_audit WHERE event_id='$B95_LATE_EDIT';")
+node - <<'NODE' "$B95_EDIT_AUDIT" "$B95_EXPECTED1" "$B95_EXPECTED2"
+const j=JSON.parse(process.argv[2]),r=j?.[0]?.results?.[0],b=JSON.parse(String(r?.before_json||'{}')),a=JSON.parse(String(r?.after_json||'{}'));
+if(b.expected_return_at!==process.argv[3]||a.expected_return_at!==process.argv[4])throw new Error('B95_LATE_EDIT_AUDIT_MISMATCH:'+JSON.stringify({b,a}));
+NODE
 
 mutation_api b95-check "{\"events\":[{\"action\":\"meal_checkin\",\"event_id\":\"$B95_CHECK\",\"business_date\":\"$B80_DATE\",\"payload\":{\"mnv\":\"$B80_MNV\"}}]}"
 jq -e '.ok==true and .results[0].status=="CONFIRMED"' "$D/b95-check.json" >/dev/null
@@ -207,16 +222,16 @@ jq -e '.ok==true and .results[0].status=="DUPLICATE"' "$D/b95-check-same-event.j
 mutation_api b95-check-distinct "{\"events\":[{\"action\":\"meal_checkin\",\"event_id\":\"$B95_DUP_SCAN\",\"business_date\":\"$B80_DATE\",\"payload\":{\"mnv\":\"$B80_MNV\"}}]}"
 jq -e '.ok==true and .results[0].status=="REVIEW_REQUIRED" and .results[0].error_code=="MEAL_ALREADY_CHECKED_IN"' "$D/b95-check-distinct.json" >/dev/null
 read_api b95-list-after "{\"action\":\"meal_attendance_list\",\"business_date\":\"$B80_DATE\"}"
-jq -e --arg m "$B80_MNV" --arg t "$B95_EXPECTED" '([.items[]|select(.mnv==$m)][0]) as $x | $x.status=="CHECKED_IN" and ($x.actual_return_at|length)>10 and $x.reason_code=="Xin vào muộn" and $x.expected_return_at==$t' "$D/b95-list-after.json" >/dev/null
-B95_COUNTS=$(sql "SELECT (SELECT COUNT(*) FROM events WHERE event_id IN ('$B95_LATE','$B95_CHECK')) events,(SELECT COUNT(*) FROM post_meal_attendance_audit WHERE mnv='$B80_MNV' AND business_date='$B80_DATE') audits;")
-node -e 'const j=JSON.parse(process.argv[1]),x=j?.[0]?.results?.[0];if(Number(x?.events)!==2||Number(x?.audits)!==2)throw new Error("B95_LEDGER_AUDIT_MISMATCH:"+JSON.stringify(x))' "$B95_COUNTS"
+jq -e --arg m "$B80_MNV" --arg t "$B95_EXPECTED2" '([.items[]|select(.mnv==$m)][0]) as $x | $x.status=="CHECKED_IN" and ($x.actual_return_at|length)>10 and $x.reason_code=="Xin vào muộn" and $x.expected_return_at==$t' "$D/b95-list-after.json" >/dev/null
+B95_COUNTS=$(sql "SELECT (SELECT COUNT(*) FROM events WHERE event_id IN ('$B95_NO_RETURN','$B95_LATE','$B95_LATE_EDIT','$B95_CHECK')) events,(SELECT COUNT(*) FROM post_meal_attendance_audit WHERE mnv='$B80_MNV' AND business_date='$B80_DATE') audits;")
+node -e 'const j=JSON.parse(process.argv[1]),x=j?.[0]?.results?.[0];if(Number(x?.events)!==4||Number(x?.audits)!==4)throw new Error("B95_LEDGER_AUDIT_MISMATCH:"+JSON.stringify(x))' "$B95_COUNTS"
 B95_FLOOR=$(date -u -d "$B80_DATE -13 days" +%Y-%m-%d)
 read_api b95-history-floor "{\"action\":\"meal_attendance_list\",\"business_date\":\"$B95_FLOOR\"}"
 jq -e '.ok==true and .retention_days==14 and .current_day==false' "$D/b95-history-floor.json" >/dev/null
 B95_TOO_OLD=$(date -u -d "$B80_DATE -14 days" +%Y-%m-%d)
 B95_OLD_HTTP=$(curl -sS --connect-timeout 10 --max-time 20 -o "$D/b95-too-old.json" -w '%{http_code}' -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' --data-binary "{\"action\":\"meal_attendance_list\",\"business_date\":\"$B95_TOO_OLD\"}" "$SERVICE_URL/v1/mobile/read")
 [[ "$B95_OLD_HTTP" == 403 ]]; jq -e '.error.code=="MEAL_DATE_OUTSIDE_14_DAY_WINDOW"' "$D/b95-too-old.json" >/dev/null
-echo 'beta95_meal_attendance=PASS current_write=PASS idempotency=PASS late_audit=PASS history_14d=PASS'
+echo 'beta95_meal_attendance=PASS current_write=PASS reasons=PASS idempotency=PASS late_edit_audit=PASS history_14d=PASS'
 
 owner_api /v1/session/exit-v2 b80-exit "{\"session_id\":\"$B80_SID\",\"mnv\":\"$B80_MNV\",\"pda_exit_status\":\"Tốt\",\"idempotency_key\":\"$B80_EXIT\"}"
 jq -e --arg sid "$B80_SID" '.ok==true and .session.session_id==$sid and .session.state=="ENDED"' "$D/b80-exit.json" >/dev/null
