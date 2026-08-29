@@ -40,10 +40,14 @@ Release 0.4.2-beta.97 hoàn tất scope beta97-owner-status-header-qr-meal-alert
 ## Blocker
 Không có.
 
+## Bắt buộc đọc ở mọi phiên
+- `docs/REGRESSION_GUARD_POLICY.md`: policy chống regression áp dụng chung; chỉ OWNER được thay đổi.
+
 ## Invariants
 - Stable/main/signer/authority không đổi.
 - APK Beta release/OTA/rollback = GITHUB_RELEASE_ONLY.
 - Google Drive không được dùng cho APK; GSheet/GAS nghiệp vụ không bị xóa/thay authority.
+- Mọi sửa đổi phải tuân `docs/REGRESSION_GUARD_POLICY.md`: business rule/authority/helper duy nhất, legacy không được quyết định nghiệp vụ, mỗi bug có regression test + impact matrix.
 
 ## NEXT_ACTION
 WAIT_FOR_OWNER_NEW_SCOPE
