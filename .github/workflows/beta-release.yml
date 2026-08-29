@@ -176,8 +176,9 @@ jobs:
           set -e
           if [[ "$rc" != 0 ]]; then
             echo "Service gate failed; restoring exact base service source" >&2
-            rm -rf service
             git checkout "$BASE_SERVICE_SOURCE_SHA" -- service
+            git clean -fd -- service
+            npm --prefix service install --ignore-scripts --no-audit --no-fund
             SERVICE_SOURCE_SHA="$BASE_SERVICE_SOURCE_SHA" bash tools/beta78_service_live_gate.sh || exit 97
             exit "$rc"
           fi

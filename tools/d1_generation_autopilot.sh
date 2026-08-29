@@ -38,7 +38,7 @@ if [[ "$STATE" == "PREPARE_REQUIRED" || "$STATE" == "CUTOVER_REQUIRED" ]]; then
     node - "$CONFIG" "$NEXT_CONFIG" "$NEXT" "$NEXT_ID" <<'NODE'
 const fs=require('fs');const [input,out,name,id]=process.argv.slice(2);let s=fs.readFileSync(input,'utf8');s=s.replace(/"database_name"\s*:\s*"[^"]+"/,'"database_name": "'+name+'"').replace(/"database_id"\s*:\s*"[^"]+"/,'"database_id": "'+id+'"');fs.writeFileSync(out,s);
 NODE
-    npx wrangler d1 migrations apply "$NEXT" --remote --config "$NEXT_CONFIG" --yes > "$OUT/prepare-migrations.log"
+    npx wrangler d1 migrations apply "$NEXT" --remote --config "$NEXT_CONFIG" > "$OUT/prepare-migrations.log"
     EPOCH=$(npx wrangler d1 execute "$D1_NAME" --remote --config "$CONFIG" --command "SELECT authority_epoch FROM authority_state WHERE singleton_id=1;" --json | jq -r '.[0].results[0].authority_epoch')
     GEN="gen-$(date -u +%Y%m%d%H%M%S)"
     npx wrangler d1 execute "$D1_NAME" --remote --config "$CONFIG" --command "INSERT INTO d1_generation_registry(generation_id,db_binding,db_name,created_at,schema_version,status,authority_epoch) VALUES('$GEN','DB','$NEXT',datetime('now'),9,'PREPARED',$EPOCH);" --json > "$OUT/registry.json"
