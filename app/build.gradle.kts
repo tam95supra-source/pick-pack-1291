@@ -62,7 +62,8 @@ android {
 
 dependencies {
     implementation("androidx.work:work-runtime:2.11.2")
-    implementation("com.squareup.okhttp3:okhttp:5.3.0")\n    implementation("org.java-websocket:Java-WebSocket:1.6.0")
+    implementation("com.squareup.okhttp3:okhttp:5.3.0")
+    implementation("org.java-websocket:Java-WebSocket:1.6.0")
     implementation(platform("com.google.firebase:firebase-bom:34.16.0"))
     implementation("com.google.firebase:firebase-messaging")
     testImplementation("junit:junit:4.13.2")
