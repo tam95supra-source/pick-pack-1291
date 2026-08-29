@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # Source-only helper for emulator/PDA CI harnesses.
 adb_wait_stable(){
-  local timeout_s="${1:-120}" needed="${2:-5}" deadline=$((SECONDS+timeout_s))
+  local timeout_s="${1:-120}" needed="${2:-5}"
+  local deadline
+  deadline=$((SECONDS+timeout_s))
   local good=0 serial="" state="" boot="" probe=""
   while (( SECONDS < deadline )); do
     adb start-server >/dev/null 2>&1 || true
