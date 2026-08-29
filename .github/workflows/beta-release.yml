@@ -157,9 +157,11 @@ jobs:
       - name: Deploy and verify exact service source with automatic recovery
         shell: bash
         run: |
+          set +e
           set -uo pipefail
           bash tools/beta89_service_live_gate.sh
           rc=$?
+          set -e
           if [[ "$rc" != 0 ]]; then
             echo "Beta89 service gate failed; restoring exact Beta88 service source" >&2
             git checkout "$BASE_SERVICE_SOURCE_SHA" -- service
