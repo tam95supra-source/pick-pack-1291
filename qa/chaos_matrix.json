@@ -1,0 +1,204 @@
+{
+  "schema_version": 1,
+  "required_cases": 33,
+  "cases": [
+    {
+      "id": 1,
+      "name": "service_commit_ack_lost",
+      "gate": "service_live",
+      "requires": "LIVE_SERVICE"
+    },
+    {
+      "id": 2,
+      "name": "service_500",
+      "gate": "fault_injection",
+      "requires": "AUTOMATED"
+    },
+    {
+      "id": 3,
+      "name": "service_unreachable",
+      "gate": "fault_injection",
+      "requires": "AUTOMATED"
+    },
+    {
+      "id": 4,
+      "name": "d1_full_quota",
+      "gate": "capacity_fault",
+      "requires": "AUTOMATED"
+    },
+    {
+      "id": 5,
+      "name": "google_ledger_available",
+      "gate": "gas_live",
+      "requires": "LIVE_GAS"
+    },
+    {
+      "id": 6,
+      "name": "google_ledger_unavailable",
+      "gate": "fault_injection",
+      "requires": "AUTOMATED"
+    },
+    {
+      "id": 7,
+      "name": "service_google_both_down",
+      "gate": "device_chaos",
+      "requires": "EMULATOR"
+    },
+    {
+      "id": 8,
+      "name": "app_kill",
+      "gate": "device_chaos",
+      "requires": "EMULATOR"
+    },
+    {
+      "id": 9,
+      "name": "reboot",
+      "gate": "device_chaos",
+      "requires": "EMULATOR"
+    },
+    {
+      "id": 10,
+      "name": "network_switch",
+      "gate": "device_chaos",
+      "requires": "EMULATOR"
+    },
+    {
+      "id": 11,
+      "name": "event_duplicate",
+      "gate": "service_live",
+      "requires": "LIVE_SERVICE"
+    },
+    {
+      "id": 12,
+      "name": "out_of_order",
+      "gate": "replay_contract",
+      "requires": "AUTOMATED"
+    },
+    {
+      "id": 13,
+      "name": "dependency_missing",
+      "gate": "replay_contract",
+      "requires": "AUTOMATED"
+    },
+    {
+      "id": 14,
+      "name": "schema_mismatch",
+      "gate": "replay_contract",
+      "requires": "AUTOMATED"
+    },
+    {
+      "id": 15,
+      "name": "two_pda_resource_race",
+      "gate": "service_live",
+      "requires": "LIVE_SERVICE"
+    },
+    {
+      "id": 16,
+      "name": "service_recovers_during_fallback",
+      "gate": "reconcile_contract",
+      "requires": "AUTOMATED"
+    },
+    {
+      "id": 17,
+      "name": "lan_master_crash",
+      "gate": "lan_device",
+      "requires": "EMULATOR"
+    },
+    {
+      "id": 18,
+      "name": "lan_master_wifi_loss",
+      "gate": "lan_device",
+      "requires": "EMULATOR"
+    },
+    {
+      "id": 19,
+      "name": "lan_master_power_off",
+      "gate": "lan_device",
+      "requires": "EMULATOR"
+    },
+    {
+      "id": 20,
+      "name": "lan_master_logout",
+      "gate": "lan_device",
+      "requires": "EMULATOR"
+    },
+    {
+      "id": 21,
+      "name": "lan_backup_dies",
+      "gate": "lan_device",
+      "requires": "EMULATOR"
+    },
+    {
+      "id": 22,
+      "name": "lan_master_backup_die",
+      "gate": "lan_policy",
+      "requires": "AUTOMATED"
+    },
+    {
+      "id": 23,
+      "name": "lan_network_partition",
+      "gate": "lan_policy",
+      "requires": "AUTOMATED"
+    },
+    {
+      "id": 24,
+      "name": "d1_rollover_rehearsal",
+      "gate": "service_live",
+      "requires": "TEMP_LIVE_D1"
+    },
+    {
+      "id": 25,
+      "name": "render_turso_failover",
+      "gate": "cloud_dr",
+      "requires": "LIVE_DR"
+    },
+    {
+      "id": 26,
+      "name": "render_to_deno_turso",
+      "gate": "cloud_dr",
+      "requires": "LIVE_DR"
+    },
+    {
+      "id": 27,
+      "name": "dr_to_cloudflare_failback",
+      "gate": "cloud_dr",
+      "requires": "LIVE_DR"
+    },
+    {
+      "id": 28,
+      "name": "portable_backup_restore",
+      "gate": "service_live",
+      "requires": "LIVE_SERVICE"
+    },
+    {
+      "id": 29,
+      "name": "lan_battery_8h",
+      "gate": "hardware_battery",
+      "requires": "REAL_3_PDA_8H"
+    },
+    {
+      "id": 30,
+      "name": "project_load_stress",
+      "gate": "stress",
+      "requires": "AUTOMATED"
+    },
+    {
+      "id": 31,
+      "name": "security_no_secret",
+      "gate": "security",
+      "requires": "AUTOMATED"
+    },
+    {
+      "id": 32,
+      "name": "pda_no_pda_regression",
+      "gate": "android_unit_and_candidate",
+      "requires": "EXACT_CANDIDATE"
+    },
+    {
+      "id": 33,
+      "name": "active_pass_invariants",
+      "gate": "release_verify",
+      "requires": "EXACT_CANDIDATE"
+    }
+  ]
+}

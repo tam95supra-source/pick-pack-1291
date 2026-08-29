@@ -61,3 +61,5 @@ must(read("app/src/main/java/vn/pickpack1291/app/beta/M2ServiceTransport.kt").in
 const rollover=read("tools/d1_generation_rehearsal.sh");
 must(rollover.includes("ROLLOVER_1_CHECKSUM_MISMATCH")&&rollover.includes("ROLLOVER_2_CHECKSUM_MISMATCH"),"D1_ROLLOVER_2X_REHEARSAL_MISSING");
 must(rollover.includes("COUNT+3 <= MAX")&&rollover.includes("trap cleanup EXIT"),"D1_ROLLOVER_FREE_QUOTA_OR_CLEANUP_MISSING");
+
+import "./chaos_matrix_contract.mjs";
