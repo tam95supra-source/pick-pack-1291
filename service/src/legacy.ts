@@ -68,7 +68,6 @@ export async function legacyCanonical(db:D1Database,input:LegacyMutationInput,au
   }else if(input.action==="meal_checkin"||input.action==="meal_status"){
     if(businessDate!==today)throw new CoreError("MEAL_WRITE_CURRENT_DAY_ONLY","PERMISSION",403);
     const existing=await db.prepare("SELECT status,actual_return_at,version FROM post_meal_attendance WHERE business_date=?1 AND mnv=?2").bind(businessDate,mnv).first<{status:string;actual_return_at:string|null;version:number}>();
-    if(input.action==="meal_checkin"&&existing?.status==="CHECKED_IN")throw new CoreError("MEAL_ALREADY_CHECKED_IN","CONFLICT",409,false,{checked_at:existing.actual_return_at});
     baseVersion=existing?.version??0;entityType="POST_MEAL_ATTENDANCE";entityId=`${businessDate}|${mnv}`;
     if(input.action==="meal_checkin"){
       eventType="MEAL_CHECKIN";canonicalPayload={mnv,status:"CHECKED_IN"};
