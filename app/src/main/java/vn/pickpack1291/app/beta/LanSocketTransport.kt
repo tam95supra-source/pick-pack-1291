@@ -146,8 +146,8 @@ internal class LanSocketTransport(
         override fun onOpen(conn:WebSocket,handshake:ClientHandshake)=Unit
         override fun onError(conn:WebSocket?,ex:Exception)=Unit
         override fun onClose(conn:WebSocket,code:Int,reason:String,remote:Boolean){
-            val id=connections.entries.firstOrNull{it.value==conn}?.key
-            if(id!=null){connections.remove(id);listener.onPeerDisconnected(id)}
+            val id=this@LanSocketTransport.connections.entries.firstOrNull{it.value==conn}?.key
+            if(id!=null){this@LanSocketTransport.connections.remove(id);listener.onPeerDisconnected(id)}
         }
         override fun onMessage(conn:WebSocket,message:String){
             val j=runCatching{JSONObject(message)}.getOrNull()?:return
@@ -155,7 +155,7 @@ internal class LanSocketTransport(
                 "HELLO"->{
                     val id=j.optString("device_id").trim()
                     if(id.isBlank())return
-                    connections[id]=conn
+                    this@LanSocketTransport.connections[id]=conn
                     listener.onPeerConnected(id,j.optString("account_role","USER"))
                     conn.send(JSONObject().put("type","HELLO_ACK").put("master_device_id",listener.masterDeviceId()).put("backup_device_id",listener.backupDeviceId()).put("generation",listener.generation()).toString())
                 }
@@ -169,8 +169,8 @@ internal class LanSocketTransport(
                     val eventId=event.optString("event_id")
                     val persisted=listener.persistReplica(event,j.optString("device_id"),listener.generation(),"MASTER")
                     if(!persisted.ok){conn.send(JSONObject().put("type","NACK").put("event_id",eventId).put("error",persisted.error).toString());return}
-                    val backup=connections[backupId]
-                    if(backupId.isBlank()||backup==null||!backup.isOpen){conn.send(JSONObject().put("type","NACK").put("event_id",eventId).put("error","LAN_BACKUP_REQUIRED").toString());return}
+                    val backup=this@LanSocketTransport.connections[this@LanSocketTransport.backupId]
+                    if(this@LanSocketTransport.backupId.isBlank()||backup==null||!backup.isOpen){conn.send(JSONObject().put("type","NACK").put("event_id",eventId).put("error","LAN_BACKUP_REQUIRED").toString());return}
                     pendingOrigins[eventId]=conn
                     backup.send(JSONObject().put("type","REPLICA").put("generation",listener.generation()).put("event",event).toString())
                 }
