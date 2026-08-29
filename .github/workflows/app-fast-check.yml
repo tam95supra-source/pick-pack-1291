@@ -8,10 +8,22 @@ on:
       - 'release/**'
     paths:
       - app/**
+      - service/**
+      - services/**
+      - google-apps-script/**
+      - config/mutation_fallback_policy.json
+      - tools/resilience_static_gate.mjs
+      - qa/**
       - .github/workflows/app-fast-check.yml
   pull_request:
     paths:
       - app/**
+      - service/**
+      - services/**
+      - google-apps-script/**
+      - config/mutation_fallback_policy.json
+      - tools/resilience_static_gate.mjs
+      - qa/**
       - .github/workflows/app-fast-check.yml
   workflow_dispatch:
 
@@ -60,6 +72,22 @@ jobs:
           echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
           yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
           "$SDK/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-36' 'build-tools;36.0.0'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Static resilience gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tools/resilience_static_gate.mjs
+          cp google-apps-script/PICK_PACK_API.gs "$RUNNER_TEMP/pick-pack-api.js"
+          node --check "$RUNNER_TEMP/pick-pack-api.js"
+          pushd service
+          npm install --ignore-scripts --no-audit --no-fund
+          npm run check
+          popd
 
       - name: Static and Android debug gates
         shell: bash

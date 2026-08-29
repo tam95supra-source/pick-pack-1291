@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "authority": "SERVICE_PRIMARY",
+  "description": "Fallback preserves payload; only canonical Service/LAN/controlled DR authority applies business rules.",
+  "AUTO_CAPTURE_AND_REPLAY": [
+    "enter",
+    "exit",
+    "resource_change",
+    "labor_start",
+    "labor_finish",
+    "meal_checkin",
+    "meal_status"
+  ],
+  "CAPTURE_THEN_REVIEW_REQUIRED": [
+    "attendance_time_correction",
+    "delete_exit",
+    "history_delete",
+    "session_work_update"
+  ],
+  "FORBIDDEN_FALLBACK": [
+    "change_password",
+    "change_email",
+    "account_upsert",
+    "account_status",
+    "staff_delete",
+    "signer_change",
+    "provider_authority_change",
+    "secret_change",
+    "billing_change",
+    "destructive_infra"
+  ]
+}
