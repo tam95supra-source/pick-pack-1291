@@ -325,6 +325,16 @@ class OperationalDataStore(context: Context) {
     fun markMutationRejected(eventId: String, error: String) = markMutationResolved(eventId, "REJECTED", error)
     fun markMutationReviewRequired(eventId: String, error: String) = markMutationResolved(eventId, "REVIEW_REQUIRED", error)
 
+    /** Google Emergency Ledger ACK is provisional capture only; the local event remains replayable. */
+    fun markEmergencyCaptured(eventId:String)=withDbLock{
+        val now=System.currentTimeMillis();val db=writableDb();db.beginTransaction()
+        try{
+            db.execSQL("UPDATE mutation_outbox SET status='OFFLINE_PROVISIONAL',next_attempt_at=?,last_error='EMERGENCY_LEDGER_CAPTURED',updated_at=? WHERE event_id=? AND status NOT IN ('CONFIRMED','REJECTED','REVIEW_REQUIRED')",arrayOf(now+15_000L,now,eventId))
+            db.execSQL("UPDATE local_history SET status='OFFLINE_PROVISIONAL',last_error='EMERGENCY_LEDGER_CAPTURED',updated_at=? WHERE event_id=? AND status NOT IN ('CONFIRMED','REJECTED','REVIEW_REQUIRED')",arrayOf(now,eventId))
+            db.setTransactionSuccessful()
+        }finally{db.endTransaction()}
+    }
+
     private fun markMutationResolved(eventId: String, status: String, error: String) = withDbLock {
         val now = System.currentTimeMillis()
         val db = writableDb()

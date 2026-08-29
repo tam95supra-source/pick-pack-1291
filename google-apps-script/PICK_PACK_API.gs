@@ -46,6 +46,11 @@ function doPost(e) {
     const auth = ppAuthenticate_(body);
     if (!auth) return ppJson_({ok:false,error:'UNAUTHORIZED'}, 401);
 
+    // RESILIENCE_V1: Google captures immutable emergency events only; it does not become the business-rule writer.
+    if (action === 'emergency_ledger_capture') return ppJson_(ppEmergencyLedgerCapture_(auth, body));
+    if (action === 'emergency_ledger_finalize') return ppJson_(ppEmergencyLedgerFinalize_(auth, body));
+    if (action === 'emergency_ledger_query') return ppJson_(ppEmergencyLedgerQuery_(auth, body));
+
     if (action === 'logout') return ppJson_(ppLogout_(auth));
     if (action === 'password_challenge') return ppJson_(ppPasswordChallenge_(auth));
     if (action === 'change_password') return ppJson_(ppChangePassword_(auth, body));
@@ -992,4 +997,61 @@ function onEdit(e){
     }
     ppBumpRevision_(iso||ppBusinessIso_());
   }catch(err){console.error('onEdit S15 '+String(err));}
+}
+
+
+// === RESILIENCE_V1 GOOGLE EMERGENCY LEDGER ===
+function ppEmergencyLedgerSheet_(){
+  const ss=SpreadsheetApp.openById(PP.SHEET_ID),name='EMERGENCY EVENT LEDGER';
+  let sh=ss.getSheetByName(name);if(!sh)sh=ss.insertSheet(name);
+  const h=['event_id','idempotency_key','event_type','schema_version','received_at','business_date','actor','device_id','device_sequence','depends_on_event_id','authority_epoch','service_generation','checksum','payload_json','capture_status','canonical_status','canonical_event_id_ref','apply_attempts','last_error_code','finalized_at'];
+  if(sh.getLastRow()===0||String(sh.getRange(1,1).getValue())!=='event_id')sh.getRange(1,1,1,h.length).setValues([h]);
+  return sh;
+}
+function ppEmergencySanitize_(v){
+  if(v===null||typeof v!=='object')return v;
+  if(Array.isArray(v))return v.map(ppEmergencySanitize_);
+  const o={};Object.keys(v).forEach(function(k){const f=String(k).toLowerCase();if(/password|secret|token|signing|api.?key|credential|verifier|proof/.test(f))return;o[k]=ppEmergencySanitize_(v[k]);});return o;
+}
+function ppEmergencyExisting_(sh){
+  const m={};if(sh.getLastRow()<2)return m;
+  const ids=sh.getRange(2,1,sh.getLastRow()-1,1).getDisplayValues();
+  ids.forEach(function(r,i){if(r[0])m[String(r[0])]=i+2;});return m;
+}
+function ppEmergencyLedgerCapture_(auth,body){
+  const events=Array.isArray(body.events)?body.events:[],sh=ppEmergencyLedgerSheet_(),lock=LockService.getScriptLock();lock.waitLock(10000);
+  try{
+    const existing=ppEmergencyExisting_(sh),rows=[],now=ppNowIso_(),captured=[];
+    events.slice(0,100).forEach(function(raw){
+      const e=ppEmergencySanitize_(raw||{}),id=String(e.event_id||'').trim();if(!id)return;
+      if(existing[id]){captured.push({event_id:id,status:'CAPTURED',duplicate:true});return;}
+      const payload=ppEmergencySanitize_(e.payload||{});
+      rows.push([id,String(e.idempotency_key||id),String(e.event_type||''),Number(e.schema_version||1),now,String(e.business_date||''),String(e.actor_mnv||e.user_id||auth.login_id||''),String(e.device_id||''),Number(e.device_sequence||0),String(e.depends_on_event_id||''),Number(e.authority_epoch||0),String(e.service_generation||''),String(e.checksum||''),JSON.stringify(payload),'CAPTURED','','',0,'','']);
+      existing[id]=true;captured.push({event_id:id,status:'CAPTURED'});
+    });
+    if(rows.length)sh.getRange(sh.getLastRow()+1,1,rows.length,20).setValues(rows);
+    return {ok:true,capture_status:'CAPTURED',captured:captured};
+  }finally{lock.releaseLock();}
+}
+function ppEmergencyLedgerFinalize_(auth,body){
+  const items=Array.isArray(body.items)?body.items:[],sh=ppEmergencyLedgerSheet_(),lock=LockService.getScriptLock();lock.waitLock(10000);
+  try{
+    const existing=ppEmergencyExisting_(sh),now=ppNowIso_(),out=[];
+    items.slice(0,100).forEach(function(x){
+      const id=String((x||{}).event_id||''),row=existing[id];if(!row)return;
+      const status=String((x||{}).status||'').toUpperCase(),canonical=status==='CONFIRMED'?'APPLIED':status==='DUPLICATE'?'DUPLICATE':status==='REVIEW_REQUIRED'?'REVIEW_REQUIRED':status==='REJECTED'?'REJECTED':'';
+      if(!canonical)return;
+      const currentActor=String(sh.getRange(row,7).getDisplayValue()||'');
+      if(String(auth.role)!=='SUPERADMIN'&&currentActor&&currentActor!==String(auth.login_id||'')&&currentActor!==String((x||{}).actor_mnv||''))return;
+      const attempts=Number(sh.getRange(row,18).getValue()||0)+1;
+      sh.getRange(row,16,1,5).setValues([[canonical,String((x||{}).canonical_event_id||id),attempts,String((x||{}).last_error_code||''),now]]);
+      out.push({event_id:id,canonical_status:canonical});
+    });
+    return {ok:true,finalized:out};
+  }finally{lock.releaseLock();}
+}
+function ppEmergencyLedgerQuery_(auth,body){
+  const ids=Array.isArray(body.event_ids)?body.event_ids.map(String):[],sh=ppEmergencyLedgerSheet_(),existing=ppEmergencyExisting_(sh),out=[];
+  ids.slice(0,100).forEach(function(id){const row=existing[id];if(!row)return;const v=sh.getRange(row,1,1,20).getDisplayValues()[0];if(String(auth.role)!=='SUPERADMIN'&&v[6]&&v[6]!==String(auth.login_id||''))return;out.push({event_id:v[0],capture_status:v[14],canonical_status:v[15],canonical_event_id_ref:v[16],apply_attempts:Number(v[17]||0),last_error_code:v[18],finalized_at:v[19]});});
+  return {ok:true,items:out};
 }

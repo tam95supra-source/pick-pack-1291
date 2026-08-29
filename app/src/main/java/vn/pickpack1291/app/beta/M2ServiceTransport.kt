@@ -54,18 +54,73 @@ class M2ServiceTransport(context: Context) {
     fun operational(action: String, payload: JSONObject): TransportResult {
         if (action !in OPERATIONAL) return TransportResult(false, false, 0, null, null)
         val eventId = payload.optString("event_id").ifBlank { java.util.UUID.randomUUID().toString() }
-        val businessDate=store.businessDate() // S45_BETA40_OWNER_FIXES
+        val businessDate=store.businessDate()
         payload.put("event_id",eventId).put("business_date",businessDate)
+        val cleanPayload=sanitizeBusinessPayload(JSONObject(payload.toString()))
+        val envelope=canonicalEnvelope(action,eventId,businessDate,cleanPayload)
         val request = JSONObject().put("action", action).put("event_id", eventId).put("business_date",businessDate).put("device_id", M2DeviceIdentity.id(app))
-            .put("payload", JSONObject(payload.toString()).put("event_id",eventId).put("business_date",businessDate))
+            .put("event_envelope",envelope).put("payload",cleanPayload)
         val exclusive = action == "enter" || action == "resource_change"
         store.enqueueMutation(request, exclusive)
         M2WorkScheduler.schedule(app)
         M2ImmediateOutbox.kick(app)
         val mode = cachedDiscoverySnapshot()?.optString("authority_mode").orEmpty()
-        val projection = when { !hasNetwork() -> "OFFLINE_LOCAL"; mode == "GOOGLE_FALLBACK" -> "GOOGLE_FALLBACK_PENDING"; else -> "SERVICE_D1_PENDING" }
+        val projection = when { !hasNetwork() -> "OFFLINE_LOCAL"; mode == "GOOGLE_FALLBACK" -> "EMERGENCY_LEDGER_PENDING"; else -> "SERVICE_D1_PENDING" }
         return queuedResult(eventId, exclusive, projection)
     }
+
+    private fun canonicalEnvelope(action:String,eventId:String,businessDate:String,payload:JSONObject):JSONObject{
+        val auth=app.getSharedPreferences(AUTH_PREFS,Context.MODE_PRIVATE)
+        val discovery=cachedDiscoverySnapshot()
+        val authority=discovery?.optJSONObject("authority")
+        val deviceId=M2DeviceIdentity.id(app)
+        val payloadText=payload.toString()
+        return JSONObject()
+            .put("event_id",eventId)
+            .put("idempotency_key",payload.optString("idempotency_key").ifBlank{eventId})
+            .put("event_type",action.uppercase())
+            .put("schema_version",1)
+            .put("actor_mnv",payload.optString("mnv"))
+            .put("user_id",auth.getString("login_id","").orEmpty())
+            .put("role",auth.getString("role","USER").orEmpty())
+            .put("device_id",deviceId)
+            .put("app_version",BuildConfig.VERSION_NAME)
+            .put("business_date",businessDate)
+            .put("device_time",java.time.Instant.now().toString())
+            .put("trusted_received_time",JSONObject.NULL)
+            .put("device_sequence",nextDeviceSequence())
+            .put("depends_on_event_id",payload.optString("depends_on_event_id"))
+            .put("session_id",payload.optString("session_id"))
+            .put("authority_epoch",authority?.optLong("authority_epoch")?:discovery?.optLong("authority_epoch")?:0L)
+            .put("service_generation",authority?.optString("service_generation").orEmpty().ifBlank{discovery?.optString("service_generation").orEmpty()})
+            .put("checksum",sha256Hex(payloadText))
+            .put("payload",payload)
+    }
+
+    private fun sanitizeBusinessPayload(source:JSONObject):JSONObject{
+        val out=JSONObject()
+        val keys=source.keys()
+        while(keys.hasNext()){
+            val key=keys.next()
+            val folded=key.lowercase()
+            if(listOf("password","secret","token","signing","api_key","apikey","credential","verifier","proof").any{folded.contains(it)})continue
+            val value=source.opt(key)
+            out.put(key,when(value){
+                is JSONObject->sanitizeBusinessPayload(value)
+                is JSONArray->JSONArray().apply{for(i in 0 until value.length()){val x=value.opt(i);put(if(x is JSONObject)sanitizeBusinessPayload(x) else x)}}
+                else->value
+            })
+        }
+        return out
+    }
+
+    private fun nextDeviceSequence():Long=synchronized(DEVICE_SEQUENCE_LOCK){
+        val n=prefs.getLong(KEY_DEVICE_SEQUENCE,0L)+1L
+        prefs.edit().putLong(KEY_DEVICE_SEQUENCE,n).commit()
+        n
+    }
+    private fun sha256Hex(value:String):String=MessageDigest.getInstance("SHA-256").digest(value.toByteArray(Charsets.UTF_8)).joinToString(""){(it.toInt() and 0xff).toString(16).padStart(2,'0')}
+
 
     // S31B_PRESERVE_ADMIN_AUDIT / S30_CANONICAL_ADMIN_AUDIT: sanitized admin audit uses the same durable outbox.
     fun audit(action:String,payload:JSONObject){
@@ -103,7 +158,7 @@ class M2ServiceTransport(context: Context) {
 
     fun acknowledgeFallback(eventId: String, ok: Boolean, error: String?) {
         if (eventId.isBlank()) return
-        if (ok) store.markMutationSynced(eventId) else if (!error.isNullOrBlank()) store.markMutationRetry(eventId, error, 5_000L)
+        if (ok) store.markEmergencyCaptured(eventId) else if (!error.isNullOrBlank()) store.markMutationRetry(eventId, error, 5_000L)
     }
 
     /** Direct Service read using cached discovery only. A Service failure is handled, never a GAS fall-through. */
@@ -152,16 +207,17 @@ class M2ServiceTransport(context: Context) {
 
     private fun flushOutboxLocked(): Boolean {
         if (!hasNetwork()) return false
+        val items=store.unresolvedMutations(100);if(items.isEmpty())return true
         if(ServiceFaultInjection.cloudflareDisabled(app)){
-            // True Service outage simulation. Under SERVICE_PRIMARY keep mutations pending; do not self-promote to Google/GAS.
+            captureEmergency(items)
             return false
         }
-        var discovery=cachedDiscoverySnapshot();if(discovery==null)discovery=discover(force=true);if(discovery==null)return false
-        if(discovery.optString("authority_mode")=="GOOGLE_FALLBACK")return flushFallbackItems(store.unresolvedMutations(100))
-        if(discovery.optString("authority_mode")!="SERVICE_PRIMARY")return false
-        val items=store.unresolvedMutations(100);if(items.isEmpty())return true
-        if(circuitOpen()) return false
-        val base=discovery.optString("service_url").trimEnd('/');if(!validServiceUrl(base))return false
+        var discovery=cachedDiscoverySnapshot();if(discovery==null)discovery=discover(force=true)
+        if(discovery==null){captureEmergency(items);return false}
+        if(discovery.optString("authority_mode")=="GOOGLE_FALLBACK"){captureEmergency(items);return false}
+        if(discovery.optString("authority_mode")!="SERVICE_PRIMARY"){captureEmergency(items);return false}
+        if(circuitOpen()){captureEmergency(items);return false}
+        val base=discovery.optString("service_url").trimEnd('/');if(!validServiceUrl(base)){captureEmergency(items);return false}
         var token=prefs.getString(KEY_SERVICE_TOKEN,null)
         if(token.isNullOrBlank()){token=exchangeBackgroundServiceSession(base);if(token.isNullOrBlank()){items.forEach{store.markMutationRetry(it.eventId,"SERVICE_SESSION_REAUTH_REQUIRED",retryDelay(it.attemptCount))};return false}}
         fun submit(bearer:String):HttpResult{val body=JSONObject().put("events",JSONArray().apply{items.forEach{put(it.body)}});val started=System.currentTimeMillis();return httpJson("$base/v1/legacy-mutations/batch",body,bearer).also{M2TransportDiagnostics.noteBatch(app,it.code,it.ok,it.error,items.size,System.currentTimeMillis()-started)}}
@@ -169,11 +225,34 @@ class M2ServiceTransport(context: Context) {
             var r=submit(token)
             if(r.code==401){M2ServiceSessionManager.clearIfSame(app,token);val refreshed=exchangeBackgroundServiceSession(base);if(!refreshed.isNullOrBlank())r=submit(refreshed)}
             if(r.code==401){items.forEach{store.markMutationRetry(it.eventId,"SERVICE_SESSION_REAUTH_REQUIRED",retryDelay(it.attemptCount))};return false}
-            if(!r.ok||r.json==null){if(r.code>=500||r.code==-1)recordFailure();items.forEach{store.markMutationRetry(it.eventId,r.error?:"HTTP_${r.code}",retryDelay(it.attemptCount))};return false}
+            if(!r.ok||r.json==null){
+                val outage=r.code==-1||r.code==429||r.code>=500||(r.error?:"").uppercase().let{it.contains("QUOTA")||it.contains("FULL")}
+                if(outage){recordFailure();captureEmergency(items)}
+                items.forEach{store.markMutationRetry(it.eventId,r.error?:"HTTP_${r.code}",retryDelay(it.attemptCount))}
+                return false
+            }
             val results=r.json.optJSONArray("results")?:JSONArray();val byId=items.associateBy{it.eventId};var retryNeeded=false
-            for(i in 0 until results.length()){val result=results.optJSONObject(i)?:continue;val eventId=result.optString("local_event_id");val item=byId[eventId]?:continue;val error=result.optString("error_code").ifBlank{result.optJSONObject("conflict")?.toString().orEmpty()};when(result.optString("status")){"CONFIRMED","DUPLICATE"->store.markMutationSynced(eventId);"REVIEW_REQUIRED"->store.markMutationReviewRequired(eventId,error);"REJECTED"->if(result.optBoolean("retryable",false)){store.markMutationRetry(eventId,error.ifBlank{"RETRYABLE_REJECT"},retryDelay(item.attemptCount));retryNeeded=true}else store.markMutationRejected(eventId,error);else->{store.markMutationRetry(eventId,"BATCH_RESULT_INVALID",retryDelay(item.attemptCount));retryNeeded=true}}}
-            val returned=HashSet<String>().apply{for(i in 0 until results.length())add(results.optJSONObject(i)?.optString("local_event_id").orEmpty())};items.filter{it.eventId !in returned}.forEach{store.markMutationRetry(it.eventId,"BATCH_RESULT_MISSING",retryDelay(it.attemptCount));retryNeeded=true};if(!retryNeeded)closeCircuit();!retryNeeded
-        }catch(x:Throwable){recordFailure();items.forEach{store.markMutationRetry(it.eventId,x.message?:"NETWORK",retryDelay(it.attemptCount))};false}
+            val finalized=JSONArray()
+            for(i in 0 until results.length()){
+                val result=results.optJSONObject(i)?:continue;val eventId=result.optString("local_event_id");val item=byId[eventId]?:continue
+                val error=result.optString("error_code").ifBlank{result.optJSONObject("conflict")?.toString().orEmpty()}
+                when(result.optString("status")){
+                    "CONFIRMED","DUPLICATE"->{store.markMutationSynced(eventId);finalized.put(JSONObject().put("event_id",eventId).put("status",result.optString("status")).put("canonical_event_id",result.optString("event_id").ifBlank{eventId}))}
+                    "REVIEW_REQUIRED"->{store.markMutationReviewRequired(eventId,error);finalized.put(JSONObject().put("event_id",eventId).put("status","REVIEW_REQUIRED").put("last_error_code",error))}
+                    "REJECTED"->if(result.optBoolean("retryable",false)){store.markMutationRetry(eventId,error.ifBlank{"RETRYABLE_REJECT"},retryDelay(item.attemptCount));retryNeeded=true}else{store.markMutationRejected(eventId,error);finalized.put(JSONObject().put("event_id",eventId).put("status","REJECTED").put("last_error_code",error))}
+                    else->{store.markMutationRetry(eventId,"BATCH_RESULT_INVALID",retryDelay(item.attemptCount));retryNeeded=true}
+                }
+            }
+            val returned=HashSet<String>().apply{for(i in 0 until results.length())add(results.optJSONObject(i)?.optString("local_event_id").orEmpty())}
+            items.filter{it.eventId !in returned}.forEach{store.markMutationRetry(it.eventId,"BATCH_RESULT_MISSING",retryDelay(it.attemptCount));retryNeeded=true}
+            finalizeEmergency(finalized)
+            if(!retryNeeded)closeCircuit()
+            !retryNeeded
+        }catch(x:Throwable){
+            recordFailure();captureEmergency(items)
+            items.forEach{store.markMutationRetry(it.eventId,x.message?:"NETWORK",retryDelay(it.attemptCount))}
+            false
+        }
     }
 
     private fun exchangeBackgroundServiceSession(base:String):String? = M2ServiceSessionManager.ensure(app,base,force=true)
@@ -181,22 +260,32 @@ class M2ServiceTransport(context: Context) {
     fun cachedDiscoverySnapshot(): JSONObject? = prefs.getString(KEY_DISCOVERY_JSON, null)?.let { runCatching { JSONObject(it) }.getOrNull() }
     fun discoverySnapshot(): JSONObject? = cachedDiscoverySnapshot()
 
-    private fun flushFallbackItems(items: List<OperationalDataStore.PendingMutation>): Boolean {
-        if (ServiceFaultInjection.googleDisabled(app)) return false
-        if (items.isEmpty()) return true
-        val gasToken = app.getSharedPreferences(AUTH_PREFS, Context.MODE_PRIVATE).getString(AUTH_TOKEN, null).orEmpty()
-        if (gasToken.isBlank()) return false
-        var allEligibleDone = true
-        for (item in items) {
-            val action = item.body.optString("action")
-            if (action !in FALLBACK_OPERATIONAL) { allEligibleDone = false; continue }
-            val payload = JSONObject((item.body.optJSONObject("payload") ?: JSONObject()).toString()).put("action", action).put("event_id", item.eventId)
-                .put("_app_version", BuildConfig.VERSION_NAME).put("_app_channel", BuildConfig.CHANNEL).put("_device_id", M2DeviceIdentity.id(app))
-                .put("_device_label", "${Build.MANUFACTURER} ${Build.MODEL}").put("_token", gasToken)
-            val r = httpJson(BuildConfig.GSHEET_API_URL, payload, null, requireServiceHost = false)
-            if (r.ok) store.markMutationSynced(item.eventId) else { allEligibleDone = false; store.markMutationRetry(item.eventId, r.error ?: "GOOGLE_FALLBACK_FAILED", retryDelay(item.attemptCount)) }
+    private fun captureEmergency(items:List<OperationalDataStore.PendingMutation>):Boolean{
+        if(ServiceFaultInjection.googleDisabled(app))return false
+        val pending=items.filter{it.status!="OFFLINE_PROVISIONAL"}
+        if(pending.isEmpty())return true
+        val gasToken=app.getSharedPreferences(AUTH_PREFS,Context.MODE_PRIVATE).getString(AUTH_TOKEN,null).orEmpty()
+        if(gasToken.isBlank())return false
+        val events=JSONArray()
+        pending.forEach{item->
+            val env=item.body.optJSONObject("event_envelope")?:canonicalEnvelope(item.body.optString("action"),item.eventId,item.body.optString("business_date").ifBlank{store.businessDate()},sanitizeBusinessPayload(item.body.optJSONObject("payload")?:JSONObject()))
+            events.put(env)
         }
-        return allEligibleDone
+        val req=JSONObject().put("action","emergency_ledger_capture").put("events",events).put("_token",gasToken)
+            .put("_device_id",M2DeviceIdentity.id(app)).put("_app_version",BuildConfig.VERSION_NAME).put("_app_channel",BuildConfig.CHANNEL)
+        val r=httpJson(BuildConfig.GSHEET_API_URL,req,null,requireServiceHost=false)
+        if(!r.ok)return false
+        pending.forEach{store.markEmergencyCaptured(it.eventId)}
+        return true
+    }
+
+    private fun finalizeEmergency(items:JSONArray){
+        if(items.length()==0||ServiceFaultInjection.googleDisabled(app))return
+        val gasToken=app.getSharedPreferences(AUTH_PREFS,Context.MODE_PRIVATE).getString(AUTH_TOKEN,null).orEmpty()
+        if(gasToken.isBlank())return
+        val req=JSONObject().put("action","emergency_ledger_finalize").put("items",items).put("_token",gasToken)
+            .put("_device_id",M2DeviceIdentity.id(app)).put("_app_version",BuildConfig.VERSION_NAME).put("_app_channel",BuildConfig.CHANNEL)
+        runCatching{httpJson(BuildConfig.GSHEET_API_URL,req,null,requireServiceHost=false)}
     }
 
     private fun queuedResult(eventId: String, exclusive: Boolean, projection: String): TransportResult = TransportResult(true, true, 202,
@@ -269,7 +358,8 @@ class M2ServiceTransport(context: Context) {
 
     companion object {
         private val FLUSH_LOCK=Any() // S44_SESSION_SINGLEFLIGHT_OBSERVABILITY
-        private const val PREFS = "pp_m2_service_transport"; private const val KEY_SERVICE_TOKEN = "service_token"; private const val KEY_DISCOVERY_JSON = "discovery_json"; private const val KEY_DISCOVERY_AT = "discovery_at"; private const val KEY_FAILURES = "service_failures"; private const val KEY_CIRCUIT_UNTIL = "circuit_until"; private const val KEY_LAST_FALLBACK_PROBE_AT = "fallback_probe_at"; private const val AUTH_PREFS = "pick_pack_auth_session_v2"; private const val AUTH_TOKEN = "token"; private const val DISCOVERY_TTL_MS = 10 * 60_000L; private const val CIRCUIT_MS = 15_000L; private const val FALLBACK_PROBE_FAILURES = 3; private const val FALLBACK_PROBE_MIN_MS = 30_000L; val ADMIN_AUDIT_ACTIONS = setOf("staff_upsert","staff_delete","account_upsert","account_status","change_email","change_password"); val OPERATIONAL = setOf("enter", "exit", "resource_change", "labor_start", "labor_finish", "meal_checkin", "meal_status"); private val FALLBACK_OPERATIONAL = setOf("enter", "exit", "resource_change", "labor_start", "labor_finish"); val SYNC_ACTIONS = setOf("sync_status", "sync_day", "sync_bootstrap", "service_connections") }
+        private val DEVICE_SEQUENCE_LOCK=Any()
+        private const val PREFS = "pp_m2_service_transport"; private const val KEY_SERVICE_TOKEN = "service_token"; private const val KEY_DISCOVERY_JSON = "discovery_json"; private const val KEY_DISCOVERY_AT = "discovery_at"; private const val KEY_FAILURES = "service_failures"; private const val KEY_CIRCUIT_UNTIL = "circuit_until"; private const val KEY_LAST_FALLBACK_PROBE_AT = "fallback_probe_at"; private const val KEY_DEVICE_SEQUENCE = "device_sequence"; private const val AUTH_PREFS = "pick_pack_auth_session_v2"; private const val AUTH_TOKEN = "token"; private const val DISCOVERY_TTL_MS = 10 * 60_000L; private const val CIRCUIT_MS = 15_000L; private const val FALLBACK_PROBE_FAILURES = 3; private const val FALLBACK_PROBE_MIN_MS = 30_000L; val ADMIN_AUDIT_ACTIONS = setOf("staff_upsert","staff_delete","account_upsert","account_status","change_email","change_password"); val OPERATIONAL = setOf("enter", "exit", "resource_change", "labor_start", "labor_finish", "meal_checkin", "meal_status"); val SYNC_ACTIONS = setOf("sync_status", "sync_day", "sync_bootstrap", "service_connections") }
 }
 
 object M2DeviceIdentity { fun id(context: Context): String { val p=context.getSharedPreferences("pp_m2_device",Context.MODE_PRIVATE);p.getString("id",null)?.let{return it}; val androidId=android.provider.Settings.Secure.getString(context.contentResolver,android.provider.Settings.Secure.ANDROID_ID).orEmpty(); val raw=if(androidId.isNotBlank()&&androidId!="9774d56d682e549c")"android-$androidId" else "install-${java.util.UUID.randomUUID()}"; val digest=MessageDigest.getInstance("SHA-256").digest("PickPack1291|$raw".toByteArray()).joinToString(""){(it.toInt()and 0xff).toString(16).padStart(2,'0')}; return "m2-$digest".also{p.edit().putString("id",it).apply()} } }
