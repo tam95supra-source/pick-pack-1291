@@ -282,7 +282,7 @@ object PostMealAttendanceFeature {
 
         activeRefresh={activity.runOnUiThread{if(activeDate==selected.toString())remoteLoad()}}
         load(selected);scheduleBoundary()
-        root.setOnAttachStateChangeListener(object:View.OnAttachStateChangeListener{
+        root.addOnAttachStateChangeListener(object:View.OnAttachStateChangeListener{
             override fun onViewAttachedToWindow(v:View)=Unit
             override fun onViewDetachedFromWindow(v:View){main.removeCallbacksAndMessages(null);if(activeDate==selected.toString())leave()}
         })
