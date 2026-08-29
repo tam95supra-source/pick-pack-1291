@@ -117,10 +117,22 @@ if(!plan||!allowed.has(plan)||s.overages===true)throw new Error('TURSO_CURRENT_S
 console.log('turso_subscription=PASS plan='+plan+' overages=false');
 NODE
   else
-    # A scoped token may be unable to read billing metadata. Do not treat availability
-    # of a free plan as proof of the current subscription: fail closed for paid-capable actions.
-    echo "TURSO_BILLING_METADATA_UNAVAILABLE:$sub_code" >&2
-    exit 54
+    # Organization-scoped tokens may reject /subscription while still allowing the
+    # canonical organization readback. Turso's organization object exposes current
+    # plan_id and overages, which is sufficient for the zero-cost guard.
+    org_code=$(curl -sS --connect-timeout 10 --max-time 30 -o "$OUT/turso-organization.json" -w '%{http_code}' \
+      -H "Authorization: Bearer $TURSO_API_TOKEN" -H 'Accept: application/json' \
+      "https://api.turso.tech/v1/organizations/$TURSO_ORG" || true)
+    if [[ "$org_code" != 200 ]]; then
+      echo "TURSO_BILLING_METADATA_UNAVAILABLE:subscription=$sub_code:organization=$org_code" >&2
+      exit 54
+    fi
+    node - "$OUT/turso-organization.json" "$ZERO_COST_PLANS" <<'NODE'
+const fs=require('fs'),j=JSON.parse(fs.readFileSync(process.argv[2],'utf8')),allowed=new Set(JSON.parse(process.argv[3]).map(x=>String(x).toLowerCase())),o=j.organization||j;
+const plan=String(o.plan_id||o.plan||'').toLowerCase(),overages=o.overages===true;
+if(!plan||!allowed.has(plan)||overages)throw new Error('TURSO_ORGANIZATION_NOT_ZERO_COST:'+plan+':overages='+overages);
+console.log('turso_subscription=PASS source=organization plan='+plan+' overages=false');
+NODE
   fi
   [[ -f "$OUT/turso-databases.json" ]] || curl -fsS --connect-timeout 10 --max-time 30     -H "Authorization: Bearer $TURSO_API_TOKEN" "https://api.turso.tech/v1/organizations/$TURSO_ORG/databases?limit=100" > "$OUT/turso-databases.json"
 elif [[ "$TURSO_DB_AUTH_OK" != 1 ]]; then
