@@ -1,6 +1,6 @@
 {
   "stage": "VERIFY_ONLY",
-  "mode": "BETA98_VERIFY_EXACT_LOCKED_CANDIDATE_AFTER_D1_HARNESS_FIX",
+  "mode": "BETA98_VERIFY_EXACT_LOCKED_CANDIDATE_AFTER_MIGRATIONS_PATH_FIX",
   "version_name": "0.4.2-beta.98",
   "version_code": 104,
   "base_version": "0.4.2-beta.97",
@@ -13,7 +13,7 @@
   "fast_check": "PASS",
   "fast_check_source_sha": "154473b3dcc17c8badcfe345108e59ac3ba6e830",
   "service_gate_required": true,
-  "service_gate": "PENDING_RETRY_D1_FLAGS_RECOVERY_DEPS_FIXED",
+  "service_gate": "PENDING_RETRY_MIGRATIONS_PATH_FIXED",
   "human_visual_pass": false,
   "stable_publish": "FORBIDDEN",
   "authority_change": "NONE",
@@ -53,6 +53,6 @@
   "apk_size": 13544437,
   "candidate_artifact_id": 9722490457,
   "candidate_artifact_digest": "sha256:30d8f5062bbc8ecb79b2c60f067605b4da9a9f8917c44c8221e6929286d3bd7e",
-  "harness_fast_check_run_id": 33279628262,
-  "last_service_failure": "D1_REHEARSAL_WRANGLER_UNSUPPORTED_YES_AND_RECOVERY_DEPENDENCIES"
+  "harness_fast_check_run_id": 33279825609,
+  "last_service_failure": "D1_REHEARSAL_TEMP_CONFIG_MIGRATIONS_PATH_RECOVERED_TO_BASE"
 }
