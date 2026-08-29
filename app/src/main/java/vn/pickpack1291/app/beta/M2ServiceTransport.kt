@@ -206,31 +206,36 @@ class M2ServiceTransport(context: Context) {
     }
 
     private fun flushOutboxLocked(): Boolean {
-        if (!hasNetwork()) return false
         val items=store.unresolvedMutations(100);if(items.isEmpty())return true
-        if(ServiceFaultInjection.cloudflareDisabled(app)){
-            captureEmergency(items)
-            return false
-        }
+        if (!hasNetwork()) return serviceUnavailable(items,"NETWORK_UNAVAILABLE",false)
+        if(ServiceFaultInjection.cloudflareDisabled(app))return serviceUnavailable(items,"TEST_CLOUDFLARE_DISABLED",true)
         var discovery=cachedDiscoverySnapshot();if(discovery==null)discovery=discover(force=true)
-        if(discovery==null){captureEmergency(items);return false}
-        if(discovery.optString("authority_mode")=="GOOGLE_FALLBACK"){captureEmergency(items);return false}
-        if(discovery.optString("authority_mode")!="SERVICE_PRIMARY"){captureEmergency(items);return false}
-        if(circuitOpen()){captureEmergency(items);return false}
-        val base=discovery.optString("service_url").trimEnd('/');if(!validServiceUrl(base)){captureEmergency(items);return false}
+        if(discovery==null)return serviceUnavailable(items,"SERVICE_DISCOVERY_UNAVAILABLE",true)
+        if(discovery.optString("authority_mode")=="GOOGLE_FALLBACK")return serviceUnavailable(items,"GOOGLE_FALLBACK_AUTHORITY",true)
+        if(discovery.optString("authority_mode")!="SERVICE_PRIMARY")return serviceUnavailable(items,"AUTHORITY_NOT_SERVICE_PRIMARY",true)
+        if(circuitOpen())return serviceUnavailable(items,"SERVICE_CIRCUIT_OPEN",true)
+        val base=discovery.optString("service_url").trimEnd('/');if(!validServiceUrl(base))return serviceUnavailable(items,"SERVICE_URL_INVALID",true)
         var token=prefs.getString(KEY_SERVICE_TOKEN,null)
-        if(token.isNullOrBlank()){token=exchangeBackgroundServiceSession(base);if(token.isNullOrBlank()){items.forEach{store.markMutationRetry(it.eventId,"SERVICE_SESSION_REAUTH_REQUIRED",retryDelay(it.attemptCount))};return false}}
-        fun submit(bearer:String):HttpResult{val body=JSONObject().put("events",JSONArray().apply{items.forEach{put(it.body)}});val started=System.currentTimeMillis();return httpJson("$base/v1/legacy-mutations/batch",body,bearer).also{M2TransportDiagnostics.noteBatch(app,it.code,it.ok,it.error,items.size,System.currentTimeMillis()-started)}}
+        if(token.isNullOrBlank()){
+            token=exchangeBackgroundServiceSession(base)
+            if(token.isNullOrBlank())return serviceUnavailable(items,"SERVICE_SESSION_REAUTH_REQUIRED",true)
+        }
+        fun submit(bearer:String):HttpResult{
+            val body=JSONObject().put("events",JSONArray().apply{items.forEach{put(it.body)}})
+            val started=System.currentTimeMillis()
+            return httpJson("$base/v1/legacy-mutations/batch",body,bearer).also{M2TransportDiagnostics.noteBatch(app,it.code,it.ok,it.error,items.size,System.currentTimeMillis()-started)}
+        }
         return try{
             var r=submit(token)
             if(r.code==401){M2ServiceSessionManager.clearIfSame(app,token);val refreshed=exchangeBackgroundServiceSession(base);if(!refreshed.isNullOrBlank())r=submit(refreshed)}
-            if(r.code==401){items.forEach{store.markMutationRetry(it.eventId,"SERVICE_SESSION_REAUTH_REQUIRED",retryDelay(it.attemptCount))};return false}
+            if(r.code==401)return serviceUnavailable(items,"SERVICE_SESSION_REAUTH_REQUIRED",true)
             if(!r.ok||r.json==null){
                 val outage=r.code==-1||r.code==429||r.code>=500||(r.error?:"").uppercase().let{it.contains("QUOTA")||it.contains("FULL")}
-                if(outage){recordFailure();captureEmergency(items)}
+                if(outage){recordFailure();return serviceUnavailable(items,r.error?:"HTTP_${r.code}",true)}
                 items.forEach{store.markMutationRetry(it.eventId,r.error?:"HTTP_${r.code}",retryDelay(it.attemptCount))}
                 return false
             }
+            LanCoordinator.get(app).noteServiceStatus(true)
             val results=r.json.optJSONArray("results")?:JSONArray();val byId=items.associateBy{it.eventId};var retryNeeded=false
             val finalized=JSONArray()
             for(i in 0 until results.length()){
@@ -249,10 +254,26 @@ class M2ServiceTransport(context: Context) {
             if(!retryNeeded)closeCircuit()
             !retryNeeded
         }catch(x:Throwable){
-            recordFailure();captureEmergency(items)
-            items.forEach{store.markMutationRetry(it.eventId,x.message?:"NETWORK",retryDelay(it.attemptCount))}
-            false
+            recordFailure()
+            serviceUnavailable(items,x.message?:"NETWORK",true)
         }
+    }
+
+    private fun serviceUnavailable(items:List<OperationalDataStore.PendingMutation>,reason:String,googleReachable:Boolean):Boolean{
+        val lan=LanCoordinator.get(app)
+        lan.noteServiceStatus(false)
+        if(googleReachable&&!ServiceFaultInjection.googleDisabled(app))captureEmergency(items)
+        var lanConfirmed=0
+        if(lan.canRoute()){
+            items.forEach{item->
+                val ack=lan.submit(item.body)
+                if(ack.handled&&ack.ok){store.markLanConfirmed(item.eventId,ack.generation);lanConfirmed++}
+                else if(item.status!="OFFLINE_PROVISIONAL")store.markMutationRetry(item.eventId,ack.error?:reason,retryDelay(item.attemptCount))
+            }
+        }else{
+            items.filter{it.status!="OFFLINE_PROVISIONAL"}.forEach{store.markMutationRetry(it.eventId,reason,retryDelay(it.attemptCount))}
+        }
+        return false
     }
 
     private fun exchangeBackgroundServiceSession(base:String):String? = M2ServiceSessionManager.ensure(app,base,force=true)
