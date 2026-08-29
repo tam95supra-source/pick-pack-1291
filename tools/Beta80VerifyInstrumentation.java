@@ -225,14 +225,10 @@ public final class Beta80VerifyInstrumentation extends Instrumentation {
   private void ota(){
     seedAuth();
     String version=req("version"), url=new String(Base64.decode(req("url_b64"),Base64.NO_WRAP),java.nio.charset.StandardCharsets.UTF_8), sha=req("sha");
-    target.getSharedPreferences("pp1291_pending_update_v1",Context.MODE_PRIVATE).edit()
-      .putString("version",version).putString("url",url).putString("sha",sha).putString("notes","Beta80 OTA exact candidate")
-      .putInt("version_code",92).commit();
-    open("SETTINGS");
-    clickText("TIẾP TỤC CẬP NHẬT",true,15000);
-    mark("ota_prompt_entry_clicked",true);
-    clickText("TẢI APK",false,30000);
-    mark("ota_download_clicked",true);
+    if(!url.startsWith("https://github.com/")||!url.contains("/releases/download/"))throw new IllegalStateException("OTA_URL_NOT_GITHUB_RELEASE");
+    Activity a=open("SETTINGS");
+    invokeBeta80Download(a,version,url,sha);
+    mark("ota_download_invoked",true);
     long end=SystemClock.uptimeMillis()+90000;
     AccessibilityNodeInfo install=null;
     while(SystemClock.uptimeMillis()<end){
@@ -253,8 +249,8 @@ public final class Beta80VerifyInstrumentation extends Instrumentation {
     if(!installerPkg.contains("packageinstaller"))throw new IllegalStateException("UNEXPECTED_INSTALLER_PACKAGE:"+installerPkg);
     mark("ota_installer_seen",true);
     Bundle st=new Bundle();st.putString("result","INSTALLER_SEEN");sendStatus(0,st);
-    AccessibilityNodeInfo c=clickableNode(install);
-    if(c==null||!c.performAction(AccessibilityNodeInfo.ACTION_CLICK))throw new IllegalStateException("ANDROID_INSTALL_CLICK_FAILED");
+    AccessibilityNodeInfo click=clickableNode(install);
+    if(click==null||!click.performAction(AccessibilityNodeInfo.ACTION_CLICK))throw new IllegalStateException("ANDROID_INSTALL_CLICK_FAILED");
     mark("ota_installer_clicked",true);
     while(true)SystemClock.sleep(1000);
   }
