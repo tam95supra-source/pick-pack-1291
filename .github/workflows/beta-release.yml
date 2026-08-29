@@ -67,6 +67,8 @@ jobs:
                      .apk_transport=="GITHUB_RELEASE_ONLY" and .google_drive_apk=="FORBIDDEN" and
                      ((.human_visual_sizes|sort)==(["320x568","360x640","480x800"]|sort))' "$R" >/dev/null
               git diff --quiet "$(jq -r '.source_sha' "$R")" HEAD -- app service google-apps-script
+              bash -n tools/beta83_publish_ota.sh tools/beta83_rollback.sh tools/beta83_ota_device_gate.sh tools/ensure_beta_github_release.sh tools/finalize_beta83.sh tools/beta83_release_handoff_finalizer.sh tools/beta83_handoff_finalizer.sh
+              python3 -m py_compile tools/gas_ota_static_contract.py
               ! grep -Eqi 'googleapis\.com/drive|drive\.google\.com|drive\.usercontent\.google\.com|drive_file_id|drive_staging_exact|DRIVE_FOLDER_ID|BẢN THỬ NGHIỆM' \
                 tools/beta83_publish_ota.sh tools/beta83_rollback.sh tools/beta83_ota_device_gate.sh
               ;;
