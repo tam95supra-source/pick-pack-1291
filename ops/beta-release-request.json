@@ -26,7 +26,7 @@
     "Quét QR nhân sự dùng trạng thái phiên local đã biết để hiển thị ngay; Service đối chiếu nền và chỉ patch khi cần.",
     "Thêm Điểm danh sau giờ ăn: quét ngày hiện tại, lịch sử 14 ngày chỉ xem, lý do không vào ca/vào muộn, audit trước-sau, cảnh báo 12:00/12:30 và 19:00/19:30, realtime/offline qua cơ chế hiện có."
   ],
-  "next_action": "SERVICE_LIVE_THEN_VISUAL_PDA_ON_EXACT_CANDIDATE",
+  "next_action": "VERIFY_EXACT_CANDIDATE_WITH_SERVICE_STORAGE_API_AND_SPLIT_SOURCE_PROOF",
   "signer_sha256": "d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e",
   "last_build_failure": "RELEASE_INPUT_MISSING_SIGNER_SHA256_PRE_BUILD",
   "pre_ota_attempt": 2,
@@ -38,5 +38,8 @@
   "apk_size": 13282293,
   "visual_matrix": "PENDING",
   "pda_functional_pre_ota": "PENDING",
-  "service_gate": "PENDING_RETRY_AFTER_TYPECHECK_FIX"
+  "service_gate": "PENDING_RETRY_AFTER_STORAGE_HARNESS_FIX",
+  "candidate_source_sha": "c2dc479c3c6d19fa7f30ae297e61592bbdd4c2f1",
+  "last_service_failure": "D1_REMOTE_STORAGE_PRAGMA_HARNESS",
+  "last_visual_failure": "CANDIDATE_SERVICE_SOURCE_METADATA_HARNESS"
 }
