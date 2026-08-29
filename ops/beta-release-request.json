@@ -1,6 +1,6 @@
 {
   "stage": "PUBLISH",
-  "mode": "PUBLISH_EXACT_BETA97_GAS_STATIC_CONTRACT_RECOVERY_R2",
+  "mode": "PUBLISH_EXACT_BETA97_CANONICAL_GITHUB_RELEASE_OTA_RECOVERY",
   "version_name": "0.4.2-beta.97",
   "version_code": 103,
   "base_version": "0.4.2-beta.96",
@@ -25,11 +25,11 @@
   "live": false,
   "release_notes": [
     "Exact Beta97 candidate reused; no rebuild/resign.",
-    "All pre-OTA gates remain PASS from run 33250391599 and exact candidate/service inputs are unchanged.",
-    "Publish recovery verifies Beta96/Beta97 bytes through Drive API and changes only ppUpdateCheck_ in the live GAS project to an exact static OTA contract; operational GAS files/functions are preserved.",
-    "If activation or post-publish OTA fails, restore exact Beta96 manifest before candidate cleanup. Stable/main/signer/authority unchanged."
+    "All pre-OTA gates remain PASS from run 33250391599; app/service exact inputs unchanged.",
+    "Exact APK remains staged in Drive BẢN THỬ NGHIỆM. Public OTA transport uses the repository's existing GITHUB_RELEASE canonical path because Google public download now rejects APK as infected while OAuth exact-byte readback passes.",
+    "GAS changes only ppUpdateCheck_ to the exact manifest. Rollback restores exact Beta96 manifest before cleanup. Stable/main/signer/authority unchanged."
   ],
-  "next_action": "PUBLISH_EXACT_BETA97_AFTER_EXACT_BASE_APK_DOWNLOAD_RECOVERY",
+  "next_action": "PUBLISH_EXACT_BETA97_CANONICAL_TRANSPORT_THEN_OTA_INSTALL_READBACK",
   "signer_sha256": "d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e",
   "candidate_run_id": 33247859614,
   "candidate_artifact_id": 9713456764,
@@ -56,6 +56,6 @@
   ],
   "human_visual_screenshot_count": 26,
   "base_probe_version": "0.4.2-beta.95",
-  "transport_recovery": "DRIVE_API_ACKNOWLEDGE_ABUSE_PLUS_GAS_STATIC_EXACT_CONTRACT",
-  "transport_recovery_seq": 2
+  "transport_recovery": "DRIVE_STAGING_PLUS_GITHUB_RELEASE_CANONICAL_PLUS_GAS_STATIC_EXACT",
+  "transport_recovery_seq": 3
 }
