@@ -108,6 +108,17 @@ class OperationsActivity : Activity() {
     private var employeeTimelineRealtimeRefresh: ((Set<String>) -> Unit)? = null
     private var lastPingMs: Long? = null
     private var lastStatusUpdateAt: Long = 0L
+    private var lanSevereWarningShown=false
+    private val lanStateListener=LanCoordinator.StateListener { state ->
+        runOnUiThread {
+            refreshHeaderConnection()
+            if(state==LanAuthorityPolicy.HealthState.NORMAL)lanSevereWarningShown=false
+            if((state==LanAuthorityPolicy.HealthState.SERVICE_UNAVAILABLE||state==LanAuthorityPolicy.HealthState.LAN_AVAILABLE)&&!lanSevereWarningShown){
+                lanSevereWarningShown=true
+                TopNotice.show(this,"Dịch vụ đã gián đoạn trên 5 phút. ADMIN/SUPERADMIN cần kiểm tra và kích hoạt LAN dự phòng nếu vận hành vẫn tiếp tục.",TopNotice.Kind.ERROR)
+            }
+        }
+    }
     private var contentHost: FrameLayout? = null
     private var navHost: FrameLayout? = null
     private data class NavRefs(val cell:LinearLayout,val icon:ImageView,val label:TextView)
@@ -186,6 +197,7 @@ class OperationsActivity : Activity() {
         super.onStart()
         UpdateManager.checkAutomatic(this)
         PpForegroundGate.enter()
+        LanCoordinator.get(this).addStateListener(lanStateListener)
         if (api.token != null) {
             // S43_FOREGROUND_OUTBOX_WAKE: old unresolved events are flushed immediately on a
             // background executor after the activity becomes visible. No polling and no UI wait.
@@ -197,6 +209,7 @@ class OperationsActivity : Activity() {
     }
 
     override fun onStop() {
+        LanCoordinator.get(this).removeStateListener(lanStateListener)
         PpForegroundGate.leave()
         foregroundSync.stop()
         super.onStop()
@@ -2015,6 +2028,30 @@ class OperationsActivity : Activity() {
         body.addView(details(basicLogRows))
         body.addView(gap(7))
         body.addView(primary("GỬI BÁO LỖI",teal){sendDiagnostic()},matchWrap())
+        if(role=="ADMIN"||role=="SUPERADMIN"){
+            val lan=LanCoordinator.get(this)
+            val ls=lan.status()
+            body.addView(gap(10));body.addView(section("LAN DỰ PHÒNG"))
+            body.addView(details(listOf(
+                "Trạng thái" to ls.optString("health_state"),
+                "Vai trò PDA" to ls.optString("node_role"),
+                "Master" to dash(ls.optString("master_device_id")),
+                "Backup" to dash(ls.optString("backup_device_id")),
+                "Generation" to ls.optLong("generation").toString(),
+                "LAN epoch" to ls.optLong("lan_epoch").toString(),
+                "PDA LAN đang thấy" to ls.optInt("peer_count").toString()
+            )))
+            val hs=lan.healthState()
+            if(hs==LanAuthorityPolicy.HealthState.SERVICE_UNAVAILABLE||hs==LanAuthorityPolicy.HealthState.LAN_AVAILABLE){
+                body.addView(gap(7))
+                body.addView(primary("KÍCH HOẠT LAN DỰ PHÒNG",orange){
+                    LanCoordinator.get(this).requestActivation(role){ok,error->runOnUiThread{
+                        if(ok){TopNotice.show(this,"LAN dự phòng đã được kích hoạt và đang chờ đủ Master + backup.",TopNotice.Kind.SUCCESS);settingsScreen()}
+                        else showError(error?:"LAN_ACTIVATION_FAILED")
+                    }}
+                },matchWrap())
+            }
+        }
         if(isActualSuper()){
             body.addView(gap(10));body.addView(section("THỬ NGHIỆM LỖI SERVICE"))
             val fault=ServiceFaultInjection.mode(this)
@@ -2032,13 +2069,16 @@ class OperationsActivity : Activity() {
                 .setMessage("Bạn có chắc muốn đăng xuất khỏi ứng dụng?")
                 .setNegativeButton("Hủy",null)
                 .setPositiveButton("ĐĂNG XUẤT"){_,_->
-                    api.logoutFast()
-            startActivity(android.content.Intent(this, FullBetaActivity::class.java).apply {
-                flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK
-            })
-            finish()
-            @Suppress("DEPRECATION")
-            overridePendingTransition(0, 0)
+                    LanCoordinator.get(this).safeBeforeLogout{ok,error->runOnUiThread{
+                        if(!ok){showError(error?:"LAN_SAFE_HANDOVER_REQUIRED");return@runOnUiThread}
+                        api.logoutFast()
+                        startActivity(android.content.Intent(this, FullBetaActivity::class.java).apply {
+                            flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK
+                        })
+                        finish()
+                        @Suppress("DEPRECATION")
+                        overridePendingTransition(0, 0)
+                    }}
                 }
                 .show()
         },matchWrap())
@@ -2344,11 +2384,15 @@ class OperationsActivity : Activity() {
         }
         if(syncStatusText?.text?.toString()!=syncLabel)syncStatusText?.text=syncLabel
         val provider=serviceProviderFromRuntime()
-        val serviceLabel=when(provider){
-            "Cloudflare"->"Hoạt động"
-            "Google Drive"->"Dự phòng"
-            "OFFLINE","Service OFFLINE (test)"->"Ngoại tuyến"
-            else->"Đang kiểm tra"
+        val lanState=LanCoordinator.get(this).healthState()
+        val serviceLabel=when(lanState){
+            LanAuthorityPolicy.HealthState.NORMAL->when(provider){"Cloudflare"->"Hoạt động";"Google Drive"->"Dự phòng";"OFFLINE","Service OFFLINE (test)"->"Ngoại tuyến";else->"Đang kiểm tra"}
+            LanAuthorityPolicy.HealthState.DEGRADED->"Suy giảm"
+            LanAuthorityPolicy.HealthState.SERVICE_UNAVAILABLE->"Mất dịch vụ"
+            LanAuthorityPolicy.HealthState.LAN_AVAILABLE->"LAN sẵn sàng"
+            LanAuthorityPolicy.HealthState.LAN_ACTIVE->"LAN"
+            LanAuthorityPolicy.HealthState.RECOVERING->"Đang phục hồi"
+            LanAuthorityPolicy.HealthState.CLOUD_DR_ACTIVE->"Cloud DR"
         }
         if(serviceStatusText?.text?.toString()!=serviceLabel)serviceStatusText?.text=serviceLabel
     }
