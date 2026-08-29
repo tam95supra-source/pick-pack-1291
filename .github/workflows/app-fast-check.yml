@@ -88,6 +88,19 @@ jobs:
         with:
           node-version: '22'
 
+      - id: impact
+        name: Resolve impacted gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          app=true
+          if [[ "${{ github.event_name }}" == "push" ]]; then
+            app=false
+            git diff --name-only HEAD^ HEAD | grep -q '^app/' && app=true || true
+          fi
+          echo "app=$app" >> "$GITHUB_OUTPUT"
+          echo "impact_app=$app"
+
       - name: Static resilience gates
         shell: bash
         run: |
@@ -107,6 +120,7 @@ jobs:
           popd
 
       - name: Static and Android debug gates
+        if: ${{ steps.impact.outputs.app == 'true' }}
         shell: bash
         run: |
           set -euo pipefail

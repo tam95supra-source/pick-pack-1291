@@ -107,26 +107,21 @@ else
 fi
 
 if [[ -n "$TURSO_ORG" ]]; then
-  # Organization metadata may be denied to a resource-scoped token. When visible, use it
-  # to verify the current plan/overage state; otherwise require plan endpoint + zero-cost plan.
-  org_code=$(curl -sS --connect-timeout 10 --max-time 30 -o "$OUT/turso-organization.json" -w '%{http_code}'     -H "Authorization: Bearer $TURSO_API_TOKEN" -H 'Accept: application/json' "https://api.turso.tech/v1/organizations/$TURSO_ORG" || true)
-  [[ "$org_code" == 200 || "$org_code" == 403 ]] || { echo "DR_PREFLIGHT_HTTP_FAILED:turso-organization:$org_code" >&2; exit 52; }
-  code=$(curl -sS --connect-timeout 10 --max-time 30 -o "$OUT/turso-plans.json" -w '%{http_code}'     -H "Authorization: Bearer $TURSO_API_TOKEN" -H 'Accept: application/json' "https://api.turso.tech/v1/organizations/$TURSO_ORG/plans" || true)
-  [[ "$code" == 200 ]] || { echo "DR_PREFLIGHT_HTTP_FAILED:turso-plans:$code" >&2;exit 52; }
-  node - "$OUT/turso-organization.json" "$OUT/turso-plans.json" "$TURSO_ORG" "$org_code" <<'NODE'
-const fs=require('fs'),orgPath=process.argv[2],plansj=JSON.parse(fs.readFileSync(process.argv[3],'utf8')),slug=process.argv[4],orgCode=Number(process.argv[5]);
-const list=Array.isArray(plansj)?plansj:(plansj.plans||[]);
-if(!list.some(x=>Number(x.price??x.monthly_price??0)===0))throw new Error('TURSO_ZERO_COST_PLAN_NOT_VISIBLE');
-let planId='unreadable';
-if(orgCode===200){
- const orgj=JSON.parse(fs.readFileSync(orgPath,'utf8')),o=orgj.organization||orgj;
- if(String(o.slug||'')!==slug||o.blocked_reads===true||o.blocked_writes===true||o.overages===true)throw new Error('TURSO_ORG_NOT_SAFE_FREE');
- planId=String(o.plan_id||'').toLowerCase();
- const exact=list.find(x=>String(x.name||x.id||'').toLowerCase()===planId);
- if(exact&&Number(exact.price??exact.monthly_price??0)!==0)throw new Error('TURSO_CURRENT_PLAN_NOT_ZERO_COST:'+planId);
-}
-console.log('turso_zero_cost_plan_available=PASS metadata='+orgCode+' current_plan='+planId);
+  ZERO_COST_PLANS=$(jq -cr '.turso.accepted_zero_cost_plan_ids // ["free","starter"]' config/provider_free_limits.json)
+  sub_code=$(curl -sS --connect-timeout 10 --max-time 30 -o "$OUT/turso-subscription.json" -w '%{http_code}'     -H "Authorization: Bearer $TURSO_API_TOKEN" -H 'Accept: application/json' "https://api.turso.tech/v1/organizations/$TURSO_ORG/subscription" || true)
+  if [[ "$sub_code" == 200 ]]; then
+    node - "$OUT/turso-subscription.json" "$ZERO_COST_PLANS" <<'NODE'
+const fs=require('fs'),j=JSON.parse(fs.readFileSync(process.argv[2],'utf8')),allowed=new Set(JSON.parse(process.argv[3]).map(x=>String(x).toLowerCase())),s=j.subscription||j;
+const plan=String(s.plan||s.name||'').toLowerCase();
+if(!plan||!allowed.has(plan)||s.overages===true)throw new Error('TURSO_CURRENT_SUBSCRIPTION_NOT_ZERO_COST:'+plan);
+console.log('turso_subscription=PASS plan='+plan+' overages=false');
 NODE
+  else
+    # A scoped token may be unable to read billing metadata. Do not treat availability
+    # of a free plan as proof of the current subscription: fail closed for paid-capable actions.
+    echo "TURSO_BILLING_METADATA_UNAVAILABLE:$sub_code" >&2
+    exit 54
+  fi
   [[ -f "$OUT/turso-databases.json" ]] || curl -fsS --connect-timeout 10 --max-time 30     -H "Authorization: Bearer $TURSO_API_TOKEN" "https://api.turso.tech/v1/organizations/$TURSO_ORG/databases?limit=100" > "$OUT/turso-databases.json"
 elif [[ "$TURSO_DB_AUTH_OK" != 1 ]]; then
   echo "TURSO_PLATFORM_TOKEN_VALID_BUT_ORG_SCOPE_UNRESOLVED" >&2
