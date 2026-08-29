@@ -23,6 +23,7 @@
 - beta_ota_url: https://github.com/tam95supra-source/pick-pack-1291/releases/download/v0.4.2-beta.97-publicbeta/pick-pack-1291-public-beta-0.4.2-beta.97.apk
 - apk_transport: GITHUB_RELEASE_ONLY
 - google_drive_apk: FORBIDDEN
+- regression_policy: docs/REGRESSION_GUARD_POLICY.md (MANDATORY)
 - stable: unchanged
 - main_sha: 021dac5c6932b3ac5c60ce8fdba562ddf3d9688f
 - authority: SERVICE_PRIMARY / PRODUCTION / epoch 9 / generation m2-prod-reset-20260823-001
