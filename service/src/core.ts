@@ -264,7 +264,7 @@ async function commitMealAttendance(db:D1Database,auth:AuthContext,req:Canonical
   if(!staff||staff.state!=="ACTIVE")throw new CoreError("MEAL_EMPLOYEE_NOT_ACTIVE","CONFLICT",409,false);
   const currentVersion=current?.version??0;
   if(currentVersion!==req.base_version)throw new CoreError("STALE_BASE_VERSION","CONFLICT",409,false,{current_version:currentVersion});
-  if(req.event_type==="MEAL_CHECKIN"&&current?.status==="CHECKED_IN"){
+  if(current?.status==="CHECKED_IN"){
     throw new CoreError("MEAL_ALREADY_CHECKED_IN","CONFLICT",409,false,{checked_at:current.actual_return_at??current.checked_at});
   }
   const event=await buildEvent(req,auth,a,currentVersion+1);
