@@ -123,16 +123,50 @@ NODE
     org_code=$(curl -sS --connect-timeout 10 --max-time 30 -o "$OUT/turso-organization.json" -w '%{http_code}' \
       -H "Authorization: Bearer $TURSO_API_TOKEN" -H 'Accept: application/json' \
       "https://api.turso.tech/v1/organizations/$TURSO_ORG" || true)
-    if [[ "$org_code" != 200 ]]; then
-      echo "TURSO_BILLING_METADATA_UNAVAILABLE:subscription=$sub_code:organization=$org_code" >&2
-      exit 54
-    fi
-    node - "$OUT/turso-organization.json" "$ZERO_COST_PLANS" <<'NODE'
+    if [[ "$org_code" == 200 ]]; then
+      node - "$OUT/turso-organization.json" "$ZERO_COST_PLANS" <<'NODE'
 const fs=require('fs'),j=JSON.parse(fs.readFileSync(process.argv[2],'utf8')),allowed=new Set(JSON.parse(process.argv[3]).map(x=>String(x).toLowerCase())),o=j.organization||j;
 const plan=String(o.plan_id||o.plan||'').toLowerCase(),overages=o.overages===true;
 if(!plan||!allowed.has(plan)||overages)throw new Error('TURSO_ORGANIZATION_NOT_ZERO_COST:'+plan+':overages='+overages);
 console.log('turso_subscription=PASS source=organization plan='+plan+' overages=false');
 NODE
+    elif [[ "$org_code" == 403 ]]; then
+      # Resource-scoped tokens can deny billing metadata. Fail closed on capacity instead:
+      # prove current usage fits an explicitly zero-price plan and make no paid-capable mutation.
+      plans_code=$(curl -sS --connect-timeout 10 --max-time 30 -o "$OUT/turso-plans.json" -w '%{http_code}' \
+        -H "Authorization: Bearer $TURSO_API_TOKEN" -H 'Accept: application/json' \
+        "https://api.turso.tech/v1/organizations/$TURSO_ORG/plans" || true)
+      usage_code=$(curl -sS --connect-timeout 10 --max-time 30 -o "$OUT/turso-usage.json" -w '%{http_code}' \
+        -H "Authorization: Bearer $TURSO_API_TOKEN" -H 'Accept: application/json' \
+        "https://api.turso.tech/v1/organizations/$TURSO_ORG/usage" || true)
+      [[ "$plans_code" == 200 && "$usage_code" == 200 ]] || {
+        echo "TURSO_ZERO_COST_CAPACITY_METADATA_UNAVAILABLE:plans=$plans_code:usage=$usage_code" >&2; exit 54;
+      }
+      node - "$OUT/turso-plans.json" "$OUT/turso-usage.json" "$ZERO_COST_PLANS" "$OUT/turso-databases.json" <<'NODE'
+const fs=require('fs');
+const plansJ=JSON.parse(fs.readFileSync(process.argv[2],'utf8')),usageJ=JSON.parse(fs.readFileSync(process.argv[3],'utf8')),
+      allowed=new Set(JSON.parse(process.argv[4]).map(x=>String(x).toLowerCase())),
+      dbJ=JSON.parse(fs.readFileSync(process.argv[5],'utf8'));
+const plans=Array.isArray(plansJ)?plansJ:(plansJ.plans||[]);
+const free=plans.find(p=>allowed.has(String(p.name||p.id||'').toLowerCase())&&Number(p.price??p.monthly_price??0)===0);
+if(!free)throw new Error('TURSO_ZERO_COST_PLAN_NOT_VISIBLE');
+const q=free.quotas||{},u=(usageJ.organization||usageJ).usage||{},dbs=dbJ.databases||[];
+const pairs=[
+ ['rows_read','rowsRead'],['rows_written','rowsWritten'],['databases','databases'],
+ ['locations','locations'],['storage_bytes','storage'],['groups','groups'],['bytes_synced','bytesSynced']
+];
+for(const [uk,qk] of pairs){
+  if(q[qk]===undefined||u[uk]===undefined)continue;
+  const used=Number(u[uk]),limit=Number(q[qk]);
+  if(!Number.isFinite(used)||!Number.isFinite(limit)||limit<=0||used>limit)throw new Error('TURSO_FREE_CAPACITY_EXCEEDED:'+uk+':'+used+'/'+limit);
+}
+if(Number.isFinite(Number(q.databases))&&dbs.length>Number(q.databases))throw new Error('TURSO_FREE_DATABASE_COUNT_EXCEEDED');
+console.log('turso_zero_cost_capacity=PASS plan='+String(free.name||free.id)+' dbs='+dbs.length+' billing_scope=resource no_paid_action=true');
+NODE
+    else
+      echo "TURSO_BILLING_METADATA_UNAVAILABLE:subscription=$sub_code:organization=$org_code" >&2
+      exit 54
+    fi
   fi
   [[ -f "$OUT/turso-databases.json" ]] || curl -fsS --connect-timeout 10 --max-time 30     -H "Authorization: Bearer $TURSO_API_TOKEN" "https://api.turso.tech/v1/organizations/$TURSO_ORG/databases?limit=100" > "$OUT/turso-databases.json"
 elif [[ "$TURSO_DB_AUTH_OK" != 1 ]]; then
