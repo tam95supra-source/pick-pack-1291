@@ -7,23 +7,13 @@ const VALID_REASONS=new Set(["Xin về sớm","Đi hỗ trợ bộ phận/vị t
 function safeDate(v:string):boolean{return /^\d{4}-\d{2}-\d{2}$/.test(v);}
 function addDays(date:string,n:number):string{const d=new Date(date+"T00:00:00Z");d.setUTCDate(d.getUTCDate()+n);return d.toISOString().slice(0,10);}
 
-async function materialize(env:Env,date:string,current:boolean):Promise<void>{
+async function materialize(env:Env,date:string):Promise<void>{
   const at=new Date().toISOString();
-  const stateFilter=current?"AND s.state='ACTIVE'":"";
   await env.DB.prepare(`INSERT OR IGNORE INTO post_meal_attendance(
       business_date,mnv,shift,full_name_snapshot,supplier_snapshot,status,version,created_at,updated_at)
     SELECT s.business_date,s.mnv,s.shift,COALESCE(e.full_name,''),COALESCE(e.supplier,''),'PENDING',0,?2,?2
     FROM attendance_sessions s JOIN employees e ON e.mnv=s.mnv
-    WHERE s.business_date=?1 AND s.enter_at IS NOT NULL ${stateFilter}`).bind(date,at).run();
-  if(current){
-    await env.DB.prepare(`DELETE FROM post_meal_attendance
-      WHERE business_date=?1 AND status='PENDING'
-        AND NOT EXISTS(
-          SELECT 1 FROM attendance_sessions s
-          WHERE s.business_date=post_meal_attendance.business_date
-            AND s.mnv=post_meal_attendance.mnv AND s.state='ACTIVE'
-        )`).bind(date).run();
-  }
+    WHERE s.business_date=?1 AND s.enter_at IS NOT NULL`).bind(date,at).run();
 }
 
 function rank(status:string):number{return status==="OVERDUE_LATE"?0:status==="PENDING"?1:status==="LATE_EXPECTED"?2:status==="NO_RETURN"?3:4;}
@@ -34,7 +24,7 @@ export async function mealAttendanceList(env:Env,body:{business_date?:string}):P
   if(!safeDate(date))return apiError("BUSINESS_DATE_INVALID","VALIDATION",400);
   const floor=addDays(current,-13);
   if(date<floor||date>current)return apiError("MEAL_DATE_OUTSIDE_14_DAY_WINDOW","PERMISSION",403);
-  if(date===current)await materialize(env,date,true);
+  if(date===current)await materialize(env,date);
   const rows=(await env.DB.prepare(`SELECT business_date,mnv,shift,full_name_snapshot,supplier_snapshot,status,checked_at,reason_code,reason_note,expected_return_at,actual_return_at,actor_id,device_id,version,created_at,updated_at
       FROM post_meal_attendance WHERE business_date=?1`).bind(date).all<Record<string,unknown>>()).results??[];
   const now=Date.now();
