@@ -159,6 +159,8 @@ object LocalLogManager {
             .onFailure { appendLine("transport_diag_error=${safe(it.javaClass.simpleName+":"+(it.message?:""))}") }
         runCatching { DirectOwnerDiagnostics.snapshotLines(context).forEach { appendLine(it) } }
             .onFailure { appendLine("direct_owner_diag_error=${safe(it.javaClass.simpleName+":"+(it.message?:""))}") }
+        runCatching { QrPerformanceDiagnostics.snapshotLines(context).forEach { appendLine(it) } }
+            .onFailure { appendLine("qr_perf_diag_error=${safe(it.javaClass.simpleName+":"+(it.message?:""))}") }
         runCatching {
             val arr=OperationalDataStore(context).diagnosticOutbox(50)
             appendLine("outbox_rows=${arr.length()}")
