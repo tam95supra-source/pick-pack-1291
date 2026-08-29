@@ -38,7 +38,7 @@ export async function mealAttendanceList(env:Env,body:{business_date?:string}):P
   const rows=(await env.DB.prepare(`SELECT business_date,mnv,shift,full_name_snapshot,supplier_snapshot,status,checked_at,reason_code,reason_note,expected_return_at,actual_return_at,actor_id,device_id,version,created_at,updated_at
       FROM post_meal_attendance WHERE business_date=?1`).bind(date).all<Record<string,unknown>>()).results??[];
   const now=Date.now();
-  const items=rows.map(r=>({...r,status_view:mealStatusView(r,now)})).sort((a,b)=>{
+  const items=(rows.map(r=>({...r,status_view:mealStatusView(r,now)})) as Array<Record<string,unknown>&{status_view:string}>).sort((a,b)=>{
     const ra=rank(String(a.status_view)),rb=rank(String(b.status_view));if(ra!==rb)return ra-rb;
     const supplier=String(a.supplier_snapshot||"").localeCompare(String(b.supplier_snapshot||""),"vi",{numeric:true,sensitivity:"base"});if(supplier)return supplier;
     const mnv=String(a.mnv||"").localeCompare(String(b.mnv||""),"vi",{numeric:true,sensitivity:"base"});if(mnv)return mnv;
