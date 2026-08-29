@@ -24,11 +24,24 @@ console.log('render_token=PASS existing_dr='+matches.length);
 NODE
 
 http turso-validate "https://api.turso.tech/v1/auth/validate" "$TURSO_API_TOKEN"
-http turso-user "https://api.turso.tech/v1/current-user" "$TURSO_API_TOKEN"
-TURSO_ORG=$(node - "$OUT/turso-user.json" <<'NODE'
-const fs=require('fs'),j=JSON.parse(fs.readFileSync(process.argv[2],'utf8')),u=j.user||j;const org=String(u.organizationSlug||u.organization_slug||u.username||'').trim();if(!org)process.exit(2);const plan=String(u.plan||'').toLowerCase();if(plan&&!['free','starter'].includes(plan))throw new Error('TURSO_PLAN_NOT_FREE:'+plan);process.stdout.write(org);
+http turso-organizations "https://api.turso.tech/v1/organizations" "$TURSO_API_TOKEN"
+TURSO_ORG=$(node - "$OUT/turso-organizations.json" <<'NODE'
+const fs=require('fs'),j=JSON.parse(fs.readFileSync(process.argv[2],'utf8')),rows=Array.isArray(j)?j:(j.organizations||[]);
+if(!rows.length)throw new Error('TURSO_ORGANIZATION_MISSING');
+const eligible=rows.filter(x=>x.blocked_reads!==true&&x.blocked_writes!==true);
+if(!eligible.length)throw new Error('TURSO_ORGANIZATION_BLOCKED');
+const o=eligible.find(x=>String(x.type||'')==='personal')||eligible[0],slug=String(o.slug||'').trim();if(!slug)throw new Error('TURSO_ORG_SLUG_MISSING');
+process.stdout.write(slug);
 NODE
 )
+http turso-plans "https://api.turso.tech/v1/organizations/$TURSO_ORG/plans" "$TURSO_API_TOKEN"
+node - "$OUT/turso-organizations.json" "$OUT/turso-plans.json" "$TURSO_ORG" <<'NODE'
+const fs=require('fs'),orgs=JSON.parse(fs.readFileSync(process.argv[2],'utf8')),plans=JSON.parse(fs.readFileSync(process.argv[3],'utf8')),slug=process.argv[4];
+const rows=Array.isArray(orgs)?orgs:(orgs.organizations||[]),o=rows.find(x=>String(x.slug)===slug);if(!o)throw new Error('TURSO_ORG_READBACK_MISSING');
+const planId=String(o.plan_id||'starter'),list=plans.plans||[],p=list.find(x=>String(x.name||'')===planId)||list.find(x=>String(x.name||'')==='starter');
+if(!p||Number(p.price)!==0)throw new Error('TURSO_PLAN_NOT_ZERO_COST:'+planId);
+console.log('turso_plan=PASS plan='+String(p.name));
+NODE
 curl -fsS --connect-timeout 10 --max-time 30 -H "Authorization: Bearer $TURSO_API_TOKEN" "https://api.turso.tech/v1/organizations/$TURSO_ORG/databases?limit=100" > "$OUT/turso-databases.json"
 pushd services/cloud-dr >/dev/null
 TURSO_AUTH_TOKEN="$TURSO_AUTH_TOKEN" TURSO_DATABASES_JSON="$OUT/turso-databases.json" node --input-type=module <<'NODE'
