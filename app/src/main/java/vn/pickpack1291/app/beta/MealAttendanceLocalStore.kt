@@ -1,5 +1,6 @@
 package vn.pickpack1291.app.beta
 
+import android.content.ContentValues
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
@@ -24,12 +25,9 @@ class MealAttendanceLocalStore(context: Context) {
         val date=payload.optString("business_date").trim()
         if(date.isBlank())return
         synchronized(LOCK){
-            helper.writableDatabase.execSQL(
-                """INSERT INTO meal_day_cache(business_date,payload_json,saved_at) VALUES(?,?,?)
-                   ON CONFLICT(business_date) DO UPDATE SET payload_json=excluded.payload_json,saved_at=excluded.saved_at""",
-                arrayOf(date,payload.toString(),System.currentTimeMillis())
-            )
-            pruneLocked(helper.writableDatabase)
+            val db=helper.writableDatabase
+            upsertLocked(db,date,payload.toString())
+            pruneLocked(db)
         }
     }
 
@@ -43,11 +41,7 @@ class MealAttendanceLocalStore(context: Context) {
         }
         if(found!=null){
             current.put("cached_optimistic",true)
-            helper.writableDatabase.execSQL(
-                """INSERT INTO meal_day_cache(business_date,payload_json,saved_at) VALUES(?,?,?)
-                   ON CONFLICT(business_date) DO UPDATE SET payload_json=excluded.payload_json,saved_at=excluded.saved_at""",
-                arrayOf(date,current.toString(),System.currentTimeMillis())
-            )
+            upsertLocked(helper.writableDatabase,date,current.toString())
         }
         found?.let{JSONObject(it.toString())}
     }
@@ -66,6 +60,17 @@ class MealAttendanceLocalStore(context: Context) {
 
     fun prune(){
         synchronized(LOCK){pruneLocked(helper.writableDatabase)}
+    }
+
+    private fun upsertLocked(db:SQLiteDatabase,date:String,payloadJson:String){
+        val values=ContentValues().apply{
+            put("business_date",date)
+            put("payload_json",payloadJson)
+            put("saved_at",System.currentTimeMillis())
+        }
+        if(db.insertWithOnConflict("meal_day_cache",null,values,SQLiteDatabase.CONFLICT_REPLACE)<0L){
+            throw IllegalStateException("MEAL_CACHE_WRITE_FAILED")
+        }
     }
 
     private fun pruneLocked(db:SQLiteDatabase){
