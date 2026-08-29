@@ -96,7 +96,7 @@ def main():
     p=argparse.ArgumentParser()
     p.add_argument("--version", required=True)
     p.add_argument("--version-code", required=True, type=int)
-    p.add_argument("--sha256", required=True)
+    p.add_argument("--package", required=True)\n    p.add_argument("--sha256", required=True)
     p.add_argument("--size", required=True, type=int)
     p.add_argument("--apk-url", required=True)
     p.add_argument("--published-at", default="")
@@ -147,7 +147,7 @@ def main():
     req(f"{API}/{script_id}/deployments/{dep}", token, "PUT", payload)
     out={
       "status":"PASS","change_scope":"ppUpdateCheck_only","changed_file":changed[0],
-      "deployment_version":version_number,"version_name":args.version,"version_code":args.version_code,
+      "deployment_version":version_number,"version_name":args.version,"version_code":args.version_code,"package":args.package,
       "sha256":args.sha256.lower(),"size":args.size,"apk_url":args.apk_url,
       "replacement_sha256":after_hash,"previous_tail_sha256":before_hash
     }
