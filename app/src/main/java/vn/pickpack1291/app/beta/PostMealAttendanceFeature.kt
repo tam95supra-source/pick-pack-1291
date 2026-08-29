@@ -1,0 +1,288 @@
+package vn.pickpack1291.app.beta
+
+import android.app.Activity
+import android.app.AlertDialog
+import android.app.DatePickerDialog
+import android.app.TimePickerDialog
+import android.graphics.Color
+import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
+import android.os.Handler
+import android.os.Looper
+import android.view.Gravity
+import android.view.KeyEvent
+import android.view.View
+import android.view.ViewGroup
+import android.view.inputmethod.EditorInfo
+import android.widget.*
+import org.json.JSONArray
+import org.json.JSONObject
+import java.time.Instant
+import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.UUID
+
+object PostMealAttendanceFeature {
+    private const val TZ="Asia/Ho_Chi_Minh"
+    @Volatile private var activeDate=""
+    @Volatile private var activeRefresh:(()->Unit)?=null
+
+    fun onRealtime(changedDates:Set<String>){
+        if(activeDate.isNotBlank()&&activeDate in changedDates)activeRefresh?.invoke()
+    }
+    fun leave(){activeDate="";activeRefresh=null}
+
+    fun build(activity:Activity,api:BetaApiClient,onBack:()->Unit):View{
+        val density=activity.resources.displayMetrics.density
+        fun dp(v:Int)=(v*density).toInt()
+        val teal=ThemeManager.primary(activity);val navy=ThemeManager.primaryDark(activity)
+        val ink=Color.rgb(24,44,42);val muted=Color.rgb(100,116,139);val red=Color.rgb(218,45,53)
+        val orange=Color.rgb(217,119,6);val green=Color.rgb(36,153,85);val bg=Color.WHITE
+        fun drawable(fill:Int=Color.WHITE,stroke:Int=Color.rgb(220,228,226),radius:Int=10)=GradientDrawable().apply{setColor(fill);cornerRadius=dp(radius).toFloat();setStroke(dp(1),stroke)}
+        fun text(v:String,size:Float,color:Int=ink,bold:Boolean=false)=TextView(activity).apply{text=v;textSize=size;setTextColor(color);typeface=if(bold)Typeface.DEFAULT_BOLD else Typeface.DEFAULT}
+        fun column()=LinearLayout(activity).apply{orientation=LinearLayout.VERTICAL;setBackgroundColor(bg)}
+        fun row()=LinearLayout(activity).apply{orientation=LinearLayout.HORIZONTAL;setBackgroundColor(bg);gravity=Gravity.CENTER_VERTICAL}
+        fun gap(v:Int)=Space(activity).apply{layoutParams=ViewGroup.LayoutParams(1,dp(v))}
+        fun button(label:String,color:Int)=Button(activity).apply{text=label;textSize=10f;setTextColor(Color.WHITE);typeface=Typeface.DEFAULT_BOLD;isAllCaps=false;minHeight=0;minimumHeight=0;background=GradientDrawable().apply{setColor(color);cornerRadius=dp(9).toFloat()}}
+        fun input(hintText:String)=EditText(activity).apply{hint=hintText;textSize=13f;setTextColor(ink);setHintTextColor(Color.rgb(148,163,184));setPadding(dp(10),dp(7),dp(10),dp(7));background=drawable();setSingleLine(true);imeOptions=EditorInfo.IME_ACTION_DONE}
+        fun fmtDate(v:String)=runCatching{LocalDate.parse(v).format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}.getOrDefault(v)
+        fun fmtTime(v:String):String{
+            if(v.isBlank())return "—"
+            return runCatching{Instant.parse(v).atZone(ZoneId.of(TZ)).format(DateTimeFormatter.ofPattern("HH:mm"))}.getOrElse{Regex("""\b\d{2}:\d{2}\b""").find(v)?.value?:"—"}
+        }
+        fun nowIso()=Instant.now().toString()
+        fun today()=LocalDate.now(ZoneId.of(TZ))
+        fun statusLabel(item:JSONObject):String{
+            return when(item.optString("status_view").ifBlank{item.optString("status")}){
+                "OVERDUE_LATE"->"QUÁ GIỜ VÀO MUỘN"
+                "PENDING"->"Chưa điểm danh"
+                "CHECKED_IN"->"Đã điểm danh"
+                "NO_RETURN"->"Không vào ca"
+                "LATE_EXPECTED"->"Vào muộn — dự kiến ${fmtTime(item.optString("expected_return_at"))}"
+                else->item.optString("status").ifBlank{"Chưa điểm danh"}
+            }
+        }
+        fun statusColor(item:JSONObject)=when(item.optString("status_view").ifBlank{item.optString("status")}){
+            "OVERDUE_LATE"->red;"PENDING"->orange;"CHECKED_IN"->green;"NO_RETURN"->muted;"LATE_EXPECTED"->teal;else->muted
+        }
+
+        val store=MealAttendanceLocalStore(activity)
+        val root=column()
+        val header=column().apply{setPadding(dp(12),dp(9),dp(12),dp(8));background=GradientDrawable(GradientDrawable.Orientation.TL_BR,intArrayOf(navy,ThemeManager.accent(activity))).apply{cornerRadius=0f}}
+        header.addView(text("ĐIỂM DANH SAU GIỜ ĂN",15f,Color.WHITE,true))
+        header.addView(text("Dữ liệu hiện tại ghi trên D1 • lịch sử 14 ngày chỉ đọc",9f,Color.WHITE,false))
+        root.addView(header,LinearLayout.LayoutParams(-1,-2))
+
+        val controls=column().apply{setPadding(dp(10),dp(8),dp(10),dp(6))}
+        val dateBtn=button("",navy).apply{textSize=11f}
+        controls.addView(dateBtn,LinearLayout.LayoutParams(-1,dp(42)))
+        controls.addView(gap(7))
+        val scanBox=column()
+        val scan=input("Scan / Nhập mã nhân viên")
+        scanBox.addView(text("Quét MNV điểm danh trở lại",9.7f,muted,true))
+        scanBox.addView(gap(3));scanBox.addView(scan,LinearLayout.LayoutParams(-1,dp(46)))
+        controls.addView(scanBox,LinearLayout.LayoutParams(-1,-2))
+        root.addView(controls,LinearLayout.LayoutParams(-1,-2))
+
+        val contentBox=column().apply{setPadding(dp(10),dp(2),dp(10),dp(78))}
+        val scroll=ScrollView(activity).apply{addView(contentBox,ViewGroup.LayoutParams(-1,-2))}
+        root.addView(scroll,LinearLayout.LayoutParams(-1,0,1f))
+
+        val main=Handler(Looper.getMainLooper())
+        var selected=today()
+        var payload:JSONObject?=null
+        var loadGeneration=0L
+        lateinit var showReasonDialog:(JSONObject)->Unit
+
+        fun itemList(source:JSONObject?):MutableList<JSONObject>{
+            val a=source?.optJSONArray("items")?:JSONArray();val out=mutableListOf<JSONObject>()
+            for(i in 0 until a.length())a.optJSONObject(i)?.let{out+=JSONObject(it.toString())}
+            return out
+        }
+
+        fun localAlert(source:JSONObject):JSONObject{
+            source.optJSONObject("alert")?.let{return JSONObject(it.toString())}
+            val now=java.time.ZonedDateTime.now(ZoneId.of(TZ));val minutes=now.hour*60+now.minute
+            val unresolved=mutableListOf<String>();var severe=false
+            for(x in itemList(source)){
+                val shift=x.optString("shift");val st=x.optString("status_view").ifBlank{x.optString("status")}
+                val shiftDue=(shift in setOf("Ca 1","Ca HC")&&minutes>=12*60)||(shift=="Ca 2"&&minutes>=19*60)
+                if(!shiftDue)continue
+                val unresolvedNow=st=="PENDING"||st=="OVERDUE_LATE"||(st=="LATE_EXPECTED"&&x.optString("expected_return_at").let{it.isNotBlank()&&runCatching{Instant.parse(it).toEpochMilli()<=System.currentTimeMillis()}.getOrDefault(false)})
+                if(unresolvedNow){unresolved+=x.optString("mnv");if(st=="OVERDUE_LATE"||(shift in setOf("Ca 1","Ca HC")&&minutes>=12*60+30)||(shift=="Ca 2"&&minutes>=19*60+30))severe=true}
+            }
+            return JSONObject().put("severity",if(unresolved.isEmpty())"NONE" else if(severe)"SEVERE" else "WARNING").put("unresolved_count",unresolved.size).put("unresolved_mnvs",JSONArray(unresolved))
+        }
+
+        fun render(){
+            val source=payload
+            contentBox.suppressLayout(true)
+            try{
+                contentBox.removeAllViews()
+                if(source==null){
+                    contentBox.addView(text("Đang tải dữ liệu điểm danh…",11f,muted,false));return
+                }
+                val alert=localAlert(source)
+                val severity=alert.optString("severity")
+                val unresolved=alert.optInt("unresolved_count",0)
+                if(selected==today()&&severity!="NONE"&&unresolved>0){
+                    val ids=alert.optJSONArray("unresolved_mnvs")?:JSONArray()
+                    val preview=(0 until minOf(ids.length(),8)).map{ids.optString(it)}.filter{it.isNotBlank()}.joinToString(", ")
+                    val message=if(severity=="SEVERE")"Cần xử lý ngay: $unresolved nhân sự chưa hoàn tất điểm danh." else "Còn $unresolved nhân sự cần điểm danh."
+                    val banner=column().apply{setPadding(dp(10),dp(8),dp(10),dp(8));background=drawable(if(severity=="SEVERE")Color.rgb(255,240,240) else Color.rgb(255,248,230),if(severity=="SEVERE")red else orange)}
+                    banner.addView(text(message,11f,if(severity=="SEVERE")red else orange,true))
+                    if(preview.isNotBlank())banner.addView(text(preview,9.5f,ink,false))
+                    contentBox.addView(banner,LinearLayout.LayoutParams(-1,-2));contentBox.addView(gap(7))
+                }
+                val rows=itemList(source)
+                if(rows.isEmpty()){
+                    contentBox.addView(text("Không có nhân sự cần điểm danh trong ngày ${fmtDate(selected.toString())}.",11f,muted,false));return
+                }
+                rows.forEach{item->
+                    val card=column().apply{setPadding(dp(10),dp(8),dp(10),dp(8));background=drawable()}
+                    val titleRow=row()
+                    titleRow.addView(text("${item.optString("supplier_snapshot").ifBlank{"—"}} • ${item.optString("mnv")} • ${item.optString("full_name_snapshot").ifBlank{"—"}}",10.5f,ink,true),LinearLayout.LayoutParams(0,-2,1f))
+                    titleRow.addView(text(statusLabel(item),9.5f,statusColor(item),true),LinearLayout.LayoutParams(-2,-2))
+                    card.addView(titleRow)
+                    val actual=fmtTime(item.optString("actual_return_at").ifBlank{item.optString("checked_at")})
+                    val reason=item.optString("reason_code")
+                    val details=mutableListOf<String>()
+                    if(actual!="—")details+="Thực tế $actual"
+                    if(reason.isNotBlank())details+="Lý do: $reason"
+                    item.optString("reason_note").takeIf{it.isNotBlank()}?.let{details+="Ghi chú: $it"}
+                    item.optString("expected_return_at").takeIf{it.isNotBlank()}?.let{details+="Dự kiến ${fmtTime(it)}"}
+                    if(details.isNotEmpty()){card.addView(gap(3));card.addView(text(details.joinToString(" • "),9.4f,muted,false))}
+                    if(selected==today()&&item.optString("status")!="CHECKED_IN"){
+                        card.addView(gap(6))
+                        val act=button(if(item.optString("status")=="LATE_EXPECTED")"CẬP NHẬT / SỬA GIỜ" else "XỬ LÝ",teal)
+                        act.setOnClickListener{showReasonDialog(item)}
+                        card.addView(act,LinearLayout.LayoutParams(-1,dp(38)))
+                    }
+                    contentBox.addView(card,LinearLayout.LayoutParams(-1,-2));contentBox.addView(gap(6))
+                }
+            }finally{contentBox.suppressLayout(false)}
+        }
+
+        fun remoteLoad(){
+            val date=selected.toString();val generation=++loadGeneration
+            api.call("meal_attendance_list",JSONObject().put("business_date",date)){r->activity.runOnUiThread{
+                if(generation!=loadGeneration||selected.toString()!=date)return@runOnUiThread
+                if(r.ok&&r.json!=null){payload=JSONObject(r.json.toString());store.save(payload!!);render()}
+                else if(payload==null){payload=store.load(date);render();TopNotice.show(activity,r.error?:"Chưa tải được dữ liệu điểm danh.",TopNotice.Kind.WARNING)}
+            }}
+        }
+
+        fun load(date:LocalDate){
+            selected=date;activeDate=date.toString();dateBtn.text="Ngày ${fmtDate(date.toString())}"
+            val current=date==today();scanBox.visibility=if(current)View.VISIBLE else View.GONE
+            payload=store.load(date.toString());render();remoteLoad()
+        }
+
+        fun optimisticCheckin(mnvRaw:String){
+            val mnv=MasterDataCache.resolveEmployeeMnv(activity,mnvRaw)
+            if(mnv.isBlank()){TopNotice.show(activity,"Mã nhân viên không hợp lệ.",TopNotice.Kind.WARNING);return}
+            val date=selected.toString()
+            if(selected!=today()){TopNotice.show(activity,"Ngày lịch sử chỉ được xem.",TopNotice.Kind.WARNING);return}
+            var item=itemList(payload).firstOrNull{it.optString("mnv")==mnv}
+            if(item==null){
+                val ctx=PdaLocalProjection.employeeContext(activity,mnv)
+                if(ctx==null||!ctx.optString("state").equals("ACTIVE",true)){
+                    TopNotice.show(activity,"Nhân sự không có phiên đang hoạt động trong ngày.",TopNotice.Kind.WARNING);remoteLoad();return
+                }
+                val emp=ctx.optJSONObject("employee")?:JSONObject();val ses=ctx.optJSONObject("session")?:JSONObject()
+                item=JSONObject().put("business_date",date).put("mnv",mnv).put("shift",ses.optString("shift"))
+                    .put("full_name_snapshot",emp.optString("full_name")).put("supplier_snapshot",emp.optString("supplier"))
+                    .put("status","PENDING").put("status_view","PENDING")
+                store.addProvisional(date,item);payload=store.load(date)
+            }
+            if(item.optString("status")=="CHECKED_IN"){
+                TopNotice.show(activity,"Nhân sự đã điểm danh lúc ${fmtTime(item.optString("actual_return_at").ifBlank{item.optString("checked_at")})}.",TopNotice.Kind.INFO);return
+            }
+            val at=nowIso()
+            store.updateItem(date,mnv){x->x.put("status","CHECKED_IN").put("status_view","CHECKED_IN").put("checked_at",at).put("actual_return_at",at)}
+            payload=store.load(date);render();scan.setText("")
+            val id=UUID.randomUUID().toString()
+            api.call("meal_checkin",JSONObject().put("mnv",mnv).put("event_id",id).put("timestamp",at)){r->activity.runOnUiThread{
+                if(!r.ok){TopNotice.show(activity,r.error?:"Chưa ghi được điểm danh; dữ liệu đang được giữ cục bộ.",TopNotice.Kind.WARNING)}
+                else TopNotice.show(activity,"Đã ghi nhận điểm danh.",TopNotice.Kind.SUCCESS)
+            }}
+        }
+
+        fun applyReason(item:JSONObject,reason:String,note:String,expectedIso:String){
+            val mnv=item.optString("mnv");val status=if(reason=="Xin vào muộn")"LATE_EXPECTED" else "NO_RETURN"
+            store.updateItem(selected.toString(),mnv){x->
+                x.put("status",status).put("status_view",status).put("reason_code",reason).put("reason_note",note)
+                if(expectedIso.isNotBlank())x.put("expected_return_at",expectedIso) else x.remove("expected_return_at")
+            }
+            payload=store.load(selected.toString());render()
+            val id=UUID.randomUUID().toString()
+            val body=JSONObject().put("mnv",mnv).put("status",status).put("reason_code",reason).put("reason_note",note).put("event_id",id)
+            if(expectedIso.isNotBlank())body.put("expected_return_at",expectedIso)
+            api.call("meal_status",body){r->activity.runOnUiThread{
+                if(!r.ok)TopNotice.show(activity,r.error?:"Chưa ghi được trạng thái; dữ liệu đang chờ đồng bộ.",TopNotice.Kind.WARNING)
+                else TopNotice.show(activity,"Đã cập nhật trạng thái.",TopNotice.Kind.SUCCESS)
+            }}
+        }
+
+        fun askExpected(item:JSONObject,reason:String,note:String){
+            val z=java.time.ZonedDateTime.now(ZoneId.of(TZ))
+            TimePickerDialog(activity,{_,hour,minute->
+                val local=LocalDateTime.of(selected,java.time.LocalTime.of(hour,minute))
+                val instant=local.atZone(ZoneId.of(TZ)).toInstant().toString()
+                applyReason(item,reason,note,instant)
+            },z.hour,z.minute,true).show()
+        }
+
+        showReasonDialog={item->
+            if(selected!=today())return@showReasonDialog
+            val reasons=arrayOf("Xin về sớm","Đi hỗ trợ bộ phận/vị trí khác","Xin vào muộn","Nghỉ đột xuất","Có việc cá nhân","Được quản lý điều chuyển","Khác")
+            AlertDialog.Builder(activity).setTitle("Xử lý ${item.optString("mnv")}").setItems(reasons){_,which->
+                val reason=reasons[which]
+                if(reason=="Khác"){
+                    val note=input("Nhập lý do")
+                    val d=AlertDialog.Builder(activity).setTitle("Lý do khác").setView(note).setNegativeButton("Hủy",null).setPositiveButton("LƯU",null).create()
+                    d.setOnShowListener{d.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener{
+                        val v=note.text.toString().trim();if(v.isBlank()){TopNotice.show(activity,"Phải nhập lý do.",TopNotice.Kind.WARNING);return@setOnClickListener}
+                        d.dismiss();applyReason(item,reason,v,"")
+                    }};d.show()
+                }else if(reason=="Xin vào muộn")askExpected(item,reason,"")
+                else applyReason(item,reason,"","")
+            }.show()
+        }
+
+        dateBtn.setOnClickListener{
+            val d=selected
+            val picker=DatePickerDialog(activity,{_,y,m,day->load(LocalDate.of(y,m+1,day))},d.year,d.monthValue-1,d.dayOfMonth)
+            val t=today();picker.datePicker.maxDate=t.atStartOfDay(ZoneId.of(TZ)).toInstant().toEpochMilli()
+            picker.datePicker.minDate=t.minusDays(13).atStartOfDay(ZoneId.of(TZ)).toInstant().toEpochMilli()
+            picker.show()
+        }
+        fun submit(){val v=scan.text.toString().trim();if(v.isBlank()){TopNotice.show(activity,"Nhập hoặc quét mã nhân viên.",TopNotice.Kind.WARNING);return};optimisticCheckin(v)}
+        scan.setOnEditorActionListener{_,id,_->if(id==EditorInfo.IME_ACTION_DONE||id==EditorInfo.IME_ACTION_GO||id==EditorInfo.IME_ACTION_SEARCH){submit();true}else false}
+        scan.setOnKeyListener{_,key,event->if(key==KeyEvent.KEYCODE_ENTER&&event.action==KeyEvent.ACTION_UP){submit();true}else false}
+
+        fun scheduleBoundary(){
+            main.removeCallbacksAndMessages(null)
+            val z=java.time.ZonedDateTime.now(ZoneId.of(TZ))
+            val candidates=listOf(12*60,12*60+30,19*60,19*60+30).filter{it>z.hour*60+z.minute}
+            val delay=if(candidates.isEmpty()){
+                val next=z.toLocalDate().plusDays(1).atStartOfDay(ZoneId.of(TZ)).plusHours(12)
+                java.time.Duration.between(z,next).toMillis()
+            }else{
+                val n=candidates.first();val next=z.toLocalDate().atTime(n/60,n%60).atZone(ZoneId.of(TZ))
+                java.time.Duration.between(z,next).toMillis()
+            }.coerceAtLeast(1_000L)
+            main.postDelayed({if(activeDate==selected.toString()){render();remoteLoad();scheduleBoundary()}},delay)
+        }
+
+        activeRefresh={activity.runOnUiThread{if(activeDate==selected.toString())remoteLoad()}}
+        load(selected);scheduleBoundary()
+        root.setOnAttachStateChangeListener(object:View.OnAttachStateChangeListener{
+            override fun onViewAttachedToWindow(v:View)=Unit
+            override fun onViewDetachedFromWindow(v:View){main.removeCallbacksAndMessages(null);if(activeDate==selected.toString())leave()}
+        })
+        return root
+    }
+}
