@@ -3,7 +3,7 @@ export type ErrorClass = "VALIDATION" | "AUTH" | "PERMISSION" | "CONFLICT" | "RE
 
 export interface CanonicalMutationRequest {
   event_id: string;
-  event_type: "ATTENDANCE_ENTER" | "ATTENDANCE_EXIT" | "RESOURCE_CHANGE" | "LABOR_START" | "LABOR_FINISH" | "M1_SHADOW_PROBE";
+  event_type: "ATTENDANCE_ENTER" | "ATTENDANCE_EXIT" | "RESOURCE_CHANGE" | "LABOR_START" | "LABOR_FINISH" | "MEAL_CHECKIN" | "MEAL_STATUS_UPDATE" | "M1_SHADOW_PROBE";
   entity_type: string;
   entity_id: string;
   business_date: string;
