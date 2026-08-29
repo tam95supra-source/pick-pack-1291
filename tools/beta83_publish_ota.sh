@@ -11,6 +11,7 @@ done
 
 VERSION=$(jq -r '.version_name' "$R")
 CODE=$(jq -r '.version_code' "$R")
+PKG=$(jq -r '.package' "$R")
 PREV=$(jq -r '.base_version' "$R")
 BASE_CODE=$(jq -r '.base_version_code' "$R")
 SOURCE=$(jq -r '.source_sha' "$R")
@@ -24,13 +25,15 @@ RELEASE_NOTES=$(jq -r '.release_notes | if type=="array" then map("• "+.)|join
 test -n "$RELEASE_NOTES"
 
 APK="/tmp/beta-candidate/pick-pack-1291-public-beta-$VERSION.apk"
+BASE_APK="/tmp/beta-base/pick-pack-1291-public-beta-$PREV.apk"
 META=/tmp/beta-candidate/release-meta.json
 VERIFY=/tmp/beta-verify/receipt.json
+BASE_FINAL=/tmp/beta-base-final/receipt.json
 if [[ ! -f "$VERIFY" && -f /tmp/beta-verify/beta-verify/receipt.json ]]; then VERIFY=/tmp/beta-verify/beta-verify/receipt.json; fi
-test -f "$APK" -a -f "$META" -a -f "$VERIFY"
+test -f "$APK" -a -f "$BASE_APK" -a -f "$META" -a -f "$VERIFY" -a -f "$BASE_FINAL"
 
-jq -e --arg v "$VERSION" --argjson c "$CODE" --arg s "$SOURCE" --arg h "$SHA" --argjson z "$SIZE" --arg signer "$SIGNER" '
-  .version_name==$v and .version_code==$c and .source_sha==$s and .apk_sha256==$h and .apk_size==$z and
+jq -e --arg v "$VERSION" --argjson c "$CODE" --arg p "$PKG" --arg s "$SOURCE" --arg h "$SHA" --argjson z "$SIZE" --arg signer "$SIGNER" '
+  .version_name==$v and .version_code==$c and .package==$p and .source_sha==$s and .apk_sha256==$h and .apk_size==$z and
   .signer_sha256==$signer and .candidate_locked==true and .stable_publish=="FORBIDDEN" and .authority_change=="NONE"
 ' "$META" >/dev/null
 
@@ -45,11 +48,19 @@ jq -e --arg v "$VERSION" --arg h "$SHA" --argjson z "$SIZE" '
   ((.visual_sizes|sort)==(["320x568","360x640","480x800"]|sort))
 ' "$VERIFY" >/dev/null
 
+jq -e --arg v "$PREV" --arg source "$BASE_SOURCE" --arg h "$BASE_SHA" --argjson z "$BASE_SIZE" --arg signer "$SIGNER" '
+  .status=="PASS" and .version_name==$v and .source_sha==$source and .apk_sha256==$h and .apk_size==$z and
+  .signer_sha256==$signer and .stable_unchanged==true and .authority_change=="NONE" and .readback==true
+' "$BASE_FINAL" >/dev/null
+
 jq -e '.human_visual_pass==true and .visual_matrix=="PASS" and .pda_functional_pre_ota=="PASS" and .back_api36=="PASS" and
-       .rebuild==false and .resign==false and .stable_publish=="FORBIDDEN" and .authority_change=="NONE"' "$R" >/dev/null
+       .rebuild==false and .resign==false and .stable_publish=="FORBIDDEN" and .authority_change=="NONE" and
+       .apk_transport=="GITHUB_RELEASE_ONLY" and .google_drive_apk=="FORBIDDEN"' "$R" >/dev/null
 
 test "$(sha256sum "$APK"|awk '{print $1}')" = "$SHA"
 test "$(stat -c '%s' "$APK")" = "$SIZE"
+test "$(sha256sum "$BASE_APK"|awk '{print $1}')" = "$BASE_SHA"
+test "$(stat -c '%s' "$BASE_APK")" = "$BASE_SIZE"
 git diff --quiet "$SOURCE" HEAD -- app service google-apps-script
 
 RAW=$(printf '%s' "$GAS_DEPLOYMENT_ID"|tr -d '\r\n\t ')
@@ -76,7 +87,6 @@ update(){
 
 MAIN_BEFORE=$(curl -fsSL --connect-timeout 15 --max-time 30 -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/branches/main"|jq -r '.commit.sha')
 test -n "$MAIN_BEFORE" -a "$MAIN_BEFORE" != null
-
 update STABLE 0.1.0-stable "$E/stable-before.json"
 jq -e '.ok==true and .channel=="STABLE" and .available==false' "$E/stable-before.json" >/dev/null
 
@@ -91,33 +101,9 @@ test -n "$ACCESS_TOKEN"
 export ACCESS_TOKEN
 echo "::add-mask::$ACCESS_TOKEN"
 
-FQ="name='BẢN THỬ NGHIỆM' and mimeType='application/vnd.google-apps.folder' and trashed=false"
-curl -fsS --get --connect-timeout 15 --max-time 30 -H "Authorization: Bearer $ACCESS_TOKEN" \
-  --data-urlencode "q=$FQ" --data-urlencode 'fields=files(id,name,parents)' \
-  https://www.googleapis.com/drive/v3/files > "$E/folders.json"
-test "$(jq '.files|length' "$E/folders.json")" = 1
-FOLDER=$(jq -r '.files[0].id' "$E/folders.json")
-test -n "$FOLDER"
-echo "::add-mask::$FOLDER"
-
-BASE_APK_NAME="pick-pack-1291-public-beta-$PREV.apk"
-BQ="'$FOLDER' in parents and name='$BASE_APK_NAME' and trashed=false"
-curl -fsS --get --connect-timeout 15 --max-time 30 -H "Authorization: Bearer $ACCESS_TOKEN" \
-  --data-urlencode "q=$BQ" --data-urlencode 'fields=files(id,name,size)' \
-  https://www.googleapis.com/drive/v3/files > "$E/base-files.json"
-test "$(jq '.files|length' "$E/base-files.json")" = 1
-BASE_FILE_ID=$(jq -r '.files[0].id' "$E/base-files.json")
-test -n "$BASE_FILE_ID"
-test "$(jq -r '.files[0].size' "$E/base-files.json")" = "$BASE_SIZE"
-echo "::add-mask::$BASE_FILE_ID"
-
-curl -fsS --connect-timeout 15 --max-time 120 -H "Authorization: Bearer $ACCESS_TOKEN" \
-  "https://www.googleapis.com/drive/v3/files/$BASE_FILE_ID?alt=media&acknowledgeAbuse=true" -o "$E/base-auth.apk"
-test "$(sha256sum "$E/base-auth.apk"|awk '{print $1}')" = "$BASE_SHA"
-test "$(stat -c '%s' "$E/base-auth.apk")" = "$BASE_SIZE"
-
-printf '%s\n' "Exact baseline $PREV retained for rollback." > "$E/base-release-notes.txt"
-bash tools/ensure_beta_github_release.sh "$PREV" "$BASE_SOURCE" "$E/base-auth.apk" "$BASE_SHA" "$BASE_SIZE" \
+BASE_APK_NAME=$(basename "$BASE_APK")
+printf '%s\n' "Exact LIVE rollback baseline $PREV." > "$E/base-release-notes.txt"
+bash tools/ensure_beta_github_release.sh "$PREV" "$BASE_SOURCE" "$BASE_APK" "$BASE_SHA" "$BASE_SIZE" \
   "$E/base-release-notes.txt" "$BASE_APK_NAME" "$E/base-github-release.json"
 BASE_URL=$(jq -r '.apk_url' "$E/base-github-release.json")
 test -n "$BASE_URL"
@@ -140,10 +126,11 @@ if update BETA "$BASE_PROBE" "$E/beta-before.json"; then
   ' "$E/beta-before.json" >/dev/null
 else
   jq -e '(.error//"")|contains("DriveApp")' "$E/beta-before.json" >/dev/null
-  BASELINE_READBACK=DRIVE_API_EXACT_RECOVERY
+  BASELINE_READBACK=LEGACY_GAS_DRIVEAPP_BROKEN_BUT_FINAL_RECEIPT_PASS
 fi
 jq -n --arg mode "$BASELINE_READBACK" --arg v "$PREV" --arg h "$BASE_SHA" --argjson z "$BASE_SIZE" --arg url "$BASE_URL" \
-  '{status:"PASS",mode:$mode,version_name:$v,sha256:$h,size:$z,apk_url:$url}' > "$E/baseline-evidence.json"
+  --slurpfile final "$BASE_FINAL" --slurpfile gh "$E/base-github-release.json" \
+  '{status:"PASS",mode:$mode,version_name:$v,sha256:$h,size:$z,apk_url:$url,final_receipt:$final[0],github_release:$gh[0]}' > "$E/baseline-evidence.json"
 
 DISCOVERY_BODY=$(jq -nc '{action:"service_discovery",_app_channel:"BETA"}')
 gas "$DISCOVERY_BODY" "$E/discovery-before.json"
@@ -155,43 +142,6 @@ curl -fsSL --connect-timeout 15 --max-time 30 "$SERVICE_URL/v1/authority" > "$E/
 jq -e '.ok==true and .authority.mode=="SERVICE_PRIMARY" and .authority.scope=="PRODUCTION"' "$E/authority-before.json" >/dev/null
 
 APK_NAME=$(basename "$APK")
-Q="'$FOLDER' in parents and name='$APK_NAME' and trashed=false"
-curl -fsS --get --connect-timeout 15 --max-time 30 -H "Authorization: Bearer $ACCESS_TOKEN" \
-  --data-urlencode "q=$Q" --data-urlencode 'fields=files(id,name,size,modifiedTime)' \
-  https://www.googleapis.com/drive/v3/files > "$E/preexisting.json"
-COUNT=$(jq '.files|length' "$E/preexisting.json")
-test "$COUNT" -le 1
-UPLOADED_NEW=false
-if [[ "$COUNT" = 0 ]]; then
-  META_JSON=$(jq -nc --arg n "$APK_NAME" --arg p "$FOLDER" '{name:$n,parents:[$p]}')
-  curl -fsS --connect-timeout 15 --max-time 120 -X POST -H "Authorization: Bearer $ACCESS_TOKEN" \
-    -F "metadata=$META_JSON;type=application/json;charset=UTF-8" \
-    -F "file=@$APK;type=application/vnd.android.package-archive" \
-    'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,size' > "$E/upload.json"
-  FILE_ID=$(jq -r '.id//empty' "$E/upload.json")
-  test -n "$FILE_ID"
-  UPLOADED_NEW=true
-else
-  FILE_ID=$(jq -r '.files[0].id//empty' "$E/preexisting.json")
-  test -n "$FILE_ID"
-  test "$(jq -r '.files[0].size//empty' "$E/preexisting.json")" = "$SIZE"
-  jq -nc --arg id "$FILE_ID" --arg name "$APK_NAME" --argjson size "$SIZE" \
-    '{id:$id,name:$name,size:$size,reused_exact:true}' > "$E/upload.json"
-fi
-echo "::add-mask::$FILE_ID"
-
-jq -nc --arg d "$RELEASE_NOTES" '{description:$d}' > "$E/meta.json"
-curl -fsS --connect-timeout 15 --max-time 30 -X PATCH -H "Authorization: Bearer $ACCESS_TOKEN" -H 'Content-Type: application/json' \
-  --data-binary @"$E/meta.json" "https://www.googleapis.com/drive/v3/files/$FILE_ID?fields=id,name,size,description" > "$E/meta-out.json"
-curl -fsS --connect-timeout 15 --max-time 30 -X POST -H "Authorization: Bearer $ACCESS_TOKEN" -H 'Content-Type: application/json' \
-  -d '{"type":"anyone","role":"reader"}' "https://www.googleapis.com/drive/v3/files/$FILE_ID/permissions?fields=id,type,role" > "$E/permission.json" || true
-
-curl -fsS --connect-timeout 15 --max-time 120 -H "Authorization: Bearer $ACCESS_TOKEN" \
-  "https://www.googleapis.com/drive/v3/files/$FILE_ID?alt=media&acknowledgeAbuse=true" -o "$E/staged-drive.apk"
-test "$(sha256sum "$E/staged-drive.apk"|awk '{print $1}')" = "$SHA"
-test "$(stat -c '%s' "$E/staged-drive.apk")" = "$SIZE"
-cmp -s "$APK" "$E/staged-drive.apk"
-
 printf '%s\n' "$RELEASE_NOTES" > "$E/release-notes.txt"
 bash tools/ensure_beta_github_release.sh "$VERSION" "$SOURCE" "$APK" "$SHA" "$SIZE" \
   "$E/release-notes.txt" "$APK_NAME" "$E/github-release.json"
@@ -201,26 +151,27 @@ echo "::add-mask::$APK_URL"
 
 PUBLISHED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 restore_baseline(){
-  printf '%s\n' "Khôi phục hợp đồng OTA exact $PREV" > "$E/base-notes.txt"
-  python3 tools/gas_ota_static_contract.py --version "$PREV" --version-code "$BASE_CODE" \
+  printf '%s\n' "Khôi phục exact LIVE $PREV qua GitHub Release." > "$E/base-notes.txt"
+  python3 tools/gas_ota_static_contract.py --version "$PREV" --version-code "$BASE_CODE" --package "$PKG" \
     --sha256 "$BASE_SHA" --size "$BASE_SIZE" --apk-url "$BASE_URL" --published-at "$PUBLISHED_AT" \
     --notes-file "$E/base-notes.txt" --receipt "$E/gas-contract-recovery.json" \
-    --description "Pick Pack 1291 restore exact $PREV OTA contract"
+    --description "Pick Pack 1291 restore exact $PREV GitHub Release OTA contract"
   local restored=0 a
   for a in 0 1 2 3 4; do
     update BETA "$BASE_PROBE" "$E/beta-restored.json" || true
-    if jq -e --arg v "$PREV" --arg h "$BASE_SHA" --argjson z "$BASE_SIZE" '
-      .ok==true and .channel=="BETA" and .available==true and .version_name==$v and .sha256==$h and .size==$z
+    if jq -e --arg v "$PREV" --arg p "$PKG" --arg h "$BASE_SHA" --argjson z "$BASE_SIZE" '
+      .ok==true and .channel=="BETA" and .source=="GITHUB_RELEASE" and .available==true and
+      .version_name==$v and .package==$p and .sha256==$h and .size==$z
     ' "$E/beta-restored.json" >/dev/null 2>&1; then restored=1; break; fi
     sleep $((3+a*4))
   done
   test "$restored" = 1
 }
 
-if ! python3 tools/gas_ota_static_contract.py --version "$VERSION" --version-code "$CODE" \
+if ! python3 tools/gas_ota_static_contract.py --version "$VERSION" --version-code "$CODE" --package "$PKG" \
   --sha256 "$SHA" --size "$SIZE" --apk-url "$APK_URL" --published-at "$PUBLISHED_AT" \
   --notes-file "$E/release-notes.txt" --receipt "$E/gas-contract.json" \
-  --description "Pick Pack 1291 exact $VERSION OTA contract"; then
+  --description "Pick Pack 1291 exact $VERSION GitHub Release OTA contract"; then
   restore_baseline || true
   exit 1
 fi
@@ -228,9 +179,9 @@ fi
 PASS=0
 for a in 0 1 2 3 4; do
   update BETA "$PREV" "$E/beta-after.json" || true
-  if jq -e --arg v "$VERSION" --arg h "$SHA" --argjson z "$SIZE" '
-    .ok==true and .channel=="BETA" and .available==true and .version_name==$v and .sha256==$h and .size==$z and
-    .source=="GITHUB_RELEASE" and ((.apk_url//"")|length)>0
+  if jq -e --arg v "$VERSION" --arg p "$PKG" --arg h "$SHA" --argjson z "$SIZE" '
+    .ok==true and .channel=="BETA" and .source=="GITHUB_RELEASE" and .available==true and
+    .version_name==$v and .package==$p and .sha256==$h and .size==$z and ((.apk_url//"")|length)>0
   ' "$E/beta-after.json" >/dev/null 2>&1; then PASS=1; break; fi
   [[ "$a" -lt 4 ]] && sleep $((3+a*4))
 done
@@ -248,7 +199,9 @@ test "$(stat -c '%s' "$E/contract.apk")" = "$SIZE"
 cmp -s "$APK" "$E/contract.apk"
 
 update BETA "$VERSION" "$E/beta-current.json"
-jq -e --arg v "$VERSION" '.ok==true and .channel=="BETA" and .available==false and .version_name==$v' "$E/beta-current.json" >/dev/null
+jq -e --arg v "$VERSION" --arg p "$PKG" '
+  .ok==true and .channel=="BETA" and .source=="GITHUB_RELEASE" and .available==false and .version_name==$v and .package==$p
+' "$E/beta-current.json" >/dev/null
 
 update STABLE 0.1.0-stable "$E/stable-after.json"
 jq -S . "$E/stable-before.json" > "$E/sb"
@@ -264,15 +217,14 @@ jq -S '.authority' "$E/authority-after.json" > "$E/aa"
 cmp -s "$E/ab" "$E/aa"
 
 jq -n \
-  --arg v "$VERSION" --argjson c "$CODE" --arg source "$SOURCE" --arg h "$SHA" --argjson z "$SIZE" --arg signer "$SIGNER" \
-  --arg file "$FILE_ID" --arg url "$RETURNED_URL" --arg main "$MAIN_AFTER" --argjson uploaded "$UPLOADED_NEW" \
+  --arg v "$VERSION" --argjson c "$CODE" --arg p "$PKG" --arg source "$SOURCE" --arg h "$SHA" --argjson z "$SIZE" --arg signer "$SIGNER" \
+  --arg url "$RETURNED_URL" --arg main "$MAIN_AFTER" \
   --slurpfile beta "$E/beta-after.json" --slurpfile current "$E/beta-current.json" --slurpfile stable "$E/stable-after.json" \
   --slurpfile auth "$E/authority-after.json" --slurpfile baseline "$E/baseline-evidence.json" \
   --slurpfile contract "$E/gas-contract.json" --slurpfile gh "$E/github-release.json" --slurpfile basegh "$E/base-github-release.json" \
   '{
-    status:"PASS",channel:"BETA",version_name:$v,version_code:$c,source_sha:$source,apk_sha256:$h,apk_size:$z,signer_sha256:$signer,
-    drive_file_id:$file,apk_url:$url,uploaded_new:$uploaded,drive_staging_exact:true,
-    ota_exact_bytes:true,ota_transport:"GITHUB_RELEASE_CANONICAL",ota_contract_mode:"GAS_STATIC_EXACT",
+    status:"PASS",channel:"BETA",version_name:$v,version_code:$c,package:$p,source_sha:$source,apk_sha256:$h,apk_size:$z,signer_sha256:$signer,
+    apk_url:$url,ota_exact_bytes:true,ota_transport:"GITHUB_RELEASE",google_drive_apk:"FORBIDDEN",
     baseline_evidence:$baseline[0],baseline_github_release:$basegh[0],github_release:$gh[0],gas_contract:$contract[0],
     beta_readback:$beta[0],target_current_readback:$current[0],stable_readback:$stable[0],
     stable_unchanged:true,main_sha:$main,main_unchanged:true,authority:$auth[0].authority,authority_change:"NONE"
