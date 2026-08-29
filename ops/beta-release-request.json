@@ -26,7 +26,7 @@
     "Quét QR nhân sự dùng trạng thái phiên local đã biết để hiển thị ngay; Service đối chiếu nền và chỉ patch khi cần.",
     "Thêm Điểm danh sau giờ ăn: quét ngày hiện tại, lịch sử 14 ngày chỉ xem, lý do không vào ca/vào muộn, audit trước-sau, cảnh báo 12:00/12:30 và 19:00/19:30, realtime/offline qua cơ chế hiện có."
   ],
-  "next_action": "VISUAL_PDA_VERIFY_EXACT_CANDIDATE_REUSE_SERVICE_PASS",
+  "next_action": "RERUN_EXACT_CANDIDATE_WITH_LOGCAT_CAPTURE",
   "signer_sha256": "d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e",
   "last_build_failure": "RELEASE_INPUT_MISSING_SIGNER_SHA256_PRE_BUILD",
   "pre_ota_attempt": 2,
@@ -36,10 +36,10 @@
   "candidate_artifact_digest": "sha256:85594f7c43358abe17bdcdc5a49966b540363d6e3efe7a7c4e4ad501b124e976",
   "apk_sha256": "7b326384d2a967ee0d9eb77c3ba6b8b5babba231a9c9f6766e89371db5da84fb",
   "apk_size": 13282293,
-  "visual_matrix": "PENDING_RETRY_AFTER_RETENTION_ASSERTION_FIX",
-  "pda_functional_pre_ota": "PENDING",
+  "visual_matrix": "PENDING_CRASH_TRACE",
+  "pda_functional_pre_ota": "PENDING_CRASH_TRACE",
   "service_gate": "PASS_RUN_33228036498_JOB_99035490878",
   "candidate_source_sha": "c2dc479c3c6d19fa7f30ae297e61592bbdd4c2f1",
   "last_service_failure": "D1_REMOTE_STORAGE_PRAGMA_HARNESS",
-  "last_visual_failure": "HARNESS_STALE_RETENTION_GREP_PRE_ADB"
+  "last_visual_failure": "APP_PROCESS_CRASH_AFTER_INVALID_EMPLOYEE_GUARD_TRACE_REQUIRED"
 }
