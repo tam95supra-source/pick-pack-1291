@@ -17,6 +17,10 @@ on:
       - tools/portable_backup_verify.sh
       - tools/d1_generation_autopilot.sh
       - tools/cloud_dr_provider_preflight.sh
+      - tools/adb_stable_guard.sh
+      - tools/beta83_verify_matrix.sh
+      - tools/beta89_back_api36.sh
+      - tools/beta83_ota_device_gate.sh
       - qa/**
       - .github/workflows/app-fast-check.yml
   pull_request:
