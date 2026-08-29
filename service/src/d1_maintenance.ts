@@ -38,6 +38,8 @@ async function deleteBusinessDate(db:D1Database,date:string):Promise<void>{
     db.prepare("DELETE FROM historical_session_snapshots WHERE business_date=?1").bind(date),
     db.prepare("DELETE FROM outbound_drop_records WHERE business_date=?1").bind(date),
     db.prepare("DELETE FROM attendance_sessions WHERE business_date=?1").bind(date),
+    db.prepare("DELETE FROM conflicts WHERE event_id IN (SELECT event_id FROM events WHERE business_date=?1)").bind(date),
+    db.prepare("DELETE FROM mutation_assertions WHERE event_id IN (SELECT event_id FROM events WHERE business_date=?1)").bind(date),
     db.prepare("DELETE FROM events WHERE business_date=?1").bind(date),
     db.prepare("DELETE FROM business_dates WHERE business_date=?1").bind(date),
   ]);
