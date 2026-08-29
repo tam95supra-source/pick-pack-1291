@@ -1,6 +1,6 @@
 {
-  "stage": "VERIFY_ONLY",
-  "mode": "VERIFY_EXACT_BETA97_OWNER_SCOPE_HARNESS_RECOVERY",
+  "stage": "PUBLISH",
+  "mode": "PUBLISH_EXACT_BETA97_AFTER_ALL_PREOTA_PASS",
   "version_name": "0.4.2-beta.97",
   "version_code": 103,
   "base_version": "0.4.2-beta.96",
@@ -14,7 +14,7 @@
   "fast_check_source_sha": "b1c1563ce9489d9154e8d2489976c3c81d4234da",
   "service_gate_required": false,
   "service_gate": "PASS_RUN_33247859614_JOB_99088728192_EXACT_SOURCE",
-  "human_visual_pass": false,
+  "human_visual_pass": true,
   "stable_publish": "FORBIDDEN",
   "authority_change": "NONE",
   "candidate_locked": true,
@@ -25,11 +25,11 @@
   "live": false,
   "release_notes": [
     "Exact Beta97 candidate reused; no rebuild/resign.",
-    "Verifier validates exact-current-day meal scan fence, status header on meal screen, USER History hidden/deeplink blocked, and home meal warning placement.",
-    "Harness recovery replaces brittle duplicate-text count with separate semantic guards for HISTORY navigation and HISTORY screen entry.",
-    "Service regression inherited from run 33247859614; app/service bytes unchanged."
+    "Fast Check, inherited Service regression, visual/PDA functional, Android 16/API36 Back and human visual 320x568/360x640/480x800 all PASS.",
+    "Verifier confirms exact-current-day meal scan fence, status header on meal screen, USER History hidden/deeplink blocked, and home meal warning placement.",
+    "Publish must activate only exact candidate SHA256 522cfd16cc71b416c8c3efe222f8763cbfd159c355359ad781258ea0292d9231; Stable/main/signer/authority unchanged."
   ],
-  "next_action": "VERIFY_EXACT_LOCKED_BETA97_OWNER_SCOPE_AFTER_HARNESS_FIX",
+  "next_action": "PUBLISH_EXACT_LOCKED_BETA97_THEN_OTA_INSTALL_READBACK",
   "signer_sha256": "d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e",
   "candidate_run_id": 33247859614,
   "candidate_artifact_id": 9713456764,
@@ -41,5 +41,18 @@
   "base_candidate_artifact_id": 9707792109,
   "base_candidate_artifact_name": "beta-candidate-33228713454",
   "base_apk_sha256": "485f402749de0631e362f382e94bee855e7134705acbbf7295f92f00568dae00",
-  "base_apk_size": 13282293
+  "base_apk_size": 13282293,
+  "visual_matrix": "PASS",
+  "pda_functional_pre_ota": "PASS",
+  "back_api36": "PASS",
+  "verify_run_id": 33250391599,
+  "verify_artifact_id": 9714229229,
+  "verify_artifact_name": "beta-verify-33250391599",
+  "verify_artifact_digest": "sha256:bcdc2505c07e936f3fc86a217a8e3adab27c72b7c5720b3a46bba2874a0738d4",
+  "human_visual_sizes": [
+    "320x568",
+    "360x640",
+    "480x800"
+  ],
+  "human_visual_screenshot_count": 26
 }
