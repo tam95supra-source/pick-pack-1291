@@ -27,6 +27,8 @@ jobs:
       verify_artifact_name: ${{ steps.route.outputs.verify_artifact_name }}
       base_candidate_run_id: ${{ steps.route.outputs.base_candidate_run_id }}
       base_candidate_artifact_name: ${{ steps.route.outputs.base_candidate_artifact_name }}
+      base_live_final_run_id: ${{ steps.route.outputs.base_live_final_run_id }}
+      base_live_final_artifact_name: ${{ steps.route.outputs.base_live_final_artifact_name }}
       source_sha: ${{ steps.route.outputs.source_sha }}
       base_source_sha: ${{ steps.route.outputs.base_source_sha }}
       service_gate_required: ${{ steps.route.outputs.service_gate_required }}
@@ -60,9 +62,13 @@ jobs:
                      (.candidate_run_id|type=="number") and (.candidate_artifact_name|type=="string" and length>0) and
                      (.verify_run_id|type=="number") and (.verify_artifact_name|type=="string" and length>0) and
                      (.base_candidate_run_id|type=="number") and (.base_candidate_artifact_name|type=="string" and length>0) and
+                     (.base_live_final_run_id|type=="number") and (.base_live_final_artifact_name|type=="string" and length>0) and
                      (.apk_sha256|type=="string" and length==64) and (.apk_size|type=="number") and
+                     .apk_transport=="GITHUB_RELEASE_ONLY" and .google_drive_apk=="FORBIDDEN" and
                      ((.human_visual_sizes|sort)==(["320x568","360x640","480x800"]|sort))' "$R" >/dev/null
               git diff --quiet "$(jq -r '.source_sha' "$R")" HEAD -- app service google-apps-script
+              ! grep -Eqi 'googleapis\.com/drive|drive\.google\.com|drive\.usercontent\.google\.com|drive_file_id|drive_staging_exact|DRIVE_FOLDER_ID|BẢN THỬ NGHIỆM' \
+                tools/beta83_publish_ota.sh tools/beta83_rollback.sh tools/beta83_ota_device_gate.sh
               ;;
             *)
               echo "Unsupported stage: $STAGE" >&2
@@ -76,6 +82,8 @@ jobs:
           echo "verify_artifact_name=$(jq -r '.verify_artifact_name // empty' "$R")" >> "$GITHUB_OUTPUT"
           echo "base_candidate_run_id=$(jq -r '.base_candidate_run_id // empty' "$R")" >> "$GITHUB_OUTPUT"
           echo "base_candidate_artifact_name=$(jq -r '.base_candidate_artifact_name // empty' "$R")" >> "$GITHUB_OUTPUT"
+          echo "base_live_final_run_id=$(jq -r '.base_live_final_run_id // empty' "$R")" >> "$GITHUB_OUTPUT"
+          echo "base_live_final_artifact_name=$(jq -r '.base_live_final_artifact_name // empty' "$R")" >> "$GITHUB_OUTPUT"
           echo "source_sha=$(jq -r '.source_sha // empty' "$R")" >> "$GITHUB_OUTPUT"
           echo "base_source_sha=$(jq -r '.base_source_sha // empty' "$R")" >> "$GITHUB_OUTPUT"
           echo "service_gate_required=$(jq -r '.service_gate_required // false' "$R")" >> "$GITHUB_OUTPUT"
@@ -280,6 +288,20 @@ jobs:
           github-token: ${{ github.token }}
           repository: ${{ github.repository }}
           run-id: ${{ needs.route.outputs.verify_run_id }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.route.outputs.base_candidate_artifact_name }}
+          path: /tmp/beta-base
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ needs.route.outputs.base_candidate_run_id }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.route.outputs.base_live_final_artifact_name }}
+          path: /tmp/beta-base-final
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ needs.route.outputs.base_live_final_run_id }}
       - name: Publish exact requested Beta bytes after fresh production readbacks
         shell: bash
         run: bash tools/beta83_publish_ota.sh
@@ -357,7 +379,7 @@ jobs:
           if-no-files-found: error
 
   rollback:
-    name: rollback-beta82
+    name: rollback-beta
     needs: [route,publish,pda_verify]
     if: ${{ always() && needs.route.outputs.stage == 'PUBLISH' && needs.publish.result == 'success' && needs.pda_verify.result != 'success' }}
     runs-on: ubuntu-24.04
@@ -371,6 +393,13 @@ jobs:
       GAS_DEPLOYMENT_ID: ${{ secrets.GAS_DEPLOYMENT_ID }}
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.route.outputs.base_candidate_artifact_name }}
+          path: /tmp/beta-base
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ needs.route.outputs.base_candidate_run_id }}
       - uses: actions/download-artifact@v4
         with:
           name: beta-publish-${{ github.run_id }}
