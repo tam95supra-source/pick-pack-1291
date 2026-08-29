@@ -19,6 +19,7 @@ on:
       - tools/cloud_dr_provider_preflight.sh
       - tools/adb_stable_guard.sh
       - tools/beta83_verify_matrix.sh
+      - tools/Beta83UiChecksInstrumentation.java
       - tools/beta89_back_api36.sh
       - tools/beta83_ota_device_gate.sh
       - qa/**

@@ -328,7 +328,7 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     JSONObject legacy=new JSONObject().put("pda_serial","PDA-LEGACY");
     require("".equals(String.valueOf(p.invoke(a,authoritativeNone))),"EXIT_PDA_STALE_SCALAR_ACCEPTED");
     require("PDA-ACTIVE".equals(String.valueOf(p.invoke(a,authoritativePda))),"EXIT_PDA_ACTIVE_ASSIGNMENT_MISSING");
-    require("PDA-LEGACY".equals(String.valueOf(p.invoke(a,legacy))),"EXIT_PDA_LEGACY_FALLBACK_BROKEN");
+    require("".equals(String.valueOf(p.invoke(a,legacy))),"EXIT_PDA_LEGACY_SCALAR_ACCEPTED");
     mark("pda_exit_only_when_session_has_pda");
 
     Class<?> warningClass=target.getClassLoader().loadClass("vn.pickpack1291.app.beta.OldSessionWarningFeature");
