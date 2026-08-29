@@ -1,6 +1,6 @@
 {
   "stage": "VERIFY_ONLY",
-  "mode": "BETA98_VERIFY_EXACT_LOCKED_CANDIDATE_AFTER_MIGRATIONS_PATH_FIX",
+  "mode": "BETA98_VERIFY_EXACT_LOCKED_CANDIDATE_ADB_STABILITY_GUARD",
   "version_name": "0.4.2-beta.98",
   "version_code": 104,
   "base_version": "0.4.2-beta.97",
@@ -12,8 +12,8 @@
   "fast_check_run_id": 33279128029,
   "fast_check": "PASS",
   "fast_check_source_sha": "154473b3dcc17c8badcfe345108e59ac3ba6e830",
-  "service_gate_required": true,
-  "service_gate": "PENDING_RETRY_MIGRATIONS_PATH_FIXED",
+  "service_gate_required": false,
+  "service_gate": "PASS_INHERITED_RUN_33280777490_JOB_99175479666_EXACT_SERVICE_SOURCE_UNCHANGED",
   "human_visual_pass": false,
   "stable_publish": "FORBIDDEN",
   "authority_change": "NONE",
@@ -29,7 +29,7 @@
     "LAN outage path có Master/backup fencing, durable replica-before-ACK và provider-neutral Service discovery; Stable/main/signer/authority giữ nguyên.",
     "D1 capacity/backup safeguards và cloud DR credential contract được kiểm tra read-only, không tạo/nâng plan hay phát sinh paid action."
   ],
-  "next_action": "SERVICE_VERIFY_THEN_VISUAL_PDA_EXACT_CANDIDATE",
+  "next_action": "VISUAL_PDA_EXACT_CANDIDATE_WITH_STABLE_ADB_THEN_HUMAN",
   "signer_sha256": "d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e",
   "base_candidate_run_id": 33247859614,
   "base_candidate_artifact_id": 9713456764,
@@ -42,8 +42,8 @@
   "base_live_final_artifact_name": "beta-final-33252891249",
   "apk_transport": "GITHUB_RELEASE_ONLY",
   "google_drive_apk": "FORBIDDEN",
-  "visual_matrix": "PENDING",
-  "pda_functional_pre_ota": "PENDING",
+  "visual_matrix": "PENDING_ADB_STABILITY_RETRY",
+  "pda_functional_pre_ota": "PENDING_ADB_STABILITY_RETRY",
   "back_api36": "PENDING",
   "candidate_run_id": 33279188816,
   "candidate_artifact_name": "beta-candidate-33279188816",
@@ -53,6 +53,7 @@
   "apk_size": 13544437,
   "candidate_artifact_id": 9722490457,
   "candidate_artifact_digest": "sha256:30d8f5062bbc8ecb79b2c60f067605b4da9a9f8917c44c8221e6929286d3bd7e",
-  "harness_fast_check_run_id": 33279825609,
-  "last_service_failure": "D1_REHEARSAL_TEMP_CONFIG_MIGRATIONS_PATH_RECOVERED_TO_BASE"
+  "harness_fast_check_run_id": 33281231618,
+  "last_service_failure": "D1_REHEARSAL_TEMP_CONFIG_MIGRATIONS_PATH_RECOVERED_TO_BASE",
+  "last_visual_failure": "EMULATOR_ADB_FLAP_AFTER_BOOT_ATTEMPTS_1_2_HARNESS_GUARD_ADDED"
 }
