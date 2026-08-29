@@ -24,6 +24,7 @@
 - apk_transport: GITHUB_RELEASE_ONLY
 - google_drive_apk: FORBIDDEN
 - regression_policy: docs/REGRESSION_GUARD_POLICY.md (MANDATORY)
+- stable_invariants: docs/STABLE_INVARIANTS.md (MANDATORY / cumulative)
 - stable: unchanged
 - main_sha: 021dac5c6932b3ac5c60ce8fdba562ddf3d9688f
 - authority: SERVICE_PRIMARY / PRODUCTION / epoch 9 / generation m2-prod-reset-20260823-001
