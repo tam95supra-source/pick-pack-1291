@@ -4,7 +4,7 @@ import { bangkokToday, ensureCurrentBangkokBusinessDate } from "./business_date"
 import { nowIso } from "./util";
 
 export interface LegacyMutationInput {
-  action: "enter" | "exit" | "resource_change" | "labor_start" | "labor_finish";
+  action: "enter" | "exit" | "resource_change" | "labor_start" | "labor_finish" | "meal_checkin" | "meal_status";
   payload: Record<string, unknown>;
   event_id?: string;
   business_date?: string;
@@ -65,6 +65,22 @@ export async function legacyCanonical(db:D1Database,input:LegacyMutationInput,au
     eventType="LABOR_START";entityType="LABOR_SESSION";entityId=text(payload.labor_id,180)||eventId;
     const existing=await db.prepare("SELECT version FROM labor_sessions WHERE labor_id=?1").bind(entityId).first<{version:number}>();baseVersion=existing?.version??0;
     canonicalPayload={mnv,shift:text(payload.shift,80),labor_type:text(payload.labor_type,180),time_marker:text(payload.time_marker,120)||"Trong ngày",note:text(payload.note,500),deduct_staff:payload.deduct_staff??false};
+  }else if(input.action==="meal_checkin"||input.action==="meal_status"){
+    if(businessDate!==today)throw new CoreError("MEAL_WRITE_CURRENT_DAY_ONLY","PERMISSION",403);
+    const existing=await db.prepare("SELECT status,actual_return_at,version FROM post_meal_attendance WHERE business_date=?1 AND mnv=?2").bind(businessDate,mnv).first<{status:string;actual_return_at:string|null;version:number}>();
+    if(input.action==="meal_checkin"&&existing?.status==="CHECKED_IN")throw new CoreError("MEAL_ALREADY_CHECKED_IN","CONFLICT",409,false,{checked_at:existing.actual_return_at});
+    baseVersion=existing?.version??0;entityType="POST_MEAL_ATTENDANCE";entityId=`${businessDate}|${mnv}`;
+    if(input.action==="meal_checkin"){
+      eventType="MEAL_CHECKIN";canonicalPayload={mnv,status:"CHECKED_IN"};
+    }else{
+      const status=text(payload.status,40),reason=text(payload.reason_code,120),note=text(payload.reason_note,500),expected=text(payload.expected_return_at,80);
+      if(!["NO_RETURN","LATE_EXPECTED"].includes(status))throw new CoreError("MEAL_STATUS_INVALID","VALIDATION",400);
+      const allowed=new Set(["Xin về sớm","Đi hỗ trợ bộ phận/vị trí khác","Xin vào muộn","Nghỉ đột xuất","Có việc cá nhân","Được quản lý điều chuyển","Khác"]);
+      if(!allowed.has(reason))throw new CoreError("MEAL_REASON_INVALID","VALIDATION",400);
+      if(reason==="Khác"&&!note)throw new CoreError("MEAL_REASON_NOTE_REQUIRED","VALIDATION",400);
+      if((status==="LATE_EXPECTED"||reason==="Xin vào muộn")&&(!expected||Number.isNaN(Date.parse(expected))))throw new CoreError("MEAL_EXPECTED_TIME_REQUIRED","VALIDATION",400);
+      eventType="MEAL_STATUS_UPDATE";canonicalPayload={mnv,status,reason_code:reason,reason_note:note,expected_return_at:expected};
+    }
   }else{
     const open=await activeLabor(db,mnv,businessDate);if(!open)throw new CoreError("LABOR_NOT_OPEN","CONFLICT",409);
     eventType="LABOR_FINISH";entityType="LABOR_SESSION";entityId=open.labor_id;baseVersion=open.version;canonicalPayload={mnv,note:text(payload.note,500)};
