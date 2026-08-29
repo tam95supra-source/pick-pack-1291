@@ -38,7 +38,9 @@ grep -Fq 'dynamic.addView(PostMealAttendanceFeature.buildHomeWarning(this,api){p
 grep -Fq 'root.addView(PostMealAttendanceFeature.build(this,api){businessHome()},LinearLayout.LayoutParams(-1,0,1f))' "$OPS"
 grep -Fq 'root.addView(DropReceiveFeature.build(this,api,login,name,role){businessHome()},LinearLayout.LayoutParams(-1,0,1f))' "$OPS"
 grep -Fq 'if(isAdmin())items.add(Triple(R.drawable.ic_pp_history,"Lịch sử","HISTORY"))' "$OPS"
-test "$(grep -Fc 'if(!isAdmin()){module="BUSINESS";businessHome();return}' "$OPS")" -ge 2
+grep -Fq 'if(target=="HISTORY"&&!isAdmin()){module="BUSINESS";businessHome();return}' "$OPS"
+grep -Fq 'private fun historyScreen(){' "$OPS"
+grep -Fq 'if(!isAdmin()){module="BUSINESS";businessHome();return}' "$OPS"
 grep -Fq 'ses.optString("business_date")==date' app/src/main/java/vn/pickpack1291/app/beta/PostMealAttendanceFeature.kt
 grep -Fq 'CẢNH BÁO: CÒN $count NHÂN SỰ CHƯA ĐIỂM DANH' app/src/main/java/vn/pickpack1291/app/beta/PostMealAttendanceFeature.kt
 grep -Fq 'localInteractive=localNow!=null&&localNow.optBoolean("session_known",true)' "$OPS"
