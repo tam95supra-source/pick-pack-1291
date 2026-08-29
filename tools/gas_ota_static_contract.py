@@ -197,12 +197,19 @@ def main():
         }
     }
     req(f"{API}/{script_id}/deployments/{deployment_id}", token, "PUT", payload)
+    deployment = req(f"{API}/{script_id}/deployments/{deployment_id}", token)
+    deployed_version = int(deployment["deploymentConfig"]["versionNumber"])
+    if deployed_version != version_number:
+        raise RuntimeError(
+            f"deployment version readback mismatch: expected {version_number}, got {deployed_version}"
+        )
 
     output = {
         "status": "PASS",
         "change_scope": "ppUpdateCheck_only",
         "changed_file": changed[0],
         "deployment_version": version_number,
+        "deployment_readback_version": deployed_version,
         "version_name": args.version,
         "version_code": args.version_code,
         "package": args.package,
