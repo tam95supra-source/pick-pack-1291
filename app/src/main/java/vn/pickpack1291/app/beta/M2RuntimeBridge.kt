@@ -148,7 +148,7 @@ class M2RuntimeBridge(context: Context) {
         }catch(t:Throwable){HttpResult(false,-1,null,t.message?:"NETWORK")}finally{connection?.disconnect()}
     }
 
-    private fun validServiceUrl(raw:String):Boolean=runCatching{val url=URL(raw);url.protocol=="https"&&url.host.isNotBlank()&&(url.host=="pickpack1291.cc.cd"||url.host.endsWith(".workers.dev")||url.host.endsWith(".pages.dev"))}.getOrDefault(false)
+    private fun validServiceUrl(raw:String):Boolean=ServiceEndpointPolicy.allowed(raw)
 
     companion object{
         private const val PREFS="pp_m2_service_transport"

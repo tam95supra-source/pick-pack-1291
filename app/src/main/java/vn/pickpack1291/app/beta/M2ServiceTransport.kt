@@ -375,7 +375,7 @@ class M2ServiceTransport(context: Context) {
         }finally{conn?.disconnect()}
     }
 
-    private fun validServiceUrl(raw: String): Boolean = runCatching { val u = URL(raw); u.protocol == "https" && u.host.isNotBlank() && (u.host == "pickpack1291.cc.cd" || u.host.endsWith(".workers.dev") || u.host.endsWith(".pages.dev") || u.host == "localhost") }.getOrDefault(false)
+    private fun validServiceUrl(raw: String): Boolean = ServiceEndpointPolicy.allowed(raw)
     private fun proofForPassword(password: String, saltB64: String, iterations: Int, challenge: String): String { val key = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256").generateSecret(PBEKeySpec(password.toCharArray(), b64uDecode(saltB64), iterations, 256)).encoded; val mac = Mac.getInstance("HmacSHA256"); mac.init(SecretKeySpec(key, "HmacSHA256")); return b64u(mac.doFinal(challenge.toByteArray(Charsets.UTF_8))) }
     private fun b64u(bytes: ByteArray): String = Base64.encodeToString(bytes, Base64.URL_SAFE or Base64.NO_PADDING or Base64.NO_WRAP)
     private fun b64uDecode(v: String): ByteArray = Base64.decode(v, Base64.URL_SAFE or Base64.NO_PADDING or Base64.NO_WRAP)
