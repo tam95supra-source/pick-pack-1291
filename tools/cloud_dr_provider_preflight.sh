@@ -46,7 +46,10 @@ if [[ -z "$TURSO_ORG" ]]; then
   # Organization-scoped tokens can reject account-wide listing. Use repository owner / actor
   # only as lookup candidates and accept one only after Turso direct readback confirms it.
   candidates=()
-  [[ -n "${GITHUB_REPOSITORY:-}" ]] && candidates+=("${GITHUB_REPOSITORY%%/*}")
+  if [[ -n "${GITHUB_REPOSITORY:-}" ]]; then
+    candidates+=("${GITHUB_REPOSITORY%%/*}")
+    candidates+=("${GITHUB_REPOSITORY##*/}")
+  fi
   [[ -n "${GITHUB_ACTOR:-}" ]] && candidates+=("$GITHUB_ACTOR")
   for cand in "${candidates[@]}"; do
     [[ -n "$cand" ]] || continue
