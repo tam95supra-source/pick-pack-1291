@@ -43,37 +43,49 @@ NODE
 fi
 
 if [[ -z "$TURSO_ORG" ]]; then
-  # Organization-scoped tokens can reject account-wide listing. Use repository owner / actor
-  # only as lookup candidates and accept one only after Turso direct readback confirms it.
+  # An org-scoped platform token can legitimately reject organization metadata.
+  # Discover only candidate slugs, then accept a slug solely if Turso allows DB listing for it.
   candidates=()
   if [[ -n "${GITHUB_REPOSITORY:-}" ]]; then
-    candidates+=("${GITHUB_REPOSITORY%%/*}")
-    candidates+=("${GITHUB_REPOSITORY##*/}")
+    candidates+=("${GITHUB_REPOSITORY%%/*}" "${GITHUB_REPOSITORY##*/}")
   fi
   [[ -n "${GITHUB_ACTOR:-}" ]] && candidates+=("$GITHUB_ACTOR")
-  for cand in "${candidates[@]}"; do
-    [[ -n "$cand" ]] || continue
-    code=$(curl -sS --connect-timeout 10 --max-time 30 -o "$OUT/turso-org-candidate.json" -w '%{http_code}' -H "Authorization: Bearer $TURSO_API_TOKEN" -H 'Accept: application/json' "https://api.turso.tech/v1/organizations/$cand" || true)
-    if [[ "$code" == 200 ]] && node - "$OUT/turso-org-candidate.json" "$cand" <<'NODE'
-const fs=require('fs'),j=JSON.parse(fs.readFileSync(process.argv[2],'utf8')),cand=process.argv[3],o=j.organization||j;
-if(String(o.slug||'')!==cand||o.blocked_reads===true||o.blocked_writes===true)process.exit(1);
-NODE
-    then TURSO_ORG="$cand"; cp "$OUT/turso-org-candidate.json" "$OUT/turso-organization.json"; break; fi
-  done
-fi
 
-if [[ -z "$TURSO_ORG" ]]; then
-  code=$(curl -sS --connect-timeout 10 --max-time 30 -o "$OUT/turso-organizations.json" -w '%{http_code}' -H "Authorization: Bearer $TURSO_API_TOKEN" -H 'Accept: application/json' "https://api.turso.tech/v1/organizations" || true)
+  code=$(curl -sS --connect-timeout 10 --max-time 30 -o "$OUT/turso-api-tokens.json" -w '%{http_code}'     -H "Authorization: Bearer $TURSO_API_TOKEN" -H 'Accept: application/json' "https://api.turso.tech/v1/auth/api-tokens" || true)
   if [[ "$code" == 200 ]]; then
-    TURSO_ORG=$(node - "$OUT/turso-organizations.json" <<'NODE'
-const fs=require('fs'),j=JSON.parse(fs.readFileSync(process.argv[2],'utf8')),rows=Array.isArray(j)?j:(j.organizations||[]);
-const eligible=rows.filter(x=>x.blocked_reads!==true&&x.blocked_writes!==true),o=eligible.find(x=>String(x.type||'')==='personal')||eligible[0];
-process.stdout.write(String(o?.slug||'').trim());
+    while IFS= read -r cand; do [[ -n "$cand" ]] && candidates+=("$cand"); done < <(
+      node - "$OUT/turso-api-tokens.json" <<'NODE'
+const fs=require('fs'),j=JSON.parse(fs.readFileSync(process.argv[2],'utf8'));
+for(const o of [...new Set((j.tokens||[]).map(x=>String(x.organization||'').trim()).filter(Boolean))])console.log(o);
 NODE
     )
   elif [[ "$code" != 403 ]]; then
-    echo "DR_PREFLIGHT_HTTP_FAILED:turso-organizations:$code" >&2;exit 52
+    echo "DR_PREFLIGHT_HTTP_FAILED:turso-api-tokens:$code" >&2; exit 52
   fi
+
+  # Account-wide listing is another non-authoritative source of candidate slugs.
+  code=$(curl -sS --connect-timeout 10 --max-time 30 -o "$OUT/turso-organizations.json" -w '%{http_code}'     -H "Authorization: Bearer $TURSO_API_TOKEN" -H 'Accept: application/json' "https://api.turso.tech/v1/organizations" || true)
+  if [[ "$code" == 200 ]]; then
+    while IFS= read -r cand; do [[ -n "$cand" ]] && candidates+=("$cand"); done < <(
+      node - "$OUT/turso-organizations.json" <<'NODE'
+const fs=require('fs'),j=JSON.parse(fs.readFileSync(process.argv[2],'utf8')),rows=Array.isArray(j)?j:(j.organizations||[]);
+for(const o of rows)if(o.blocked_reads!==true&&o.blocked_writes!==true&&String(o.slug||'').trim())console.log(String(o.slug).trim());
+NODE
+    )
+  elif [[ "$code" != 403 ]]; then
+    echo "DR_PREFLIGHT_HTTP_FAILED:turso-organizations:$code" >&2; exit 52
+  fi
+
+  : > "$OUT/turso-candidates-seen.txt"
+  for cand in "${candidates[@]}"; do
+    [[ -n "$cand" ]] || continue
+    grep -Fxq "$cand" "$OUT/turso-candidates-seen.txt" 2>/dev/null && continue
+    printf '%s\n' "$cand" >> "$OUT/turso-candidates-seen.txt"
+    code=$(curl -sS --connect-timeout 10 --max-time 30 -o "$OUT/turso-db-candidate.json" -w '%{http_code}'       -H "Authorization: Bearer $TURSO_API_TOKEN" -H 'Accept: application/json' "https://api.turso.tech/v1/organizations/$cand/databases?limit=100" || true)
+    if [[ "$code" == 200 ]] && jq -e '.databases|type=="array"' "$OUT/turso-db-candidate.json" >/dev/null; then
+      TURSO_ORG="$cand"; cp "$OUT/turso-db-candidate.json" "$OUT/turso-databases.json"; break
+    fi
+  done
 fi
 
 
@@ -95,19 +107,27 @@ else
 fi
 
 if [[ -n "$TURSO_ORG" ]]; then
-  http turso-organization "https://api.turso.tech/v1/organizations/$TURSO_ORG" "$TURSO_API_TOKEN"
-  code=$(curl -sS --connect-timeout 10 --max-time 30 -o "$OUT/turso-plans.json" -w '%{http_code}' -H "Authorization: Bearer $TURSO_API_TOKEN" -H 'Accept: application/json' "https://api.turso.tech/v1/organizations/$TURSO_ORG/plans" || true)
+  # Organization metadata may be denied to a resource-scoped token. When visible, use it
+  # to verify the current plan/overage state; otherwise require plan endpoint + zero-cost plan.
+  org_code=$(curl -sS --connect-timeout 10 --max-time 30 -o "$OUT/turso-organization.json" -w '%{http_code}'     -H "Authorization: Bearer $TURSO_API_TOKEN" -H 'Accept: application/json' "https://api.turso.tech/v1/organizations/$TURSO_ORG" || true)
+  [[ "$org_code" == 200 || "$org_code" == 403 ]] || { echo "DR_PREFLIGHT_HTTP_FAILED:turso-organization:$org_code" >&2; exit 52; }
+  code=$(curl -sS --connect-timeout 10 --max-time 30 -o "$OUT/turso-plans.json" -w '%{http_code}'     -H "Authorization: Bearer $TURSO_API_TOKEN" -H 'Accept: application/json' "https://api.turso.tech/v1/organizations/$TURSO_ORG/plans" || true)
   [[ "$code" == 200 ]] || { echo "DR_PREFLIGHT_HTTP_FAILED:turso-plans:$code" >&2;exit 52; }
-  node - "$OUT/turso-organization.json" "$OUT/turso-plans.json" "$TURSO_ORG" <<'NODE'
-const fs=require('fs'),orgj=JSON.parse(fs.readFileSync(process.argv[2],'utf8')),plansj=JSON.parse(fs.readFileSync(process.argv[3],'utf8')),slug=process.argv[4],o=orgj.organization||orgj;
-if(String(o.slug||'')!==slug||o.blocked_reads===true||o.blocked_writes===true||o.overages===true)throw new Error('TURSO_ORG_NOT_SAFE_FREE');
-const list=Array.isArray(plansj)?plansj:(plansj.plans||[]),planId=String(o.plan_id||'').toLowerCase();
-const exact=list.find(x=>String(x.name||x.id||'').toLowerCase()===planId);
-if(exact&&Number(exact.price??exact.monthly_price??0)!==0)throw new Error('TURSO_CURRENT_PLAN_NOT_ZERO_COST:'+planId);
-if(!exact&&!list.some(x=>Number(x.price??x.monthly_price??0)===0))throw new Error('TURSO_ZERO_COST_PLAN_NOT_VISIBLE');
-console.log('turso_free_plan=PASS plan='+planId);
+  node - "$OUT/turso-organization.json" "$OUT/turso-plans.json" "$TURSO_ORG" "$org_code" <<'NODE'
+const fs=require('fs'),orgPath=process.argv[2],plansj=JSON.parse(fs.readFileSync(process.argv[3],'utf8')),slug=process.argv[4],orgCode=Number(process.argv[5]);
+const list=Array.isArray(plansj)?plansj:(plansj.plans||[]);
+if(!list.some(x=>Number(x.price??x.monthly_price??0)===0))throw new Error('TURSO_ZERO_COST_PLAN_NOT_VISIBLE');
+let planId='unreadable';
+if(orgCode===200){
+ const orgj=JSON.parse(fs.readFileSync(orgPath,'utf8')),o=orgj.organization||orgj;
+ if(String(o.slug||'')!==slug||o.blocked_reads===true||o.blocked_writes===true||o.overages===true)throw new Error('TURSO_ORG_NOT_SAFE_FREE');
+ planId=String(o.plan_id||'').toLowerCase();
+ const exact=list.find(x=>String(x.name||x.id||'').toLowerCase()===planId);
+ if(exact&&Number(exact.price??exact.monthly_price??0)!==0)throw new Error('TURSO_CURRENT_PLAN_NOT_ZERO_COST:'+planId);
+}
+console.log('turso_zero_cost_plan_available=PASS metadata='+orgCode+' current_plan='+planId);
 NODE
-  curl -fsS --connect-timeout 10 --max-time 30 -H "Authorization: Bearer $TURSO_API_TOKEN" "https://api.turso.tech/v1/organizations/$TURSO_ORG/databases?limit=100" > "$OUT/turso-databases.json"
+  [[ -f "$OUT/turso-databases.json" ]] || curl -fsS --connect-timeout 10 --max-time 30     -H "Authorization: Bearer $TURSO_API_TOKEN" "https://api.turso.tech/v1/organizations/$TURSO_ORG/databases?limit=100" > "$OUT/turso-databases.json"
 elif [[ "$TURSO_DB_AUTH_OK" != 1 ]]; then
   echo "TURSO_PLATFORM_TOKEN_VALID_BUT_ORG_SCOPE_UNRESOLVED" >&2
   exit 53
