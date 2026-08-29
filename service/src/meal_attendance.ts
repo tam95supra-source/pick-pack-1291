@@ -35,7 +35,7 @@ export async function mealAttendanceList(env:Env,body:{business_date?:string}):P
   if(!safeDate(date))return apiError("BUSINESS_DATE_INVALID","VALIDATION",400);
   const floor=addDays(current,-13);
   if(date<floor||date>current)return apiError("MEAL_DATE_OUTSIDE_14_DAY_WINDOW","PERMISSION",403);
-  await materialize(env,date,date===current);
+  if(date===current)await materialize(env,date,true);
   const rows=(await env.DB.prepare(`SELECT business_date,mnv,shift,full_name_snapshot,supplier_snapshot,status,checked_at,reason_code,reason_note,expected_return_at,actual_return_at,actor_id,device_id,version,created_at,updated_at
       FROM post_meal_attendance WHERE business_date=?1`).bind(date).all<Record<string,unknown>>()).results??[];
   const now=Date.now();
