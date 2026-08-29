@@ -67,7 +67,7 @@ export default {
         const r=await reconcileBeta47OperationalProjection(env);
         if(r.catalog_changed)await broadcastCatalogRevision(env);
         const historyRows=await backfillAllHistoryAudit(env);
-        console.log(JSON.stringify({level:"info",kind:"beta95_bounded_repair",history_rows:historyRows,...r}));
+        console.log(JSON.stringify({level:"info",kind:"beta95_bounded_repair",...r,history_backfill_rows:historyRows}));
       }
     }catch(e){console.log(JSON.stringify({level:"error",kind:"beta95_bounded_repair_failed",error:String(e).slice(0,500)}));}
     try{
