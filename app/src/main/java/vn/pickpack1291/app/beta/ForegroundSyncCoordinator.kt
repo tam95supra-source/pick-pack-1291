@@ -83,6 +83,7 @@ class ForegroundSyncCoordinator(
                     failureRetriesRemaining = 1
                     M2WorkScheduler.schedule(app)
                     M2PushRegistration.flush(app)
+                    LanCoordinator.get(app).onNetworkChanged()
                     requestSync()
                 }
             }
@@ -91,6 +92,8 @@ class ForegroundSyncCoordinator(
         override fun onLost(network: Network) {
             main.post {
                 if (state == State.ACTIVE) {
+                    LanCoordinator.get(app).noteServiceStatus(false)
+                    LanCoordinator.get(app).onNetworkChanged()
                     listener.onStatus(
                         Status(
                             state = State.ACTIVE,
@@ -159,6 +162,7 @@ class ForegroundSyncCoordinator(
 
                 val body = result.json
                 if (result.ok && body != null) {
+                    LanCoordinator.get(app).noteServiceStatus(true)
                     failureRetriesRemaining = 1
                     val seq = body.optLong("server_seq", lastSeq)
                     val changed = seq != lastSeq
@@ -202,6 +206,7 @@ class ForegroundSyncCoordinator(
                         )
                     }
                 } else if (state == State.ACTIVE && requestGeneration == generation) {
+                    LanCoordinator.get(app).noteServiceStatus(false)
                     listener.onStatus(
                         Status(
                             state = State.ACTIVE,
