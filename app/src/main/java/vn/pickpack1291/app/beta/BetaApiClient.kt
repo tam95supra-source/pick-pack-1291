@@ -156,7 +156,7 @@ class BetaApiClient(context: Context) {
     }
 
     fun call(action: String, payload: JSONObject = JSONObject(), callback: (Result) -> Unit) {
-        val directOwnerActions=setOf("resource_master_list","resource_master_upsert","resource_master_delete","history_correction","session_work_update","session_exit_guarded","attendance_time_correct","attendance_exit_delete","attendance_session_delete","attendance_enter_v2","session_resource_snapshot","session_resource_mutate","session_exit_v2","service_connections","account_delete","history_delete")
+        val directOwnerActions=setOf("resource_master_list","resource_master_upsert","resource_master_delete","history_correction","session_work_update","session_exit_guarded","attendance_time_correct","attendance_exit_delete","attendance_session_delete","attendance_enter_v2","session_resource_snapshot","session_resource_mutate","session_exit_v2","service_connections","account_delete","history_delete","lan_replay_batch")
         if(action in directOwnerActions){
             localExecutor.execute {
                 try {
@@ -323,6 +323,7 @@ class BetaApiClient(context: Context) {
             "service_connections"->"/v1/service/connections"
             "account_delete"->"/v1/admin/accounts/delete"
             "history_delete"->"/v1/history/delete"
+            "lan_replay_batch"->"/v1/lan-replay/batch"
             else->"/v1/admin/resources"
         }
         val method=if(action in setOf("resource_master_list","service_connections"))"GET" else "POST"

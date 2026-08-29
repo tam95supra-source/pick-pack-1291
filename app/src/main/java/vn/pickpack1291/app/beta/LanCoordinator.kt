@@ -47,6 +47,9 @@ internal class LanCoordinator private constructor(context:Context):LanSocketTran
                     recovering=true
                     M2ImmediateOutbox.kick(app)
                     notifyState()
+                    if(nodeRole==NodeRole.MASTER){
+                        LanRecoveryClient.reconcile(app){ok,_->if(ok)completeRecovery()}
+                    }
                 }else{
                     recovering=false
                     stopPeerPresence()
