@@ -12,7 +12,10 @@ on:
       - services/**
       - google-apps-script/**
       - config/mutation_fallback_policy.json
+      - config/provider_free_limits.json
       - tools/resilience_static_gate.mjs
+      - tools/portable_backup_verify.sh
+      - tools/d1_generation_autopilot.sh
       - qa/**
       - .github/workflows/app-fast-check.yml
   pull_request:
@@ -87,6 +90,12 @@ jobs:
           pushd service
           npm install --ignore-scripts --no-audit --no-fund
           npm run check
+          popd
+          pushd services/cloud-dr
+          npm install --ignore-scripts --no-audit --no-fund
+          npm run check
+          npm run build
+          npm test
           popd
 
       - name: Static and Android debug gates

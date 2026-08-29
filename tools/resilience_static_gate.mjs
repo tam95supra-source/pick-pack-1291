@@ -41,3 +41,13 @@ const forbidden=/supabase/i;
 for(const p of ["app/src/main/java/vn/pickpack1291/app/beta/M2ServiceTransport.kt","service/src/entry_product.ts","service/src/d1_maintenance.ts"])must(!forbidden.test(read(p)),"SUPABASE_REFERENCE_"+p);
 if(process.exitCode)process.exit(process.exitCode);
 console.log("resilience_static_gate=PASS pda_matrix=10 emergency_ledger=PASS d1_guard=PASS mutation_inventory=PASS");
+
+const drHandler=read("services/cloud-dr/src/handler.ts");
+const drAdapter=read("services/cloud-dr/src/libsql_adapter.ts");
+const providerLimits=JSON.parse(read("config/provider_free_limits.json"));
+must(drHandler.includes('../../../service/src/core')&&drHandler.includes('../../../service/src/legacy'),"DR_CANONICAL_CORE_REUSE_MISSING");
+must(drHandler.includes('DR_WRITER_MODE!=="ACTIVE_WRITE"')&&drHandler.includes("DR_PASSIVE_FENCED"),"DR_WRITER_FENCE_MISSING");
+must(drAdapter.includes("@libsql/client/web"),"DR_PROVIDER_ADAPTER_MISSING");
+must(providerLimits.cloudflare_workers_free?.d1_database_bytes===524288000,"CF_D1_FREE_DB_LIMIT_MISMATCH");
+must(providerLimits.cloudflare_workers_free?.d1_account_bytes===5368709120,"CF_D1_FREE_ACCOUNT_LIMIT_MISMATCH");
+must(providerLimits.turso?.required_plan_price_usd===0&&providerLimits.deno?.required_plan_price_usd===0,"DR_FREE_PLAN_GUARD_MISSING");
