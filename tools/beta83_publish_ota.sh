@@ -72,7 +72,7 @@ curl -fsS --get --connect-timeout 15 --max-time 30 -H "Authorization: Bearer $AC
 test "$(jq '.files|length' "$E/base-files.json")" = 1
 BASE_FILE_ID=$(jq -r '.files[0].id' "$E/base-files.json");test -n "$BASE_FILE_ID";echo "::add-mask::$BASE_FILE_ID"
 test "$(jq -r '.files[0].size' "$E/base-files.json")" = "$BASE_SIZE"
-curl -fsS --connect-timeout 15 --max-time 120 -H "Authorization: Bearer $ACCESS_TOKEN" "https://www.googleapis.com/drive/v3/files/$BASE_FILE_ID?alt=media" -o "$E/base-auth.apk"
+curl -fsS --connect-timeout 15 --max-time 120 -H "Authorization: Bearer $ACCESS_TOKEN" "https://www.googleapis.com/drive/v3/files/$BASE_FILE_ID?alt=media&acknowledgeAbuse=true" -o "$E/base-auth.apk"
 test "$(sha256sum "$E/base-auth.apk"|awk '{print $1}')" = "$BASE_SHA";test "$(stat -c '%s' "$E/base-auth.apk")" = "$BASE_SIZE"
 BASE_URL="https://drive.usercontent.google.com/download?id=$BASE_FILE_ID&export=download&confirm=t";echo "::add-mask::$BASE_URL"
 curl -fsSL --retry 2 --retry-delay 2 --connect-timeout 15 --max-time 120 "$BASE_URL" -o "$E/base-public.apk"
