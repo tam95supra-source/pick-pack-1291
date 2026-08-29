@@ -7,7 +7,7 @@ for n in GH_TOKEN GOOGLE_OAUTH_CLIENT_ID GOOGLE_OAUTH_CLIENT_SECRET GOOGLE_OAUTH
 
 VERSION=$(jq -r '.version_name' "$R");CODE=$(jq -r '.version_code' "$R");PREV=$(jq -r '.base_version' "$R");BASE_CODE=$(jq -r '.base_version_code' "$R")
 SOURCE=$(jq -r '.source_sha' "$R");SHA=$(jq -r '.apk_sha256' "$R");SIZE=$(jq -r '.apk_size' "$R");SIGNER=$(jq -r '.signer_sha256' "$R")
-BASE_SHA=$(jq -r '.base_apk_sha256' "$R");BASE_SIZE=$(jq -r '.base_apk_size' "$R")
+BASE_SOURCE=$(jq -r '.base_source_sha' "$R");BASE_SHA=$(jq -r '.base_apk_sha256' "$R");BASE_SIZE=$(jq -r '.base_apk_size' "$R")
 RELEASE_NOTES=$(jq -r '.release_notes | if type=="array" then map("• "+.)|join("\n") else "" end' "$R")
 test -n "$RELEASE_NOTES"
 APK=/tmp/beta-candidate/pick-pack-1291-public-beta-$VERSION.apk
@@ -74,12 +74,9 @@ BASE_FILE_ID=$(jq -r '.files[0].id' "$E/base-files.json");test -n "$BASE_FILE_ID
 test "$(jq -r '.files[0].size' "$E/base-files.json")" = "$BASE_SIZE"
 curl -fsS --connect-timeout 15 --max-time 120 -H "Authorization: Bearer $ACCESS_TOKEN" "https://www.googleapis.com/drive/v3/files/$BASE_FILE_ID?alt=media&acknowledgeAbuse=true" -o "$E/base-auth.apk"
 test "$(sha256sum "$E/base-auth.apk"|awk '{print $1}')" = "$BASE_SHA";test "$(stat -c '%s' "$E/base-auth.apk")" = "$BASE_SIZE"
-BASE_URL=""
-for u in "https://drive.usercontent.google.com/download?id=$BASE_FILE_ID&export=download&confirm=t" "https://drive.google.com/uc?export=download&id=$BASE_FILE_ID"; do
-  if curl -fsSL --retry 2 --retry-delay 2 --connect-timeout 15 --max-time 120 "$u" -o "$E/base-public.apk" \
-    && [[ "$(sha256sum "$E/base-public.apk"|awk '{print $1}')" == "$BASE_SHA" ]] && [[ "$(stat -c '%s' "$E/base-public.apk")" == "$BASE_SIZE" ]]; then BASE_URL="$u";break;fi
-done
-test -n "$BASE_URL";echo "::add-mask::$BASE_URL";cmp -s "$E/base-auth.apk" "$E/base-public.apk"
+printf '%s\n' "Exact baseline $PREV retained for rollback." > "$E/base-release-notes.txt"
+bash tools/ensure_beta_github_release.sh "$PREV" "$BASE_SOURCE" "$E/base-auth.apk" "$BASE_SHA" "$BASE_SIZE" "$E/base-release-notes.txt" "$BASE_APK_NAME" "$E/base-github-release.json"
+BASE_URL=$(jq -r '.apk_url' "$E/base-github-release.json");test -n "$BASE_URL";echo "::add-mask::$BASE_URL"
 
 BASE_PROBE=$(jq -r '.base_probe_version // empty' "$R")
 if [[ -z "$BASE_PROBE" || "$BASE_PROBE" == null ]]; then
@@ -112,14 +109,12 @@ curl -fsS --connect-timeout 15 --max-time 30 -X PATCH -H "Authorization: Bearer 
 curl -fsS --connect-timeout 15 --max-time 30 -X POST -H "Authorization: Bearer $ACCESS_TOKEN" -H 'Content-Type: application/json' \
   -d '{"type":"anyone","role":"reader"}' "https://www.googleapis.com/drive/v3/files/$FILE_ID/permissions?fields=id,type,role" > "$E/permission.json" || true
 
-APK_URL=""
-for u in "https://drive.usercontent.google.com/download?id=$FILE_ID&export=download&confirm=t" "https://drive.google.com/uc?export=download&id=$FILE_ID"; do
-  if curl -fsSL --retry 2 --retry-delay 2 --connect-timeout 15 --max-time 120 "$u" -o "$E/public.apk" \
-    && [[ "$(sha256sum "$E/public.apk"|awk '{print $1}')" == "$SHA" ]] && [[ "$(stat -c '%s' "$E/public.apk")" == "$SIZE" ]]; then APK_URL="$u";break;fi
-done
-test -n "$APK_URL";echo "::add-mask::$APK_URL";cmp -s "$APK" "$E/public.apk"
-
+curl -fsS --connect-timeout 15 --max-time 120 -H "Authorization: Bearer $ACCESS_TOKEN" "https://www.googleapis.com/drive/v3/files/$FILE_ID?alt=media&acknowledgeAbuse=true" -o "$E/staged-drive.apk"
+test "$(sha256sum "$E/staged-drive.apk"|awk '{print $1}')" = "$SHA";test "$(stat -c '%s' "$E/staged-drive.apk")" = "$SIZE";cmp -s "$APK" "$E/staged-drive.apk"
 printf '%s\n' "$RELEASE_NOTES" > "$E/release-notes.txt"
+bash tools/ensure_beta_github_release.sh "$VERSION" "$SOURCE" "$APK" "$SHA" "$SIZE" "$E/release-notes.txt" "$APK_NAME" "$E/github-release.json"
+APK_URL=$(jq -r '.apk_url' "$E/github-release.json");test -n "$APK_URL";echo "::add-mask::$APK_URL"
+
 PUBLISHED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 if ! python3 tools/gas_ota_static_contract.py --version "$VERSION" --version-code "$CODE" --sha256 "$SHA" --size "$SIZE" --apk-url "$APK_URL" --published-at "$PUBLISHED_AT" --notes-file "$E/release-notes.txt" --receipt "$E/gas-contract.json" --description "Pick Pack 1291 exact Beta97 OTA contract"; then
   printf '%s\n' "Khôi phục hợp đồng OTA exact $PREV" > "$E/base-notes.txt"
@@ -156,9 +151,10 @@ jq -S '.authority' "$E/authority-before.json" > "$E/ab";jq -S '.authority' "$E/a
 
 jq -n --arg v "$VERSION" --argjson c "$CODE" --arg source "$SOURCE" --arg h "$SHA" --argjson z "$SIZE" --arg signer "$SIGNER" \
   --arg file "$FILE_ID" --arg url "$RETURNED_URL" --arg main "$MAIN_AFTER" --argjson uploaded "$UPLOADED_NEW" \
-  --slurpfile beta "$E/beta-after.json" --slurpfile current "$E/beta-current.json" --slurpfile stable "$E/stable-after.json" --slurpfile auth "$E/authority-after.json" --slurpfile baseline "$E/baseline-evidence.json" --slurpfile contract "$E/gas-contract.json" \
+  --slurpfile beta "$E/beta-after.json" --slurpfile current "$E/beta-current.json" --slurpfile stable "$E/stable-after.json" --slurpfile auth "$E/authority-after.json" --slurpfile baseline "$E/baseline-evidence.json" --slurpfile contract "$E/gas-contract.json" --slurpfile gh "$E/github-release.json" --slurpfile basegh "$E/base-github-release.json" \
   '{status:"PASS",channel:"BETA",version_name:$v,version_code:$c,source_sha:$source,apk_sha256:$h,apk_size:$z,signer_sha256:$signer,
-    drive_file_id:$file,apk_url:$url,uploaded_new:$uploaded,ota_exact_bytes:true,ota_contract_mode:"GAS_STATIC_EXACT",baseline_evidence:$baseline[0],gas_contract:$contract[0],
+    drive_file_id:$file,apk_url:$url,uploaded_new:$uploaded,ota_exact_bytes:true,ota_transport:"GITHUB_RELEASE_CANONICAL",drive_staging_exact:true,ota_contract_mode:"GAS_STATIC_EXACT",
+    baseline_evidence:$baseline[0],baseline_github_release:$basegh[0],github_release:$gh[0],gas_contract:$contract[0],
     beta_readback:$beta[0],target_current_readback:$current[0],stable_readback:$stable[0],stable_unchanged:true,main_sha:$main,main_unchanged:true,authority:$auth[0].authority,authority_change:"NONE"}' > "$E/receipt.json"
 cat "$E/receipt.json"
 ,v);assert m and int(m.group(2))>0
