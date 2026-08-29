@@ -212,7 +212,7 @@ class OperationalDataStore(context: Context) {
         readableDb().query(
             "mutation_outbox",
             arrayOf("event_id","body_json","exclusive","status","attempt_count","queued_at"),
-            "status IN ('LOCAL_PENDING','PENDING','RETRY','OFFLINE_PROVISIONAL')",
+            "status IN ('LOCAL_PENDING','PENDING','RETRY','OFFLINE_PROVISIONAL','LAN_CONFIRMED')",
             null,null,null,"queued_at ASC",limit.coerceIn(1,500).toString(),
         ).use { c ->
             while(c.moveToNext()) runCatching{JSONObject(c.getString(1))}.getOrNull()?.let{body->
@@ -228,7 +228,7 @@ class OperationalDataStore(context: Context) {
         readableDb().query(
             "mutation_outbox",
             arrayOf("event_id", "body_json", "exclusive", "status", "attempt_count", "queued_at"),
-            "status IN ('LOCAL_PENDING','PENDING','RETRY','OFFLINE_PROVISIONAL') AND next_attempt_at <= ?",
+            "status IN ('LOCAL_PENDING','PENDING','RETRY','OFFLINE_PROVISIONAL','LAN_CONFIRMED') AND next_attempt_at <= ?",
             arrayOf(now), null, null, "queued_at ASC", limit.coerceIn(1, 500).toString(),
         ).use { c ->
             while (c.moveToNext()) {
@@ -252,7 +252,7 @@ class OperationalDataStore(context: Context) {
         readableDb().query(
             "mutation_outbox",
             arrayOf("event_id", "body_json", "exclusive", "status", "attempt_count", "queued_at", "updated_at"),
-            "status IN ('LOCAL_PENDING','PENDING','RETRY','OFFLINE_PROVISIONAL') OR status='CONFIRMED'",
+            "status IN ('LOCAL_PENDING','PENDING','RETRY','OFFLINE_PROVISIONAL','LAN_CONFIRMED') OR status='CONFIRMED'",
             null, null, null, "queued_at ASC", limit.coerceIn(1, 1000).toString(),
         ).use { c ->
             while (c.moveToNext()) {
@@ -325,6 +325,55 @@ class OperationalDataStore(context: Context) {
     fun markMutationRejected(eventId: String, error: String) = markMutationResolved(eventId, "REJECTED", error)
     fun markMutationReviewRequired(eventId: String, error: String) = markMutationResolved(eventId, "REVIEW_REQUIRED", error)
 
+    /** LAN ACK is provisional. The exact event remains in outbox until canonical Service confirms it. */
+    fun markLanConfirmed(eventId:String,generation:Long)=withDbLock{
+        val now=System.currentTimeMillis();val db=writableDb();db.beginTransaction()
+        try{
+            db.execSQL("UPDATE mutation_outbox SET status='LAN_CONFIRMED',next_attempt_at=?,last_error=?,updated_at=? WHERE event_id=? AND status NOT IN ('CONFIRMED','REJECTED','REVIEW_REQUIRED')",arrayOf(now+30_000L,"LAN_GENERATION_$generation",now,eventId))
+            db.execSQL("UPDATE local_history SET status='LAN_CONFIRMED',last_error=?,updated_at=? WHERE event_id=? AND status NOT IN ('CONFIRMED','REJECTED','REVIEW_REQUIRED')",arrayOf("LAN_GENERATION_$generation",now,eventId))
+            db.setTransactionSuccessful()
+        }finally{db.endTransaction()}
+    }
+
+    data class LanPersistResult(val ok:Boolean,val error:String?=null)
+
+    /** Master/backup persist exact event bytes before ACK. Exclusive resource keys are fenced locally. */
+    fun persistLanReplica(body:JSONObject,sourceDevice:String,generation:Long,replicaRole:String):LanPersistResult=withDbLock{
+        val eventId=body.optString("event_id").trim()
+        if(eventId.isBlank())return@withDbLock LanPersistResult(false,"LAN_EVENT_ID_REQUIRED")
+        val payload=body.optJSONObject("payload")?:JSONObject()
+        val action=body.optString("action").trim()
+        val mnv=payload.optString("mnv").trim()
+        val now=System.currentTimeMillis();val db=writableDb();db.beginTransaction()
+        try{
+            val existing=db.rawQuery("SELECT body_json FROM lan_event_replicas WHERE event_id=?",arrayOf(eventId)).use{c->if(c.moveToFirst())c.getString(0)else null}
+            if(existing!=null){
+                if(existing!=body.toString())return@withDbLock LanPersistResult(false,"LAN_EVENT_ID_PAYLOAD_MISMATCH")
+                db.setTransactionSuccessful();return@withDbLock LanPersistResult(true)
+            }
+            if(action=="exit"&&mnv.isNotBlank())db.delete("lan_resource_reservations","mnv=?",arrayOf(mnv))
+            val keys=linkedSetOf<String>()
+            if(action=="enter"||action=="resource_change"){
+                listOf("pda_serial" to "PDA","user_pick" to "USER_PICK","pack_table" to "PACK_TABLE","user_pack" to "USER_PACK").forEach{(field,type)->
+                    val v=payload.optString(field).trim();if(v.isNotBlank())keys.add("$type|$v")
+                }
+            }
+            for(key in keys){
+                val owner=db.rawQuery("SELECT event_id,mnv FROM lan_resource_reservations WHERE resource_key=?",arrayOf(key)).use{c->if(c.moveToFirst())Pair(c.getString(0),c.getString(1))else null}
+                if(owner!=null&&owner.first!=eventId&&owner.second!=mnv)return@withDbLock LanPersistResult(false,"LAN_RESOURCE_CONFLICT:$key")
+            }
+            db.execSQL("INSERT INTO lan_event_replicas(event_id,body_json,source_device,generation,replica_role,stored_at) VALUES(?,?,?,?,?,?)",arrayOf(eventId,body.toString(),sourceDevice,generation,replicaRole,now))
+            for(key in keys)db.execSQL("INSERT OR REPLACE INTO lan_resource_reservations(resource_key,event_id,mnv,generation,updated_at) VALUES(?,?,?,?,?)",arrayOf(key,eventId,mnv,generation,now))
+            db.setTransactionSuccessful();LanPersistResult(true)
+        }finally{db.endTransaction()}
+    }
+
+    fun lanReplica(eventId:String):JSONObject?=withDbLock{
+        readableDb().rawQuery("SELECT body_json FROM lan_event_replicas WHERE event_id=?",arrayOf(eventId)).use{c->if(c.moveToFirst())runCatching{JSONObject(c.getString(0))}.getOrNull() else null}
+    }
+
+    fun lanReplicaCount():Int=withDbLock{readableDb().rawQuery("SELECT COUNT(*) FROM lan_event_replicas",null).use{c->if(c.moveToFirst())c.getInt(0)else 0}}
+
     /** Google Emergency Ledger ACK is provisional capture only; the local event remains replayable. */
     fun markEmergencyCaptured(eventId:String)=withDbLock{
         val now=System.currentTimeMillis();val db=writableDb();db.beginTransaction()
@@ -395,7 +444,7 @@ class OperationalDataStore(context: Context) {
             while(c.moveToNext()){
                 val count=c.getInt(1)
                 when(c.getString(0)){
-                    "LOCAL_PENDING","PENDING","RETRY","OFFLINE_PROVISIONAL"->pending+=count
+                    "LOCAL_PENDING","PENDING","RETRY","OFFLINE_PROVISIONAL","LAN_CONFIRMED"->pending+=count
                     "REVIEW_REQUIRED"->review+=count
                     "REJECTED"->rejected+=count
                     "CONFIRMED"->confirmed+=count
@@ -448,11 +497,12 @@ class OperationalDataStore(context: Context) {
 
     private class DbHelper(context: Context) : SQLiteOpenHelper(context, DB_NAME, null, DB_VERSION) {
         init { setWriteAheadLoggingEnabled(false) }
-        override fun onCreate(db: SQLiteDatabase) { createV1(db); createV2(db); createV3(db) }
+        override fun onCreate(db: SQLiteDatabase) { createV1(db); createV2(db); createV3(db); createV4(db) }
         override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
             // Never drop day_snapshot, mutation_outbox, or local_history during an installed-Beta upgrade.
             if (oldVersion < 2) createV2(db)
             if (oldVersion < 3) createV3(db)
+            if (oldVersion < 4) createV4(db)
         }
         private fun createV1(db: SQLiteDatabase) {
             db.execSQL("""CREATE TABLE IF NOT EXISTS day_snapshot(
@@ -496,13 +546,36 @@ class OperationalDataStore(context: Context) {
                 SELECT event_id,body_json,status,COALESCE(last_error,''),queued_at,updated_at FROM mutation_outbox
             """.trimIndent())
         }
+        private fun createV4(db:SQLiteDatabase){
+            db.execSQL("""CREATE TABLE IF NOT EXISTS lan_event_replicas(
+                event_id TEXT PRIMARY KEY NOT NULL,
+                body_json TEXT NOT NULL,
+                source_device TEXT NOT NULL,
+                generation INTEGER NOT NULL,
+                replica_role TEXT NOT NULL,
+                stored_at INTEGER NOT NULL
+            )""".trimIndent())
+            db.execSQL("CREATE INDEX IF NOT EXISTS idx_lan_event_generation ON lan_event_replicas(generation,stored_at)")
+            db.execSQL("""CREATE TABLE IF NOT EXISTS lan_resource_reservations(
+                resource_key TEXT PRIMARY KEY NOT NULL,
+                event_id TEXT NOT NULL,
+                mnv TEXT NOT NULL,
+                generation INTEGER NOT NULL,
+                updated_at INTEGER NOT NULL
+            )""".trimIndent())
+            db.execSQL("""CREATE TABLE IF NOT EXISTS lan_meta(
+                meta_key TEXT PRIMARY KEY NOT NULL,
+                meta_value TEXT NOT NULL,
+                updated_at INTEGER NOT NULL
+            )""".trimIndent())
+        }
 
     }
 
     companion object {
         // Legacy filename retained intentionally for in-place migration; semantics are exact N..N-6.
         private const val DB_NAME = "pp_operational_45d.db"
-        private const val DB_VERSION = 3
+        private const val DB_VERSION = 4
         private const val TZ = "Asia/Ho_Chi_Minh"
         private val DB_LOCK = Any()
         private val MEMORY = ConcurrentHashMap<String, JSONObject>()
