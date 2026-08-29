@@ -1,6 +1,6 @@
 {
   "stage": "VERIFY_ONLY",
-  "mode": "BETA98_VERIFY_EXACT_LOCKED_CANDIDATE_ADB_GUARD_RUNTIME_FIX",
+  "mode": "BETA98_VERIFY_EXACT_LOCKED_CANDIDATE_PDA_EXIT_HARNESS_ALIGNED",
   "version_name": "0.4.2-beta.98",
   "version_code": 104,
   "base_version": "0.4.2-beta.97",
@@ -42,8 +42,8 @@
   "base_live_final_artifact_name": "beta-final-33252891249",
   "apk_transport": "GITHUB_RELEASE_ONLY",
   "google_drive_apk": "FORBIDDEN",
-  "visual_matrix": "PENDING_ADB_GUARD_RUNTIME_RETRY",
-  "pda_functional_pre_ota": "PENDING_ADB_GUARD_RUNTIME_RETRY",
+  "visual_matrix": "PENDING_PDA_EXIT_HARNESS_ALIGNED",
+  "pda_functional_pre_ota": "PENDING_PDA_EXIT_HARNESS_ALIGNED",
   "back_api36": "PENDING",
   "candidate_run_id": 33279188816,
   "candidate_artifact_name": "beta-candidate-33279188816",
@@ -53,7 +53,7 @@
   "apk_size": 13544437,
   "candidate_artifact_id": 9722490457,
   "candidate_artifact_digest": "sha256:30d8f5062bbc8ecb79b2c60f067605b4da9a9f8917c44c8221e6929286d3bd7e",
-  "harness_fast_check_run_id": 33281381001,
+  "harness_fast_check_run_id": 33281578813,
   "last_service_failure": "D1_REHEARSAL_TEMP_CONFIG_MIGRATIONS_PATH_RECOVERED_TO_BASE",
-  "last_visual_failure": "ADB_STABLE_GUARD_BASH_SET_U_LOCAL_INITIALIZATION_FIXED"
+  "last_visual_failure": "HARNESS_EXPECTED_FORBIDDEN_LEGACY_PDA_SCALAR_FALLBACK_FIXED"
 }
