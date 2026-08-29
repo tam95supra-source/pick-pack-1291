@@ -3,6 +3,7 @@ import { currentAuthority } from "./core";
 import { bangkokToday, ensureCurrentBangkokBusinessDate } from "./business_date";
 import { historicalSessionDetail } from "./historical_beta78";
 import { outboundAction } from "./outbound_beta78";
+import { mealAttendanceList } from "./meal_attendance";
 import { apiError, b64u, b64uDecode, hmacB64u, json, nowIso, readJsonBody } from "./util";
 
 const GAS_API_URL = "https://script.google.com/macros/s/AKfycbzbEoGfbNg6s2HnP-gUpcBJ7mMIkVBtYuQKMndb9seDV2c55lQwSUO1GZ-LtQ2CxMCauA/exec";
@@ -146,6 +147,7 @@ export async function mobileRead(request:Request,env:Env):Promise<Response>{
   if(action==="history_shared")return sharedHistory(env,body);
   if(action==="old_active_sessions")return oldActiveSessions(env);
   if(action==="historical_session_detail")return historicalSessionDetail(env,body);
+  if(action==="meal_attendance_list")return mealAttendanceList(request,env);
   if(action.startsWith("outbound_"))return outboundAction(env,auth,action,body);
   if(action==="runtime_status")return json({ok:true,source:"SERVICE_D1",authority:await currentAuthority(env.DB),service_generation:env.SERVICE_GENERATION});
   return apiError("MOBILE_READ_ACTION_UNSUPPORTED","VALIDATION",400);
