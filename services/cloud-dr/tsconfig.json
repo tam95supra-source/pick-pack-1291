@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "target": "ES2023",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": [
+      "ES2023",
+      "DOM"
+    ],
+    "strict": true,
+    "skipLibCheck": true,
+    "noUncheckedIndexedAccess": true,
+    "types": []
+  },
+  "include": [
+    "src/**/*.ts",
+    "../../service/src/core.ts",
+    "../../service/src/legacy.ts",
+    "../../service/src/auth.ts",
+    "../../service/src/domain.ts",
+    "../../service/src/util.ts",
+    "../../service/src/business_date.ts"
+  ]
+}

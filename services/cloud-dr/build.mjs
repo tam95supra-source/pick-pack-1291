@@ -1,0 +1,1 @@
+import {build} from "esbuild";for(const [name,platform] of [["render","node"],["deno","neutral"]])await build({entryPoints:[`src/${name}.ts`],bundle:true,format:"esm",platform,target:"es2023",outfile:`dist/${name}.mjs`,packages:name==="deno"?"bundle":"bundle"});console.log("cloud_dr_build=PASS");
