@@ -67,6 +67,7 @@ class OperationsActivity : Activity() {
                     "REPORT" -> reportRealtimeRefresh?.invoke(changedDates)
                     "HISTORY" -> historyRealtimeRefresh?.invoke(changedDates)
                     "EMPLOYEE" -> employeeTimelineRealtimeRefresh?.invoke(changedDates) // Timeline only; never rebuild the interactive employee form.
+                    "MEAL_ATTENDANCE" -> PostMealAttendanceFeature.onRealtime(changedDates)
                     "EMPLOYEE_LOADING", "PDA_EXCHANGE" -> Unit
                 }
             }
@@ -207,6 +208,7 @@ class OperationsActivity : Activity() {
     private fun isActualSuper() = role == "SUPERADMIN"
 
     private fun businessHome(){
+        PostMealAttendanceFeature.leave()
         module="BUSINESS";screenState="BUSINESS"
         val root=baseRoot("NGHIỆP VỤ");val body=body().apply{setPadding(dp(8),dp(6),dp(8),dp(76))}
         val dynamic=column(bg)
@@ -226,7 +228,7 @@ class OperationsActivity : Activity() {
         renderDynamic()
         val cards=listOf(
             businessCard(R.drawable.ic_pp_scan,"Quét QR nhân sự","",true){employeeScan()},
-            businessCard(R.drawable.ic_pp_attendance,"Điểm danh nhân sự","",true){TopNotice.show(this,"Điểm danh nhân sự sẽ được thiết kế sau.",TopNotice.Kind.INFO)},
+            businessCard(R.drawable.ic_pp_attendance,"Điểm danh nhân sự","",true){postMealAttendanceScreen()},
             businessCard(R.drawable.ic_pp_pda_exchange,"Đổi / trả PDA","",true){pdaExchangeScreen()},
             businessCard(R.drawable.ic_pp_drop_receive,"Nhận hàng Rớt","",true){dropReceiveScreen()},
             businessCard(R.drawable.ic_pp_report,"Báo cáo nhân sự","",isAdmin()){reportScreen()},
@@ -243,6 +245,12 @@ class OperationsActivity : Activity() {
         attach(root,body)
     }
 
+
+    private fun postMealAttendanceScreen(){
+        module="BUSINESS"
+        screenState="MEAL_ATTENDANCE"
+        setScreen(PostMealAttendanceFeature.build(this,api){businessHome()})
+    }
 
     private fun dropReceiveScreen(){
         module="BUSINESS"
@@ -433,20 +441,33 @@ class OperationsActivity : Activity() {
     // S40_OWNER_LOCAL_FIRST_REPAIR: owner lock = SQLite/PDA first, Service reconcile later.
     // S45_BETA40_OWNER_FIXES: never let an N-1 Service response replace current N local context.
     private fun loadEmployee(mnv: String, button: Button? = null, forceRefresh:Boolean=false) {
+        val qrStarted=android.os.SystemClock.elapsedRealtime()
         val resolved=MasterDataCache.resolveEmployeeMnv(this,mnv)
+        val resolvedAt=android.os.SystemClock.elapsedRealtime()
         if(resolved.isBlank()){button?.isEnabled=true;showError("MNV_REQUIRED");return}
         val generation=++employeeLookupGeneration
         val currentDate=operationalStore.businessDate()
         val localNow=PdaLocalProjection.employeeContext(this,resolved)
         val localOptions=PdaLocalProjection.resourceOptions(this,resolved)
         val cached=MasterDataCache.employee(this,resolved)
-        val localInteractive=localNow!=null&&localNow.optBoolean("session_known",true)&&!localNow.optString("state").equals("NOT_ENTERED",true)
+        val projectedAt=android.os.SystemClock.elapsedRealtime()
+        val localInteractive=localNow!=null&&localNow.optBoolean("session_known",true)
+        val renderStarted=android.os.SystemClock.elapsedRealtime()
         when{
-            localNow!=null&&localNow.optString("state").equals("NOT_ENTERED",true)->renderCachedEmployee(localNow.optJSONObject("employee")?:cached?:JSONObject().put("mnv",resolved))
-            localNow!=null->renderEmployeeIfChanged(localNow,localOptions)
+            localInteractive->renderEmployeeIfChanged(localNow!!,localOptions)
+            localNow!=null->renderCachedEmployee(localNow.optJSONObject("employee")?:cached?:JSONObject().put("mnv",resolved))
             cached!=null->renderCachedEmployee(cached)
         }
+        val localRenderedAt=android.os.SystemClock.elapsedRealtime()
+        QrPerformanceDiagnostics.recordLocal(
+            this,resolved,resolvedAt-qrStarted,projectedAt-resolvedAt,localRenderedAt-renderStarted,
+            localNow?.optString("state").orEmpty(),localNow?.optString("source").orEmpty()
+        )
+        val serviceStarted=android.os.SystemClock.elapsedRealtime()
         api.call("employee_context",JSONObject().put("mnv",resolved).put("include_options",true).put("include_labor",true)){result->runOnUiThread{
+            val serviceTotal=android.os.SystemClock.elapsedRealtime()-serviceStarted
+            val serviceRtt=result.json?.optLong("_service_rtt_ms",-1L)?.takeIf{it>=0L}
+            QrPerformanceDiagnostics.recordService(this@OperationsActivity,resolved,serviceTotal,serviceRtt,forceRefresh||!localInteractive,result.code)
             if(generation!=employeeLookupGeneration)return@runOnUiThread
             button?.isEnabled=true
             val overlay=PdaLocalProjection.employeeContext(this@OperationsActivity,resolved)
@@ -2132,7 +2153,7 @@ class OperationsActivity : Activity() {
             "ACCOUNT_MANAGER"->settingsScreen()
             "EMPLOYEE","EMPLOYEE_LOADING","EMPLOYEE_LOOKUP_ERROR"->employeeScan()
             "SHIFT_STAFF_LIST"->employeeScan()
-            "SCAN","LABOR_HOME","RESOURCE_HOME","REPORT","LISTS","PDA_EXCHANGE","DROP_RECEIVE"->businessHome()
+            "SCAN","LABOR_HOME","RESOURCE_HOME","REPORT","LISTS","PDA_EXCHANGE","DROP_RECEIVE","MEAL_ATTENDANCE"->businessHome()
             "HISTORY_DETAIL"->historyScreen()
             else->{
                 if(isRootScreen()&&tabHistory.isNotEmpty()){
