@@ -81,7 +81,7 @@ def contract_function(args):
   const raw=String((body&&((body.channel||body._app_channel)))||'BETA').trim().toUpperCase();
   const channel=raw==='STABLE'?'STABLE':'BETA';
   const current=String((body&&((body.current_version||body._app_version)))||'').trim();
-  if(channel==='STABLE') return {{ok:true,source:'GITHUB_RELEASE',channel:'STABLE',available:false,reason:'NO_APK'}};
+  if(channel==='STABLE') return {{ok:true,source:'GOOGLE_DRIVE',channel:'STABLE',available:false,reason:'NO_APK'}};
   const parts=function(v){{return (String(v||'').match(/\\d+/g)||[]).slice(0,6).map(function(x){{return Number(x)||0;}});}};
   const newer=function(a,b){{const aa=parts(a),bb=parts(b),n=Math.max(aa.length,bb.length);for(let i=0;i<n;i++){{const av=aa[i]||0,bv=bb[i]||0;if(av!==bv)return av>bv;}}return false;}};
   const version={js(args.version)}, available=newer(version,current);
