@@ -488,6 +488,13 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     open("BUSINESS");
     waitText("Quét QR nhân sự",true,true,12000L);
     shot(tag+"-01-business");
+    clickText("Điểm danh nhân sự",true,10000L);
+    waitText("ĐIỂM DANH SAU GIỜ ĂN",true,false,10000L);
+    waitText("Quét MNV điểm danh trở lại",false,false,10000L);
+    shot(tag+"-01b-beta95-meal");
+    try{ui.executeShellCommand("input keyevent 4").close();}catch(Exception ignored){}
+    SystemClock.sleep(300L);
+    waitText("Quét QR nhân sự",true,true,10000L);
 
     clickText("Quét QR nhân sự",true,12000L);
     long end=SystemClock.uptimeMillis()+12000L;
@@ -582,6 +589,10 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     clickText("Điểm danh nhân sự",true,10000L);
     waitText("ĐIỂM DANH SAU GIỜ ĂN",true,false,10000L);
     waitText("Quét MNV điểm danh trở lại",false,false,10000L);
+    shot(tag+"-00-beta95-meal");
+    setEmployee("981829999");
+    waitText("Nhân sự không có phiên đang hoạt động trong ngày",false,false,10000L);
+    mark("meal_invalid_employee_guard");
     setEmployee(mnv);
     waitText("Đã điểm danh",false,false,10000L);
     setEmployee(mnv);
