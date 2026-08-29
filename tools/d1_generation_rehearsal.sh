@@ -4,6 +4,7 @@ set -Eeuo pipefail
 : "${CLOUDFLARE_ACCOUNT_ID:?CLOUDFLARE_ACCOUNT_ID required}"
 OUT="${ROLLOVER_REHEARSAL_OUT:-/tmp/beta98-d1-rollover}"
 rm -rf "$OUT";mkdir -p "$OUT"
+ln -sfn "$(pwd)/migrations" "$OUT/migrations"
 SUFFIX=$(printf '%s' "${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}-$(date +%s)"|sha256sum|cut -c1-10)
 SRC="pp1291-rh-$SUFFIX-a";G2="pp1291-rh-$SUFFIX-b";G3="pp1291-rh-$SUFFIX-c"
 IDS=()

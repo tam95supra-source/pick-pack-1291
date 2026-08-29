@@ -7,6 +7,7 @@ CONFIG="${WRANGLER_CONFIG:-wrangler.live.jsonc}"
 LIMITS="${PROVIDER_LIMITS:-../config/provider_free_limits.json}"
 OUT="${AUTOPILOT_OUT_DIR:-/tmp/beta89-service-live/d1-autopilot}"
 mkdir -p "$OUT"
+ln -sfn "$(pwd)/migrations" "$OUT/migrations"
 DB_LIMIT=$(jq -er '.cloudflare_workers_free.d1_database_bytes' "$LIMITS")
 ACCOUNT_LIMIT=$(jq -er '.cloudflare_workers_free.d1_account_bytes' "$LIMITS")
 MAX_DBS=$(jq -er '.cloudflare_workers_free.d1_database_count' "$LIMITS")
