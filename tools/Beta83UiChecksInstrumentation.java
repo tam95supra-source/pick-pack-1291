@@ -381,7 +381,8 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
       .put("staff",new JSONArray()
         .put(new JSONObject().put("mnv",mnv).put("full_name","Beta83 Test A").put("phone","0900000081").put("start_date","01/08/2026").put("main_position","PICK").put("supplier","TEST").put("department","OPS").put("site","1291").put("warehouse","HY1"))
         .put(new JSONObject().put("mnv",mnv2).put("full_name","Beta83 Test B").put("phone","0900000082").put("start_date","02/08/2026").put("main_position","PACK").put("supplier",JSONObject.NULL).put("department","OPS").put("site","1291").put("warehouse","HY1"))
-        .put(new JSONObject().put("mnv",mnv3).put("full_name","Beta83 Test C").put("phone","0900000083").put("start_date","03/08/2026").put("main_position","PACK").put("supplier","TEST").put("department","OPS").put("site","1291").put("warehouse","HY1")))
+        .put(new JSONObject().put("mnv",mnv3).put("full_name","Beta83 Test C").put("phone","0900000083").put("start_date","03/08/2026").put("main_position","PACK").put("supplier","TEST").put("department","OPS").put("site","1291").put("warehouse","HY1"))
+        .put(new JSONObject().put("mnv","981820084").put("full_name","Beta95 Local New").put("phone","0900000084").put("start_date","04/08/2026").put("main_position","PICK").put("supplier","TEST").put("department","OPS").put("site","1291").put("warehouse","HY1")))
       .put("pdas",new JSONArray()).put("pda_statuses",new JSONArray().put("Tốt"))
       .put("user_picks",new JSONArray()).put("pack_bundles",new JSONArray());
 
@@ -578,6 +579,29 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     require(clickableNode(syncChip)!=null,"SYNC_CHIP_MUST_BE_CLICKABLE");
     require(clickableNode(serviceChip)==null,"SERVICE_CHIP_MUST_BE_DISPLAY_ONLY");
     waitText("Điểm danh nhân sự",true,true,10000L);
+    clickText("Điểm danh nhân sự",true,10000L);
+    waitText("ĐIỂM DANH SAU GIỜ ĂN",true,false,10000L);
+    waitText("Quét MNV điểm danh trở lại",false,false,10000L);
+    setEmployee(mnv);
+    waitText("Đã điểm danh",false,false,10000L);
+    setEmployee(mnv);
+    waitText("Nhân sự đã điểm danh lúc",false,false,10000L);
+    mark("meal_attendance_module");mark("meal_current_day_scan");mark("meal_duplicate_local");
+    try{ui.executeShellCommand("input keyevent 4").close();}catch(Exception ignored){}
+    SystemClock.sleep(300L);
+    waitText("Điểm danh nhân sự",true,true,10000L);
+
+    clickText("Quét QR nhân sự",true,12000L);
+    setEmployee("981820084");
+    waitText("VÀO CA",true,true,10000L);
+    require(findText("ĐANG XÁC NHẬN TRẠNG THÁI PHIÊN",false,false)==null,"KNOWN_NOT_ENTERED_WAITED_FOR_SERVICE");
+    android.content.SharedPreferences qp=target.getSharedPreferences("pp_qr_perf_v95",Context.MODE_PRIVATE);
+    require("NOT_ENTERED".equals(qp.getString("state","")),"QR_LOCAL_STATE_NOT_ENTERED_MISSING");
+    long localMs=qp.getLong("resolve_ms",9999L)+qp.getLong("projection_ms",9999L)+qp.getLong("render_ms",9999L);
+    require(localMs<500L,"QR_LOCAL_FAST_PATH_TOO_SLOW:"+localMs);
+    mark("qr_local_not_entered_no_service_wait");
+    business=open("BUSINESS");
+
     try{ui.executeShellCommand("input keyevent 4").close();}catch(Exception ignored){}
     SystemClock.sleep(250L);
     waitText("Quét QR nhân sự",true,true,10000L);
