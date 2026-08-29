@@ -846,13 +846,14 @@ class OperationsActivity : Activity() {
     private fun positionArray(s:JSONObject):JSONArray=s.optJSONArray("positions_v64")?:JSONArray()
     private fun activePositions(s:JSONObject):List<JSONObject>{val out=mutableListOf<JSONObject>();val a=positionArray(s);for(i in 0 until a.length()){val x=a.optJSONObject(i)?:continue;if(x.optString("state").equals("ACTIVE",true))out.add(x)};return out}
     private fun activeAssignments(s:JSONObject,type:String=""):List<JSONObject>{val out=mutableListOf<JSONObject>();val a=assignmentArray(s);for(i in 0 until a.length()){val x=a.optJSONObject(i)?:continue;if(!x.optString("state").equals("ACTIVE",true))continue;if(type.isNotBlank()&&!x.optString("resource_type").equals(type,true))continue;out.add(x)};return out}
-    // Beta94: if the authoritative assignment array exists, only an ACTIVE PDA assignment means this session currently has a PDA.
-    // Legacy pda_serial is used only for old snapshots that do not contain resource_assignments_v64 at all.
-    private fun exitPdaId(s:JSONObject):String{
-        val active=activeAssignments(s,"PDA").firstOrNull()?.optString("resource_id").orEmpty().trim()
-        if(active.isNotBlank())return active
-        return if(s.has("resource_assignments_v64"))"" else s.optString("pda_serial").trim()
-    }
+    // PDA-EXIT-001: only the exact current-session authoritative assignment snapshot may require a PDA exit check.
+    // Legacy employee/profile/session scalar pda_serial is never evidence for the current session.
+    private fun exitPdaDecision(s:JSONObject):SessionPdaAuthority.Decision=
+        SessionPdaAuthority.decide(
+            authoritativeAssignmentsPresent=s.has("resource_assignments_v64"),
+            activePdaIds=activeAssignments(s,"PDA").map{it.optString("resource_id").trim()}.filter{it.isNotBlank()},
+        )
+    private fun exitPdaId(s:JSONObject):String=exitPdaDecision(s).activePdaId.orEmpty()
     private fun visibleAssignments(s:JSONObject,type:String=""):List<JSONObject>{val out=mutableListOf<JSONObject>();val a=assignmentArray(s);for(i in 0 until a.length()){val x=a.optJSONObject(i)?:continue;if(x.optString("state").uppercase() !in setOf("ACTIVE","USED"))continue;if(type.isNotBlank()&&!x.optString("resource_type").equals(type,true))continue;out.add(x)};return out}
     private fun activePositionLabels(s:JSONObject):List<String>{val out=mutableListOf<String>();val a=positionArray(s);for(i in 0 until a.length()){val x=a.optJSONObject(i)?:continue;if(x.optString("state").equals("ACTIVE",true)){val v=x.optString("position_label").ifBlank{x.optString("position_key")};if(v.isNotBlank()&&!out.contains(v))out.add(v)}};return out}
     private fun allPositionLabels(s:JSONObject):List<String>{val out=mutableListOf<String>();val a=positionArray(s);for(i in 0 until a.length()){val x=a.optJSONObject(i)?:continue;if(x.optString("state").uppercase() !in setOf("ACTIVE","USED"))continue;val v=x.optString("position_label").ifBlank{x.optString("position_key")};if(v.isNotBlank()&&!out.contains(v))out.add(v)};return out}
@@ -1111,8 +1112,39 @@ class OperationsActivity : Activity() {
     private fun resolveActiveSessionForExit(mnvRaw:String,localSession:JSONObject,done:(JSONObject?,JSONObject?,String?)->Unit){
         val mnv=mnvRaw.trim()
         if(mnv.isBlank()){done(null,null,"MNV_REQUIRED");return}
-        if(usableExitSession(localSession,mnv)){done(JSONObject(localSession.toString()),null,null);return}
         val generation=employeeLookupGeneration
+
+        fun finishWithAuthoritativeResources(candidate:JSONObject?,activeLabor:JSONObject?){
+            if(!usableExitSession(candidate,mnv)){
+                done(null,activeLabor,"SESSION_EXIT_FIELDS_REQUIRED");return
+            }
+            val session=JSONObject(candidate!!.toString())
+            val decision=exitPdaDecision(session)
+            if(decision.authoritative){
+                done(session,activeLabor,null);return
+            }
+            val sessionId=session.optString("session_id").trim()
+            if(sessionId.isBlank()){done(null,activeLabor,"SESSION_EXIT_FIELDS_REQUIRED");return}
+            api.call("session_resource_snapshot",JSONObject().put("session_id",sessionId).put("mnv",mnv)){snap->runOnUiThread{
+                if(generation!=employeeLookupGeneration||liveEmployeeMnv.trim()!=mnv){done(null,null,"SESSION_EXIT_CONTEXT_STALE");return@runOnUiThread}
+                if(handleAuth(snap)){done(null,null,"UNAUTHORIZED");return@runOnUiThread}
+                if(!snap.ok){done(null,activeLabor,snap.error?:"SESSION_RESOURCE_SNAPSHOT_FAILED");return@runOnUiThread}
+                val raw=snap.json?:JSONObject()
+                val serviceSession=raw.optJSONObject("session")
+                if(serviceSession==null||serviceSession.optString("session_id").trim()!=sessionId||serviceSession.optString("mnv").trim()!=mnv||!serviceSession.optString("state").equals("ACTIVE",true)){
+                    done(null,activeLabor,"SESSION_RESOURCE_SNAPSHOT_MISMATCH");return@runOnUiThread
+                }
+                val merged=mergeResourceSnapshot(JSONObject().put("session",serviceSession).put("state","ACTIVE"),raw).optJSONObject("session")
+                if(!usableExitSession(merged,mnv)||merged?.has("resource_assignments_v64")!=true){
+                    done(null,activeLabor,"SESSION_RESOURCE_AUTHORITY_REQUIRED");return@runOnUiThread
+                }
+                done(JSONObject(merged.toString()),activeLabor,null)
+            }}
+        }
+
+        if(usableExitSession(localSession,mnv)){
+            finishWithAuthoritativeResources(JSONObject(localSession.toString()),null);return
+        }
         api.call("employee_context",JSONObject().put("mnv",mnv).put("include_options",false).put("include_labor",true)){r->runOnUiThread{
             if(generation!=employeeLookupGeneration||liveEmployeeMnv.trim()!=mnv){done(null,null,"SESSION_EXIT_CONTEXT_STALE");return@runOnUiThread}
             if(handleAuth(r)){done(null,null,"UNAUTHORIZED");return@runOnUiThread}
@@ -1122,7 +1154,7 @@ class OperationsActivity : Activity() {
                 val code=if(remote.optString("state").equals("ACTIVE",true))"SESSION_EXIT_FIELDS_REQUIRED" else "SESSION_NOT_ACTIVE"
                 done(null,remote.optJSONObject("active_labor"),code);return@runOnUiThread
             }
-            done(JSONObject(resolved!!.toString()),remote.optJSONObject("active_labor"),null)
+            finishWithAuthoritativeResources(resolved,remote.optJSONObject("active_labor"))
         }}
     }
 
