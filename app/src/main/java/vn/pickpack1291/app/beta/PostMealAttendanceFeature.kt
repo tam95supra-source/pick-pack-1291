@@ -34,6 +34,60 @@ object PostMealAttendanceFeature {
     }
     fun leave(){activeDate="";activeRefresh=null}
 
+    fun buildHomeWarning(activity:Activity,api:BetaApiClient,onOpen:()->Unit):View{
+        val density=activity.resources.displayMetrics.density
+        fun dp(v:Int)=(v*density).toInt()
+        fun round(color:Int,r:Int)=GradientDrawable().apply{setColor(color);cornerRadius=dp(r).toFloat()}
+        val orange=Color.rgb(217,119,6);val red=Color.rgb(139,0,0)
+        val root=LinearLayout(activity).apply{orientation=LinearLayout.VERTICAL;visibility=View.GONE;setPadding(0,0,0,dp(6))}
+        val button=Button(activity).apply{
+            textSize=10.2f;setTextColor(Color.WHITE);typeface=Typeface.DEFAULT_BOLD;isAllCaps=false;gravity=Gravity.CENTER
+            minHeight=dp(46);setPadding(dp(8),dp(5),dp(8),dp(5))
+        }
+        root.addView(button,LinearLayout.LayoutParams(-1,-2))
+        val store=MealAttendanceLocalStore(activity)
+        val today=LocalDate.now(ZoneId.of(TZ)).toString()
+        fun unresolved(source:JSONObject?):Pair<Int,Boolean>{
+            if(source==null)return 0 to false
+            val now=java.time.ZonedDateTime.now(ZoneId.of(TZ));val minutes=now.hour*60+now.minute;val nowMs=System.currentTimeMillis()
+            val items=source.optJSONArray("items")?:JSONArray();var count=0;var severe=false
+            for(i in 0 until items.length()){
+                val x=items.optJSONObject(i)?:continue
+                val shift=x.optString("shift");val due=(shift in setOf("Ca 1","Ca HC")&&minutes>=12*60)||(shift=="Ca 2"&&minutes>=19*60)
+                if(!due)continue
+                var status=x.optString("status_view").ifBlank{x.optString("status").ifBlank{"PENDING"}}
+                if(status=="LATE_EXPECTED"&&x.optString("actual_return_at").isBlank()){
+                    val expected=x.optString("expected_return_at")
+                    if(expected.isNotBlank()&&runCatching{Instant.parse(expected).toEpochMilli()<=nowMs}.getOrDefault(false))status="OVERDUE_LATE"
+                }
+                if(status=="PENDING"||status=="OVERDUE_LATE"){
+                    count++
+                    if(status=="OVERDUE_LATE"||(shift in setOf("Ca 1","Ca HC")&&minutes>=12*60+30)||(shift=="Ca 2"&&minutes>=19*60+30))severe=true
+                }
+            }
+            return count to severe
+        }
+        fun apply(source:JSONObject?){
+            val (count,severe)=unresolved(source)
+            button.clearAnimation()
+            if(count<=0){root.visibility=View.GONE;return}
+            root.visibility=View.VISIBLE
+            button.text="CẢNH BÁO: CÒN $count NHÂN SỰ CHƯA ĐIỂM DANH"
+            button.background=round(if(severe)red else orange,11)
+            if(severe)button.startAnimation(android.view.animation.AlphaAnimation(1f,.55f).apply{
+                duration=760;repeatMode=android.view.animation.Animation.REVERSE;repeatCount=android.view.animation.Animation.INFINITE
+            })
+        }
+        button.setOnClickListener{onOpen()}
+        apply(store.load(today))
+        api.call("meal_attendance_list",JSONObject().put("business_date",today)){r->activity.runOnUiThread{
+            if(r.ok&&r.json!=null){
+                val fresh=JSONObject(r.json.toString());store.save(fresh);apply(fresh)
+            }
+        }}
+        return root
+    }
+
     fun build(activity:Activity,api:BetaApiClient,onBack:()->Unit):View{
         val density=activity.resources.displayMetrics.density
         fun dp(v:Int)=(v*density).toInt()
@@ -194,14 +248,17 @@ object PostMealAttendanceFeature {
             if(mnv.isBlank()){TopNotice.show(activity,"Mã nhân viên không hợp lệ.",TopNotice.Kind.WARNING);return}
             val date=selected.toString()
             if(selected!=today()){TopNotice.show(activity,"Ngày lịch sử chỉ được xem.",TopNotice.Kind.WARNING);return}
+            val ctx=PdaLocalProjection.employeeContext(activity,mnv)
+            val ses=ctx?.optJSONObject("session")
+            val exactCurrentActive=ctx!=null&&ctx.optString("state").equals("ACTIVE",true)&&
+                ses!=null&&ses.optString("state").equals("ACTIVE",true)&&ses.optString("business_date")==date
+            if(!exactCurrentActive){
+                TopNotice.show(activity,"Nhân sự không có phiên đang hoạt động trong ngày.",TopNotice.Kind.WARNING);remoteLoad();return
+            }
             var item=itemList(payload).firstOrNull{it.optString("mnv")==mnv}
             if(item==null){
-                val ctx=PdaLocalProjection.employeeContext(activity,mnv)
-                if(ctx==null||!ctx.optString("state").equals("ACTIVE",true)){
-                    TopNotice.show(activity,"Nhân sự không có phiên đang hoạt động trong ngày.",TopNotice.Kind.WARNING);remoteLoad();return
-                }
-                val emp=ctx.optJSONObject("employee")?:JSONObject();val ses=ctx.optJSONObject("session")?:JSONObject()
-                item=JSONObject().put("business_date",date).put("mnv",mnv).put("shift",ses.optString("shift"))
+                val emp=ctx!!.optJSONObject("employee")?:JSONObject();val activeSession=ses!!
+                item=JSONObject().put("business_date",date).put("mnv",mnv).put("shift",activeSession.optString("shift"))
                     .put("full_name_snapshot",emp.optString("full_name")).put("supplier_snapshot",emp.optString("supplier"))
                     .put("status","PENDING").put("status_view","PENDING")
                 store.addProvisional(date,item);payload=store.load(date)
@@ -214,8 +271,12 @@ object PostMealAttendanceFeature {
             payload=store.load(date);render();scan.setText("")
             val id=UUID.randomUUID().toString()
             api.call("meal_checkin",JSONObject().put("mnv",mnv).put("event_id",id).put("timestamp",at)){r->activity.runOnUiThread{
-                if(!r.ok){TopNotice.show(activity,r.error?:"Chưa ghi được điểm danh; dữ liệu đang được giữ cục bộ.",TopNotice.Kind.WARNING)}
-                else TopNotice.show(activity,"Đã ghi nhận điểm danh.",TopNotice.Kind.SUCCESS)
+                if(!r.ok){
+                    remoteLoad()
+                    val msg=if(r.error=="MEAL_EMPLOYEE_NOT_ACTIVE")"Nhân sự không còn phiên đang hoạt động trong ngày; trạng thái đã được làm mới."
+                        else r.error?:"Chưa ghi được điểm danh; đang làm mới dữ liệu xác nhận."
+                    TopNotice.show(activity,msg,TopNotice.Kind.WARNING)
+                }else TopNotice.show(activity,"Đã ghi nhận điểm danh.",TopNotice.Kind.SUCCESS)
             }}
         }
 
