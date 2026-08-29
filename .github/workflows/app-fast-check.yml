@@ -16,6 +16,7 @@ on:
       - tools/resilience_static_gate.mjs
       - tools/portable_backup_verify.sh
       - tools/d1_generation_autopilot.sh
+      - tools/cloud_dr_provider_preflight.sh
       - qa/**
       - .github/workflows/app-fast-check.yml
   pull_request:
@@ -41,6 +42,11 @@ concurrency:
 jobs:
   fast-check:
     runs-on: ubuntu-24.04
+    env:
+      RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+      TURSO_API_TOKEN: ${{ secrets.TURSO_API_TOKEN }}
+      TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
+      DENO_DEPLOY_TOKEN: ${{ secrets.DENO_DEPLOY_TOKEN }}
     timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
@@ -97,6 +103,10 @@ jobs:
           npm run build
           npm test
           popd
+
+      - name: Validate free cloud DR provider credentials
+        shell: bash
+        run: bash tools/cloud_dr_provider_preflight.sh
 
       - name: Static and Android debug gates
         shell: bash
