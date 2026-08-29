@@ -1,6 +1,6 @@
 {
   "stage": "VERIFY_ONLY",
-  "mode": "VERIFY_EXACT_BETA97_WITH_OWNER_SCOPE_HARNESS",
+  "mode": "VERIFY_EXACT_BETA97_OWNER_SCOPE_HARNESS_RECOVERY",
   "version_name": "0.4.2-beta.97",
   "version_code": 103,
   "base_version": "0.4.2-beta.96",
@@ -25,10 +25,11 @@
   "live": false,
   "release_notes": [
     "Exact Beta97 candidate reused; no rebuild/resign.",
-    "Verifier adds exact-current-day meal scan fence, status header on meal screen, USER History hidden/deeplink blocked, and static home meal warning placement.",
+    "Verifier validates exact-current-day meal scan fence, status header on meal screen, USER History hidden/deeplink blocked, and home meal warning placement.",
+    "Harness recovery replaces brittle duplicate-text count with separate semantic guards for HISTORY navigation and HISTORY screen entry.",
     "Service regression inherited from run 33247859614; app/service bytes unchanged."
   ],
-  "next_action": "VERIFY_EXACT_LOCKED_BETA97_OWNER_SCOPE",
+  "next_action": "VERIFY_EXACT_LOCKED_BETA97_OWNER_SCOPE_AFTER_HARNESS_FIX",
   "signer_sha256": "d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e",
   "candidate_run_id": 33247859614,
   "candidate_artifact_id": 9713456764,
