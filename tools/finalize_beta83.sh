@@ -18,6 +18,8 @@ jq -e --arg v "$VERSION" --arg h "$SHA" --argjson z "$SIZE" --arg s "$SIGNER" '
 ' "$PDA" >/dev/null
 jq -e '.human_visual_pass==true and .visual_matrix=="PASS" and .pda_functional_pre_ota=="PASS" and .fast_check=="PASS"' "$R" >/dev/null
 MAIN=$(jq -r '.main_sha' "$PDA")
+OTA_URL=$(jq -r '.apk_url' "$PUB");OTA_TRANSPORT=$(jq -r '.ota_transport' "$PUB");DRIVE_FILE=$(jq -r '.drive_file_id' "$PUB")
+test -n "$OTA_URL" -a "$OTA_TRANSPORT" = "GITHUB_RELEASE_CANONICAL"
 AUTH_MODE=$(jq -r '.authority.mode' "$PDA");AUTH_SCOPE=$(jq -r '.authority.scope' "$PDA")
 AUTH_EPOCH=$(jq -r '.authority.authority_epoch' "$PDA");AUTH_GEN=$(jq -r '.authority.service_generation' "$PDA")
 NOW=$(date -u '+%Y-%m-%dT%H:%M:%SZ');STAMP=$(date -u '+%Y%m%d-%H%M%S');BRANCH="$GITHUB_REF_NAME"
@@ -41,11 +43,13 @@ cat > CURRENT_STATE.md <<EOF
 - signer_sha256: $SIGNER
 - terminal_run: $GITHUB_RUN_ID
 - fast_check: PASS
-- service_gate: $(jq -r '.service_gate_inherited' "$R")
+- service_gate: $(jq -r '.service_gate' "$R")
 - visual_matrix: PASS 320x568 / 360x640 / 480x800
 - human_visual: PASS
 - pda_functional_pre_ota: PASS
-- beta_ota: exact $VERSION PASS
+- beta_ota: exact $VERSION PASS via $OTA_TRANSPORT
+- beta_ota_url: $OTA_URL
+- drive_beta_staging_file: $DRIVE_FILE
 - stable: unchanged
 - main_sha: $MAIN
 - authority: $AUTH_MODE / $AUTH_SCOPE / epoch $AUTH_EPOCH / generation $AUTH_GEN
@@ -71,25 +75,26 @@ Release $VERSION hoàn tất scope $(jq -r '.scope' "$R"); toàn bộ pre-OTA + 
 - TARGET: PASS/LIVE.
 - CANDIDATE LOCKED: run $(jq -r '.candidate_run_id' "$R"); artifact $(jq -r '.candidate_artifact_id' "$R"); source $SOURCE; SHA256 $SHA; size $SIZE; signer $SIGNER.
 - Fast Check: PASS run $(jq -r '.fast_check_run_id' "$R").
-- Service: $(jq -r '.service_gate_inherited' "$R").
+- Service: $(jq -r '.service_gate' "$R").
 - Visual/PDA pre-OTA: PASS run $(jq -r '.verify_run_id' "$R"), artifact $(jq -r '.verify_artifact_id' "$R").
 - Human visual 320x568 / 360x640 / 480x800: PASS.
 - Stable/main/signer/authority: unchanged.
 
 ## Evidence
-- 3 ô rà soát nhân sự nằm trên ô quét MNV: PASS.
-- Thứ tự công việc: Vị trí → User Pick → PDA → Bàn Pack → User Pack: PASS.
-- RESOURCE_CHANGE hiển thị dữ liệu Trước cập nhật / Sau cập nhật khi service có snapshot; bản ghi cũ fallback rõ ràng: PASS.
-- Diễn biến trong ca sắp xếp mới nhất → cũ nhất: PASS.
-- Sửa/xóa và các thao tác chỉnh sửa được gate bằng mật khẩu HHmm hiện tại theo Asia/Ho_Chi_Minh: PASS.
-- SUPERADMIN thực tế được phép dùng thêm mật khẩu tài khoản cố định qua login verification; không hardcode secret: PASS.
-- OTA baseline → $VERSION exact bytes, SHA/size/signer/version và mở app: PASS.
+- 3 ô Mạng / Đồng bộ / Dịch vụ ghim trên cùng ở Nghiệp vụ và mọi màn scope, gồm Điểm danh: PASS.
+- QR nhân sự local fast-path giữ nguyên; functional + service regression PASS.
+- Điểm danh chỉ chấp nhận ACTIVE session đúng business_date hiện tại; ACTIVE phiên cũ bị chặn: PASS.
+- Cảnh báo chưa điểm danh hiển thị trên cùng Nghiệp vụ và mở đúng màn Điểm danh: PASS.
+- USER không thấy tab Lịch sử và deep-link HISTORY bị chặn; ADMIN/SUPERADMIN giữ quyền: PASS.
+- Human visual 320x568 / 360x640 / 480x800: PASS.
+- OTA baseline $PREV → $VERSION qua $OTA_TRANSPORT; download/install exact SHA/size/signer và mở app: PASS.
+- Drive BẢN THỬ NGHIỆM giữ exact staging APK; public OTA dùng canonical GitHub Release exact asset.
 
 ## Lỗi/root cause/PASS path
-- Scope Beta86: bỏ polling UI 750 ms, chuyển refresh realtime sang event-driven/partial; không đổi backend/authority.
-- Candidate được build/sign đúng một lần từ exact source đã khóa; release harness nhận version từ request.
-- Fast Check exact source PASS; verifier stale HH:mm đã được sửa sang HHmm và chạy VERIFY_ONLY trên exact locked candidate.
-- Không rebuild/resign candidate sau khi lock.
+- Log 17:12/17:17 xác định MEAL_EMPLOYEE_NOT_ACTIVE do app có thể dùng ACTIVE session ngày cũ cho điểm danh ngày hiện tại; sửa current-day fence, không sửa QR core.
+- VERIFY_ONLY lỗi đầu do harness đếm text guard HISTORY cứng; sửa verifier semantics và exact candidate PASS.
+- Publish lỗi DriveApp/public APK của Google; recovery giữ Drive staging nhưng dùng canonical GitHub Release OTA và static GAS ppUpdateCheck_ exact manifest.
+- Candidate được build/sign đúng một lần; mọi harness/transport recovery tái sử dụng exact bytes, không rebuild/resign.
 
 ## Blocker
 Không có.
@@ -101,11 +106,15 @@ Stable/main/signer/authority không đổi; không thêm provider/backend/author
 WAIT_FOR_OWNER_NEW_SCOPE
 EOF
 cp docs/handovers/HANDOVER_CURRENT.md "$ARCH"
+jq -n --arg version "$VERSION" --argjson code "$CODE" --arg name "pick-pack-1291-public-beta-$VERSION.apk" --arg url "$OTA_URL" --arg sha "$SHA" --argjson size "$SIZE" --arg at "$NOW" --arg notes "$(jq -r '.release_notes|if type=="array" then join(" ") else "" end' "$R")" '{
+  source:"GITHUB_RELEASE",channel:"BETA",version_name:$version,version_code:$code,apk_name:$name,apk_url:$url,
+  sha256:$sha,size:$size,published_at:$at,notes:$notes,mandatory:false,retention:10
+}' > ops/beta-ota-current.json
 mapfile -t OLD < <(find docs/handovers -maxdepth 1 -type f -name 'HANDOVER_20????????-??????_*.md'|sort)
 if (( ${#OLD[@]} > 5 )); then for f in "${OLD[@]:0:${#OLD[@]}-5}"; do rm -f "$f"; done;fi
 git config user.name 'github-actions[bot]'
 git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-git add CURRENT_STATE.md ops/beta-release-request.json docs/handovers
+git add CURRENT_STATE.md ops/beta-release-request.json ops/beta-ota-current.json docs/handovers
 git commit -m "[skip ci] finalize $VERSION PASS/LIVE"
 FINAL=$(git rev-parse HEAD)
 git push origin "HEAD:$BRANCH"
