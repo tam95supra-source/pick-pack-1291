@@ -257,11 +257,12 @@ async function commitMealAttendance(db:D1Database,auth:AuthContext,req:Canonical
   if(!mnv)throw new CoreError("MNV_REQUIRED","VALIDATION",400);
   const checks=await db.batch([
     db.prepare("SELECT business_date,mnv,shift,full_name_snapshot,supplier_snapshot,status,checked_at,reason_code,reason_note,expected_return_at,actual_return_at,actor_id,device_id,version,created_at,updated_at FROM post_meal_attendance WHERE business_date=?1 AND mnv=?2").bind(req.business_date,mnv),
-    db.prepare("SELECT s.shift,s.state,e.full_name,e.supplier FROM attendance_sessions s JOIN employees e ON e.mnv=s.mnv WHERE s.business_date=?1 AND s.mnv=?2").bind(req.business_date,mnv),
+    db.prepare("SELECT s.shift,s.state,e.full_name,e.supplier FROM attendance_sessions s JOIN employees e ON e.mnv=s.mnv WHERE s.business_date=?1 AND s.mnv=?2 ORDER BY CASE WHEN s.state='ACTIVE' THEN 0 ELSE 1 END, COALESCE(s.enter_at,'') DESC LIMIT 1").bind(req.business_date,mnv),
   ]);
   const current=(checks[0]?.results?.[0]??null) as MealRow|null;
   const staff=(checks[1]?.results?.[0]??null) as {shift?:string;state?:string;full_name?:string;supplier?:string}|null;
-  if(!staff||staff.state!=="ACTIVE")throw new CoreError("MEAL_EMPLOYEE_NOT_ACTIVE","CONFLICT",409,false);
+  if(!staff)throw new CoreError("MEAL_EMPLOYEE_NOT_ACTIVE","CONFLICT",409,false);
+  if(req.event_type==="MEAL_CHECKIN"&&staff.state!=="ACTIVE")throw new CoreError("MEAL_EMPLOYEE_NOT_ACTIVE","CONFLICT",409,false);
   const currentVersion=current?.version??0;
   if(currentVersion!==req.base_version)throw new CoreError("STALE_BASE_VERSION","CONFLICT",409,false,{current_version:currentVersion});
   if(current?.status==="CHECKED_IN"){
