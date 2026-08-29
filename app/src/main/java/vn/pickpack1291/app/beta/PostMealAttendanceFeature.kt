@@ -236,7 +236,9 @@ object PostMealAttendanceFeature {
         }
 
         showReasonDialog={item->
-            if(selected!=today())return@showReasonDialog
+            if(selected!=today()){
+                TopNotice.show(activity,"Ngày lịch sử chỉ được xem.",TopNotice.Kind.INFO)
+            }else{
             val reasons=arrayOf("Xin về sớm","Đi hỗ trợ bộ phận/vị trí khác","Xin vào muộn","Nghỉ đột xuất","Có việc cá nhân","Được quản lý điều chuyển","Khác")
             AlertDialog.Builder(activity).setTitle("Xử lý ${item.optString("mnv")}").setItems(reasons){_,which->
                 val reason=reasons[which]
@@ -250,6 +252,7 @@ object PostMealAttendanceFeature {
                 }else if(reason=="Xin vào muộn")askExpected(item,reason,"")
                 else applyReason(item,reason,"","")
             }.show()
+            }
         }
 
         dateBtn.setOnClickListener{
