@@ -1,6 +1,5 @@
-import { authenticate } from "./auth";
 import { bangkokToday, ensureCurrentBangkokBusinessDate } from "./business_date";
-import { apiError, json, readJsonBody } from "./util";
+import { apiError, json } from "./util";
 
 const VALID_REASONS=new Set(["Xin về sớm","Đi hỗ trợ bộ phận/vị trí khác","Xin vào muộn","Nghỉ đột xuất","Có việc cá nhân","Được quản lý điều chuyển","Khác"]);
 
@@ -30,9 +29,7 @@ function statusView(row:Record<string,unknown>,now:number):string{
 
 function rank(status:string):number{return status==="OVERDUE_LATE"?0:status==="PENDING"?1:status==="LATE_EXPECTED"?2:status==="NO_RETURN"?3:4;}
 
-export async function mealAttendanceList(request:Request,env:Env):Promise<Response>{
-  const auth=await authenticate(env.DB,env,request);if(!auth)return apiError("UNAUTHORIZED","AUTH",401);
-  const body=await readJsonBody<{business_date?:string}>(request);
+export async function mealAttendanceList(env:Env,body:{business_date?:string}):Promise<Response>{
   const current=bangkokToday();await ensureCurrentBangkokBusinessDate(env.DB,current);
   const date=String(body.business_date||current).slice(0,10);
   if(!safeDate(date))return apiError("BUSINESS_DATE_INVALID","VALIDATION",400);
