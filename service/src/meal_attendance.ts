@@ -16,6 +16,15 @@ async function materialize(env:Env,date:string,current:boolean):Promise<void>{
     SELECT s.business_date,s.mnv,s.shift,COALESCE(e.full_name,''),COALESCE(e.supplier,''),'PENDING',0,?2,?2
     FROM attendance_sessions s JOIN employees e ON e.mnv=s.mnv
     WHERE s.business_date=?1 AND s.enter_at IS NOT NULL ${stateFilter}`).bind(date,at).run();
+  if(current){
+    await env.DB.prepare(`DELETE FROM post_meal_attendance
+      WHERE business_date=?1 AND status='PENDING'
+        AND NOT EXISTS(
+          SELECT 1 FROM attendance_sessions s
+          WHERE s.business_date=post_meal_attendance.business_date
+            AND s.mnv=post_meal_attendance.mnv AND s.state='ACTIVE'
+        )`).bind(date).run();
+  }
 }
 
 function statusView(row:Record<string,unknown>,now:number):string{
