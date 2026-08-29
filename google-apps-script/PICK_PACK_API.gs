@@ -50,6 +50,8 @@ function doPost(e) {
     if (action === 'emergency_ledger_capture') return ppJson_(ppEmergencyLedgerCapture_(auth, body));
     if (action === 'emergency_ledger_finalize') return ppJson_(ppEmergencyLedgerFinalize_(auth, body));
     if (action === 'emergency_ledger_query') return ppJson_(ppEmergencyLedgerQuery_(auth, body));
+    if (action === 'lan_presence') return ppJson_(ppLanPresence_(auth, body));
+    if (action === 'lan_lease') return ppJson_(ppLanLease_(auth, body));
 
     if (action === 'logout') return ppJson_(ppLogout_(auth));
     if (action === 'password_challenge') return ppJson_(ppPasswordChallenge_(auth));
@@ -1054,4 +1056,90 @@ function ppEmergencyLedgerQuery_(auth,body){
   const ids=Array.isArray(body.event_ids)?body.event_ids.map(String):[],sh=ppEmergencyLedgerSheet_(),existing=ppEmergencyExisting_(sh),out=[];
   ids.slice(0,100).forEach(function(id){const row=existing[id];if(!row)return;const v=sh.getRange(row,1,1,20).getDisplayValues()[0];if(String(auth.role)!=='SUPERADMIN'&&v[6]&&v[6]!==String(auth.login_id||''))return;out.push({event_id:v[0],capture_status:v[14],canonical_status:v[15],canonical_event_id_ref:v[16],apply_attempts:Number(v[17]||0),last_error_code:v[18],finalized_at:v[19]});});
   return {ok:true,items:out};
+}
+
+
+// === RESILIENCE_V1 LAN AUTHORITY FENCING ===
+function ppLanSheet_(name,headers){
+  const ss=SpreadsheetApp.openById(PP.SHEET_ID);let sh=ss.getSheetByName(name);
+  if(!sh)sh=ss.insertSheet(name);
+  if(sh.getLastRow()===0||String(sh.getRange(1,1).getValue())!==String(headers[0]))sh.getRange(1,1,1,headers.length).setValues([headers]);
+  return sh;
+}
+function ppLanChecksum_(v){
+  const bytes=Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256,String(v||''),Utilities.Charset.UTF_8);
+  return bytes.map(function(b){const n=(b+256)%256;return ('0'+n.toString(16)).slice(-2);}).join('');
+}
+function ppLanPresence_(auth,body){
+  const device=String(body._device_id||body.device_id||'').trim();if(!device)return {ok:false,error:'DEVICE_ID_REQUIRED'};
+  const role=String(auth.role||'USER').toUpperCase(),now=Date.now(),expires=now+90000;
+  const sh=ppLanSheet_('LAN PRESENCE',['device_id','login_id','role','seen_at_ms','expires_at_ms','app_version','checksum']);
+  const lock=LockService.getScriptLock();lock.waitLock(10000);
+  try{
+    let row=0;if(sh.getLastRow()>=2){const ids=sh.getRange(2,1,sh.getLastRow()-1,1).getDisplayValues();for(let i=0;i<ids.length;i++)if(String(ids[i][0])===device){row=i+2;break;}}
+    const values=[device,String(auth.login_id||''),role,now,expires,String(body._app_version||''),ppLanChecksum_([device,role,expires].join('|'))];
+    if(row)sh.getRange(row,1,1,values.length).setValues([values]);else sh.appendRow(values);
+    return {ok:true,device_id:device,role:role,expires_at_ms:expires};
+  }finally{lock.releaseLock();}
+}
+function ppLanLeaseRead_(sh){
+  if(sh.getLastRow()<2)return {lan_epoch:0,master_device_id:'',backup_device_id:'',lease_until_ms:0,generation:0,checksum:'',updated_at_ms:0};
+  const v=sh.getRange(2,1,1,8).getDisplayValues()[0];
+  return {lan_epoch:Number(v[0]||0),master_device_id:String(v[1]||''),backup_device_id:String(v[2]||''),lease_until_ms:Number(v[3]||0),generation:Number(v[4]||0),checksum:String(v[5]||''),updated_at_ms:Number(v[6]||0),actor:String(v[7]||'')};
+}
+function ppLanLeaseWrite_(sh,x){
+  const raw=[Number(x.lan_epoch||0),String(x.master_device_id||''),String(x.backup_device_id||''),Number(x.lease_until_ms||0),Number(x.generation||0)];
+  const checksum=ppLanChecksum_(raw.join('|')),now=Date.now();
+  sh.getRange(2,1,1,8).setValues([[raw[0],raw[1],raw[2],raw[3],raw[4],checksum,now,String(x.actor||'')]]);
+  return {lan_epoch:raw[0],master_device_id:raw[1],backup_device_id:raw[2],lease_until_ms:raw[3],generation:raw[4],checksum:checksum,updated_at_ms:now};
+}
+function ppLanActiveSuperadmin_(now){
+  const sh=ppLanSheet_('LAN PRESENCE',['device_id','login_id','role','seen_at_ms','expires_at_ms','app_version','checksum']);
+  if(sh.getLastRow()<2)return false;
+  const rows=sh.getRange(2,1,sh.getLastRow()-1,7).getDisplayValues();
+  return rows.some(function(r){return String(r[2])==='SUPERADMIN'&&Number(r[4]||0)>now;});
+}
+function ppLanLease_(auth,body){
+  const op=String(body.operation||'STATUS').toUpperCase(),device=String(body._device_id||body.device_id||'').trim(),now=Date.now();
+  if(!device&&op!=='STATUS')return {ok:false,error:'DEVICE_ID_REQUIRED'};
+  const role=String(auth.role||'USER').toUpperCase();
+  const sh=ppLanSheet_('LAN AUTHORITY FENCE',['lan_epoch','master_device_id','backup_device_id','lease_until_ms','generation','checksum','updated_at_ms','actor']);
+  const lock=LockService.getScriptLock();lock.waitLock(10000);
+  try{
+    const cur=ppLanLeaseRead_(sh);
+    if(op==='STATUS')return {ok:true,lease:cur};
+    if(op==='ACQUIRE'){
+      if(role!=='ADMIN'&&role!=='SUPERADMIN')return {ok:false,error:'ADMIN_REQUIRED',lease:cur};
+      if(cur.master_device_id&&cur.lease_until_ms>now&&cur.master_device_id!==device)return {ok:false,error:'LAN_MASTER_EXISTS',lease:cur};
+      if(role==='ADMIN'&&ppLanActiveSuperadmin_(now))return {ok:false,error:'SUPERADMIN_ONLINE',lease:cur};
+      const next={lan_epoch:Math.max(1,cur.lan_epoch+1),master_device_id:device,backup_device_id:'',lease_until_ms:now+45000,generation:Math.max(cur.generation+1,Number(body.generation||0)),actor:String(auth.login_id||'')};
+      return {ok:true,operation:'ACQUIRE',lease:ppLanLeaseWrite_(sh,next)};
+    }
+    if(op==='RENEW'){
+      if(cur.master_device_id!==device||cur.generation!==Number(body.generation||0))return {ok:false,error:'LAN_FENCE_MISMATCH',lease:cur};
+      cur.lease_until_ms=now+45000;cur.actor=String(auth.login_id||'');return {ok:true,operation:'RENEW',lease:ppLanLeaseWrite_(sh,cur)};
+    }
+    if(op==='SET_BACKUP'){
+      if(cur.master_device_id!==device||cur.generation!==Number(body.generation||0)||cur.lease_until_ms<=now)return {ok:false,error:'LAN_FENCE_MISMATCH',lease:cur};
+      cur.backup_device_id=String(body.backup_device_id||'').trim();cur.actor=String(auth.login_id||'');return {ok:true,operation:'SET_BACKUP',lease:ppLanLeaseWrite_(sh,cur)};
+    }
+    if(op==='TAKEOVER'){
+      if(cur.backup_device_id!==device)return {ok:false,error:'LAN_BACKUP_REQUIRED',lease:cur};
+      if(cur.lease_until_ms>now)return {ok:false,error:'LAN_MASTER_LEASE_ACTIVE',lease:cur};
+      const next={lan_epoch:cur.lan_epoch+1,master_device_id:device,backup_device_id:'',lease_until_ms:now+45000,generation:cur.generation+1,actor:String(auth.login_id||'')};
+      return {ok:true,operation:'TAKEOVER',lease:ppLanLeaseWrite_(sh,next)};
+    }
+    if(op==='HANDOVER'){
+      const backup=String(body.backup_device_id||cur.backup_device_id||'').trim();
+      if(cur.master_device_id!==device||cur.generation!==Number(body.generation||0)||!backup||backup!==cur.backup_device_id)return {ok:false,error:'LAN_SAFE_HANDOVER_REQUIRED',lease:cur};
+      const next={lan_epoch:cur.lan_epoch+1,master_device_id:backup,backup_device_id:'',lease_until_ms:now+45000,generation:cur.generation+1,actor:String(auth.login_id||'')};
+      return {ok:true,operation:'HANDOVER',lease:ppLanLeaseWrite_(sh,next)};
+    }
+    if(op==='RELEASE'){
+      if(cur.master_device_id!==device)return {ok:false,error:'LAN_FENCE_MISMATCH',lease:cur};
+      const next={lan_epoch:cur.lan_epoch+1,master_device_id:'',backup_device_id:'',lease_until_ms:now,generation:cur.generation,actor:String(auth.login_id||'')};
+      return {ok:true,operation:'RELEASE',lease:ppLanLeaseWrite_(sh,next)};
+    }
+    return {ok:false,error:'LAN_OPERATION_INVALID',lease:cur};
+  }finally{lock.releaseLock();}
 }
