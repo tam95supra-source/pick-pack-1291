@@ -43,8 +43,7 @@ Release 0.4.2-beta.101 hoàn tất scope beta101-resilience-option-borders-stop-
 - Release pipeline đã thêm live GAS resilience contract guard; Fast Check 33314181358 PASS.
 
 ## Blocker
-OWNER acceptance item 6 = NOT OK. Manual log 2026-08-30 20:12 cho thấy SERVICE_UNAVAILABLE_GOOGLE và SERVICE_TIMEOUT_GOOGLE FAIL deterministic tại GOOGLE_EMERGENCY_CAPTURE / UNKNOWN_ACTION; LAN = NOT_AVAILABLE / LAN_PREREQUISITE_MISSING.
-Root cause Google đã sửa: read-only run 33313877854 xác nhận deployment 205 thiếu toàn bộ RESILIENCE_V1; repair run 33314072135 deploy 206 PASS; post-readback 33314115931 PASS. Cần OWNER rerun trên Beta101 có session thật. LAN cần topology nhiều PDA thật nên CI/single-device không thể chứng minh.
+Không có blocker cho scope phát triển mới. OWNER ngày 2026-08-30 quyết định tạm pending item 6 / INFRA-RESILIENCE-001 vì Service và Google Sheets hiện ổn định; không coi là PASS và không dùng nó để chặn các hạng mục khác. Chỉ resume khi OWNER mở lại scope backup/DR.
 
 ## Invariants
 - Stable/main/signer/authority không đổi.
@@ -52,4 +51,4 @@ Root cause Google đã sửa: read-only run 33313877854 xác nhận deployment 2
 - Google Drive không được dùng cho APK; GSheet/GAS nghiệp vụ không bị xóa/thay authority.
 
 ## NEXT_ACTION
-WAIT_FOR_OWNER_BETA101_ITEM_6_RETEST_AFTER_GAS206
+WAIT_FOR_OWNER_NEW_SCOPE
