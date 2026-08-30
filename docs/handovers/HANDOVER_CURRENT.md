@@ -31,5 +31,18 @@
 - 1/3/4/5 OWNER OK.
 - 2/6 pending real-device acceptance after Beta99 LIVE.
 
+## GAS VERSION CLEANUP READY
+- Guarded batch cleanup script: tools/gas_version_cleanup.py
+- Workflow: .github/workflows/gas-version-cleanup.yml
+- Request file: ops/gas-version-cleanup-request.json
+- DRY_RUN PASS run 33293553042 / artifact 9726697718.
+- Inventory: 200 versions; referenced/current deployment version 201.
+- Policy preview keep_latest=40 -> delete 160 unreferenced versions 3..162; deleted_count=0.
+- Expected after cleanup: 40 versions remain / 160 free slots.
+- No destructive delete executed yet.
+
+## OWNER ACTION
+Reply exactly: XÓA BATCH 160
+
 ## NEXT_ACTION
-OWNER_DELETE_SAFE_UNREFERENCED_GAS_VERSION_3_THEN_RERUN_PUBLISH_EXACT_BETA99_WITHOUT_REBUILD
+AFTER_OWNER_APPROVAL_SET_GAS_CLEANUP_REQUEST_ACTION_DELETE_KEEP_40_CONFIRM_THEN_WAIT_TERMINAL_READBACK_AND_RERUN_PUBLISH_EXACT_BETA99_WITHOUT_REBUILD
