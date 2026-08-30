@@ -4,7 +4,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-// Beta101 full Android gate anchor: stop/recover semantics + readable history/log contract.
+// Beta101 full Android gate anchor v2: compile final stop/recover + bordered history implementation.
 class ResilienceTestScenarioTest {
     @Test fun catalogCoversOwnerFailureDomains(){
         val codes=ResilienceTestScenario.entries.map{it.code}.toSet()
