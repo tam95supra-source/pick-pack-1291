@@ -97,8 +97,9 @@ Mỗi invariant tối thiểu có:
 - Status: TECHNICAL_PASS_AWAITING_OWNER
 - Scope: infra / DR / durable event path
 - Rule: durable local + provisional Google ledger + single-writer LAN/cloud DR + backup/rollover/fencing phải giữ canonical event/idempotency và không tự đổi authority/provider.
-- Technical evidence: service-live PASS job 99202629701 inherited because exact service source unchanged; Beta101 exact-candidate verify run 33309271079 gồm scenario selection, isolated technical ledger, business-outbox isolation, bordered options/history/stop-control evidence; terminal publish/OTA/install/readback/finalize run 33310230934 PASS; Stable/main/signer/authority/provider unchanged.
-- OWNER acceptance: PENDING checklist item 6 — Beta101 Technical PASS/LIVE; chờ OWNER nghiệm thu final resilience UX/fault-injection thực tế rồi xác nhận.
+- Technical evidence: service-live PASS job 99202629701 inherited because exact service source unchanged; Beta101 exact-candidate verify run 33309271079; terminal publish/OTA/install/readback/finalize run 33310230934 PASS. OWNER manual log 2026-08-30 20:12 phát hiện Google fallback FAIL deterministic UNKNOWN_ACTION và LAN NOT_AVAILABLE. Read-only GAS deployment probe 33313877854 xác nhận deployment 205 thiếu RESILIENCE_V1; repair 33314072135 deploy 206 PASS, post-readback 33314115931 PASS; ppUpdateCheck Beta101/Stable/main/signer/authority/provider không đổi. Release guard Fast Check 33314181358 PASS.
+- Test fidelity: NORMAL_SERVICE_PRIMARY dùng Service/idempotency thật. Google fallback sau GAS206 là safe live-path drill. DEVICE_OFFLINE_LOCAL và SERVICE_GOOGLE_OFFLINE_LOCAL là isolated simulation + real recovery, không phải physical outage. GOOGLE_UNAVAILABLE_SERVICE dùng Service thật nhưng Google-down được mô phỏng. LAN chỉ có giá trị khi có topology multi-device thực sự active.
+- OWNER acceptance: NOT OK ngày 2026-08-30; cần rerun Beta101 sau GAS206 và drill LAN với topology PDA thật trước khi ACTIVE_PASS.
 
 ## 5. Quy tắc tích lũy sau mỗi task
 
