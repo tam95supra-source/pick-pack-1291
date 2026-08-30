@@ -193,7 +193,39 @@ def main():
         if OWNER_EMAIL.lower() not in [str(x.get("emailAddress","")).lower() for x in j.get("owners",[])]: raise RuntimeError("STABLE_SHEET_OWNER_FAILED:"+k)
     dbs=d1_inventory()
     if len(dbs)>=10 and not any(x.get("name")==req["target_d1_name"] for x in dbs): raise RuntimeError("D1_FREE_CAPACITY_BLOCKED")
-    receipt={"status":"PASS","mode":mode,"environment":"STABLE","stable_public_activation":False,"preflight":{"d1_count":len(dbs),"sheets_owner_verified":True}}
+    target_dbs=[x for x in dbs if x.get("name")==req["target_d1_name"]]
+    workers=(cf("/workers/scripts?per_page=100").get("result") or [])
+    target_workers=[x for x in workers if (x.get("id") or x.get("name"))==req["target_worker_name"]]
+    worker_settings={}
+    if len(target_workers)==1:
+        enc=urllib.parse.quote(req["target_worker_name"],safe="")
+        raw=cf(f"/workers/scripts/{enc}/settings").get("result") or {}
+        bindings=[]
+        for b in raw.get("bindings",[]) or []:
+            item={"name":b.get("name"),"type":b.get("type")}
+            if b.get("type")=="plain_text" and b.get("name") in ("ENVIRONMENT_ID","SERVICE_AUDIENCE","SERVICE_GENERATION","GAS_API_URL","OUTBOUND_GAS_API_URL","DR_GAS_API_URL","DR_TARGET_ID","GOOGLE_SOURCE_SHEET_ID","GOOGLE_OUTBOUND_SHEET_ID"):
+                item["text"]=b.get("text")
+            if b.get("type")=="d1": item["id"]=b.get("id")
+            bindings.append(item)
+        worker_settings={"bindings":bindings,"compatibility_date":raw.get("compatibility_date")}
+    gas_readback={}
+    for kind,key in (("primary","stable_primary_sheet_id"),("outbound","stable_outbound_sheet_id"),("dr","stable_dr_sheet_id")):
+        c=contract_map(token,req[key]); sid=c.get("gas_script_id",""); depid=c.get("gas_deployment_id",""); url=c.get("gas_web_url","")
+        entry=[]; http_status=None
+        if sid and depid:
+            dep=req_json(f"{API_SCRIPT}/{sid}/deployments/{depid}",token=token)
+            for ep in dep.get("entryPoints",[]) or []:
+                w=ep.get("webApp") or {}
+                entry.append({"entryPointType":ep.get("entryPointType"),"webApp":{"url":w.get("url"),"access":w.get("access"),"executeAs":w.get("executeAs")}})
+        if url:
+            try:
+                with urllib.request.urlopen(url,timeout=25) as x: http_status=x.status
+            except urllib.error.HTTPError as e: http_status=e.code
+            except Exception: http_status=-1
+        gas_readback[kind]={"script_id":sid,"deployment_id":depid,"url":url,"entry_points":entry,"runtime_http_status":http_status}
+    receipt={"status":"PASS","mode":mode,"environment":"STABLE","stable_public_activation":False,
+      "preflight":{"d1_count":len(dbs),"target_d1_matches":len(target_dbs),"target_d1_id":((target_dbs[0].get("uuid") or target_dbs[0].get("id")) if len(target_dbs)==1 else None),
+      "target_worker_matches":len(target_workers),"worker_settings":worker_settings,"sheets_owner_verified":True,"gas_readback":gas_readback}}
     if mode=="PREFLIGHT_ONLY":
         pathlib.Path("/tmp/stable-private-provision-receipt.json").write_text(json.dumps(receipt,indent=2)+"\n"); print(json.dumps(receipt)); return
     if mode!="PROVISION_PRIVATE": raise RuntimeError("UNKNOWN_PROVISION_MODE")
