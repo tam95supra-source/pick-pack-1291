@@ -95,6 +95,7 @@ class OperationsActivity : Activity() {
     private var historySyncInFlight=false // S35_OWNER_UI_HISTORY_CONSISTENCY
     private var historyLastCanonicalRefreshAt=0L
     private var manualRefreshInFlight=false
+    private var resilienceTestInFlight=false
     private var lastLatencyMs: Long? = null
     private var lastSyncE2eMs: Long? = null
     private var serviceProviderCache = "—"
@@ -2061,41 +2062,29 @@ class OperationsActivity : Activity() {
             }
         }
         if(isActualSuper()){
-            body.addView(gap(10));body.addView(section("THỬ NGHIỆM LỖI SERVICE"))
-            val fault=ServiceFaultInjection.mode(this)
-            val test=ServiceFaultInjection.testSnapshot(this)
+            body.addView(gap(10));body.addView(section("TRUNG TÂM KIỂM THỬ RESILIENCE"))
+            val test=ResilienceTestCenter.latest(this)
+            val testSpec=test?.optString("scenario")?.let{ResilienceTestScenario.fromCode(it)}
+            val ev=test?.optJSONObject("evidence")?:JSONObject()
+            val serviceEv=ev.optJSONObject("recovery_service")?:ev.optJSONObject("service")?:JSONObject()
             body.addView(details(listOf(
-                "Kịch bản" to fault.label,
-                "Service (Cloudflare)" to if(ServiceFaultInjection.cloudflareDisabled(this))"ĐANG MÔ PHỎNG LỖI" else "Bình thường",
-                "Google / GAS Ledger" to if(ServiceFaultInjection.googleDisabled(this))"ĐANG MÔ PHỎNG LỖI" else "Bình thường",
-                "Tự phục hồi" to if(fault==ServiceFaultInjection.Mode.NORMAL)"Không có fault đang bật" else "Còn ${test.optLong("remaining_minutes")} phút",
-                "Kỳ vọng" to test.optString("expected"),
-                "Kết quả thực tế" to test.optString("result"),
-                "Chi tiết" to test.optString("detail"),
-                "Trạng thái probe" to "${test.optString("probe_status")} • retry ${test.optInt("attempt_count")}",
-                "Lỗi probe" to dash(test.optString("probe_error"))
+                "Phạm vi" to "Test kỹ thuật cô lập • không chặn traffic nghiệp vụ thật",
+                "Kịch bản gần nhất" to (testSpec?.label?:"Chưa chạy"),
+                "Kết quả" to ResilienceTestCenter.resultVi(test?.optString("status").orEmpty()),
+                "Giai đoạn" to ResilienceTestCenter.stageVi(test?.optString("stage").orEmpty()),
+                "Local durable" to if(ev.optBoolean("local_durable_readback",false))"PASS" else "—",
+                "Google/GAS capture" to when{ev.optJSONObject("google")?.optBoolean("captured",false)==true->"PASS";else->"—"},
+                "LAN ACK" to if(ev.optBoolean("lan_ack",false))"PASS" else "—",
+                "Idempotency" to if(serviceEv.optBoolean("idempotency_verified",false))"PASS" else "—",
+                "Không chạm business outbox" to if(ev.optBoolean("business_outbox_touched",true))"FAIL" else "PASS",
+                "Lỗi" to dash(test?.optString("last_error").orEmpty())
             )))
             body.addView(gap(7))
-            body.addView(primary("CHỌN KỊCH BẢN",orange){showServiceFaultModeDialog()},matchWrap())
-            if(fault!=ServiceFaultInjection.Mode.NORMAL){
-                body.addView(gap(7))
-                body.addView(primary("CHẠY PROBE KHÔNG ĐỤNG DỮ LIỆU NGHIỆP VỤ",teal){
-                    ServiceFaultInjection.runProbe(this)
-                    TopNotice.show(this,"Đã tạo probe kỹ thuật. Đang kiểm tra đúng đường fallback.",TopNotice.Kind.INFO)
-                    body.postDelayed({if(screenState=="SETTINGS")settingsScreen()},1200L)
-                },matchWrap())
-            }
+            body.addView(primary(if(resilienceTestInFlight)"ĐANG CHẠY TEST..." else "CHỌN KỊCH BẢN & CHẠY TEST",orange){
+                if(!resilienceTestInFlight)showResilienceScenarioDialog()
+            },matchWrap())
             body.addView(gap(7))
-            body.addView(primary("LÀM MỚI KẾT QUẢ",blue){M2ImmediateOutbox.kick(this);settingsScreen()},matchWrap())
-            if(fault!=ServiceFaultInjection.Mode.NORMAL||test.optString("probe_event_id").isNotBlank()){
-                body.addView(gap(7))
-                body.addView(primary("KẾT THÚC TEST & PHỤC HỒI",green){
-                    ServiceFaultInjection.endAndRecover(this)
-                    foregroundSync.requestSync()
-                    TopNotice.show(this,"Đã trả thiết bị về đường Service bình thường; probe sẽ tự replay.",TopNotice.Kind.SUCCESS)
-                    body.postDelayed({if(screenState=="SETTINGS")settingsScreen()},1500L)
-                },matchWrap())
-            }
+            body.addView(primary("XEM LỊCH SỬ TEST",blue){showResilienceHistoryDialog()},matchWrap())
         }
         body.addView(gap(14))
         body.addView(primary("ĐĂNG XUẤT",red){
@@ -2119,24 +2108,57 @@ class OperationsActivity : Activity() {
         },matchWrap())
         attach(root,body)
     }
-    private fun showServiceFaultModeDialog(){
+    private fun showResilienceScenarioDialog(){
         if(!isActualSuper()){showError("SUPERADMIN_REQUIRED");return}
-        val modes=ServiceFaultInjection.Mode.entries.toTypedArray()
-        val labels=modes.map{it.label}.toTypedArray()
-        var selected=modes.indexOf(ServiceFaultInjection.mode(this)).coerceAtLeast(0)
+        val scenarios=ResilienceTestCenter.scenarios()
+        val labels=scenarios.map{"${it.label}\n${it.description}"}.toTypedArray()
         AlertDialog.Builder(this)
-            .setTitle("Thử nghiệm lỗi Service trên thiết bị này")
-            .setMessage("Không tắt LIVE thật. Mỗi kịch bản chỉ chặn đường mạng trên thiết bị này, tự hết sau 30 phút. Dùng probe kỹ thuật để có bằng chứng PASS/FAIL mà không sửa dữ liệu nghiệp vụ.")
-            .setSingleChoiceItems(labels,selected){_,which->selected=which}
-            .setNegativeButton("HỦY",null)
-            .setPositiveButton("ÁP DỤNG"){_,_->
-                ServiceFaultInjection.setMode(this,modes[selected])
-                foregroundSync.requestSync()
-                TopNotice.show(this,"Đã áp dụng: ${modes[selected].label}",TopNotice.Kind.INFO)
-                settingsScreen()
-            }.show()
+            .setTitle("Chọn kịch bản kiểm thử")
+            .setItems(labels){_,which->
+                val s=scenarios[which]
+                AlertDialog.Builder(this)
+                    .setTitle(s.label)
+                    .setMessage("${s.description}\n\nKỳ vọng:\n${s.expected}\n\nTest chỉ tạo event kỹ thuật cô lập; không tắt LIVE thật và không chạm mutation nghiệp vụ.")
+                    .setNegativeButton("HỦY",null)
+                    .setPositiveButton("CHẠY TEST"){_,_->runResilienceScenario(s)}
+                    .show()
+            }
+            .setNegativeButton("ĐÓNG",null)
+            .show()
     }
 
+    private fun runResilienceScenario(scenario:ResilienceTestScenario){
+        if(resilienceTestInFlight)return
+        resilienceTestInFlight=true
+        TopNotice.show(this,"Đang kiểm thử: ${scenario.label}",TopNotice.Kind.INFO)
+        if(screenState=="SETTINGS")settingsScreen()
+        Thread{
+            val result=runCatching{ResilienceTestCenter.run(applicationContext,scenario)}
+                .getOrElse{JSONObject().put("status","FAIL").put("last_error",it.message?:it.javaClass.simpleName)}
+            runOnUiThread{
+                resilienceTestInFlight=false
+                if(screenState=="SETTINGS")settingsScreen()
+                val ok=result.optString("status")=="PASS"
+                val unavailable=result.optString("status")=="NOT_AVAILABLE"
+                TopNotice.show(this,
+                    when{ok->"Resilience test PASS: ${scenario.label}";unavailable->"Chưa đủ điều kiện để test: ${scenario.label}";else->"Resilience test FAIL: ${scenario.label}"},
+                    when{ok->TopNotice.Kind.SUCCESS;unavailable->TopNotice.Kind.WARNING;else->TopNotice.Kind.ERROR}
+                )
+            }
+        }.start()
+    }
+
+    private fun showResilienceHistoryDialog(){
+        val arr=ResilienceTestCenter.history(this,12)
+        if(arr.length()==0){TopNotice.show(this,"Chưa có lịch sử kiểm thử resilience.",TopNotice.Kind.INFO);return}
+        val rows=ArrayList<String>()
+        for(i in 0 until arr.length()){
+            val x=arr.optJSONObject(i)?:continue
+            val spec=ResilienceTestScenario.fromCode(x.optString("scenario"))
+            rows.add("${ResilienceTestCenter.resultVi(x.optString("status"))} • ${spec?.label?:x.optString("scenario")}\n${ResilienceTestCenter.stageVi(x.optString("stage"))}")
+        }
+        AlertDialog.Builder(this).setTitle("Lịch sử kiểm thử resilience").setItems(rows.toTypedArray(),null).setPositiveButton("ĐÓNG",null).show()
+    }
     private fun themePicker()=row(surface).apply{
         gravity=Gravity.CENTER
         setPadding(dp(5),dp(8),dp(5),dp(8))
@@ -2337,48 +2359,69 @@ class OperationsActivity : Activity() {
         "DISABLE_BOTH"->"Đang tắt cả hai đường kết nối để thử nghiệm"
         else->if(v.isBlank())"Không bật thử nghiệm lỗi" else v
     }
+    private fun lanHealthViHeader(v:LanAuthorityPolicy.HealthState):String=when(v){
+        LanAuthorityPolicy.HealthState.NORMAL->"Bình thường"
+        LanAuthorityPolicy.HealthState.DEGRADED->"Suy giảm"
+        LanAuthorityPolicy.HealthState.SERVICE_UNAVAILABLE->"Service không khả dụng"
+        LanAuthorityPolicy.HealthState.LAN_AVAILABLE->"LAN sẵn sàng"
+        LanAuthorityPolicy.HealthState.LAN_ACTIVE->"LAN đang hoạt động"
+        LanAuthorityPolicy.HealthState.RECOVERING->"Đang phục hồi"
+        LanAuthorityPolicy.HealthState.CLOUD_DR_ACTIVE->"Cloud DR đang hoạt động"
+    }
+    private fun serviceEndpointSummary(raw:String):String=runCatching{
+        val u=java.net.URI(raw.trim());val host=u.host.orEmpty();if(host.isBlank())"Chưa có" else host
+    }.getOrDefault("Chưa có")
     private fun showHeaderStatusDetail(kind:String){
-        val runtime=api.runtimeStatus();val counts=runCatching{operationalStore.mutationStatusCounts()}.getOrDefault(OperationalDataStore.MutationStatusCounts(0,0,0,0));val flow=SyncDirectionTracker.snapshot();val provider=serviceProviderFromRuntime();val net=DeviceNetworkStatus.snapshot(this);val fault=ServiceFaultInjection.mode(this)
-        val title=when(kind){"NETWORK"->"Chi tiết Mạng";"SYNC"->"Chi tiết Đồng bộ";else->"Chi tiết Dịch vụ"}
+        val runtime=api.runtimeStatus()
+        val counts=runCatching{operationalStore.mutationStatusCounts()}.getOrDefault(OperationalDataStore.MutationStatusCounts(0,0,0,0))
+        val flow=SyncDirectionTracker.snapshot()
+        val provider=serviceProviderFromRuntime()
+        val net=DeviceNetworkStatus.snapshot(this)
+        val lanState=LanCoordinator.get(this).healthState()
+        val latestTest=ResilienceTestCenter.latest(this)
+        val latestSpec=latestTest?.optString("scenario")?.let{ResilienceTestScenario.fromCode(it)}
+        val title=when(kind){"NETWORK"->"Thông tin Mạng";"SYNC"->"Thông tin Đồng bộ";else->"Thông tin Dịch vụ"}
         val rows=when(kind){
             "NETWORK"->listOf(
                 "Loại kết nối" to transportViHeader(net.transport),
-                "Truy cập Internet" to when{!net.hasInternet->"Không có Internet";net.validated->"Đã kết nối và xác thực";else->"Có kết nối nhưng chưa xác thực"},
-                "Kết nối giới hạn dung lượng" to if(net.metered)"Có" else "Không",
-                "Độ trễ Service" to if(ServiceFaultInjection.cloudflareDisabled(this))"Tắt thử nghiệm" else (lastSyncLatencyMs?.let{"$it ms"}?:"Chưa đo"),
-                "Đánh giá độ trễ" to latencyQualityViHeader(lastSyncLatencyMs),
-                "Lần kiểm tra gần nhất" to statusTimeVi(lastStatusUpdateAt)
+                "Internet" to when{!net.hasInternet->"Không có kết nối Internet";net.validated->"Đã kết nối / đã xác thực";else->"Có kết nối / chưa xác thực"},
+                "Mạng tính theo dung lượng" to if(net.metered)"Có" else "Không",
+                "Độ trễ tới Service" to (lastSyncLatencyMs?.let{"$it ms"}?:"Chưa có số đo"),
+                "Chất lượng kết nối" to latencyQualityViHeader(lastSyncLatencyMs),
+                "Lần kiểm tra" to statusTimeVi(lastStatusUpdateAt)
             )
             "SYNC"->listOf(
-                "Trạng thái đồng bộ" to when{counts.pending>0->"Đang chờ gửi dữ liệu";flow.active->"Đang truyền dữ liệu";lastConnected==true->"Đã đồng bộ xong";else->"Chưa kết nối"},
-                "Bản ghi đang chờ gửi" to counts.pending.toString(),
-                "Bản ghi cần kiểm tra" to counts.review.toString(),
-                "Bản ghi bị từ chối" to counts.rejected.toString(),
-                "Đã được dịch vụ xác nhận" to counts.confirmed.toString(),
-                "Chờ sao chép sang Google Drive" to lastReplicationPending.toString(),
-                "Trạng thái Google Drive" to replicaViHeader(lastReplicationState),
-                "Sao chép Google Drive gần nhất" to if(lastReplicationSuccessAt.isBlank())"Chưa có" else formatIso(lastReplicationSuccessAt),
-                "Dung lượng đã gửi" to bytesVi(flow.uploadedBytes),
-                "Dung lượng đã nhận" to bytesVi(flow.downloadedBytes)
+                "Trạng thái" to when{flow.active->"Đang đồng bộ";counts.pending>0->"Đang chờ gửi dữ liệu";lastConnected==true->"Đã đồng bộ";else->"Chờ kết nối"},
+                "Bản ghi chờ gửi" to counts.pending.toString(),
+                "Cần kiểm tra thủ công" to counts.review.toString(),
+                "Bị từ chối" to counts.rejected.toString(),
+                "Đã Service xác nhận" to counts.confirmed.toString(),
+                "Google Sheets chờ sao chép" to lastReplicationPending.toString(),
+                "Google Sheets replica" to replicaViHeader(lastReplicationState),
+                "Sao chép thành công gần nhất" to if(lastReplicationSuccessAt.isBlank())"Chưa có" else formatIso(lastReplicationSuccessAt),
+                "Đã gửi" to bytesVi(flow.uploadedBytes),
+                "Đã nhận" to bytesVi(flow.downloadedBytes)
             )
             else->listOf(
-                "Đường xử lý hiện tại" to when(provider){"Cloudflare"->"Dịch vụ chính (Cloudflare)";"Google Drive"->"Google Drive dự phòng";"OFFLINE"->"Ngoại tuyến";else->provider},
-                "Dịch vụ chính (Cloudflare)" to if(ServiceFaultInjection.cloudflareDisabled(this))"Đang tắt để thử nghiệm" else if(provider=="Cloudflare")"Đang sử dụng" else "Hiện không sử dụng",
-                "Google Drive dự phòng" to if(ServiceFaultInjection.googleDisabled(this))"Đang tắt để thử nghiệm" else replicaViHeader(lastReplicationState),
-                "Quyền ghi dữ liệu" to authorityViHeader(runtime.optString("authority_mode")),
-                "Đường đi dữ liệu" to routeViHeader(runtime.optString("route")),
-                "Phiên dịch vụ chính" to if(runtime.optBoolean("service_session",false))"Sẵn sàng" else "Chưa sẵn sàng",
-                "Trạng thái thử nghiệm" to faultViHeader(fault.label),
+                "Service hiện dùng" to when(provider){"Cloudflare"->"Cloudflare Service";"Google Drive"->"Google/GAS dự phòng";"OFFLINE"->"Ngoại tuyến";else->provider},
+                "Authority" to authorityViHeader(runtime.optString("authority_mode")),
+                "Route dữ liệu" to routeViHeader(runtime.optString("route")),
+                "Phiên Service" to if(runtime.optBoolean("service_session",false))"Sẵn sàng" else "Chưa sẵn sàng",
+                "LAN / DR" to lanHealthViHeader(lanState),
+                "Google Sheets replica" to replicaViHeader(lastReplicationState),
+                "Replication pending" to lastReplicationPending.toString(),
                 "Sự cố gần nhất" to runtimeErrorVi(runtime.optString("last_error")),
                 "Độ trễ Service" to (lastSyncLatencyMs?.let{"$it ms • ${latencyQualityViHeader(it)}"}?:"Chưa đo"),
-                "Lần kiểm tra gần nhất" to statusTimeVi(lastStatusUpdateAt),
-                "Địa chỉ dịch vụ" to runtime.optString("service_url").ifBlank{"Chưa có"}
+                "Endpoint" to serviceEndpointSummary(runtime.optString("service_url")),
+                "Test resilience gần nhất" to if(latestTest==null)"Chưa chạy" else "${latestSpec?.label?:latestTest.optString("scenario")} • ${ResilienceTestCenter.resultVi(latestTest.optString("status"))}",
+                "Lần kiểm tra" to statusTimeVi(lastStatusUpdateAt)
             )
         }
         val box=column(surface).apply{setPadding(dp(14),dp(10),dp(14),dp(8));addView(details(rows),matchWrap())}
-        AlertDialog.Builder(this).setTitle(title).setView(ScrollView(this).apply{addView(box)}).setPositiveButton("ĐÓNG",null).show()
+        val builder=AlertDialog.Builder(this).setTitle(title).setView(ScrollView(this).apply{addView(box)}).setPositiveButton("ĐÓNG",null)
+        if(kind=="SYNC")builder.setNeutralButton("ĐỒNG BỘ NGAY"){_,_->manualRefreshFromHeader(syncStatusText?:box)}
+        builder.show()
     }
-
     private fun manualRefreshFromHeader(icon:View){
         if(manualRefreshInFlight)return
         manualRefreshInFlight=true;icon.isEnabled=false;icon.alpha=.55f
@@ -2459,9 +2502,9 @@ class OperationsActivity : Activity() {
         val net=txt("—",8.8f,Color.WHITE,true);networkStatusText=net
         val syn=txt("—",8.8f,Color.WHITE,true);syncStatusText=syn
         val svc=txt("—",8.8f,Color.WHITE,true);serviceStatusText=svc
-        statuses.addView(headerStatusChip(R.drawable.ic_pp_network,"Mạng",net),LinearLayout.LayoutParams(0,dp(38),1f).apply{marginEnd=dp(2)})
-        statuses.addView(headerStatusChip(R.drawable.ic_pp_sync,"Đồng bộ",syn){v->manualRefreshFromHeader(v)},LinearLayout.LayoutParams(0,dp(38),1f).apply{marginStart=dp(1);marginEnd=dp(1)})
-        statuses.addView(headerStatusChip(R.drawable.ic_pp_service,"Dịch vụ",svc),LinearLayout.LayoutParams(0,dp(38),1f).apply{marginStart=dp(2)})
+        statuses.addView(headerStatusChip(R.drawable.ic_pp_network,"Mạng",net){showHeaderStatusDetail("NETWORK")},LinearLayout.LayoutParams(0,dp(38),1f).apply{marginEnd=dp(2)})
+        statuses.addView(headerStatusChip(R.drawable.ic_pp_sync,"Đồng bộ",syn){showHeaderStatusDetail("SYNC")},LinearLayout.LayoutParams(0,dp(38),1f).apply{marginStart=dp(1);marginEnd=dp(1)})
+        statuses.addView(headerStatusChip(R.drawable.ic_pp_service,"Dịch vụ",svc){showHeaderStatusDetail("SERVICE")},LinearLayout.LayoutParams(0,dp(38),1f).apply{marginStart=dp(2)})
         addView(statuses,matchWrap());refreshHeaderConnection()
     }
     private fun activeTab()=when(module){"STAFF"->"STAFF";"HISTORY"->"HISTORY";"SYNC"->"SYNC";"SETTINGS"->"SETTINGS";"ROLE_MODE"->"ROLE_MODE";else->"BUSINESS"}
