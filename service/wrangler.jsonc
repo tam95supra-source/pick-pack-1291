@@ -13,6 +13,9 @@
     "ENVIRONMENT_ID": "BETA",
     "SERVICE_AUDIENCE": "PICK_PACK_1291_BETA",
     "GAS_API_URL": "https://script.google.com/macros/s/AKfycbzbEoGfbNg6s2HnP-gUpcBJ7mMIkVBtYuQKMndb9seDV2c55lQwSUO1GZ-LtQ2CxMCauA/exec",
+    "OUTBOUND_GAS_API_URL": "",
+    "DR_GAS_API_URL": "",
+    "DR_TARGET_ID": "",
     "GOOGLE_SOURCE_SHEET_ID": "1E7ZWz-4eMcBliQxDYBVoogIoeSYyiaXGwj0I6mbMm78",
     "GOOGLE_OUTBOUND_SHEET_ID": "1tl6har_8vGSVsVlcErfQwjX1YgvN3o-FRG5wQV4VTEM"
   },
