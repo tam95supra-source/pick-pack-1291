@@ -1,0 +1,88 @@
+name: Stable D1 capacity cleanup
+
+on:
+  push:
+    branches:
+      - 'feature/beta-stable-isolation-20260830'
+    paths:
+      - ops/stable-d1-cleanup-request.json
+
+permissions:
+  contents: read
+
+jobs:
+  verify-and-clean:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify exact rehearsal D1 resources are unbound then delete
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${CLOUDFLARE_API_TOKEN:?missing}"
+          : "${CLOUDFLARE_ACCOUNT_ID:?missing}"
+          REQ=ops/stable-d1-cleanup-request.json
+          OUT=/tmp/stable-d1-cleanup-receipt.json
+          API="https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID"
+          AUTH=(-H "Authorization: Bearer $CLOUDFLARE_API_TOKEN")
+          mapfile -t EXPECTED < <(jq -r '.approved_delete_names[]' "$REQ" | sort)
+          [[ "${#EXPECTED[@]}" -eq 8 ]] || { echo "EXPECTED_8_D1_NAMES"; exit 41; }
+          printf '%s\n' "${EXPECTED[@]}" | grep -Ev '^pp1291-rh-[a-z0-9-]+$' && { echo "NON_REHEARSAL_NAME"; exit 42; } || true
+
+          curl -fsS "${AUTH[@]}" "$API/d1/database?per_page=100" > /tmp/d1-before.json
+          jq -e '.success==true and (.result|type=="array")' /tmp/d1-before.json >/dev/null
+          BEFORE=$(jq '.result|length' /tmp/d1-before.json)
+          for name in "${EXPECTED[@]}"; do
+            count=$(jq --arg n "$name" '[.result[]|select(.name==$n)]|length' /tmp/d1-before.json)
+            [[ "$count" -eq 1 ]] || { echo "D1_EXPECTED_NAME_NOT_UNIQUE:$name:$count"; exit 43; }
+          done
+
+          # Fail closed unless every Workers script settings document is readable.
+          curl -fsS "${AUTH[@]}" "$API/workers/scripts?per_page=100" > /tmp/worker-scripts.json
+          jq -e '.success==true and (.result|type=="array")' /tmp/worker-scripts.json >/dev/null
+          : > /tmp/all-worker-settings.txt
+          jq -r '.result[]|.id // .name // empty' /tmp/worker-scripts.json | while IFS= read -r script; do
+            [[ -n "$script" ]] || continue
+            enc=$(jq -rn --arg v "$script" '$v|@uri')
+            curl -fsS "${AUTH[@]}" "$API/workers/scripts/$enc/settings" > "/tmp/settings-$(printf '%s' "$script"|sha256sum|cut -c1-16).json"
+            jq -e '.success==true' "/tmp/settings-$(printf '%s' "$script"|sha256sum|cut -c1-16).json" >/dev/null
+            jq -c --arg script "$script" '{script:$script,result:.result}' "/tmp/settings-$(printf '%s' "$script"|sha256sum|cut -c1-16).json" >> /tmp/all-worker-settings.txt
+          done
+
+          for name in "${EXPECTED[@]}"; do
+            id=$(jq -r --arg n "$name" '.result[]|select(.name==$n)|.uuid // .id' /tmp/d1-before.json)
+            [[ -n "$id" && "$id" != "null" ]] || { echo "D1_ID_MISSING:$name"; exit 44; }
+            if grep -Fq "$id" /tmp/all-worker-settings.txt || grep -Fq "$name" /tmp/all-worker-settings.txt; then
+              echo "D1_IS_BOUND_ABORT:$name"
+              exit 45
+            fi
+          done
+
+          # Owner-approved destructive action: only the exact eight verified unbound rehearsal DBs.
+          for name in "${EXPECTED[@]}"; do
+            id=$(jq -r --arg n "$name" '.result[]|select(.name==$n)|.uuid // .id' /tmp/d1-before.json)
+            curl -fsS -X DELETE "${AUTH[@]}" "$API/d1/database/$id" | jq -e '.success==true' >/dev/null
+            echo "deleted=$name"
+          done
+
+          curl -fsS "${AUTH[@]}" "$API/d1/database?per_page=100" > /tmp/d1-after.json
+          jq -e '.success==true and (.result|type=="array")' /tmp/d1-after.json >/dev/null
+          AFTER=$(jq '.result|length' /tmp/d1-after.json)
+          for name in "${EXPECTED[@]}"; do
+            [[ "$(jq --arg n "$name" '[.result[]|select(.name==$n)]|length' /tmp/d1-after.json)" -eq 0 ]] || { echo "DELETE_READBACK_FAILED:$name"; exit 46; }
+          done
+          jq -e '[.result[].name]|index("pick-pack-1291-service-prod")!=null' /tmp/d1-after.json >/dev/null
+          jq -e '[.result[].name]|index("pick-pack-1291-primary")!=null' /tmp/d1-after.json >/dev/null
+          jq -n --argjson before "$BEFORE" --argjson after "$AFTER"             --argjson deleted "$(jq -c '.approved_delete_names' "$REQ")"             '{status:"PASS",owner_approved:true,predelete_binding_check:"PASS",before_count:$before,after_count:$after,deleted_names:$deleted,beta_service_prod_preserved:true,primary_preserved:true}' > "$OUT"
+          cat "$OUT"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stable-d1-cleanup-${{ github.run_id }}
+          path: /tmp/stable-d1-cleanup-receipt.json
+          retention-days: 30
+          if-no-files-found: warn
