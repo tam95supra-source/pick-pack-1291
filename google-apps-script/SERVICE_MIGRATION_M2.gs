@@ -24,6 +24,8 @@ function ppM2StateSnapshot_(){
     fallbackSeq:Number(all.PP_M2_FALLBACK_SEQ||'0'),
     scope:String(all.PP_M2_AUTHORITY_SCOPE||'PRODUCTION'),
     bridgeConfigured:!!String(all.PP_M2_GAS_BRIDGE_SECRET||''),
+    environmentId:ppEnvironmentId_(),
+    serviceAudience:ppServiceAudience_(),
   };
 }
 
@@ -36,6 +38,8 @@ function ppM2Discovery_(body){
     authority_mode:s.mode,
     authority:{authority_epoch:s.epoch,authority_seq:s.fallbackSeq,mode:s.mode,scope:s.scope,service_generation:s.generation},
     service_generation:s.generation,
+    environment_id:s.environmentId,
+    service_audience:s.serviceAudience,
     gas_fallback:true,
     legacy_bridge:true,
     cutover_configured:s.mode==='SERVICE_PRIMARY'&&ppM2ValidServiceUrl_(s.serviceUrl)&&s.bridgeConfigured,
@@ -49,7 +53,7 @@ function ppM2ServiceFetch_(path,payload){
   if(!ppM2ValidServiceUrl_(url)||!secret)throw new Error('SERVICE_PRIMARY_NOT_CONFIGURED');
   const response=UrlFetchApp.fetch(url+path,{
     method:'post',contentType:'application/json',muteHttpExceptions:true,
-    headers:{'x-gas-bridge-secret':secret},payload:JSON.stringify(payload||{})
+    headers:{'x-gas-bridge-secret':secret,'x-pick-pack-environment':ppEnvironmentId_(),'x-pick-pack-audience':ppServiceAudience_()},payload:JSON.stringify(Object.assign({_environment_id:ppEnvironmentId_(),_service_audience:ppServiceAudience_()},payload||{}))
   });
   const code=response.getResponseCode(),text=response.getContentText()||'{}';let json={};
   try{json=JSON.parse(text);}catch(_){json={ok:false,error:'SERVICE_BAD_JSON'};}
