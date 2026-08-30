@@ -31,18 +31,18 @@
 - 1/3/4/5 OWNER OK.
 - 2/6 pending real-device acceptance after Beta99 LIVE.
 
-## GAS VERSION CLEANUP READY
-- Guarded batch cleanup script: tools/gas_version_cleanup.py
-- Workflow: .github/workflows/gas-version-cleanup.yml
-- Request file: ops/gas-version-cleanup-request.json
-- DRY_RUN PASS run 33293553042 / artifact 9726697718.
-- Inventory: 200 versions; referenced/current deployment version 201.
-- Policy preview keep_latest=40 -> delete 160 unreferenced versions 3..162; deleted_count=0.
-- Expected after cleanup: 40 versions remain / 160 free slots.
-- No destructive delete executed yet.
+## GAS VERSION CLEANUP BLOCKER
+- DRY_RUN planning PASS run 33293553042 / artifact 9726697718.
+- Planned policy remains: keep newest 40 + every deployment-referenced version.
+- Planned delete set remains versions 3..162 (160 versions).
+- OWNER approved: XÓA BATCH 160.
+- Automated DELETE attempt run 33295218728 failed safely before any deletion.
+- Root cause: official Apps Script API does not expose project-version DELETE. Native Project History UI supports Bulk delete versions.
+- Current deployment version remains 201; referenced_versions=[201].
+- Deleted_count=0. Beta OTA remains Beta98; Beta99 exact candidate/release asset preserved.
 
 ## OWNER ACTION
-Reply exactly: XÓA BATCH 160
+In Apps Script > Nhật ký dự án, use native "Xoá hàng loạt phiên bản" and delete versions 3..162 only. Version 201 must remain.
 
 ## NEXT_ACTION
-AFTER_OWNER_APPROVAL_SET_GAS_CLEANUP_REQUEST_ACTION_DELETE_KEEP_40_CONFIRM_THEN_WAIT_TERMINAL_READBACK_AND_RERUN_PUBLISH_EXACT_BETA99_WITHOUT_REBUILD
+AFTER_OWNER_BULK_DELETES_GAS_VERSIONS_3_TO_162_FRESH_READ_VERSION_COUNT_DEPLOYMENT_201_AND_BETA98_MANIFEST_THEN_RERUN_PUBLISH_EXACT_BETA99_ARTIFACT_9725965250_WITHOUT_REBUILD
