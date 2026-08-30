@@ -1,6 +1,6 @@
 {
   "stage": "PUBLISH",
-  "mode": "BETA98_PUBLISH_EXACT_LOCKED_CANDIDATE_WITH_OWNER_RELEASE_TOKEN",
+  "mode": "BETA98_PUBLISH_EXACT_LOCKED_CANDIDATE_OWNER_TOKEN_NORMALIZED",
   "version_name": "0.4.2-beta.98",
   "version_code": 104,
   "base_version": "0.4.2-beta.97",
@@ -83,6 +83,6 @@
     "human_visual_pass": true
   },
   "release_auth": "BETA_RELEASE_TOKEN_OWNER_PROVIDED",
-  "previous_publish_run_id": 33284770547,
-  "previous_publish_failure": "GITHUB_TOKEN_HTTP_403_WORKFLOWS_WRITE"
+  "previous_publish_run_id": 33286317948,
+  "previous_publish_failure": "OWNER_TOKEN_AUTHORIZATION_HEADER_INVALID_NORMALIZED_IN_HARNESS"
 }
