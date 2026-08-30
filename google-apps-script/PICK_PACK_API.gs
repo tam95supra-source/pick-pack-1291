@@ -25,16 +25,44 @@ const PP = Object.freeze({
   LOG_ANDROID_FOLDER_ID: '1AN_cEcbbdVO0dory_01hkJhQ1dhlO7Vb'
 });
 
+function ppBoundEnvironmentBootstrap_() {
+  try {
+    const ss=SpreadsheetApp.getActiveSpreadsheet();
+    if(!ss)return null;
+    const sh=ss.getSheetByName('__ENVIRONMENT_CONTRACT');
+    if(!sh)return null;
+    const rows=sh.getRange(1,1,Math.min(30,Math.max(2,sh.getLastRow())),2).getDisplayValues();
+    const map={};rows.forEach(function(r){const k=String(r[0]||'').trim();if(k)map[k]=String(r[1]||'').trim();});
+    const environmentId=String(map.environment_id||'').toUpperCase();
+    if(environmentId!=='STABLE')return null;
+    if(String(map.stable_spreadsheet_id||'')!==ss.getId())throw new Error('STABLE_CONTRACT_SHEET_ID_MISMATCH');
+    const audience='PICK_PACK_1291_STABLE';
+    PropertiesService.getScriptProperties().setProperties({PP_ENVIRONMENT_ID:'STABLE',PP_SERVICE_AUDIENCE:audience,PP_SHEET_ID:ss.getId()},false);
+    return {environmentId:'STABLE',serviceAudience:audience,sheetId:ss.getId()};
+  } catch(err) {
+    console.error('environment bootstrap '+String(err));
+    return null;
+  }
+}
 function ppEnvironmentId_() {
-  return String(PropertiesService.getScriptProperties().getProperty('PP_ENVIRONMENT_ID') || 'BETA').toUpperCase();
+  const explicit=String(PropertiesService.getScriptProperties().getProperty('PP_ENVIRONMENT_ID')||'').toUpperCase();
+  if(explicit)return explicit;
+  const bound=ppBoundEnvironmentBootstrap_();
+  return bound?bound.environmentId:'BETA';
 }
 function ppServiceAudience_() {
+  const explicit=String(PropertiesService.getScriptProperties().getProperty('PP_SERVICE_AUDIENCE')||'');
+  if(explicit)return explicit;
+  const bound=ppBoundEnvironmentBootstrap_();
+  if(bound)return bound.serviceAudience;
   const e=ppEnvironmentId_();
-  return String(PropertiesService.getScriptProperties().getProperty('PP_SERVICE_AUDIENCE') || (e==='STABLE'?'PICK_PACK_1291_STABLE':'PICK_PACK_1291_BETA'));
+  return e==='STABLE'?'PICK_PACK_1291_STABLE':'PICK_PACK_1291_BETA';
 }
 function ppSheetId_() {
   const p=String(PropertiesService.getScriptProperties().getProperty('PP_SHEET_ID') || '').trim();
   if(p)return p;
+  const bound=ppBoundEnvironmentBootstrap_();
+  if(bound)return bound.sheetId;
   if(ppEnvironmentId_()==='BETA')return PP.SHEET_ID;
   throw new Error('STABLE_SHEET_ID_NOT_CONFIGURED');
 }
