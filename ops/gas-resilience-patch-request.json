@@ -1,0 +1,7 @@
+{
+  "scope": "RESILIENCE_V1_GAS_CONTRACT_DRIFT_REPAIR",
+  "expected_live_beta": "0.4.2-beta.101",
+  "preserve_ota": true,
+  "preserve_authority": true,
+  "rollback_on_failure": true
+}
