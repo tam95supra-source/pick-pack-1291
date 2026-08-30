@@ -1,5 +1,6 @@
 import { nowIso, sha256Hex } from "./util";
 import { currentAuthority } from "./core";
+import { isStableEnvironment, stableSheetBridge } from "./stable_sheet_bridge";
 
 const HEADERS:Record<string,string[]>={
   "Danh mục":["DANH SÁCH NHÂN SỰ_Vị trí chính","DANH SÁCH NHÂN SỰ_Nhà cung cấp","DANH SÁCH NHÂN SỰ_Bộ phận","DANH SÁCH NHÂN SỰ_Site","DANH SÁCH NHÂN SỰ_Kho","DANH SÁCH PDA_Tình trạng","DANH SÁCH USER PICK_Tình trạng","DANH SÁCH BÀN PACK_Tình trạng","DANH SÁCH USER PACK_Tình trạng","RA - VÀO TRONG CA_Loại thao tác","VÀO - RA TRONG CA_Ca","CÔNG NHẬT_Thông tin công nhật","CÔNG NHẬT_Mốc thời gian","CÔNG NHẬT_Trạng thái"],
@@ -28,6 +29,9 @@ async function writeTable(env:Env,t:string,name:string,rows:unknown[][]):Promise
   const all=[HEADERS[name]!,...rows];
   for(let i=0;i<all.length;i+=500){const chunk=all.slice(i,i+500),start=i+1,range=a1(name,`A${start}`);const r=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(id)}/values/${encodeURIComponent(range)}?valueInputOption=RAW`,{method:"PUT",headers:auth(t,{"content-type":"application/json"}),body:JSON.stringify({range,majorDimension:"ROWS",values:chunk})});if(!r.ok)throw new Error(`DR_WRITE:${name}:${start}:${r.status}`);}
 }
+function resourceMeta(raw:string):Record<string,string>{try{return JSON.parse(raw) as Record<string,string>;}catch{return{};}}
+function label(type:string):string{return type==="ATTENDANCE_ENTER"?"Vào ca":type==="ATTENDANCE_EXIT"?"Ra ca":type==="RESOURCE_CHANGE"?"Đổi tài nguyên":type==="LABOR_START"?"Bắt đầu công nhật":type==="LABOR_FINISH"?"Kết thúc công nhật":type;}
+
 
 export async function rebuildGoogleStagingFromD1(db:D1Database,env:Env):Promise<Record<string,unknown>>{
   const drTarget=isStableEnvironment(env)?String(env.DR_TARGET_ID||""):env.GOOGLE_STAGING_SHEET_ID;if(!drTarget||drTarget===env.GOOGLE_SOURCE_SHEET_ID)throw new Error("DR_TARGET_MUST_NOT_BE_PRODUCTION_SOURCE");
