@@ -1,6 +1,6 @@
 {
   "stage": "PUBLISH",
-  "mode": "BETA98_PUBLISH_EXACT_LOCKED_CANDIDATE_AFTER_FULL_VERIFY_HUMAN_PASS",
+  "mode": "BETA98_PUBLISH_EXACT_LOCKED_CANDIDATE_WITH_OWNER_RELEASE_TOKEN",
   "version_name": "0.4.2-beta.98",
   "version_code": 104,
   "base_version": "0.4.2-beta.97",
@@ -81,5 +81,8 @@
     "service_pass_run_id": 33280777490,
     "service_pass_job_id": 99175479666,
     "human_visual_pass": true
-  }
+  },
+  "release_auth": "BETA_RELEASE_TOKEN_OWNER_PROVIDED",
+  "previous_publish_run_id": 33284770547,
+  "previous_publish_failure": "GITHUB_TOKEN_HTTP_403_WORKFLOWS_WRITE"
 }
