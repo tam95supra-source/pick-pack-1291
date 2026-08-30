@@ -24,6 +24,7 @@ on:
       - tools/beta89_back_api36.sh
       - tools/stable_private_apk_verify.sh
       - tools/ci_release_fencing_contract.py
+      - tools/beta_stable_runtime_verify.py
       - tools/beta_auth_converge.py
       - tools/beta83_ota_device_gate.sh
       - tools/beta83_publish_ota.sh
@@ -139,6 +140,7 @@ jobs:
           python3 -m py_compile tools/stable_private_provision.py
           python3 -m py_compile tools/beta_auth_converge.py
           python3 -m py_compile tools/ci_release_fencing_contract.py
+          python3 -m py_compile tools/beta_stable_runtime_verify.py
           python3 tools/ci_release_fencing_contract.py
           python3 -m py_compile tools/verify_promotion_lock.py
           python3 tools/verify_promotion_lock.py
