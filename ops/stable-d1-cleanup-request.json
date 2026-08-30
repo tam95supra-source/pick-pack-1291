@@ -1,0 +1,20 @@
+{
+  "project": "APK PICK PACK 1291",
+  "owner": "Nguyen Van Tam",
+  "approved_at_local": "2026-08-31T00:50:00+07:00",
+  "approval_text": "OK xoa 8 DB rehearsal sau khi verify khong binding LIVE",
+  "approved_delete_names": [
+    "pp1291-rh-31639ec0b5-a",
+    "pp1291-rh-31639ec0b5-b",
+    "pp1291-rh-31639ec0b5-c",
+    "pp1291-rh-6e59833399-a",
+    "pp1291-rh-c2c379eb98-a",
+    "pp1291-rh-c7090add64-a",
+    "pp1291-rh-c7090add64-b",
+    "pp1291-rh-c7090add64-c"
+  ],
+  "preserve_names": [
+    "pick-pack-1291-service-prod",
+    "pick-pack-1291-primary"
+  ]
+}
