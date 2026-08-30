@@ -3,6 +3,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import sys
 import urllib.error
 import urllib.parse
@@ -133,6 +134,14 @@ def paged_versions(script_id, token):
             return out
 
 
+def normalize_dynamic_contract(source):
+    return re.sub(
+        r'published_at:"[^"]*"',
+        'published_at:"<dynamic>"',
+        source,
+    )
+
+
 def content_matches_function(files, marker, replacement):
     found = []
     for file in files or []:
@@ -142,7 +151,7 @@ def content_matches_function(files, marker, replacement):
         if marker not in source:
             continue
         updated = replace_function(source, marker, replacement)
-        if updated == source:
+        if normalize_dynamic_contract(updated) == normalize_dynamic_contract(source):
             found.append(file.get("name", ""))
     return len(found) == 1
 
@@ -186,12 +195,13 @@ def wait_deployment_version(
 
 def self_test():
     marker = "function ppUpdateCheck_(body)"
-    target = "function ppUpdateCheck_(body) {\n  return {ok:true,target:'beta98'};\n}"
-    base = "function ppUpdateCheck_(body) {\n  return {ok:true,target:'beta97'};\n}"
+    target = 'function ppUpdateCheck_(body) {\n  return {ok:true,target:"beta98",published_at:"2026-08-30T03:00:00Z"};\n}'
+    prior_target = 'function ppUpdateCheck_(body) {\n  return {ok:true,target:"beta98",published_at:"2026-08-30T02:56:00Z"};\n}'
+    base = 'function ppUpdateCheck_(body) {\n  return {ok:true,target:"beta97",published_at:"2026-08-30T02:59:00Z"};\n}'
     versions = [{"versionNumber": 200}, {"versionNumber": 201}, {"versionNumber": 202}]
     contents = {
         200: {"files": [{"name": "api", "type": "SERVER_JS", "source": "x\n" + base + "\ny"}]},
-        201: {"files": [{"name": "api", "type": "SERVER_JS", "source": "x\n" + target + "\ny"}]},
+        201: {"files": [{"name": "api", "type": "SERVER_JS", "source": "x\n" + prior_target + "\ny"}]},
         202: {"files": [{"name": "api", "type": "SERVER_JS", "source": "x\n" + base + "\ny"}]},
     }
     matched = find_matching_version(
