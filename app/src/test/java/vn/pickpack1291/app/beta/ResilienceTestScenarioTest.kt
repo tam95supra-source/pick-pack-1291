@@ -4,7 +4,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-// Beta100 full Android gate anchor: final implementation must compile/test before candidate build.
+// Beta100 full Android gate anchor v2: includes final status-detail harness compatibility.
 class ResilienceTestScenarioTest {
     @Test fun catalogCoversOwnerFailureDomains(){
         val codes=ResilienceTestScenario.entries.map{it.code}.toSet()
