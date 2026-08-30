@@ -241,6 +241,18 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     }
     throw new IllegalStateException("TEXT_NOT_FOUND_AFTER_SCROLL:"+text);
   }
+  private void clickTextScrolling(String text,long timeout){
+    AccessibilityNodeInfo n=waitTextScrolling(text,timeout);
+    AccessibilityNodeInfo target=clickableNode(n);
+    if(target==null)throw new IllegalStateException("CLICK_TARGET_MISSING_AFTER_SCROLL:"+text);
+    if(!target.performAction(AccessibilityNodeInfo.ACTION_CLICK)){
+      Rect b=new Rect();target.getBoundsInScreen(b);
+      if(b.isEmpty())throw new IllegalStateException("CLICK_BOUNDS_EMPTY_AFTER_SCROLL:"+text);
+      try{ui.executeShellCommand("input tap "+b.centerX()+" "+b.centerY()).close();}
+      catch(Exception e){throw new IllegalStateException("CLICK_FALLBACK_FAILED_AFTER_SCROLL:"+text+":"+e.getMessage());}
+    }
+    SystemClock.sleep(450L);
+  }
   private AccessibilityNodeInfo findEditable(){
     AccessibilityNodeInfo r=root();if(r==null)return null;
     ArrayDeque<AccessibilityNodeInfo> dq=new ArrayDeque<>();dq.add(r);
@@ -831,7 +843,7 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     waitText("Chọn kịch bản kiểm thử",false,false,10000L);
     waitText("Bình thường • Service hoạt động",false,false,10000L);
     waitText("Thiết bị mất Internet • giữ local",false,false,10000L);
-    clickText("Service + Google/GAS mất • LAN dự phòng",false,10000L);
+    clickTextScrolling("Service + Google/GAS mất • LAN dự phòng",12000L);
     waitText("Kỳ vọng:",false,false,10000L);
     waitText("Test chỉ tạo event kỹ thuật cô lập",false,false,10000L);
     clickText("CHẠY TEST",true,10000L);
