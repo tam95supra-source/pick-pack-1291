@@ -78,6 +78,106 @@ function ppEnvironmentFence_(body) {
   return null;
 }
 
+function ppStableOwnerFile_(token,id,mime){
+  const url='https://www.googleapis.com/drive/v3/files/'+encodeURIComponent(String(id||''))+'?fields=id,mimeType,owners(emailAddress)&supportsAllDrives=true';
+  const r=UrlFetchApp.fetch(url,{method:'get',muteHttpExceptions:true,headers:{Authorization:'Bearer '+String(token||'')}});
+  if(r.getResponseCode()<200||r.getResponseCode()>=300)return false;
+  let j={};try{j=JSON.parse(r.getContentText()||'{}');}catch(_){return false;}
+  if(String(j.id||'')!==String(id||'')||String(j.mimeType||'')!==String(mime||''))return false;
+  return (j.owners||[]).some(function(x){return ppFold_(x.emailAddress||'')===ppFold_('tam95.supra@gmail.com');});
+}
+function ppStableEnvironmentProvision_(body){
+  if(ppEnvironmentId_()!=='STABLE')return {ok:false,error:'STABLE_ONLY'};
+  const ss=ppSs_(),token=String(body.google_access_token||''),serviceUrl=String(body.service_url||'').replace(/\/+$/,''),
+    generation=String(body.service_generation||''),bridge=String(body.bridge_secret||''),outboundUrl=String(body.outbound_gas_url||'');
+  if(!token||!ppM2ValidServiceUrl_(serviceUrl)||!generation||bridge.length<32||!/^https:\/\/script\.google\.com\//.test(outboundUrl))return {ok:false,error:'STABLE_PROVISION_FIELDS_INVALID'};
+  if(!ppStableOwnerFile_(token,ss.getId(),'application/vnd.google-apps.spreadsheet'))return {ok:false,error:'STABLE_PROVISION_OWNER_PROOF_FAILED'};
+  const p=PropertiesService.getScriptProperties(),already=p.getProperty('PP_STABLE_PROVISIONED')==='1';
+  if(already){
+    const same=p.getProperty('PP_M2_SERVICE_URL')===serviceUrl&&p.getProperty('PP_M2_SERVICE_GENERATION')===generation&&p.getProperty('PP_OUTBOUND_GAS_URL')===outboundUrl;
+    return same?{ok:true,idempotent:true,environment_id:'STABLE',service_url:serviceUrl,service_generation:generation}:{ok:false,error:'STABLE_PROVISION_ALREADY_LOCKED'};
+  }
+  p.setProperties({
+    PP_ENVIRONMENT_ID:'STABLE',PP_SERVICE_AUDIENCE:'PICK_PACK_1291_STABLE',PP_SHEET_ID:ss.getId(),
+    PP_M2_AUTHORITY_MODE:'SERVICE_PRIMARY',PP_M2_AUTHORITY_EPOCH:'1',PP_M2_FALLBACK_SEQ:'0',PP_M2_AUTHORITY_SCOPE:'PRODUCTION',
+    PP_M2_SERVICE_URL:serviceUrl,PP_M2_SERVICE_GENERATION:generation,PP_M2_GAS_BRIDGE_SECRET:bridge,
+    PP_OUTBOUND_GAS_URL:outboundUrl,PP_STABLE_PROVISIONED:'1',PP_REVISION:'1',PP_MASTER_REVISION:'1'
+  },false);
+  return {ok:true,idempotent:false,environment_id:'STABLE',service_url:serviceUrl,service_generation:generation,writer_scope:'BOUND_CURRENT_ONLY'};
+}
+function ppStableBridgeAuthorized_(body){
+  if(ppEnvironmentId_()!=='STABLE')return false;
+  const expected=String(PropertiesService.getScriptProperties().getProperty('PP_M2_GAS_BRIDGE_SECRET')||''),got=String((body||{})._bridge_secret||'');
+  return expected.length>=32&&got.length>=32&&ppSha256Hex_(expected)===ppSha256Hex_(got);
+}
+function ppStableAllowedSheet_(name){
+  const allowed=['Danh mục','EMERGENCY EVENT INDEX','LỊCH SỬ NGHIỆP VỤ','__PP_M2_FALLBACK_EVENTS','DANH SÁCH PDA','DANH SÁCH USER PICK','DANH SÁCH BÀN PACK','DANH SÁCH USER PACK','DANH SÁCH NHÂN SỰ','RA - VÀO TRONG CA','THÔNG TIN USER CỦA NLĐ','CÔNG NHẬT','Danh sách Admin','__M1_SERVICE_REPLICA','__STABLE_DIAGNOSTIC_LOG'];
+  return allowed.indexOf(String(name||''))>=0;
+}
+function ppStableRange_(sheet,range){
+  const n=String(sheet||''),r=String(range||'');
+  if(!ppStableAllowedSheet_(n)||!/^([A-Z]{1,3})([0-9]*)(:([A-Z]{1,3})([0-9]*))?$/.test(r))throw new Error('STABLE_BRIDGE_RANGE_REJECTED');
+  const sh=ppSs_().getSheetByName(n);if(!sh)throw new Error('STABLE_BRIDGE_SHEET_MISSING');
+  return sh.getRange(r);
+}
+function ppStableA1Parts_(value){
+  const m=String(value||'').match(/^'((?:[^']|'')+)'!([A-Z]{1,3}[0-9]*(?::[A-Z]{1,3}[0-9]*)?)$/);
+  if(!m)throw new Error('STABLE_BRIDGE_A1_REJECTED');
+  return {sheet:m[1].replace(/''/g,"'"),range:m[2]};
+}
+function ppStableServiceSheetBridge_(body){
+  if(!ppStableBridgeAuthorized_(body))return {ok:false,error:'STABLE_BRIDGE_UNAUTHORIZED'};
+  const op=String(body.operation||'').toLowerCase();
+  if(op==='get_values'){return {ok:true,values:ppStableRange_(body.sheet,body.range).getDisplayValues()};}
+  if(op==='batch_get'){
+    const items=Array.isArray(body.ranges)?body.ranges:[];
+    return {ok:true,values:items.slice(0,30).map(function(x){return ppStableRange_(x.sheet,x.range).getDisplayValues();})};
+  }
+  if(op==='put_values'){
+    const values=Array.isArray(body.values)?body.values:[];if(!values.length)return {ok:true};
+    const rg=ppStableRange_(body.sheet,body.range);rg.setValues(values);SpreadsheetApp.flush();return {ok:true};
+  }
+  if(op==='append_values'){
+    const values=Array.isArray(body.values)?body.values:[];if(!values.length)return {ok:true,updated_range:'NOOP'};
+    const sh=ppSs_().getSheetByName(String(body.sheet||''));if(!sh||!ppStableAllowedSheet_(sh.getName()))return {ok:false,error:'STABLE_BRIDGE_SHEET_REJECTED'};
+    const first=sh.getLastRow()+1,cols=values[0].length;sh.getRange(first,1,values.length,cols).setValues(values);SpreadsheetApp.flush();
+    return {ok:true,updated_range:"'"+sh.getName().replace(/'/g,"''")+"'!A"+first+':'+String.fromCharCode(64+Math.min(cols,26))+(first+values.length-1)};
+  }
+  if(op==='batch_get_a1'){
+    const ranges=Array.isArray(body.ranges)?body.ranges:[];
+    return {ok:true,values:ranges.slice(0,30).map(function(a){const p=ppStableA1Parts_(a);return ppStableRange_(p.sheet,p.range).getDisplayValues();})};
+  }
+  if(op==='batch_put_a1'){
+    const data=Array.isArray(body.data)?body.data:[];
+    data.slice(0,50).forEach(function(x){const p=ppStableA1Parts_(x.range),values=Array.isArray(x.values)?x.values:[];if(values.length)ppStableRange_(p.sheet,p.range).setValues(values);});
+    SpreadsheetApp.flush();return {ok:true};
+  }
+  if(op==='ensure_replica'){
+    const ss=ppSs_(),name='__M1_SERVICE_REPLICA',headers=['event_id','event_type','entity_type','entity_id','business_date','authority_epoch','authority_seq','service_generation','base_version','new_version','actor_id','actor_role','device_id','occurred_at','committed_at','idempotency_key','origin','schema_version','checksum','payload_json'];
+    let sh=ss.getSheetByName(name);if(!sh){sh=ss.insertSheet(name);sh.hideSheet();}
+    if(sh.getMaxColumns()<headers.length)sh.insertColumnsAfter(sh.getMaxColumns(),headers.length-sh.getMaxColumns());
+    const got=sh.getRange(1,1,1,headers.length).getDisplayValues()[0];
+    if(JSON.stringify(got)!==JSON.stringify(headers))sh.getRange(1,1,1,headers.length).setValues([headers]);
+    if(!sh.isSheetHidden())sh.hideSheet();
+    const ids=sh.getLastRow()<2?[]:sh.getRange(2,1,sh.getLastRow()-1,1).getDisplayValues().map(function(r){return String(r[0]||'');}).filter(Boolean);
+    return {ok:true,ids:ids};
+  }
+  return {ok:false,error:'STABLE_BRIDGE_OPERATION_UNKNOWN'};
+}
+function ppStableOutboundProxy_(auth,body,action){
+  const p=PropertiesService.getScriptProperties(),url=String(p.getProperty('PP_OUTBOUND_GAS_URL')||''),secret=String(p.getProperty('PP_M2_GAS_BRIDGE_SECRET')||'');
+  if(!/^https:\/\/script\.google\.com\//.test(url)||secret.length<32)return {ok:false,error:'STABLE_OUTBOUND_BRIDGE_NOT_CONFIGURED'};
+  const payload={action:'stable_bound_business',operation:action,_environment_id:'STABLE',_service_audience:'PICK_PACK_1291_STABLE',_bridge_secret:secret,
+    actor:{login_id:String(auth.login_id||''),role:String(auth.role||''),display_name:String(auth.display_name||''),email:String(auth.email||'')},body:body};
+  const r=UrlFetchApp.fetch(url,{method:'post',contentType:'application/json',muteHttpExceptions:true,payload:JSON.stringify(payload)});
+  let j={};try{j=JSON.parse(r.getContentText()||'{}');}catch(_){return {ok:false,error:'STABLE_OUTBOUND_BAD_JSON'};}
+  if(r.getResponseCode()<200||r.getResponseCode()>=300||j.ok!==true)return {ok:false,error:String(j.error||('STABLE_OUTBOUND_HTTP_'+r.getResponseCode()))};
+  if(action!=='outbound_location_list'){
+    ppHistorySafeAppendS13_({event_type:'STABLE_'+action.toUpperCase(),label:'Stable outbound',actor:String(auth.login_id||''),detail:action,event_id:String(body.event_id||body.idempotency_key||Utilities.getUuid()),scope:'OUTBOUND'});
+  }
+  return j;
+}
+
 function doGet() {
   return ppJson_({ok:true, service:'pick-pack-gsheet-api', mode:'APP_GSHEET', environment_id:ppEnvironmentId_(), service_audience:ppServiceAudience_(), report_engine:'S12_CURRENT_DAY', business_date:ppBusinessIso_()});
 }
@@ -88,6 +188,9 @@ function doPost(e) {
     const action = String(body.action || '').trim();
     const environmentFence=ppEnvironmentFence_(body);
     if(environmentFence)return ppJson_(environmentFence);
+
+    if (action === 'stable_environment_provision') return ppJson_(ppStableEnvironmentProvision_(body));
+    if (action === 'service_sheet_bridge') return ppJson_(ppStableServiceSheetBridge_(body));
 
     // M2_SERVICE_AUTHORITY_ROUTING
     if (action === 'service_discovery') return ppJson_(ppM2Discovery_(body));
@@ -140,10 +243,10 @@ function doPost(e) {
     if (action === 'm2_fallback_flush') return ppJson_(String(auth.role)==='SUPERADMIN'?ppM2FlushFallbackInbox_():{ok:false,error:'SUPERADMIN_REQUIRED'});
     if (action === 'm2_failback_complete') return ppJson_(ppM2CompleteFailback_(auth, body));
     if (action === 'sync_status') return ppJson_(ppSyncStatus_());
-    if (action === 'outbound_location_list') return ppJson_(ppOutboundLocationList_(auth));
-    if (action === 'outbound_location_mutate') return ppJson_(ppWithLock_(function(){ return ppOutboundLocationMutate_(auth, body); }));
-    if (action === 'outbound_drop_append') return ppJson_(ppWithLock_(function(){ return ppOutboundAppend_(auth, body); }));
-    if (action === 'outbound_drop_clear') return ppJson_(ppWithLock_(function(){ return ppOutboundClear_(auth, body); }));
+    if (action === 'outbound_location_list') return ppJson_(ppEnvironmentId_()==='STABLE'?ppStableOutboundProxy_(auth,body,action):ppOutboundLocationList_(auth));
+    if (action === 'outbound_location_mutate') return ppJson_(ppEnvironmentId_()==='STABLE'?ppStableOutboundProxy_(auth,body,action):ppWithLock_(function(){ return ppOutboundLocationMutate_(auth, body); }));
+    if (action === 'outbound_drop_append') return ppJson_(ppEnvironmentId_()==='STABLE'?ppStableOutboundProxy_(auth,body,action):ppWithLock_(function(){ return ppOutboundAppend_(auth, body); }));
+    if (action === 'outbound_drop_clear') return ppJson_(ppEnvironmentId_()==='STABLE'?ppStableOutboundProxy_(auth,body,action):ppWithLock_(function(){ return ppOutboundClear_(auth, body); }));
 
     return ppJson_({ok:false,error:'UNKNOWN_ACTION'}, 404);
   } catch (err) {
@@ -196,7 +299,14 @@ function ppHealth_() {
   return {ok:true,service:'pick-pack-gsheet-api',mode:'APP_GSHEET',environment_id:ppEnvironmentId_(),service_audience:ppServiceAudience_(),api_version:'0.4.2',report_engine:'S12_CURRENT_DAY',history_engine:'S13_SHARED_SESSION',sheet_read:rows.length>1,auth_session_model:'SINGLE_ACTIVE_DEVICE_V1',login_session_lock_model:'S44_LOCK_ISOLATED',business_date:ppBusinessIso_(),revision:ppRevision_(),master_revision:ppMasterRevision_()};
 }
 
-function ppSs_() { return SpreadsheetApp.openById(ppSheetId_()); }
+function ppSs_() {
+  if(ppEnvironmentId_()==='STABLE'){
+    const ss=SpreadsheetApp.getActiveSpreadsheet();
+    if(!ss || ss.getId()!==ppSheetId_())throw new Error('STABLE_BOUND_SHEET_MISMATCH');
+    return ss;
+  }
+  return SpreadsheetApp.openById(ppSheetId_());
+}
 function ppSheet_(name) {
   const s = ppSs_().getSheetByName(name);
   if (!s) throw new Error('SHEET_NOT_FOUND:' + name);
@@ -723,17 +833,16 @@ function ppEnsureAdminHeaders_(){const sh=ppSheet_(PP.ADMIN);if(sh.getRange(1,6)
 function ppSyncStatus_(){return {ok:true,business_date:ppBusinessIso_(),server_seq:ppRevision_(),master_revision:ppMasterRevision_(),last_event_at:ppNowIso_(),projection_pending:0,mode:'APP_GSHEET'};}
 function ppDiagnosticLog_(auth,body) {
   const eventId=String(body.event_id||'').trim(); if(!eventId)return {ok:false,error:'EVENT_ID_REQUIRED'};
-  const type=String(body.log_type||'').trim().toUpperCase();
-  const props=PropertiesService.getScriptProperties(),stable=ppEnvironmentId_()==='STABLE';
-  const map=stable?{
-    MANUAL:{id:String(props.getProperty('PP_LOG_MANUAL_FOLDER_ID')||''),prefix:'stable-manual'},
-    CRASH:{id:String(props.getProperty('PP_LOG_CRASH_FOLDER_ID')||''),prefix:'stable-crash'},
-    DAILY:{id:String(props.getProperty('PP_LOG_ANDROID_FOLDER_ID')||''),prefix:'stable-android-daily'}
-  }:{MANUAL:{id:PP.LOG_MANUAL_FOLDER_ID,prefix:'manual'},CRASH:{id:PP.LOG_CRASH_FOLDER_ID,prefix:'crash'},DAILY:{id:PP.LOG_ANDROID_FOLDER_ID,prefix:'android-daily'}};
-  const target=map[type]; if(!target)return {ok:false,error:'LOG_TYPE_INVALID'};
-  if(!target.id)return {ok:false,error:'ENV_LOG_TARGET_NOT_CONFIGURED'};
+  const type=String(body.log_type||'').trim().toUpperCase(); if(['MANUAL','CRASH','DAILY'].indexOf(type)<0)return {ok:false,error:'LOG_TYPE_INVALID'};
   const raw=JSON.stringify({event_id:eventId,log_type:type,at:ppNowIso_(),login_id:auth.login_id,role:auth.role,channel:body.channel||body._app_channel||'',app_version:body.app_version||body._app_version||'',payload:body.payload||{}});
   if(raw.length>80000)return {ok:false,error:'LOG_TOO_LARGE'};
+  if(ppEnvironmentId_()==='STABLE'){
+    const ss=ppSs_(),name='__STABLE_DIAGNOSTIC_LOG';let sh=ss.getSheetByName(name);
+    if(!sh){sh=ss.insertSheet(name);sh.getRange(1,1,1,7).setValues([['event_id','log_type','at','login_id','role','app_version','payload_json']]);sh.hideSheet();}
+    if(sh.getRange(2,1,Math.max(1,sh.getLastRow()-1),1).createTextFinder(eventId).matchEntireCell(true).findNext())return {ok:true,ack_event_id:eventId,log_type:type,idempotent:true};
+    sh.appendRow([eventId,type,ppNowIso_(),String(auth.login_id||''),String(auth.role||''),String(body.app_version||body._app_version||''),raw]);return {ok:true,ack_event_id:eventId,log_type:type};
+  }
+  const map={MANUAL:{id:PP.LOG_MANUAL_FOLDER_ID,prefix:'manual'},CRASH:{id:PP.LOG_CRASH_FOLDER_ID,prefix:'crash'},DAILY:{id:PP.LOG_ANDROID_FOLDER_ID,prefix:'android-daily'}},target=map[type];
   DriveApp.getFolderById(target.id).createFile(target.prefix+'-'+Utilities.formatDate(new Date(),PP.TZ,'yyyyMMdd-HHmmss')+'-'+eventId+'.json',raw,MimeType.PLAIN_TEXT);
   return {ok:true,ack_event_id:eventId,log_type:type};
 }
