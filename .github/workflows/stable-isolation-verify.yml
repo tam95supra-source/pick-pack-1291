@@ -1,0 +1,42 @@
+name: Stable isolation verify
+on:
+  push:
+    branches: ['feature/beta-stable-isolation-20260830']
+    paths:
+      - tools/stable_isolation_verify.py
+      - .github/workflows/stable-isolation-verify.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: stable-isolation-verify
+  cancel-in-progress: false
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Validate harness
+        run: python3 -m py_compile tools/stable_isolation_verify.py
+      - name: Install Worker tooling
+        run: cd service && npm install --ignore-scripts --no-audit --no-fund
+      - name: Verify Stable isolation backup restore
+        run: |
+          set -euo pipefail
+          test -n "${CLOUDFLARE_API_TOKEN:-}" && test -n "${CLOUDFLARE_ACCOUNT_ID:-}"
+          echo "::add-mask::$CLOUDFLARE_API_TOKEN"
+          echo "::add-mask::$CLOUDFLARE_ACCOUNT_ID"
+          python3 tools/stable_isolation_verify.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stable-isolation-verify-${{ github.run_id }}
+          path: /tmp/stable-isolation-verify-receipt.json
+          retention-days: 30
+          if-no-files-found: error
