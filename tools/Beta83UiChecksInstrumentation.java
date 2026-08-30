@@ -280,6 +280,17 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     }
     return null;
   }
+  private AccessibilityNodeInfo waitEditableHint(String hint,long timeout){
+    long end=SystemClock.uptimeMillis()+timeout;
+    AccessibilityNodeInfo n=null;
+    while(SystemClock.uptimeMillis()<end){
+      n=findEditableHint(hint);
+      if(n!=null)return n;
+      SystemClock.sleep(150L);
+    }
+    return null;
+  }
+
   private void setNodeText(AccessibilityNodeInfo n,String value){
     if(n==null)throw new IllegalStateException("EDITABLE_NODE_MISSING");
     Bundle b=new Bundle();b.putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE,value);
@@ -752,11 +763,11 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     waitText("Xóa thông tin trong ca",true,false,10000L);
     clickText("Chọn nội dung cần xóa",true,10000L);
     clickText("PDA: MT90-260817-214675",true,10000L);
-    AccessibilityNodeInfo deleteReason=findEditableHint("Lý do xóa");
+    AccessibilityNodeInfo deleteReason=waitEditableHint("Lý do xóa",5000L);
     require(deleteReason!=null,"DELETE_REASON_INPUT_MISSING");
     setNodeText(deleteReason,"Kiểm thử lý do");
     SystemClock.sleep(250L);
-    AccessibilityNodeInfo deleteReasonAfter=findEditableHint("Lý do xóa");
+    AccessibilityNodeInfo deleteReasonAfter=waitEditableHint("Lý do xóa",3000L);
     require(deleteReasonAfter!=null&&textOf(deleteReasonAfter).contains("Kiểm thử lý do"),"DELETE_REASON_NOT_EDITABLE");
     mark("delete_reason_editable");
     try{ui.executeShellCommand("input keyevent 4").close();}catch(Exception ignored){}
