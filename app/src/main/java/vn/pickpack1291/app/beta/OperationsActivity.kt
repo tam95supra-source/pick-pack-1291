@@ -2063,12 +2063,39 @@ class OperationsActivity : Activity() {
         if(isActualSuper()){
             body.addView(gap(10));body.addView(section("THỬ NGHIỆM LỖI SERVICE"))
             val fault=ServiceFaultInjection.mode(this)
+            val test=ServiceFaultInjection.testSnapshot(this)
             body.addView(details(listOf(
-                "Chế độ hiện tại" to fault.label,
-                "Cloudflare" to if(ServiceFaultInjection.cloudflareDisabled(this))"Tắt thử nghiệm" else "Bình thường",
-                "Google Drive" to if(ServiceFaultInjection.googleDisabled(this))"Tắt thử nghiệm" else "Bình thường"
+                "Kịch bản" to fault.label,
+                "Service (Cloudflare)" to if(ServiceFaultInjection.cloudflareDisabled(this))"ĐANG MÔ PHỎNG LỖI" else "Bình thường",
+                "Google / GAS Ledger" to if(ServiceFaultInjection.googleDisabled(this))"ĐANG MÔ PHỎNG LỖI" else "Bình thường",
+                "Tự phục hồi" to if(fault==ServiceFaultInjection.Mode.NORMAL)"Không có fault đang bật" else "Còn ${test.optLong("remaining_minutes")} phút",
+                "Kỳ vọng" to test.optString("expected"),
+                "Kết quả thực tế" to test.optString("result"),
+                "Chi tiết" to test.optString("detail"),
+                "Trạng thái probe" to "${test.optString("probe_status")} • retry ${test.optInt("attempt_count")}",
+                "Lỗi probe" to dash(test.optString("probe_error"))
             )))
-            body.addView(gap(7));body.addView(primary("CHỌN CHẾ ĐỘ THỬ NGHIỆM",orange){showServiceFaultModeDialog()},matchWrap())
+            body.addView(gap(7))
+            body.addView(primary("CHỌN KỊCH BẢN",orange){showServiceFaultModeDialog()},matchWrap())
+            if(fault!=ServiceFaultInjection.Mode.NORMAL){
+                body.addView(gap(7))
+                body.addView(primary("CHẠY PROBE KHÔNG ĐỤNG DỮ LIỆU NGHIỆP VỤ",teal){
+                    ServiceFaultInjection.runProbe(this)
+                    TopNotice.show(this,"Đã tạo probe kỹ thuật. Đang kiểm tra đúng đường fallback.",TopNotice.Kind.INFO)
+                    body.postDelayed({if(screenState=="SETTINGS")settingsScreen()},1200L)
+                },matchWrap())
+            }
+            body.addView(gap(7))
+            body.addView(primary("LÀM MỚI KẾT QUẢ",blue){M2ImmediateOutbox.kick(this);settingsScreen()},matchWrap())
+            if(fault!=ServiceFaultInjection.Mode.NORMAL||test.optString("probe_event_id").isNotBlank()){
+                body.addView(gap(7))
+                body.addView(primary("KẾT THÚC TEST & PHỤC HỒI",green){
+                    ServiceFaultInjection.endAndRecover(this)
+                    foregroundSync.requestSync()
+                    TopNotice.show(this,"Đã trả thiết bị về đường Service bình thường; probe sẽ tự replay.",TopNotice.Kind.SUCCESS)
+                    body.postDelayed({if(screenState=="SETTINGS")settingsScreen()},1500L)
+                },matchWrap())
+            }
         }
         body.addView(gap(14))
         body.addView(primary("ĐĂNG XUẤT",red){
@@ -2094,10 +2121,20 @@ class OperationsActivity : Activity() {
     }
     private fun showServiceFaultModeDialog(){
         if(!isActualSuper()){showError("SUPERADMIN_REQUIRED");return}
-        val modes=ServiceFaultInjection.Mode.entries.toTypedArray();val labels=modes.map{it.label}.toTypedArray();var selected=modes.indexOf(ServiceFaultInjection.mode(this)).coerceAtLeast(0)
-        AlertDialog.Builder(this).setTitle("Thử nghiệm lỗi service").setSingleChoiceItems(labels,selected){_,which->selected=which}.setNegativeButton("HỦY",null).setPositiveButton("ÁP DỤNG"){_,_->
-            ServiceFaultInjection.setMode(this,modes[selected]);M2ImmediateOutbox.kick(this);foregroundSync.requestSync();TopNotice.show(this,"Đã áp dụng: ${modes[selected].label}",TopNotice.Kind.INFO);settingsScreen()
-        }.show()
+        val modes=ServiceFaultInjection.Mode.entries.toTypedArray()
+        val labels=modes.map{it.label}.toTypedArray()
+        var selected=modes.indexOf(ServiceFaultInjection.mode(this)).coerceAtLeast(0)
+        AlertDialog.Builder(this)
+            .setTitle("Thử nghiệm lỗi Service trên thiết bị này")
+            .setMessage("Không tắt LIVE thật. Mỗi kịch bản chỉ chặn đường mạng trên thiết bị này, tự hết sau 30 phút. Dùng probe kỹ thuật để có bằng chứng PASS/FAIL mà không sửa dữ liệu nghiệp vụ.")
+            .setSingleChoiceItems(labels,selected){_,which->selected=which}
+            .setNegativeButton("HỦY",null)
+            .setPositiveButton("ÁP DỤNG"){_,_->
+                ServiceFaultInjection.setMode(this,modes[selected])
+                foregroundSync.requestSync()
+                TopNotice.show(this,"Đã áp dụng: ${modes[selected].label}",TopNotice.Kind.INFO)
+                settingsScreen()
+            }.show()
     }
 
     private fun themePicker()=row(surface).apply{
