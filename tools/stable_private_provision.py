@@ -142,7 +142,7 @@ def wrangler_config(req,d1_id,gas,gen):
       "d1_databases":[{"binding":"DB","database_name":req["target_d1_name"],"database_id":d1_id,"migrations_dir":"migrations"}],
       "durable_objects":{"bindings":[{"name":"REALTIME_HUB","class_name":"RealtimeHub"}]},
       "migrations":[{"tag":"v1","new_sqlite_classes":["RealtimeHub"]}],
-      "assets":{"directory":"./public","binding":"ASSETS","not_found_handling":"single-page-application","run_worker_first":["/health","/v1/*","/internal/*"]},
+      "assets":{"directory":"./public","binding":"ASSETS","not_found_handling":"single-page-application","run_worker_first":["/health","/environment.json","/v1/*","/internal/*"]},
       "triggers":{"crons":["*/1 * * * *"]},"observability":{"enabled":True,"head_sampling_rate":1}}
     path=SERVICE/"wrangler.stable.private.generated.jsonc"; path.write_text(json.dumps(cfg,indent=2)+"\n"); return path
 
