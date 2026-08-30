@@ -21,6 +21,7 @@ on:
       - tools/beta83_verify_matrix.sh
       - tools/Beta83UiChecksInstrumentation.java
       - tools/beta89_back_api36.sh
+      - tools/beta_auth_converge.py
       - tools/beta83_ota_device_gate.sh
       - tools/beta83_publish_ota.sh
       - tools/verify_beta_visual_receipt.py
@@ -130,6 +131,7 @@ jobs:
           python3 tools/verify_beta_visual_receipt.py --self-test
           python3 -m py_compile tools/gas_resilience_contract_readback.py tools/gas_resilience_contract_patch.py
           python3 -m py_compile tools/stable_private_provision.py
+          python3 -m py_compile tools/beta_auth_converge.py
           python3 -m py_compile tools/verify_promotion_lock.py
           python3 tools/verify_promotion_lock.py
           bash -n tools/beta83_publish_ota.sh
