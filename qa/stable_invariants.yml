@@ -38,13 +38,13 @@ invariants:
     rule: "Beta APK GitHub Release only; Google Drive APK forbidden; exact bytes/signature/readback."
     last_verified: "0.4.2-beta.99 / terminal run 33295954425"
   - id: PDA-EXIT-001
-    status: TECHNICAL_PASS_AWAITING_OWNER
+    status: ACTIVE_PASS
     scope: pda-exit
     rule: "Chỉ exact current-session authoritative active PDA assignment mới yêu cầu check PDA; stale scalar/cache/old-session không được quyết định."
     technical_candidate: "0.4.2-beta.99"
     regression_minimum: [active_pda, no_pda, returned_pda, stale_pda_serial, missing_assignment_snapshot, old_session_pda]
     technical_evidence: "artifact 9725965250; verify 33292677865; terminal publish/OTA/install/readback/finalize 33295954425; PDA-only partial mutation regression PASS"
-    owner_acceptance: "PARTIAL_ITEM_1_OK_ITEM_2_PENDING"
+    owner_acceptance: "ACTIVE_PASS_OWNER_ITEMS_1_AND_2_OK_BETA99_2026-08-30"
   - id: INFRA-RESILIENCE-001
     status: TECHNICAL_PASS_AWAITING_OWNER
     scope: infra-dr
