@@ -439,6 +439,24 @@ class OperationalDataStore(context: Context) {
     /** Compatibility mapping: old CONFLICT becomes the owner-visible REVIEW_REQUIRED state. */
     fun markMutationConflict(eventId: String, error: String) = markMutationReviewRequired(eventId, error)
 
+    fun diagnosticMutation(eventId:String):JSONObject? = withDbLock {
+        if(eventId.isBlank())return@withDbLock null
+        readableDb().query(
+            "mutation_outbox",
+            arrayOf("event_id","body_json","exclusive","status","attempt_count","next_attempt_at","queued_at","updated_at","last_error"),
+            "event_id=?",arrayOf(eventId),null,null,null,"1"
+        ).use{c->
+            if(!c.moveToFirst())return@withDbLock null
+            val body=runCatching{JSONObject(c.getString(1))}.getOrDefault(JSONObject())
+            return@withDbLock JSONObject()
+                .put("event_id",c.getString(0)).put("action",body.optString("action"))
+                .put("exclusive",c.getInt(2)!=0).put("status",c.getString(3))
+                .put("attempt_count",c.getInt(4)).put("next_attempt_at",c.getLong(5))
+                .put("queued_at",c.getLong(6)).put("updated_at",c.getLong(7))
+                .put("last_error",c.getString(8)?:"")
+        }
+    }
+
     // S44: bounded safe diagnostics; body payload is intentionally NOT emitted.
     fun diagnosticOutbox(limit:Int=50): JSONArray = withDbLock {
         val out=JSONArray()
