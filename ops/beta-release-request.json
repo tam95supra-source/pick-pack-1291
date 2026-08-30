@@ -1,6 +1,6 @@
 {
-  "stage": "BACK36_ONLY",
-  "mode": "BETA102_EXACT_CANDIDATE_API36_RECOVERY",
+  "stage": "BETA_AUTH_MIGRATE",
+  "mode": "BETA_AUTH_TARGET_5_REPLACEMENT_FIRST",
   "version_name": "0.4.2-beta.102",
   "version_code": 108,
   "base_version": "0.4.2-beta.101",
