@@ -1,26 +1,26 @@
 # CURRENT STATE — PICK PACK 1291
 
-- updated_at: 2026-08-30T10:21:19Z
-- status: BETA100_PASS_LIVE
+- updated_at: 2026-08-30T12:00:45Z
+- status: BETA101_PASS_LIVE
 - continuity_branch: release/beta97-qr-meal-alert-role-20260829
-- source_sha: c6cddd9df208a26f05b17fa2723827286bf93bd8
-- beta_live: 0.4.2-beta.100 (versionCode 106)
+- source_sha: d918de9fe0b132b60c5c4f515395e541da47daf2
+- beta_live: 0.4.2-beta.101 (versionCode 107)
 - package: vn.pickpack1291.app.beta.publicbeta
-- candidate_run: 33301229802
-- candidate_artifact: 9729047360
-- verify_run: 33305842167
-- verify_artifact: 9730487600
-- apk_sha256: 29270f4435a5e4c7729e4aeb9a6ae516795c14ca0858723df8c9a293a62d9319
+- candidate_run: 33307618230
+- candidate_artifact: 9731018588
+- verify_run: 33309271079
+- verify_artifact: 9731526178
+- apk_sha256: e29eab9402d847ac5f141f2a51ee164b235d46c3a075a46df4dff69ced0c3097
 - apk_size: 13577205
 - signer_sha256: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
-- terminal_run: 33306122804
+- terminal_run: 33310230934
 - fast_check: PASS
 - service_gate: PASS_INHERITED_JOB_99202629701_EXACT_SERVICE_SOURCE_UNCHANGED
 - visual_matrix: PASS 320x568 / 360x640 / 480x800
 - human_visual: PASS
 - pda_functional_pre_ota: PASS
-- beta_ota: exact 0.4.2-beta.100 PASS via GitHub Release
-- beta_ota_url: https://github.com/tam95supra-source/pick-pack-1291/releases/download/v0.4.2-beta.100-publicbeta/pick-pack-1291-public-beta-0.4.2-beta.100.apk
+- beta_ota: exact 0.4.2-beta.101 PASS via GitHub Release
+- beta_ota_url: https://github.com/tam95supra-source/pick-pack-1291/releases/download/v0.4.2-beta.101-publicbeta/pick-pack-1291-public-beta-0.4.2-beta.101.apk
 - apk_transport: GITHUB_RELEASE_ONLY
 - google_drive_apk: FORBIDDEN
 - stable: unchanged

@@ -1,6 +1,6 @@
 {
-  "stage": "PUBLISH",
-  "mode": "BETA101_PUBLISH_RETRY_RECEIPT_DRIVEN_VERIFIER",
+  "stage": "pass_live",
+  "mode": "PASS_LIVE_EXACT_BYTES_GITHUB_RELEASE_ONLY",
   "version_name": "0.4.2-beta.101",
   "version_code": 107,
   "base_version": "0.4.2-beta.100",
@@ -22,7 +22,7 @@
   "resign": false,
   "scope": "beta101-resilience-option-borders-stop-readable-history-full-diagnostics",
   "owner": "Nguyen Van Tam",
-  "live": false,
+  "live": true,
   "release_notes": [
     "Tạo bo viền riêng cho từng kịch bản resilience để phân biệt và chọn rõ ràng.",
     "Thêm DỪNG TEST / VỀ BÌNH THƯỜNG; cancellation chỉ đóng isolated test scope và không chạm business outbox.",
@@ -30,7 +30,7 @@
     "Log thủ công xuất tối đa 20 lượt resilience gần nhất thay vì chỉ kết quả cuối.",
     "Giữ nguyên 3 ô Mạng / Đồng bộ / Dịch vụ và ĐỒNG BỘ NGAY đã OWNER xác nhận OK."
   ],
-  "next_action": "PUBLISH_EXACT_BETA101_THEN_OTA_INSTALL_LIVE_READBACK_FINALIZE",
+  "next_action": "WAIT_FOR_OWNER_NEW_SCOPE",
   "signer_sha256": "d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e",
   "base_candidate_run_id": 33301229802,
   "base_candidate_artifact_id": 9729047360,
@@ -83,5 +83,6 @@
     "back_api36": "PASS"
   },
   "publish_verifier_fast_check_run_id": 33310187636,
-  "publish_verifier_regression": "PASS"
+  "publish_verifier_regression": "PASS",
+  "publish_run_id": "33310230934"
 }
