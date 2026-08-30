@@ -224,42 +224,52 @@ class M2ServiceTransport(context: Context) {
 
         return when(spec){
             ResilienceTestScenario.NORMAL_SERVICE_PRIMARY->{
-                stopIfRequested()?.let{return it}\n                val service=serviceConfirmWithIdempotency(true)
+                stopIfRequested()?.let{return it}
+                val service=serviceConfirmWithIdempotency(true)
                 if(!service.optBoolean("ok"))fail("SERVICE_PRIMARY",service.optString("error"),JSONObject().put("service",service))
                 else pass("COMPLETE",JSONObject().put("service",service).put("expected_route","SERVICE_PRIMARY"))
             }
             ResilienceTestScenario.DEVICE_OFFLINE_LOCAL->{
                 update("RUNNING","SIMULATED_DEVICE_OFFLINE","",JSONObject().put("network_simulated_offline",true))
+                stopIfRequested()?.let{return it}
                 val service=serviceConfirmWithIdempotency(true)
                 if(!service.optBoolean("ok"))fail("RECOVERY_REPLAY",service.optString("error"),JSONObject().put("service",service))
                 else pass("COMPLETE",JSONObject().put("local_only_before_recovery",true).put("recovery_service",service))
             }
             ResilienceTestScenario.SERVICE_UNAVAILABLE_GOOGLE->{
                 update("RUNNING","SIMULATED_SERVICE_UNAVAILABLE","TEST_SERVICE_UNAVAILABLE",JSONObject().put("service_blocked",true))
+                stopIfRequested()?.let{return it}
                 val gas=googleCapture()
                 if(!gas.optBoolean("ok"))return fail("GOOGLE_EMERGENCY_CAPTURE",gas.optString("error"),JSONObject().put("google",gas))
-                stopIfRequested()?.let{return it}\n                val lan=LanCoordinator.get(app)
+                stopIfRequested()?.let{return it}
+                val lan=LanCoordinator.get(app)
                 val lanEvidence=JSONObject().put("available",lan.canRoute())
                 if(lan.canRoute()){
                     val ack=lan.submit(body)
                     lanEvidence.put("handled",ack.handled).put("ok",ack.ok).put("generation",ack.generation).put("error",ack.error?:"")
                 }
                 update("RUNNING","FALLBACK_CAPTURED","",JSONObject().put("google",gas).put("lan_optional",lanEvidence))
+                stopIfRequested()?.let{return it}
                 val service=serviceConfirmWithIdempotency(true)
                 if(!service.optBoolean("ok"))return fail("RECOVERY_REPLAY",service.optString("error"),JSONObject().put("service",service))
+                stopIfRequested()?.let{return it}
                 val finalized=googleFinalize()
                 pass("COMPLETE",JSONObject().put("recovery_service",service).put("google_finalized",finalized))
             }
             ResilienceTestScenario.SERVICE_TIMEOUT_GOOGLE->{
                 update("RUNNING","SIMULATED_SERVICE_TIMEOUT","TEST_SERVICE_TIMEOUT",JSONObject().put("service_timeout_simulated",true))
+                stopIfRequested()?.let{return it}
                 val gas=googleCapture()
                 if(!gas.optBoolean("ok"))return fail("GOOGLE_EMERGENCY_CAPTURE",gas.optString("error"),JSONObject().put("google",gas))
+                stopIfRequested()?.let{return it}
                 val service=serviceConfirmWithIdempotency(true)
                 if(!service.optBoolean("ok"))return fail("RECOVERY_REPLAY",service.optString("error"),JSONObject().put("service",service))
+                stopIfRequested()?.let{return it}
                 pass("COMPLETE",JSONObject().put("google",gas).put("recovery_service",service).put("google_finalized",googleFinalize()))
             }
             ResilienceTestScenario.GOOGLE_UNAVAILABLE_SERVICE->{
                 update("RUNNING","SIMULATED_GOOGLE_UNAVAILABLE","TEST_GOOGLE_UNAVAILABLE",JSONObject().put("google_blocked",true))
+                stopIfRequested()?.let{return it}
                 val service=serviceConfirmWithIdempotency(false)
                 if(!service.optBoolean("ok"))fail("SERVICE_DIRECT_WITH_GOOGLE_DOWN",service.optString("error"),JSONObject().put("service",service))
                 else pass("COMPLETE",JSONObject().put("service",service).put("google_path_used",false))
@@ -267,8 +277,10 @@ class M2ServiceTransport(context: Context) {
             ResilienceTestScenario.SERVICE_GOOGLE_OFFLINE_LOCAL->{
                 update("RUNNING","SIMULATED_SERVICE_GOOGLE_LAN_UNAVAILABLE","TEST_ALL_REMOTE_UNAVAILABLE",
                     JSONObject().put("service_blocked",true).put("google_blocked",true).put("lan_simulated_unavailable",true))
-                stopIfRequested()?.let{return it}\n                val persisted=localIntegrity()
+                stopIfRequested()?.let{return it}
+                val persisted=localIntegrity()
                 if(!persisted)return fail("LOCAL_ONLY","LOCAL_TEST_LEDGER_INTEGRITY_FAILED")
+                stopIfRequested()?.let{return it}
                 val service=serviceConfirmWithIdempotency(true)
                 if(!service.optBoolean("ok"))fail("RECOVERY_REPLAY",service.optString("error"),JSONObject().put("service",service))
                 else pass("COMPLETE",JSONObject().put("local_only_verified",true).put("recovery_service",service))
@@ -276,6 +288,7 @@ class M2ServiceTransport(context: Context) {
             ResilienceTestScenario.SERVICE_GOOGLE_OFFLINE_LAN->{
                 update("RUNNING","SIMULATED_CLOUD_PATHS_UNAVAILABLE","TEST_CLOUD_PATHS_UNAVAILABLE",
                     JSONObject().put("service_blocked",true).put("google_blocked",true))
+                stopIfRequested()?.let{return it}
                 val lan=LanCoordinator.get(app)
                 if(!lan.canRoute()){
                     update("NOT_AVAILABLE","LAN_PREREQUISITE_MISSING","LAN_NOT_AVAILABLE_ON_THIS_DEVICE",
@@ -286,6 +299,7 @@ class M2ServiceTransport(context: Context) {
                 if(!ack.handled||!ack.ok)return fail("LAN_FALLBACK",ack.error?:"LAN_SUBMIT_FAILED",
                     JSONObject().put("lan_generation",ack.generation).put("lan_handled",ack.handled))
                 update("RUNNING","LAN_DURABLE_ACK","",JSONObject().put("lan_generation",ack.generation).put("lan_ack",true))
+                stopIfRequested()?.let{return it}
                 val service=serviceConfirmWithIdempotency(true)
                 if(!service.optBoolean("ok"))fail("RECOVERY_REPLAY",service.optString("error"),JSONObject().put("service",service))
                 else pass("COMPLETE",JSONObject().put("lan_ack",true).put("recovery_service",service))
