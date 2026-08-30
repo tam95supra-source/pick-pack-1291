@@ -108,39 +108,15 @@ object ServiceFaultInjection {
         val expected=if(active==Mode.NORMAL&&probeId.isNotBlank())
             "Probe gần nhất phải replay/được xác nhận bởi Service (CONFIRMED)." else active.expected
 
-        var result="CHƯA CHẠY"
-        var detail="Chọn một kịch bản rồi bấm CHẠY PROBE."
-        if(probeId.isNotBlank()){
-            val hardFail=status in setOf("REJECTED","REVIEW_REQUIRED","CONFLICT")
-            if(hardFail){
-                result="FAIL"
-                detail="Probe kết thúc lỗi: ${status.ifBlank{"UNKNOWN"}} • ${error.ifBlank{"không có mã lỗi"}}"
-            }else when(active){
-                Mode.NORMAL->{
-                    if(status=="CONFIRMED"){result="PASS";detail="Phục hồi PASS: probe đã về canonical Service."}
-                    else {result="ĐANG PHỤC HỒI";detail="Probe còn ${status.ifBlank{"PENDING"}}; bấm LÀM MỚI sau vài giây."}
-                }
-                Mode.DISABLE_CLOUDFLARE->{
-                    if(status=="OFFLINE_PROVISIONAL"&&error.contains("EMERGENCY_LEDGER_CAPTURED")){
-                        result="PASS";detail="Service bị chặn đúng; Emergency Ledger đã ACK và local vẫn giữ replay."
-                    }else if(status=="CONFIRMED"){
-                        result="FAIL";detail="Probe đã vào Service dù đang bật mô phỏng Service chết."
-                    }else {result="ĐANG KIỂM TRA";detail="Đang chờ Emergency Ledger ACK; hiện tại ${status.ifBlank{"PENDING"}}."}
-                }
-                Mode.DISABLE_GOOGLE->{
-                    if(status=="CONFIRMED"){result="PASS";detail="Google/GAS bị chặn nhưng Service vẫn xác nhận probe."}
-                    else if(status=="OFFLINE_PROVISIONAL"){result="FAIL";detail="Probe đã đi vào Emergency Ledger dù Google/GAS phải đang bị chặn."}
-                    else {result="ĐANG KIỂM TRA";detail="Đang chờ Service xác nhận; hiện tại ${status.ifBlank{"PENDING"}}."}
-                }
-                Mode.DISABLE_BOTH->{
-                    if(status=="CONFIRMED"||status=="OFFLINE_PROVISIONAL"){
-                        result="FAIL";detail="Probe đã được cloud xác nhận trong khi cả hai đường phải bị chặn."
-                    }else if(attempts>0&&status in setOf("LOCAL_PENDING","PENDING","RETRY","LAN_CONFIRMED")){
-                        result="PASS";detail="Không có cloud ACK; probe vẫn được giữ bền local${if(status=="LAN_CONFIRMED")" / LAN" else ""} để replay."
-                    }else {result="ĐANG KIỂM TRA";detail="Đang chờ ít nhất một lần retry để chứng minh local durability."}
-                }
-            }
-        }
+        val verdict=ResilienceProbePolicy.evaluate(
+            mode=active.stored,
+            hasProbe=probeId.isNotBlank(),
+            status=status,
+            error=error,
+            attempts=attempts,
+        )
+        val result=verdict.state
+        val detail=verdict.detail
 
         val now=System.currentTimeMillis()
         val expires=p.getLong(KEY_EXPIRES,0L)
