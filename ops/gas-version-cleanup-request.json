@@ -1,9 +1,12 @@
 {
-  "action": "DELETE",
+  "action": "DRY_RUN",
   "keep_latest": 40,
-  "confirm": "DELETE_UNREFERENCED_GAS_VERSIONS",
+  "confirm": "",
   "requested_by": "OWNER_NGUYEN_VAN_TAM",
   "purpose": "Execute approved safe batch cleanup before Beta99 publish retry",
   "note": "Delete only unreferenced versions; preserve all deployment-referenced versions and newest 40.",
-  "owner_approval": "XÓA BATCH 160"
+  "owner_approval": "XÓA BATCH 160",
+  "last_delete_attempt_run": 33295218728,
+  "last_delete_attempt_result": "SAFE_FAILURE_NO_VERSION_DELETED",
+  "blocker": "APPS_SCRIPT_API_VERSION_DELETE_UNSUPPORTED_USE_NATIVE_PROJECT_HISTORY_BULK_DELETE"
 }
