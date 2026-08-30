@@ -18,7 +18,7 @@ Purpose: danh sách tích lũy các hành vi đã được OWNER chốt và/ho�
 
 Mỗi invariant tối thiểu có:
 - ID
-- Status: ACTIVE_PASS | LOCKED_REQUIREMENT_PENDING_FIX | SUPERSEDED
+- Status: ACTIVE_PASS | LOCKED_REQUIREMENT_PENDING_FIX | TECHNICAL_PASS_AWAITING_OWNER | SUPERSEDED
 - Scope/domain
 - Rule cố định
 - Authority/canonical decision path
@@ -34,40 +34,40 @@ Mỗi invariant tối thiểu có:
 - Scope: UI / mọi màn trong scope ứng dụng
 - Rule: 3 ô Mạng / Đồng bộ / Dịch vụ luôn ghim trên cùng; không được mất, đổi vị trí tùy tiện hoặc bị rerender đẩy khỏi header.
 - Regression: kiểm tra các module bị chạm + visual matrix liên quan.
-- Evidence: Beta97 visual/PDA pre-OTA PASS run 33250391599, artifact 9714229229; human visual 320x568 / 360x640 / 480x800 PASS.
-- Last verified: 0.4.2-beta.97.
+- Evidence: Beta98 visual/PDA pre-OTA PASS run 33281633060, artifact 9723200175; human visual 26 screenshots at 320x568 / 360x640 / 480x800 PASS; terminal OTA run 33289302031 PASS.
+- Last verified: 0.4.2-beta.98.
 
 ### QR-LOCAL-001
 - Status: ACTIVE_PASS
 - Scope: QR nhân sự
 - Rule: giữ local fast-path; quét nhân sự hiển thị dữ liệu local nhanh rồi Service reconcile nền; không được biến thành reload/reset UI đang thao tác.
 - Regression: local fast-path + service reconcile + không reset interactive employee form.
-- Evidence: Beta97 owner scope + verify PASS run 33250391599.
-- Last verified: 0.4.2-beta.97.
+- Evidence: Beta98 exact-candidate verify PASS run 33281633060; terminal OTA/install/readback run 33289302031 PASS.
+- Last verified: 0.4.2-beta.98.
 
 ### MEAL-DATE-001
 - Status: ACTIVE_PASS
 - Scope: Điểm danh nhân sự
 - Rule: điểm danh chỉ chấp nhận ACTIVE session đúng business_date hiện tại; ACTIVE phiên cũ không được tính là session hiện tại.
 - Regression: current-day ACTIVE accepted; old-day ACTIVE rejected.
-- Evidence: Beta97 verify PASS run 33250391599.
-- Last verified: 0.4.2-beta.97.
+- Evidence: Beta98 exact-candidate verify PASS run 33281633060; terminal OTA/install/readback run 33289302031 PASS.
+- Last verified: 0.4.2-beta.98.
 
 ### MEAL-WARN-001
 - Status: ACTIVE_PASS
 - Scope: Nghiệp vụ / Điểm danh
 - Rule: cảnh báo nhân sự chưa điểm danh phải hiển thị ở phía trên theo scope đã chốt.
 - Regression: warning render + realtime refresh không phá header.
-- Evidence: Beta97 verify PASS run 33250391599.
-- Last verified: 0.4.2-beta.97.
+- Evidence: Beta98 exact-candidate verify PASS run 33281633060; terminal OTA/install/readback run 33289302031 PASS.
+- Last verified: 0.4.2-beta.98.
 
 ### ROLE-HISTORY-001
 - Status: ACTIVE_PASS
 - Scope: Role / History
 - Rule: USER không thấy tab History và không được truy cập History bằng deep-link; ADMIN/SUPERADMIN theo quyền hiện hành.
 - Regression: tab hidden + deep-link blocked cho USER.
-- Evidence: Beta97 verify PASS run 33250391599.
-- Last verified: 0.4.2-beta.97.
+- Evidence: Beta98 exact-candidate verify PASS run 33281633060; terminal OTA/install/readback run 33289302031 PASS.
+- Last verified: 0.4.2-beta.98.
 
 ### OTA-BETA-001
 - Status: ACTIVE_PASS
@@ -75,13 +75,13 @@ Mỗi invariant tối thiểu có:
 - Rule: Beta APK = GITHUB_RELEASE_ONLY; Google Drive APK FORBIDDEN cho backup/staging/mirror/upload/download/rollback/distribution.
 - Authority: GitHub Actions exact candidate → GitHub Release exact bytes → Beta manifest/update API → OTA exact readback.
 - Regression: exact SHA256/size/version/package/signer, Stable/main/authority unchanged.
-- Evidence: Beta97 terminal run 33252891249; final artifact 9714942068; OTA 0.4.2-beta.96 → 0.4.2-beta.97 PASS.
-- Last verified: 0.4.2-beta.97.
+- Evidence: Beta98 terminal run 33289302031; final artifact 9725478850; OTA 0.4.2-beta.97 → 0.4.2-beta.98 exact SHA/size/version/package/signer + install/open PASS; GAS deployment version 201 readback PASS.
+- Last verified: 0.4.2-beta.98.
 
 ## 4. LOCKED_REQUIREMENT_PENDING_FIX
 
 ### PDA-EXIT-001
-- Status: LOCKED_REQUIREMENT_PENDING_FIX
+- Status: TECHNICAL_PASS_AWAITING_OWNER
 - Scope: Ra ca / PDA
 - OWNER rule: chỉ kiểm PDA cuối ca khi đúng session hiện tại thực tế có PDA theo authority của chính session đó.
 - Không PDA → Ra ca trực tiếp, không hiện kiểm PDA.
@@ -89,8 +89,15 @@ Mỗi invariant tối thiểu có:
 - `pda_serial` / cache / legacy stale hoặc PDA của phiên cũ không được tự biến thành bằng chứng session hiện tại có PDA.
 - Nếu authority chưa đủ dữ liệu phải resolve đúng session từ Service; cấm suy đoán từ scalar/cache cũ.
 - Regression matrix tối thiểu: active PDA / no PDA / PDA đã trả / stale pda_serial / thiếu assignment snapshot / phiên cũ có PDA nhưng phiên hiện tại không có.
-- Current issue: Beta97 còn fallback legacy `pda_serial` khi thiếu `resource_assignments_v64`, có thể gây false-positive kiểm PDA.
-- Status rule: chỉ chuyển sang ACTIVE_PASS sau khi root cause được sửa và regression matrix PASS trên exact candidate.
+- Technical evidence: Beta98 exact candidate source 154473b3dcc17c8badcfe345108e59ac3ba6e830, artifact 9722490457; regression/visual/PDA pre-OTA PASS run 33281633060; terminal publish + OTA/install/readback PASS run 33289302031.
+- OWNER acceptance: PENDING. Chỉ chuyển sang ACTIVE_PASS sau khi OWNER nghiệm thu rule trên Beta98.
+
+### INFRA-RESILIENCE-001
+- Status: TECHNICAL_PASS_AWAITING_OWNER
+- Scope: infra / DR / durable event path
+- Rule: durable local + provisional Google ledger + single-writer LAN/cloud DR + backup/rollover/fencing phải giữ canonical event/idempotency và không tự đổi authority/provider.
+- Technical evidence: Beta98 release scope hoàn tất theo canonical finalizer; service gate inherited exact unchanged source 33280777490; exact-candidate verify 33281633060; terminal release/OTA 33289302031 PASS; Stable/main/signer/authority/provider unchanged.
+- OWNER acceptance: PENDING. Chỉ chuyển sang ACTIVE_PASS sau OWNER nghiệm thu scope resilience Beta98.
 
 ## 5. Quy tắc tích lũy sau mỗi task
 
