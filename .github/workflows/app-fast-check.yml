@@ -14,6 +14,7 @@ on:
       - config/mutation_fallback_policy.json
       - config/provider_free_limits.json
       - tools/resilience_static_gate.mjs
+      - tools/beta_stable_isolation_contract.mjs
       - tools/portable_backup_verify.sh
       - tools/d1_generation_autopilot.sh
       - tools/cloud_dr_provider_preflight.sh
@@ -141,6 +142,7 @@ jobs:
         run: |
           set -euo pipefail
           node tools/resilience_static_gate.mjs
+          node tools/beta_stable_isolation_contract.mjs
           cp google-apps-script/PICK_PACK_API.gs "$RUNNER_TEMP/pick-pack-api.js"
           node --check "$RUNNER_TEMP/pick-pack-api.js"
           cp google-apps-script/stable-outbound/Code.gs "$RUNNER_TEMP/stable-outbound.js"
