@@ -586,9 +586,22 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     AccessibilityNodeInfo networkChip=waitText("Mạng",true,false,10000L);
     AccessibilityNodeInfo syncChip=waitText("Đồng bộ",true,false,10000L);
     AccessibilityNodeInfo serviceChip=waitText("Dịch vụ",true,false,10000L);
-    require(clickableNode(networkChip)==null,"NETWORK_CHIP_MUST_BE_DISPLAY_ONLY");
+    require(clickableNode(networkChip)!=null,"NETWORK_CHIP_MUST_BE_CLICKABLE");
     require(clickableNode(syncChip)!=null,"SYNC_CHIP_MUST_BE_CLICKABLE");
-    require(clickableNode(serviceChip)==null,"SERVICE_CHIP_MUST_BE_DISPLAY_ONLY");
+    require(clickableNode(serviceChip)!=null,"SERVICE_CHIP_MUST_BE_CLICKABLE");
+    clickText("Mạng",true,10000L);
+    waitText("Thông tin Mạng",false,false,10000L);waitText("Loại kết nối",false,false,10000L);
+    try{ui.executeShellCommand("input keyevent 4").close();}catch(Exception ignored){}
+    SystemClock.sleep(200L);
+    clickText("Đồng bộ",true,10000L);
+    waitText("Thông tin Đồng bộ",false,false,10000L);waitText("ĐỒNG BỘ NGAY",true,false,10000L);
+    try{ui.executeShellCommand("input keyevent 4").close();}catch(Exception ignored){}
+    SystemClock.sleep(200L);
+    clickText("Dịch vụ",true,10000L);
+    waitText("Thông tin Dịch vụ",false,false,10000L);waitText("Authority",false,false,10000L);
+    try{ui.executeShellCommand("input keyevent 4").close();}catch(Exception ignored){}
+    SystemClock.sleep(200L);
+    mark("status_chip_details_beta100");
     waitText("Điểm danh nhân sự",true,true,10000L);
     clickText("Điểm danh nhân sự",true,10000L);
     waitText("ĐIỂM DANH SAU GIỜ ĂN",true,false,10000L);
