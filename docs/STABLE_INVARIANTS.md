@@ -34,40 +34,40 @@ Mỗi invariant tối thiểu có:
 - Scope: UI / mọi màn trong scope ứng dụng
 - Rule: 3 ô Mạng / Đồng bộ / Dịch vụ luôn ghim trên cùng; không được mất, đổi vị trí tùy tiện hoặc bị rerender đẩy khỏi header.
 - Regression: kiểm tra các module bị chạm + visual matrix liên quan.
-- Evidence: Beta99 exact-candidate visual/PDA PASS run 33292677865, artifact 9726495444; human visual 26 screenshots at 320x568 / 360x640 / 480x800 PASS; terminal OTA/install/finalize run 33295954425 PASS.
-- Last verified: 0.4.2-beta.99.
+- Evidence: Beta101 exact-candidate visual/PDA PASS run 33309271079, artifact 9731526178; human visual 35 screenshots at 320x568 / 360x640 / 480x800 PASS; terminal publish/OTA/install/readback/finalize run 33310230934, final artifact 9731780051 PASS.
+- Last verified: 0.4.2-beta.101.
 
 ### QR-LOCAL-001
 - Status: ACTIVE_PASS
 - Scope: QR nhân sự
 - Rule: giữ local fast-path; quét nhân sự hiển thị dữ liệu local nhanh rồi Service reconcile nền; không được biến thành reload/reset UI đang thao tác.
 - Regression: local fast-path + service reconcile + không reset interactive employee form.
-- Evidence: Beta99 exact-candidate verify PASS run 33292677865; terminal OTA/install/readback/finalize run 33295954425 PASS.
-- Last verified: 0.4.2-beta.99.
+- Evidence: Beta101 exact-candidate verify PASS run 33309271079; terminal publish/OTA/install/readback/finalize run 33310230934 PASS.
+- Last verified: 0.4.2-beta.101.
 
 ### MEAL-DATE-001
 - Status: ACTIVE_PASS
 - Scope: Điểm danh nhân sự
 - Rule: điểm danh chỉ chấp nhận ACTIVE session đúng business_date hiện tại; ACTIVE phiên cũ không được tính là session hiện tại.
 - Regression: current-day ACTIVE accepted; old-day ACTIVE rejected.
-- Evidence: Beta99 exact-candidate verify PASS run 33292677865; terminal OTA/install/readback/finalize run 33295954425 PASS.
-- Last verified: 0.4.2-beta.99.
+- Evidence: Beta101 exact-candidate verify PASS run 33309271079; terminal publish/OTA/install/readback/finalize run 33310230934 PASS.
+- Last verified: 0.4.2-beta.101.
 
 ### MEAL-WARN-001
 - Status: ACTIVE_PASS
 - Scope: Nghiệp vụ / Điểm danh
 - Rule: cảnh báo nhân sự chưa điểm danh phải hiển thị ở phía trên theo scope đã chốt.
 - Regression: warning render + realtime refresh không phá header.
-- Evidence: Beta99 exact-candidate verify PASS run 33292677865; terminal OTA/install/readback/finalize run 33295954425 PASS.
-- Last verified: 0.4.2-beta.99.
+- Evidence: Beta101 exact-candidate verify PASS run 33309271079; terminal publish/OTA/install/readback/finalize run 33310230934 PASS.
+- Last verified: 0.4.2-beta.101.
 
 ### ROLE-HISTORY-001
 - Status: ACTIVE_PASS
 - Scope: Role / History
 - Rule: USER không thấy tab History và không được truy cập History bằng deep-link; ADMIN/SUPERADMIN theo quyền hiện hành.
 - Regression: tab hidden + deep-link blocked cho USER.
-- Evidence: Beta99 exact-candidate verify PASS run 33292677865; terminal OTA/install/readback/finalize run 33295954425 PASS.
-- Last verified: 0.4.2-beta.99.
+- Evidence: Beta101 exact-candidate verify PASS run 33309271079; terminal publish/OTA/install/readback/finalize run 33310230934 PASS.
+- Last verified: 0.4.2-beta.101.
 
 ### OTA-BETA-001
 - Status: ACTIVE_PASS
@@ -75,8 +75,9 @@ Mỗi invariant tối thiểu có:
 - Rule: Beta APK = GITHUB_RELEASE_ONLY; Google Drive APK FORBIDDEN cho backup/staging/mirror/upload/download/rollback/distribution.
 - Authority: GitHub Actions exact candidate → GitHub Release exact bytes → Beta manifest/update API → OTA exact readback.
 - Regression: exact SHA256/size/version/package/signer, Stable/main/authority unchanged.
-- Evidence: Beta99 terminal run 33295954425; final artifact 9727446475; OTA 0.4.2-beta.98 → 0.4.2-beta.99 exact SHA/size/version/package/signer + install/open PASS; GAS deployment version 203 readback PASS.
-- Last verified: 0.4.2-beta.99.
+- Publish-verifier regression: receipt-driven screenshot evidence; legacy receipt 26 PASS, Beta101 receipt 35 PASS, actual-count mismatch / missing viewport / summary mismatch / human gate false FAIL; Fast Check run 33310187636 PASS.
+- Evidence: Beta101 terminal run 33310230934; final artifact 9731780051; OTA 0.4.2-beta.100 → 0.4.2-beta.101 exact SHA/size/version/package/signer + install/open PASS; GitHub Release asset exact SHA256/size; GAS deployment version 205 readback PASS.
+- Last verified: 0.4.2-beta.101.
 
 ## 4. LOCKED_REQUIREMENT_PENDING_FIX
 
@@ -89,15 +90,15 @@ Mỗi invariant tối thiểu có:
 - `pda_serial` / cache / legacy stale hoặc PDA của phiên cũ không được tự biến thành bằng chứng session hiện tại có PDA.
 - Nếu authority chưa đủ dữ liệu phải resolve đúng session từ Service; cấm suy đoán từ scalar/cache cũ.
 - Regression matrix tối thiểu: active PDA / no PDA / PDA đã trả / stale pda_serial / thiếu assignment snapshot / phiên cũ có PDA nhưng phiên hiện tại không có.
-- Technical evidence: Beta99 exact candidate source 660cac5f937c911364a7726661ed4c4b07d92388, artifact 9725965250; PDA-only partial mutation regression + visual/PDA pre-OTA PASS run 33292677865; terminal publish + OTA/install/readback/finalize PASS run 33295954425.
+- Technical evidence: OWNER-accepted Beta99 baseline remains ACTIVE_PASS; reverified on Beta101 exact candidate visual/PDA run 33309271079 and terminal publish/OTA/install/readback/finalize run 33310230934 PASS.
 - OWNER acceptance: PASS — item 1 OK và item 2 OK trên Beta99. Latest manual evidence 2026-08-30 13:21 + OWNER confirmation: session_work_update Đổi/Trả PDA hoạt động, không còn USER_PICK_UNAVAILABLE. Khóa ACTIVE_PASS từ Beta99.
 
 ### INFRA-RESILIENCE-001
 - Status: TECHNICAL_PASS_AWAITING_OWNER
 - Scope: infra / DR / durable event path
 - Rule: durable local + provisional Google ledger + single-writer LAN/cloud DR + backup/rollover/fencing phải giữ canonical event/idempotency và không tự đổi authority/provider.
-- Technical evidence: Beta99 service-live PASS job 99202629701 gồm backup/restore, D1 capacity/autopilot/rollover và canonical resilience_probe; exact-candidate verify 33292677865; terminal release/OTA/finalize 33295954425 PASS; Stable/main/signer/authority/provider unchanged.
-- OWNER acceptance: PENDING checklist item 6 — cần OWNER chạy fault-injection probe thực tế trên Beta99 rồi xác nhận.
+- Technical evidence: service-live PASS job 99202629701 inherited because exact service source unchanged; Beta101 exact-candidate verify run 33309271079 gồm scenario selection, isolated technical ledger, business-outbox isolation, bordered options/history/stop-control evidence; terminal publish/OTA/install/readback/finalize run 33310230934 PASS; Stable/main/signer/authority/provider unchanged.
+- OWNER acceptance: PENDING checklist item 6 — Beta101 Technical PASS/LIVE; chờ OWNER nghiệm thu final resilience UX/fault-injection thực tế rồi xác nhận.
 
 ## 5. Quy tắc tích lũy sau mỗi task
 
