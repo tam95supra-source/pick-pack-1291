@@ -1,0 +1,71 @@
+PICK PACK 1291 — EXACT CHECKPOINT / OWNER BLOCKER
+schema_version: 2
+status: READY
+owner: Nguyễn Văn Tâm
+repo: tam95supra-source/pick-pack-1291
+branch: release/beta97-qr-meal-alert-role-20260829
+head_before_handoff: e4a934cc9cb3f5bb82454ae0488be8001a236598
+
+LIVE / TARGET
+LIVE_BETA: 0.4.2-beta.97
+LIVE_VERSION_CODE: 103
+TARGET_BETA: 0.4.2-beta.98
+TARGET_VERSION_CODE: 104
+PACKAGE: vn.pickpack1291.app.beta.publicbeta
+
+EXACT LOCKED CANDIDATE — DO NOT REBUILD/RESIGN
+source_sha: 154473b3dcc17c8badcfe345108e59ac3ba6e830
+candidate_run: 33279188816
+candidate_artifact: 9722490457
+apk_sha256: b3085fe35f9bd2f8bed499dc7afcede5f210abdd8021ba379bccad7b795fba4b
+apk_size: 13544437
+signer_sha256: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
+
+INHERITED TERMINAL PASS
+fast_check: PASS run 33281578813
+service_live: PASS run 33280777490 job 99175479666
+verify_only: PASS run 33281633060 artifact 9723200175
+visual_matrix: PASS
+direct_pda_functional: PASS
+android16_api36_back: PASS
+human_visual: PASS 26 screenshots at 320x568, 360x640, 480x800
+github_release_beta98_exact_asset: PASS public readback
+github_release_asset_sha256: b3085fe35f9bd2f8bed499dc7afcede5f210abdd8021ba379bccad7b795fba4b
+github_release_asset_size: 13544437
+
+CURRENT BLOCKER
+publish_run: 33286565895
+publish_job: 99190673483
+publish_status: FAILURE_ONLY_AT_GAS_VERSION_CREATE
+gas_version_count: 200
+gas_version_range: 1..200
+gas_deployment_count: 2
+gas_referenced_versions: [200]
+gas_current_deployment_version: 200
+gas_safe_unreferenced_oldest: [1,2,3,4,5,6,7,8,9,10]
+owner_safe_delete_version: 1
+error: Cannot create more versions; Apps Script project reached hard limit 200.
+beta_manifest_after_failed_publish: STILL_EXACT_BETA97
+partial_ota_activation: NO
+github_release_beta98_exact_asset: PRESERVED
+stable_main_signer_authority_provider: UNCHANGED
+
+OWNER ACTION — ONLY MANUAL/DESTRUCTIVE STEP
+Delete Google Apps Script Project history version 1 ONLY.
+DO NOT delete version 200.
+DO NOT alter deployment IDs.
+DO NOT rebuild/resign Beta98.
+DO NOT change Stable/main/signer/authority/provider.
+
+RESUME VERIFICATION
+After OWNER confirms version 1 deleted:
+1. Fresh-read GAS version inventory; require version_count <= 199 and current/referenced deployment still version 200.
+2. Fresh-read Beta manifest; require still Beta97 before publish.
+3. Retry publish using exact artifact 9722490457 / exact locked bytes; do not rerun already-PASS candidate/service/visual gates.
+4. Follow publish to terminal.
+5. Verify GitHub Release exact hash/size -> Beta manifest/update API -> OTA detects Beta98 -> install -> version/package/hash/signer readback -> service/LIVE smoke.
+6. Finalize CURRENT_STATE + receipt + HANDOVER only after all post-publish gates PASS.
+7. If post-publish failure, rollback Beta manifest to Beta97 first; Stable untouched.
+
+NEXT_ACTION:
+AFTER_OWNER_DELETES_GAS_PROJECT_HISTORY_VERSION_1_FRESH_READ_GAS_INVENTORY_AND_BETA97_MANIFEST_THEN_RETRY_PUBLISH_EXACT_ARTIFACT_9722490457_OTA_INSTALL_LIVE_READBACK_FINALIZE
