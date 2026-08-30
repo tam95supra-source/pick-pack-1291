@@ -138,6 +138,14 @@ jobs:
           node tools/resilience_static_gate.mjs
           cp google-apps-script/PICK_PACK_API.gs "$RUNNER_TEMP/pick-pack-api.js"
           node --check "$RUNNER_TEMP/pick-pack-api.js"
+          cp google-apps-script/stable-outbound/Code.gs "$RUNNER_TEMP/stable-outbound.js"
+          cp google-apps-script/stable-dr/Code.gs "$RUNNER_TEMP/stable-dr.js"
+          node --check "$RUNNER_TEMP/stable-outbound.js"
+          node --check "$RUNNER_TEMP/stable-dr.js"
+          node -e 'const fs=require("fs"); for (const p of ["google-apps-script/stable-primary-appsscript.json","google-apps-script/stable-outbound/appsscript.json","google-apps-script/stable-dr/appsscript.json"]) JSON.parse(fs.readFileSync(p,"utf8"));'
+          grep -q 'spreadsheets.currentonly' google-apps-script/stable-primary-appsscript.json
+          grep -q 'spreadsheets.currentonly' google-apps-script/stable-outbound/appsscript.json
+          grep -q 'spreadsheets.currentonly' google-apps-script/stable-dr/appsscript.json
           pushd service
           npm install --ignore-scripts --no-audit --no-fund
           npm run check
