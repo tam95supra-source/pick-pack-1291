@@ -1,6 +1,6 @@
 {
   "stage": "PUBLISH",
-  "mode": "PUBLISH_EXACT_BETA99_GITHUB_RELEASE_ONLY_AFTER_ALL_PRE_OTA_GATES_PASS",
+  "mode": "PUBLISH_EXACT_BETA99_AFTER_OWNER_GAS_CLEANUP_VERIFIED",
   "version_name": "0.4.2-beta.99",
   "version_code": 105,
   "base_version": "0.4.2-beta.98",
@@ -96,5 +96,13 @@
     "human_visual_pass": true,
     "human_visual_screenshot_count": 26,
     "back_api36": "PASS"
-  }
+  },
+  "gas_cleanup_verify_run_id": 33295925825,
+  "gas_cleanup_verify_artifact_id": 9727399067,
+  "gas_version_count_before_publish": 100,
+  "gas_current_deployment_version_before_publish": 201,
+  "gas_referenced_versions_before_publish": [
+    201
+  ],
+  "gas_free_slots_estimate_before_publish": 100
 }
