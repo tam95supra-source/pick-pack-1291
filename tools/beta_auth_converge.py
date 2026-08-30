@@ -130,6 +130,21 @@ def make_credential():
     verifier=f"pbkdf2_sha256${it}${b64u(salt)}${b64u(key)}"
     return password,verifier,hashlib.sha256(verifier.encode()).hexdigest()
 
+def worker_json(method,url,body=None,headers=None):
+    cmd=["curl","-sS","--connect-timeout","15","--max-time","45","-X",method]
+    for k,v in (headers or {}).items(): cmd += ["-H",f"{k}: {v}"]
+    if body is not None:
+        cmd += ["-H","Content-Type: application/json","--data-binary","@-"]
+    cmd += ["-w","\\n__HTTP_STATUS__:%{http_code}",url]
+    p=subprocess.run(cmd,input=(json.dumps(body,separators=(",",":")) if body is not None else None),text=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=55)
+    if p.returncode: raise RuntimeError("WORKER_CURL_FAILED:"+p.stderr[-500:])
+    marker="\\n__HTTP_STATUS__:"
+    if marker not in p.stdout: raise RuntimeError("WORKER_CURL_STATUS_MISSING")
+    raw,code=p.stdout.rsplit(marker,1)
+    try:j=json.loads(raw) if raw.strip() else {}
+    except:j={"raw":raw[:500]}
+    return int(code.strip()),j
+
 def gas_post(url,payload):
     p=subprocess.run(["curl","-fsS","-L","--connect-timeout","15","--max-time","45","-H","Content-Type: application/json","--data-binary","@-",url],
       input=json.dumps(payload,separators=(",",":")),text=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=55)
@@ -159,10 +174,10 @@ def sanitized_sheet(tok,sid):
 
 def stable_reject(stable,service_token):
     headers={"X-Pick-Pack-Environment":"STABLE","X-Pick-Pack-Audience":"PICK_PACK_1291_STABLE","Authorization":"Bearer "+service_token}
-    code,_=req_json(stable["url"]+"/v1/sync/status",headers=headers,timeout=20)
+    code,_=worker_json("GET",stable["url"]+"/v1/sync/status",headers=headers)
     if code not in (401,403):raise RuntimeError("BETA_TOKEN_ACCEPTED_BY_STABLE:"+str(code))
     bad={"X-Pick-Pack-Environment":"BETA","X-Pick-Pack-Audience":"PICK_PACK_1291_BETA","Authorization":"Bearer "+service_token}
-    code2,_=req_json(stable["url"]+"/v1/sync/status",headers=bad,timeout=20)
+    code2,_=worker_json("GET",stable["url"]+"/v1/sync/status",headers=bad)
     if code2 not in (401,403,409):raise RuntimeError("BETA_ENV_ACCEPTED_BY_STABLE:"+str(code2))
     return code,code2
 
@@ -206,8 +221,11 @@ ON CONFLICT(login_id) DO UPDATE SET verifier=excluded.verifier,verifier_hash=exc
     g=gas_post(beta["gas"],{"action":"login","login_id":login,"challenge_id":c["challenge_id"],"proof":pr,"_device_id":device,"_device_label":"CI AUTH MIGRATION","_app_channel":"BETA","_environment_id":"BETA","_service_audience":"PICK_PACK_1291_BETA"})
     if g.get("ok") is not True or (g.get("account") or {}).get("role")!="SUPERADMIN":raise RuntimeError("ADMINBETA_GAS_LOGIN_FAILED")
     gas_token=str(g.get("token",""));print("::add-mask::"+gas_token)
-    code,sess=req_json(beta["url"]+"/v1/auth/gas-session","POST",body={"gas_token":gas_token,"device_id":device,"device_label":"CI AUTH MIGRATION","environment_id":"BETA","service_audience":"PICK_PACK_1291_BETA"},headers={"X-Pick-Pack-Environment":"BETA","X-Pick-Pack-Audience":"PICK_PACK_1291_BETA"},timeout=30)
-    if code//100!=2 or sess.get("ok") is not True or (sess.get("account") or {}).get("role")!="SUPERADMIN":raise RuntimeError("ADMINBETA_SERVICE_EXCHANGE_FAILED:"+str(code))
+    code,sess=worker_json("POST",beta["url"]+"/v1/auth/gas-session",body={"gas_token":gas_token,"device_id":device,"device_label":"CI AUTH MIGRATION","environment_id":"BETA","service_audience":"PICK_PACK_1291_BETA"},headers={"X-Pick-Pack-Environment":"BETA","X-Pick-Pack-Audience":"PICK_PACK_1291_BETA"})
+    if code//100!=2 or sess.get("ok") is not True or (sess.get("account") or {}).get("role")!="SUPERADMIN":
+        err=(sess.get("error") or {})
+        errcode=(err.get("code") if isinstance(err,dict) else str(err)) or sess.get("error_code") or "UNKNOWN"
+        raise RuntimeError("ADMINBETA_SERVICE_EXCHANGE_FAILED:"+str(code)+":"+str(errcode)[:120])
     service_token=str(sess.get("token",""));print("::add-mask::"+service_token)
     stable_code,stable_env_code=stable_reject(stable,service_token)
 
