@@ -11,46 +11,48 @@ invariants:
     status: ACTIVE_PASS
     scope: ui
     rule: "3 ô Mạng / Đồng bộ / Dịch vụ luôn ghim trên cùng ở mọi màn trong scope."
-    last_verified: "0.4.2-beta.99 / terminal run 33295954425"
+    last_verified: "0.4.2-beta.101 / terminal run 33310230934"
   - id: QR-LOCAL-001
     status: ACTIVE_PASS
     scope: qr
     rule: "QR nhân sự giữ local fast-path; Service reconcile nền không reset form đang thao tác."
-    last_verified: "0.4.2-beta.99 / terminal run 33295954425"
+    last_verified: "0.4.2-beta.101 / terminal run 33310230934"
   - id: MEAL-DATE-001
     status: ACTIVE_PASS
     scope: attendance
     rule: "Chỉ ACTIVE session đúng business_date hiện tại được tính cho điểm danh."
-    last_verified: "0.4.2-beta.99 / terminal run 33295954425"
+    last_verified: "0.4.2-beta.101 / terminal run 33310230934"
   - id: MEAL-WARN-001
     status: ACTIVE_PASS
     scope: attendance-ui
     rule: "Cảnh báo chưa điểm danh hiển thị phía trên theo scope đã OWNER khóa."
-    last_verified: "0.4.2-beta.99 / terminal run 33295954425"
+    last_verified: "0.4.2-beta.101 / terminal run 33310230934"
   - id: ROLE-HISTORY-001
     status: ACTIVE_PASS
     scope: role-history
     rule: "USER không thấy và không deep-link vào History; ADMIN/SUPERADMIN theo quyền hiện hành."
-    last_verified: "0.4.2-beta.99 / terminal run 33295954425"
+    last_verified: "0.4.2-beta.101 / terminal run 33310230934"
   - id: OTA-BETA-001
     status: ACTIVE_PASS
     scope: beta-release
     rule: "Beta APK GitHub Release only; Google Drive APK forbidden; exact bytes/signature/readback."
-    last_verified: "0.4.2-beta.99 / terminal run 33295954425"
+    last_verified: "0.4.2-beta.101 / terminal run 33310230934"
+    technical_evidence: "final artifact 9731780051; GitHub Release exact SHA256/size; OTA 0.4.2-beta.100 -> 0.4.2-beta.101 install/open/readback PASS; GAS deployment 205"
+    publish_verifier_regression: "Fast Check 33310187636 PASS; receipt-driven count; legacy26 PASS; beta101-35 PASS; mismatch/missing-viewport/summary-mismatch/human-gate-false FAIL"
   - id: PDA-EXIT-001
     status: ACTIVE_PASS
     scope: pda-exit
     rule: "Chỉ exact current-session authoritative active PDA assignment mới yêu cầu check PDA; stale scalar/cache/old-session không được quyết định."
     technical_candidate: "0.4.2-beta.99"
     regression_minimum: [active_pda, no_pda, returned_pda, stale_pda_serial, missing_assignment_snapshot, old_session_pda]
-    technical_evidence: "artifact 9725965250; verify 33292677865; terminal publish/OTA/install/readback/finalize 33295954425; PDA-only partial mutation regression PASS"
+    technical_evidence: "OWNER-accepted Beta99 baseline reverified on Beta101 verify 33309271079; terminal publish/OTA/install/readback/finalize 33310230934 PASS"
     owner_acceptance: "ACTIVE_PASS_OWNER_ITEMS_1_AND_2_OK_BETA99_2026-08-30"
   - id: INFRA-RESILIENCE-001
     status: TECHNICAL_PASS_AWAITING_OWNER
     scope: infra-dr
     rule: "Durable local + provisional Google ledger + single-writer LAN/cloud DR + backup/rollover/fencing must pass full technical/chaos gates before owner acceptance."
-    technical_evidence: "service-live job 99202629701 with backup/D1-autopilot/rollover/resilience_probe; verify 33292677865; terminal release/OTA/finalize 33295954425; Stable/main/signer/authority/provider unchanged"
-    owner_acceptance: "PENDING_ITEM_6"
+    technical_evidence: "service-live job 99202629701 inherited exact-service-source-unchanged; Beta101 verify 33309271079 with scenario/isolated-ledger/business-outbox-isolation + bordered-options/history/stop-control; terminal 33310230934 PASS; Stable/main/signer/authority/provider unchanged"
+    owner_acceptance: "PENDING_BETA101_ITEM_6_FINAL_UX_FAULT_INJECTION"
 impact_map:
   "app/**": [UI-STATUS-001, QR-LOCAL-001, MEAL-DATE-001, MEAL-WARN-001, ROLE-HISTORY-001, OTA-BETA-001, PDA-EXIT-001, INFRA-RESILIENCE-001]
   "service/**": [QR-LOCAL-001, MEAL-DATE-001, PDA-EXIT-001, INFRA-RESILIENCE-001]
