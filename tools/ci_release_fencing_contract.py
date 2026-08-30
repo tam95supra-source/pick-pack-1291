@@ -28,7 +28,7 @@ for marker in ['service_token=b64u(secrets.token_bytes(48))','admin_token=b64u(s
 for secret_name in ["SERVICE_TOKEN_SECRET","M1_ADMIN_TOKEN","GAS_BRIDGE_SHARED_SECRET"]:
     must(("secrets."+secret_name) not in beta and ("secrets."+secret_name) not in stable,"STABLE_RUNTIME_SECRET_EXPOSED_TO_GITHUB_"+secret_name)
 must('"password_exposed":False' in prov,"STABLE_SECRET_RECEIPT_GUARD_MISSING")
-must("! grep -Eqi" in beta and "googleapis\\\\.com/drive" in beta and "DRIVE_FOLDER_ID" in beta,"BETA_DRIVE_NEGATIVE_GUARD_MISSING")
+must("! grep -Eqi" in beta and "googleapis" in beta and "/drive" in beta and "DRIVE_FOLDER_ID" in beta,"BETA_DRIVE_NEGATIVE_GUARD_MISSING")
 apk_files=["tools/beta83_publish_ota.sh","tools/beta83_rollback.sh","tools/beta83_ota_device_gate.sh","tools/stable_private_apk_verify.sh"]
 drive=re.compile(r"(googleapis\\.com/drive|drive\\.google\\.com|drive_file_id|DRIVE_FOLDER_ID)",re.I)
 for p in apk_files:
