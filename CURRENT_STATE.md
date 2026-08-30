@@ -1,39 +1,37 @@
 # CURRENT STATE — PICK PACK 1291
 
-- updated_at: 2026-08-30T03:06:26Z
-- status: BETA98_PASS_LIVE_TECHNICAL_PASS_AWAITING_OWNER
+- updated_at: 2026-08-30T04:39:02Z
+- status: BETA99_PRE_OTA_PASS_PUBLISH_BLOCKED_GAS_VERSION_LIMIT
 - continuity_branch: release/beta97-qr-meal-alert-role-20260829
-- source_sha: 154473b3dcc17c8badcfe345108e59ac3ba6e830
 - beta_live: 0.4.2-beta.98 (versionCode 104)
 - package: vn.pickpack1291.app.beta.publicbeta
-- candidate_run: 33279188816
-- candidate_artifact: 9722490457
-- verify_run: 33281633060
-- verify_artifact: 9723200175
-- apk_sha256: b3085fe35f9bd2f8bed499dc7afcede5f210abdd8021ba379bccad7b795fba4b
-- apk_size: 13544437
+- beta99_source_sha: 660cac5f937c911364a7726661ed4c4b07d92388
+- beta99_candidate_run: 33290900322
+- beta99_candidate_artifact: 9725965250
+- beta99_apk_sha256: c9cd5c9e93d83250040b2a49be262450eb3f4e947d21516a6c9aaa95d881729b
+- beta99_apk_size: 13560821
 - signer_sha256: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
-- terminal_run: 33289302031
-- publish_artifact: 9725453858
-- pda_ota_job: 99198065682
-- pda_ota_artifact: 9725475763
-- finalizer_job: 99198266111
-- final_artifact: 9725478850
-- registry_fast_check: PASS_RUN_33289479913
-- fast_check: PASS
-- service_gate: PASS_INHERITED_RUN_33280777490_JOB_99175479666_EXACT_SERVICE_SOURCE_UNCHANGED
+- fast_check: PASS run 33290759871
+- service_gate: PASS run 33290900322 job 99202629701
+- verify_run: 33292677865
+- verify_job: 99206960986
+- verify_artifact: 9726495444
 - visual_matrix: PASS 320x568 / 360x640 / 480x800
-- human_visual: PASS 26_SCREENSHOTS
+- human_visual: PASS 26 screenshots
 - pda_functional_pre_ota: PASS
-- beta_ota: exact 0.4.2-beta.97 -> 0.4.2-beta.98 PASS via GitHub Release
-- gas_deployment_version: 201
-- gas_deployment_readback: 201
-- beta_ota_url: https://github.com/tam95supra-source/pick-pack-1291/releases/download/v0.4.2-beta.98-publicbeta/pick-pack-1291-public-beta-0.4.2-beta.98.apk
+- back_api36: PASS
+- beta99_github_release_asset: PASS exact public readback
+- publish_run: 33292927542
+- publish_failure: GAS_VERSION_LIMIT_200_NO_REUSABLE_TARGET
+- gas_current_deployment_version: 201
+- gas_version_count: 200
+- gas_safe_unreferenced_recommended_delete: 3
+- beta_ota_manifest: 0.4.2-beta.98 exact restored/readback PASS
+- beta99_ota: NOT_PUBLISHED
+- stable: unchanged
+- authority: SERVICE_PRIMARY / PRODUCTION / epoch 9 / generation m2-prod-reset-20260823-001
 - apk_transport: GITHUB_RELEASE_ONLY
 - google_drive_apk: FORBIDDEN
-- stable: unchanged
-- main_sha: 021dac5c6932b3ac5c60ce8fdba562ddf3d9688f
-- authority: SERVICE_PRIMARY / PRODUCTION / epoch 9 / generation m2-prod-reset-20260823-001
-- pda_exit_invariant: TECHNICAL_PASS_AWAITING_OWNER
-- infra_resilience_invariant: TECHNICAL_PASS_AWAITING_OWNER
-- next_action: WAIT_FOR_OWNER_ACCEPTANCE_BETA98_NUMBERED_CHECKLIST
+- owner_acceptance_1_3_4_5: OK
+- owner_acceptance_2_6: PENDING_AFTER_BETA99_LIVE
+- next_action: OWNER_DELETE_SAFE_UNREFERENCED_GAS_VERSION_3_THEN_RERUN_PUBLISH_EXACT_BETA99_WITHOUT_REBUILD
