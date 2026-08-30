@@ -81,7 +81,7 @@ Mỗi invariant tối thiểu có:
 ## 4. LOCKED_REQUIREMENT_PENDING_FIX
 
 ### PDA-EXIT-001
-- Status: TECHNICAL_PASS_AWAITING_OWNER
+- Status: ACTIVE_PASS
 - Scope: Ra ca / PDA
 - OWNER rule: chỉ kiểm PDA cuối ca khi đúng session hiện tại thực tế có PDA theo authority của chính session đó.
 - Không PDA → Ra ca trực tiếp, không hiện kiểm PDA.
@@ -90,7 +90,7 @@ Mỗi invariant tối thiểu có:
 - Nếu authority chưa đủ dữ liệu phải resolve đúng session từ Service; cấm suy đoán từ scalar/cache cũ.
 - Regression matrix tối thiểu: active PDA / no PDA / PDA đã trả / stale pda_serial / thiếu assignment snapshot / phiên cũ có PDA nhưng phiên hiện tại không có.
 - Technical evidence: Beta99 exact candidate source 660cac5f937c911364a7726661ed4c4b07d92388, artifact 9725965250; PDA-only partial mutation regression + visual/PDA pre-OTA PASS run 33292677865; terminal publish + OTA/install/readback/finalize PASS run 33295954425.
-- OWNER acceptance: PARTIAL — checklist item 1 OK; item 2 pending real-device nghiệm thu Đổi/Trả PDA + stale/returned/current-session cases trên Beta99. Chỉ chuyển ACTIVE_PASS khi OWNER xác nhận item 2 OK.
+- OWNER acceptance: PASS — item 1 OK và item 2 OK trên Beta99. Latest manual evidence 2026-08-30 13:21 + OWNER confirmation: session_work_update Đổi/Trả PDA hoạt động, không còn USER_PICK_UNAVAILABLE. Khóa ACTIVE_PASS từ Beta99.
 
 ### INFRA-RESILIENCE-001
 - Status: TECHNICAL_PASS_AWAITING_OWNER
