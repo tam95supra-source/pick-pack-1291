@@ -5,6 +5,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
+// Beta99 full Android gate anchor: keep final implementation push inside app/** so CI cannot skip app tests.
 class PdaOnlyMutationPayloadTest {
     @Test fun changePdaDoesNotReplayUnrelatedResources() {
         val fields=PdaOnlyMutationPayload.fields("session-1","30001","MT90-NEW","Đổi","Hỏng nút","idem-1")
