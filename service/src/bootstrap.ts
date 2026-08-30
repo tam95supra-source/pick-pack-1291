@@ -46,6 +46,7 @@ async function fetchWorkbook(env:Env):Promise<{title:string;tables:Map<string,Ta
 }
 
 export async function bootstrapFromGoogle(db:D1Database,env:Env):Promise<Record<string,unknown>>{
+  if(String(env.ENVIRONMENT_ID||"").toUpperCase()==="STABLE")throw new Error("STABLE_GOOGLE_BOOTSTRAP_FORBIDDEN_USE_PROMOTION_MIGRATION");
   const a=await db.prepare("SELECT scope,mode FROM authority_state WHERE singleton_id=1").first<{scope:string;mode:string}>();
   if(a?.scope!=="STAGING_SHADOW")throw new Error("BOOTSTRAP_ONLY_ALLOWED_IN_STAGING_SHADOW");
   const started=nowIso(),runId=crypto.randomUUID();
