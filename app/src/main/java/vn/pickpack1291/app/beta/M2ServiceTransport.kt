@@ -52,7 +52,7 @@ class M2ServiceTransport(context: Context) {
 
     /** Durable SQLite enqueue only. No network/discovery/authority lookup is allowed here. */
     fun operational(action: String, payload: JSONObject): TransportResult {
-        if (action !in OPERATIONAL) return TransportResult(false, false, 0, null, null)
+        if (action !in OPERATIONAL && action !in TECHNICAL) return TransportResult(false, false, 0, null, null)
         val eventId = payload.optString("event_id").ifBlank { java.util.UUID.randomUUID().toString() }
         val businessDate=store.businessDate()
         payload.put("event_id",eventId).put("business_date",businessDate)
@@ -68,6 +68,13 @@ class M2ServiceTransport(context: Context) {
         val projection = when { !hasNetwork() -> "OFFLINE_LOCAL"; mode == "GOOGLE_FALLBACK" -> "EMERGENCY_LEDGER_PENDING"; else -> "SERVICE_D1_PENDING" }
         return queuedResult(eventId, exclusive, projection)
     }
+
+    /** Non-business probe used only by SUPERADMIN fault-injection acceptance testing. */
+    fun resilienceProbe(scenario:String):TransportResult =
+        operational("resilience_probe",JSONObject()
+            .put("scenario",scenario.take(80))
+            .put("occurred_at",java.time.Instant.now().toString())
+            .put("technical_probe",true))
 
     private fun canonicalEnvelope(action:String,eventId:String,businessDate:String,payload:JSONObject):JSONObject{
         val auth=app.getSharedPreferences(AUTH_PREFS,Context.MODE_PRIVATE)
@@ -383,7 +390,12 @@ class M2ServiceTransport(context: Context) {
     companion object {
         private val FLUSH_LOCK=Any() // S44_SESSION_SINGLEFLIGHT_OBSERVABILITY
         private val DEVICE_SEQUENCE_LOCK=Any()
-        private const val PREFS = "pp_m2_service_transport"; private const val KEY_SERVICE_TOKEN = "service_token"; private const val KEY_DISCOVERY_JSON = "discovery_json"; private const val KEY_DISCOVERY_AT = "discovery_at"; private const val KEY_FAILURES = "service_failures"; private const val KEY_CIRCUIT_UNTIL = "circuit_until"; private const val KEY_LAST_FALLBACK_PROBE_AT = "fallback_probe_at"; private const val KEY_DEVICE_SEQUENCE = "device_sequence"; private const val AUTH_PREFS = "pick_pack_auth_session_v2"; private const val AUTH_TOKEN = "token"; private const val DISCOVERY_TTL_MS = 10 * 60_000L; private const val CIRCUIT_MS = 15_000L; private const val FALLBACK_PROBE_FAILURES = 3; private const val FALLBACK_PROBE_MIN_MS = 30_000L; val ADMIN_AUDIT_ACTIONS = setOf("staff_upsert","staff_delete","account_upsert","account_status","change_email","change_password"); val OPERATIONAL = setOf("enter", "exit", "resource_change", "labor_start", "labor_finish", "meal_checkin", "meal_status"); val SYNC_ACTIONS = setOf("sync_status", "sync_day", "sync_bootstrap", "service_connections") }
+        private const val PREFS = "pp_m2_service_transport"; private const val KEY_SERVICE_TOKEN = "service_token"; private const val KEY_DISCOVERY_JSON = "discovery_json"; private const val KEY_DISCOVERY_AT = "discovery_at"; private const val KEY_FAILURES = "service_failures"; private const val KEY_CIRCUIT_UNTIL = "circuit_until"; private const val KEY_LAST_FALLBACK_PROBE_AT = "fallback_probe_at"; private const val KEY_DEVICE_SEQUENCE = "device_sequence"; private const val AUTH_PREFS = "pick_pack_auth_session_v2"; private const val AUTH_TOKEN = "token"; private const val DISCOVERY_TTL_MS = 10 * 60_000L; private const val CIRCUIT_MS = 15_000L; private const val FALLBACK_PROBE_FAILURES = 3; private const val FALLBACK_PROBE_MIN_MS = 30_000L; val ADMIN_AUDIT_ACTIONS = setOf("staff_upsert","staff_delete","account_upsert","account_status","change_email","change_password"); val OPERATIONAL = setOf("enter", "exit", "resource_change", "labor_start", "labor_finish", "meal_checkin", "meal_status"); val TECHNICAL = setOf("resilience_probe"); val SYNC_ACTIONS = setOf("sync_status", "sync_day", "sync_bootstrap", "service_connections")
+        fun resetFaultTestCircuit(context:Context){
+            context.applicationContext.getSharedPreferences(PREFS,Context.MODE_PRIVATE).edit()
+                .putInt(KEY_FAILURES,0).putLong(KEY_CIRCUIT_UNTIL,0L).putLong(KEY_LAST_FALLBACK_PROBE_AT,0L).apply()
+        }
+    }
 }
 
 object M2DeviceIdentity { fun id(context: Context): String { val p=context.getSharedPreferences("pp_m2_device",Context.MODE_PRIVATE);p.getString("id",null)?.let{return it}; val androidId=android.provider.Settings.Secure.getString(context.contentResolver,android.provider.Settings.Secure.ANDROID_ID).orEmpty(); val raw=if(androidId.isNotBlank()&&androidId!="9774d56d682e549c")"android-$androidId" else "install-${java.util.UUID.randomUUID()}"; val digest=MessageDigest.getInstance("SHA-256").digest("PickPack1291|$raw".toByteArray()).joinToString(""){(it.toInt()and 0xff).toString(16).padStart(2,'0')}; return "m2-$digest".also{p.edit().putString("id",it).apply()} } }
