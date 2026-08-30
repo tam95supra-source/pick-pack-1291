@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ops/promotion-lock.schema.json",
+  "title": "Pick Pack 1291 Beta acceptance and Stable promotion locks",
+  "oneOf": [
+    {
+      "type": "object",
+      "required": ["lock_type","status","source_sha","beta","evidence","owner_acceptance_ref","created_at"],
+      "properties": {
+        "lock_type": {"const":"BETA_ACCEPTANCE_LOCK"},
+        "status": {"enum":["OWNER_ACCEPTED","DRY_RUN_OWNER_ACCEPTANCE_REQUIRED"]},
+        "source_sha": {"type":"string","pattern":"^[0-9a-f]{40}$"},
+        "beta": {
+          "type":"object",
+          "required":["version_name","version_code","package_name","signer_sha256","apk_sha256","apk_size","artifact_ref"],
+          "properties":{
+            "version_name":{"type":"string","minLength":1},"version_code":{"type":"integer","minimum":1},
+            "package_name":{"type":"string","minLength":3},"signer_sha256":{"type":"string","pattern":"^[0-9a-f]{64}$"},
+            "apk_sha256":{"type":"string","pattern":"^[0-9a-f]{64}$"},"apk_size":{"type":"integer","minimum":1},
+            "artifact_ref":{"type":"string","minLength":1}
+          },"additionalProperties":true
+        },
+        "evidence":{"type":"object"},
+        "owner_acceptance_ref":{"type":["string","null"]},
+        "created_at":{"type":"string","format":"date-time"}
+      },"additionalProperties":false
+    },
+    {
+      "type":"object",
+      "required":["lock_type","status","beta_acceptance_lock_ref","accepted_source_sha","stable","environment_only_diff","regressions","isolation","owner_promotion_authorization","rollback","created_at"],
+      "properties": {
+        "lock_type":{"const":"STABLE_PROMOTION_LOCK"},
+        "status":{"enum":["DRY_RUN_READY","PROMOTION_AUTHORIZED"]},
+        "beta_acceptance_lock_ref":{"type":"string","minLength":1},
+        "accepted_source_sha":{"type":"string","pattern":"^[0-9a-f]{40}$"},
+        "stable":{"type":"object","required":["package_name","release_channel","manifest_active","ota_active","public_domain_active"],"properties":{
+          "package_name":{"type":"string"},"release_channel":{"const":"STABLE"},"manifest_active":{"type":"boolean"},"ota_active":{"type":"boolean"},"public_domain_active":{"type":"boolean"}
+        },"additionalProperties":true},
+        "environment_only_diff":{"type":"array","uniqueItems":true,"items":{"enum":["application_id","app_label","icon_badge","release_channel","version","domain_binding","api_binding","credential_ref","datastore_binding","sheet_binding","backup_binding","ota_binding","notification_binding"]}},
+        "regressions":{"type":"object"},"isolation":{"type":"object"},
+        "owner_promotion_authorization":{"type":["string","null"]},"rollback":{"type":"object"},
+        "created_at":{"type":"string","format":"date-time"}
+      },"additionalProperties":false
+    }
+  ]
+}
