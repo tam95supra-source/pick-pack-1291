@@ -80,6 +80,12 @@ jobs:
               git diff --quiet "$(jq -r '.source_sha' "$R")" HEAD -- service google-apps-script
               git diff --quiet "$(jq -r '.candidate_source_sha' "$R")" HEAD -- app
               ;;
+            RUNTIME_DOD_VERIFY)
+              jq -e '.candidate_locked==true and .stable_publish=="FORBIDDEN" and .authority_change=="NONE" and
+                     (.source_sha|type=="string" and length==40) and (.candidate_source_sha|type=="string" and length==40)' "$R" >/dev/null
+              git diff --quiet "$(jq -r '.source_sha' "$R")" HEAD -- service google-apps-script
+              git diff --quiet "$(jq -r '.candidate_source_sha' "$R")" HEAD -- app
+              ;;
             PUBLISH)
               jq -e '.candidate_locked==true and .human_visual_pass==true and .visual_matrix=="PASS" and .pda_functional_pre_ota=="PASS" and
                      .rebuild==false and .resign==false and .back_api36=="PASS" and
@@ -448,6 +454,35 @@ jobs:
           retention-days: 30
           if-no-files-found: error
 
+  runtime_dod_verify:
+    name: runtime-dod-verify
+    needs: route
+    if: ${{ needs.route.outputs.stage == 'RUNTIME_DOD_VERIFY' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+      GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+      GOOGLE_OAUTH_REFRESH_TOKEN: ${{ secrets.GOOGLE_OAUTH_REFRESH_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate runtime verifier
+        run: python3 -m py_compile tools/beta_stable_runtime_verify.py
+      - name: Verify Beta Stable runtime Technical DoD
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/beta_stable_runtime_verify.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: beta-stable-runtime-${{ github.run_id }}
+          path: /tmp/beta-stable-runtime-verify.json
+          retention-days: 90
+          if-no-files-found: error
+
   publish:
     name: publish
     needs: route
@@ -654,7 +689,7 @@ jobs:
 
   handoff-finalizer:
     name: handoff-finalizer
-    needs: [route,candidate,service_live,verify,back36_only,beta_auth_migrate,stable_private_apk_verify,publish,pda_verify,rollback,finalize]
+    needs: [route,candidate,service_live,verify,back36_only,beta_auth_migrate,stable_private_apk_verify,runtime_dod_verify,publish,pda_verify,rollback,finalize]
     if: ${{ always() }}
     runs-on: ubuntu-24.04
     timeout-minutes: 8
