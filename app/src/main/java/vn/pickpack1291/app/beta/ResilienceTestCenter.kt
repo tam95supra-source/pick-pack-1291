@@ -101,17 +101,17 @@ object ResilienceTestCenter {
         val x=latest(context)?:return listOf("resilience_test.latest=NONE")
         val e=x.optJSONObject("evidence")?:JSONObject()
         return listOf(
-            "resilience_test.event_id=${x.optString(\"event_id\")}",
-            "resilience_test.scenario=${x.optString(\"scenario\")}",
-            "resilience_test.status=${x.optString(\"status\")}",
-            "resilience_test.stage=${x.optString(\"stage\")}",
-            "resilience_test.attempt_count=${x.optInt(\"attempt_count\")}",
-            "resilience_test.last_error=${x.optString(\"last_error\").take(180)}",
-            "resilience_test.local_durable=${e.optBoolean(\"local_durable_readback\",false)}",
-            "resilience_test.business_outbox_touched=${e.optBoolean(\"business_outbox_touched\",false)}",
-            "resilience_test.google_captured=${e.optJSONObject(\"google\")?.optBoolean(\"captured\",false)?:false}",
-            "resilience_test.lan_ack=${e.optBoolean(\"lan_ack\",false)}",
-            "resilience_test.duration_ms=${e.optLong(\"duration_ms\",0L)}",
+            "resilience_test.event_id=${x.optString("event_id")}",
+            "resilience_test.scenario=${x.optString("scenario")}",
+            "resilience_test.status=${x.optString("status")}",
+            "resilience_test.stage=${x.optString("stage")}",
+            "resilience_test.attempt_count=${x.optInt("attempt_count")}",
+            "resilience_test.last_error=${x.optString("last_error").take(180)}",
+            "resilience_test.local_durable=${e.optBoolean("local_durable_readback",false)}",
+            "resilience_test.business_outbox_touched=${e.optBoolean("business_outbox_touched",false)}",
+            "resilience_test.google_captured=${e.optJSONObject("google")?.optBoolean("captured",false)?:false}",
+            "resilience_test.lan_ack=${e.optBoolean("lan_ack",false)}",
+            "resilience_test.duration_ms=${e.optLong("duration_ms",0L)}",
         )
     }
 }
