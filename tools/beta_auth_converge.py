@@ -117,7 +117,7 @@ def b64u(b):return base64.urlsafe_b64encode(b).rstrip(b"=").decode()
 def make_credential():
     password=b64u(secrets.token_bytes(24));salt=secrets.token_bytes(16);it=120000
     key=hashlib.pbkdf2_hmac("sha256",password.encode(),salt,it,32)
-    verifier=f"pbkdf2_sha256$${it}$${b64u(salt)}$${b64u(key)}"
+    verifier=f"pbkdf2_sha256${it}${b64u(salt)}${b64u(key)}"
     return password,verifier,hashlib.sha256(verifier.encode()).hexdigest()
 
 def gas_post(url,payload):
