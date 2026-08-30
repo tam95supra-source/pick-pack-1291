@@ -1,6 +1,6 @@
 {
-  "stage": "BETA_AUTH_MIGRATE",
-  "mode": "BETA_AUTH_TARGET_5_REPLACEMENT_FIRST_RETRY_DISCOVERY_FIXED",
+  "stage": "STABLE_PRIVATE_APK_VERIFY",
+  "mode": "STABLE_READY_NOT_LIVE_PRIVATE_APK_SIDE_BY_SIDE",
   "version_name": "0.4.2-beta.102",
   "version_code": 108,
   "base_version": "0.4.2-beta.101",
@@ -9,7 +9,7 @@
   "source_sha": "8653e8e1a8c0585a4dcab95ccb3da0636650d8a5",
   "package": "vn.pickpack1291.app.beta.publicbeta",
   "service_gate_required": false,
-  "human_visual_pass": false,
+  "human_visual_pass": true,
   "stable_publish": "FORBIDDEN",
   "authority_change": "NONE",
   "candidate_locked": true,
@@ -46,5 +46,11 @@
   "visual_matrix": "PASS_INHERITED_RUN_33338713705_EXACT_CANDIDATE",
   "pda_functional_pre_ota": "PASS_INHERITED_RUN_33338713705_EXACT_CANDIDATE",
   "back_api36": "PASS_INHERITED_RUN_33339717799_EXACT_CANDIDATE",
-  "execution_nonce": "beta-auth-retry-20260831-01"
+  "execution_nonce": "stable-private-apk-20260831-01",
+  "human_visual_sizes": [
+    "320x568",
+    "360x640",
+    "480x800"
+  ],
+  "human_visual_evidence": "TECHNICAL_INSPECTION_EXACT_ARTIFACT_9740012172_35_SCREENSHOTS"
 }
