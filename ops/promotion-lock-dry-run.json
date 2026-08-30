@@ -1,0 +1,29 @@
+{
+  "beta_acceptance_lock": {
+    "lock_type":"BETA_ACCEPTANCE_LOCK",
+    "status":"DRY_RUN_OWNER_ACCEPTANCE_REQUIRED",
+    "source_sha":"d918de9fe0b132b60c5c4f515395e541da47daf2",
+    "beta":{
+      "version_name":"0.4.2-beta.101","version_code":107,"package_name":"vn.pickpack1291.app.beta.publicbeta",
+      "signer_sha256":"d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e",
+      "apk_sha256":"e29eab9402d847ac5f141f2a51ee164b235d46c3a075a46df4dff69ced0c3097",
+      "apk_size":13286625,"artifact_ref":"run:33310230934"
+    },
+    "evidence":{"purpose":"promotion-contract-dry-run-only","live_state":"BETA_LIVE"},
+    "owner_acceptance_ref":null,
+    "created_at":"2026-08-31T00:00:00+07:00"
+  },
+  "stable_promotion_lock": {
+    "lock_type":"STABLE_PROMOTION_LOCK",
+    "status":"DRY_RUN_READY",
+    "beta_acceptance_lock_ref":"ops/promotion-lock-dry-run.json#/beta_acceptance_lock",
+    "accepted_source_sha":"d918de9fe0b132b60c5c4f515395e541da47daf2",
+    "stable":{"package_name":"vn.pickpack1291.app.stable","release_channel":"STABLE","manifest_active":false,"ota_active":false,"public_domain_active":false},
+    "environment_only_diff":["application_id","app_label","icon_badge","release_channel","version","domain_binding","api_binding","credential_ref","datastore_binding","sheet_binding","backup_binding","ota_binding","notification_binding"],
+    "regressions":{"required":"FULL_ACTIVE_PASS_BEFORE_PROMOTION"},
+    "isolation":{"copy_beta_transactional_data":false,"copy_beta_accounts":false,"copy_beta_sessions":false,"copy_beta_outbox":false,"copy_beta_logs":false},
+    "owner_promotion_authorization":null,
+    "rollback":{"required":true,"stable_only":true},
+    "created_at":"2026-08-31T00:00:00+07:00"
+  }
+}
