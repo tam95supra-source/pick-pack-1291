@@ -113,6 +113,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 tools/verify_beta_visual_receipt.py --self-test
+          python3 -m py_compile tools/gas_resilience_contract_readback.py tools/gas_resilience_contract_patch.py
           bash -n tools/beta83_publish_ota.sh
 
       - name: Static resilience gates
