@@ -34,4 +34,9 @@
 - google_drive_apk: FORBIDDEN
 - owner_acceptance_1_3_4_5: OK
 - owner_acceptance_2_6: PENDING_AFTER_BETA99_LIVE
-- next_action: OWNER_DELETE_SAFE_UNREFERENCED_GAS_VERSION_3_THEN_RERUN_PUBLISH_EXACT_BETA99_WITHOUT_REBUILD
+- gas_cleanup_dry_run: PASS run 33293553042 artifact 9726697718
+- gas_cleanup_keep_latest: 40
+- gas_cleanup_planned_delete_count: 160
+- gas_cleanup_planned_delete_range: 3..162
+- gas_cleanup_deleted_count: 0
+- next_action: OWNER_APPROVE_XOA_BATCH_160_THEN_DELETE_AND_RERUN_PUBLISH_EXACT_BETA99
