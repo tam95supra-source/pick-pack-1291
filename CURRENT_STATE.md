@@ -26,4 +26,7 @@
 - stable: unchanged
 - main_sha: 021dac5c6932b3ac5c60ce8fdba562ddf3d9688f
 - authority: SERVICE_PRIMARY / PRODUCTION / epoch 9 / generation m2-prod-reset-20260823-001
-- next_action: WAIT_FOR_OWNER_NEW_SCOPE
+- next_action: WAIT_FOR_OWNER_BETA101_ITEM_6_ACCEPTANCE
+
+- publish_verifier_fast_check: PASS run 33310187636 (receipt-driven screenshot evidence; legacy 26 + Beta101 35 + negative regressions)
+- owner_acceptance_item_6: PENDING_BETA101_FINAL_UX_RETEST
