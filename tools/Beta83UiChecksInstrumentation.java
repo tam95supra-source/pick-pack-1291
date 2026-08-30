@@ -158,6 +158,13 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     waitText("Người thực hiện: REALTIME-ACTOR-B91",false,false,12000L);
   }
 
+  private int operationalPendingCount()throws Exception{
+    Class<?> storeClass=target.getClassLoader().loadClass("vn.pickpack1291.app.beta.OperationalDataStore");
+    Object store=storeClass.getConstructor(Context.class).newInstance(target);
+    Object value=storeClass.getMethod("pendingMutationCount").invoke(store);
+    return ((Number)value).intValue();
+  }
+
   private AccessibilityNodeInfo root(){ return ui.getRootInActiveWindow(); }
   private static String textOf(AccessibilityNodeInfo n){
     CharSequence t=n.getText();
@@ -800,10 +807,32 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     waitText("THAY ĐỔI BẢN MỚI",false,false,10000L);
     waitText("Sửa lỗi tài nguyên bản mới",false,false,10000L);
     waitText("THAY ĐỔI BẢN HIỆN TẠI",false,false,10000L);
-    waitText("Sửa Đổi / Trả PDA",false,false,10000L);
+    waitText("Thiết kế lại Trung tâm kiểm thử resilience",false,false,10000L);
     require(findText("SHA256",false,false)==null,"TECHNICAL_RELEASE_METADATA_VISIBLE_IN_CHANGELOG");
     mark("dual_changelog");
     shot(tag+"-07-settings-top");
+
+    showTextOnScreen("TRUNG TÂM KIỂM THỬ RESILIENCE",12000L);
+    waitText("Phạm vi",true,false,10000L);
+    waitText("Test kỹ thuật cô lập",false,false,10000L);
+    int pendingBeforeResilience=operationalPendingCount();
+    clickText("CHỌN KỊCH BẢN & CHẠY TEST",true,10000L);
+    waitText("Chọn kịch bản kiểm thử",false,false,10000L);
+    waitText("Bình thường • Service hoạt động",false,false,10000L);
+    waitText("Thiết bị mất Internet • giữ local",false,false,10000L);
+    clickText("Service + Google/GAS mất • LAN dự phòng",false,10000L);
+    waitText("Kỳ vọng:",false,false,10000L);
+    waitText("Test chỉ tạo event kỹ thuật cô lập",false,false,10000L);
+    clickText("CHẠY TEST",true,10000L);
+    waitText("CHƯA ĐỦ ĐIỀU KIỆN",false,false,12000L);
+    int pendingAfterResilience=operationalPendingCount();
+    require(pendingAfterResilience==pendingBeforeResilience,
+      "RESILIENCE_TEST_TOUCHED_BUSINESS_OUTBOX:"+pendingBeforeResilience+"->"+pendingAfterResilience);
+    waitText("Không chạm business outbox",false,false,10000L);
+    waitText("PASS",true,false,10000L);
+    mark("resilience_scenario_selectable");
+    mark("resilience_test_ledger_result");
+    mark("resilience_business_outbox_isolated");
     showTextOnScreen("NHẬT KÝ",12000L);
     showTextOnScreen("Tên tệp nhật ký",12000L);
     waitText(firstLogName,true,false,10000L);
