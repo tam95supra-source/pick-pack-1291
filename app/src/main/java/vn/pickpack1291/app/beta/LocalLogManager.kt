@@ -162,7 +162,7 @@ object LocalLogManager {
         runCatching { QrPerformanceDiagnostics.snapshotLines(context).forEach { appendLine(it) } }
             .onFailure { appendLine("qr_perf_diag_error=${safe(it.javaClass.simpleName+":"+(it.message?:""))}") }
         runCatching { ResilienceTestCenter.snapshotLines(context).forEach { appendLine(it) } }
-            .onFailure { appendLine("resilience_test_diag_error=${safe(it.javaClass.simpleName+\":\"+(it.message?:\"\"))}") }
+            .onFailure { appendLine("resilience_test_diag_error=${safe(it.javaClass.simpleName+":"+(it.message?:""))}") }
         runCatching {
             val arr=OperationalDataStore(context).diagnosticOutbox(50)
             appendLine("outbox_rows=${arr.length()}")
