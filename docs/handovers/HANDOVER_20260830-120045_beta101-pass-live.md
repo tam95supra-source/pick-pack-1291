@@ -36,9 +36,11 @@ Release 0.4.2-beta.101 hoàn tất scope beta101-resilience-option-borders-stop-
 - Canonical Beta APK path: GitHub Actions exact candidate → GitHub Release exact asset → GAS manifest GitHub URL → OTA install/readback → finalizer.
 - Rollback canonical: exact LIVE baseline GitHub Actions/GitHub Release → atomic Beta manifest restore; không dùng Drive APK.
 - Candidate được build/sign đúng một lần; mọi recovery dùng exact locked bytes, không rebuild/resign.
+- Beta101 publish verifier legacy hardcode `screenshot_count==26` làm publish fail pre-write; thay bằng receipt-driven verifier đối chiếu receipt ↔ actual PNG ↔ visual-summary ↔ 3 viewport + human gate.
+- Regression verifier PASS run 33310187636: legacy 26 PASS theo receipt; Beta101 35 PASS; lệch count/thiếu viewport/lệch summary/human gate false đều FAIL đúng.
 
 ## Blocker
-Không có.
+Không có technical blocker. OWNER acceptance item 6 còn PENDING trên Beta101.
 
 ## Invariants
 - Stable/main/signer/authority không đổi.
@@ -46,4 +48,4 @@ Không có.
 - Google Drive không được dùng cho APK; GSheet/GAS nghiệp vụ không bị xóa/thay authority.
 
 ## NEXT_ACTION
-WAIT_FOR_OWNER_NEW_SCOPE
+WAIT_FOR_OWNER_BETA101_ITEM_6_ACCEPTANCE
