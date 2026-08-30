@@ -24,7 +24,7 @@ const gradle=read("app/build.gradle.kts");
 const policy=JSON.parse(read("config/mutation_fallback_policy.json"));
 
 must(gradle.includes('versionCode = 1')&&gradle.includes('versionName = "0.1.0-stable"'),"STABLE_METADATA_CHANGED");
-must(gradle.includes('versionCode = 106')&&gradle.includes('versionName = "0.4.2-beta.100"'),"BETA100_METADATA_MISSING");
+must(gradle.includes('versionCode = 107')&&gradle.includes('versionName = "0.4.2-beta.101"'),"BETA101_METADATA_MISSING");
 
 const exitId=ops.slice(ops.indexOf("private fun exitPdaId"),ops.indexOf("private fun visibleAssignments"));
 must(exitId.includes("exitPdaDecision")&&!exitId.includes("pda_serial"),"PDA_EXIT_LEGACY_SCALAR_FALLBACK");
@@ -37,7 +37,12 @@ must(fault.includes("Beta100 compatibility shim")&&fault.includes("fun cloudflar
 must(tr.includes('TECHNICAL = setOf("resilience_probe")')&&tr.includes("fun isolatedResilienceTest"),"RESILIENCE_ISOLATED_TRANSPORT_MISSING");
 must(store.includes("resilience_test_events")&&store.includes("Never consumed by the production mutation worker"),"RESILIENCE_ISOLATED_DURABLE_LEDGER_MISSING");
 must(testCenter.includes("SERVICE_UNAVAILABLE_GOOGLE")&&testCenter.includes("SERVICE_GOOGLE_OFFLINE_LOCAL")&&testCenter.includes("SERVICE_GOOGLE_OFFLINE_LAN")&&testCenter.includes("DEVICE_OFFLINE_LOCAL"),"RESILIENCE_SCENARIO_CATALOG_INCOMPLETE");
-must((testCenterTest.match(/@Test/g)||[]).length>=3,"RESILIENCE_SCENARIO_REGRESSION_MISSING");
+must((testCenterTest.match(/@Test/g)||[]).length>=4,"RESILIENCE_SCENARIO_REGRESSION_MISSING");
+must(testCenter.includes('"CANCELLED"->"ĐÃ DỪNG"')&&testCenter.includes('"STOPPED_BY_OWNER"'),"RESILIENCE_STOP_STATUS_MISSING");
+must(tr.includes('cancelled:()->Boolean={false}')&&tr.includes('isolated_scope_closed')&&tr.includes('"CANCELLED","STOPPED_BY_OWNER"'),"RESILIENCE_TRANSPORT_CANCEL_PATH_MISSING");
+must(ops.includes('"DỪNG TEST / VỀ BÌNH THƯỜNG"')&&ops.includes("stopResilienceTest()"),"RESILIENCE_STOP_BUTTON_MISSING");
+must(ops.includes('setStroke(dp(2)')&&ops.includes('"Lịch sử kiểm thử resilience"')&&ops.includes('"Mới nhất ở trên'),"RESILIENCE_HISTORY_CARDS_MISSING");
+must(testCenter.includes("resilience_test.history_count=")&&testCenter.includes("resilience_test.history[$i].scenario="),"RESILIENCE_FULL_HISTORY_DIAGNOSTIC_MISSING");
 must(ops.includes('showHeaderStatusDetail("NETWORK")')&&ops.includes('showHeaderStatusDetail("SYNC")')&&ops.includes('showHeaderStatusDetail("SERVICE")'),"STATUS_CHIPS_NOT_ALL_CLICKABLE");
 must(ops.includes('setNeutralButton("ĐỒNG BỘ NGAY")')&&ops.includes("manualRefreshFromHeader"),"SYNC_DETAIL_MANUAL_SYNC_MISSING");
 must(logs.includes("ResilienceTestCenter.snapshotLines"),"RESILIENCE_MANUAL_LOG_EVIDENCE_MISSING");
@@ -63,7 +68,7 @@ must(new Set(all).size===all.length,"MUTATION_INVENTORY_DUPLICATE_CLASSIFICATION
 const forbidden=/supabase/i;
 for(const p of ["app/src/main/java/vn/pickpack1291/app/beta/M2ServiceTransport.kt","service/src/entry_product.ts","service/src/d1_maintenance.ts"])must(!forbidden.test(read(p)),"SUPABASE_REFERENCE_"+p);
 if(process.exitCode)process.exit(process.exitCode);
-console.log("resilience_static_gate=PASS pda_matrix=10 pda_partial=PASS isolated_resilience_center=PASS status_chip_details=PASS emergency_ledger=PASS d1_guard=PASS mutation_inventory=PASS");
+console.log("resilience_static_gate=PASS pda_matrix=10 pda_partial=PASS isolated_resilience_center=PASS resilience_stop_history=PASS status_chip_details=PASS emergency_ledger=PASS d1_guard=PASS mutation_inventory=PASS");
 
 const drHandler=read("services/cloud-dr/src/handler.ts");
 const drAdapter=read("services/cloud-dr/src/libsql_adapter.ts");
