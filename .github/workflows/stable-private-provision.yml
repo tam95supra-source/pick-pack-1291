@@ -6,16 +6,28 @@ on:
       - 'feature/beta-stable-isolation-20260830'
     paths:
       - ops/stable-private-provision-request.json
+      - tools/stable_private_provision.py
       - .github/workflows/stable-private-provision.yml
+      - google-apps-script/stable-primary-appsscript.json
+      - google-apps-script/stable-outbound/**
+      - google-apps-script/stable-dr/**
+      - google-apps-script/PICK_PACK_API.gs
+      - google-apps-script/SERVICE_MIGRATION_M2.gs
+      - google-apps-script/OUTBOUND_DROP_RECEIVE.gs
+      - service/**
   workflow_dispatch:
 
 permissions:
   contents: read
 
+concurrency:
+  group: stable-private-provision
+  cancel-in-progress: false
+
 jobs:
-  preflight:
+  provision:
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 25
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -24,63 +36,34 @@ jobs:
       GOOGLE_OAUTH_REFRESH_TOKEN: ${{ secrets.GOOGLE_OAUTH_REFRESH_TOKEN }}
     steps:
       - uses: actions/checkout@v4
-      - name: Stable identity and quota preflight
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate provisioner
         shell: bash
         run: |
           set -euo pipefail
-          REQ=ops/stable-private-provision-request.json
-          OUT=/tmp/stable-private-preflight.json
+          python3 -m py_compile tools/stable_private_provision.py
+          jq -e '.environment=="STABLE" and .stable_public_activation==false and (.mode=="PREFLIGHT_ONLY" or .mode=="PROVISION_PRIVATE")' ops/stable-private-provision-request.json >/dev/null
+      - name: Install Worker tooling
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd service
+          npm install --ignore-scripts --no-audit --no-fund
+      - name: Preflight or provision Stable private runtime
+        shell: bash
+        run: |
+          set -euo pipefail
           for n in CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID GOOGLE_OAUTH_CLIENT_ID GOOGLE_OAUTH_CLIENT_SECRET GOOGLE_OAUTH_REFRESH_TOKEN; do
             test -n "${!n:-}" || { echo "MISSING_REQUIRED_SECRET:$n"; exit 2; }
             echo "::add-mask::${!n}"
           done
-          [[ "$(jq -r .environment "$REQ")" == STABLE ]]
-          [[ "$(jq -r .stable_public_activation "$REQ")" == false ]]
-          TOKEN_JSON=$(curl -fsS https://oauth2.googleapis.com/token             -H 'Content-Type: application/x-www-form-urlencoded'             --data-urlencode "client_id=$GOOGLE_OAUTH_CLIENT_ID"             --data-urlencode "client_secret=$GOOGLE_OAUTH_CLIENT_SECRET"             --data-urlencode "refresh_token=$GOOGLE_OAUTH_REFRESH_TOKEN"             --data-urlencode grant_type=refresh_token)
-          ACCESS_TOKEN=$(jq -r '.access_token//empty' <<<"$TOKEN_JSON"); test -n "$ACCESS_TOKEN"
-          echo "::add-mask::$ACCESS_TOKEN"
-          TOKEN_INFO=$(curl -fsS "https://oauth2.googleapis.com/tokeninfo?access_token=$ACCESS_TOKEN")
-          SCOPES=$(jq -r '.scope//""' <<<"$TOKEN_INFO")
-          HAS_CLOUD_PLATFORM=false; grep -qw 'https://www.googleapis.com/auth/cloud-platform' <<<"$SCOPES" && HAS_CLOUD_PLATFORM=true || true
-          HAS_SCRIPT_PROJECTS=false; grep -qw 'https://www.googleapis.com/auth/script.projects' <<<"$SCOPES" && HAS_SCRIPT_PROJECTS=true || true
-          HAS_DRIVE=false; grep -Eq 'https://www.googleapis.com/auth/(drive|drive.file)' <<<"$SCOPES" && HAS_DRIVE=true || true
-          HAS_SHEETS=false; grep -qw 'https://www.googleapis.com/auth/spreadsheets' <<<"$SCOPES" && HAS_SHEETS=true || true
-
-          OWNER_EMAIL="tam95.supra@gmail.com"
-          check_drive_item(){
-            local id="$1" expected_mime="$2" label="$3"
-            j=$(curl -fsS -H "Authorization: Bearer $ACCESS_TOKEN"               "https://www.googleapis.com/drive/v3/files/$id?fields=id,mimeType,owners(emailAddress)&supportsAllDrives=true")
-            [[ "$(jq -r .id <<<"$j")" == "$id" ]]
-            [[ "$(jq -r .mimeType <<<"$j")" == "$expected_mime" ]]
-            jq -e --arg e "$OWNER_EMAIL" '[.owners[]?.emailAddress|ascii_downcase]|index($e)!=null' <<<"$j" >/dev/null
-            echo "$label=PASS"
-          }
-          check_drive_item "$(jq -r .stable_primary_sheet_id "$REQ")" "application/vnd.google-apps.spreadsheet" stable_primary
-          check_drive_item "$(jq -r .stable_dr_sheet_id "$REQ")" "application/vnd.google-apps.spreadsheet" stable_dr
-          check_drive_item "$(jq -r .stable_outbound_sheet_id "$REQ")" "application/vnd.google-apps.spreadsheet" stable_outbound
-          for k in manual crash daily; do
-            check_drive_item "$(jq -r ".stable_log_folder_ids.$k" "$REQ")" "application/vnd.google-apps.folder" "stable_log_$k"
-          done
-
-          CF_API="https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID"
-          CF_AUTH=(-H "Authorization: Bearer $CLOUDFLARE_API_TOKEN")
-          curl -fsS "${CF_AUTH[@]}" "$CF_API/d1/database?per_page=100" > /tmp/d1.json
-          curl -fsS "${CF_AUTH[@]}" "$CF_API/workers/scripts?per_page=100" > /tmp/workers.json
-          jq -e '.success==true' /tmp/d1.json >/dev/null
-          jq -e '.success==true' /tmp/workers.json >/dev/null
-          DB_COUNT=$(jq '.result|length' /tmp/d1.json)
-          TARGET_DB=$(jq -r .target_d1_name "$REQ")
-          TARGET_WORKER=$(jq -r .target_worker_name "$REQ")
-          DB_MATCH=$(jq --arg n "$TARGET_DB" '[.result[]|select(.name==$n)]|length' /tmp/d1.json)
-          WORKER_MATCH=$(jq --arg n "$TARGET_WORKER" '[.result[]|select((.id//.name)==$n)]|length' /tmp/workers.json)
-          [[ "$DB_MATCH" -eq 0 ]] || { echo "TARGET_D1_ALREADY_EXISTS_LEGACY_UNTRUSTED"; exit 31; }
-          [[ "$WORKER_MATCH" -eq 0 ]] || { echo "TARGET_WORKER_ALREADY_EXISTS_LEGACY_UNTRUSTED"; exit 32; }
-          jq -n             --argjson d1_count "$DB_COUNT"             --argjson cloud_platform "$HAS_CLOUD_PLATFORM"             --argjson script_projects "$HAS_SCRIPT_PROJECTS"             --argjson drive "$HAS_DRIVE"             --argjson sheets "$HAS_SHEETS"             '{status:"PASS",read_only:true,stable_resources_verified:true,cloudflare:{d1_count:$d1_count,target_d1_absent:true,target_worker_absent:true},google_oauth:{cloud_platform_scope:$cloud_platform,script_projects_scope:$script_projects,drive_scope:$drive,sheets_scope:$sheets},stable_public_activation:false}' > "$OUT"
-          cat "$OUT"
+          python3 tools/stable_private_provision.py
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: stable-private-preflight-${{ github.run_id }}
-          path: /tmp/stable-private-preflight.json
+          name: stable-private-provision-${{ github.run_id }}
+          path: /tmp/stable-private-provision-receipt.json
           retention-days: 30
-          if-no-files-found: warn
+          if-no-files-found: error
