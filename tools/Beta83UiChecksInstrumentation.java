@@ -569,6 +569,44 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     ui.waitForIdle(1000L,5000L);SystemClock.sleep(700L);
     shot(tag+"-05-report");
 
+    open("SETTINGS");
+    waitText("THÔNG TIN ỨNG DỤNG",true,false,10000L);
+    showTextOnScreen("TRUNG TÂM KIỂM THỬ RESILIENCE",12000L);
+    waitText("Phạm vi",true,false,10000L);
+    waitText("Test kỹ thuật cô lập",false,false,10000L);
+    clickText("CHỌN KỊCH BẢN & CHẠY TEST",true,10000L);
+    waitText("Chọn kịch bản kiểm thử",false,false,10000L);
+    waitText("1. Bình thường • Service hoạt động",false,false,10000L);
+    waitText("2. Thiết bị mất Internet • giữ local",false,false,10000L);
+    shot(tag+"-13-beta101-bordered-options");
+
+    clickTextScrolling("7. Service + Google/GAS mất • LAN dự phòng",12000L);
+    waitText("Kỳ vọng:",false,false,10000L);
+    waitText("Test chỉ tạo event kỹ thuật cô lập",false,false,10000L);
+    clickText("CHẠY TEST",true,10000L);
+    waitText("CHƯA ĐỦ ĐIỀU KIỆN",false,false,12000L);
+    waitText("Không chạm business outbox",false,false,10000L);
+    waitText("PASS",true,false,10000L);
+
+    clickText("XEM LỊCH SỬ TEST",true,10000L);
+    waitText("Lịch sử kiểm thử resilience",false,false,10000L);
+    waitText("Mới nhất ở trên",false,false,10000L);
+    waitText("Business outbox",false,false,10000L);
+    waitText("Mã test",false,false,10000L);
+    waitText("Service + Google/GAS mất • LAN dự phòng",false,false,10000L);
+    shot(tag+"-14-beta101-history-cards");
+    try{ui.executeShellCommand("input keyevent 4").close();}catch(Exception ignored){}
+    SystemClock.sleep(350L);
+
+    setActivityBoolean("resilienceTestInFlight",true);
+    setActivityBoolean("resilienceTestStopping",false);
+    invokeActivityNoArg("settingsScreen");
+    showTextOnScreen("TRUNG TÂM KIỂM THỬ RESILIENCE",10000L);
+    waitText("DỪNG TEST / VỀ BÌNH THƯỜNG",true,true,10000L);
+    shot(tag+"-15-beta101-stop-control");
+    setActivityBoolean("resilienceTestInFlight",false);
+    setActivityBoolean("resilienceTestStopping",false);
+
     Bundle done=new Bundle();done.putString("result","BETA83_VISUAL_PASS");finish(0,done);
   }
 
