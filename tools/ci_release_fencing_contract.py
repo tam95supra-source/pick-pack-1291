@@ -16,7 +16,7 @@ must("candidate_locked==true" in beta and "human_visual_pass==true" in beta and 
 must("rebuild==false" in beta and "resign==false" in beta,"BETA_EXACT_BYTES_GUARD_MISSING")
 must('apk_transport=="GITHUB_RELEASE_ONLY"' in beta and 'google_drive_apk=="FORBIDDEN"' in beta,"APK_GITHUB_ONLY_GUARD_MISSING")
 must("BETA_RELEASE_TOKEN" in beta,"BETA_RELEASE_TOKEN_SCOPE_MISSING")
-must("group: beta-release-\${{ github.ref }}" in beta,"BETA_CONCURRENCY_SCOPE_MISSING")
+must("group: beta-release-${{ github.ref }}" in beta,"BETA_CONCURRENCY_SCOPE_MISSING")
 must("group: stable-private-provision" in stable and "cancel-in-progress: false" in stable,"STABLE_PROVISION_CONCURRENCY_GUARD_MISSING")
 must("group: stable-isolation-verify" in verify and "cancel-in-progress: false" in verify,"STABLE_VERIFY_CONCURRENCY_GUARD_MISSING")
 must(req["stable_public_activation"] is False,"STABLE_PUBLIC_ACTIVATION_TRUE")
