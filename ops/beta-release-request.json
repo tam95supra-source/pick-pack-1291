@@ -1,6 +1,6 @@
 {
   "stage": "VERIFY_ONLY",
-  "mode": "BETA101_VERIFY_ONLY_ALL_SIZE_RESILIENCE_VISUAL",
+  "mode": "BETA101_VERIFY_ONLY_VISIBLE_STOP_CONTROL_ALL_SIZES",
   "version_name": "0.4.2-beta.101",
   "version_code": 107,
   "base_version": "0.4.2-beta.100",
@@ -30,7 +30,7 @@
     "Log thủ công xuất tối đa 20 lượt resilience gần nhất thay vì chỉ kết quả cuối.",
     "Giữ nguyên 3 ô Mạng / Đồng bộ / Dịch vụ và ĐỒNG BỘ NGAY đã OWNER xác nhận OK."
   ],
-  "next_action": "VERIFY_ONLY_EXACT_BETA101_ALL_SIZE_RESILIENCE_VISUAL_THEN_HUMAN_RELEASE_LOCK",
+  "next_action": "VERIFY_ONLY_EXACT_BETA101_VISIBLE_STOP_CONTROL_THEN_HUMAN_RELEASE_LOCK",
   "signer_sha256": "d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e",
   "base_candidate_run_id": 33301229802,
   "base_candidate_artifact_id": 9729047360,
@@ -42,9 +42,9 @@
   "base_live_final_artifact_name": "beta-final-33306122804",
   "apk_transport": "GITHUB_RELEASE_ONLY",
   "google_drive_apk": "FORBIDDEN",
-  "visual_matrix": "PENDING_VERIFY_ONLY_ALL_SIZES",
-  "pda_functional_pre_ota": "PENDING_VERIFY_ONLY_ALL_SIZES",
-  "back_api36": "PENDING_VERIFY_ONLY_ALL_SIZES",
+  "visual_matrix": "PENDING_VISIBLE_STOP_CONTROL",
+  "pda_functional_pre_ota": "PENDING_VISIBLE_STOP_CONTROL",
+  "back_api36": "PENDING_VISIBLE_STOP_CONTROL",
   "human_visual_sizes": [
     "320x568",
     "360x640",
