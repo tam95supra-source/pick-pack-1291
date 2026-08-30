@@ -29,6 +29,9 @@ on:
       - tools/beta83_publish_ota.sh
       - tools/verify_beta_visual_receipt.py
       - qa/**
+      - ops/promotion-lock-dry-run.json
+      - ops/promotion-lock.schema.json
+      - tools/verify_promotion_lock.py
       - .github/workflows/app-fast-check.yml
   pull_request:
     paths:
