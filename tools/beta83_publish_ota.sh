@@ -105,6 +105,7 @@ test -n "$ACCESS_TOKEN"
 export ACCESS_TOKEN
 echo "::add-mask::$ACCESS_TOKEN"
 python3 tools/gas_version_inventory.py "$E/gas-version-inventory.json"
+python3 tools/gas_resilience_contract_readback.py "$E/gas-resilience-readback.json"
 
 BASE_APK_NAME=$(basename "$BASE_APK")
 printf '%s\n' "Exact LIVE rollback baseline $PREV." > "$E/base-release-notes.txt"
