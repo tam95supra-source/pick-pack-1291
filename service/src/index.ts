@@ -51,7 +51,8 @@ async function healthSnapshot(env:Env):Promise<Response>{
   if(result.authority_generation==="UNCONFIGURED"){
     const at=nowIso();await env.DB.prepare("UPDATE authority_state SET service_generation=?1,updated_at=?2 WHERE singleton_id=1 AND service_generation='UNCONFIGURED'").bind(env.SERVICE_GENERATION,at).run();result.authority_generation=env.SERVICE_GENERATION;result.authority_updated_at=at;
   }
-  const {authority,replication}=statusParts(result);return json({ok:true,service:"pick-pack-1291-service",environment:result.authority_scope==="STAGING_SHADOW"?"staging-shadow":"production",generation:env.SERVICE_GENERATION,authority,replication});
+  const environmentId=String(env.ENVIRONMENT_ID||"BETA").toUpperCase(),serviceAudience=String(env.SERVICE_AUDIENCE||(environmentId==="STABLE"?"PICK_PACK_1291_STABLE":"PICK_PACK_1291_BETA"));
+  const {authority,replication}=statusParts(result);return json({ok:true,service:"pick-pack-1291-service",environment:result.authority_scope==="STAGING_SHADOW"?"staging-shadow":"production",environment_id:environmentId,service_audience:serviceAudience,generation:env.SERVICE_GENERATION,authority,replication});
 }
 
 async function realtimeTicket(request:Request,env:Env):Promise<Response>{
