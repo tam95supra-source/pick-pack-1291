@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "authority": "SERVICE_PRIMARY",
-  "description": "Fallback preserves payload; only canonical Service/LAN/controlled DR authority applies business rules.",
+  "description": "Fallback preserves payload; only canonical Service/LAN/controlled DR authority applies business rules. resilience_probe is a SUPERADMIN technical acceptance event with no business projection.",
   "AUTO_CAPTURE_AND_REPLAY": [
     "enter",
     "exit",
@@ -9,7 +9,8 @@
     "labor_start",
     "labor_finish",
     "meal_checkin",
-    "meal_status"
+    "meal_status",
+    "resilience_probe"
   ],
   "CAPTURE_THEN_REVIEW_REQUIRED": [
     "attendance_time_correction",
