@@ -5,6 +5,13 @@ const must=(ok,msg)=>{if(!ok){console.error("RESILIENCE_GATE_FAIL:"+msg);process
 const ops=read("app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt");
 const pda=read("app/src/main/java/vn/pickpack1291/app/beta/SessionPdaAuthority.kt");
 const pdaTest=read("app/src/test/java/vn/pickpack1291/app/beta/SessionPdaAuthorityTest.kt");
+const pdaOnly=read("app/src/main/java/vn/pickpack1291/app/beta/PdaOnlyMutationPayload.kt");
+const pdaOnlyTest=read("app/src/test/java/vn/pickpack1291/app/beta/PdaOnlyMutationPayloadTest.kt");
+const fault=read("app/src/main/java/vn/pickpack1291/app/beta/ServiceFaultInjection.kt");
+const probePolicy=read("app/src/main/java/vn/pickpack1291/app/beta/ResilienceProbePolicy.kt");
+const probeTest=read("app/src/test/java/vn/pickpack1291/app/beta/ResilienceProbePolicyTest.kt");
+const serviceIndex=read("service/src/index.ts");
+const adminAudit=read("service/src/admin_audit.ts");
 const tr=read("app/src/main/java/vn/pickpack1291/app/beta/M2ServiceTransport.kt");
 const store=read("app/src/main/java/vn/pickpack1291/app/beta/OperationalDataStore.kt");
 const gas=read("google-apps-script/PICK_PACK_API.gs");
@@ -14,13 +21,20 @@ const gradle=read("app/build.gradle.kts");
 const policy=JSON.parse(read("config/mutation_fallback_policy.json"));
 
 must(gradle.includes('versionCode = 1')&&gradle.includes('versionName = "0.1.0-stable"'),"STABLE_METADATA_CHANGED");
-must(gradle.includes('versionCode = 104')&&gradle.includes('versionName = "0.4.2-beta.98"'),"BETA98_METADATA_MISSING");
+must(gradle.includes('versionCode = 105')&&gradle.includes('versionName = "0.4.2-beta.99"'),"BETA99_METADATA_MISSING");
 
 const exitId=ops.slice(ops.indexOf("private fun exitPdaId"),ops.indexOf("private fun visibleAssignments"));
 must(exitId.includes("exitPdaDecision")&&!exitId.includes("pda_serial"),"PDA_EXIT_LEGACY_SCALAR_FALLBACK");
 must(ops.includes('api.call("session_resource_snapshot",JSONObject().put("session_id",sessionId).put("mnv",mnv))'),"PDA_EXIT_EXACT_SESSION_SNAPSHOT_MISSING");
 must(pda.includes("authoritativeAssignmentsPresent")&&!pda.includes("pda_serial"),"PDA_AUTHORITY_HELPER_INVALID");
 must((pdaTest.match(/@Test/g)||[]).length>=10,"PDA_EXIT_MATRIX_LT_10");
+must(pdaOnly.includes('"session_id"')&&pdaOnly.includes('"pda_serial"')&&!pdaOnly.includes('"user_pick" to')&&!pdaOnly.includes('"pack_table" to')&&!pdaOnly.includes('"user_pack" to'),"PDA_ONLY_PAYLOAD_REPLAYS_UNRELATED_RESOURCE");
+must((pdaOnlyTest.match(/@Test/g)||[]).length>=2&&pdaOnlyTest.includes("changePdaDoesNotReplayUnrelatedResources"),"PDA_ONLY_REGRESSION_MISSING");
+must(fault.includes("FAULT_TTL_MS=30*60_000L")&&fault.includes("ResilienceProbePolicy.evaluate")&&fault.includes("endAndRecover"),"FAULT_TEST_NOT_DETERMINISTIC");
+must(tr.includes('TECHNICAL = setOf("resilience_probe")')&&tr.includes("fun resilienceProbe"),"RESILIENCE_PROBE_TRANSPORT_MISSING");
+must(policy.AUTO_CAPTURE_AND_REPLAY.includes("resilience_probe"),"RESILIENCE_PROBE_FALLBACK_CLASSIFICATION_MISSING");
+must(adminAudit.includes('resilience_probe:"TECHNICAL_RESILIENCE_PROBE"')&&serviceIndex.includes('input.action==="resilience_probe"'),"RESILIENCE_PROBE_CANONICAL_SERVICE_MISSING");
+must((probeTest.match(/@Test/g)||[]).length>=4&&probePolicy.includes('"DISABLE_BOTH"')&&probePolicy.includes('"OFFLINE_PROVISIONAL"'),"RESILIENCE_PROBE_ACCEPTANCE_MATRIX_MISSING");
 
 for(const x of ["event_id","idempotency_key","event_type","schema_version","actor_mnv","role","device_id","app_version","business_date","device_time","trusted_received_time","device_sequence","depends_on_event_id","session_id","authority_epoch","service_generation","checksum","payload"])must(tr.includes('"'+x+'"'),"ENVELOPE_FIELD_"+x);
 must(tr.includes('emergency_ledger_capture')&&tr.includes("captureEmergency")&&store.includes("markEmergencyCaptured"),"EMERGENCY_LEDGER_APP_MISSING");
@@ -40,7 +54,7 @@ must(new Set(all).size===all.length,"MUTATION_INVENTORY_DUPLICATE_CLASSIFICATION
 const forbidden=/supabase/i;
 for(const p of ["app/src/main/java/vn/pickpack1291/app/beta/M2ServiceTransport.kt","service/src/entry_product.ts","service/src/d1_maintenance.ts"])must(!forbidden.test(read(p)),"SUPABASE_REFERENCE_"+p);
 if(process.exitCode)process.exit(process.exitCode);
-console.log("resilience_static_gate=PASS pda_matrix=10 emergency_ledger=PASS d1_guard=PASS mutation_inventory=PASS");
+console.log("resilience_static_gate=PASS pda_matrix=10 pda_partial=PASS fault_probe=PASS emergency_ledger=PASS d1_guard=PASS mutation_inventory=PASS");
 
 const drHandler=read("services/cloud-dr/src/handler.ts");
 const drAdapter=read("services/cloud-dr/src/libsql_adapter.ts");
