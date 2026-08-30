@@ -4,7 +4,7 @@ import { bangkokToday, ensureCurrentBangkokBusinessDate } from "./business_date"
 import { nowIso } from "./util";
 
 export interface LegacyMutationInput {
-  action: "enter" | "exit" | "resource_change" | "labor_start" | "labor_finish" | "meal_checkin" | "meal_status";
+  action: "enter" | "exit" | "resource_change" | "labor_start" | "labor_finish" | "meal_checkin" | "meal_status" | "resilience_probe";
   payload: Record<string, unknown>;
   event_id?: string;
   business_date?: string;
