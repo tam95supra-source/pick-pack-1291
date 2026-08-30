@@ -10,6 +10,9 @@ const pdaOnlyTest=read("app/src/test/java/vn/pickpack1291/app/beta/PdaOnlyMutati
 const fault=read("app/src/main/java/vn/pickpack1291/app/beta/ServiceFaultInjection.kt");
 const probePolicy=read("app/src/main/java/vn/pickpack1291/app/beta/ResilienceProbePolicy.kt");
 const probeTest=read("app/src/test/java/vn/pickpack1291/app/beta/ResilienceProbePolicyTest.kt");
+const testCenter=read("app/src/main/java/vn/pickpack1291/app/beta/ResilienceTestCenter.kt");
+const testCenterTest=read("app/src/test/java/vn/pickpack1291/app/beta/ResilienceTestScenarioTest.kt");
+const logs=read("app/src/main/java/vn/pickpack1291/app/beta/LocalLogManager.kt");
 const serviceIndex=read("service/src/index.ts");
 const adminAudit=read("service/src/admin_audit.ts");
 const tr=read("app/src/main/java/vn/pickpack1291/app/beta/M2ServiceTransport.kt");
@@ -21,7 +24,7 @@ const gradle=read("app/build.gradle.kts");
 const policy=JSON.parse(read("config/mutation_fallback_policy.json"));
 
 must(gradle.includes('versionCode = 1')&&gradle.includes('versionName = "0.1.0-stable"'),"STABLE_METADATA_CHANGED");
-must(gradle.includes('versionCode = 105')&&gradle.includes('versionName = "0.4.2-beta.99"'),"BETA99_METADATA_MISSING");
+must(gradle.includes('versionCode = 106')&&gradle.includes('versionName = "0.4.2-beta.100"'),"BETA100_METADATA_MISSING");
 
 const exitId=ops.slice(ops.indexOf("private fun exitPdaId"),ops.indexOf("private fun visibleAssignments"));
 must(exitId.includes("exitPdaDecision")&&!exitId.includes("pda_serial"),"PDA_EXIT_LEGACY_SCALAR_FALLBACK");
@@ -30,8 +33,14 @@ must(pda.includes("authoritativeAssignmentsPresent")&&!pda.includes("pda_serial"
 must((pdaTest.match(/@Test/g)||[]).length>=10,"PDA_EXIT_MATRIX_LT_10");
 must(pdaOnly.includes('"session_id"')&&pdaOnly.includes('"pda_serial"')&&!pdaOnly.includes('"user_pick" to')&&!pdaOnly.includes('"pack_table" to')&&!pdaOnly.includes('"user_pack" to'),"PDA_ONLY_PAYLOAD_REPLAYS_UNRELATED_RESOURCE");
 must((pdaOnlyTest.match(/@Test/g)||[]).length>=2&&pdaOnlyTest.includes("changePdaDoesNotReplayUnrelatedResources"),"PDA_ONLY_REGRESSION_MISSING");
-must(fault.includes("FAULT_TTL_MS=30*60_000L")&&fault.includes("ResilienceProbePolicy.evaluate")&&fault.includes("endAndRecover"),"FAULT_TEST_NOT_DETERMINISTIC");
-must(tr.includes('TECHNICAL = setOf("resilience_probe")')&&tr.includes("fun resilienceProbe"),"RESILIENCE_PROBE_TRANSPORT_MISSING");
+must(fault.includes("Beta100 compatibility shim")&&fault.includes("fun cloudflareDisabled(context:Context):Boolean = false")&&fault.includes("fun googleDisabled(context:Context):Boolean = false"),"LEGACY_FAULT_FLAGS_CAN_STILL_TOUCH_BUSINESS_TRAFFIC");
+must(tr.includes('TECHNICAL = setOf("resilience_probe")')&&tr.includes("fun isolatedResilienceTest"),"RESILIENCE_ISOLATED_TRANSPORT_MISSING");
+must(store.includes("resilience_test_events")&&store.includes("Never consumed by the production mutation worker"),"RESILIENCE_ISOLATED_DURABLE_LEDGER_MISSING");
+must(testCenter.includes("SERVICE_UNAVAILABLE_GOOGLE")&&testCenter.includes("SERVICE_GOOGLE_OFFLINE_LOCAL")&&testCenter.includes("SERVICE_GOOGLE_OFFLINE_LAN")&&testCenter.includes("DEVICE_OFFLINE_LOCAL"),"RESILIENCE_SCENARIO_CATALOG_INCOMPLETE");
+must((testCenterTest.match(/@Test/g)||[]).length>=3,"RESILIENCE_SCENARIO_REGRESSION_MISSING");
+must(ops.includes('showHeaderStatusDetail("NETWORK")')&&ops.includes('showHeaderStatusDetail("SYNC")')&&ops.includes('showHeaderStatusDetail("SERVICE")'),"STATUS_CHIPS_NOT_ALL_CLICKABLE");
+must(ops.includes('setNeutralButton("ĐỒNG BỘ NGAY")')&&ops.includes("manualRefreshFromHeader"),"SYNC_DETAIL_MANUAL_SYNC_MISSING");
+must(logs.includes("ResilienceTestCenter.snapshotLines"),"RESILIENCE_MANUAL_LOG_EVIDENCE_MISSING");
 must(policy.AUTO_CAPTURE_AND_REPLAY.includes("resilience_probe"),"RESILIENCE_PROBE_FALLBACK_CLASSIFICATION_MISSING");
 must(adminAudit.includes('resilience_probe:"TECHNICAL_RESILIENCE_PROBE"')&&serviceIndex.includes('input.action==="resilience_probe"'),"RESILIENCE_PROBE_CANONICAL_SERVICE_MISSING");
 must((probeTest.match(/@Test/g)||[]).length>=4&&probePolicy.includes('"DISABLE_BOTH"')&&probePolicy.includes('"OFFLINE_PROVISIONAL"'),"RESILIENCE_PROBE_ACCEPTANCE_MATRIX_MISSING");
@@ -54,7 +63,7 @@ must(new Set(all).size===all.length,"MUTATION_INVENTORY_DUPLICATE_CLASSIFICATION
 const forbidden=/supabase/i;
 for(const p of ["app/src/main/java/vn/pickpack1291/app/beta/M2ServiceTransport.kt","service/src/entry_product.ts","service/src/d1_maintenance.ts"])must(!forbidden.test(read(p)),"SUPABASE_REFERENCE_"+p);
 if(process.exitCode)process.exit(process.exitCode);
-console.log("resilience_static_gate=PASS pda_matrix=10 pda_partial=PASS fault_probe=PASS emergency_ledger=PASS d1_guard=PASS mutation_inventory=PASS");
+console.log("resilience_static_gate=PASS pda_matrix=10 pda_partial=PASS isolated_resilience_center=PASS status_chip_details=PASS emergency_ledger=PASS d1_guard=PASS mutation_inventory=PASS");
 
 const drHandler=read("services/cloud-dr/src/handler.ts");
 const drAdapter=read("services/cloud-dr/src/libsql_adapter.ts");
