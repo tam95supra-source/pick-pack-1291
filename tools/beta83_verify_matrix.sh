@@ -99,7 +99,7 @@ python3 - <<'PY'
 from pathlib import Path
 import os
 visual_only=os.environ.get("VISUAL_ONLY","false")=="true"
-expected={"320x568":((320,568),6),"360x640":((360,640),6),"480x800":((480,800),6)} if visual_only else {"320x568":((320,568),14),"360x640":((360,640),6),"480x800":((480,800),6)}
+expected={"320x568":((320,568),6),"360x640":((360,640),6),"480x800":((480,800),6)} if visual_only else {"320x568":((320,568),17),"360x640":((360,640),6),"480x800":((480,800),6)}
 root=Path("/tmp/beta-verify")
 total=0
 for tag,(size,count) in expected.items():
