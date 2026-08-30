@@ -1,0 +1,8 @@
+{
+  "action": "DRY_RUN",
+  "keep_latest": 40,
+  "confirm": "",
+  "requested_by": "OWNER_POLICY_PREVIEW",
+  "purpose": "Preview safe batch cleanup before Beta99 publish retry",
+  "note": "No deletion. Preserve all referenced deployments and newest 40 versions."
+}
