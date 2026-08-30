@@ -602,6 +602,7 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     setActivityBoolean("resilienceTestStopping",false);
     invokeActivityNoArg("settingsScreen");
     showTextOnScreen("TRUNG TÂM KIỂM THỬ RESILIENCE",10000L);
+    showTextOnScreen("DỪNG TEST / VỀ BÌNH THƯỜNG",10000L);
     waitText("DỪNG TEST / VỀ BÌNH THƯỜNG",true,true,10000L);
     shot(tag+"-15-beta101-stop-control");
     setActivityBoolean("resilienceTestInFlight",false);
@@ -929,6 +930,7 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     setActivityBoolean("resilienceTestStopping",false);
     invokeActivityNoArg("settingsScreen");
     showTextOnScreen("TRUNG TÂM KIỂM THỬ RESILIENCE",10000L);
+    showTextOnScreen("DỪNG TEST / VỀ BÌNH THƯỜNG",10000L);
     waitText("DỪNG TEST / VỀ BÌNH THƯỜNG",true,true,10000L);
     shot(tag+"-15-beta101-stop-control");
     clickText("DỪNG TEST / VỀ BÌNH THƯỜNG",true,10000L);
