@@ -38,9 +38,13 @@ Release 0.4.2-beta.101 hoàn tất scope beta101-resilience-option-borders-stop-
 - Candidate được build/sign đúng một lần; mọi recovery dùng exact locked bytes, không rebuild/resign.
 - Beta101 publish verifier legacy hardcode `screenshot_count==26` làm publish fail pre-write; thay bằng receipt-driven verifier đối chiếu receipt ↔ actual PNG ↔ visual-summary ↔ 3 viewport + human gate.
 - Regression verifier PASS run 33310187636: legacy 26 PASS theo receipt; Beta101 35 PASS; lệch count/thiếu viewport/lệch summary/human gate false đều FAIL đúng.
+- Manual resilience log 20:12: NORMAL_SERVICE_PRIMARY PASS thực qua Service/idempotency; DEVICE_OFFLINE_LOCAL và SERVICE_GOOGLE_OFFLINE_LOCAL là isolated safe simulation + recovery, không phải physical outage; GOOGLE_UNAVAILABLE_SERVICE kiểm Service thật nhưng Google-down được mô phỏng; Google fallback 2 case FAIL do live GAS drift; LAN chỉ kiểm actual canRoute/submit khi topology đã active.
+- GAS RESILIENCE_V1 deployment drift: 205 thiếu routes/functions dù repo có đủ. Patch tối thiểu live HEAD → deployment 206, giữ nguyên ppUpdateCheck Beta101 và authority; post-readback PASS.
+- Release pipeline đã thêm live GAS resilience contract guard; Fast Check 33314181358 PASS.
 
 ## Blocker
-Không có technical blocker. OWNER acceptance item 6 còn PENDING trên Beta101.
+OWNER acceptance item 6 = NOT OK. Manual log 2026-08-30 20:12 cho thấy SERVICE_UNAVAILABLE_GOOGLE và SERVICE_TIMEOUT_GOOGLE FAIL deterministic tại GOOGLE_EMERGENCY_CAPTURE / UNKNOWN_ACTION; LAN = NOT_AVAILABLE / LAN_PREREQUISITE_MISSING.
+Root cause Google đã sửa: read-only run 33313877854 xác nhận deployment 205 thiếu toàn bộ RESILIENCE_V1; repair run 33314072135 deploy 206 PASS; post-readback 33314115931 PASS. Cần OWNER rerun trên Beta101 có session thật. LAN cần topology nhiều PDA thật nên CI/single-device không thể chứng minh.
 
 ## Invariants
 - Stable/main/signer/authority không đổi.
@@ -48,4 +52,4 @@ Không có technical blocker. OWNER acceptance item 6 còn PENDING trên Beta101
 - Google Drive không được dùng cho APK; GSheet/GAS nghiệp vụ không bị xóa/thay authority.
 
 ## NEXT_ACTION
-WAIT_FOR_OWNER_BETA101_ITEM_6_ACCEPTANCE
+WAIT_FOR_OWNER_BETA101_ITEM_6_RETEST_AFTER_GAS206
