@@ -1,6 +1,11 @@
 name: GAS Version Cleanup
 
 on:
+  push:
+    branches:
+      - 'release/**'
+    paths:
+      - ops/gas-version-cleanup-request.json
   workflow_dispatch:
     inputs:
       action:
@@ -40,26 +45,34 @@ jobs:
       GOOGLE_OAUTH_REFRESH_TOKEN: ${{ secrets.GOOGLE_OAUTH_REFRESH_TOKEN }}
       GAS_SCRIPT_ID: ${{ secrets.GAS_SCRIPT_ID }}
       GAS_DEPLOYMENT_ID: ${{ secrets.GAS_DEPLOYMENT_ID }}
-      CLEANUP_ACTION: ${{ inputs.action }}
-      KEEP_LATEST: ${{ inputs.keep_latest }}
-      CLEANUP_CONFIRM: ${{ inputs.confirm }}
     steps:
       - uses: actions/checkout@v4
 
-      - name: Validate destructive intent
+      - name: Resolve cleanup request
         shell: bash
         run: |
           set -euo pipefail
-          case "$CLEANUP_ACTION" in
-            DRY_RUN) ;;
-            DELETE)
-              test "$CLEANUP_CONFIRM" = "DELETE_UNREFERENCED_GAS_VERSIONS" || {
-                echo "DELETE confirmation mismatch" >&2
-                exit 64
-              }
-              ;;
-            *) exit 65 ;;
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            ACTION='${{ inputs.action }}'
+            KEEP='${{ inputs.keep_latest }}'
+            CONFIRM='${{ inputs.confirm }}'
+          else
+            R=ops/gas-version-cleanup-request.json
+            jq -e '.action=="DRY_RUN" or .action=="DELETE"' "$R" >/dev/null
+            ACTION=$(jq -r '.action' "$R")
+            KEEP=$(jq -r '.keep_latest' "$R")
+            CONFIRM=$(jq -r '.confirm // ""' "$R")
+          fi
+          case "$KEEP" in
+            ''|*[!0-9]*) echo "keep_latest must be an integer" >&2; exit 63 ;;
           esac
+          if [[ "$ACTION" == "DELETE" && "$CONFIRM" != "DELETE_UNREFERENCED_GAS_VERSIONS" ]]; then
+            echo "DELETE confirmation mismatch" >&2
+            exit 64
+          fi
+          printf 'CLEANUP_ACTION=%s\n' "$ACTION" >> "$GITHUB_ENV"
+          printf 'KEEP_LATEST=%s\n' "$KEEP" >> "$GITHUB_ENV"
+          printf 'CLEANUP_CONFIRM=%s\n' "$CONFIRM" >> "$GITHUB_ENV"
 
       - name: Exchange Google OAuth token
         shell: bash
