@@ -1,6 +1,6 @@
 {
-  "stage": "BUILD_VERIFY",
-  "mode": "BETA100_BUILD_VERIFY_ISOLATED_RESILIENCE_CENTER_STATUS_DETAILS",
+  "stage": "VERIFY_ONLY",
+  "mode": "BETA100_VERIFY_ONLY_AFTER_HARNESS_FIX",
   "version_name": "0.4.2-beta.100",
   "version_code": 106,
   "base_version": "0.4.2-beta.99",
@@ -17,8 +17,8 @@
   "human_visual_pass": false,
   "stable_publish": "FORBIDDEN",
   "authority_change": "NONE",
-  "candidate_locked": false,
-  "rebuild": true,
+  "candidate_locked": true,
+  "rebuild": false,
   "resign": false,
   "scope": "beta100-isolated-resilience-test-center-status-chip-details",
   "owner": "Nguyen Van Tam",
@@ -30,7 +30,7 @@
     "Ba ô Mạng / Đồng bộ / Dịch vụ đều mở thông tin chi tiết chuyên nghiệp; popup Đồng bộ có nút ĐỒNG BỘ NGAY.",
     "Manual diagnostic log ghi đầy đủ resilience scenario/status/stage/evidence/error gần nhất."
   ],
-  "next_action": "BUILD_SIGN_LOCK_BETA100_THEN_VISUAL_PDA_API36_VERIFY",
+  "next_action": "VERIFY_EXACT_ARTIFACT_9729047360_WITH_FIXED_HARNESS_THEN_HUMAN_VISUAL_RELEASE_LOCK",
   "signer_sha256": "d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e",
   "base_candidate_run_id": 33290900322,
   "base_candidate_artifact_id": 9725965250,
@@ -42,9 +42,9 @@
   "base_live_final_artifact_name": "beta-final-33295954425",
   "apk_transport": "GITHUB_RELEASE_ONLY",
   "google_drive_apk": "FORBIDDEN",
-  "visual_matrix": "PENDING",
-  "pda_functional_pre_ota": "PENDING",
-  "back_api36": "PENDING",
+  "visual_matrix": "PENDING_VERIFY_ONLY",
+  "pda_functional_pre_ota": "PENDING_VERIFY_ONLY",
+  "back_api36": "PENDING_VERIFY_ONLY",
   "human_visual_sizes": [
     "320x568",
     "360x640",
@@ -57,5 +57,10 @@
     "4": "OK",
     "5": "OK",
     "6": "PENDING_REDESIGNED_BETA100"
-  }
+  },
+  "candidate_run_id": 33301229802,
+  "candidate_artifact_id": 9729047360,
+  "candidate_artifact_name": "beta-candidate-33301229802",
+  "candidate_apk_sha256": "29270f4435a5e4c7729e4aeb9a6ae516795c14ca0858723df8c9a293a62d9319",
+  "candidate_apk_size": 13577205
 }
