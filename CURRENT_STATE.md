@@ -1,34 +1,32 @@
 # CURRENT STATE — PICK PACK 1291
 
-- updated_at: 2026-08-30T01:06:14Z
-- status: BETA98_RELEASE_AUTH_BLOCKED_LIVE_BETA97
+- updated_at: 2026-08-30T01:50:50Z
+- status: BETA98_GAS_VERSION_QUOTA_BLOCKED_LIVE_BETA97
 - continuity_branch: release/beta97-qr-meal-alert-role-20260829
 - beta_live: 0.4.2-beta.97 (versionCode 103)
 - beta_target: 0.4.2-beta.98 (versionCode 104)
-- package: vn.pickpack1291.app.beta.publicbeta
-- candidate_source_sha: 154473b3dcc17c8badcfe345108e59ac3ba6e830
 - candidate_run: 33279188816
 - candidate_artifact: 9722490457
+- candidate_source_sha: 154473b3dcc17c8badcfe345108e59ac3ba6e830
 - apk_sha256: b3085fe35f9bd2f8bed499dc7afcede5f210abdd8021ba379bccad7b795fba4b
 - apk_size: 13544437
 - signer_sha256: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
 - fast_check: PASS_RUN_33281578813
-- service_gate: PASS_RUN_33280777490_JOB_99175479666_EXACT_SOURCE
-- verify_run: 33281633060
-- verify_artifact: 9723200175
-- visual_matrix: PASS 320x568 / 360x640 / 480x800
+- service_gate: PASS_RUN_33280777490_JOB_99175479666
+- verify_run: PASS_33281633060
 - human_visual: PASS_26_SCREENSHOTS
-- pda_functional_pre_ota: PASS
-- back_api36: PASS
-- publish_run: 33284770547
-- publish_status: BLOCKED_HTTP_403_WORKFLOWS_WRITE_REQUIRED
-- beta98_release_tag: NOT_FOUND
-- beta98_github_release: NOT_FOUND
-- beta_ota: NOT_PUBLISHED
+- github_release_beta98: PRESENT_EXACT_PUBLIC_READBACK_PASS
+- beta_manifest: STILL_BETA97
+- publish_run: 33286565895
+- publish_status: BLOCKED_GAS_200_VERSION_LIMIT
+- gas_version_count: 200
+- gas_current_deployment_version: 200
+- gas_referenced_versions: [200]
+- gas_safe_delete_version: 1
+- owner_action: DELETE_GAS_PROJECT_HISTORY_VERSION_1_ONLY
+- stable: unchanged
+- main: unchanged
+- authority: SERVICE_PRIMARY / PRODUCTION / epoch 9 / generation m2-prod-reset-20260823-001
 - apk_transport: GITHUB_RELEASE_ONLY
 - google_drive_apk: FORBIDDEN
-- stable: unchanged
-- main_sha: 021dac5c6932b3ac5c60ce8fdba562ddf3d9688f
-- authority: SERVICE_PRIMARY / PRODUCTION / epoch 9 / generation m2-prod-reset-20260823-001
-- blocker_owner: ADD_ACTIONS_SECRET_BETA_RELEASE_TOKEN_CONTENTS_WRITE_WORKFLOWS_WRITE
-- next_action: AFTER_OWNER_ADDS_BETA_RELEASE_TOKEN_TRIGGER_PUBLISH_EXACT_ARTIFACT_9722490457_THEN_OTA_INSTALL_LIVE_READBACK_FINALIZE
+- next_action: AFTER_OWNER_DELETES_GAS_PROJECT_HISTORY_VERSION_1_RETRY_PUBLISH_EXACT_ARTIFACT_9722490457_THEN_OTA_INSTALL_LIVE_READBACK_FINALIZE
