@@ -1,6 +1,6 @@
 {
   "stage": "BETA_AUTH_MIGRATE",
-  "mode": "BETA_AUTH_TARGET_5_REPLACEMENT_FIRST",
+  "mode": "BETA_AUTH_TARGET_5_REPLACEMENT_FIRST_RETRY_DISCOVERY_FIXED",
   "version_name": "0.4.2-beta.102",
   "version_code": 108,
   "base_version": "0.4.2-beta.101",
@@ -39,10 +39,12 @@
   "candidate_artifact_name": "beta-candidate-33338713705",
   "apk_sha256": "6178085afb3d5b9d7e3a913ca38d3842dd7b2d6db585ac2bbe04a95dcaa5c0b1",
   "apk_size": 13593589,
-  "prior_verify_run_id": 33338713705,
-  "prior_verify_artifact_id": 9740012172,
-  "prior_verify_artifact_name": "beta-verify-33338713705",
+  "prior_verify_run_id": 33339717799,
+  "prior_verify_artifact_id": 9740180837,
+  "prior_verify_artifact_name": "beta-verify-33339717799",
   "service_gate": "PASS_INHERITED_RUN_33338713705_EXACT_SERVICE_SOURCE",
   "visual_matrix": "PASS_INHERITED_RUN_33338713705_EXACT_CANDIDATE",
-  "pda_functional_pre_ota": "PASS_INHERITED_RUN_33338713705_EXACT_CANDIDATE"
+  "pda_functional_pre_ota": "PASS_INHERITED_RUN_33338713705_EXACT_CANDIDATE",
+  "back_api36": "PASS_INHERITED_RUN_33339717799_EXACT_CANDIDATE",
+  "execution_nonce": "beta-auth-retry-20260831-01"
 }
