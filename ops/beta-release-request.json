@@ -1,6 +1,6 @@
 {
-  "stage": "VERIFY_ONLY",
-  "mode": "BETA100_VERIFY_ONLY_AFTER_HARNESS_SCROLL_FIX",
+  "stage": "PUBLISH",
+  "mode": "BETA100_PUBLISH_EXACT_AFTER_ALL_PRE_OTA_GATES_PASS",
   "version_name": "0.4.2-beta.100",
   "version_code": 106,
   "base_version": "0.4.2-beta.99",
@@ -14,7 +14,7 @@
   "fast_check_source_sha": "c6cddd9df208a26f05b17fa2723827286bf93bd8",
   "service_gate_required": false,
   "service_gate": "PASS_INHERITED_JOB_99202629701_EXACT_SERVICE_SOURCE_UNCHANGED",
-  "human_visual_pass": false,
+  "human_visual_pass": true,
   "stable_publish": "FORBIDDEN",
   "authority_change": "NONE",
   "candidate_locked": true,
@@ -30,7 +30,7 @@
     "Ba ô Mạng / Đồng bộ / Dịch vụ đều mở thông tin chi tiết chuyên nghiệp; popup Đồng bộ có nút ĐỒNG BỘ NGAY.",
     "Manual diagnostic log ghi đầy đủ resilience scenario/status/stage/evidence/error gần nhất."
   ],
-  "next_action": "VERIFY_EXACT_ARTIFACT_9729047360_AFTER_RESILIENCE_DIALOG_SCROLL_FIX",
+  "next_action": "PUBLISH_EXACT_BETA100_THEN_OTA_INSTALL_LIVE_READBACK_FINALIZE",
   "signer_sha256": "d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e",
   "base_candidate_run_id": 33290900322,
   "base_candidate_artifact_id": 9725965250,
@@ -42,9 +42,9 @@
   "base_live_final_artifact_name": "beta-final-33295954425",
   "apk_transport": "GITHUB_RELEASE_ONLY",
   "google_drive_apk": "FORBIDDEN",
-  "visual_matrix": "PENDING_VERIFY_ONLY",
-  "pda_functional_pre_ota": "PENDING_VERIFY_ONLY",
-  "back_api36": "PENDING_VERIFY_ONLY",
+  "visual_matrix": "PASS",
+  "pda_functional_pre_ota": "PASS",
+  "back_api36": "PASS",
   "human_visual_sizes": [
     "320x568",
     "360x640",
@@ -65,5 +65,9 @@
   "candidate_apk_size": 13577205,
   "apk_sha256": "29270f4435a5e4c7729e4aeb9a6ae516795c14ca0858723df8c9a293a62d9319",
   "apk_size": 13577205,
-  "verify_retry_reason": "HARNESS_ONLY_RESILIENCE_SCENARIO_OFFSCREEN_320X568"
+  "verify_run_id": 33305842167,
+  "verify_job_id": 99242159503,
+  "verify_artifact_id": 9730487600,
+  "verify_artifact_name": "beta-verify-33305842167",
+  "human_visual_screenshot_count": 26
 }
