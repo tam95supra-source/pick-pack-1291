@@ -54,9 +54,9 @@ def google_token():
 
 def health(url):
     try:
-        with urllib.request.urlopen(url+"/health",timeout=20) as x:
-            if x.status!=200:return None
-            return json.loads(x.read().decode())
+        p=subprocess.run(["curl","-fsS","--connect-timeout","10","--max-time","20",url+"/health"],text=True,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,timeout=25)
+        if p.returncode:return None
+        return json.loads(p.stdout)
     except:return None
 
 def bindings(name):
@@ -90,7 +90,17 @@ def discover():
         if env=="STABLE":stable.append(item)
         elif item["gas"] and item["sheet"] and h and (h.get("authority") or {}).get("mode")=="SERVICE_PRIMARY" and (h.get("authority") or {}).get("scope")=="PRODUCTION":
             beta.append(item)
-    if len(beta)!=1:raise RuntimeError("BETA_LIVE_WORKER_NOT_UNIQUE:"+str(len(beta)))
+    if len(beta)!=1:
+        diag=[]
+        for x in scripts:
+            name=str(x.get("id") or x.get("name") or "")
+            if not name:continue
+            try:
+                _,by=bindings(name);env=text_binding(by,"ENVIRONMENT_ID","BETA").upper();h=health(f"https://{name}.{sub}.workers.dev")
+                diag.append({"worker":name,"env":env,"db":bool(d1_binding(by)),"gas":bool(text_binding(by,"GAS_API_URL")),"sheet":bool(text_binding(by,"GOOGLE_SOURCE_SHEET_ID")),"health":bool(h and h.get("ok") is True),"authority_mode":str(((h or {}).get("authority") or {}).get("mode") or "")})
+            except:pass
+        print("BETA_AUTH_DISCOVERY_DIAG:"+json.dumps(diag,separators=(",",":")),file=sys.stderr)
+        raise RuntimeError("BETA_LIVE_WORKER_NOT_UNIQUE:"+str(len(beta)))
     if len(stable)!=1:raise RuntimeError("STABLE_WORKER_NOT_UNIQUE:"+str(len(stable)))
     if beta[0]["db"]==stable[0]["db"] or beta[0]["sheet"]==stable[0]["sheet"]:raise RuntimeError("BETA_STABLE_AUTH_BINDING_COLLISION")
     return beta[0],stable[0]
