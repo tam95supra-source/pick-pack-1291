@@ -121,7 +121,7 @@ internal class LanSocketTransport(
         val result=CompletableFuture<Boolean>()
         val c=object:WebSocketClient(URI("ws://${endpoint.host}:${endpoint.port}")){
             override fun onOpen(handshake:ServerHandshake){
-                send(JSONObject().put("type","VOTE_REQUEST").put("candidate_device_id",candidateDeviceId).put("candidate_role",candidateRole).put("generation",generation).toString())
+                send(JSONObject().put("type","VOTE_REQUEST").put("environment_id",BuildConfig.ENVIRONMENT_ID).put("candidate_device_id",candidateDeviceId).put("candidate_role",candidateRole).put("generation",generation).toString())
             }
             override fun onMessage(message:String){
                 val j=runCatching{JSONObject(message)}.getOrNull()?:return
@@ -151,13 +151,14 @@ internal class LanSocketTransport(
         }
         override fun onMessage(conn:WebSocket,message:String){
             val j=runCatching{JSONObject(message)}.getOrNull()?:return
+            if(j.optString("environment_id")!=BuildConfig.ENVIRONMENT_ID){conn.close(1008,"ENVIRONMENT_MISMATCH");return}
             when(j.optString("type")){
                 "HELLO"->{
                     val id=j.optString("device_id").trim()
                     if(id.isBlank())return
                     this@LanSocketTransport.connections[id]=conn
                     listener.onPeerConnected(id,j.optString("account_role","USER"))
-                    conn.send(JSONObject().put("type","HELLO_ACK").put("master_device_id",listener.masterDeviceId()).put("backup_device_id",listener.backupDeviceId()).put("generation",listener.generation()).toString())
+                    conn.send(JSONObject().put("type","HELLO_ACK").put("environment_id",BuildConfig.ENVIRONMENT_ID).put("master_device_id",listener.masterDeviceId()).put("backup_device_id",listener.backupDeviceId()).put("generation",listener.generation()).toString())
                 }
                 "VOTE_REQUEST"->{
                     val granted=listener.onVoteRequest(j.optString("candidate_device_id"),j.optString("candidate_role"),j.optLong("generation"))
@@ -186,7 +187,7 @@ internal class LanSocketTransport(
 
     private inner class MasterClient(endpoint:LanDiscovery.PeerEndpoint):WebSocketClient(URI("ws://${endpoint.host}:${endpoint.port}")) {
         override fun onOpen(handshake:ServerHandshake){
-            send(JSONObject().put("type","HELLO").put("device_id",deviceId).put("account_role",accountRole).put("generation",listener.generation()).toString())
+            send(JSONObject().put("type","HELLO").put("environment_id",BuildConfig.ENVIRONMENT_ID).put("device_id",deviceId).put("account_role",accountRole).put("generation",listener.generation()).toString())
         }
         override fun onError(ex:Exception)=Unit
         override fun onClose(code:Int,reason:String,remote:Boolean){
@@ -194,6 +195,7 @@ internal class LanSocketTransport(
         }
         override fun onMessage(message:String){
             val j=runCatching{JSONObject(message)}.getOrNull()?:return
+            if(j.optString("environment_id")!=BuildConfig.ENVIRONMENT_ID){close(1008,"ENVIRONMENT_MISMATCH");return}
             when(j.optString("type")){
                 "HELLO_ACK","HEARTBEAT"->listener.onMasterFrame(j)
                 "ROLE"->if(j.optString("role")=="BACKUP"){mode=Mode.BACKUP;listener.onBackupAssigned(j)}
