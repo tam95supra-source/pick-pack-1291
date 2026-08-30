@@ -1,6 +1,6 @@
 {
-  "stage": "PUBLISH",
-  "mode": "BETA100_PUBLISH_EXACT_AFTER_ALL_PRE_OTA_GATES_PASS",
+  "stage": "pass_live",
+  "mode": "PASS_LIVE_EXACT_BYTES_GITHUB_RELEASE_ONLY",
   "version_name": "0.4.2-beta.100",
   "version_code": 106,
   "base_version": "0.4.2-beta.99",
@@ -22,7 +22,7 @@
   "resign": false,
   "scope": "beta100-isolated-resilience-test-center-status-chip-details",
   "owner": "Nguyen Van Tam",
-  "live": false,
+  "live": true,
   "release_notes": [
     "Resilience Test Center có 7 kịch bản: baseline, thiết bị offline, Service down, Service timeout, Google/GAS down, toàn bộ remote down local-only, cloud down LAN fallback.",
     "Fault simulation chỉ tác động event kỹ thuật trong isolated test ledger; traffic/outbox nghiệp vụ không bị chặn hoặc reroute.",
@@ -30,7 +30,7 @@
     "Ba ô Mạng / Đồng bộ / Dịch vụ đều mở thông tin chi tiết chuyên nghiệp; popup Đồng bộ có nút ĐỒNG BỘ NGAY.",
     "Manual diagnostic log ghi đầy đủ resilience scenario/status/stage/evidence/error gần nhất."
   ],
-  "next_action": "PUBLISH_EXACT_BETA100_THEN_OTA_INSTALL_LIVE_READBACK_FINALIZE",
+  "next_action": "WAIT_FOR_OWNER_NEW_SCOPE",
   "signer_sha256": "d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e",
   "base_candidate_run_id": 33290900322,
   "base_candidate_artifact_id": 9725965250,
@@ -69,5 +69,6 @@
   "verify_job_id": 99242159503,
   "verify_artifact_id": 9730487600,
   "verify_artifact_name": "beta-verify-33305842167",
-  "human_visual_screenshot_count": 26
+  "human_visual_screenshot_count": 26,
+  "publish_run_id": "33306122804"
 }
