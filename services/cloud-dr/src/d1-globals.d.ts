@@ -25,6 +25,9 @@ interface Env{
   ENVIRONMENT_ID:string;
   SERVICE_AUDIENCE:string;
   GAS_API_URL:string;
+  OUTBOUND_GAS_API_URL:string;
+  DR_GAS_API_URL:string;
+  DR_TARGET_ID:string;
   M1_ADMIN_TOKEN:string;
   GAS_BRIDGE_SHARED_SECRET:string;
   GOOGLE_OAUTH_CLIENT_ID:string;
