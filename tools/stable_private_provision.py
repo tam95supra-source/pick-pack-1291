@@ -215,8 +215,8 @@ def main():
         if sid and depid:
             dep=req_json(f"{API_SCRIPT}/{sid}/deployments/{depid}",token=token)
             for ep in dep.get("entryPoints",[]) or []:
-                w=ep.get("webApp") or {}
-                entry.append({"entryPointType":ep.get("entryPointType"),"webApp":{"url":w.get("url"),"access":w.get("access"),"executeAs":w.get("executeAs")}})
+                w=ep.get("webApp") or {}; cfg=w.get("entryPointConfig") or {}
+                entry.append({"entryPointType":ep.get("entryPointType"),"webApp":{"url":w.get("url"),"access":cfg.get("access"),"executeAs":cfg.get("executeAs")}})
         if url:
             try:
                 with urllib.request.urlopen(url,timeout=25) as x: http_status=x.status
