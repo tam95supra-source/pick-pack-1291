@@ -96,7 +96,7 @@ internal class LanSocketTransport(
 
     fun handoverToBackup(generation:Long,lanEpoch:Long,leaseUntil:Long):Boolean {
         val c=connections[backupId]?:return false
-        c.send(JSONObject().put("type","HANDOVER").put("generation",generation).put("lan_epoch",lanEpoch).put("lease_until_ms",leaseUntil).toString())
+        c.send(frame("HANDOVER").put("generation",generation).put("lan_epoch",lanEpoch).put("lease_until_ms",leaseUntil).toString())
         return true
     }
 
@@ -113,7 +113,7 @@ internal class LanSocketTransport(
         val b=connections[backupId]
         if(backupId.isBlank()||b==null||!b.isOpen)return Ack(false,listener.generation(),"LAN_BACKUP_REQUIRED")
         val f=CompletableFuture<Ack>();localWaiters[eventId]=f
-        b.send(JSONObject().put("type","REPLICA").put("generation",listener.generation()).put("event",event).toString())
+        b.send(frame("REPLICA").put("generation",listener.generation()).put("event",event).toString())
         return try{f.get(timeoutMs,TimeUnit.MILLISECONDS)}catch(_:Throwable){localWaiters.remove(eventId);Ack(false,listener.generation(),"LAN_BACKUP_ACK_TIMEOUT")}
     }
 
@@ -121,7 +121,7 @@ internal class LanSocketTransport(
         val result=CompletableFuture<Boolean>()
         val c=object:WebSocketClient(URI("ws://${endpoint.host}:${endpoint.port}")){
             override fun onOpen(handshake:ServerHandshake){
-                send(JSONObject().put("type","VOTE_REQUEST").put("environment_id",BuildConfig.ENVIRONMENT_ID).put("candidate_device_id",candidateDeviceId).put("candidate_role",candidateRole).put("generation",generation).toString())
+                send(frame("VOTE_REQUEST").put("candidate_device_id",candidateDeviceId).put("candidate_role",candidateRole).put("generation",generation).toString())
             }
             override fun onMessage(message:String){
                 val j=runCatching{JSONObject(message)}.getOrNull()?:return
@@ -136,6 +136,8 @@ internal class LanSocketTransport(
             runCatching{c.closeBlocking()};yes
         }catch(_:Throwable){runCatching{c.close()};false}
     }
+
+    private fun frame(type:String):JSONObject=JSONObject().put("type",type).put("environment_id",BuildConfig.ENVIRONMENT_ID)
 
     fun close(){disconnectMaster();stopServer();remoteWaiters.values.forEach{it.complete(Ack(false,listener.generation(),"LAN_SOCKET_CLOSED"))};localWaiters.values.forEach{it.complete(Ack(false,listener.generation(),"LAN_SOCKET_CLOSED"))};remoteWaiters.clear();localWaiters.clear()}
 
@@ -158,27 +160,27 @@ internal class LanSocketTransport(
                     if(id.isBlank())return
                     this@LanSocketTransport.connections[id]=conn
                     listener.onPeerConnected(id,j.optString("account_role","USER"))
-                    conn.send(JSONObject().put("type","HELLO_ACK").put("environment_id",BuildConfig.ENVIRONMENT_ID).put("master_device_id",listener.masterDeviceId()).put("backup_device_id",listener.backupDeviceId()).put("generation",listener.generation()).toString())
+                    conn.send(frame("HELLO_ACK").put("master_device_id",listener.masterDeviceId()).put("backup_device_id",listener.backupDeviceId()).put("generation",listener.generation()).toString())
                 }
                 "VOTE_REQUEST"->{
                     val granted=listener.onVoteRequest(j.optString("candidate_device_id"),j.optString("candidate_role"),j.optLong("generation"))
-                    conn.send(JSONObject().put("type","VOTE_RESPONSE").put("granted",granted).put("voter_device_id",deviceId).put("generation",j.optLong("generation")).toString())
+                    conn.send(frame("VOTE_RESPONSE").put("granted",granted).put("voter_device_id",deviceId).put("generation",j.optLong("generation")).toString())
                 }
                 "EVENT"->{
-                    if(mode!=Mode.MASTER){conn.send(JSONObject().put("type","NACK").put("event_id",j.optString("event_id")).put("error","LAN_NOT_MASTER").toString());return}
+                    if(mode!=Mode.MASTER){conn.send(frame("NACK").put("event_id",j.optString("event_id")).put("error","LAN_NOT_MASTER").toString());return}
                     val event=j.optJSONObject("event")?:return
                     val eventId=event.optString("event_id")
                     val persisted=listener.persistReplica(event,j.optString("device_id"),listener.generation(),"MASTER")
-                    if(!persisted.ok){conn.send(JSONObject().put("type","NACK").put("event_id",eventId).put("error",persisted.error).toString());return}
+                    if(!persisted.ok){conn.send(frame("NACK").put("event_id",eventId).put("error",persisted.error).toString());return}
                     val backup=this@LanSocketTransport.connections[this@LanSocketTransport.backupId]
-                    if(this@LanSocketTransport.backupId.isBlank()||backup==null||!backup.isOpen){conn.send(JSONObject().put("type","NACK").put("event_id",eventId).put("error","LAN_BACKUP_REQUIRED").toString());return}
+                    if(this@LanSocketTransport.backupId.isBlank()||backup==null||!backup.isOpen){conn.send(frame("NACK").put("event_id",eventId).put("error","LAN_BACKUP_REQUIRED").toString());return}
                     pendingOrigins[eventId]=conn
-                    backup.send(JSONObject().put("type","REPLICA").put("generation",listener.generation()).put("event",event).toString())
+                    backup.send(frame("REPLICA").put("generation",listener.generation()).put("event",event).toString())
                 }
                 "REPLICA_ACK"->{
                     if(mode!=Mode.MASTER)return
                     val eventId=j.optString("event_id")
-                    pendingOrigins.remove(eventId)?.send(JSONObject().put("type","ACK").put("event_id",eventId).put("generation",listener.generation()).toString())
+                    pendingOrigins.remove(eventId)?.send(frame("ACK").put("event_id",eventId).put("generation",listener.generation()).toString())
                     localWaiters.remove(eventId)?.complete(Ack(true,listener.generation(),null))
                 }
             }
@@ -187,7 +189,7 @@ internal class LanSocketTransport(
 
     private inner class MasterClient(endpoint:LanDiscovery.PeerEndpoint):WebSocketClient(URI("ws://${endpoint.host}:${endpoint.port}")) {
         override fun onOpen(handshake:ServerHandshake){
-            send(JSONObject().put("type","HELLO").put("environment_id",BuildConfig.ENVIRONMENT_ID).put("device_id",deviceId).put("account_role",accountRole).put("generation",listener.generation()).toString())
+            send(frame("HELLO").put("device_id",deviceId).put("account_role",accountRole).put("generation",listener.generation()).toString())
         }
         override fun onError(ex:Exception)=Unit
         override fun onClose(code:Int,reason:String,remote:Boolean){
@@ -204,7 +206,7 @@ internal class LanSocketTransport(
                     val event=j.optJSONObject("event")?:return
                     val generation=j.optLong("generation")
                     val r=listener.persistReplica(event,listener.masterDeviceId(),generation,"BACKUP")
-                    if(r.ok)send(JSONObject().put("type","REPLICA_ACK").put("event_id",event.optString("event_id")).put("generation",generation).toString())
+                    if(r.ok)send(frame("REPLICA_ACK").put("event_id",event.optString("event_id")).put("generation",generation).toString())
                 }
                 "ACK"->remoteWaiters.remove(j.optString("event_id"))?.complete(Ack(true,j.optLong("generation",listener.generation()),null))
                 "NACK"->remoteWaiters.remove(j.optString("event_id"))?.complete(Ack(false,listener.generation(),j.optString("error","LAN_NACK")))
@@ -216,7 +218,7 @@ internal class LanSocketTransport(
             val id=event.optString("event_id").trim()
             if(id.isBlank())return Ack(false,listener.generation(),"LAN_EVENT_ID_REQUIRED")
             val f=CompletableFuture<Ack>();remoteWaiters[id]=f
-            send(JSONObject().put("type","EVENT").put("device_id",deviceId).put("event_id",id).put("event",event).toString())
+            send(frame("EVENT").put("device_id",deviceId).put("event_id",id).put("event",event).toString())
             return try{f.get(timeoutMs,TimeUnit.MILLISECONDS)}catch(_:Throwable){remoteWaiters.remove(id);Ack(false,listener.generation(),"LAN_MASTER_ACK_TIMEOUT")}
         }
     }
