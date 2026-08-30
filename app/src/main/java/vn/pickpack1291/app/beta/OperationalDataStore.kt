@@ -457,6 +457,67 @@ class OperationalDataStore(context: Context) {
         }
     }
 
+    /** Beta100: isolated technical-test ledger. Never consumed by the production mutation worker. */
+    fun saveResilienceTest(eventId:String,scenario:String,body:JSONObject,status:String,stage:String,error:String="",evidence:JSONObject=JSONObject())=withDbLock{
+        require(eventId.isNotBlank()){"EVENT_ID_REQUIRED"}
+        val now=System.currentTimeMillis()
+        val values=ContentValues().apply{
+            put("event_id",eventId);put("scenario",scenario);put("body_json",body.toString())
+            put("status",status);put("stage",stage);put("attempt_count",0);put("last_error",error.take(1200))
+            put("evidence_json",evidence.toString());put("created_at",now);put("updated_at",now)
+        }
+        writableDb().insertWithOnConflict("resilience_test_events",null,values,SQLiteDatabase.CONFLICT_REPLACE)
+    }
+
+    fun updateResilienceTest(eventId:String,status:String,stage:String,error:String="",evidence:JSONObject?=null,incrementAttempt:Boolean=false)=withDbLock{
+        val now=System.currentTimeMillis()
+        val db=writableDb()
+        val current=readableDb().query("resilience_test_events",arrayOf("evidence_json","attempt_count"),"event_id=?",arrayOf(eventId),null,null,null,"1").use{q->
+            if(q.moveToFirst())Pair(q.getString(0),q.getInt(1)) else Pair("{}",0)
+        }
+        val merged=runCatching{JSONObject(current.first)}.getOrDefault(JSONObject())
+        if(evidence!=null){
+            val keys=evidence.keys();while(keys.hasNext()){val k=keys.next();merged.put(k,evidence.opt(k))}
+        }
+        db.execSQL(
+            "UPDATE resilience_test_events SET status=?,stage=?,attempt_count=?,last_error=?,evidence_json=?,updated_at=? WHERE event_id=?",
+            arrayOf(status,stage,current.second+(if(incrementAttempt)1 else 0),error.take(1200),merged.toString(),now,eventId)
+        )
+    }
+
+    fun resilienceTest(eventId:String):JSONObject?=withDbLock{
+        readableDb().query(
+            "resilience_test_events",
+            arrayOf("event_id","scenario","body_json","status","stage","attempt_count","last_error","evidence_json","created_at","updated_at"),
+            "event_id=?",arrayOf(eventId),null,null,null,"1"
+        ).use{q->
+            if(!q.moveToFirst())return@withDbLock null
+            JSONObject()
+                .put("event_id",q.getString(0)).put("scenario",q.getString(1))
+                .put("body",runCatching{JSONObject(q.getString(2))}.getOrDefault(JSONObject()))
+                .put("status",q.getString(3)).put("stage",q.getString(4)).put("attempt_count",q.getInt(5))
+                .put("last_error",q.getString(6)?:"")
+                .put("evidence",runCatching{JSONObject(q.getString(7))}.getOrDefault(JSONObject()))
+                .put("created_at",q.getLong(8)).put("updated_at",q.getLong(9))
+        }
+    }
+
+    fun latestResilienceTest():JSONObject?=withDbLock{
+        readableDb().query(
+            "resilience_test_events",
+            arrayOf("event_id"),null,null,null,null,"updated_at DESC","1"
+        ).use{q->if(q.moveToFirst())resilienceTest(q.getString(0))else null}
+    }
+
+    fun resilienceTestHistory(limit:Int=12):JSONArray=withDbLock{
+        val out=JSONArray()
+        readableDb().query(
+            "resilience_test_events",
+            arrayOf("event_id"),null,null,null,null,"updated_at DESC",limit.coerceIn(1,50).toString()
+        ).use{q->while(q.moveToNext()){resilienceTest(q.getString(0))?.let(out::put)}}
+        out
+    }
+
     // S44: bounded safe diagnostics; body payload is intentionally NOT emitted.
     fun diagnosticOutbox(limit:Int=50): JSONArray = withDbLock {
         val out=JSONArray()
@@ -533,13 +594,14 @@ class OperationalDataStore(context: Context) {
 
     private class DbHelper(context: Context) : SQLiteOpenHelper(context, DB_NAME, null, DB_VERSION) {
         init { setWriteAheadLoggingEnabled(false) }
-        override fun onCreate(db: SQLiteDatabase) { createV1(db); createV2(db); createV3(db); createV4(db); createV5(db) }
+        override fun onCreate(db: SQLiteDatabase) { createV1(db); createV2(db); createV3(db); createV4(db); createV5(db); createV6(db) }
         override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
             // Never drop day_snapshot, mutation_outbox, or local_history during an installed-Beta upgrade.
             if (oldVersion < 2) createV2(db)
             if (oldVersion < 3) createV3(db)
             if (oldVersion < 4) createV4(db)
             if (oldVersion < 5) createV5(db)
+            if (oldVersion < 6) createV6(db)
         }
         private fun createV1(db: SQLiteDatabase) {
             db.execSQL("""CREATE TABLE IF NOT EXISTS day_snapshot(
@@ -612,13 +674,28 @@ class OperationalDataStore(context: Context) {
             runCatching{db.execSQL("ALTER TABLE lan_event_replicas ADD COLUMN canonical_at INTEGER NOT NULL DEFAULT 0")}
             db.execSQL("CREATE INDEX IF NOT EXISTS idx_lan_event_canonical ON lan_event_replicas(canonical_status,stored_at)")
         }
+        private fun createV6(db:SQLiteDatabase){
+            db.execSQL("""CREATE TABLE IF NOT EXISTS resilience_test_events(
+                event_id TEXT PRIMARY KEY NOT NULL,
+                scenario TEXT NOT NULL,
+                body_json TEXT NOT NULL,
+                status TEXT NOT NULL,
+                stage TEXT NOT NULL,
+                attempt_count INTEGER NOT NULL DEFAULT 0,
+                last_error TEXT NOT NULL DEFAULT '',
+                evidence_json TEXT NOT NULL DEFAULT '{}',
+                created_at INTEGER NOT NULL,
+                updated_at INTEGER NOT NULL
+            )""".trimIndent())
+            db.execSQL("CREATE INDEX IF NOT EXISTS idx_resilience_test_updated ON resilience_test_events(updated_at DESC)")
+        }
 
     }
 
     companion object {
         // Legacy filename retained intentionally for in-place migration; semantics are exact N..N-6.
         private const val DB_NAME = "pp_operational_45d.db"
-        private const val DB_VERSION = 5
+        private const val DB_VERSION = 6
         private const val TZ = "Asia/Ho_Chi_Minh"
         private val DB_LOCK = Any()
         private val MEMORY = ConcurrentHashMap<String, JSONObject>()
