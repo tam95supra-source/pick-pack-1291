@@ -1,8 +1,9 @@
 {
-  "action": "DRY_RUN",
+  "action": "DELETE",
   "keep_latest": 40,
-  "confirm": "",
-  "requested_by": "OWNER_POLICY_PREVIEW",
-  "purpose": "Preview safe batch cleanup before Beta99 publish retry",
-  "note": "No deletion. Preserve all referenced deployments and newest 40 versions."
+  "confirm": "DELETE_UNREFERENCED_GAS_VERSIONS",
+  "requested_by": "OWNER_NGUYEN_VAN_TAM",
+  "purpose": "Execute approved safe batch cleanup before Beta99 publish retry",
+  "note": "Delete only unreferenced versions; preserve all deployment-referenced versions and newest 40.",
+  "owner_approval": "XÓA BATCH 160"
 }
