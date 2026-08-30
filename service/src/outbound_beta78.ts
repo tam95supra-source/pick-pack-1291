@@ -2,6 +2,7 @@ import type { AuthContext, EventRow } from "./domain";
 import { currentAuthority } from "./core";
 import { bangkokToday } from "./business_date";
 import { apiError, json, nowIso, sha256Hex } from "./util";
+import { isStableEnvironment, stableSheetBridge } from "./stable_sheet_bridge";
 
 const OWNER_EMAIL="tam95.supra@gmail.com";
 const LOCATION_SHEET="Vị trí";
@@ -22,20 +23,24 @@ async function owner(db:D1Database,auth:AuthContext):Promise<boolean>{
 }
 
 async function googleAccessToken(env:Env):Promise<string>{
+  if(isStableEnvironment(env))return "__STABLE_BOUND_GAS__";
   const body=new URLSearchParams({client_id:env.GOOGLE_OAUTH_CLIENT_ID,client_secret:env.GOOGLE_OAUTH_CLIENT_SECRET,refresh_token:env.GOOGLE_OAUTH_REFRESH_TOKEN,grant_type:"refresh_token"});
   const r=await fetch("https://oauth2.googleapis.com/token",{method:"POST",headers:{"content-type":"application/x-www-form-urlencoded"},body});
   const j=await r.json<{access_token?:string;error?:string}>();if(!r.ok||!j.access_token)throw new Error(`OUTBOUND_GOOGLE_OAUTH:${j.error??r.status}`);return j.access_token;
 }
 function a1(sheet:string,range:string):string{return `'${sheet.replace(/'/g,"''")}'!${range}`;}
 async function getValues(env:Env,token:string,sheet:string,range:string):Promise<unknown[][]>{
+  if(isStableEnvironment(env)){const j=await stableSheetBridge<{ok:true;values?:unknown[][]}>(env,"outbound","get_values",{sheet,range});return j.values??[];}
   const url=`https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(env.GOOGLE_OUTBOUND_SHEET_ID)}/values/${encodeURIComponent(a1(sheet,range))}?valueRenderOption=FORMATTED_VALUE`;
   const r=await fetch(url,{headers:{authorization:`Bearer ${token}`}});if(!r.ok)throw new Error(`OUTBOUND_GOOGLE_READ:${sheet}:${r.status}`);return (await r.json<{values?:unknown[][]}>()).values??[];
 }
 async function putValues(env:Env,token:string,sheet:string,range:string,values:unknown[][]):Promise<void>{
+  if(isStableEnvironment(env)){await stableSheetBridge(env,"outbound","put_values",{sheet,range,values});return;}
   const full=a1(sheet,range),url=`https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(env.GOOGLE_OUTBOUND_SHEET_ID)}/values/${encodeURIComponent(full)}?valueInputOption=RAW`;
   const r=await fetch(url,{method:"PUT",headers:{authorization:`Bearer ${token}`,"content-type":"application/json"},body:JSON.stringify({range:full,majorDimension:"ROWS",values})});if(!r.ok)throw new Error(`OUTBOUND_GOOGLE_PUT:${sheet}:${r.status}`);
 }
 async function appendValues(env:Env,token:string,sheet:string,range:string,values:unknown[][]):Promise<void>{
+  if(isStableEnvironment(env)){await stableSheetBridge(env,"outbound","append_values",{sheet,range,values});return;}
   const full=a1(sheet,range),url=`https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(env.GOOGLE_OUTBOUND_SHEET_ID)}/values/${encodeURIComponent(full)}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`;
   const r=await fetch(url,{method:"POST",headers:{authorization:`Bearer ${token}`,"content-type":"application/json"},body:JSON.stringify({range:full,majorDimension:"ROWS",values})});if(!r.ok)throw new Error(`OUTBOUND_GOOGLE_APPEND:${sheet}:${r.status}`);
 }
