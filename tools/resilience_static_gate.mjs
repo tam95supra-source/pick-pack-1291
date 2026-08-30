@@ -21,10 +21,39 @@ const gas=read("google-apps-script/PICK_PACK_API.gs");
 const mig=read("service/migrations/0009_resilience_generation_backup.sql");
 const maint=read("service/src/d1_maintenance.ts");
 const gradle=read("app/build.gradle.kts");
+const releaseRequest=JSON.parse(read("ops/beta-release-request.json"));
 const policy=JSON.parse(read("config/mutation_fallback_policy.json"));
 
-must(gradle.includes('versionCode = 1')&&gradle.includes('versionName = "0.1.0-stable"'),"STABLE_METADATA_CHANGED");
-must(gradle.includes('versionCode = 107')&&gradle.includes('versionName = "0.4.2-beta.101"'),"BETA101_METADATA_MISSING");
+const flavorBlock=(text,name,nextName)=>{
+  const start=text.indexOf('create("'+name+'")');
+  if(start<0)return "";
+  const end=nextName?text.indexOf('create("'+nextName+'")',start+1):-1;
+  return text.slice(start,end<0?text.length:end);
+};
+const releaseMetadataErrors=(gradleText,req)=>{
+  const errors=[];
+  const stable=flavorBlock(gradleText,"stable",null),beta=flavorBlock(gradleText,"beta","stable");
+  if(!stable.includes('versionCode = 1')||!stable.includes('versionName = "0.1.0-stable"'))errors.push("STABLE_METADATA_CHANGED");
+  if(!req||typeof req.version_name!=="string"||!/^0\.4\.2-beta\.\d+$/.test(req.version_name))errors.push("BETA_RELEASE_VERSION_INVALID");
+  if(!Number.isInteger(req?.version_code)||req.version_code<1)errors.push("BETA_RELEASE_CODE_INVALID");
+  if(req?.package!=="vn.pickpack1291.app.beta.publicbeta")errors.push("BETA_RELEASE_PACKAGE_INVALID");
+  if(!beta.includes('applicationId = "'+(req?.package||"")+'"'))errors.push("BETA_PACKAGE_METADATA_MISMATCH");
+  if(!beta.includes('versionCode = '+String(req?.version_code)))errors.push("BETA_VERSION_CODE_METADATA_MISMATCH");
+  if(!beta.includes('versionName = "'+String(req?.version_name||"")+'"'))errors.push("BETA_VERSION_NAME_METADATA_MISMATCH");
+  return errors;
+};
+const releaseMetadataSelfTest=()=>{
+  const base={version_name:"0.4.2-beta.999",version_code:1005,package:"vn.pickpack1291.app.beta.publicbeta"};
+  const fixture='create("beta") { applicationId = "vn.pickpack1291.app.beta.publicbeta"\n versionCode = 1005\n versionName = "0.4.2-beta.999" }\ncreate("stable") { versionCode = 1\n versionName = "0.1.0-stable" }';
+  if(releaseMetadataErrors(fixture,base).length)throw new Error("RELEASE_METADATA_SELFTEST_POSITIVE");
+  for(const bad of [
+    {...base,version_name:""},
+    {...base,version_code:1006},
+    {...base,package:"vn.pickpack1291.app.beta.WRONG"}
+  ])if(releaseMetadataErrors(fixture,bad).length===0)throw new Error("RELEASE_METADATA_SELFTEST_NEGATIVE");
+};
+releaseMetadataSelfTest();
+for(const e of releaseMetadataErrors(gradle,releaseRequest))must(false,e);
 
 const exitId=ops.slice(ops.indexOf("private fun exitPdaId"),ops.indexOf("private fun visibleAssignments"));
 must(exitId.includes("exitPdaDecision")&&!exitId.includes("pda_serial"),"PDA_EXIT_LEGACY_SCALAR_FALLBACK");
@@ -68,7 +97,7 @@ must(new Set(all).size===all.length,"MUTATION_INVENTORY_DUPLICATE_CLASSIFICATION
 const forbidden=/supabase/i;
 for(const p of ["app/src/main/java/vn/pickpack1291/app/beta/M2ServiceTransport.kt","service/src/entry_product.ts","service/src/d1_maintenance.ts"])must(!forbidden.test(read(p)),"SUPABASE_REFERENCE_"+p);
 if(process.exitCode)process.exit(process.exitCode);
-console.log("resilience_static_gate=PASS pda_matrix=10 pda_partial=PASS isolated_resilience_center=PASS resilience_stop_history=PASS status_chip_details=PASS emergency_ledger=PASS d1_guard=PASS mutation_inventory=PASS");
+console.log("resilience_static_gate=PASS release_metadata=CONTRACT_DRIVEN release_metadata_negative_regression=PASS pda_matrix=10 pda_partial=PASS isolated_resilience_center=PASS resilience_stop_history=PASS status_chip_details=PASS emergency_ledger=PASS d1_guard=PASS mutation_inventory=PASS");
 
 const drHandler=read("services/cloud-dr/src/handler.ts");
 const drAdapter=read("services/cloud-dr/src/libsql_adapter.ts");
