@@ -1,6 +1,6 @@
 {
-  "stage": "PUBLISH",
-  "mode": "BETA98_PUBLISH_EXACT_LOCKED_CANDIDATE_REUSE_GAS_201_IGNORE_DYNAMIC_PUBLISHED_AT",
+  "stage": "pass_live",
+  "mode": "PASS_LIVE_EXACT_BYTES_GITHUB_RELEASE_ONLY",
   "version_name": "0.4.2-beta.98",
   "version_code": 104,
   "base_version": "0.4.2-beta.97",
@@ -22,14 +22,14 @@
   "resign": false,
   "scope": "beta98-pda-exit-authority-resilience-lan-emergency-ledger",
   "owner": "Nguyen Van Tam",
-  "live": false,
+  "live": true,
   "release_notes": [
     "Ra ca chỉ kiểm PDA theo exact current-session authoritative resource assignment; stale pda_serial/cache/old session không còn quyết định.",
     "Durable local outbox + partitioned Google Emergency Ledger giữ event provisional và replay canonical Service theo cùng event/idempotency envelope.",
     "LAN outage path có Master/backup fencing, durable replica-before-ACK và provider-neutral Service discovery; Stable/main/signer/authority giữ nguyên.",
     "D1 capacity/backup safeguards và cloud DR credential contract được kiểm tra read-only, không tạo/nâng plan hay phát sinh paid action."
   ],
-  "next_action": "REUSE_EXACT_BETA98_GAS_VERSION_201_WAIT_DEPLOYMENT_READBACK_THEN_OTA_INSTALL_READBACK_FINALIZE",
+  "next_action": "WAIT_FOR_OWNER_NEW_SCOPE",
   "signer_sha256": "d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e",
   "base_candidate_run_id": 33247859614,
   "base_candidate_artifact_id": 9713456764,
@@ -84,5 +84,6 @@
   },
   "release_auth": "BETA_RELEASE_TOKEN_OWNER_PROVIDED",
   "previous_publish_run_id": 33289232120,
-  "previous_publish_failure": "MATCHER_REJECTED_REUSABLE_GAS_VERSION_201_ONLY_BECAUSE_DYNAMIC_PUBLISHED_AT_DIFFERED"
+  "previous_publish_failure": "MATCHER_REJECTED_REUSABLE_GAS_VERSION_201_ONLY_BECAUSE_DYNAMIC_PUBLISHED_AT_DIFFERED",
+  "publish_run_id": "33289302031"
 }
