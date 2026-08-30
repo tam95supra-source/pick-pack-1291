@@ -105,6 +105,23 @@ function ppStableEnvironmentProvision_(body){
   },false);
   return {ok:true,idempotent:false,environment_id:'STABLE',service_url:serviceUrl,service_generation:generation,writer_scope:'BOUND_CURRENT_ONLY'};
 }
+function ppStableAdminBootstrap_(body){
+  if(ppEnvironmentId_()!=='STABLE'||!ppStableBridgeAuthorized_(body))return {ok:false,error:'STABLE_BOOTSTRAP_UNAUTHORIZED'};
+  const verifier=String(body.password_verifier||''),email=String(body.email||'').trim()||PP.RESET_ADMIN_EMAIL;
+  if(!ppVerifierParts_(verifier)||!ppEmailValid_(email))return {ok:false,error:'STABLE_BOOTSTRAP_FIELDS_INVALID'};
+  const sh=ppSheet_(PP.ADMIN),rows=ppAdminRows_(),others=rows.filter(function(x){return x.login_id!=='admin';}),admin=rows.find(function(x){return x.login_id==='admin';});
+  if(others.length)return {ok:false,error:'STABLE_AUTH_DATASET_NOT_EMPTY'};
+  if(admin){
+    if(admin.role!=='SUPERADMIN'||admin.status!=='ACTIVE'||admin.verifier!==verifier)return {ok:false,error:'STABLE_ADMIN_BOOTSTRAP_LOCK_MISMATCH'};
+    return {ok:true,idempotent:true,login_id:'admin',role:'SUPERADMIN',active_accounts:1};
+  }
+  ppEnsureAdminHeaders_();
+  sh.appendRow(['admin',verifier,'superadmin','admin','superadmin',email,'','','ACTIVE','STABLE_BOOTSTRAP',ppNowVisible_()]);
+  ppBumpRevision_();ppBumpMasterRevision_();
+  const check=ppAccount_('admin');
+  if(!check||check.role!=='SUPERADMIN'||check.status!=='ACTIVE')return {ok:false,error:'STABLE_ADMIN_BOOTSTRAP_READBACK_FAILED'};
+  return {ok:true,idempotent:false,login_id:'admin',role:'SUPERADMIN',active_accounts:1};
+}
 function ppStableBridgeAuthorized_(body){
   if(ppEnvironmentId_()!=='STABLE')return false;
   const expected=String(PropertiesService.getScriptProperties().getProperty('PP_M2_GAS_BRIDGE_SECRET')||''),got=String((body||{})._bridge_secret||'');
@@ -191,6 +208,7 @@ function doPost(e) {
 
     if (action === 'stable_environment_provision') return ppJson_(ppStableEnvironmentProvision_(body));
     if (action === 'service_sheet_bridge') return ppJson_(ppStableServiceSheetBridge_(body));
+    if (action === 'stable_admin_bootstrap') return ppJson_(ppStableAdminBootstrap_(body));
 
     // M2_SERVICE_AUTHORITY_ROUTING
     if (action === 'service_discovery') return ppJson_(ppM2Discovery_(body));
