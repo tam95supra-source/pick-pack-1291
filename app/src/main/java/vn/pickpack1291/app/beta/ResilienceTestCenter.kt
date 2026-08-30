@@ -59,6 +59,8 @@ enum class ResilienceTestScenario(
 }
 
 object ResilienceTestCenter {
+    @Volatile private var cancelGeneration:Long=0L
+
     fun scenarios():List<ResilienceTestScenario> = ResilienceTestScenario.entries
 
     fun latest(context:Context):JSONObject? = OperationalDataStore(context).latestResilienceTest()
@@ -66,14 +68,23 @@ object ResilienceTestCenter {
     fun history(context:Context,limit:Int=12):JSONArray =
         OperationalDataStore(context).resilienceTestHistory(limit)
 
-    fun run(context:Context,scenario:ResilienceTestScenario):JSONObject =
-        M2ServiceTransport(context.applicationContext).isolatedResilienceTest(scenario.code)
+    fun run(context:Context,scenario:ResilienceTestScenario):JSONObject {
+        val generation=cancelGeneration
+        return M2ServiceTransport(context.applicationContext).isolatedResilienceTest(scenario.code){
+            cancelGeneration!=generation
+        }
+    }
+
+    fun stop(){
+        cancelGeneration+=1L
+    }
 
     fun resultVi(raw:String):String = when(raw.uppercase()){
         "PASS"->"PASS"
         "FAIL"->"FAIL"
         "NOT_AVAILABLE"->"CHƯA ĐỦ ĐIỀU KIỆN"
         "RUNNING"->"ĐANG KIỂM TRA"
+        "CANCELLED"->"ĐÃ DỪNG"
         else->if(raw.isBlank())"CHƯA CHẠY" else raw
     }
 
@@ -93,25 +104,47 @@ object ResilienceTestCenter {
         "SERVICE_DIRECT_WITH_GOOGLE_DOWN"->"Đang kiểm tra Service khi Google/GAS lỗi"
         "LAN_FALLBACK"->"Đang kiểm tra LAN dự phòng"
         "LAN_PREREQUISITE_MISSING"->"Thiếu điều kiện LAN Master/backup"
+        "STOPPED_BY_OWNER"->"Đã dừng test • trạng thái vận hành bình thường"
         "COMPLETE"->"Hoàn tất"
         else->if(raw.isBlank())"—" else raw
     }
 
     fun snapshotLines(context:Context):List<String>{
-        val x=latest(context)?:return listOf("resilience_test.latest=NONE")
-        val e=x.optJSONObject("evidence")?:JSONObject()
-        return listOf(
-            "resilience_test.event_id=${x.optString("event_id")}",
-            "resilience_test.scenario=${x.optString("scenario")}",
-            "resilience_test.status=${x.optString("status")}",
-            "resilience_test.stage=${x.optString("stage")}",
-            "resilience_test.attempt_count=${x.optInt("attempt_count")}",
-            "resilience_test.last_error=${x.optString("last_error").take(180)}",
-            "resilience_test.local_durable=${e.optBoolean("local_durable_readback",false)}",
-            "resilience_test.business_outbox_touched=${e.optBoolean("business_outbox_touched",false)}",
-            "resilience_test.google_captured=${e.optJSONObject("google")?.optBoolean("captured",false)?:false}",
-            "resilience_test.lan_ack=${e.optBoolean("lan_ack",false)}",
-            "resilience_test.duration_ms=${e.optLong("duration_ms",0L)}",
-        )
+        val latest=latest(context)
+        val out=mutableListOf<String>()
+        if(latest==null)out.add("resilience_test.latest=NONE") else{
+            val e=latest.optJSONObject("evidence")?:JSONObject()
+            out.add("resilience_test.event_id=${latest.optString("event_id")}")
+            out.add("resilience_test.scenario=${latest.optString("scenario")}")
+            out.add("resilience_test.status=${latest.optString("status")}")
+            out.add("resilience_test.stage=${latest.optString("stage")}")
+            out.add("resilience_test.attempt_count=${latest.optInt("attempt_count")}")
+            out.add("resilience_test.last_error=${latest.optString("last_error").take(180)}")
+            out.add("resilience_test.local_durable=${e.optBoolean("local_durable_readback",false)}")
+            out.add("resilience_test.business_outbox_touched=${e.optBoolean("business_outbox_touched",false)}")
+            out.add("resilience_test.google_captured=${e.optJSONObject("google")?.optBoolean("captured",false)?:false}")
+            out.add("resilience_test.lan_ack=${e.optBoolean("lan_ack",false)}")
+            out.add("resilience_test.duration_ms=${e.optLong("duration_ms",0L)}")
+        }
+        val history=history(context,20)
+        out.add("resilience_test.history_count=${history.length()}")
+        for(i in 0 until history.length()){
+            val x=history.optJSONObject(i)?:continue
+            val e=x.optJSONObject("evidence")?:JSONObject()
+            val service=e.optJSONObject("recovery_service")?:e.optJSONObject("service")?:JSONObject()
+            out.add("resilience_test.history[$i].event_id=${x.optString("event_id")}")
+            out.add("resilience_test.history[$i].scenario=${x.optString("scenario")}")
+            out.add("resilience_test.history[$i].status=${x.optString("status")}")
+            out.add("resilience_test.history[$i].stage=${x.optString("stage")}")
+            out.add("resilience_test.history[$i].created_at=${x.optLong("created_at")}")
+            out.add("resilience_test.history[$i].updated_at=${x.optLong("updated_at")}")
+            out.add("resilience_test.history[$i].local_durable=${e.optBoolean("local_durable_readback",false)}")
+            out.add("resilience_test.history[$i].business_outbox_touched=${e.optBoolean("business_outbox_touched",false)}")
+            out.add("resilience_test.history[$i].google_captured=${e.optJSONObject("google")?.optBoolean("captured",false)?:false}")
+            out.add("resilience_test.history[$i].lan_ack=${e.optBoolean("lan_ack",false)}")
+            out.add("resilience_test.history[$i].idempotency=${service.optBoolean("idempotency_verified",false)}")
+            out.add("resilience_test.history[$i].last_error=${x.optString("last_error").take(180)}")
+        }
+        return out
     }
 }
