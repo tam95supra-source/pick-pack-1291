@@ -1,7 +1,7 @@
 # CURRENT STATE — PICK PACK 1291
 
-- updated_at: 2026-08-30T06:05:20Z
-- status: BETA99_PASS_LIVE
+- updated_at: 2026-08-30T06:06:50Z
+- status: BETA99_PASS_LIVE_TECHNICAL_PASS_AWAITING_OWNER_ITEMS_2_6
 - continuity_branch: release/beta97-qr-meal-alert-role-20260829
 - source_sha: 660cac5f937c911364a7726661ed4c4b07d92388
 - beta_live: 0.4.2-beta.99 (versionCode 105)
@@ -9,21 +9,42 @@
 - candidate_run: 33290900322
 - candidate_artifact: 9725965250
 - verify_run: 33292677865
+- verify_job: 99206960986
 - verify_artifact: 9726495444
 - apk_sha256: c9cd5c9e93d83250040b2a49be262450eb3f4e947d21516a6c9aaa95d881729b
 - apk_size: 13560821
 - signer_sha256: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
 - terminal_run: 33295954425
-- fast_check: PASS
-- service_gate: PASS_RUN_33290900322_JOB_99202629701_EXACT_SERVICE_SOURCE_UNCHANGED
+- publish_job: 99215545273
+- publish_artifact: 9727420376
+- pda_ota_job: 99215679390
+- pda_ota_artifact: 9727443577
+- finalizer_job: 99215895273
+- final_artifact: 9727446475
+- fast_check: PASS run 33290759871
+- service_gate: PASS run 33290900322 job 99202629701
 - visual_matrix: PASS 320x568 / 360x640 / 480x800
-- human_visual: PASS
+- human_visual: PASS 26 screenshots
 - pda_functional_pre_ota: PASS
-- beta_ota: exact 0.4.2-beta.99 PASS via GitHub Release
+- back_api36: PASS
+- beta_ota: exact 0.4.2-beta.98 -> 0.4.2-beta.99 PASS via GitHub Release
 - beta_ota_url: https://github.com/tam95supra-source/pick-pack-1291/releases/download/v0.4.2-beta.99-publicbeta/pick-pack-1291-public-beta-0.4.2-beta.99.apk
 - apk_transport: GITHUB_RELEASE_ONLY
 - google_drive_apk: FORBIDDEN
+- gas_cleanup_owner_deleted_versions: 100
+- gas_post_publish_inventory_run: 33296151806
+- gas_post_publish_inventory_artifact: 9727461760
+- gas_version_count: 101
+- gas_version_range: 103..203
+- gas_current_deployment_version: 203
+- gas_referenced_versions: [203]
+- gas_free_slots_estimate: 99
 - stable: unchanged
 - main_sha: 021dac5c6932b3ac5c60ce8fdba562ddf3d9688f
 - authority: SERVICE_PRIMARY / PRODUCTION / epoch 9 / generation m2-prod-reset-20260823-001
-- next_action: WAIT_FOR_OWNER_NEW_SCOPE
+- owner_acceptance_items_1_3_4_5: OK
+- owner_acceptance_item_2: PENDING_REAL_DEVICE_BETA99
+- owner_acceptance_item_6: PENDING_REAL_DEVICE_RESILIENCE_PROBE_BETA99
+- pda_exit_invariant: TECHNICAL_PASS_AWAITING_OWNER
+- infra_resilience_invariant: TECHNICAL_PASS_AWAITING_OWNER
+- next_action: WAIT_FOR_OWNER_ACCEPTANCE_ITEMS_2_AND_6
