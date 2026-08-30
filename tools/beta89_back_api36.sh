@@ -17,9 +17,14 @@ set +e
 timeout 150s adb shell am instrument -w -r -e mode back36 -e mnv 981820081 -e mnv2 981820082 -e mnv3 981820083 vn.pickpack1291.verify/.Beta83UiChecksInstrumentation > "$OUT/instrument.txt" 2>&1
 RC=$?
 set -e
-test "$RC" = 0
-grep -Fq 'INSTRUMENTATION_CODE: 0' "$OUT/instrument.txt"
-grep -Fq 'BETA89_BACK_API36_PASS' "$OUT/instrument.txt"
+if [[ "$RC" != 0 ]] || ! grep -Fq 'INSTRUMENTATION_CODE: 0' "$OUT/instrument.txt" || ! grep -Fq 'BETA89_BACK_API36_PASS' "$OUT/instrument.txt"; then
+  echo "BACK36_INSTRUMENT_FAILURE rc=$RC" >&2
+  cat "$OUT/instrument.txt" >&2 || true
+  adb shell uiautomator dump /sdcard/back36-failure.xml >/dev/null 2>&1 || true
+  adb pull /sdcard/back36-failure.xml "$OUT/back36-failure.xml" >/dev/null 2>&1 || true
+  adb shell dumpsys activity activities | tail -n 120 > "$OUT/activity.txt" 2>&1 || true
+  exit 1
+fi
 jq -n --arg version "$VERSION" --arg package "$PKG" '{status:"PASS",api_level:36,android:"16",system_back:"PASS",child_one_level:"PASS",root_stays:"PASS",version_name:$version,package:$package}' > "$OUT/receipt.json"
 test -f /tmp/beta-verify/receipt.json
 tmp=$(mktemp);jq '. + {back_api36:"PASS",back_api36_target:36}' /tmp/beta-verify/receipt.json > "$tmp";mv "$tmp" /tmp/beta-verify/receipt.json
