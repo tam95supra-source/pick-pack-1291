@@ -17,6 +17,19 @@ import { lanReplayBatch } from "./lan_recovery";
 
 export { RealtimeHub };
 
+function environmentFence(request:Request,env:Env):Response|null{
+  const path=new URL(request.url).pathname;
+  if(path==="/health"||path.startsWith("/internal/"))return null;
+  const expected=String(env.ENVIRONMENT_ID||"BETA").toUpperCase();
+  const expectedAudience=String(env.SERVICE_AUDIENCE||(expected==="STABLE"?"PICK_PACK_1291_STABLE":"PICK_PACK_1291_BETA"));
+  const got=String(request.headers.get("x-pick-pack-environment")||"").toUpperCase();
+  const audience=String(request.headers.get("x-pick-pack-audience")||"");
+  if(got&&got!==expected)return apiError("ENVIRONMENT_MISMATCH","PERMISSION",409,false);
+  if(audience&&audience!==expectedAudience)return apiError("SERVICE_AUDIENCE_MISMATCH","PERMISSION",409,false);
+  if(expected==="STABLE"&&(!got||!audience))return apiError("ENVIRONMENT_ID_REQUIRED","PERMISSION",403,false);
+  return null;
+}
+
 async function infraCapacity(request:Request,env:Env):Promise<Response>{
   const auth=await authenticate(env.DB,env,request);if(!auth)return apiError("UNAUTHORIZED","AUTH",401);if(auth.role!=="SUPERADMIN")return apiError("SUPERADMIN_REQUIRED","PERMISSION",403);
   return json({ok:true,capacity:await d1CapacitySnapshot(env.DB)});
@@ -50,6 +63,7 @@ async function broadcastCatalogRevision(env:Env):Promise<void>{
 
 export default {
   async fetch(request:Request,env:Env,ctx:ExecutionContext):Promise<Response>{
+    const fence=environmentFence(request,env);if(fence)return fence;
     const u=new URL(request.url),method=request.method.toUpperCase();
     if(u.pathname==="/v1/auth/gas-session"&&method==="POST")return exchangeGasSession(request,env);
     if(u.pathname==="/v1/mobile/read"&&method==="POST")return mobileRead(request,env);
