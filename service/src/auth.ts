@@ -50,7 +50,8 @@ export async function createSession(db: D1Database, env: Env, input: {login_id:s
     await db.prepare(`INSERT INTO auth_sessions(login_id,session_id,device_id,issued_at) VALUES(?1,?2,?3,?4)
       ON CONFLICT(login_id) DO UPDATE SET session_id=excluded.session_id,device_id=excluded.device_id,issued_at=excluded.issued_at`).bind(account.login_id,sessionId,deviceId,issuedAt).run();
   }
-  const payload={l:account.login_id,r:account.role,v:account.verifier_hash,s:sessionId,d:deviceId,c:kind};
+  const environmentId=String(env.ENVIRONMENT_ID||"BETA").toUpperCase(),serviceAudience=String(env.SERVICE_AUDIENCE||(environmentId==="STABLE"?"PICK_PACK_1291_STABLE":"PICK_PACK_1291_BETA"));
+  const payload={l:account.login_id,r:account.role,v:account.verifier_hash,s:sessionId,d:deviceId,c:kind,e:environmentId,a:serviceAudience};
   const encoded=b64u(new TextEncoder().encode(JSON.stringify(payload))), sig=await hmacB64u(new TextEncoder().encode(env.SERVICE_TOKEN_SECRET),encoded);
   return {ok:true,token:`${encoded}.${sig}`,account:{login_id:account.login_id,role:account.role,display_name:account.display_name,position:account.position,email:account.email},session:{issued_at:issuedAt,device_label:String(input.device_label||"").slice(0,120),kind}};
 }
@@ -60,8 +61,12 @@ export async function authenticate(db: D1Database, env: Env, request: Request): 
   const token=auth.slice(7), parts=token.split("."); if(parts.length!==2) return null;
   const encoded=parts[0], signature=parts[1]; if(!encoded||!signature) return null;
   const expected=await hmacB64u(new TextEncoder().encode(env.SERVICE_TOKEN_SECRET),encoded); if(!constantTimeEqual(expected,signature)) return null;
-  let payload:{l:string;r:"SUPERADMIN"|"ADMIN"|"USER";v:string;s:string;d:string;c?:SessionKind};
+  let payload:{l:string;r:"SUPERADMIN"|"ADMIN"|"USER";v:string;s:string;d:string;c?:SessionKind;e?:string;a?:string};
   try{payload=JSON.parse(new TextDecoder().decode(b64uDecode(encoded))) as typeof payload;}catch{return null;}
+  const expectedEnvironment=String(env.ENVIRONMENT_ID||"BETA").toUpperCase(),expectedAudience=String(env.SERVICE_AUDIENCE||(expectedEnvironment==="STABLE"?"PICK_PACK_1291_STABLE":"PICK_PACK_1291_BETA"));
+  if(payload.e&&String(payload.e).toUpperCase()!==expectedEnvironment)return null;
+  if(payload.a&&String(payload.a)!==expectedAudience)return null;
+  if(expectedEnvironment==="STABLE"&&(!payload.e||!payload.a))return null;
   const kind:SessionKind=payload.c==="WEB"?"WEB":"PDA";
   const sessionQuery=kind==="WEB"
     ?db.prepare("SELECT session_id,device_id FROM auth_web_sessions WHERE login_id=?1").bind(payload.l)
