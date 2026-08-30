@@ -5,12 +5,17 @@ plugins {
 fun quotedConfig(value: String): String = value.replace("\\", "\\\\").replace("\"", "\\\"")
 fun configValue(name: String): String = providers.gradleProperty(name).orElse(providers.environmentVariable(name)).orElse("").get()
 
-val approvedGsheetApiUrl = "https://script.google.com/macros/s/AKfycbzbEoGfbNg6s2HnP-gUpcBJ7mMIkVBtYuQKMndb9seDV2c55lQwSUO1GZ-LtQ2CxMCauA/exec"
-val gsheetApiUrl = quotedConfig(providers.gradleProperty("GSHEET_API_URL").orElse(providers.environmentVariable("GSHEET_API_URL")).orElse(approvedGsheetApiUrl).get())
-val firebaseProjectId = quotedConfig(configValue("FIREBASE_PROJECT_ID"))
-val firebaseAppId = quotedConfig(configValue("FIREBASE_GOOGLE_APP_ID"))
-val firebaseApiKey = quotedConfig(configValue("FIREBASE_API_KEY"))
-val firebaseSenderId = quotedConfig(configValue("FIREBASE_GCM_SENDER_ID"))
+val approvedBetaGsheetApiUrl = "https://script.google.com/macros/s/AKfycbzbEoGfbNg6s2HnP-gUpcBJ7mMIkVBtYuQKMndb9seDV2c55lQwSUO1GZ-LtQ2CxMCauA/exec"
+val betaGsheetApiUrl = quotedConfig(providers.gradleProperty("BETA_GSHEET_API_URL").orElse(providers.environmentVariable("BETA_GSHEET_API_URL")).orElse(providers.gradleProperty("GSHEET_API_URL")).orElse(providers.environmentVariable("GSHEET_API_URL")).orElse(approvedBetaGsheetApiUrl).get())
+val stableGsheetApiUrl = quotedConfig(providers.gradleProperty("STABLE_GSHEET_API_URL").orElse(providers.environmentVariable("STABLE_GSHEET_API_URL")).orElse("").get())
+val betaFirebaseProjectId = quotedConfig(providers.gradleProperty("BETA_FIREBASE_PROJECT_ID").orElse(providers.environmentVariable("BETA_FIREBASE_PROJECT_ID")).orElse(configValue("FIREBASE_PROJECT_ID")).get())
+val betaFirebaseAppId = quotedConfig(providers.gradleProperty("BETA_FIREBASE_GOOGLE_APP_ID").orElse(providers.environmentVariable("BETA_FIREBASE_GOOGLE_APP_ID")).orElse(configValue("FIREBASE_GOOGLE_APP_ID")).get())
+val betaFirebaseApiKey = quotedConfig(providers.gradleProperty("BETA_FIREBASE_API_KEY").orElse(providers.environmentVariable("BETA_FIREBASE_API_KEY")).orElse(configValue("FIREBASE_API_KEY")).get())
+val betaFirebaseSenderId = quotedConfig(providers.gradleProperty("BETA_FIREBASE_GCM_SENDER_ID").orElse(providers.environmentVariable("BETA_FIREBASE_GCM_SENDER_ID")).orElse(configValue("FIREBASE_GCM_SENDER_ID")).get())
+val stableFirebaseProjectId = quotedConfig(configValue("STABLE_FIREBASE_PROJECT_ID"))
+val stableFirebaseAppId = quotedConfig(configValue("STABLE_FIREBASE_GOOGLE_APP_ID"))
+val stableFirebaseApiKey = quotedConfig(configValue("STABLE_FIREBASE_API_KEY"))
+val stableFirebaseSenderId = quotedConfig(configValue("STABLE_FIREBASE_GCM_SENDER_ID"))
 
 android {
     namespace = "vn.pickpack1291.app.beta"
@@ -20,11 +25,6 @@ android {
         applicationId = "vn.pickpack1291.app"
         minSdk = 29
         targetSdk = 36
-        buildConfigField("String", "GSHEET_API_URL", "\"$gsheetApiUrl\"")
-        buildConfigField("String", "FIREBASE_PROJECT_ID", "\"$firebaseProjectId\"")
-        buildConfigField("String", "FIREBASE_GOOGLE_APP_ID", "\"$firebaseAppId\"")
-        buildConfigField("String", "FIREBASE_API_KEY", "\"$firebaseApiKey\"")
-        buildConfigField("String", "FIREBASE_GCM_SENDER_ID", "\"$firebaseSenderId\"")
     }
 
     flavorDimensions += "channel"
@@ -36,6 +36,15 @@ android {
             versionName = "0.4.2-beta.101"
             manifestPlaceholders["appLabel"] = "Pick Pack 1291 Beta"
             buildConfigField("String", "CHANNEL", "\"BETA\"")
+            buildConfigField("String", "ENVIRONMENT_ID", "\"BETA\"")
+            buildConfigField("String", "SERVICE_AUDIENCE", "\"PICK_PACK_1291_BETA\"")
+            buildConfigField("String", "LAN_SERVICE_TYPE", "\"_pp1291b._tcp.\"")
+            buildConfigField("String", "TARGET_WEB_ORIGIN", "\"https://beta.pickpack1291.cc.cd\"")
+            buildConfigField("String", "GSHEET_API_URL", "\"$betaGsheetApiUrl\"")
+            buildConfigField("String", "FIREBASE_PROJECT_ID", "\"$betaFirebaseProjectId\"")
+            buildConfigField("String", "FIREBASE_GOOGLE_APP_ID", "\"$betaFirebaseAppId\"")
+            buildConfigField("String", "FIREBASE_API_KEY", "\"$betaFirebaseApiKey\"")
+            buildConfigField("String", "FIREBASE_GCM_SENDER_ID", "\"$betaFirebaseSenderId\"")
         }
         create("stable") {
             dimension = "channel"
@@ -44,6 +53,15 @@ android {
             versionName = "0.1.0-stable"
             manifestPlaceholders["appLabel"] = "Pick Pack 1291"
             buildConfigField("String", "CHANNEL", "\"STABLE\"")
+            buildConfigField("String", "ENVIRONMENT_ID", "\"STABLE\"")
+            buildConfigField("String", "SERVICE_AUDIENCE", "\"PICK_PACK_1291_STABLE\"")
+            buildConfigField("String", "LAN_SERVICE_TYPE", "\"_pp1291s._tcp.\"")
+            buildConfigField("String", "TARGET_WEB_ORIGIN", "\"https://pickpack1291.cc.cd\"")
+            buildConfigField("String", "GSHEET_API_URL", "\"$stableGsheetApiUrl\"")
+            buildConfigField("String", "FIREBASE_PROJECT_ID", "\"$stableFirebaseProjectId\"")
+            buildConfigField("String", "FIREBASE_GOOGLE_APP_ID", "\"$stableFirebaseAppId\"")
+            buildConfigField("String", "FIREBASE_API_KEY", "\"$stableFirebaseApiKey\"")
+            buildConfigField("String", "FIREBASE_GCM_SENDER_ID", "\"$stableFirebaseSenderId\"")
         }
     }
 
