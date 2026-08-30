@@ -22,6 +22,7 @@ on:
       - tools/beta83_verify_matrix.sh
       - tools/Beta83UiChecksInstrumentation.java
       - tools/beta89_back_api36.sh
+      - tools/stable_private_apk_verify.sh
       - tools/beta_auth_converge.py
       - tools/beta83_ota_device_gate.sh
       - tools/beta83_publish_ota.sh
@@ -136,6 +137,7 @@ jobs:
           python3 -m py_compile tools/verify_promotion_lock.py
           python3 tools/verify_promotion_lock.py
           bash -n tools/beta83_publish_ota.sh
+          bash -n tools/stable_private_apk_verify.sh
 
       - name: Static resilience gates
         shell: bash
