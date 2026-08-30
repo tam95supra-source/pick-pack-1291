@@ -81,7 +81,7 @@ class M2ServiceTransport(context: Context) {
      * Uses a dedicated technical-test ledger and never queues into mutation_outbox/local_history,
      * so simulated outages cannot reroute or mutate real operational writes.
      */
-    fun isolatedResilienceTest(scenarioCode:String):JSONObject {
+    fun isolatedResilienceTest(scenarioCode:String,cancelled:()->Boolean={false}):JSONObject {
         val spec=ResilienceTestScenario.fromCode(scenarioCode)
             ?: return JSONObject().put("status","FAIL").put("error","RESILIENCE_SCENARIO_INVALID")
         val eventId=java.util.UUID.randomUUID().toString()
@@ -189,21 +189,42 @@ class M2ServiceTransport(context: Context) {
             return runCatching{httpJson(BuildConfig.GSHEET_API_URL,req,null,requireServiceHost=false).ok}.getOrDefault(false)
         }
         fun fail(stage:String,error:String,extra:JSONObject=JSONObject()):JSONObject{
+            if(cancelled()){
+                val stopped=JSONObject()
+                    .put("duration_ms",System.currentTimeMillis()-started)
+                    .put("stopped_by_owner",true)
+                    .put("isolated_scope_closed",true)
+                    .put("business_outbox_touched",false)
+                update("CANCELLED","STOPPED_BY_OWNER","",stopped)
+                return row()?:JSONObject().put("status","CANCELLED").put("stage","STOPPED_BY_OWNER")
+            }
             extra.put("duration_ms",System.currentTimeMillis()-started)
             update("FAIL",stage,error,extra,true)
             return row()?:JSONObject().put("status","FAIL").put("error",error)
         }
+        fun stopped():JSONObject{
+            val extra=JSONObject()
+                .put("duration_ms",System.currentTimeMillis()-started)
+                .put("stopped_by_owner",true)
+                .put("isolated_scope_closed",true)
+                .put("business_outbox_touched",false)
+            update("CANCELLED","STOPPED_BY_OWNER","",extra)
+            return row()?:JSONObject().put("status","CANCELLED").put("stage","STOPPED_BY_OWNER")
+        }
+        fun stopIfRequested():JSONObject?=if(cancelled())stopped() else null
         fun pass(stage:String,extra:JSONObject=JSONObject()):JSONObject{
+            stopIfRequested()?.let{return it}
             extra.put("duration_ms",System.currentTimeMillis()-started)
             update("PASS",stage,"",extra)
             return row()?:JSONObject().put("status","PASS")
         }
 
         if(!localIntegrity())return fail("LOCAL_DURABLE_READBACK","LOCAL_TEST_LEDGER_INTEGRITY_FAILED")
+        stopIfRequested()?.let{return it}
 
         return when(spec){
             ResilienceTestScenario.NORMAL_SERVICE_PRIMARY->{
-                val service=serviceConfirmWithIdempotency(true)
+                stopIfRequested()?.let{return it}\n                val service=serviceConfirmWithIdempotency(true)
                 if(!service.optBoolean("ok"))fail("SERVICE_PRIMARY",service.optString("error"),JSONObject().put("service",service))
                 else pass("COMPLETE",JSONObject().put("service",service).put("expected_route","SERVICE_PRIMARY"))
             }
@@ -217,7 +238,7 @@ class M2ServiceTransport(context: Context) {
                 update("RUNNING","SIMULATED_SERVICE_UNAVAILABLE","TEST_SERVICE_UNAVAILABLE",JSONObject().put("service_blocked",true))
                 val gas=googleCapture()
                 if(!gas.optBoolean("ok"))return fail("GOOGLE_EMERGENCY_CAPTURE",gas.optString("error"),JSONObject().put("google",gas))
-                val lan=LanCoordinator.get(app)
+                stopIfRequested()?.let{return it}\n                val lan=LanCoordinator.get(app)
                 val lanEvidence=JSONObject().put("available",lan.canRoute())
                 if(lan.canRoute()){
                     val ack=lan.submit(body)
@@ -246,7 +267,7 @@ class M2ServiceTransport(context: Context) {
             ResilienceTestScenario.SERVICE_GOOGLE_OFFLINE_LOCAL->{
                 update("RUNNING","SIMULATED_SERVICE_GOOGLE_LAN_UNAVAILABLE","TEST_ALL_REMOTE_UNAVAILABLE",
                     JSONObject().put("service_blocked",true).put("google_blocked",true).put("lan_simulated_unavailable",true))
-                val persisted=localIntegrity()
+                stopIfRequested()?.let{return it}\n                val persisted=localIntegrity()
                 if(!persisted)return fail("LOCAL_ONLY","LOCAL_TEST_LEDGER_INTEGRITY_FAILED")
                 val service=serviceConfirmWithIdempotency(true)
                 if(!service.optBoolean("ok"))fail("RECOVERY_REPLAY",service.optString("error"),JSONObject().put("service",service))
