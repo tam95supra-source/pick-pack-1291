@@ -138,7 +138,7 @@ class M2RuntimeBridge(context: Context) {
         return try{
             connection=(URL(endpoint).openConnection() as HttpURLConnection).apply{
                 requestMethod="POST";connectTimeout=1_500;readTimeout=3_000;doOutput=true;instanceFollowRedirects=true
-                setRequestProperty("Content-Type","application/json; charset=utf-8");setRequestProperty("Accept","application/json");setRequestProperty("User-Agent","PickPack1291-M2Runtime/${BuildConfig.VERSION_NAME}")
+                setRequestProperty("Content-Type","application/json; charset=utf-8");setRequestProperty("Accept","application/json");setRequestProperty("User-Agent","PickPack1291-M2Runtime/${BuildConfig.VERSION_NAME}");setRequestProperty("X-Pick-Pack-Environment",BuildConfig.ENVIRONMENT_ID);setRequestProperty("X-Pick-Pack-Audience",BuildConfig.SERVICE_AUDIENCE)
                 if(!bearer.isNullOrBlank())setRequestProperty("Authorization","Bearer $bearer")
             }
             val requestBytes=payload.toString().toByteArray(Charsets.UTF_8);SyncDirectionTracker.recordUploadBytes(requestBytes.size.toLong());connection.outputStream.use{it.write(requestBytes)}
