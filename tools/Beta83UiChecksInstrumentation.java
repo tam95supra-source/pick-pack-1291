@@ -308,6 +308,23 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     Bundle b=new Bundle();b.putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE,value);
     if(!n.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT,b))throw new IllegalStateException("SET_TEXT_FAILED");
   }
+  private void setActivityBoolean(String fieldName,boolean value)throws Exception{
+    Activity a=currentActivity;
+    require(a!=null&&PKG.equals(a.getPackageName()),"CURRENT_ACTIVITY_MISSING:"+fieldName);
+    Field f=a.getClass().getDeclaredField(fieldName);
+    f.setAccessible(true);f.setBoolean(a,value);
+  }
+  private void invokeActivityNoArg(String methodName)throws Exception{
+    Activity a=currentActivity;
+    require(a!=null&&PKG.equals(a.getPackageName()),"CURRENT_ACTIVITY_MISSING:"+methodName);
+    Method m=a.getClass().getDeclaredMethod(methodName);
+    m.setAccessible(true);
+    final Throwable[] failure=new Throwable[1];
+    runOnMainSync(new Runnable(){@Override public void run(){try{m.invoke(a);}catch(Throwable t){failure[0]=t;}}});
+    if(failure[0]!=null)throw new IllegalStateException("ACTIVITY_METHOD_FAILED:"+methodName,failure[0]);
+    SystemClock.sleep(500L);
+  }
+
   private int treeIndex(String needle){
     AccessibilityNodeInfo r=root();if(r==null)return -1;
     String q=needle.trim().toUpperCase(Locale.ROOT);int index=0;
@@ -830,7 +847,7 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     waitText("THAY ĐỔI BẢN MỚI",false,false,10000L);
     waitText("Sửa lỗi tài nguyên bản mới",false,false,10000L);
     waitText("THAY ĐỔI BẢN HIỆN TẠI",false,false,10000L);
-    waitText("Thiết kế lại Trung tâm kiểm thử resilience",false,false,10000L);
+    waitText("Bổ sung bo viền từng kịch bản resilience",false,false,10000L);
     require(findText("SHA256",false,false)==null,"TECHNICAL_RELEASE_METADATA_VISIBLE_IN_CHANGELOG");
     mark("dual_changelog");
     shot(tag+"-07-settings-top");
@@ -841,9 +858,11 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     int pendingBeforeResilience=operationalPendingCount();
     clickText("CHỌN KỊCH BẢN & CHẠY TEST",true,10000L);
     waitText("Chọn kịch bản kiểm thử",false,false,10000L);
-    waitText("Bình thường • Service hoạt động",false,false,10000L);
-    waitText("Thiết bị mất Internet • giữ local",false,false,10000L);
-    clickTextScrolling("Service + Google/GAS mất • LAN dự phòng",12000L);
+    waitText("1. Bình thường • Service hoạt động",false,false,10000L);
+    waitText("2. Thiết bị mất Internet • giữ local",false,false,10000L);
+    shot(tag+"-13-beta101-bordered-options");
+    mark("resilience_options_bordered_beta101");
+    clickTextScrolling("7. Service + Google/GAS mất • LAN dự phòng",12000L);
     waitText("Kỳ vọng:",false,false,10000L);
     waitText("Test chỉ tạo event kỹ thuật cô lập",false,false,10000L);
     clickText("CHẠY TEST",true,10000L);
@@ -856,6 +875,30 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     mark("resilience_scenario_selectable");
     mark("resilience_test_ledger_result");
     mark("resilience_business_outbox_isolated");
+
+    clickText("XEM LỊCH SỬ TEST",true,10000L);
+    waitText("Lịch sử kiểm thử resilience",false,false,10000L);
+    waitText("Mới nhất ở trên",false,false,10000L);
+    waitText("Business outbox",false,false,10000L);
+    waitText("Mã test",false,false,10000L);
+    waitText("Service + Google/GAS mất • LAN dự phòng",false,false,10000L);
+    shot(tag+"-14-beta101-history-cards");
+    mark("resilience_history_cards_beta101");
+    try{ui.executeShellCommand("input keyevent 4").close();}catch(Exception ignored){}
+    SystemClock.sleep(350L);
+
+    setActivityBoolean("resilienceTestInFlight",true);
+    setActivityBoolean("resilienceTestStopping",false);
+    invokeActivityNoArg("settingsScreen");
+    showTextOnScreen("TRUNG TÂM KIỂM THỬ RESILIENCE",10000L);
+    waitText("DỪNG TEST / VỀ BÌNH THƯỜNG",true,true,10000L);
+    shot(tag+"-15-beta101-stop-control");
+    clickText("DỪNG TEST / VỀ BÌNH THƯỜNG",true,10000L);
+    waitText("ĐANG DỪNG TEST...",true,false,10000L);
+    mark("resilience_stop_control_beta101");
+    setActivityBoolean("resilienceTestInFlight",false);
+    setActivityBoolean("resilienceTestStopping",false);
+    invokeActivityNoArg("settingsScreen");
     showTextOnScreen("NHẬT KÝ",12000L);
     showTextOnScreen("Tên tệp nhật ký",12000L);
     waitText(firstLogName,true,false,10000L);
