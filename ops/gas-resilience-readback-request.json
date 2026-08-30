@@ -1,5 +1,6 @@
 {
-  "purpose": "BETA101_OWNER_ITEM_6_ANALYZE_UNKNOWN_ACTION",
+  "purpose": "POST_REPAIR_VERIFY_DEPLOYED_RESILIENCE_CONTRACT",
   "read_only": true,
-  "requested_at_utc": "2026-08-30T13:13:00Z"
+  "requested_at_utc": "2026-08-30T13:25:00Z",
+  "expected_deployment_version": 206
 }
