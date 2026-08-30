@@ -1,6 +1,6 @@
 {
   "stage": "VERIFY_ONLY",
-  "mode": "BETA100_VERIFY_ONLY_AFTER_HARNESS_FIX",
+  "mode": "BETA100_VERIFY_ONLY_AFTER_HARNESS_ASYNC_DELETE_FIX",
   "version_name": "0.4.2-beta.100",
   "version_code": 106,
   "base_version": "0.4.2-beta.99",
@@ -30,7 +30,7 @@
     "Ba ô Mạng / Đồng bộ / Dịch vụ đều mở thông tin chi tiết chuyên nghiệp; popup Đồng bộ có nút ĐỒNG BỘ NGAY.",
     "Manual diagnostic log ghi đầy đủ resilience scenario/status/stage/evidence/error gần nhất."
   ],
-  "next_action": "VERIFY_EXACT_ARTIFACT_9729047360_WITH_FIXED_HARNESS_THEN_HUMAN_VISUAL_RELEASE_LOCK",
+  "next_action": "VERIFY_EXACT_ARTIFACT_9729047360_AFTER_ASYNC_DELETE_HARNESS_FIX",
   "signer_sha256": "d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e",
   "base_candidate_run_id": 33290900322,
   "base_candidate_artifact_id": 9725965250,
@@ -64,5 +64,6 @@
   "candidate_apk_sha256": "29270f4435a5e4c7729e4aeb9a6ae516795c14ca0858723df8c9a293a62d9319",
   "candidate_apk_size": 13577205,
   "apk_sha256": "29270f4435a5e4c7729e4aeb9a6ae516795c14ca0858723df8c9a293a62d9319",
-  "apk_size": 13577205
+  "apk_size": 13577205,
+  "verify_retry_reason": "HARNESS_ONLY_DELETE_REASON_RENDER_ASYNC"
 }
