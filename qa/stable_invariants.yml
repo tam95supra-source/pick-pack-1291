@@ -53,7 +53,9 @@ invariants:
     rule: "Durable local + provisional Google ledger + single-writer LAN/cloud DR + backup/rollover/fencing must pass full technical/chaos gates before owner acceptance."
     technical_evidence: "Beta101 terminal 33310230934 PASS; owner manual log 2026-08-30 20:12 found Google fallback UNKNOWN_ACTION + LAN_NOT_AVAILABLE; GAS readback 33313877854 proved deployment205 missing RESILIENCE_V1; repair 33314072135 -> deployment206 PASS; readback 33314115931 PASS; release guard Fast Check 33314181358 PASS; Stable/main/signer/authority/provider unchanged"
     test_fidelity: "NORMAL live Service/idempotency; Google fallback safe live-path drill after GAS206; offline/local scenarios isolated simulation plus real recovery, not physical outage; LAN requires active real multi-device topology"
-    owner_acceptance: "NOT_OK_2026-08-30_RETEST_AFTER_GAS206_AND_REAL_LAN_REQUIRED"
+    owner_acceptance: "DEFERRED_BY_OWNER_2026-08-30_NON_BLOCKING_UNTIL_REOPENED"
+    priority: "DEFERRED_NON_BLOCKING_BY_OWNER"
+    resume_condition: "OWNER_REOPENS_BACKUP_DR_SCOPE"
 impact_map:
   "app/**": [UI-STATUS-001, QR-LOCAL-001, MEAL-DATE-001, MEAL-WARN-001, ROLE-HISTORY-001, OTA-BETA-001, PDA-EXIT-001, INFRA-RESILIENCE-001]
   "service/**": [QR-LOCAL-001, MEAL-DATE-001, PDA-EXIT-001, INFRA-RESILIENCE-001]
