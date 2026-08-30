@@ -10,6 +10,7 @@ import java.util.concurrent.ConcurrentHashMap
 internal class LanDiscovery(context:Context) {
     data class PeerEndpoint(
         val deviceId:String,
+        val environmentId:String,
         val host:String,
         val port:Int,
         val accountRole:String,
@@ -31,10 +32,11 @@ internal class LanDiscovery(context:Context) {
     fun advertise(port:Int,deviceId:String,accountRole:String,nodeRole:String,generation:Long) {
         stopAdvertising()
         val info=NsdServiceInfo().apply {
-            serviceName="PP1291-"+deviceId.takeLast(10)
-            serviceType=SERVICE_TYPE
+            serviceName="PP1291-"+BuildConfig.ENVIRONMENT_ID+"-"+deviceId.takeLast(10)
+            serviceType=serviceType()
             setPort(port)
             setAttribute("device",deviceId)
+            setAttribute("env",BuildConfig.ENVIRONMENT_ID)
             setAttribute("role",accountRole)
             setAttribute("node",nodeRole)
             setAttribute("gen",generation.toString())
@@ -76,11 +78,14 @@ internal class LanDiscovery(context:Context) {
                         override fun onResolveFailed(serviceInfo:NsdServiceInfo,errorCode:Int)=Unit
                         override fun onServiceResolved(resolved:NsdServiceInfo) {
                             val id=attr(resolved,"device").ifBlank{advertised}
+                            val environmentId=attr(resolved,"env")
+                            if(environmentId!=BuildConfig.ENVIRONMENT_ID)return
                             if(id.isBlank()||id==selfDeviceId)return
                             val host=resolved.host?.hostAddress.orEmpty()
                             if(host.isBlank()||resolved.port<=0)return
                             val ep=PeerEndpoint(
                                 deviceId=id,
+                                environmentId=environmentId,
                                 host=host,
                                 port=resolved.port,
                                 accountRole=attr(resolved,"role").ifBlank{"USER"},
@@ -96,7 +101,7 @@ internal class LanDiscovery(context:Context) {
             }
         }
         discovery=listener
-        runCatching{manager.discoverServices(SERVICE_TYPE,NsdManager.PROTOCOL_DNS_SD,listener)}
+        runCatching{manager.discoverServices(serviceType(),NsdManager.PROTOCOL_DNS_SD,listener)}
     }
 
     fun restartDiscovery(selfDeviceId:String,onPeer:(PeerEndpoint)->Unit){stopDiscovery();discover(selfDeviceId,onPeer)}
@@ -121,5 +126,5 @@ internal class LanDiscovery(context:Context) {
     private fun attr(info:NsdServiceInfo,key:String):String =
         runCatching{info.attributes[key]?.toString(Charsets.UTF_8).orEmpty()}.getOrDefault("")
 
-    companion object { const val SERVICE_TYPE="_pp1291._tcp." }
+    companion object { fun serviceType():String=BuildConfig.LAN_SERVICE_TYPE }
 }
