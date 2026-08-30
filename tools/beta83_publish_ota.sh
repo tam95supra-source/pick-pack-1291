@@ -100,6 +100,7 @@ ACCESS_TOKEN=$(jq -r '.access_token//empty' <<<"$TOKEN_JSON")
 test -n "$ACCESS_TOKEN"
 export ACCESS_TOKEN
 echo "::add-mask::$ACCESS_TOKEN"
+python3 tools/gas_version_inventory.py "$E/gas-version-inventory.json"
 
 BASE_APK_NAME=$(basename "$BASE_APK")
 printf '%s\n' "Exact LIVE rollback baseline $PREV." > "$E/base-release-notes.txt"
