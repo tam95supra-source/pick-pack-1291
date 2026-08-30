@@ -22,6 +22,9 @@ interface Env{
   DB:D1Database;
   SERVICE_TOKEN_SECRET:string;
   SERVICE_GENERATION:string;
+  ENVIRONMENT_ID:string;
+  SERVICE_AUDIENCE:string;
+  GAS_API_URL:string;
   M1_ADMIN_TOKEN:string;
   GAS_BRIDGE_SHARED_SECRET:string;
   GOOGLE_OAUTH_CLIENT_ID:string;
