@@ -531,7 +531,7 @@ class M2ServiceTransport(context: Context) {
             events.put(env)
         }
         val req=JSONObject().put("action","emergency_ledger_capture").put("events",events).put("_token",gasToken)
-            .put("_device_id",M2DeviceIdentity.id(app)).put("_app_version",BuildConfig.VERSION_NAME).put("_app_channel",BuildConfig.CHANNEL)
+            .put("_device_id",M2DeviceIdentity.id(app)).put("_app_version",BuildConfig.VERSION_NAME).put("_app_channel",BuildConfig.CHANNEL).put("_environment_id",BuildConfig.ENVIRONMENT_ID).put("_service_audience",BuildConfig.SERVICE_AUDIENCE)
         val r=httpJson(BuildConfig.GSHEET_API_URL,req,null,requireServiceHost=false)
         if(!r.ok)return false
         val captured=r.json?.optJSONArray("captured")?:JSONArray()
@@ -546,7 +546,7 @@ class M2ServiceTransport(context: Context) {
         val gasToken=app.getSharedPreferences(AUTH_PREFS,Context.MODE_PRIVATE).getString(AUTH_TOKEN,null).orEmpty()
         if(gasToken.isBlank())return
         val req=JSONObject().put("action","emergency_ledger_finalize").put("items",items).put("_token",gasToken)
-            .put("_device_id",M2DeviceIdentity.id(app)).put("_app_version",BuildConfig.VERSION_NAME).put("_app_channel",BuildConfig.CHANNEL)
+            .put("_device_id",M2DeviceIdentity.id(app)).put("_app_version",BuildConfig.VERSION_NAME).put("_app_channel",BuildConfig.CHANNEL).put("_environment_id",BuildConfig.ENVIRONMENT_ID).put("_service_audience",BuildConfig.SERVICE_AUDIENCE)
         runCatching{httpJson(BuildConfig.GSHEET_API_URL,req,null,requireServiceHost=false)}
     }
 
@@ -563,7 +563,7 @@ class M2ServiceTransport(context: Context) {
         }
         if (!hasNetwork()) return cachedDiscoverySnapshot()
         return try {
-            val body = JSONObject().put("action", "service_discovery").put("_device_id", M2DeviceIdentity.id(app)).put("_app_version", BuildConfig.VERSION_NAME).put("_app_channel", BuildConfig.CHANNEL)
+            val body = JSONObject().put("action", "service_discovery").put("_device_id", M2DeviceIdentity.id(app)).put("_app_version", BuildConfig.VERSION_NAME).put("_app_channel", BuildConfig.CHANNEL).put("_environment_id", BuildConfig.ENVIRONMENT_ID).put("_service_audience", BuildConfig.SERVICE_AUDIENCE)
             val r = httpJson(BuildConfig.GSHEET_API_URL, body, null, requireServiceHost = false)
             if (!r.ok || r.json == null) return cachedDiscoverySnapshot()
             val j = r.json; val service = j.optString("service_url")
@@ -589,7 +589,7 @@ class M2ServiceTransport(context: Context) {
         var conn: HttpURLConnection? = null
         return try {
             conn = (URL(endpoint).openConnection() as HttpURLConnection).apply { requestMethod = "POST"; connectTimeout = if (requireServiceHost) 1_500 else 3_000; readTimeout = if (requireServiceHost) 3_000 else 8_000; doOutput = true; instanceFollowRedirects = true
-                setRequestProperty("Content-Type", "application/json; charset=utf-8"); setRequestProperty("Accept", "application/json"); setRequestProperty("User-Agent", "PickPack1291-M2/${BuildConfig.VERSION_NAME}"); if (!bearer.isNullOrBlank()) setRequestProperty("Authorization", "Bearer $bearer") }
+                setRequestProperty("Content-Type", "application/json; charset=utf-8"); setRequestProperty("Accept", "application/json"); setRequestProperty("User-Agent", "PickPack1291-M2/${BuildConfig.VERSION_NAME}"); setRequestProperty("X-Pick-Pack-Environment",BuildConfig.ENVIRONMENT_ID); setRequestProperty("X-Pick-Pack-Audience",BuildConfig.SERVICE_AUDIENCE); if (!bearer.isNullOrBlank()) setRequestProperty("Authorization", "Bearer $bearer") }
             conn.outputStream.use { it.write(payload.toString().toByteArray(Charsets.UTF_8)) }; val code = conn.responseCode; val stream = if (code in 200..299) conn.inputStream else conn.errorStream
             val text = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty(); val j = if (text.isBlank()) JSONObject() else JSONObject(text); val ok = code in 200..299 && j.optBoolean("ok", false)
             val error = if (ok) null else j.optJSONObject("error")?.optString("code")?.takeIf { it.isNotBlank() } ?: j.optString("error", "HTTP_$code"); HttpResult(ok, code, j, error)
@@ -603,7 +603,7 @@ class M2ServiceTransport(context: Context) {
         return try{
             conn=(URL(endpoint).openConnection() as HttpURLConnection).apply{
                 requestMethod="GET";connectTimeout=3_000;readTimeout=5_000;instanceFollowRedirects=true
-                setRequestProperty("Accept","application/json");setRequestProperty("User-Agent","PickPack1291-M2/${BuildConfig.VERSION_NAME}")
+                setRequestProperty("Accept","application/json");setRequestProperty("User-Agent","PickPack1291-M2/${BuildConfig.VERSION_NAME}");setRequestProperty("X-Pick-Pack-Environment",BuildConfig.ENVIRONMENT_ID);setRequestProperty("X-Pick-Pack-Audience",BuildConfig.SERVICE_AUDIENCE)
                 if(!bearer.isNullOrBlank())setRequestProperty("Authorization","Bearer $bearer")
             }
             val code=conn.responseCode;val stream=if(code in 200..299)conn.inputStream else conn.errorStream
