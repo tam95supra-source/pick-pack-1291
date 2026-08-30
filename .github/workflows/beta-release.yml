@@ -268,7 +268,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:
-      GH_TOKEN: ${{ secrets.BETA_RELEASE_TOKEN }}
+      BETA_RELEASE_TOKEN_RAW: ${{ secrets.BETA_RELEASE_TOKEN }}
       GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
       GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
       GOOGLE_OAUTH_REFRESH_TOKEN: ${{ secrets.GOOGLE_OAUTH_REFRESH_TOKEN }}
@@ -306,6 +306,19 @@ jobs:
           github-token: ${{ github.token }}
           repository: ${{ github.repository }}
           run-id: ${{ needs.route.outputs.base_live_final_run_id }}
+      - name: Normalize owner release token
+        shell: bash
+        run: |
+          set -euo pipefail
+          RAW="${BETA_RELEASE_TOKEN_RAW:-}"
+          TOKEN="$(printf '%s' "$RAW" | tr -d '\r\n' | sed -E 's/^[[:space:]]+//;s/[[:space:]]+$//;s/^(Bearer|token)[[:space:]]+//I')"
+          test -n "$TOKEN"
+          case "$TOKEN" in
+            github_pat_*|ghp_*|ghs_*|ghu_*|gho_*|ghr_*) ;;
+            *) echo "BETA_RELEASE_TOKEN_FORMAT_INVALID" >&2; exit 66 ;;
+          esac
+          echo "::add-mask::$TOKEN"
+          printf 'GH_TOKEN=%s\n' "$TOKEN" >> "$GITHUB_ENV"
       - name: Publish exact requested Beta bytes after fresh production readbacks
         shell: bash
         run: bash tools/beta83_publish_ota.sh
