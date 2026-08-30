@@ -25,14 +25,41 @@ const PP = Object.freeze({
   LOG_ANDROID_FOLDER_ID: '1AN_cEcbbdVO0dory_01hkJhQ1dhlO7Vb'
 });
 
+function ppEnvironmentId_() {
+  return String(PropertiesService.getScriptProperties().getProperty('PP_ENVIRONMENT_ID') || 'BETA').toUpperCase();
+}
+function ppServiceAudience_() {
+  const e=ppEnvironmentId_();
+  return String(PropertiesService.getScriptProperties().getProperty('PP_SERVICE_AUDIENCE') || (e==='STABLE'?'PICK_PACK_1291_STABLE':'PICK_PACK_1291_BETA'));
+}
+function ppSheetId_() {
+  const p=String(PropertiesService.getScriptProperties().getProperty('PP_SHEET_ID') || '').trim();
+  if(p)return p;
+  if(ppEnvironmentId_()==='BETA')return PP.SHEET_ID;
+  throw new Error('STABLE_SHEET_ID_NOT_CONFIGURED');
+}
+function ppEnvironmentFence_(body) {
+  const expected=ppEnvironmentId_(), audience=ppServiceAudience_();
+  const got=String((body||{})._environment_id || '').toUpperCase();
+  const gotAudience=String((body||{})._service_audience || '');
+  const channel=String((body||{})._app_channel || '').toUpperCase();
+  if(got && got!==expected)return {ok:false,error:'ENVIRONMENT_MISMATCH',expected_environment:expected};
+  if(gotAudience && gotAudience!==audience)return {ok:false,error:'SERVICE_AUDIENCE_MISMATCH'};
+  if(channel && channel!==expected)return {ok:false,error:'CHANNEL_ENVIRONMENT_MISMATCH'};
+  if(expected==='STABLE' && (!got || !gotAudience))return {ok:false,error:'ENVIRONMENT_ID_REQUIRED'};
+  return null;
+}
+
 function doGet() {
-  return ppJson_({ok:true, service:'pick-pack-gsheet-api', mode:'APP_GSHEET', report_engine:'S12_CURRENT_DAY', business_date:ppBusinessIso_()});
+  return ppJson_({ok:true, service:'pick-pack-gsheet-api', mode:'APP_GSHEET', environment_id:ppEnvironmentId_(), service_audience:ppServiceAudience_(), report_engine:'S12_CURRENT_DAY', business_date:ppBusinessIso_()});
 }
 
 function doPost(e) {
   try {
     const body = JSON.parse((e && e.postData && e.postData.contents) || '{}');
     const action = String(body.action || '').trim();
+    const environmentFence=ppEnvironmentFence_(body);
+    if(environmentFence)return ppJson_(environmentFence);
 
     // M2_SERVICE_AUTHORITY_ROUTING
     if (action === 'service_discovery') return ppJson_(ppM2Discovery_(body));
@@ -138,10 +165,10 @@ function ppJson_(obj) {
 
 function ppHealth_() {
   const rows = ppValues_(PP.STAFF);
-  return {ok:true,service:'pick-pack-gsheet-api',mode:'APP_GSHEET',api_version:'0.4.2',report_engine:'S12_CURRENT_DAY',history_engine:'S13_SHARED_SESSION',sheet_read:rows.length>1,auth_session_model:'SINGLE_ACTIVE_DEVICE_V1',login_session_lock_model:'S44_LOCK_ISOLATED',business_date:ppBusinessIso_(),revision:ppRevision_(),master_revision:ppMasterRevision_()};
+  return {ok:true,service:'pick-pack-gsheet-api',mode:'APP_GSHEET',environment_id:ppEnvironmentId_(),service_audience:ppServiceAudience_(),api_version:'0.4.2',report_engine:'S12_CURRENT_DAY',history_engine:'S13_SHARED_SESSION',sheet_read:rows.length>1,auth_session_model:'SINGLE_ACTIVE_DEVICE_V1',login_session_lock_model:'S44_LOCK_ISOLATED',business_date:ppBusinessIso_(),revision:ppRevision_(),master_revision:ppMasterRevision_()};
 }
 
-function ppSs_() { return SpreadsheetApp.openById(PP.SHEET_ID); }
+function ppSs_() { return SpreadsheetApp.openById(ppSheetId_()); }
 function ppSheet_(name) {
   const s = ppSs_().getSheetByName(name);
   if (!s) throw new Error('SHEET_NOT_FOUND:' + name);
