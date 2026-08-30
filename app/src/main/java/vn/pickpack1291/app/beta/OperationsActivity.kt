@@ -96,6 +96,7 @@ class OperationsActivity : Activity() {
     private var historyLastCanonicalRefreshAt=0L
     private var manualRefreshInFlight=false
     private var resilienceTestInFlight=false
+    private var resilienceTestStopping=false
     private var lastLatencyMs: Long? = null
     private var lastSyncE2eMs: Long? = null
     private var serviceProviderCache = "—"
@@ -2077,11 +2078,17 @@ class OperationsActivity : Activity() {
                 "LAN ACK" to if(ev.optBoolean("lan_ack",false))"PASS" else "—",
                 "Idempotency" to if(serviceEv.optBoolean("idempotency_verified",false))"PASS" else "—",
                 "Không chạm business outbox" to if(ev.optBoolean("business_outbox_touched",true))"FAIL" else "PASS",
+                "Điều khiển test" to when{resilienceTestStopping->"Đang dừng và khôi phục";resilienceTestInFlight->"Đang chạy";else->"Sẵn sàng"},
                 "Lỗi" to dash(test?.optString("last_error").orEmpty())
             )))
             body.addView(gap(7))
-            body.addView(primary(if(resilienceTestInFlight)"ĐANG CHẠY TEST..." else "CHỌN KỊCH BẢN & CHẠY TEST",orange){
-                if(!resilienceTestInFlight)showResilienceScenarioDialog()
+            val controlText=when{resilienceTestStopping->"ĐANG DỪNG TEST...";resilienceTestInFlight->"DỪNG TEST / VỀ BÌNH THƯỜNG";else->"CHỌN KỊCH BẢN & CHẠY TEST"}
+            body.addView(primary(controlText,if(resilienceTestInFlight)red else orange){
+                when{
+                    resilienceTestStopping->Unit
+                    resilienceTestInFlight->stopResilienceTest()
+                    else->showResilienceScenarioDialog()
+                }
             },matchWrap())
             body.addView(gap(7))
             body.addView(primary("XEM LỊCH SỬ TEST",blue){showResilienceHistoryDialog()},matchWrap())
@@ -2108,27 +2115,51 @@ class OperationsActivity : Activity() {
         },matchWrap())
         attach(root,body)
     }
+
     private fun showResilienceScenarioDialog(){
         if(!isActualSuper()){showError("SUPERADMIN_REQUIRED");return}
         val scenarios=ResilienceTestCenter.scenarios()
-        val labels=scenarios.map{"${it.label}\n${it.description}"}.toTypedArray()
-        AlertDialog.Builder(this)
-            .setTitle("Chọn kịch bản kiểm thử")
-            .setItems(labels){_,which->
-                val s=scenarios[which]
-                AlertDialog.Builder(this)
-                    .setTitle(s.label)
-                    .setMessage("${s.description}\n\nKỳ vọng:\n${s.expected}\n\nTest chỉ tạo event kỹ thuật cô lập; không tắt LIVE thật và không chạm mutation nghiệp vụ.")
-                    .setNegativeButton("HỦY",null)
-                    .setPositiveButton("CHẠY TEST"){_,_->runResilienceScenario(s)}
-                    .show()
+        val host=column(surface).apply{setPadding(dp(10),dp(6),dp(10),dp(10))}
+        var dialog:AlertDialog?=null
+        scenarios.forEachIndexed{index,s->
+            val card=column(surface).apply{
+                setPadding(dp(12),dp(10),dp(12),dp(10))
+                background=GradientDrawable().apply{
+                    setColor(surface);cornerRadius=dp(12).toFloat()
+                    setStroke(dp(1),Color.argb(190,Color.red(teal),Color.green(teal),Color.blue(teal)))
+                }
+                addView(txt("${index+1}. ${s.label}",11.2f,navy,true))
+                addView(gap(3))
+                addView(txt(s.description,9.8f,ink,false).apply{maxLines=5})
+                addView(gap(4))
+                addView(txt("Kỳ vọng: ${s.expected}",9.3f,muted,false).apply{maxLines=6})
+                isClickable=true
+                isFocusable=true
+                setOnClickListener{
+                    dialog?.dismiss()
+                    AlertDialog.Builder(this@OperationsActivity)
+                        .setTitle(s.label)
+                        .setMessage("${s.description}\n\nKỳ vọng:\n${s.expected}\n\nTest chỉ tạo event kỹ thuật cô lập; không tắt LIVE thật và không chạm mutation nghiệp vụ.")
+                        .setNegativeButton("HỦY",null)
+                        .setPositiveButton("CHẠY TEST"){_,_->runResilienceScenario(s)}
+                        .show()
+                }
             }
+            host.addView(card,matchWrap())
+            if(index<scenarios.lastIndex)host.addView(gap(7))
+        }
+        val scroll=ScrollView(this).apply{addView(host)}
+        dialog=AlertDialog.Builder(this)
+            .setTitle("Chọn kịch bản kiểm thử")
+            .setView(scroll)
             .setNegativeButton("ĐÓNG",null)
-            .show()
+            .create()
+        dialog?.show()
     }
 
     private fun runResilienceScenario(scenario:ResilienceTestScenario){
         if(resilienceTestInFlight)return
+        resilienceTestStopping=false
         resilienceTestInFlight=true
         TopNotice.show(this,"Đang kiểm thử: ${scenario.label}",TopNotice.Kind.INFO)
         if(screenState=="SETTINGS")settingsScreen()
@@ -2137,28 +2168,80 @@ class OperationsActivity : Activity() {
                 .getOrElse{JSONObject().put("status","FAIL").put("last_error",it.message?:it.javaClass.simpleName)}
             runOnUiThread{
                 resilienceTestInFlight=false
+                resilienceTestStopping=false
                 if(screenState=="SETTINGS")settingsScreen()
-                val ok=result.optString("status")=="PASS"
-                val unavailable=result.optString("status")=="NOT_AVAILABLE"
+                val status=result.optString("status")
+                val ok=status=="PASS"
+                val unavailable=status=="NOT_AVAILABLE"
+                val cancelled=status=="CANCELLED"
                 TopNotice.show(this,
-                    when{ok->"Resilience test PASS: ${scenario.label}";unavailable->"Chưa đủ điều kiện để test: ${scenario.label}";else->"Resilience test FAIL: ${scenario.label}"},
-                    when{ok->TopNotice.Kind.SUCCESS;unavailable->TopNotice.Kind.WARNING;else->TopNotice.Kind.ERROR}
+                    when{ok->"Resilience test PASS: ${scenario.label}";unavailable->"Chưa đủ điều kiện để test: ${scenario.label}";cancelled->"Đã dừng test và trở về trạng thái bình thường.";else->"Resilience test FAIL: ${scenario.label}"},
+                    when{ok->TopNotice.Kind.SUCCESS;unavailable||cancelled->TopNotice.Kind.WARNING;else->TopNotice.Kind.ERROR}
                 )
             }
         }.start()
     }
 
+    private fun stopResilienceTest(){
+        if(!resilienceTestInFlight||resilienceTestStopping)return
+        resilienceTestStopping=true
+        ResilienceTestCenter.stop()
+        TopNotice.show(this,"Đã yêu cầu dừng test. App sẽ kết thúc bước kỹ thuật đang chạy và trở về trạng thái bình thường.",TopNotice.Kind.WARNING)
+        if(screenState=="SETTINGS")settingsScreen()
+    }
+
     private fun showResilienceHistoryDialog(){
-        val arr=ResilienceTestCenter.history(this,12)
+        val arr=ResilienceTestCenter.history(this,30)
         if(arr.length()==0){TopNotice.show(this,"Chưa có lịch sử kiểm thử resilience.",TopNotice.Kind.INFO);return}
-        val rows=ArrayList<String>()
+        val host=column(surface).apply{setPadding(dp(10),dp(6),dp(10),dp(10))}
+        host.addView(info("Mới nhất ở trên • ${arr.length()} lượt gần nhất • mỗi thẻ là một test độc lập"))
+        host.addView(gap(7))
         for(i in 0 until arr.length()){
             val x=arr.optJSONObject(i)?:continue
             val spec=ResilienceTestScenario.fromCode(x.optString("scenario"))
-            rows.add("${ResilienceTestCenter.resultVi(x.optString("status"))} • ${spec?.label?:x.optString("scenario")}\n${ResilienceTestCenter.stageVi(x.optString("stage"))}")
+            val ev=x.optJSONObject("evidence")?:JSONObject()
+            val serviceEv=ev.optJSONObject("recovery_service")?:ev.optJSONObject("service")?:JSONObject()
+            val statusRaw=x.optString("status")
+            val statusText=ResilienceTestCenter.resultVi(statusRaw)
+            val statusColor=when(statusRaw){ "PASS"->green;"FAIL"->red;"CANCELLED"->orange;"NOT_AVAILABLE"->orange;else->blue }
+            val updated=x.optLong("updated_at",0L)
+            val at=if(updated>0L)Instant.ofEpochMilli(updated).atZone(ZoneId.of("Asia/Ho_Chi_Minh")).format(DateTimeFormatter.ofPattern("dd/MM HH:mm:ss")) else "—"
+            val eventShort=x.optString("event_id").take(8).ifBlank{"—"}
+            val card=column(surface).apply{
+                setPadding(dp(12),dp(10),dp(12),dp(10))
+                background=GradientDrawable().apply{
+                    setColor(surface);cornerRadius=dp(12).toFloat()
+                    setStroke(dp(2),Color.argb(185,Color.red(statusColor),Color.green(statusColor),Color.blue(statusColor)))
+                }
+                addView(row(surface).apply{
+                    addView(txt(statusText,10.5f,statusColor,true),LinearLayout.LayoutParams(0,-2,.34f))
+                    addView(txt(at,9.2f,muted,true).apply{gravity=Gravity.END},LinearLayout.LayoutParams(0,-2,.66f))
+                })
+                addView(gap(4))
+                addView(txt(spec?.label?:x.optString("scenario"),10.8f,navy,true))
+                addView(gap(5))
+                addView(details(listOf(
+                    "Giai đoạn" to ResilienceTestCenter.stageVi(x.optString("stage")),
+                    "Local durable" to if(ev.optBoolean("local_durable_readback",false))"PASS" else "—",
+                    "Google/GAS" to if(ev.optJSONObject("google")?.optBoolean("captured",false)==true)"PASS" else "—",
+                    "LAN ACK" to if(ev.optBoolean("lan_ack",false))"PASS" else "—",
+                    "Idempotency" to if(serviceEv.optBoolean("idempotency_verified",false))"PASS" else "—",
+                    "Business outbox" to if(ev.optBoolean("business_outbox_touched",true))"BỊ TÁC ĐỘNG" else "Không chạm",
+                    "Mã test" to eventShort,
+                    "Lỗi" to dash(x.optString("last_error"))
+                )))
+            }
+            host.addView(card,matchWrap())
+            if(i<arr.length()-1)host.addView(gap(8))
         }
-        AlertDialog.Builder(this).setTitle("Lịch sử kiểm thử resilience").setItems(rows.toTypedArray(),null).setPositiveButton("ĐÓNG",null).show()
+        val scroll=ScrollView(this).apply{addView(host)}
+        AlertDialog.Builder(this)
+            .setTitle("Lịch sử kiểm thử resilience")
+            .setView(scroll)
+            .setPositiveButton("ĐÓNG",null)
+            .show()
     }
+
     private fun themePicker()=row(surface).apply{
         gravity=Gravity.CENTER
         setPadding(dp(5),dp(8),dp(5),dp(8))
