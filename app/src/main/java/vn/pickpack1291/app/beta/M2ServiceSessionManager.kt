@@ -36,8 +36,10 @@ object M2ServiceSessionManager {
                 setRequestProperty("Content-Type","application/json; charset=utf-8")
                 setRequestProperty("Accept","application/json")
                 setRequestProperty("User-Agent","PickPack1291-S44/${BuildConfig.VERSION_NAME}")
+                setRequestProperty("X-Pick-Pack-Environment",BuildConfig.ENVIRONMENT_ID)
+                setRequestProperty("X-Pick-Pack-Audience",BuildConfig.SERVICE_AUDIENCE)
             }
-            val payload=JSONObject().put("gas_token",gasToken).put("device_id",M2DeviceIdentity.id(app)).put("device_label","${Build.MANUFACTURER} ${Build.MODEL}")
+            val payload=JSONObject().put("gas_token",gasToken).put("device_id",M2DeviceIdentity.id(app)).put("device_label","${Build.MANUFACTURER} ${Build.MODEL}").put("environment_id",BuildConfig.ENVIRONMENT_ID).put("service_audience",BuildConfig.SERVICE_AUDIENCE)
             conn.outputStream.use{it.write(payload.toString().toByteArray(Charsets.UTF_8))}
             val code=conn.responseCode
             val stream=if(code in 200..299)conn.inputStream else conn.errorStream
