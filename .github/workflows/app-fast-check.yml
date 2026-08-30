@@ -123,6 +123,106 @@ jobs:
           echo "d1_database_count=$COUNT"
           [[ "$COUNT" -lt 10 ]] && echo "stable_d1_slot_available=true" || echo "stable_d1_slot_available=false"
 
+      - name: Owner-approved exact rehearsal D1 cleanup
+        if: ${{ github.event_name == 'push' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --name-only HEAD^ HEAD | grep -qx 'ops/stable-d1-cleanup-request.json' || { echo "cleanup_request_not_changed=true"; exit 0; }
+          REQ=ops/stable-d1-cleanup-request.json
+          OUT=/tmp/stable-d1-cleanup-receipt.json
+          API="https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID"
+          AUTH=(-H "Authorization: Bearer $CLOUDFLARE_API_TOKEN")
+          mapfile -t EXPECTED < <(jq -r '.approved_delete_names[]' "$REQ" | sort)
+          [[ "${#EXPECTED[@]}" -eq 8 ]] || { echo "EXPECTED_8_D1_NAMES"; exit 41; }
+          printf '%s\n' "${EXPECTED[@]}" | grep -Ev '^pp1291-rh-[a-z0-9-]+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/verify_beta_visual_receipt.py --self-test
+          python3 -m py_compile tools/gas_resilience_contract_readback.py tools/gas_resilience_contract_patch.py
+          bash -n tools/beta83_publish_ota.sh
+
+      - name: Static resilience gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tools/resilience_static_gate.mjs
+          cp google-apps-script/PICK_PACK_API.gs "$RUNNER_TEMP/pick-pack-api.js"
+          node --check "$RUNNER_TEMP/pick-pack-api.js"
+          pushd service
+          npm install --ignore-scripts --no-audit --no-fund
+          npm run check
+          popd
+          pushd services/cloud-dr
+          npm install --ignore-scripts --no-audit --no-fund
+          npm run check
+          npm run build
+          npm test
+          popd
+
+      - name: Static and Android debug gates
+        if: ${{ steps.impact.outputs.app == 'true' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check HEAD^ HEAD
+          grep -q 'versionCode = 1' app/build.gradle.kts
+          grep -q 'versionName = "0.1.0-stable"' app/build.gradle.kts
+          gradle --no-daemon --build-cache --parallel :app:testBetaDebugUnitTest :app:assembleBetaDebug :app:assembleStableDebug
+
+      - name: Validate cloud DR credentials without paid actions
+        shell: bash
+        run: bash tools/cloud_dr_provider_preflight.sh
+ && { echo "NON_REHEARSAL_NAME"; exit 42; } || true
+          curl -fsS "${AUTH[@]}" "$API/d1/database?per_page=100" > /tmp/d1-before.json
+          jq -e '.success==true and (.result|type=="array")' /tmp/d1-before.json >/dev/null
+          BEFORE=$(jq '.result|length' /tmp/d1-before.json)
+          for name in "${EXPECTED[@]}"; do
+            count=$(jq --arg n "$name" '[.result[]|select(.name==$n)]|length' /tmp/d1-before.json)
+            [[ "$count" -eq 1 ]] || { echo "D1_EXPECTED_NAME_NOT_UNIQUE:$name:$count"; exit 43; }
+          done
+          curl -fsS "${AUTH[@]}" "$API/workers/scripts?per_page=100" > /tmp/worker-scripts.json
+          jq -e '.success==true and (.result|type=="array")' /tmp/worker-scripts.json >/dev/null
+          : > /tmp/all-worker-settings.txt
+          jq -r '.result[]|.id // .name // empty' /tmp/worker-scripts.json | while IFS= read -r script; do
+            [[ -n "$script" ]] || continue
+            enc=$(jq -rn --arg v "$script" '$v|@uri')
+            file="/tmp/settings-$(printf '%s' "$script"|sha256sum|cut -c1-16).json"
+            curl -fsS "${AUTH[@]}" "$API/workers/scripts/$enc/settings" > "$file"
+            jq -e '.success==true' "$file" >/dev/null
+            jq -c --arg script "$script" '{script:$script,result:.result}' "$file" >> /tmp/all-worker-settings.txt
+          done
+          for name in "${EXPECTED[@]}"; do
+            id=$(jq -r --arg n "$name" '.result[]|select(.name==$n)|.uuid // .id' /tmp/d1-before.json)
+            [[ -n "$id" && "$id" != "null" ]] || { echo "D1_ID_MISSING:$name"; exit 44; }
+            if grep -Fq "$id" /tmp/all-worker-settings.txt || grep -Fq "$name" /tmp/all-worker-settings.txt; then
+              echo "D1_IS_BOUND_ABORT:$name"; exit 45
+            fi
+          done
+          for name in "${EXPECTED[@]}"; do
+            id=$(jq -r --arg n "$name" '.result[]|select(.name==$n)|.uuid // .id' /tmp/d1-before.json)
+            curl -fsS -X DELETE "${AUTH[@]}" "$API/d1/database/$id" | jq -e '.success==true' >/dev/null
+            echo "deleted=$name"
+          done
+          curl -fsS "${AUTH[@]}" "$API/d1/database?per_page=100" > /tmp/d1-after.json
+          jq -e '.success==true and (.result|type=="array")' /tmp/d1-after.json >/dev/null
+          AFTER=$(jq '.result|length' /tmp/d1-after.json)
+          for name in "${EXPECTED[@]}"; do
+            [[ "$(jq --arg n "$name" '[.result[]|select(.name==$n)]|length' /tmp/d1-after.json)" -eq 0 ]] || { echo "DELETE_READBACK_FAILED:$name"; exit 46; }
+          done
+          jq -e '[.result[].name]|index("pick-pack-1291-service-prod")!=null' /tmp/d1-after.json >/dev/null
+          jq -e '[.result[].name]|index("pick-pack-1291-primary")!=null' /tmp/d1-after.json >/dev/null
+          jq -n --argjson before "$BEFORE" --argjson after "$AFTER" --argjson deleted "$(jq -c '.approved_delete_names' "$REQ")"             '{status:"PASS",owner_approved:true,predelete_binding_check:"PASS",before_count:$before,after_count:$after,deleted_names:$deleted,beta_service_prod_preserved:true,primary_preserved:true}' > "$OUT"
+          cat "$OUT"
+
+      - uses: actions/upload-artifact@v4
+        if: ${{ always() && github.event_name == 'push' }}
+        with:
+          name: stable-d1-cleanup-${{ github.run_id }}
+          path: /tmp/stable-d1-cleanup-receipt.json
+          retention-days: 30
+          if-no-files-found: ignore
+
       - name: Release verifier regressions
         shell: bash
         run: |
