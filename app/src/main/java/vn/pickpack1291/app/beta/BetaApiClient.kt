@@ -337,6 +337,8 @@ class BetaApiClient(context: Context) {
                     requestMethod=method;connectTimeout=6_000;readTimeout=12_000
                     setRequestProperty("Accept","application/json")
                     setRequestProperty("Authorization","Bearer $bearer")
+                    setRequestProperty("X-Pick-Pack-Environment",BuildConfig.ENVIRONMENT_ID)
+                    setRequestProperty("X-Pick-Pack-Audience",BuildConfig.SERVICE_AUDIENCE)
                     if(method=="POST"){doOutput=true;setRequestProperty("Content-Type","application/json; charset=utf-8")}
                 }
                 if(method=="POST")conn!!.outputStream.use{it.write(body.toString().toByteArray(Charsets.UTF_8))}
@@ -390,6 +392,8 @@ class BetaApiClient(context: Context) {
         val body = JSONObject(payload.toString()).apply {
             put("_app_version", BuildConfig.VERSION_NAME)
             put("_app_channel", BuildConfig.CHANNEL)
+            put("_environment_id", BuildConfig.ENVIRONMENT_ID)
+            put("_service_audience", BuildConfig.SERVICE_AUDIENCE)
             put("_device_id", deviceId)
             put("_device_label", "${Build.MANUFACTURER} ${Build.MODEL}")
             if (authenticated) {
