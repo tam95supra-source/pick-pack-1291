@@ -8,6 +8,7 @@ ln -sfn "$(pwd)/migrations" "$OUT/migrations"
 SUFFIX=$(printf '%s' "${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}-$(date +%s)"|sha256sum|cut -c1-10)
 SRC="pp1291-rh-$SUFFIX-a";G2="pp1291-rh-$SUFFIX-b";G3="pp1291-rh-$SUFFIX-c"
 IDS=()
+CREATED_ID=""
 cleanup(){
   set +e
   for id in "${IDS[@]:-}";do
@@ -28,7 +29,8 @@ create_db(){
   id=$(sed -nE 's/.*database_id[[:space:]]*=[[:space:]]*"([0-9a-fA-F-]{36})".*/\1/p' "$out" | tail -n1)
   [[ -n "$id" ]] || id=$(grep -Eo '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}' "$out" | tail -n1 || true)
   [[ -n "$id" ]] || { cat "$out" >&2; echo "ROLLOVER_CREATE_FAILED:$name" >&2; exit 42; }
-  IDS+=("$id");printf '%s' "$id"
+  IDS+=("$id")
+  CREATED_ID="$id"
 }
 make_cfg(){
   local name="$1" id="$2" out="$3"
@@ -45,13 +47,13 @@ hash_probe(){
   npx wrangler d1 execute "$name" --remote --config "$cfg" --command "SELECT id,generation,payload FROM rollover_probe ORDER BY id;" --json |
     node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const c=require("crypto"),j=JSON.parse(s),r=j?.[0]?.results||[];process.stdout.write(c.createHash("sha256").update(JSON.stringify(r)).digest("hex"))})'
 }
-A_ID=$(create_db "$SRC" "$OUT/create-a.json");make_cfg "$SRC" "$A_ID" "$OUT/a.jsonc"
+create_db "$SRC" "$OUT/create-a.json";A_ID="$CREATED_ID";make_cfg "$SRC" "$A_ID" "$OUT/a.jsonc"
 npx wrangler d1 migrations apply "$SRC" --remote --config "$OUT/a.jsonc" >"$OUT/a-migrations.log"
 npx wrangler d1 execute "$SRC" --remote --config "$OUT/a.jsonc" --command "CREATE TABLE rollover_probe(id TEXT PRIMARY KEY,generation INTEGER NOT NULL,payload TEXT NOT NULL); INSERT INTO rollover_probe VALUES('e1',1,'alpha'),('e2',1,'beta'); UPDATE authority_state SET authority_epoch=901,authority_seq=2,mode='RECONCILING',scope='STAGING_SHADOW',service_generation='rollover-r1';" --json >"$OUT/a-seed.json"
 A_HASH=$(hash_probe "$SRC" "$OUT/a.jsonc")
 npx wrangler d1 export "$SRC" --remote --config "$OUT/a.jsonc" --output "$OUT/a.sql" --skip-confirmation >/dev/null
 
-B_ID=$(create_db "$G2" "$OUT/create-b.json");make_cfg "$G2" "$B_ID" "$OUT/b.jsonc"
+create_db "$G2" "$OUT/create-b.json";B_ID="$CREATED_ID";make_cfg "$G2" "$B_ID" "$OUT/b.jsonc"
 npx wrangler d1 execute "$G2" --remote --config "$OUT/b.jsonc" --file "$OUT/a.sql" >"$OUT/b-import.log"
 B_HASH=$(hash_probe "$G2" "$OUT/b.jsonc")
 [[ "$A_HASH" == "$B_HASH" ]] || { echo "ROLLOVER_1_CHECKSUM_MISMATCH" >&2; exit 43; }
@@ -61,7 +63,7 @@ npx wrangler d1 execute "$G2" --remote --config "$OUT/b.jsonc" --command "INSERT
 B2_HASH=$(hash_probe "$G2" "$OUT/b.jsonc")
 npx wrangler d1 export "$G2" --remote --config "$OUT/b.jsonc" --output "$OUT/b.sql" --skip-confirmation >/dev/null
 
-C_ID=$(create_db "$G3" "$OUT/create-c.json");make_cfg "$G3" "$C_ID" "$OUT/c.jsonc"
+create_db "$G3" "$OUT/create-c.json";C_ID="$CREATED_ID";make_cfg "$G3" "$C_ID" "$OUT/c.jsonc"
 npx wrangler d1 execute "$G3" --remote --config "$OUT/c.jsonc" --file "$OUT/b.sql" >"$OUT/c-import.log"
 C_HASH=$(hash_probe "$G3" "$OUT/c.jsonc")
 [[ "$B2_HASH" == "$C_HASH" ]] || { echo "ROLLOVER_2_CHECKSUM_MISMATCH" >&2; exit 44; }
