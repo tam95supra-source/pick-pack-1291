@@ -39,4 +39,5 @@
 - gas_cleanup_planned_delete_count: 160
 - gas_cleanup_planned_delete_range: 3..162
 - gas_cleanup_deleted_count: 0
-- next_action: OWNER_APPROVE_XOA_BATCH_160_THEN_DELETE_AND_RERUN_PUBLISH_EXACT_BETA99
+- gas_cleanup_delete_attempt: SAFE_FAILURE run 33295218728 API_DELETE_UNSUPPORTED
+- next_action: OWNER_NATIVE_BULK_DELETE_GAS_3_TO_162_THEN_RERUN_PUBLISH_EXACT_BETA99
