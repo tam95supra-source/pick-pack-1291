@@ -1,6 +1,6 @@
 {
   "stage": "PUBLISH",
-  "mode": "BETA101_PUBLISH_EXACT_LOCKED_BYTES_AFTER_FULL_PRE_OTA_PASS",
+  "mode": "BETA101_PUBLISH_RETRY_RECEIPT_DRIVEN_VERIFIER",
   "version_name": "0.4.2-beta.101",
   "version_code": 107,
   "base_version": "0.4.2-beta.100",
@@ -81,5 +81,7 @@
     "verify_artifact_name": "beta-verify-33309271079",
     "human_visual": "PASS",
     "back_api36": "PASS"
-  }
+  },
+  "publish_verifier_fast_check_run_id": 33310187636,
+  "publish_verifier_regression": "PASS"
 }
