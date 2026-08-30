@@ -1944,7 +1944,15 @@ class OperationsActivity : Activity() {
             val rows=holders.values.sortedWith(Comparator{a,b->naturalUserCompare(a.serial,b.serial)});if(rows.isEmpty()){listBox.addView(info(if(filter.isBlank())"Hiện không có PDA nào đang được sử dụng." else "Không có PDA đang dùng khớp 5 số cuối."));return@runOnUiThread}
             fun loadSession(h:Holder,done:(JSONObject,JSONObject)->Unit){api.call("employee_context",JSONObject().put("mnv",h.mnv).put("include_options",true)){r->runOnUiThread{if(handleAuth(r))return@runOnUiThread;if(!r.ok){showError(r.error?:"Không tải được phiên");return@runOnUiThread};val c=r.json?:JSONObject();val ses=c.optJSONObject("session")?:JSONObject();if(!c.optString("state").equals("ACTIVE",true)||!cleanPdaSerial(ses.optString("pda_serial")).equals(h.serial,true)){showError("PDA đã thay đổi người dùng hoặc phiên. Đồng bộ lại rồi thử lại.");foregroundSync.requestSync();refreshList(serialField.text.toString());return@runOnUiThread};done(c,ses)}}}
             fun mutate(h:Holder,ses:JSONObject,next:String,kind:String,why:String){
-                val p=JSONObject().put("session_id",ses.optString("session_id")).put("mnv",h.mnv).put("shift",ses.optString("shift")).put("work_choice",ses.optString("work_choice")).put("pda_serial",next).put("user_pick",ses.optString("user_pick")).put("pack_table",ses.optString("pack_table")).put("user_pack",ses.optString("user_pack")).put("resource_note",ses.optString("resource_note")).put("preserve_work_choice",true).put("mutation_kind","EDIT").put("audit_note","$kind PDA • $why").put("idempotency_key",UUID.randomUUID().toString())
+                val p=JSONObject()
+                PdaOnlyMutationPayload.fields(
+                    sessionId=ses.optString("session_id"),
+                    mnv=h.mnv,
+                    pdaSerial=next,
+                    kind=kind,
+                    reason=why,
+                    idempotencyKey=UUID.randomUUID().toString(),
+                ).forEach{(k,v)->p.put(k,v)}
                 api.call("session_work_update",p){x->runOnUiThread{
                     if(handleAuth(x))return@runOnUiThread
                     if(!x.ok){showError(x.error?:"Không cập nhật được PDA");return@runOnUiThread}
