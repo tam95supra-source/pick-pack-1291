@@ -1,0 +1,93 @@
+name: GAS Version Cleanup
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "DRY_RUN chỉ xem; DELETE mới xoá"
+        required: true
+        default: DRY_RUN
+        type: choice
+        options:
+          - DRY_RUN
+          - DELETE
+      keep_latest:
+        description: "Số version mới nhất luôn giữ lại (khuyến nghị 40)"
+        required: true
+        default: "40"
+        type: string
+      confirm:
+        description: "Khi DELETE nhập đúng: DELETE_UNREFERENCED_GAS_VERSIONS"
+        required: false
+        default: ""
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gas-version-cleanup-production
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    name: cleanup
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+      GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+      GOOGLE_OAUTH_REFRESH_TOKEN: ${{ secrets.GOOGLE_OAUTH_REFRESH_TOKEN }}
+      GAS_SCRIPT_ID: ${{ secrets.GAS_SCRIPT_ID }}
+      GAS_DEPLOYMENT_ID: ${{ secrets.GAS_DEPLOYMENT_ID }}
+      CLEANUP_ACTION: ${{ inputs.action }}
+      KEEP_LATEST: ${{ inputs.keep_latest }}
+      CLEANUP_CONFIRM: ${{ inputs.confirm }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate destructive intent
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$CLEANUP_ACTION" in
+            DRY_RUN) ;;
+            DELETE)
+              test "$CLEANUP_CONFIRM" = "DELETE_UNREFERENCED_GAS_VERSIONS" || {
+                echo "DELETE confirmation mismatch" >&2
+                exit 64
+              }
+              ;;
+            *) exit 65 ;;
+          esac
+
+      - name: Exchange Google OAuth token
+        shell: bash
+        run: |
+          set -euo pipefail
+          for n in GOOGLE_OAUTH_CLIENT_ID GOOGLE_OAUTH_CLIENT_SECRET GOOGLE_OAUTH_REFRESH_TOKEN GAS_SCRIPT_ID GAS_DEPLOYMENT_ID; do
+            test -n "${!n:-}"
+          done
+          TOKEN_JSON=$(curl -fsS --connect-timeout 15 --max-time 30 https://oauth2.googleapis.com/token \
+            --data-urlencode "client_id=$GOOGLE_OAUTH_CLIENT_ID" \
+            --data-urlencode "client_secret=$GOOGLE_OAUTH_CLIENT_SECRET" \
+            --data-urlencode "refresh_token=$GOOGLE_OAUTH_REFRESH_TOKEN" \
+            --data-urlencode grant_type=refresh_token)
+          ACCESS_TOKEN=$(jq -r '.access_token//empty' <<<"$TOKEN_JSON")
+          test -n "$ACCESS_TOKEN"
+          echo "::add-mask::$ACCESS_TOKEN"
+          printf 'ACCESS_TOKEN=%s\n' "$ACCESS_TOKEN" >> "$GITHUB_ENV"
+
+      - name: Cleanup unreferenced Apps Script versions
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/gas_version_cleanup.py /tmp/gas-version-cleanup/receipt.json
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gas-version-cleanup-${{ github.run_id }}
+          path: /tmp/gas-version-cleanup
+          retention-days: 90
+          if-no-files-found: error
