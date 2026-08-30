@@ -724,8 +724,14 @@ function ppSyncStatus_(){return {ok:true,business_date:ppBusinessIso_(),server_s
 function ppDiagnosticLog_(auth,body) {
   const eventId=String(body.event_id||'').trim(); if(!eventId)return {ok:false,error:'EVENT_ID_REQUIRED'};
   const type=String(body.log_type||'').trim().toUpperCase();
-  const map={MANUAL:{id:PP.LOG_MANUAL_FOLDER_ID,prefix:'manual'},CRASH:{id:PP.LOG_CRASH_FOLDER_ID,prefix:'crash'},DAILY:{id:PP.LOG_ANDROID_FOLDER_ID,prefix:'android-daily'}};
+  const props=PropertiesService.getScriptProperties(),stable=ppEnvironmentId_()==='STABLE';
+  const map=stable?{
+    MANUAL:{id:String(props.getProperty('PP_LOG_MANUAL_FOLDER_ID')||''),prefix:'stable-manual'},
+    CRASH:{id:String(props.getProperty('PP_LOG_CRASH_FOLDER_ID')||''),prefix:'stable-crash'},
+    DAILY:{id:String(props.getProperty('PP_LOG_ANDROID_FOLDER_ID')||''),prefix:'stable-android-daily'}
+  }:{MANUAL:{id:PP.LOG_MANUAL_FOLDER_ID,prefix:'manual'},CRASH:{id:PP.LOG_CRASH_FOLDER_ID,prefix:'crash'},DAILY:{id:PP.LOG_ANDROID_FOLDER_ID,prefix:'android-daily'}};
   const target=map[type]; if(!target)return {ok:false,error:'LOG_TYPE_INVALID'};
+  if(!target.id)return {ok:false,error:'ENV_LOG_TARGET_NOT_CONFIGURED'};
   const raw=JSON.stringify({event_id:eventId,log_type:type,at:ppNowIso_(),login_id:auth.login_id,role:auth.role,channel:body.channel||body._app_channel||'',app_version:body.app_version||body._app_version||'',payload:body.payload||{}});
   if(raw.length>80000)return {ok:false,error:'LOG_TOO_LARGE'};
   DriveApp.getFolderById(target.id).createFile(target.prefix+'-'+Utilities.formatDate(new Date(),PP.TZ,'yyyyMMdd-HHmmss')+'-'+eventId+'.json',raw,MimeType.PLAIN_TEXT);
@@ -1067,7 +1073,7 @@ function ppEmergencySanitize_(v){
   const o={};Object.keys(v).forEach(function(k){const f=String(k).toLowerCase();if(/password|secret|token|signing|api.?key|credential|verifier|proof/.test(f))return;o[k]=ppEmergencySanitize_(v[k]);});return o;
 }
 function ppEmergencyIndex_(){
-  const ss=SpreadsheetApp.openById(PP.SHEET_ID),name='EMERGENCY EVENT INDEX';
+  const ss=ppSs_(),name='EMERGENCY EVENT INDEX';
   let sh=ss.getSheetByName(name);if(!sh)sh=ss.insertSheet(name);
   if(sh.getLastRow()===0||String(sh.getRange(1,1).getValue())!=='event_id')sh.getRange(1,1,1,PP_EMERGENCY_INDEX_HEADERS.length).setValues([PP_EMERGENCY_INDEX_HEADERS]);
   return sh;
@@ -1079,7 +1085,7 @@ function ppEmergencyPartitionName_(businessDate,receivedAt){
   return 'EMERGENCY LEDGER '+ym;
 }
 function ppEmergencyPartition_(name){
-  const ss=SpreadsheetApp.openById(PP.SHEET_ID);let sh=ss.getSheetByName(name);if(!sh)sh=ss.insertSheet(name);
+  const ss=ppSs_();let sh=ss.getSheetByName(name);if(!sh)sh=ss.insertSheet(name);
   if(sh.getLastRow()===0||String(sh.getRange(1,1).getValue())!=='event_id')sh.getRange(1,1,1,PP_EMERGENCY_HEADERS.length).setValues([PP_EMERGENCY_HEADERS]);
   return sh;
 }
@@ -1093,7 +1099,7 @@ function ppEmergencyHousekeeping_(){
   const props=PropertiesService.getScriptProperties(),today=Utilities.formatDate(new Date(),'Asia/Bangkok','yyyy-MM-dd');
   if(props.getProperty('PP_EMERGENCY_SWEEP_DATE')===today)return;
   props.setProperty('PP_EMERGENCY_SWEEP_DATE',today);
-  const ss=SpreadsheetApp.openById(PP.SHEET_ID),idx=ppEmergencyIndex_();if(idx.getLastRow()<2)return;
+  const ss=ppSs_(),idx=ppEmergencyIndex_();if(idx.getLastRow()<2)return;
   const rows=idx.getRange(2,1,idx.getLastRow()-1,PP_EMERGENCY_INDEX_HEADERS.length).getDisplayValues();
   const bySheet={};rows.forEach(function(v){const name=String(v[1]||'');if(!/^EMERGENCY LEDGER \d{6}$/.test(name))return;(bySheet[name]||(bySheet[name]=[])).push(v);});
   const cutoff=new Date(Date.now()-60*86400000),remove={};
@@ -1136,7 +1142,7 @@ function ppEmergencyLedgerCapture_(auth,body){
 function ppEmergencyLedgerFinalize_(auth,body){
   const items=Array.isArray(body.items)?body.items:[],lock=LockService.getScriptLock();lock.waitLock(10000);
   try{
-    const idx=ppEmergencyIndex_(),existing=ppEmergencyIndexMap_(idx),ss=SpreadsheetApp.openById(PP.SHEET_ID),now=ppNowIso_(),out=[];
+    const idx=ppEmergencyIndex_(),existing=ppEmergencyIndexMap_(idx),ss=ppSs_(),now=ppNowIso_(),out=[];
     items.slice(0,100).forEach(function(x){
       const id=String((x||{}).event_id||''),hit=existing[id];if(!hit||!hit.sheet_name||!hit.row_no)return;
       if(String(auth.role)!=='SUPERADMIN'&&hit.actor&&hit.actor!==String(auth.login_id||'')&&hit.actor!==String((x||{}).actor_mnv||''))return;
@@ -1154,7 +1160,7 @@ function ppEmergencyLedgerFinalize_(auth,body){
   }finally{lock.releaseLock();}
 }
 function ppEmergencyLedgerQuery_(auth,body){
-  const ids=Array.isArray(body.event_ids)?body.event_ids.map(String):[],idx=ppEmergencyIndex_(),existing=ppEmergencyIndexMap_(idx),ss=SpreadsheetApp.openById(PP.SHEET_ID),out=[];
+  const ids=Array.isArray(body.event_ids)?body.event_ids.map(String):[],idx=ppEmergencyIndex_(),existing=ppEmergencyIndexMap_(idx),ss=ppSs_(),out=[];
   ids.slice(0,100).forEach(function(id){
     const hit=existing[id];if(!hit||!hit.sheet_name||!hit.row_no)return;if(String(auth.role)!=='SUPERADMIN'&&hit.actor&&hit.actor!==String(auth.login_id||''))return;
     const sh=ss.getSheetByName(hit.sheet_name);if(!sh)return;const v=sh.getRange(Number(hit.row_no),1,1,PP_EMERGENCY_HEADERS.length).getDisplayValues()[0];if(String(v[0]||'')!==id)return;
@@ -1166,7 +1172,7 @@ function ppEmergencyLedgerQuery_(auth,body){
 
 // === RESILIENCE_V1 LAN AUTHORITY FENCING ===
 function ppLanSheet_(name,headers){
-  const ss=SpreadsheetApp.openById(PP.SHEET_ID);let sh=ss.getSheetByName(name);
+  const ss=ppSs_();let sh=ss.getSheetByName(name);
   if(!sh)sh=ss.insertSheet(name);
   if(sh.getLastRow()===0||String(sh.getRange(1,1).getValue())!==String(headers[0]))sh.getRange(1,1,1,headers.length).setValues([headers]);
   return sh;
