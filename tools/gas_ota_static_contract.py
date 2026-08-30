@@ -5,7 +5,9 @@ import json
 import os
 import sys
 import urllib.error
+import urllib.parse
 import urllib.request
+import time
 from pathlib import Path
 
 API = "https://script.googleapis.com/v1/projects"
@@ -116,6 +118,121 @@ def contract_function(args):
 }}"""
 
 
+
+def paged_versions(script_id, token):
+    out = []
+    page = ""
+    while True:
+        url = f"{API}/{script_id}/versions?pageSize=50"
+        if page:
+            url += "&pageToken=" + urllib.parse.quote(page, safe="")
+        data = req(url, token)
+        out.extend(data.get("versions") or [])
+        page = str(data.get("nextPageToken") or "")
+        if not page:
+            return out
+
+
+def content_matches_function(files, marker, replacement):
+    found = []
+    for file in files or []:
+        if file.get("type") != "SERVER_JS":
+            continue
+        source = file.get("source", "")
+        if marker not in source:
+            continue
+        updated = replace_function(source, marker, replacement)
+        if updated == source:
+            found.append(file.get("name", ""))
+    return len(found) == 1
+
+
+def find_matching_version(script_id, token, versions, marker, replacement, limit=20, fetch_content=None):
+    nums = sorted(
+        (v.get("versionNumber") for v in versions if isinstance(v.get("versionNumber"), int)),
+        reverse=True,
+    )
+    if fetch_content is None:
+        fetch_content = lambda n: req(f"{API}/{script_id}/content?versionNumber={n}", token)
+    for number in nums[:limit]:
+        project = fetch_content(number)
+        if content_matches_function(project.get("files") or [], marker, replacement):
+            return number
+    return None
+
+
+def wait_deployment_version(
+    script_id,
+    deployment_id,
+    token,
+    expected,
+    attempts=12,
+    sleep_fn=time.sleep,
+    fetch_fn=req,
+):
+    last = None
+    for attempt in range(attempts):
+        deployment = fetch_fn(f"{API}/{script_id}/deployments/{deployment_id}", token)
+        value = ((deployment.get("deploymentConfig") or {}).get("versionNumber"))
+        last = value
+        if isinstance(value, int) and value == expected:
+            return deployment
+        if attempt + 1 < attempts:
+            sleep_fn(min(2 + attempt * 2, 10))
+    raise RuntimeError(
+        f"deployment version readback mismatch after retry: expected {expected}, got {last}"
+    )
+
+
+def self_test():
+    marker = "function ppUpdateCheck_(body)"
+    target = "function ppUpdateCheck_(body) {\n  return {ok:true,target:'beta98'};\n}"
+    base = "function ppUpdateCheck_(body) {\n  return {ok:true,target:'beta97'};\n}"
+    versions = [{"versionNumber": 200}, {"versionNumber": 201}, {"versionNumber": 202}]
+    contents = {
+        200: {"files": [{"name": "api", "type": "SERVER_JS", "source": "x\n" + base + "\ny"}]},
+        201: {"files": [{"name": "api", "type": "SERVER_JS", "source": "x\n" + target + "\ny"}]},
+        202: {"files": [{"name": "api", "type": "SERVER_JS", "source": "x\n" + base + "\ny"}]},
+    }
+    matched = find_matching_version(
+        "script",
+        "token",
+        versions,
+        marker,
+        target,
+        fetch_content=lambda n: contents[n],
+    )
+    if matched != 201:
+        raise RuntimeError(f"self-test exact version reuse failed: {matched}")
+
+    reads = iter([200, 200, 201])
+    calls = []
+
+    def fake_fetch(url, token):
+        value = next(reads)
+        calls.append(value)
+        return {"deploymentConfig": {"versionNumber": value}}
+
+    deployment = wait_deployment_version(
+        "script",
+        "deployment",
+        "token",
+        201,
+        attempts=3,
+        sleep_fn=lambda _: None,
+        fetch_fn=fake_fetch,
+    )
+    if deployment["deploymentConfig"]["versionNumber"] != 201 or calls != [200, 200, 201]:
+        raise RuntimeError("self-test deployment eventual-consistency retry failed")
+
+    print(json.dumps({
+        "status": "PASS",
+        "self_test": "GAS_DEPLOYMENT_EVENTUAL_CONSISTENCY_AND_VERSION_REUSE",
+        "matched_version": matched,
+        "readback_sequence": calls,
+    }))
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--version", required=True)
@@ -180,14 +297,33 @@ def main():
     if len(changed) != 1:
         raise RuntimeError(f"expected exactly one ppUpdateCheck_, found {len(changed)} in {changed}")
 
-    req(f"{API}/{script_id}/content", token, "PUT", {"files": put_files})
-    version = req(
-        f"{API}/{script_id}/versions",
-        token,
-        "POST",
-        {"description": args.description},
+    versions = paged_versions(script_id, token)
+    version_numbers = sorted(
+        v.get("versionNumber") for v in versions if isinstance(v.get("versionNumber"), int)
     )
-    version_number = int(version["versionNumber"])
+    matching_version = find_matching_version(
+        script_id, token, versions, marker, replacement
+    )
+    reused_existing_version = matching_version is not None
+
+    if matching_version is None and len(version_numbers) >= 200:
+        raise RuntimeError(
+            "GAS version limit reached and no exact matching target version is reusable"
+        )
+
+    req(f"{API}/{script_id}/content", token, "PUT", {"files": put_files})
+
+    if matching_version is not None:
+        version_number = int(matching_version)
+    else:
+        version = req(
+            f"{API}/{script_id}/versions",
+            token,
+            "POST",
+            {"description": args.description},
+        )
+        version_number = int(version["versionNumber"])
+
     payload = {
         "deploymentConfig": {
             "scriptId": script_id,
@@ -196,13 +332,16 @@ def main():
             "description": args.description,
         }
     }
-    req(f"{API}/{script_id}/deployments/{deployment_id}", token, "PUT", payload)
-    deployment = req(f"{API}/{script_id}/deployments/{deployment_id}", token)
-    deployed_version = int(deployment["deploymentConfig"]["versionNumber"])
-    if deployed_version != version_number:
-        raise RuntimeError(
-            f"deployment version readback mismatch: expected {version_number}, got {deployed_version}"
+    current_deployment = req(f"{API}/{script_id}/deployments/{deployment_id}", token)
+    current_version = int(current_deployment["deploymentConfig"]["versionNumber"])
+    if current_version != version_number:
+        req(f"{API}/{script_id}/deployments/{deployment_id}", token, "PUT", payload)
+        deployment = wait_deployment_version(
+            script_id, deployment_id, token, version_number
         )
+    else:
+        deployment = current_deployment
+    deployed_version = int(deployment["deploymentConfig"]["versionNumber"])
 
     output = {
         "status": "PASS",
@@ -210,6 +349,7 @@ def main():
         "changed_file": changed[0],
         "deployment_version": version_number,
         "deployment_readback_version": deployed_version,
+        "reused_existing_version": reused_existing_version,
         "version_name": args.version,
         "version_code": args.version_code,
         "package": args.package,
@@ -249,7 +389,10 @@ def main():
 
 if __name__ == "__main__":
     try:
-        main()
+        if sys.argv[1:] == ["--self-test"]:
+            self_test()
+        else:
+            main()
     except Exception as exc:
         print(f"GAS_OTA_CONTRACT_ERROR: {exc}", file=sys.stderr)
         sys.exit(1)
