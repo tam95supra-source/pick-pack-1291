@@ -32,8 +32,8 @@ android {
         create("beta") {
             dimension = "channel"
             applicationId = "vn.pickpack1291.app.beta.publicbeta"
-            versionCode = 107
-            versionName = "0.4.2-beta.101"
+            versionCode = 108
+            versionName = "0.4.2-beta.102"
             manifestPlaceholders["appLabel"] = "Pick Pack 1291 Beta"
             buildConfigField("String", "CHANNEL", "\"BETA\"")
             buildConfigField("String", "ENVIRONMENT_ID", "\"BETA\"")
@@ -92,7 +92,7 @@ dependencies {
 // Firebase client identifiers are injected at build time and default blank so source never contains project config.
 // GSHEET_API_URL remains public discovery/fallback configuration and manual update lookup path; no Service URL is compiled into APK.
 // Signing material remains outside this repository and the Android signer is owner-locked.
-// Beta101: bordered resilience choices, explicit stop/recover control, readable persistent test-history cards, and full test history in manual diagnostics. Stable remains isolated and unchanged.
+// Beta102: environment/audience fencing across HTTP + GAS fallback and env-scoped LAN/NSD for Beta/Stable isolation. Stable remains READY_NOT_LIVE.
 // Beta100: isolated resilience test center + professional clickable Network/Sync/Service details; manual Sync Now retained inside Sync detail. Stable remains isolated and unchanged.
 // Beta99: PDA-only change/return preserves unrelated Service-authoritative resources; SUPERADMIN fault injection has deterministic non-business probe evidence + auto recovery. Stable remains isolated and unchanged.
 // Beta98: exact current-session PDA exit authority; missing resource snapshot resolves by session_id and legacy pda_serial is ignored. Stable remains isolated and unchanged.\n// Beta97: fix post-meal current-day session eligibility, persistent status header, home attendance warning, and History role visibility; preserves QR core behavior. Stable remains isolated and unchanged.
