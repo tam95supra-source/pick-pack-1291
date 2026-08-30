@@ -122,8 +122,7 @@ def main():
 
     deleted = []
     if action == "DELETE":
-        if confirm != CONFIRM_TEXT:
-            raise RuntimeError(f"DELETE_CONFIRM_REQUIRED:{CONFIRM_TEXT}")
+        raise RuntimeError("APPS_SCRIPT_API_VERSION_DELETE_UNSUPPORTED_USE_PROJECT_HISTORY_BULK_DELETE_UI")
         for number in candidates:
             # Fresh deployment readback immediately before each destructive deletion.
             _, live_refs, live_current, _ = inventory(sid, token, dep)
