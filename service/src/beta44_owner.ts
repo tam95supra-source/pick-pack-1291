@@ -1,6 +1,7 @@
 import { authenticate } from "./auth";
 import { commitAdminAudit } from "./admin_audit";
 import { apiError, json, nowIso } from "./util";
+import { isStableEnvironment, stableSheetBridge } from "./stable_sheet_bridge";
 
 interface GoogleToken { access_token?:string; error?:string; }
 function roleVi(role:string):string{return role==="SUPERADMIN"?"Quản trị cao nhất":role==="ADMIN"?"Quản trị":"Người dùng";}
@@ -11,6 +12,7 @@ async function googleAccessToken(env:Env):Promise<string>{
   const r=await fetch("https://oauth2.googleapis.com/token",{method:"POST",headers:{"content-type":"application/x-www-form-urlencoded"},body});const j=await r.json<GoogleToken>();if(!r.ok||!j.access_token)throw new Error(`GOOGLE_OAUTH:${j.error??r.status}`);return j.access_token;
 }
 async function clearAdminRow(env:Env,row:number):Promise<void>{
+  if(isStableEnvironment(env)){await stableSheetBridge(env,"primary","put_values",{sheet:"Danh sách Admin",range:`A${row}:K${row}`,values:[Array(11).fill("")]});return;}
   const token=await googleAccessToken(env),range=`'Danh sách Admin'!A${row}:K${row}`,url=`https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(env.GOOGLE_SOURCE_SHEET_ID)}/values/${encodeURIComponent(range)}:clear`;
   const r=await fetch(url,{method:"POST",headers:{authorization:`Bearer ${token}`,"content-type":"application/json"},body:"{}"});if(!r.ok)throw new Error(`GOOGLE_ACCOUNT_CLEAR:${r.status}`);
 }
