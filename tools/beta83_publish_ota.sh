@@ -44,9 +44,13 @@ jq -e --arg v "$VERSION" --arg h "$SHA" --argjson z "$SIZE" '
   .history_hidden_user==true and .history_deeplink_blocked_user==true and .status_header_meal==true and
   .qr_local_fast_path==true and .root_back_stays==true and .employee_ui_no_background_reset==true and
   .authoritative_resource_options==true and .timeline_newest_first==true and .hhmm_edit_confirmation==true and
-  .functional_size=="320x568" and .screenshot_count==26 and
-  ((.visual_sizes|sort)==(["320x568","360x640","480x800"]|sort))
+  .functional_size=="320x568" and .human_inspection_required==true
 ' "$VERIFY" >/dev/null
+
+python3 tools/verify_beta_visual_receipt.py \
+  --receipt "$VERIFY" \
+  --evidence-dir "$(dirname "$VERIFY")" \
+  --request "$R" > "$E/visual-receipt-verify.json"
 
 jq -e --arg v "$PREV" --arg source "$BASE_SOURCE" --arg h "$BASE_SHA" --argjson z "$BASE_SIZE" --arg signer "$SIGNER" '
   .status=="PASS" and .version_name==$v and .source_sha==$source and .apk_sha256==$h and .apk_size==$z and
