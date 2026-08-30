@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "contract_id": "pick-pack-1291-beta-stable-v1",
+  "owner_decision_date": "2026-08-30",
+  "repository": "tam95supra-source/pick-pack-1291",
+  "environments": {
+    "BETA": {
+      "lifecycle": "LIVE",
+      "application_id": "vn.pickpack1291.app.beta.publicbeta",
+      "release_channel": "BETA",
+      "target_web_origin": "https://beta.pickpack1291.cc.cd",
+      "current_service": {
+        "worker": "pickpack",
+        "url": "https://pickpack.1291.workers.dev",
+        "authority_mode": "SERVICE_PRIMARY",
+        "authority_scope": "PRODUCTION",
+        "generation": "m2-prod-reset-20260823-001",
+        "d1_database": "pick-pack-1291-service-prod"
+      },
+      "gsheet": {
+        "spreadsheet_id": "1E7ZWz-4eMcBliQxDYBVoogIoeSYyiaXGwj0I6mbMm78",
+        "title": "DỮ LIỆU THEO NGÀY"
+      },
+      "environment_id": "BETA",
+      "service_audience": "PICK_PACK_1291_BETA",
+      "lan_service_type": "_pp1291b._tcp.",
+      "ota_channel": "BETA",
+      "stable_publish_allowed": false
+    },
+    "STABLE": {
+      "lifecycle": "PROVISIONING",
+      "application_id": "vn.pickpack1291.app.stable",
+      "release_channel": "STABLE",
+      "target_web_origin": "https://pickpack1291.cc.cd",
+      "current_service": null,
+      "gsheet": null,
+      "environment_id": "STABLE",
+      "service_audience": "PICK_PACK_1291_STABLE",
+      "lan_service_type": "_pp1291s._tcp.",
+      "ota_channel": "STABLE",
+      "stable_publish_allowed": false
+    }
+  },
+  "cross_environment": {
+    "automatic_write": "FORBIDDEN",
+    "fallback": "FORBIDDEN",
+    "ota_manifest_sharing": "FORBIDDEN",
+    "auth_dataset_sharing": "FORBIDDEN",
+    "session_sharing": "FORBIDDEN",
+    "lan_discovery_sharing": "FORBIDDEN",
+    "mutable_state_sharing": "FORBIDDEN"
+  }
+}
