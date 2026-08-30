@@ -4,7 +4,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-// Beta100 full Android gate anchor v2: includes final status-detail harness compatibility.
+// Beta101 full Android gate anchor: stop/recover semantics + readable history/log contract.
 class ResilienceTestScenarioTest {
     @Test fun catalogCoversOwnerFailureDomains(){
         val codes=ResilienceTestScenario.entries.map{it.code}.toSet()
@@ -24,6 +24,11 @@ class ResilienceTestScenarioTest {
             assertTrue(it.description.length>=20)
             assertTrue(it.expected.length>=20)
         }
+    }
+
+    @Test fun cancellationHasOwnerFacingStatusAndRecoveryStage(){
+        assertEquals("ĐÃ DỪNG",ResilienceTestCenter.resultVi("CANCELLED"))
+        assertTrue(ResilienceTestCenter.stageVi("STOPPED_BY_OWNER").contains("trạng thái vận hành bình thường"))
     }
 
     @Test fun localOnlyScenarioExplicitlyExcludesRemotePaths(){
