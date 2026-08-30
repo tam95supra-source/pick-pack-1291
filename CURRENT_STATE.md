@@ -26,10 +26,10 @@
 - stable: unchanged
 - main_sha: 021dac5c6932b3ac5c60ce8fdba562ddf3d9688f
 - authority: SERVICE_PRIMARY / PRODUCTION / epoch 9 / generation m2-prod-reset-20260823-001
-- next_action: WAIT_FOR_OWNER_BETA101_ITEM_6_RETEST_AFTER_GAS206
+- next_action: WAIT_FOR_OWNER_NEW_SCOPE
 
 - publish_verifier_fast_check: PASS run 33310187636 (receipt-driven screenshot evidence; legacy 26 + Beta101 35 + negative regressions)
-- owner_acceptance_item_6: NOT_OK_2026-08-30_RETEST_REQUIRED
+- owner_acceptance_item_6: DEFERRED_BY_OWNER_2026-08-30
 
 - owner_manual_resilience_log: manual-20260830-201252-c8f14b0b-884c-4be0-ae4c-6fb45b299c7f.json
 - gas_resilience_readback_before: FAIL run 33313877854; deployment 205 missing emergency-ledger + LAN routes/functions
@@ -38,3 +38,6 @@
 - gas_resilience_deployment: 206
 - release_pipeline_gas_contract_guard: PASS Fast Check run 33314181358
 - resilience_test_fidelity: NORMAL service = live path; Google fallback = safe live path drill after GAS206; device/offline/local cases = isolated simulation + real recovery, not physical outage; LAN = requires real active multi-device topology
+
+- infra_resilience_priority: DEFERRED_NON_BLOCKING_BY_OWNER
+- infra_resilience_resume_condition: OWNER_REOPENS_SCOPE
