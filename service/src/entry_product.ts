@@ -63,8 +63,13 @@ async function broadcastCatalogRevision(env:Env):Promise<void>{
 
 export default {
   async fetch(request:Request,env:Env,ctx:ExecutionContext):Promise<Response>{
+    const pre=new URL(request.url);
+    if(pre.pathname==="/environment.json"&&request.method.toUpperCase()==="GET"){
+      const environmentId=String(env.ENVIRONMENT_ID||"BETA").toUpperCase(),serviceAudience=String(env.SERVICE_AUDIENCE||(environmentId==="STABLE"?"PICK_PACK_1291_STABLE":"PICK_PACK_1291_BETA"));
+      return json({ok:true,environment_id:environmentId,service_audience:serviceAudience,release_channel:environmentId,target_origin:environmentId==="STABLE"?"https://pickpack1291.cc.cd":"https://beta.pickpack1291.cc.cd"});
+    }
     const fence=environmentFence(request,env);if(fence)return fence;
-    const u=new URL(request.url),method=request.method.toUpperCase();
+    const u=pre,method=request.method.toUpperCase();
     if(u.pathname==="/v1/auth/gas-session"&&method==="POST")return exchangeGasSession(request,env);
     if(u.pathname==="/v1/mobile/read"&&method==="POST")return mobileRead(request,env);
     if(u.pathname==="/v1/admin/business-dates"&&method==="GET")return historicalBusinessDates(request,env);
