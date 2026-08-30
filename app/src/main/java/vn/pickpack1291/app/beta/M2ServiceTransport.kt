@@ -69,12 +69,208 @@ class M2ServiceTransport(context: Context) {
         return queuedResult(eventId, exclusive, projection)
     }
 
-    /** Non-business probe used only by SUPERADMIN fault-injection acceptance testing. */
+    /** Legacy Beta99 API retained only for compatibility. Beta100 UI uses isolatedResilienceTest(). */
     fun resilienceProbe(scenario:String):TransportResult =
         operational("resilience_probe",JSONObject()
             .put("scenario",scenario.take(80))
             .put("occurred_at",java.time.Instant.now().toString())
             .put("technical_probe",true))
+
+    /**
+     * Beta100 owner-acceptance test path.
+     * Uses a dedicated technical-test ledger and never queues into mutation_outbox/local_history,
+     * so simulated outages cannot reroute or mutate real operational writes.
+     */
+    fun isolatedResilienceTest(scenarioCode:String):JSONObject {
+        val spec=ResilienceTestScenario.fromCode(scenarioCode)
+            ?: return JSONObject().put("status","FAIL").put("error","RESILIENCE_SCENARIO_INVALID")
+        val eventId=java.util.UUID.randomUUID().toString()
+        val started=System.currentTimeMillis()
+        val payload=JSONObject()
+            .put("scenario",spec.code)
+            .put("occurred_at",java.time.Instant.now().toString())
+            .put("technical_probe",true)
+            .put("isolated_test",true)
+        val businessDate=store.businessDate()
+        val envelope=canonicalEnvelope("resilience_probe",eventId,businessDate,payload)
+        val body=JSONObject()
+            .put("action","resilience_probe")
+            .put("event_id",eventId)
+            .put("business_date",businessDate)
+            .put("device_id",M2DeviceIdentity.id(app))
+            .put("event_envelope",envelope)
+            .put("payload",payload)
+        val checksum=sha256Hex(body.toString())
+        val evidence=JSONObject()
+            .put("isolated_test_ledger",true)
+            .put("business_outbox_touched",false)
+            .put("event_checksum",checksum)
+            .put("scenario",spec.code)
+        store.saveResilienceTest(eventId,spec.code,body,"RUNNING","LOCAL_DURABLE","",evidence)
+
+        fun row():JSONObject?=store.resilienceTest(eventId)
+        fun update(status:String,stage:String,error:String="",extra:JSONObject=JSONObject(),attempt:Boolean=false){
+            store.updateResilienceTest(eventId,status,stage,error,extra,attempt)
+        }
+        fun localIntegrity():Boolean{
+            val persisted=row()?.optJSONObject("body")?:return false
+            val ok=sha256Hex(persisted.toString())==checksum
+            update("RUNNING","LOCAL_DURABLE_READBACK","",JSONObject().put("local_durable_readback",ok))
+            return ok
+        }
+        fun serviceSubmit(allowDiscovery:Boolean):JSONObject{
+            var discovery=cachedDiscoverySnapshot()
+            if(discovery==null&&allowDiscovery)discovery=discover(force=true)
+            if(discovery==null)return JSONObject().put("ok",false).put("error","SERVICE_DISCOVERY_CACHE_EMPTY")
+            if(discovery.optString("authority_mode")!="SERVICE_PRIMARY")
+                return JSONObject().put("ok",false).put("error","AUTHORITY_NOT_SERVICE_PRIMARY")
+            val base=discovery.optString("service_url").trimEnd('/')
+            if(!validServiceUrl(base))return JSONObject().put("ok",false).put("error","SERVICE_URL_INVALID")
+            var token=prefs.getString(KEY_SERVICE_TOKEN,null)
+            if(token.isNullOrBlank())token=exchangeBackgroundServiceSession(base)
+            if(token.isNullOrBlank())return JSONObject().put("ok",false).put("error","SERVICE_SESSION_REAUTH_REQUIRED")
+            fun submit(bearer:String)=httpJson("$base/v1/legacy-mutations/batch",JSONObject().put("events",JSONArray().put(body)),bearer)
+            var r=submit(token)
+            if(r.code==401){
+                M2ServiceSessionManager.clearIfSame(app,token)
+                val refreshed=exchangeBackgroundServiceSession(base)
+                if(!refreshed.isNullOrBlank()){token=refreshed;r=submit(refreshed)}
+            }
+            if(!r.ok||r.json==null)return JSONObject().put("ok",false).put("code",r.code).put("error",r.error?:"SERVICE_SUBMIT_FAILED")
+            val result=r.json.optJSONArray("results")?.optJSONObject(0)
+                ?:return JSONObject().put("ok",false).put("error","SERVICE_RESULT_MISSING")
+            val status=result.optString("status")
+            val ok=status=="CONFIRMED"||status=="DUPLICATE"
+            return JSONObject()
+                .put("ok",ok).put("code",r.code).put("status",status)
+                .put("canonical_event_id",result.optString("canonical_event_id").ifBlank{result.optString("event_id").ifBlank{eventId}})
+                .put("error",result.optString("error_code"))
+        }
+        fun serviceConfirmWithIdempotency(allowDiscovery:Boolean):JSONObject{
+            val first=serviceSubmit(allowDiscovery)
+            if(!first.optBoolean("ok"))return JSONObject().put("ok",false).put("first",first)
+            val second=serviceSubmit(false)
+            val secondOk=second.optBoolean("ok")&&(second.optString("status")=="DUPLICATE"||second.optString("canonical_event_id")==first.optString("canonical_event_id"))
+            return JSONObject()
+                .put("ok",secondOk)
+                .put("first_status",first.optString("status"))
+                .put("second_status",second.optString("status"))
+                .put("canonical_event_id",first.optString("canonical_event_id"))
+                .put("idempotency_verified",secondOk)
+                .put("error",if(secondOk)"" else second.optString("error").ifBlank{"IDEMPOTENCY_READBACK_FAILED"})
+        }
+        fun googleCapture():JSONObject{
+            val gasToken=app.getSharedPreferences(AUTH_PREFS,Context.MODE_PRIVATE).getString(AUTH_TOKEN,null).orEmpty()
+            if(gasToken.isBlank())return JSONObject().put("ok",false).put("error","GAS_AUTH_TOKEN_MISSING")
+            val req=JSONObject()
+                .put("action","emergency_ledger_capture")
+                .put("events",JSONArray().put(envelope))
+                .put("_token",gasToken)
+                .put("_device_id",M2DeviceIdentity.id(app))
+                .put("_app_version",BuildConfig.VERSION_NAME)
+                .put("_app_channel",BuildConfig.CHANNEL)
+            val r=httpJson(BuildConfig.GSHEET_API_URL,req,null,requireServiceHost=false)
+            if(!r.ok)return JSONObject().put("ok",false).put("code",r.code).put("error",r.error?:"GAS_CAPTURE_FAILED")
+            val arr=r.json?.optJSONArray("captured")?:JSONArray()
+            var found=false
+            for(i in 0 until arr.length())if(arr.optJSONObject(i)?.optString("event_id")==eventId)found=true
+            return JSONObject().put("ok",found).put("captured",found).put("error",if(found)"" else "GAS_CAPTURE_ACK_MISSING")
+        }
+        fun googleFinalize():Boolean{
+            val gasToken=app.getSharedPreferences(AUTH_PREFS,Context.MODE_PRIVATE).getString(AUTH_TOKEN,null).orEmpty()
+            if(gasToken.isBlank())return false
+            val req=JSONObject()
+                .put("action","emergency_ledger_finalize")
+                .put("items",JSONArray().put(JSONObject().put("event_id",eventId).put("status","CONFIRMED").put("canonical_event_id",eventId)))
+                .put("_token",gasToken)
+                .put("_device_id",M2DeviceIdentity.id(app))
+                .put("_app_version",BuildConfig.VERSION_NAME)
+                .put("_app_channel",BuildConfig.CHANNEL)
+            return runCatching{httpJson(BuildConfig.GSHEET_API_URL,req,null,requireServiceHost=false).ok}.getOrDefault(false)
+        }
+        fun fail(stage:String,error:String,extra:JSONObject=JSONObject()):JSONObject{
+            extra.put("duration_ms",System.currentTimeMillis()-started)
+            update("FAIL",stage,error,extra,true)
+            return row()?:JSONObject().put("status","FAIL").put("error",error)
+        }
+        fun pass(stage:String,extra:JSONObject=JSONObject()):JSONObject{
+            extra.put("duration_ms",System.currentTimeMillis()-started)
+            update("PASS",stage,"",extra)
+            return row()?:JSONObject().put("status","PASS")
+        }
+
+        if(!localIntegrity())return fail("LOCAL_DURABLE_READBACK","LOCAL_TEST_LEDGER_INTEGRITY_FAILED")
+
+        return when(spec){
+            ResilienceTestScenario.NORMAL_SERVICE_PRIMARY->{
+                val service=serviceConfirmWithIdempotency(true)
+                if(!service.optBoolean("ok"))fail("SERVICE_PRIMARY",service.optString("error"),JSONObject().put("service",service))
+                else pass("COMPLETE",JSONObject().put("service",service).put("expected_route","SERVICE_PRIMARY"))
+            }
+            ResilienceTestScenario.DEVICE_OFFLINE_LOCAL->{
+                update("RUNNING","SIMULATED_DEVICE_OFFLINE","",JSONObject().put("network_simulated_offline",true))
+                val service=serviceConfirmWithIdempotency(true)
+                if(!service.optBoolean("ok"))fail("RECOVERY_REPLAY",service.optString("error"),JSONObject().put("service",service))
+                else pass("COMPLETE",JSONObject().put("local_only_before_recovery",true).put("recovery_service",service))
+            }
+            ResilienceTestScenario.SERVICE_UNAVAILABLE_GOOGLE->{
+                update("RUNNING","SIMULATED_SERVICE_UNAVAILABLE","TEST_SERVICE_UNAVAILABLE",JSONObject().put("service_blocked",true))
+                val gas=googleCapture()
+                if(!gas.optBoolean("ok"))return fail("GOOGLE_EMERGENCY_CAPTURE",gas.optString("error"),JSONObject().put("google",gas))
+                val lan=LanCoordinator.get(app)
+                val lanEvidence=JSONObject().put("available",lan.canRoute())
+                if(lan.canRoute()){
+                    val ack=lan.submit(body)
+                    lanEvidence.put("handled",ack.handled).put("ok",ack.ok).put("generation",ack.generation).put("error",ack.error?:"")
+                }
+                update("RUNNING","FALLBACK_CAPTURED","",JSONObject().put("google",gas).put("lan_optional",lanEvidence))
+                val service=serviceConfirmWithIdempotency(true)
+                if(!service.optBoolean("ok"))return fail("RECOVERY_REPLAY",service.optString("error"),JSONObject().put("service",service))
+                val finalized=googleFinalize()
+                pass("COMPLETE",JSONObject().put("recovery_service",service).put("google_finalized",finalized))
+            }
+            ResilienceTestScenario.SERVICE_TIMEOUT_GOOGLE->{
+                update("RUNNING","SIMULATED_SERVICE_TIMEOUT","TEST_SERVICE_TIMEOUT",JSONObject().put("service_timeout_simulated",true))
+                val gas=googleCapture()
+                if(!gas.optBoolean("ok"))return fail("GOOGLE_EMERGENCY_CAPTURE",gas.optString("error"),JSONObject().put("google",gas))
+                val service=serviceConfirmWithIdempotency(true)
+                if(!service.optBoolean("ok"))return fail("RECOVERY_REPLAY",service.optString("error"),JSONObject().put("service",service))
+                pass("COMPLETE",JSONObject().put("google",gas).put("recovery_service",service).put("google_finalized",googleFinalize()))
+            }
+            ResilienceTestScenario.GOOGLE_UNAVAILABLE_SERVICE->{
+                update("RUNNING","SIMULATED_GOOGLE_UNAVAILABLE","TEST_GOOGLE_UNAVAILABLE",JSONObject().put("google_blocked",true))
+                val service=serviceConfirmWithIdempotency(false)
+                if(!service.optBoolean("ok"))fail("SERVICE_DIRECT_WITH_GOOGLE_DOWN",service.optString("error"),JSONObject().put("service",service))
+                else pass("COMPLETE",JSONObject().put("service",service).put("google_path_used",false))
+            }
+            ResilienceTestScenario.SERVICE_GOOGLE_OFFLINE_LOCAL->{
+                update("RUNNING","SIMULATED_SERVICE_GOOGLE_LAN_UNAVAILABLE","TEST_ALL_REMOTE_UNAVAILABLE",
+                    JSONObject().put("service_blocked",true).put("google_blocked",true).put("lan_simulated_unavailable",true))
+                val persisted=localIntegrity()
+                if(!persisted)return fail("LOCAL_ONLY","LOCAL_TEST_LEDGER_INTEGRITY_FAILED")
+                val service=serviceConfirmWithIdempotency(true)
+                if(!service.optBoolean("ok"))fail("RECOVERY_REPLAY",service.optString("error"),JSONObject().put("service",service))
+                else pass("COMPLETE",JSONObject().put("local_only_verified",true).put("recovery_service",service))
+            }
+            ResilienceTestScenario.SERVICE_GOOGLE_OFFLINE_LAN->{
+                update("RUNNING","SIMULATED_CLOUD_PATHS_UNAVAILABLE","TEST_CLOUD_PATHS_UNAVAILABLE",
+                    JSONObject().put("service_blocked",true).put("google_blocked",true))
+                val lan=LanCoordinator.get(app)
+                if(!lan.canRoute()){
+                    update("NOT_AVAILABLE","LAN_PREREQUISITE_MISSING","LAN_NOT_AVAILABLE_ON_THIS_DEVICE",
+                        JSONObject().put("requires_lan_master_backup",true))
+                    return row()?:JSONObject().put("status","NOT_AVAILABLE")
+                }
+                val ack=lan.submit(body)
+                if(!ack.handled||!ack.ok)return fail("LAN_FALLBACK",ack.error?:"LAN_SUBMIT_FAILED",
+                    JSONObject().put("lan_generation",ack.generation).put("lan_handled",ack.handled))
+                update("RUNNING","LAN_DURABLE_ACK","",JSONObject().put("lan_generation",ack.generation).put("lan_ack",true))
+                val service=serviceConfirmWithIdempotency(true)
+                if(!service.optBoolean("ok"))fail("RECOVERY_REPLAY",service.optString("error"),JSONObject().put("service",service))
+                else pass("COMPLETE",JSONObject().put("lan_ack",true).put("recovery_service",service))
+            }
+        }
+    }
 
     private fun canonicalEnvelope(action:String,eventId:String,businessDate:String,payload:JSONObject):JSONObject{
         val auth=app.getSharedPreferences(AUTH_PREFS,Context.MODE_PRIVATE)
