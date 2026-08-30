@@ -8,7 +8,13 @@ const PP_OUTBOUND = Object.freeze({
   HEADERS: ['Vị trí','Ngày','Scan QR','DO','Số kiện','Người cập nhật','Thời gian cập nhật','ID bản ghi']
 });
 
-function ppOutboundSs_(){ return SpreadsheetApp.openById(PP_OUTBOUND.SHEET_ID); }
+function ppOutboundSheetId_(){
+  const p=String(PropertiesService.getScriptProperties().getProperty('PP_OUTBOUND_SHEET_ID')||'').trim();
+  if(p)return p;
+  if(ppEnvironmentId_()==='BETA')return PP_OUTBOUND.SHEET_ID;
+  throw new Error('STABLE_OUTBOUND_SHEET_NOT_CONFIGURED');
+}
+function ppOutboundSs_(){ return SpreadsheetApp.openById(ppOutboundSheetId_()); }
 function ppOutboundSheet_(name){
   const sh=ppOutboundSs_().getSheetByName(name);
   if(!sh) throw new Error('OUTBOUND_SHEET_MISSING_'+name);
