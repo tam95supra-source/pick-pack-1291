@@ -11,42 +11,46 @@ invariants:
     status: ACTIVE_PASS
     scope: ui
     rule: "3 ô Mạng / Đồng bộ / Dịch vụ luôn ghim trên cùng ở mọi màn trong scope."
-    last_verified: "0.4.2-beta.97 / run 33250391599"
+    last_verified: "0.4.2-beta.98 / terminal run 33289302031"
   - id: QR-LOCAL-001
     status: ACTIVE_PASS
     scope: qr
     rule: "QR nhân sự giữ local fast-path; Service reconcile nền không reset form đang thao tác."
-    last_verified: "0.4.2-beta.97 / run 33250391599"
+    last_verified: "0.4.2-beta.98 / terminal run 33289302031"
   - id: MEAL-DATE-001
     status: ACTIVE_PASS
     scope: attendance
     rule: "Chỉ ACTIVE session đúng business_date hiện tại được tính cho điểm danh."
-    last_verified: "0.4.2-beta.97 / run 33250391599"
+    last_verified: "0.4.2-beta.98 / terminal run 33289302031"
   - id: MEAL-WARN-001
     status: ACTIVE_PASS
     scope: attendance-ui
     rule: "Cảnh báo chưa điểm danh hiển thị phía trên theo scope đã OWNER khóa."
-    last_verified: "0.4.2-beta.97 / run 33250391599"
+    last_verified: "0.4.2-beta.98 / terminal run 33289302031"
   - id: ROLE-HISTORY-001
     status: ACTIVE_PASS
     scope: role-history
     rule: "USER không thấy và không deep-link vào History; ADMIN/SUPERADMIN theo quyền hiện hành."
-    last_verified: "0.4.2-beta.97 / run 33250391599"
+    last_verified: "0.4.2-beta.98 / terminal run 33289302031"
   - id: OTA-BETA-001
     status: ACTIVE_PASS
     scope: beta-release
     rule: "Beta APK GitHub Release only; Google Drive APK forbidden; exact bytes/signature/readback."
-    last_verified: "0.4.2-beta.97 / terminal run 33252891249"
+    last_verified: "0.4.2-beta.98 / terminal run 33289302031"
   - id: PDA-EXIT-001
-    status: LOCKED_REQUIREMENT_PENDING_FIX
+    status: TECHNICAL_PASS_AWAITING_OWNER
     scope: pda-exit
     rule: "Chỉ exact current-session authoritative active PDA assignment mới yêu cầu check PDA; stale scalar/cache/old-session không được quyết định."
     technical_candidate: "0.4.2-beta.98"
     regression_minimum: [active_pda, no_pda, returned_pda, stale_pda_serial, missing_assignment_snapshot, old_session_pda]
+    technical_evidence: "verify 33281633060; terminal publish/OTA/install/readback 33289302031; artifact 9722490457"
+    owner_acceptance: "PENDING"
   - id: INFRA-RESILIENCE-001
-    status: LOCKED_REQUIREMENT_PENDING_FIX
+    status: TECHNICAL_PASS_AWAITING_OWNER
     scope: infra-dr
     rule: "Durable local + provisional Google ledger + single-writer LAN/cloud DR + backup/rollover/fencing must pass full technical/chaos gates before owner acceptance."
+    technical_evidence: "service gate 33280777490; verify 33281633060; terminal release/OTA 33289302031; Stable/main/signer/authority/provider unchanged"
+    owner_acceptance: "PENDING"
 impact_map:
   "app/**": [UI-STATUS-001, QR-LOCAL-001, MEAL-DATE-001, MEAL-WARN-001, ROLE-HISTORY-001, OTA-BETA-001, PDA-EXIT-001, INFRA-RESILIENCE-001]
   "service/**": [QR-LOCAL-001, MEAL-DATE-001, PDA-EXIT-001, INFRA-RESILIENCE-001]
