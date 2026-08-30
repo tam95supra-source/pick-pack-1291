@@ -62,5 +62,7 @@
   "candidate_artifact_id": 9729047360,
   "candidate_artifact_name": "beta-candidate-33301229802",
   "candidate_apk_sha256": "29270f4435a5e4c7729e4aeb9a6ae516795c14ca0858723df8c9a293a62d9319",
-  "candidate_apk_size": 13577205
+  "candidate_apk_size": 13577205,
+  "apk_sha256": "29270f4435a5e4c7729e4aeb9a6ae516795c14ca0858723df8c9a293a62d9319",
+  "apk_size": 13577205
 }
