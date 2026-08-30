@@ -1,6 +1,6 @@
 {
   "stage": "PUBLISH",
-  "mode": "BETA98_PUBLISH_EXACT_LOCKED_CANDIDATE_OWNER_TOKEN_NORMALIZED",
+  "mode": "BETA98_PUBLISH_EXACT_LOCKED_CANDIDATE_GAS_VERSION_QUOTA_DIAGNOSTIC",
   "version_name": "0.4.2-beta.98",
   "version_code": 104,
   "base_version": "0.4.2-beta.97",
@@ -29,7 +29,7 @@
     "LAN outage path có Master/backup fencing, durable replica-before-ACK và provider-neutral Service discovery; Stable/main/signer/authority giữ nguyên.",
     "D1 capacity/backup safeguards và cloud DR credential contract được kiểm tra read-only, không tạo/nâng plan hay phát sinh paid action."
   ],
-  "next_action": "PUBLISH_EXACT_BYTES_THEN_OTA_INSTALL_LIVE_READBACK_FINALIZE",
+  "next_action": "READ_ONLY_GAS_VERSION_INVENTORY_THEN_OWNER_DELETE_ONE_SAFE_UNREFERENCED_VERSION_IF_REQUIRED",
   "signer_sha256": "d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e",
   "base_candidate_run_id": 33247859614,
   "base_candidate_artifact_id": 9713456764,
@@ -83,6 +83,6 @@
     "human_visual_pass": true
   },
   "release_auth": "BETA_RELEASE_TOKEN_OWNER_PROVIDED",
-  "previous_publish_run_id": 33286317948,
-  "previous_publish_failure": "OWNER_TOKEN_AUTHORIZATION_HEADER_INVALID_NORMALIZED_IN_HARNESS"
+  "previous_publish_run_id": 33286398140,
+  "previous_publish_failure": "GAS_VERSION_LIMIT_200_RESOURCE_EXHAUSTED"
 }
