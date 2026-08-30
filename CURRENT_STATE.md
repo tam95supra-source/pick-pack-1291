@@ -1,31 +1,34 @@
 # CURRENT STATE — PICK PACK 1291
 
-- updated_at: 2026-08-29T12:38:34Z
-- status: BETA97_PASS_LIVE
+- updated_at: 2026-08-30T01:06:14Z
+- status: BETA98_RELEASE_AUTH_BLOCKED_LIVE_BETA97
 - continuity_branch: release/beta97-qr-meal-alert-role-20260829
-- source_sha: b1c1563ce9489d9154e8d2489976c3c81d4234da
 - beta_live: 0.4.2-beta.97 (versionCode 103)
+- beta_target: 0.4.2-beta.98 (versionCode 104)
 - package: vn.pickpack1291.app.beta.publicbeta
-- candidate_run: 33247859614
-- candidate_artifact: 9713456764
-- verify_run: 33250391599
-- verify_artifact: 9714229229
-- apk_sha256: 522cfd16cc71b416c8c3efe222f8763cbfd159c355359ad781258ea0292d9231
-- apk_size: 13282293
+- candidate_source_sha: 154473b3dcc17c8badcfe345108e59ac3ba6e830
+- candidate_run: 33279188816
+- candidate_artifact: 9722490457
+- apk_sha256: b3085fe35f9bd2f8bed499dc7afcede5f210abdd8021ba379bccad7b795fba4b
+- apk_size: 13544437
 - signer_sha256: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
-- terminal_run: 33252891249
-- fast_check: PASS
-- service_gate: PASS_RUN_33247859614_JOB_99088728192_EXACT_SOURCE
+- fast_check: PASS_RUN_33281578813
+- service_gate: PASS_RUN_33280777490_JOB_99175479666_EXACT_SOURCE
+- verify_run: 33281633060
+- verify_artifact: 9723200175
 - visual_matrix: PASS 320x568 / 360x640 / 480x800
-- human_visual: PASS
+- human_visual: PASS_26_SCREENSHOTS
 - pda_functional_pre_ota: PASS
-- beta_ota: exact 0.4.2-beta.97 PASS via GitHub Release
-- beta_ota_url: https://github.com/tam95supra-source/pick-pack-1291/releases/download/v0.4.2-beta.97-publicbeta/pick-pack-1291-public-beta-0.4.2-beta.97.apk
+- back_api36: PASS
+- publish_run: 33284770547
+- publish_status: BLOCKED_HTTP_403_WORKFLOWS_WRITE_REQUIRED
+- beta98_release_tag: NOT_FOUND
+- beta98_github_release: NOT_FOUND
+- beta_ota: NOT_PUBLISHED
 - apk_transport: GITHUB_RELEASE_ONLY
 - google_drive_apk: FORBIDDEN
-- regression_policy: docs/REGRESSION_GUARD_POLICY.md (MANDATORY)
-- stable_invariants: docs/STABLE_INVARIANTS.md (MANDATORY / cumulative)
 - stable: unchanged
 - main_sha: 021dac5c6932b3ac5c60ce8fdba562ddf3d9688f
 - authority: SERVICE_PRIMARY / PRODUCTION / epoch 9 / generation m2-prod-reset-20260823-001
-- next_action: WAIT_FOR_OWNER_NEW_SCOPE
+- blocker_owner: ADD_ACTIONS_SECRET_BETA_RELEASE_TOKEN_CONTENTS_WRITE_WORKFLOWS_WRITE
+- next_action: AFTER_OWNER_ADDS_BETA_RELEASE_TOKEN_TRIGGER_PUBLISH_EXACT_ARTIFACT_9722490457_THEN_OTA_INSTALL_LIVE_READBACK_FINALIZE
