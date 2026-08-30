@@ -1,6 +1,6 @@
 {
-  "stage": "PUBLISH",
-  "mode": "PUBLISH_EXACT_BETA99_AFTER_OWNER_GAS_CLEANUP_VERIFIED",
+  "stage": "pass_live",
+  "mode": "PASS_LIVE_EXACT_BYTES_GITHUB_RELEASE_ONLY",
   "version_name": "0.4.2-beta.99",
   "version_code": 105,
   "base_version": "0.4.2-beta.98",
@@ -22,14 +22,14 @@
   "resign": false,
   "scope": "beta99-pda-partial-resource-preserve-resilience-owner-probe",
   "owner": "Nguyen Van Tam",
-  "live": false,
+  "live": true,
   "release_notes": [
     "Đổi/Trả PDA chỉ gửi thay đổi PDA; User Pick/Bàn Pack/User Pack/ca/công việc không bị replay từ snapshot UI cũ và được Service authoritative giữ nguyên.",
     "Thử nghiệm lỗi Service dùng resilience_probe kỹ thuật không đổi dữ liệu nghiệp vụ, có PASS/FAIL dựa trên trạng thái outbox thực tế.",
     "Ba kịch bản test: Service chết + Google/GAS còn -> Emergency Ledger; Google/GAS lỗi + Service còn -> Service direct; cả hai lỗi -> durable local; kết thúc test -> replay CONFIRMED.",
     "Fault injection chỉ trên thiết bị SUPERADMIN, reset circuit khi đổi kịch bản và tự phục hồi sau 30 phút."
   ],
-  "next_action": "PUBLISH_EXACT_BETA99_THEN_OTA_INSTALL_READBACK_FINALIZE",
+  "next_action": "WAIT_FOR_OWNER_NEW_SCOPE",
   "signer_sha256": "d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e",
   "base_candidate_run_id": 33279188816,
   "base_candidate_artifact_id": 9722490457,
@@ -104,5 +104,6 @@
   "gas_referenced_versions_before_publish": [
     201
   ],
-  "gas_free_slots_estimate_before_publish": 100
+  "gas_free_slots_estimate_before_publish": 100,
+  "publish_run_id": "33295954425"
 }

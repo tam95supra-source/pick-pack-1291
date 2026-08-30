@@ -1,43 +1,29 @@
 # CURRENT STATE — PICK PACK 1291
 
-- updated_at: 2026-08-30T04:39:02Z
-- status: BETA99_PRE_OTA_PASS_PUBLISH_BLOCKED_GAS_VERSION_LIMIT
+- updated_at: 2026-08-30T06:05:20Z
+- status: BETA99_PASS_LIVE
 - continuity_branch: release/beta97-qr-meal-alert-role-20260829
-- beta_live: 0.4.2-beta.98 (versionCode 104)
+- source_sha: 660cac5f937c911364a7726661ed4c4b07d92388
+- beta_live: 0.4.2-beta.99 (versionCode 105)
 - package: vn.pickpack1291.app.beta.publicbeta
-- beta99_source_sha: 660cac5f937c911364a7726661ed4c4b07d92388
-- beta99_candidate_run: 33290900322
-- beta99_candidate_artifact: 9725965250
-- beta99_apk_sha256: c9cd5c9e93d83250040b2a49be262450eb3f4e947d21516a6c9aaa95d881729b
-- beta99_apk_size: 13560821
-- signer_sha256: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
-- fast_check: PASS run 33290759871
-- service_gate: PASS run 33290900322 job 99202629701
+- candidate_run: 33290900322
+- candidate_artifact: 9725965250
 - verify_run: 33292677865
-- verify_job: 99206960986
 - verify_artifact: 9726495444
+- apk_sha256: c9cd5c9e93d83250040b2a49be262450eb3f4e947d21516a6c9aaa95d881729b
+- apk_size: 13560821
+- signer_sha256: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
+- terminal_run: 33295954425
+- fast_check: PASS
+- service_gate: PASS_RUN_33290900322_JOB_99202629701_EXACT_SERVICE_SOURCE_UNCHANGED
 - visual_matrix: PASS 320x568 / 360x640 / 480x800
-- human_visual: PASS 26 screenshots
+- human_visual: PASS
 - pda_functional_pre_ota: PASS
-- back_api36: PASS
-- beta99_github_release_asset: PASS exact public readback
-- publish_run: 33292927542
-- publish_failure: GAS_VERSION_LIMIT_200_NO_REUSABLE_TARGET
-- gas_current_deployment_version: 201
-- gas_version_count: 200
-- gas_safe_unreferenced_recommended_delete: 3
-- beta_ota_manifest: 0.4.2-beta.98 exact restored/readback PASS
-- beta99_ota: NOT_PUBLISHED
-- stable: unchanged
-- authority: SERVICE_PRIMARY / PRODUCTION / epoch 9 / generation m2-prod-reset-20260823-001
+- beta_ota: exact 0.4.2-beta.99 PASS via GitHub Release
+- beta_ota_url: https://github.com/tam95supra-source/pick-pack-1291/releases/download/v0.4.2-beta.99-publicbeta/pick-pack-1291-public-beta-0.4.2-beta.99.apk
 - apk_transport: GITHUB_RELEASE_ONLY
 - google_drive_apk: FORBIDDEN
-- owner_acceptance_1_3_4_5: OK
-- owner_acceptance_2_6: PENDING_AFTER_BETA99_LIVE
-- gas_cleanup_dry_run: PASS run 33293553042 artifact 9726697718
-- gas_cleanup_keep_latest: 40
-- gas_cleanup_planned_delete_count: 160
-- gas_cleanup_planned_delete_range: 3..162
-- gas_cleanup_deleted_count: 0
-- gas_cleanup_delete_attempt: SAFE_FAILURE run 33295218728 API_DELETE_UNSUPPORTED
-- next_action: OWNER_NATIVE_BULK_DELETE_GAS_3_TO_162_THEN_RERUN_PUBLISH_EXACT_BETA99
+- stable: unchanged
+- main_sha: 021dac5c6932b3ac5c60ce8fdba562ddf3d9688f
+- authority: SERVICE_PRIMARY / PRODUCTION / epoch 9 / generation m2-prod-reset-20260823-001
+- next_action: WAIT_FOR_OWNER_NEW_SCOPE
