@@ -1,0 +1,17 @@
+{
+  "project": "APK PICK PACK 1291",
+  "environment": "STABLE",
+  "lifecycle_target": "READY_NOT_LIVE",
+  "mode": "PREFLIGHT_ONLY",
+  "stable_primary_sheet_id": "1Z5tKgGjQxcQqKY-UJO2nOVvM3dA0_VtJx5ayKjWSAy0",
+  "stable_dr_sheet_id": "1h2xbRX4hGL40CMeCfmdALffLZ0Un4_S44cAgCABBWhk",
+  "stable_outbound_sheet_id": "1Z_TlJ5CdrSb2duUeTPY1rmi0W6vP69c8Ml3QbDkd2Wo",
+  "stable_log_folder_ids": {
+    "manual": "1IenEFumCT19ZMVSqRGbpjQyG55oFEqot",
+    "crash": "1-y6vBrGUtY0y3CjiG_f4cekCff0eGfoa",
+    "daily": "1YhJAGjw4n3u3xnCg6Aefc6WaVFjSrzdx"
+  },
+  "target_worker_name": "pickpack1291-stable-private",
+  "target_d1_name": "pick-pack-1291-service-stable",
+  "stable_public_activation": false
+}
