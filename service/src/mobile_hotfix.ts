@@ -6,8 +6,6 @@ import { outboundAction } from "./outbound_beta78";
 import { mealAttendanceList } from "./meal_attendance";
 import { apiError, b64u, b64uDecode, hmacB64u, json, nowIso, readJsonBody } from "./util";
 
-const GAS_API_URL = "https://script.google.com/macros/s/AKfycbzbEoGfbNg6s2HnP-gUpcBJ7mMIkVBtYuQKMndb9seDV2c55lQwSUO1GZ-LtQ2CxMCauA/exec";
-
 type GasTokenPayload = { l?:string; r?:string; v?:string; s?:string; d?:string };
 type Employee = { mnv:string; full_name:string; phone:string; main_position:string; supplier:string; department:string; site:string; warehouse:string; start_date:string; note:string };
 
@@ -18,13 +16,16 @@ function parseGasToken(token:string):GasTokenPayload|null{
   }catch{return null;}
 }
 
-async function validateGasSession(gasToken:string,payload:GasTokenPayload):Promise<Record<string,unknown>|null>{
+async function validateGasSession(env:Env,gasToken:string,payload:GasTokenPayload):Promise<Record<string,unknown>|null>{
   const controller=new AbortController(); const timer=setTimeout(()=>controller.abort(),4500);
   try{
-    const response=await fetch(GAS_API_URL,{
+    const gasUrl=String(env.GAS_API_URL||"").trim();
+    if(!gasUrl.startsWith("https://script.google.com/"))return null;
+    const environmentId=String(env.ENVIRONMENT_ID||"BETA").toUpperCase(),serviceAudience=String(env.SERVICE_AUDIENCE||(environmentId==="STABLE"?"PICK_PACK_1291_STABLE":"PICK_PACK_1291_BETA"));
+    const response=await fetch(gasUrl,{
       method:"POST",
-      headers:{"content-type":"application/json; charset=utf-8","accept":"application/json"},
-      body:JSON.stringify({action:"m2_authority_status",_token:gasToken,_device_id:String(payload.d||""),_app_channel:"BETA",_app_version:"m2-session-exchange-v1"}),
+      headers:{"content-type":"application/json; charset=utf-8","accept":"application/json","x-pick-pack-environment":environmentId,"x-pick-pack-audience":serviceAudience},
+      body:JSON.stringify({action:"m2_authority_status",_token:gasToken,_device_id:String(payload.d||""),_app_channel:environmentId,_environment_id:environmentId,_service_audience:serviceAudience,_app_version:"m2-session-exchange-v1"}),
       signal:controller.signal,
     });
     const body=await response.json() as Record<string,unknown>;
@@ -38,7 +39,7 @@ export async function exchangeGasSession(request:Request,env:Env):Promise<Respon
   if(!gasToken||!deviceId)return apiError("SESSION_EXCHANGE_FIELDS_REQUIRED","VALIDATION",400);
   const payload=parseGasToken(gasToken);
   if(!payload?.l||!payload.r||!payload.v||!payload.s||!payload.d)return apiError("GAS_SESSION_INVALID","AUTH",401);
-  const discovery=await validateGasSession(gasToken,payload);
+  const discovery=await validateGasSession(env,gasToken,payload);
   if(!discovery)return apiError("GAS_SESSION_INVALID","AUTH",401);
   if(String(discovery.authority_mode||"")!=="SERVICE_PRIMARY")return apiError("SERVICE_NOT_PRIMARY","CONFLICT",409,true);
 
@@ -52,7 +53,8 @@ export async function exchangeGasSession(request:Request,env:Env):Promise<Respon
   await env.DB.prepare(`INSERT INTO auth_sessions(login_id,session_id,device_id,issued_at) VALUES(?1,?2,?3,?4)
     ON CONFLICT(login_id) DO UPDATE SET session_id=excluded.session_id,device_id=excluded.device_id,issued_at=excluded.issued_at`)
     .bind(account.login_id,sessionId,deviceId,issuedAt).run();
-  const servicePayload={l:account.login_id,r:account.role,v:account.verifier_hash,s:sessionId,d:deviceId};
+  const environmentId=String(env.ENVIRONMENT_ID||"BETA").toUpperCase(),serviceAudience=String(env.SERVICE_AUDIENCE||(environmentId==="STABLE"?"PICK_PACK_1291_STABLE":"PICK_PACK_1291_BETA"));
+  const servicePayload={l:account.login_id,r:account.role,v:account.verifier_hash,s:sessionId,d:deviceId,e:environmentId,a:serviceAudience};
   const encoded=b64u(new TextEncoder().encode(JSON.stringify(servicePayload)));
   const sig=await hmacB64u(new TextEncoder().encode(env.SERVICE_TOKEN_SECRET),encoded);
   return json({ok:true,token:`${encoded}.${sig}`,account:{login_id:account.login_id,role:account.role,display_name:account.display_name,position:account.position,email:account.email},session:{issued_at:issuedAt,device_label:String(input.device_label||"").slice(0,120),session_id:sessionId,reused},authority:discovery.authority,authority_mode:discovery.authority_mode,service_generation:discovery.service_generation});
