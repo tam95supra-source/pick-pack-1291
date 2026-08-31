@@ -50,7 +50,7 @@ def environment_ok(value):
 
 def function_body(source,name):
     import re
-    m=re.search(r"function\\s+"+re.escape(name)+r"\\s*\\(",source)
+    m=re.search(r"function\s+"+re.escape(name)+r"\s*\(",source)
     if not m:return ""
     brace=source.find("{",m.end())
     if brace<0:return ""
@@ -72,11 +72,20 @@ def function_body(source,name):
             if c=="\\":i+=1
             elif c==end:state="code"
         elif state=="line":
-            if c=="\\n":state="code"
+            if c=="\n":state="code"
         elif state=="block" and c=="*" and n=="/":
             state="code";i+=1
         i+=1
     return ""
+
+def function_body_selftest():
+    fixture="""function ppM2ServiceUrl_(){\n  // comment with { brace }\n  const v='x';\n  return v;\n}\nfunction other(){return 1;}"""
+    body=function_body(fixture,"ppM2ServiceUrl_")
+    if not body.startswith("function ppM2ServiceUrl_(") or "return v;" not in body or "function other" in body:
+        raise RuntimeError("FUNCTION_BODY_SELFTEST_FAILED")
+    missing=function_body(fixture,"missing")
+    if missing!="":
+        raise RuntimeError("FUNCTION_BODY_NEGATIVE_SELFTEST_FAILED")
 
 def m2_service_url_diag(project):
     src=server_source(project)
@@ -88,7 +97,7 @@ def m2_service_url_diag(project):
         "service_url_contains_stable_root":"pickpack1291.cc.cd" in body,
         "service_url_contains_workers_dev":".workers.dev" in body,
         "service_url_function_sha256":hashlib.sha256(body.encode()).hexdigest() if body else "",
-        "valid_url_accepts_workers_dev":"workers\\.dev" in valid or "workers.dev" in valid,
+        "valid_url_accepts_workers_dev":"workers.dev" in valid or "workers\\.dev" in valid,
         "valid_url_function_sha256":hashlib.sha256(valid.encode()).hexdigest() if valid else "",
     }
 
@@ -129,6 +138,7 @@ def live_post(url,body):
     return int(code.strip()),j
 
 def main():
+    function_body_selftest()
     out=Path(sys.argv[1])
     sid=os.environ.get("GAS_SCRIPT_ID","").strip()
     token=os.environ.get("ACCESS_TOKEN","").strip()
