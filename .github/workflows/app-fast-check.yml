@@ -169,6 +169,10 @@ jobs:
           detach=t.index('workers/domains/"+urllib.parse.quote(root_domain_id')
           assert ready < detach, "legacy root may only detach after Beta hostname readiness check"
           assert 'if root_migration_required:' in t
+          assert 'if code//100!=2:' in t, "detach must accept any 2xx and rely on readback"
+          detach=t.index('workers/domains/"+urllib.parse.quote(root_domain_id')
+          post=t.index('after_domains=list_domains()')
+          assert detach < post, "detach PASS must be established by custom-domain readback"
           print("beta_domain_prepare_contract=PASS")
           PY
           python3 tools/ci_release_fencing_contract.py
