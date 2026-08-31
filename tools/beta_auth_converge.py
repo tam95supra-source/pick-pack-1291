@@ -130,6 +130,22 @@ def make_credential():
     verifier=f"pbkdf2_sha256${it}${b64u(salt)}${b64u(key)}"
     return password,verifier,hashlib.sha256(verifier.encode()).hexdigest()
 
+def split_worker_curl_output(out):
+    marker="\n__HTTP_STATUS__:"
+    if marker not in out: raise RuntimeError("WORKER_CURL_STATUS_MISSING")
+    raw,code=out.rsplit(marker,1)
+    try:j=json.loads(raw) if raw.strip() else {}
+    except:j={"raw":raw[:500]}
+    return int(code.strip()),j
+
+def worker_transport_selftest():
+    code,j=split_worker_curl_output('{"ok":true}\n__HTTP_STATUS__:200')
+    if code!=200 or j.get("ok") is not True: raise RuntimeError("WORKER_CURL_PARSER_POSITIVE_FAIL")
+    try:split_worker_curl_output('{"ok":false}')
+    except RuntimeError as e:
+        if str(e)!="WORKER_CURL_STATUS_MISSING": raise
+    else: raise RuntimeError("WORKER_CURL_PARSER_NEGATIVE_FAIL")
+
 def worker_json(method,url,body=None,headers=None):
     cmd=["curl","-sS","--connect-timeout","15","--max-time","45","-X",method]
     for k,v in (headers or {}).items(): cmd += ["-H",f"{k}: {v}"]
@@ -138,12 +154,7 @@ def worker_json(method,url,body=None,headers=None):
     cmd += ["-w","\\n__HTTP_STATUS__:%{http_code}",url]
     p=subprocess.run(cmd,input=(json.dumps(body,separators=(",",":")) if body is not None else None),text=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=55)
     if p.returncode: raise RuntimeError("WORKER_CURL_FAILED:"+p.stderr[-500:])
-    marker="\\n__HTTP_STATUS__:"
-    if marker not in p.stdout: raise RuntimeError("WORKER_CURL_STATUS_MISSING")
-    raw,code=p.stdout.rsplit(marker,1)
-    try:j=json.loads(raw) if raw.strip() else {}
-    except:j={"raw":raw[:500]}
-    return int(code.strip()),j
+    return split_worker_curl_output(p.stdout)
 
 def gas_post(url,payload):
     p=subprocess.run(["curl","-fsS","-L","--connect-timeout","15","--max-time","45","-H","Content-Type: application/json","--data-binary","@-",url],
@@ -268,6 +279,13 @@ ON CONFLICT(login_id) DO UPDATE SET verifier=excluded.verifier,verifier_hash=exc
     print(json.dumps({"status":"PASS","active_accounts":want,"adminbeta_login":"PASS","stable_unchanged":True,"legacy_disabled":len(legacy)}))
 
 if __name__=="__main__":
+    if "--self-test" in sys.argv:
+        try:
+            worker_transport_selftest()
+            print("beta_auth_worker_transport_selftest=PASS")
+        except Exception as e:
+            print("BETA_AUTH_WORKER_TRANSPORT_SELFTEST_ERROR:"+str(e),file=sys.stderr);sys.exit(1)
+        sys.exit(0)
     try:main()
     except Exception as e:
         pathlib.Path("/tmp/beta-auth-converge-receipt.json").write_text(json.dumps({"status":"FAIL","error":str(e)[:1200],"password_plaintext_in_receipt":False},indent=2)+"\n")
