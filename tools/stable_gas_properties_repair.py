@@ -143,8 +143,8 @@ def source_guard(cfg):
     if expected!=actual:raise RuntimeError("REPAIR_SCRIPT_BLOB_SHA_MISMATCH")
     commit=str(cfg.get("repair_source_commit") or "")
     if len(commit)!=40:raise RuntimeError("REPAIR_SOURCE_COMMIT_REQUIRED")
-    p=subprocess.run(["git","show",commit+":tools/stable_gas_properties_repair.py"],cwd=ROOT,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL)
-    if p.returncode or hashlib.sha1(b"blob "+str(len(p.stdout)).encode()+b"\\0"+p.stdout).hexdigest()!=actual:raise RuntimeError("REPAIR_SOURCE_COMMIT_MISMATCH")
+    p=subprocess.run(["git","rev-parse",commit+":tools/stable_gas_properties_repair.py"],cwd=ROOT,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,text=True)
+    if p.returncode or p.stdout.strip()!=actual:raise RuntimeError("REPAIR_SOURCE_COMMIT_MISMATCH")
     accepted=str(cfg.get("accepted_service_source_sha") or "")
     if len(accepted)!=40:raise RuntimeError("ACCEPTED_SERVICE_SOURCE_SHA_REQUIRED")
     if subprocess.run(["git","diff","--quiet",accepted,"HEAD","--","service"],cwd=ROOT).returncode!=0:
