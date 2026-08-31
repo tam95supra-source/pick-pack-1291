@@ -112,7 +112,7 @@ def main():
     owner_ids=[x for x in owner_ids if x]
     for s in services:
         d=s.get("serviceDetails") or s.get("service_details") or {}
-        render_safe.append({"id":s.get("id"),"name":s.get("name"),"type":s.get("type"),"plan":d.get("plan") or s.get("plan"),"region":d.get("region") or s.get("region"),"suspended":s.get("suspended")})
+        render_safe.append({"id":s.get("id"),"name":s.get("name"),"type":s.get("type"),"plan":d.get("plan") or s.get("plan"),"region":d.get("region") or s.get("region"),"suspended":s.get("suspended"),"repo":s.get("repo"),"branch":s.get("branch"),"autoDeploy":s.get("autoDeploy"),"buildCommand":d.get("buildCommand"),"startCommand":d.get("startCommand"),"runtime":d.get("runtime"),"healthCheckPath":d.get("healthCheckPath")})
         name=str(s.get("name") or "")
         sid=str(s.get("id") or "")
         if name in ("pick-pack-1291-dr-beta","pick-pack-1291-dr-stable") and sid:
