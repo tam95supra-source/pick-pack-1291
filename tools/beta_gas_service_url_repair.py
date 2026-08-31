@@ -6,7 +6,7 @@ API="https://script.googleapis.com/v1/projects"
 OUT=pathlib.Path("/tmp/beta-gas-service-url-repair.json")
 TEMP_MARK="__BETA_ENVIRONMENT_REPAIR_ONCE_V2__"
 TARGET_FUNCS_PICK=["ppBoundEnvironmentBootstrap_","ppEnvironmentId_","ppServiceAudience_","ppSheetId_","ppEnvironmentFence_"]
-TARGET_FUNCS_M2=["ppM2ServiceUrl_","ppM2ValidServiceUrl_","ppM2StateSnapshot_","ppM2Discovery_","ppM2ServiceFetch_"]
+TARGET_FUNCS_M2=["ppM2ServiceUrl_","ppM2ValidServiceUrl_","ppM2StateSnapshot_","ppM2Discovery_","ppM2ServiceFetch_","ppM2CompleteFailback_"]
 
 def need(name):
     v=os.environ.get(name,"").strip()
