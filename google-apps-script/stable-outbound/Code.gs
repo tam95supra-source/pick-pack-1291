@@ -25,29 +25,6 @@ function bridge_(b){
   if(op==='append_values'){const v=Array.isArray(b.values)?b.values:[];if(!v.length)return {ok:true};const sh=sh_(b.sheet),first=sh.getLastRow()+1;sh.getRange(first,1,v.length,v[0].length).setValues(v);SpreadsheetApp.flush();return {ok:true,row:first};}
   return {ok:false,error:'BRIDGE_OPERATION_UNKNOWN'};
 }
-function runtimeCanary_(b){
-  const p=PropertiesService.getScriptProperties(),id=String(b.canary_id||'').trim(),op=String(b.operation||'').toUpperCase(),token=String(b.google_access_token||'');
-  if(String(b._environment_id||'')!=='STABLE'||String(b._service_audience||'')!=='PICK_PACK_1291_STABLE')return {ok:false,error:'STABLE_CANARY_ENVIRONMENT_REQUIRED'};
-  if(!/^__CI_STABLE_CANARY_[A-Za-z0-9_-]{8,96}$/.test(id)||['UPSERT','CLEANUP'].indexOf(op)<0)return {ok:false,error:'STABLE_CANARY_FIELDS_INVALID'};
-  const ss=ss_();if(!token||!ownerFile_(token))return {ok:false,error:'STABLE_CANARY_OWNER_PROOF_FAILED'};
-  const propsOk=p.getProperty('SB_PROVISIONED')==='1'&&p.getProperty('SB_ENV')==='STABLE'&&p.getProperty('SB_KIND')==='OUTBOUND'&&p.getProperty('SB_SHEET_ID')===ss.getId();
-  if(!propsOk)return {ok:false,error:'STABLE_CANARY_PROPERTIES_MISMATCH'};
-  const lock=LockService.getScriptLock();lock.waitLock(10000);
-  try{
-    const name='__STABLE_RUNTIME_CANARY';let sh=ss.getSheetByName(name);
-    if(op==='CLEANUP'){
-      if(!sh)return {ok:true,idempotent:true,operation:'CLEANUP',environment_id:'STABLE',kind:'OUTBOUND',cleanup:true,properties_ok:true,bound_sheet:true};
-      const last=sh.getLastRow();let removed=0;if(last>=2){const vals=sh.getRange(2,1,last-1,1).getDisplayValues();for(let i=vals.length-1;i>=0;i--){if(String(vals[i][0]||'')===id){sh.deleteRow(i+2);removed++;}}}
-      if(sh.getLastRow()<=1)ss.deleteSheet(sh);SpreadsheetApp.flush();
-      return {ok:true,idempotent:removed===0,operation:'CLEANUP',environment_id:'STABLE',kind:'OUTBOUND',removed:removed,cleanup:true,properties_ok:true,bound_sheet:true};
-    }
-    if(!sh){sh=ss.insertSheet(name);sh.getRange(1,1,1,4).setValues([['canary_id','environment_id','kind','created_at']]);sh.hideSheet();}
-    const last=sh.getLastRow(),hit=last>=2?sh.getRange(2,1,last-1,1).createTextFinder(id).matchEntireCell(true).findNext():null;
-    if(hit)return {ok:true,idempotent:true,operation:'UPSERT',environment_id:'STABLE',kind:'OUTBOUND',row:hit.getRow(),properties_ok:true,bound_sheet:true};
-    sh.appendRow([id,'STABLE','OUTBOUND',new Date().toISOString()]);SpreadsheetApp.flush();
-    return {ok:true,idempotent:false,operation:'UPSERT',environment_id:'STABLE',kind:'OUTBOUND',row:sh.getLastRow(),properties_ok:true,bound_sheet:true};
-  } finally {lock.releaseLock();}
-}
 function locations_(){const sh=sh_(SB.LOC),last=sh.getLastRow();return last<2?[]:sh.getRange(2,1,last-1,1).getDisplayValues().map(function(r){return String(r[0]||'').trim();}).filter(Boolean);}
 function locKey_(v){return fold_(String(v||'').replace(/\s+/g,' '));}
 function findDrop_(id){const sh=sh_(SB.DROP),last=sh.getLastRow();if(last<2)return null;const f=sh.getRange(2,8,last-1,1).createTextFinder(String(id||'')).matchEntireCell(true).findNext();return f?{row:f.getRow(),values:sh.getRange(f.getRow(),1,1,8).getDisplayValues()[0]}:null;}
@@ -74,4 +51,4 @@ function business_(b){
   return {ok:false,error:'OUTBOUND_OPERATION_UNKNOWN'};
 }
 function doGet(){return json_({ok:true,environment_id:'STABLE',kind:'OUTBOUND',writer_scope:'BOUND_CURRENT_ONLY',provisioned:PropertiesService.getScriptProperties().getProperty('SB_PROVISIONED')==='1'});}
-function doPost(e){try{const b=JSON.parse((e&&e.postData&&e.postData.contents)||'{}');if(b.action==='stable_bound_provision')return json_(provision_(b));if(b.action==='stable_bound_bridge')return json_(bridge_(b));if(b.action==='stable_bound_business')return json_(business_(b));if(b.action==='stable_runtime_canary')return json_(runtimeCanary_(b));return json_({ok:false,error:'UNKNOWN_ACTION'});}catch(err){console.error(String(err&&err.message||err).slice(0,300));return json_({ok:false,error:'BOUND_OUTBOUND_ERROR'});}}
+function doPost(e){try{const b=JSON.parse((e&&e.postData&&e.postData.contents)||'{}');if(b.action==='stable_bound_provision')return json_(provision_(b));if(b.action==='stable_bound_bridge')return json_(bridge_(b));if(b.action==='stable_bound_business')return json_(business_(b));return json_({ok:false,error:'UNKNOWN_ACTION'});}catch(err){console.error(String(err&&err.message||err).slice(0,300));return json_({ok:false,error:'BOUND_OUTBOUND_ERROR'});}}
