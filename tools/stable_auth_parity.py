@@ -50,7 +50,7 @@ def valid_verifier(v):
         for x,want in ((p[2],16),(p[3],32)):
             raw=x+"="*((4-len(x)%4)%4)
             if len(base64.urlsafe_b64decode(raw))!=want:return False
-        return "$" not in str(v)
+        return str(v).count("$")==3
     except Exception:return False
 def make_verifier():
     password=b64u(secrets.token_bytes(24));salt=secrets.token_bytes(16);it=120000
