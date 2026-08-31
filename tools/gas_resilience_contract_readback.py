@@ -48,6 +48,50 @@ def environment_flags(source):
 def environment_ok(value):
     return all(value.values())
 
+def function_body(source,name):
+    import re
+    m=re.search(r"function\\s+"+re.escape(name)+r"\\s*\\(",source)
+    if not m:return ""
+    brace=source.find("{",m.end())
+    if brace<0:return ""
+    depth=0;state="code";i=brace
+    while i<len(source):
+        c=source[i];n=source[i+1] if i+1<len(source) else ""
+        if state=="code":
+            if c=="'":state="sq"
+            elif c=='"':state="dq"
+            elif c=="\x60":state="tpl"
+            elif c=="/" and n=="/":state="line";i+=1
+            elif c=="/" and n=="*":state="block";i+=1
+            elif c=="{":depth+=1
+            elif c=="}":
+                depth-=1
+                if depth==0:return source[m.start():i+1]
+        elif state in ("sq","dq","tpl"):
+            end={"sq":"'","dq":'"',"tpl":"\x60"}[state]
+            if c=="\\":i+=1
+            elif c==end:state="code"
+        elif state=="line":
+            if c=="\\n":state="code"
+        elif state=="block" and c=="*" and n=="/":
+            state="code";i+=1
+        i+=1
+    return ""
+
+def m2_service_url_diag(project):
+    src=server_source(project)
+    body=function_body(src,"ppM2ServiceUrl_")
+    valid=function_body(src,"ppM2ValidServiceUrl_")
+    return {
+        "service_url_function_present":bool(body),
+        "service_url_reads_property":"PP_M2_SERVICE_URL" in body,
+        "service_url_contains_stable_root":"pickpack1291.cc.cd" in body,
+        "service_url_contains_workers_dev":".workers.dev" in body,
+        "service_url_function_sha256":hashlib.sha256(body.encode()).hexdigest() if body else "",
+        "valid_url_accepts_workers_dev":"workers\\.dev" in valid or "workers.dev" in valid,
+        "valid_url_function_sha256":hashlib.sha256(valid.encode()).hexdigest() if valid else "",
+    }
+
 def file_features(project):
     out=[]
     for f in project.get("files") or []:
@@ -127,6 +171,9 @@ def main():
         "head_server_files":file_features(head),
         "repo_server_files":file_features(repo_obj),
         "live_discovery":{"http":live_code,"ok":live_discovery.get("ok"),"error":live_discovery.get("error"),"environment_id":live_discovery.get("environment_id"),"service_audience":live_discovery.get("service_audience"),"service_url":live_discovery.get("service_url"),"authority_mode":live_discovery.get("authority_mode")},
+        "deployment_m2_service_url_diag":m2_service_url_diag(deployed),
+        "head_m2_service_url_diag":m2_service_url_diag(head),
+        "repo_m2_service_url_diag":m2_service_url_diag(repo_obj),
     }
     out.parent.mkdir(parents=True,exist_ok=True)
     out.write_text(json.dumps(data,indent=2)+"\n",encoding="utf-8")
