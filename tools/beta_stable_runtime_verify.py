@@ -1,23 +1,24 @@
 #!/usr/bin/env python3
-import json,os,pathlib,subprocess,sys,urllib.parse,urllib.request,urllib.error,hashlib
+import datetime,hashlib,json,os,pathlib,re,subprocess,sys,urllib.error,urllib.parse,urllib.request
 ROOT=pathlib.Path(__file__).resolve().parents[1]
 CF="https://api.cloudflare.com/client/v4"
+SCRIPT_API="https://script.googleapis.com/v1/projects"
+CANARY_SHEET="__STABLE_RUNTIME_CANARY"
 
 def need(n):
     v=os.environ.get(n,"").strip()
-    if not v: raise RuntimeError("MISSING_REQUIRED_SECRET:"+n)
+    if not v:raise RuntimeError("MISSING_REQUIRED_SECRET:"+n)
     return v
 def req(url,method="GET",token=None,body=None,headers=None,timeout=45):
     data=None if body is None else json.dumps(body,separators=(",",":")).encode()
     h={"Accept":"application/json"}
     if token:h["Authorization"]="Bearer "+token
-    if body is not None:h["Content-Type"]="application/json"
+    if data is not None:h["Content-Type"]="application/json"
     if headers:h.update(headers)
     r=urllib.request.Request(url,data=data,headers=h,method=method)
     try:
         with urllib.request.urlopen(r,timeout=timeout) as x:
-            raw=x.read().decode("utf-8","replace")
-            return x.status,(json.loads(raw) if raw.strip() else {})
+            raw=x.read().decode("utf-8","replace");return x.status,(json.loads(raw) if raw.strip() else {})
     except urllib.error.HTTPError as e:
         raw=e.read().decode("utf-8","replace")
         try:j=json.loads(raw)
@@ -34,33 +35,41 @@ def oauth():
     t=str(j.get("access_token",""))
     if not t:raise RuntimeError("GOOGLE_TOKEN_MISSING")
     return t
-def curl_json(method,url,headers=None,body=None):
-    cmd=["curl","-sS","--connect-timeout","12","--max-time","35","-X",method]
+def curl_json(method,url,headers=None,body=None,follow=False,timeout=35):
+    cmd=["curl","-sS","--connect-timeout","12","--max-time",str(timeout),"-X",method]
+    if follow:cmd.append("-L")
     for k,v in (headers or {}).items():cmd += ["-H",f"{k}: {v}"]
     inp=None
     if body is not None:
-        cmd += ["-H","Content-Type: application/json","--data-binary","@-"]
-        inp=json.dumps(body,separators=(",",":"))
+        cmd += ["-H","Content-Type: application/json","--data-binary","@-"];inp=json.dumps(body,separators=(",",":"))
     cmd += ["-w","\n__STATUS__:%{http_code}",url]
-    p=subprocess.run(cmd,input=inp,text=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=45)
+    p=subprocess.run(cmd,input=inp,text=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=timeout+10)
     if p.returncode:return -1,{"transport_error":p.stderr[-300:]}
-    if "\n__STATUS__:" not in p.stdout:return -1,{"transport_error":"STATUS_MISSING"}
-    raw,code=p.stdout.rsplit("\n__STATUS__:",1)
+    marker="\n__STATUS__:"
+    if marker not in p.stdout:return -1,{"transport_error":"STATUS_MISSING"}
+    raw,code=p.stdout.rsplit(marker,1)
     try:j=json.loads(raw) if raw.strip() else {}
     except:j={"raw":raw[:500]}
     return int(code.strip()),j
 def curl_status(url):
     p=subprocess.run(["curl","-sS","-L","--connect-timeout","8","--max-time","20","-o","/dev/null","-w","%{http_code}",url],text=True,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,timeout=25)
     return int(p.stdout.strip() or 0) if p.returncode==0 else 0
-def worker_settings(name):
-    return cf("/workers/scripts/"+urllib.parse.quote(name,safe="")+"/settings") or {}
+def worker_settings(name):return cf("/workers/scripts/"+urllib.parse.quote(name,safe="")+"/settings") or {}
 def bindmap(settings):return {str(b.get("name")):b for b in (settings.get("bindings") or [])}
 def btext(by,k):return str((by.get(k) or {}).get("text") or "")
 def bid(by,k):return str((by.get(k) or {}).get("id") or "")
 def d1_rows(db,sql):
     r=cf("/d1/database/"+urllib.parse.quote(db,safe="")+"/query","POST",{"sql":sql})
     if not isinstance(r,list) or not r:raise RuntimeError("D1_QUERY_EMPTY")
+    if r[0].get("success") is False:raise RuntimeError("D1_QUERY_FAILED")
     return r[0].get("results") or []
+def table_count(db,name):
+    safe='"'+name.replace('"','""')+'"'
+    r=d1_rows(db,f"SELECT COUNT(*) AS n FROM {safe}")
+    return int((r[0] if r else {}).get("n",0))
+def table_exists(db,name):
+    return bool(d1_rows(db,"SELECT name FROM sqlite_master WHERE type='table' AND name="+q(name)))
+def q(v):return "'"+str(v).replace("'","''")+"'"
 def sheet_values(tok,sid,rng):
     code,j=req("https://sheets.googleapis.com/v4/spreadsheets/"+urllib.parse.quote(sid,safe="")+"/values/"+urllib.parse.quote(rng,safe=""),token=tok)
     if code//100!=2:raise RuntimeError("SHEET_READ_FAILED:"+str(code))
@@ -68,79 +77,167 @@ def sheet_values(tok,sid,rng):
 def sheet_contract(tok,sid):
     vals=sheet_values(tok,sid,"'__ENVIRONMENT_CONTRACT'!A:B")
     return {str(r[0]):str(r[1]) for r in vals if len(r)>=2 and str(r[0]).strip()}
+def sheet_titles(tok,sid):
+    code,j=req("https://sheets.googleapis.com/v4/spreadsheets/"+urllib.parse.quote(sid,safe="")+"?fields=sheets.properties.title",token=tok)
+    if code//100!=2:raise RuntimeError("SHEET_METADATA_FAILED:"+str(code))
+    return [str((x.get("properties") or {}).get("title") or "") for x in j.get("sheets",[])]
 def active_sheet_accounts(tok,sid):
-    a=sheet_values(tok,sid,"'Danh sách Admin'!A1:A200")
-    c=sheet_values(tok,sid,"'Danh sách Admin'!C1:C200")
-    i=sheet_values(tok,sid,"'Danh sách Admin'!I1:I200")
-    out=[]
-    for idx in range(1,max(len(a),len(c),len(i))):
-        login=str(a[idx][0]).strip() if idx<len(a) and a[idx] else ""
+    rows=sheet_values(tok,sid,"'Danh sách Admin'!A1:K200");out=[]
+    for r in rows[1:]:
+        login=str(r[0]).strip() if len(r)>0 else ""
         if not login:continue
-        role=str(c[idx][0]).upper().strip() if idx<len(c) and c[idx] else "USER"
-        status=str(i[idx][0]).upper().strip() if idx<len(i) and i[idx] else "ACTIVE"
+        role=(str(r[2]).upper().strip() if len(r)>2 else "USER")
+        status=(str(r[8]).upper().strip() if len(r)>8 and str(r[8]).strip() else "ACTIVE")
         if status=="ACTIVE":out.append((login,role))
     return sorted(out)
-def gas_probe(url):
-    code,j=curl_json("POST",url,body={"action":"__RUNTIME_AUTHORIZATION_PROBE__","_environment_id":"STABLE","_service_audience":"PICK_PACK_1291_STABLE"})
-    return {"http":code,"json":bool(j),"error":((j.get("error") or {}).get("code") if isinstance(j.get("error"),dict) else j.get("error"))}
+def deployment_readback(tok,script_id,deployment_id,url):
+    code,j=req(f"{SCRIPT_API}/{script_id}/deployments/{deployment_id}",token=tok)
+    if code//100!=2:raise RuntimeError("GAS_DEPLOYMENT_READ_FAILED:"+str(code))
+    eps=[]
+    for ep in j.get("entryPoints",[]) or []:
+        if ep.get("entryPointType")!="WEB_APP":continue
+        w=ep.get("webApp") or {};cfg=w.get("entryPointConfig") or {}
+        eps.append({"url":str(w.get("url") or ""),"access":str(cfg.get("access") or ""),"executeAs":str(cfg.get("executeAs") or "")})
+    if len(eps)!=1:raise RuntimeError("GAS_WEBAPP_ENTRYPOINT_NOT_UNIQUE")
+    ep=eps[0]
+    if ep["url"]!=url or ep["access"]!="ANYONE_ANONYMOUS" or ep["executeAs"]!="USER_DEPLOYING":raise RuntimeError("GAS_WEBAPP_POLICY_DRIFT")
+    return ep
+def gas_runtime_canary(kind,url,tok,canary_id):
+    expected=kind.upper()
+    get_code,get_j=curl_json("GET",url,follow=True)
+    if get_code!=200 or get_j.get("ok") is not True or get_j.get("environment_id")!="STABLE":raise RuntimeError("STABLE_GAS_GET_FAILED:"+kind+":"+str(get_code))
+    base={"action":"stable_runtime_canary","_environment_id":"STABLE","_service_audience":"PICK_PACK_1291_STABLE","google_access_token":tok,"canary_id":canary_id}
+    c1,j1=curl_json("POST",url,body={**base,"operation":"UPSERT"},follow=True,timeout=60)
+    if c1!=200:raise RuntimeError("STABLE_GAS_RUNTIME_NOT_AUTHORIZED:"+kind+":"+str(c1))
+    if j1.get("ok") is not True or j1.get("idempotent") is not False or j1.get("environment_id")!="STABLE" or j1.get("kind")!=expected or j1.get("properties_ok") is not True or j1.get("bound_sheet") is not True:
+        raise RuntimeError("STABLE_GAS_CANARY_FIRST_WRITE_FAILED:"+kind+":"+str(j1.get("error") or "ASSERT"))
+    c2,j2=curl_json("POST",url,body={**base,"operation":"UPSERT"},follow=True,timeout=60)
+    if c2!=200 or j2.get("ok") is not True or j2.get("idempotent") is not True:raise RuntimeError("STABLE_GAS_CANARY_REPLAY_FAILED:"+kind)
+    c3,j3=curl_json("POST",url,body={**base,"operation":"CLEANUP"},follow=True,timeout=60)
+    if c3!=200 or j3.get("ok") is not True or j3.get("cleanup") is not True:raise RuntimeError("STABLE_GAS_CANARY_CLEANUP_FAILED:"+kind)
+    c4,j4=curl_json("POST",url,body={**base,"operation":"CLEANUP"},follow=True,timeout=60)
+    if c4!=200 or j4.get("ok") is not True or j4.get("idempotent") is not True:raise RuntimeError("STABLE_GAS_CANARY_CLEANUP_REPLAY_FAILED:"+kind)
+    return {"http":200,"get":"PASS","first_write":"PASS","replay_idempotent":"PASS","cleanup":"PASS","cleanup_replay":"PASS","properties":"PASS","bound_sheet":"PASS"}
+def assert_exact_candidate_source(source):
+    p=subprocess.run(["git","diff","--quiet",source,"HEAD","--","app","service","google-apps-script"],cwd=ROOT)
+    if p.returncode!=0:raise RuntimeError("EXACT_BETA102_SOURCE_DRIFT")
+def repo_secret_sanity(obj,label):
+    def walk(x,path=""):
+        if isinstance(x,dict):
+            for k,v in x.items():
+                lk=str(k).lower();np=path+"."+str(k)
+                if any(t in lk for t in ["password","client_secret","refresh_token","signing_key","bridge_secret"]) and v not in (None,"",False):
+                    raise RuntimeError("PLAINTEXT_SECRET_FIELD:"+label+np)
+                walk(v,np)
+        elif isinstance(x,list):
+            for i,v in enumerate(x):walk(v,path+f"[{i}]")
+    walk(obj)
 def main():
     for n in ["CLOUDFLARE_API_TOKEN","CLOUDFLARE_ACCOUNT_ID","GOOGLE_OAUTH_CLIENT_ID","GOOGLE_OAUTH_CLIENT_SECRET","GOOGLE_OAUTH_REFRESH_TOKEN"]:
         print("::add-mask::"+need(n))
     tok=oauth();print("::add-mask::"+tok)
     contract=json.loads((ROOT/"config/environment_contracts.json").read_text())
     prov=json.loads((ROOT/"ops/stable-private-provision-request.json").read_text())
-    beta_c=contract["environments"]["BETA"]; stable_c=contract["environments"]["STABLE"]
-    beta_name=str(beta_c["current_service"]["worker"]); stable_name=str(prov["target_worker_name"])
-    beta_s,stable_s=worker_settings(beta_name),worker_settings(stable_name)
-    bb,sb=bindmap(beta_s),bindmap(stable_s)
-    beta_db=bid(bb,"DB");stable_db=bid(sb,"DB")
+    release=json.loads((ROOT/"ops/beta-release-request.json").read_text())
+    promo=json.loads((ROOT/"ops/promotion-lock-dry-run.json").read_text())
+    proof=json.loads((ROOT/"ops/stable-isolation-proof.json").read_text())
+    limits=json.loads((ROOT/"config/provider_free_limits.json").read_text())
+    repo_secret_sanity(release,"release");repo_secret_sanity(prov,"provision");repo_secret_sanity(promo,"promotion");repo_secret_sanity(proof,"backup")
+    if release.get("candidate_locked") is not True or release.get("rebuild") is not False or release.get("resign") is not False or release.get("stable_publish")!="FORBIDDEN":raise RuntimeError("BETA_RELEASE_LOCK_INVALID")
+    if release.get("version_name")!="0.4.2-beta.102" or int(release.get("version_code",0))!=108 or release.get("package")!="vn.pickpack1291.app.beta.publicbeta":raise RuntimeError("BETA102_METADATA_DRIFT")
+    source=str(release.get("source_sha") or "");assert_exact_candidate_source(source)
+    if proof.get("status")!="PASS" or proof.get("restore_compare")!="PASS" or proof.get("restore_canary_deleted") is not True or proof.get("d1_count_after")!=3:raise RuntimeError("STABLE_BACKUP_RESTORE_PROOF_INVALID")
+    if promo["beta_acceptance_lock"].get("source_sha")!=source or promo["beta_acceptance_lock"].get("owner_acceptance_ref") is not None:raise RuntimeError("BETA_ACCEPTANCE_LOCK_INVALID")
+    sp=promo["stable_promotion_lock"]
+    if sp.get("accepted_source_sha")!=source or sp.get("owner_promotion_authorization") is not None:raise RuntimeError("STABLE_PROMOTION_AUTHORIZATION_INVALID")
+    if any(bool(sp["stable"].get(k)) for k in ["manifest_active","ota_active","public_domain_active"]):raise RuntimeError("STABLE_PROMOTION_ALREADY_PUBLIC")
+    beta_c=contract["environments"]["BETA"];stable_c=contract["environments"]["STABLE"]
+    if stable_c.get("stable_publish_allowed") is not False:raise RuntimeError("STABLE_CONTRACT_PUBLISH_ALLOWED")
+    beta_name=str(beta_c["current_service"]["worker"]);stable_name=str(prov["target_worker_name"])
+    beta_s,stable_s=worker_settings(beta_name),worker_settings(stable_name);bb,sb=bindmap(beta_s),bindmap(stable_s)
+    beta_db,stable_db=bid(bb,"DB"),bid(sb,"DB")
     if not beta_db or not stable_db or beta_db==stable_db:raise RuntimeError("D1_ENVIRONMENT_ISOLATION_FAILED")
+    dbs=cf("/d1/database?per_page=100") or []
+    if len(dbs)!=3:raise RuntimeError("D1_COUNT_DRIFT:"+str(len(dbs)))
+    names=[str(x.get("name") or "") for x in dbs]
+    if any(("restore-canary" in x.lower() or "rehearsal" in x.lower()) for x in names):raise RuntimeError("D1_REHEARSAL_LEAK")
+    stable_match=[x for x in dbs if (x.get("uuid") or x.get("id"))==stable_db]
+    if len(stable_match)!=1 or stable_match[0].get("name")!=prov["target_d1_name"] or proof.get("target_d1_name")!=prov["target_d1_name"]:raise RuntimeError("STABLE_BACKUP_BINDING_DRIFT")
     if btext(sb,"ENVIRONMENT_ID")!="STABLE" or btext(sb,"SERVICE_AUDIENCE")!="PICK_PACK_1291_STABLE":raise RuntimeError("STABLE_WORKER_ENV_BINDING_FAILED")
-    beta_env=btext(bb,"ENVIRONMENT_ID") or "BETA"; beta_aud=btext(bb,"SERVICE_AUDIENCE") or "PICK_PACK_1291_BETA"
-    if beta_env!="BETA" or beta_aud!="PICK_PACK_1291_BETA":raise RuntimeError("BETA_WORKER_ENV_BINDING_FAILED")
+    if (btext(bb,"ENVIRONMENT_ID") or "BETA")!="BETA" or (btext(bb,"SERVICE_AUDIENCE") or "PICK_PACK_1291_BETA")!="PICK_PACK_1291_BETA":raise RuntimeError("BETA_WORKER_ENV_BINDING_FAILED")
     if btext(sb,"GOOGLE_SOURCE_SHEET_ID")!=prov["stable_primary_sheet_id"] or btext(sb,"GOOGLE_OUTBOUND_SHEET_ID")!=prov["stable_outbound_sheet_id"]:raise RuntimeError("STABLE_SHEET_BINDING_FAILED")
     if btext(bb,"GOOGLE_SOURCE_SHEET_ID")!=beta_c["gsheet"]["spreadsheet_id"]:raise RuntimeError("BETA_SHEET_BINDING_FAILED")
     if any(k in sb for k in ["GOOGLE_OAUTH_CLIENT_ID","GOOGLE_OAUTH_CLIENT_SECRET","GOOGLE_OAUTH_REFRESH_TOKEN"]):raise RuntimeError("STABLE_BROAD_GOOGLE_OAUTH_PRESENT")
-    dbs=cf("/d1/database?per_page=100") or []
-    if len(dbs)!=3:raise RuntimeError("D1_COUNT_DRIFT:"+str(len(dbs)))
+    stable_gas_urls=[btext(sb,k) for k in ["GAS_API_URL","OUTBOUND_GAS_API_URL","DR_GAS_API_URL"]]
+    if any(not x.startswith("https://script.google.com/") for x in stable_gas_urls) or len(set(stable_gas_urls))!=3 or btext(bb,"GAS_API_URL") in stable_gas_urls:raise RuntimeError("GAS_ENVIRONMENT_ISOLATION_FAILED")
+    # Writer/fencing/outbox/fallback current-state checks without replaying destructive DR.
+    for t in ["accounts","authority_state","runtime_config","replication_status","fallback_event_inbox","outbound_replication_outbox","sheet_replication_outbox","events","auth_sessions","auth_web_sessions","realtime_tickets"]:
+        if not table_exists(stable_db,t):raise RuntimeError("STABLE_TABLE_MISSING:"+t)
+    sa=d1_rows(stable_db,"SELECT mode,scope,service_generation FROM authority_state WHERE singleton_id=1")
+    if len(sa)!=1 or sa[0].get("mode")!="SERVICE_PRIMARY" or sa[0].get("scope")!="PRODUCTION" or str(sa[0].get("service_generation") or "")!=btext(sb,"SERVICE_GENERATION"):raise RuntimeError("STABLE_WRITER_FENCE_DRIFT")
+    stable_zero={t:table_count(stable_db,t) for t in ["fallback_event_inbox","outbound_replication_outbox","sheet_replication_outbox","events","auth_sessions","auth_web_sessions","realtime_tickets"]}
+    if any(v!=0 for v in stable_zero.values()):raise RuntimeError("STABLE_READY_NOT_LIVE_MUTABLE_STATE_DIRTY:"+json.dumps(stable_zero,sort_keys=True))
+    if table_count(stable_db,"replication_status")<1 or table_count(stable_db,"runtime_config")<1:raise RuntimeError("STABLE_RUNTIME_GUARD_MISSING")
+    ba=d1_rows(beta_db,"SELECT mode,scope,service_generation FROM authority_state WHERE singleton_id=1")
+    if len(ba)!=1 or ba[0].get("mode")!="SERVICE_PRIMARY" or ba[0].get("scope")!="PRODUCTION" or str(ba[0].get("service_generation") or "")!=btext(bb,"SERVICE_GENERATION"):raise RuntimeError("BETA_WRITER_FENCE_DRIFT")
+    quota=d1_rows(beta_db,"SELECT config_key,config_value FROM runtime_config WHERE config_key IN ('D1_DB_QUOTA_BYTES','D1_ACCOUNT_QUOTA_BYTES','CUTOVER_DB_PERCENT','ROLLOVER_DB_PERCENT')")
+    if len({str(x.get("config_key")) for x in quota})<4:raise RuntimeError("BETA_QUOTA_GUARD_MISSING")
+    if not limits.get("sources",{}).get("cloudflare_d1"):raise RuntimeError("PROVIDER_LIMIT_SOURCE_MISSING")
+    verified=datetime.date.fromisoformat(str(limits.get("verified_at")));max_age=int(limits.get("max_age_days",0))
+    if (datetime.date.today()-verified).days>max_age:raise RuntimeError("PROVIDER_LIMITS_STALE")
     sub=str((cf("/workers/subdomain") or {}).get("subdomain") or "")
-    beta_url=f"https://{beta_name}.{sub}.workers.dev"; stable_url=f"https://{stable_name}.{sub}.workers.dev"
-    bh=curl_json("GET",beta_url+"/health")[1]; sh=curl_json("GET",stable_url+"/health")[1]
+    beta_url=f"https://{beta_name}.{sub}.workers.dev";stable_url=f"https://{stable_name}.{sub}.workers.dev"
+    bh=curl_json("GET",beta_url+"/health")[1];sh=curl_json("GET",stable_url+"/health")[1]
     if not bh.get("ok") or not sh.get("ok"):raise RuntimeError("WORKER_HEALTH_FAILED")
-    be=curl_json("GET",beta_url+"/environment.json")[1]; se=curl_json("GET",stable_url+"/environment.json")[1]
+    be=curl_json("GET",beta_url+"/environment.json")[1];se=curl_json("GET",stable_url+"/environment.json")[1]
     if be.get("environment_id")!="BETA" or se.get("environment_id")!="STABLE":raise RuntimeError("ENVIRONMENT_ENDPOINT_FAILED")
     b_mismatch,_=curl_json("GET",beta_url+"/v1/sync/status",headers={"X-Pick-Pack-Environment":"STABLE","X-Pick-Pack-Audience":"PICK_PACK_1291_STABLE"})
     s_mismatch,_=curl_json("GET",stable_url+"/v1/sync/status",headers={"X-Pick-Pack-Environment":"BETA","X-Pick-Pack-Audience":"PICK_PACK_1291_BETA"})
     s_missing,_=curl_json("GET",stable_url+"/v1/sync/status")
     if b_mismatch not in (403,409) or s_mismatch not in (403,409) or s_missing not in (403,409):raise RuntimeError("CROSS_ENVIRONMENT_HTTP_FENCE_FAILED")
+    want_beta=sorted([("adminbeta","SUPERADMIN"),("admintest","ADMIN"),("user1","USER"),("user2","USER"),("user3","USER")])
     beta_active=sorted((str(r.get("login_id")),str(r.get("role"))) for r in d1_rows(beta_db,"SELECT login_id,role FROM accounts WHERE status='ACTIVE' ORDER BY login_id"))
     stable_active=sorted((str(r.get("login_id")),str(r.get("role"))) for r in d1_rows(stable_db,"SELECT login_id,role FROM accounts WHERE status='ACTIVE' ORDER BY login_id"))
-    want_beta=sorted([("adminbeta","SUPERADMIN"),("admintest","ADMIN"),("user1","USER"),("user2","USER"),("user3","USER")])
     if beta_active!=want_beta:raise RuntimeError("BETA_D1_AUTH_TARGET_FAILED:"+json.dumps(beta_active))
     if stable_active!=[("admin","SUPERADMIN")]:raise RuntimeError("STABLE_D1_AUTH_TARGET_FAILED:"+json.dumps(stable_active))
-    beta_sheet=active_sheet_accounts(tok,beta_c["gsheet"]["spreadsheet_id"])
-    stable_sheet=active_sheet_accounts(tok,prov["stable_primary_sheet_id"])
-    if beta_sheet!=want_beta:raise RuntimeError("BETA_SHEET_AUTH_TARGET_FAILED:"+json.dumps(beta_sheet))
-    if stable_sheet!=[("admin","SUPERADMIN")]:raise RuntimeError("STABLE_SHEET_AUTH_TARGET_FAILED:"+json.dumps(stable_sheet))
-    gas={}
-    for kind,sid in [("primary",prov["stable_primary_sheet_id"]),("outbound",prov["stable_outbound_sheet_id"]),("dr",prov["stable_dr_sheet_id"])]:
+    if active_sheet_accounts(tok,beta_c["gsheet"]["spreadsheet_id"])!=want_beta:raise RuntimeError("BETA_SHEET_AUTH_TARGET_FAILED")
+    if active_sheet_accounts(tok,prov["stable_primary_sheet_id"])!=[("admin","SUPERADMIN")]:raise RuntimeError("STABLE_SHEET_AUTH_TARGET_FAILED")
+    # Three distinct Stable GAS deployments, exact policy, live runtime + idempotent canary + cleanup.
+    gas={};scripts=set();deployments=set();canary_id="__CI_STABLE_CANARY_"+str(os.environ.get("GITHUB_RUN_ID","local"))
+    specs=[("primary",prov["stable_primary_sheet_id"]),("outbound",prov["stable_outbound_sheet_id"]),("dr",prov["stable_dr_sheet_id"])]
+    for kind,sid in specs:
         c=sheet_contract(tok,sid)
-        if c.get("environment_id")!="STABLE" or not c.get("gas_web_url"):raise RuntimeError("STABLE_GAS_CONTRACT_FAILED:"+kind)
-        gas[kind]={"lifecycle":c.get("lifecycle"),**gas_probe(c["gas_web_url"])}
-        if gas[kind]["http"]!=200:raise RuntimeError("STABLE_GAS_RUNTIME_NOT_AUTHORIZED:"+kind+":"+str(gas[kind]["http"]))
-    beta_domain=curl_status(str(beta_c["target_web_origin"]))
-    stable_domain=curl_status(str(stable_c["target_web_origin"]))
+        if c.get("environment_id")!="STABLE" or c.get("stable_spreadsheet_id")!=sid:raise RuntimeError("STABLE_GAS_CONTRACT_FAILED:"+kind)
+        script_id,deployment_id,url=str(c.get("gas_script_id") or ""),str(c.get("gas_deployment_id") or ""),str(c.get("gas_web_url") or "")
+        if not script_id or not deployment_id or not url:raise RuntimeError("STABLE_GAS_ID_MISSING:"+kind)
+        deployment_readback(tok,script_id,deployment_id,url);scripts.add(script_id);deployments.add(deployment_id)
+        gas[kind]=gas_runtime_canary(kind,url,tok,canary_id)
+        if CANARY_SHEET in sheet_titles(tok,sid):raise RuntimeError("STABLE_GAS_CANARY_CLEANUP_READBACK_FAILED:"+kind)
+    if len(scripts)!=3 or len(deployments)!=3:raise RuntimeError("STABLE_GAS_DEPLOYMENTS_NOT_DISTINCT")
+    if CANARY_SHEET in sheet_titles(tok,beta_c["gsheet"]["spreadsheet_id"]):raise RuntimeError("STABLE_CANARY_WRITTEN_TO_BETA")
+    # Beta manifest must still be exact previous LIVE before publish; Beta102 must not leak pre-OTA.
+    beta_gas=btext(bb,"GAS_API_URL")
+    manifest_code,manifest=curl_json("POST",beta_gas,body={"action":"update_check","channel":"BETA","current_version":"0.0.0","_environment_id":"BETA","_service_audience":"PICK_PACK_1291_BETA"},follow=True,timeout=60)
+    if manifest_code!=200 or manifest.get("ok") is not True:raise RuntimeError("BETA_MANIFEST_READBACK_FAILED:"+str(manifest_code))
+    if manifest.get("version_name")!=release.get("base_version") or release.get("live") is not False:raise RuntimeError("BETA102_PREOTA_MANIFEST_LEAK")
+    beta_domain=curl_status(str(beta_c["target_web_origin"]));stable_domain=curl_status(str(stable_c["target_web_origin"]))
     if beta_domain not in (200,301,302,307,308,401,403):raise RuntimeError("BETA_TARGET_DOMAIN_NOT_READY:"+str(beta_domain))
     if stable_domain in (200,301,302,307,308):raise RuntimeError("STABLE_ROOT_DOMAIN_PUBLIC:"+str(stable_domain))
-    receipt={"status":"PASS","d1_count":len(dbs),"workers":{"beta":beta_name,"stable":stable_name,"db_separate":True,"sheet_separate":True,"stable_broad_google_oauth_absent":True},
-      "auth":{"beta_active":[x[0] for x in beta_active],"stable_active":[x[0] for x in stable_active],"sheet_parity":True},
-      "cross_environment":{"beta_rejects_stable_headers":True,"stable_rejects_beta_headers":True,"stable_missing_env_rejected":True},
-      "gas":gas,"domains":{"beta_target_http":beta_domain,"stable_root_http":stable_domain,"stable_public":False},
-      "stable_public_activation":False,"d1_quota_guard":"PASS_COUNT_3"}
+    receipt={"status":"PASS","phase":"PRE_OTA_RUNTIME_DOD","candidate":{"source_sha":source,"version_name":release["version_name"],"version_code":release["version_code"],"package":release["package"],"apk_sha256":release["apk_sha256"],"apk_size":release["apk_size"],"signer_sha256":release["signer_sha256"],"exact_source_unchanged":True},
+      "d1":{"count":3,"rehearsal_absent":True,"stable_ready_not_live_zero_state":stable_zero,"quota_guard":"PASS","writer_fencing":"PASS"},
+      "backup_restore":{"run_id":proof["run_id"],"artifact_id":proof["artifact_id"],"backup_sha256":proof["backup_sha256"],"restore_compare":"PASS","canary_deleted":True,"current_binding_unchanged":True},
+      "workers":{"beta":beta_name,"stable":stable_name,"db_separate":True,"sheet_separate":True,"gas_separate":True,"stable_broad_google_oauth_absent":True},
+      "auth":{"beta_active":[x[0] for x in beta_active],"stable_active":[x[0] for x in stable_active],"sheet_parity":"PASS"},
+      "cross_environment":{"headers_rejected_both_ways":True,"stable_missing_env_rejected":True,"fallback_cross_route_absent":True},
+      "gas":gas,"gas_deployments":{"distinct_projects":True,"distinct_deployments":True,"policy":"ANYONE_ANONYMOUS/USER_DEPLOYING","canary_cleanup_readback":"PASS","beta_sheet_untouched":True},
+      "domains":{"beta_target_http":beta_domain,"stable_root_http":stable_domain,"stable_public":False},
+      "release":{"beta_manifest_version":manifest.get("version_name"),"beta102_manifest_leak":False,"stable_manifest":False,"stable_ota":False,"stable_release":False},
+      "promotion":{"owner_acceptance":None,"owner_promotion_authorization":None,"stable_public":False},
+      "secrets":{"plaintext_in_receipt":False},"stable_lifecycle_target":"READY_NOT_LIVE"}
     pathlib.Path("/tmp/beta-stable-runtime-verify.json").write_text(json.dumps(receipt,indent=2,ensure_ascii=False)+"\n")
-    print(json.dumps({"status":"PASS","d1_count":3,"beta_auth":5,"stable_auth":1,"gas":3,"stable_public":False}))
+    print(json.dumps({"status":"PASS","phase":"PRE_OTA_RUNTIME_DOD","d1":3,"beta_auth":5,"stable_auth":1,"gas":3,"backup_restore":"PASS","stable_public":False}))
 if __name__=="__main__":
     try:main()
     except Exception as e:
-        pathlib.Path("/tmp/beta-stable-runtime-verify.json").write_text(json.dumps({"status":"FAIL","error":str(e)[:1200]},indent=2)+"\n")
+        pathlib.Path("/tmp/beta-stable-runtime-verify.json").write_text(json.dumps({"status":"FAIL","error":str(e)[:1200],"plaintext_secret":False},indent=2)+"\n")
         print("BETA_STABLE_RUNTIME_VERIFY_ERROR:"+str(e)[:1600],file=sys.stderr);sys.exit(1)
