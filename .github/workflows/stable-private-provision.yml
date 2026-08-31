@@ -9,6 +9,7 @@ on:
       - tools/stable_private_provision.py
       - tools/stable_gas_canary_prepare.py
       - tools/stable_auth_parity.py
+      - tools/stable_worker_code_sync.py
       - .github/workflows/stable-private-provision.yml
       - google-apps-script/stable-primary-appsscript.json
       - google-apps-script/stable-outbound/**
@@ -38,6 +39,8 @@ jobs:
       GOOGLE_OAUTH_REFRESH_TOKEN: ${{ secrets.GOOGLE_OAUTH_REFRESH_TOKEN }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -45,9 +48,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python3 -m py_compile tools/stable_private_provision.py tools/stable_gas_canary_prepare.py tools/stable_auth_parity.py
+          python3 -m py_compile tools/stable_private_provision.py tools/stable_gas_canary_prepare.py tools/stable_auth_parity.py tools/stable_worker_code_sync.py
           python3 tools/stable_private_provision.py --self-test
-          jq -e '.environment=="STABLE" and .stable_public_activation==false and (.mode=="PREFLIGHT_ONLY" or .mode=="PROVISION_PRIVATE" or .mode=="GAS_CANARY_UPDATE" or .mode=="AUTH_PARITY_REPAIR")' ops/stable-private-provision-request.json >/dev/null
+          jq -e '.environment=="STABLE" and .stable_public_activation==false and (.mode=="PREFLIGHT_ONLY" or .mode=="PROVISION_PRIVATE" or .mode=="GAS_CANARY_UPDATE" or .mode=="AUTH_PARITY_REPAIR" or .mode=="WORKER_CODE_SYNC")' ops/stable-private-provision-request.json >/dev/null
       - name: Install Worker tooling
         shell: bash
         run: |
@@ -67,6 +70,8 @@ jobs:
             python3 tools/stable_gas_canary_prepare.py
           elif [[ "$MODE" == "AUTH_PARITY_REPAIR" ]]; then
             python3 tools/stable_auth_parity.py
+          elif [[ "$MODE" == "WORKER_CODE_SYNC" ]]; then
+            python3 tools/stable_worker_code_sync.py
           else
             python3 tools/stable_private_provision.py
           fi
