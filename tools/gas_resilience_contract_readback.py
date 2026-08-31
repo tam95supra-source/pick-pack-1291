@@ -87,6 +87,18 @@ def function_body_selftest():
     if missing!="":
         raise RuntimeError("FUNCTION_BODY_NEGATIVE_SELFTEST_FAILED")
 
+def canonicalizer_references(project):
+    src=server_source(project)
+    refs=[]
+    needle="ppM2CanonicalServiceUrl_("
+    for m in __import__("re").finditer(__import__("re").escape(needle),src):
+        start=max(0,src.rfind("\n",0,m.start())+1)
+        end=src.find("\n",m.end())
+        if end<0:end=len(src)
+        line=" ".join(src[start:end].split())
+        refs.append(line[:500])
+    return refs
+
 def m2_resolution_semantics(project):
     src=server_source(project)
     names=["ppM2CanonicalServiceUrl_","ppM2ServiceUrl_","ppM2StateSnapshot_","ppM2Discovery_"]
@@ -212,6 +224,9 @@ def main():
         "deployment_m2_resolution_semantics":m2_resolution_semantics(deployed),
         "head_m2_resolution_semantics":m2_resolution_semantics(head),
         "repo_m2_resolution_semantics":m2_resolution_semantics(repo_obj),
+        "deployment_canonicalizer_references":canonicalizer_references(deployed),
+        "head_canonicalizer_references":canonicalizer_references(head),
+        "repo_canonicalizer_references":canonicalizer_references(repo_obj),
     }
     out.parent.mkdir(parents=True,exist_ok=True)
     out.write_text(json.dumps(data,indent=2)+"\n",encoding="utf-8")
