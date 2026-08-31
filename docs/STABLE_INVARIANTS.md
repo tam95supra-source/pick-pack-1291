@@ -75,11 +75,11 @@ Mỗi invariant tối thiểu có:
 - Rule: Beta APK = GITHUB_RELEASE_ONLY; Google Drive APK FORBIDDEN cho backup/staging/mirror/upload/download/rollback/distribution.
 - Authority: GitHub Actions exact candidate → GitHub Release exact bytes → Beta manifest/update API → OTA exact readback.
 - Regression: exact SHA256/size/version/package/signer, Stable/main/authority unchanged.
-- Publish-verifier regression: receipt-driven screenshot evidence; legacy receipt 26 PASS, Beta101 receipt 35 PASS, actual-count mismatch / missing viewport / summary mismatch / human gate false FAIL; Fast Check run 33377060461 PASS.
-- Evidence: Beta102 terminal run 33377501045; final artifact 9752558407; GitHub Release asset v0.4.2-beta.102-publicbeta SHA256 6178085afb3d5b9d7e3a913ca38d3842dd7b2d6db585ac2bbe04a95dcaa5c0b1 / size 13593589; OTA 0.4.2-beta.101 → 0.4.2-beta.102 exact SHA/size/version/package/signer + install/open PASS; publish fresh GAS readback deployment 213 PASS; Stable unchanged.
-- Last verified: 0.4.2-beta.102.
+- Publish-verifier regression: receipt-driven screenshot evidence; actual-count mismatch / missing viewport / summary mismatch / human gate false phải FAIL; Beta104 Fast Check run 33388933459 PASS.
+- Evidence: Beta104 terminal run 33391700817 PASS; publish artifact 9757752307; OTA preserved-data artifact 9757829287; final artifact 9757837384; GitHub Release asset ID 537953189 exact SHA256 523b7ca4fe3463acdec8281d6232f36cd15e8df13a5f25585ca4ff4b82f2d6f1 / size 13593589; OTA 0.4.2-beta.102 → 0.4.2-beta.104 exact SHA/size/version/package/signer + install/open PASS; Stable/main/authority unchanged.
+- Last verified: 0.4.2-beta.104.
 
-## 4. LOCKED_REQUIREMENT_PENDING_FIX
+## 4. LOCKED_REQUIREMENT_PENDING_FIX / AWAITING OWNER / DEFERRED
 
 ### PDA-EXIT-001
 - Status: ACTIVE_PASS
@@ -94,22 +94,23 @@ Mỗi invariant tối thiểu có:
 - OWNER acceptance: PASS — item 1 OK và item 2 OK trên Beta99. Latest manual evidence 2026-08-30 13:21 + OWNER confirmation: session_work_update Đổi/Trả PDA hoạt động, không còn USER_PICK_UNAVAILABLE. Khóa ACTIVE_PASS từ Beta99.
 
 ### ENV-ISOLATION-001
-- Status: LOCKED_REQUIREMENT_PENDING_FIX
+- Status: TECHNICAL_PASS_AWAITING_OWNER
 - Scope: Beta/Stable environment isolation / HTTP / GAS / LAN-NSD / release
 - OWNER rule: Beta và Stable phải tách environment/audience, data/accounts/service/GAS/OTA/LAN mutable state; cross-environment automatic write/fallback/auth/session/manifest/LAN sharing bị cấm. Stable giữ READY_NOT_LIVE/private/public=false cho tới lệnh promotion riêng của OWNER.
 - Regression: distinct BETA/STABLE environment+audience; cross/missing environment request bị reject; D1/Sheet/GAS tách; LAN/NSD type tách; BETA GAS discovery trỏ canonical BETA Service; Stable không OTA/public/promotion; Stable/main/signer/authority không đổi.
-- Technical evidence: exact Beta102 source 8653e8e1a8c0585a4dcab95ccb3da0636650d8a5; BETA GAS source-only repair run 33376373374 artifact 9752024220 → deployment 213; independent/publish fresh readback 33376476824 + publish run 33377501045 xác nhận BETA/PICK_PACK_1291_BETA canonical Worker; Fast Check 33377060461 PASS; runtime DoD 33377306088 artifact 9752375833 PASS (D1=3, BETA auth=5, Stable auth=1, GAS=3, backup/restore PASS, Stable public=false); terminal publish/OTA/install/readback/finalize run 33377501045 PASS, final artifact 9752558407.
-- Release identity: 0.4.2-beta.102 / versionCode 108 / package vn.pickpack1291.app.beta.publicbeta / SHA256 6178085afb3d5b9d7e3a913ca38d3842dd7b2d6db585ac2bbe04a95dcaa5c0b1 / size 13593589 / signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e.
-- OWNER acceptance: FAILED_ON_BETA102_SERVICE_CONNECTIVITY — manual log 2026-08-31 17:27 cho thấy app giữ stale discovery `pickpack1291.cc.cd`, session exchange DNS fail và Service hiển thị offline. Phải sửa Beta103 và fresh Technical PASS trước khi OWNER nghiệm thu lại.
+- Technical evidence: Beta104 source c31bb1b7ad68e6fd114727d8f08508796013bcef; candidate 33384004708 / 9754938692; exact-device SERVICE-DISCOVERY-001 33388577027 / 9756583802 PASS; Fast Check 33388933459 PASS; runtime DoD 33389060092 / 9756743967 PASS; terminal publish/OTA/install/readback/finalize 33391700817 PASS; publish 9757752307; OTA preserved-data 9757829287; final 9757837384; exact APK SHA256 523b7ca4fe3463acdec8281d6232f36cd15e8df13a5f25585ca4ff4b82f2d6f1 / size 13593589 / signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; BETA environment/audience/Worker readback PASS; Stable available=false, main unchanged.
+- Prior OWNER failure: Beta102 stale discovery connectivity failure. Technical remediation is PASS on Beta104; OWNER re-acceptance remains required.
+- OWNER acceptance: PENDING_BETA104.
 
 ### SERVICE-DISCOVERY-001
-- Status: LOCKED_REQUIREMENT_PENDING_FIX
+- Status: TECHNICAL_PASS_AWAITING_OWNER
 - Scope: Android dynamic Service discovery/cache
 - OWNER rule: BETA phải kết nối Service qua environment-scoped dynamic discovery; stale cache từ endpoint/environment cũ không được điều khiển Service session/read/sync/outbox sau OTA hoặc isolation cutover.
-- Failure evidence: manual-20260831-172725-4aaccadf-0df6-4d6d-9eca-589b274b1659.json — Beta102/adminbeta; session_http=-1; UnknownHostException tới pickpack1291.cc.cd; runtime_error=SESSION_EXCHANGE_FAILED trong khi canonical BETA GAS v213 đã trả BETA Worker riêng.
+- Failure evidence: manual-20260831-172725-4aaccadf-0df6-4d6d-9eca-589b274b1659.json — Beta102/adminbeta; session_http=-1; UnknownHostException tới pickpack1291.cc.cd; runtime_error=SESSION_EXCHANGE_FAILED trong khi canonical BETA discovery trỏ BETA Worker riêng.
 - Regression required: cache phải match exact BuildConfig environment/audience; stale/missing-env cache bị invalidate; discoverySnapshot honor TTL/force; live session/direct-read/sync/outbox/resilience path refresh discovery; Android không hardcode Stable root hoặc provider URL.
-- Target source: a418a9cca55f9b4000dd250c9796ea84e346814e / 0.4.2-beta.103.
-- OWNER acceptance: PENDING.
+- Technical evidence: Beta104 source c31bb1b7ad68e6fd114727d8f08508796013bcef; exact-device run 33388577027 / artifact 9756583802 seeded stale pickpack1291.cc.cd and PASS with environment=BETA, audience=PICK_PACK_1291_BETA, service_url=https://pickpack.1291.workers.dev, stable_root_reused=false, cache_rewritten_in_process=true; OTA preserved-data Beta102→Beta104 run 33391700817 / artifact 9757829287 repeated stale-cache migration without clear/reinstall and PASS; terminal final artifact 9757837384.
+- Technical candidate: 0.4.2-beta.104 LIVE.
+- OWNER acceptance: PENDING_BETA104.
 
 ### INFRA-RESILIENCE-001
 - Status: TECHNICAL_PASS_AWAITING_OWNER
