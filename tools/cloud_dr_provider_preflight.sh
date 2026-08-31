@@ -8,6 +8,20 @@ for n in "${required[@]}";do [[ -n "${!n:-}" ]] || missing+=("$n");done
 if ((${#missing[@]}));then printf 'MISSING_DR_SECRET:%s\n' "$(IFS=,;echo "${missing[*]}")" >&2;exit 51;fi
 for n in "${required[@]}";do echo "::add-mask::${!n}";done
 
+LIMITS=config/provider_free_limits.json
+node - "$LIMITS" <<'NODE'
+const fs=require('fs'),x=JSON.parse(fs.readFileSync(process.argv[2],'utf8'));
+const verified=Date.parse(String(x.verified_at||'')+'T00:00:00Z'),maxAge=Number(x.max_age_days),age=Date.now()-verified;
+if(x.schema_version!==1||!Number.isFinite(verified)||!Number.isInteger(maxAge)||maxAge<1||age < -86400000||age > maxAge*86400000)throw new Error('PROVIDER_LIMIT_AUTHORITY_INVALID_OR_STALE');
+if(x.render?.required_service_plan!=='free'||x.render?.required_region!=='singapore'||x.render?.automatic_activation!=='FORBIDDEN_COLD_STANDBY')throw new Error('RENDER_FREE_COLD_STANDBY_AUTHORITY_INVALID');
+if(Number(x.turso?.required_plan_price_usd)!==0||Number(x.deno?.required_plan_price_usd)!==0)throw new Error('DR_ZERO_COST_AUTHORITY_INVALID');
+console.log('provider_limit_authority=PASS');
+NODE
+RENDER_PLAN=$(jq -er '.render.required_service_plan' "$LIMITS")
+RENDER_REGION=$(jq -er '.render.required_region' "$LIMITS")
+DENO_MAX_APPS=$(jq -er '.deno.max_active_apps' "$LIMITS")
+TURSO_MAX_DBS=$(jq -er '.turso.max_databases' "$LIMITS")
+
 http(){
   local name="$1" url="$2" token="$3"
   local code
@@ -16,11 +30,19 @@ http(){
 }
 
 http render-services "https://api.render.com/v1/services?limit=100" "$RENDER_API_KEY"
-node - "$OUT/render-services.json" <<'NODE'
-const fs=require('fs'),j=JSON.parse(fs.readFileSync(process.argv[2],'utf8'));const rows=Array.isArray(j)?j:(j.items||[]);
-const matches=rows.map(x=>x.service||x).filter(x=>/pick.?pack.?1291.*dr/i.test(String(x.name||'')));
-for(const x of matches){const d=x.serviceDetails||x.service_details||{},plan=String(d.plan||x.plan||'').toLowerCase(),region=String(d.region||x.region||'').toLowerCase();if(plan&&plan!=='free')throw new Error('RENDER_DR_NOT_FREE:'+plan);if(region&&!region.includes('singapore'))throw new Error('RENDER_DR_REGION_NOT_SINGAPORE:'+region);}
-console.log('render_token=PASS existing_dr='+matches.length);
+node - "$OUT/render-services.json" "$RENDER_PLAN" "$RENDER_REGION" <<'NODE'
+const fs=require('fs'),j=JSON.parse(fs.readFileSync(process.argv[2],'utf8')),requiredPlan=String(process.argv[3]),requiredRegion=String(process.argv[4]);
+const rows=(Array.isArray(j)?j:(j.items||[])).map(x=>x.service||x),targets=['pick-pack-1291-dr-beta','pick-pack-1291-dr-stable'];
+for(const name of targets){const m=rows.filter(x=>String(x.name||'')===name);if(m.length!==1)throw new Error('RENDER_DR_TARGET_NOT_UNIQUE:'+name+':'+m.length);}
+const matches=rows.filter(x=>/pick.?pack.?1291.*dr/i.test(String(x.name||'')));
+for(const x of matches){
+ const d=x.serviceDetails||x.service_details||{},plan=String(d.plan||x.plan||'').toLowerCase(),region=String(d.region||x.region||'').toLowerCase();
+ if(plan!==requiredPlan)throw new Error('RENDER_DR_NOT_REQUIRED_FREE_PLAN:'+String(x.name)+':'+plan);
+ if(region!==requiredRegion)throw new Error('RENDER_DR_REGION_MISMATCH:'+String(x.name)+':'+region);
+ if(String(x.autoDeploy||'')!=='no')throw new Error('RENDER_DR_AUTODEPLOY_NOT_OFF:'+String(x.name));
+ if(String(x.suspended||'')!=='suspended')throw new Error('RENDER_DR_NOT_COLD_SUSPENDED:'+String(x.name)+':'+String(x.suspended||''));
+}
+console.log('render_token=PASS target_count=2 cold_suspended=true plan='+requiredPlan+' region='+requiredRegion);
 NODE
 
 http turso-validate "https://api.turso.tech/v1/auth/validate" "$TURSO_API_TOKEN"
@@ -173,6 +195,14 @@ elif [[ "$TURSO_DB_AUTH_OK" != 1 ]]; then
   exit 53
 fi
 
+[[ -f "$OUT/turso-databases.json" ]] || { echo "TURSO_DR_DATABASE_INVENTORY_REQUIRED" >&2; exit 53; }
+node - "$OUT/turso-databases.json" "$TURSO_MAX_DBS" <<'NODE'
+const fs=require('fs'),j=JSON.parse(fs.readFileSync(process.argv[2],'utf8')),max=Number(process.argv[3]),rows=j.databases||[];
+if(!Number.isInteger(max)||max<3||rows.length>max)throw new Error('TURSO_DATABASE_COUNT_CAPACITY_INVALID:'+rows.length+'/'+max);
+for(const name of ['pick-pack-1291-dr-beta','pick-pack-1291-dr-stable']){const m=rows.filter(x=>String(x.Name||x.name||'')===name);if(m.length!==1)throw new Error('TURSO_DR_TARGET_NOT_UNIQUE:'+name+':'+m.length);if(!String(m[0].Hostname||m[0].hostname||''))throw new Error('TURSO_DR_TARGET_HOST_MISSING:'+name);}
+console.log('turso_dr_targets=PASS database_count='+rows.length+'/'+max);
+NODE
+
 if [[ "$TURSO_DB_AUTH_OK" != 1 ]]; then
   [[ -f "$OUT/turso-databases.json" ]] || { echo "TURSO_DATABASE_LIST_UNAVAILABLE" >&2; exit 53; }
   if [[ "${TURSO_EXISTING_RESOURCE_ONLY:-0}" == 1 ]]; then
@@ -195,8 +225,11 @@ if grep -Eq 'curl[^\n]*(--request|-X)[[:space:]]*(POST|PUT|PATCH|DELETE)' "$0"; 
   echo "DR_PREFLIGHT_PAID_CAPABLE_MUTATION_FORBIDDEN" >&2; exit 56
 fi
 http deno-apps "https://api.deno.com/v2/apps?limit=100" "$DENO_DEPLOY_TOKEN"
-node - "$OUT/deno-apps.json" <<'NODE'
-const fs=require('fs'),j=JSON.parse(fs.readFileSync(process.argv[2],'utf8')),rows=Array.isArray(j)?j:(j.items||j.apps||[]);if(!Array.isArray(rows))throw new Error('DENO_APPS_RESPONSE_INVALID');console.log('deno_token=PASS existing_apps='+rows.length);
+node - "$OUT/deno-apps.json" "$DENO_MAX_APPS" <<'NODE'
+const fs=require('fs'),j=JSON.parse(fs.readFileSync(process.argv[2],'utf8')),max=Number(process.argv[3]),rows=Array.isArray(j)?j:(j.items||j.apps||[]);
+if(!Array.isArray(rows)||!Number.isInteger(max)||max<2||rows.length>max)throw new Error('DENO_APP_CAPACITY_INVALID:'+rows.length+'/'+max);
+for(const slug of ['pp1291-dr-beta','pp1291-dr-stable']){const m=rows.filter(x=>String(x.slug||'')===slug);if(m.length!==1)throw new Error('DENO_DR_TARGET_NOT_UNIQUE:'+slug+':'+m.length);}
+console.log('deno_token=PASS target_count=2 app_count='+rows.length+'/'+max);
 NODE
-jq -n --arg turso_mode "${TURSO_EXISTING_RESOURCE_ONLY:+EXISTING_RESOURCE_ONLY}" '{status:"PASS",secrets:"4/4_VALIDATED",render_token:"PASS",turso_platform_token:"PASS",turso_database_token:"PASS",turso_billing_mode:($turso_mode|select(length>0)//"ZERO_COST_METADATA_VERIFIED"),deno_token:"PASS",no_secret_output:true,no_paid_action:true}' > "$OUT/receipt.json"
+jq -n --arg turso_mode "${TURSO_EXISTING_RESOURCE_ONLY:+EXISTING_RESOURCE_ONLY}" --argjson deno_max "$DENO_MAX_APPS" --argjson turso_max "$TURSO_MAX_DBS" '{status:"PASS",quota_authority:"config/provider_free_limits.json",provider_limit_freshness:"PASS",secrets:"4/4_VALIDATED",render_token:"PASS",render_cold_standby:"PASS",turso_platform_token:"PASS",turso_database_token:"PASS",turso_targets:"PASS",turso_max_databases:$turso_max,turso_billing_mode:($turso_mode|select(length>0)//"ZERO_COST_METADATA_VERIFIED"),deno_token:"PASS",deno_targets:"PASS",deno_max_apps:$deno_max,no_secret_output:true,no_paid_action:true}' > "$OUT/receipt.json"
 cat "$OUT/receipt.json"

@@ -105,9 +105,13 @@ const providerLimits=JSON.parse(read("config/provider_free_limits.json"));
 must(drHandler.includes('../../../service/src/core')&&drHandler.includes('../../../service/src/legacy'),"DR_CANONICAL_CORE_REUSE_MISSING");
 must(drHandler.includes('DR_WRITER_MODE!=="ACTIVE_WRITE"')&&drHandler.includes("DR_PASSIVE_FENCED"),"DR_WRITER_FENCE_MISSING");
 must(drAdapter.includes("@libsql/client/web"),"DR_PROVIDER_ADAPTER_MISSING");
-must(providerLimits.cloudflare_workers_free?.d1_database_bytes===524288000,"CF_D1_FREE_DB_LIMIT_MISMATCH");
-must(providerLimits.cloudflare_workers_free?.d1_account_bytes===5368709120,"CF_D1_FREE_ACCOUNT_LIMIT_MISMATCH");
-must(providerLimits.turso?.required_plan_price_usd===0&&providerLimits.deno?.required_plan_price_usd===0,"DR_FREE_PLAN_GUARD_MISSING");
+must(providerLimits.schema_version===1,"PROVIDER_LIMIT_SCHEMA_INVALID");
+const verifiedAt=Date.parse(String(providerLimits.verified_at||"")+"T00:00:00Z"),maxAgeDays=Number(providerLimits.max_age_days),limitAge=Date.now()-verifiedAt;
+must(Number.isFinite(verifiedAt)&&Number.isInteger(maxAgeDays)&&maxAgeDays>=1&&limitAge>=-86400000&&limitAge<=maxAgeDays*86400000,"PROVIDER_LIMIT_AUTHORITY_STALE");
+for(const k of ["d1_database_bytes","d1_account_bytes","d1_database_count"])must(Number.isInteger(providerLimits.cloudflare_workers_free?.[k])&&providerLimits.cloudflare_workers_free[k]>0,"CF_D1_LIMIT_INVALID_"+k);
+must(providerLimits.render?.required_service_plan==="free"&&providerLimits.render?.required_region==="singapore"&&providerLimits.render?.automatic_activation==="FORBIDDEN_COLD_STANDBY","RENDER_FREE_COLD_STANDBY_GUARD_MISSING");
+must(providerLimits.turso?.required_plan_price_usd===0&&Number.isInteger(providerLimits.turso?.max_databases)&&providerLimits.turso.max_databases>=3,"TURSO_FREE_PLAN_GUARD_MISSING");
+must(providerLimits.deno?.required_plan_price_usd===0&&Number.isInteger(providerLimits.deno?.max_active_apps)&&providerLimits.deno.max_active_apps>=2&&providerLimits.deno?.automatic_activation==="CONTROLLED_ONLY","DENO_FREE_PLAN_GUARD_MISSING");
 
 const gasRes=read("google-apps-script/PICK_PACK_API.gs");
 must(gasRes.includes("EMERGENCY EVENT INDEX")&&gasRes.includes("EMERGENCY LEDGER "+'')&&gasRes.includes("ppEmergencyPartitionName_"),"EMERGENCY_LEDGER_PARTITION_MISSING");
