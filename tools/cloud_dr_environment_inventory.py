@@ -36,9 +36,18 @@ def bid(m,k): return str((m.get(k) or {}).get("id") or "")
 def rows(x):
     if isinstance(x,list): return x
     if isinstance(x,dict):
-        for k in ("items","apps","databases","owners","services"):
+        for k in ("items","apps","databases","owners","services","deploys","logs"):
             if isinstance(x.get(k),list): return x[k]
     return []
+
+def redact_log_text(v):
+    s=str(v or "")
+    for key in ("RENDER_API_KEY","TURSO_API_TOKEN","DENO_DEPLOY_TOKEN","CLOUDFLARE_API_TOKEN","CLOUDFLARE_ACCOUNT_ID"):
+        secret=os.environ.get(key,"")
+        if secret:s=s.replace(secret,"***")
+    if "TURSO_AUTH_TOKEN" in s or "SERVICE_TOKEN_SECRET" in s:
+        return "[REDACTED_SECRET_BEARING_LINE]"
+    return s[:700]
 
 def jwt_candidates(token):
     out=[]
@@ -98,15 +107,33 @@ def main():
     if set(beta_present)&set(stable_gas): raise RuntimeError("GAS_BINDING_CROSS_ENV")
 
     render_safe=[]
+    render_diag=[]
+    owner_ids=[str((x.get("owner",x) if isinstance(x,dict) else {}).get("id") or "") for x in owners]
+    owner_ids=[x for x in owner_ids if x]
     for s in services:
         d=s.get("serviceDetails") or s.get("service_details") or {}
         render_safe.append({"id":s.get("id"),"name":s.get("name"),"type":s.get("type"),"plan":d.get("plan") or s.get("plan"),"region":d.get("region") or s.get("region"),"suspended":s.get("suspended")})
+        name=str(s.get("name") or "")
+        sid=str(s.get("id") or "")
+        if name in ("pick-pack-1291-dr-beta","pick-pack-1291-dr-stable") and sid:
+            dc,dj=get_json("https://api.render.com/v1/services/"+urllib.parse.quote(sid,safe="")+"/deploys?limit=10",render)
+            deploy_rows=[x.get("deploy",x) if isinstance(x,dict) else {} for x in rows(dj)] if dc==200 else []
+            deploy_rows.sort(key=lambda x:str(x.get("createdAt") or ""),reverse=True)
+            latest=deploy_rows[0] if deploy_rows else {}
+            build_tail=[]
+            if len(owner_ids)==1:
+                q=urllib.parse.urlencode({"ownerId":owner_ids[0],"resource":sid,"type":"build","limit":"100"})
+                lc,lj=get_json("https://api.render.com/v1/logs?"+q,render)
+                if lc==200:
+                    lr=rows(lj)
+                    build_tail=[{"timestamp":x.get("timestamp"),"message":redact_log_text(x.get("message"))} for x in lr[-30:] if isinstance(x,dict)]
+            render_diag.append({"id":sid,"name":name,"latest_deploy":{"id":latest.get("id"),"status":latest.get("status"),"commit":(latest.get("commit") or {}).get("id"),"trigger":latest.get("trigger"),"startedAt":latest.get("startedAt"),"finishedAt":latest.get("finishedAt")},"build_log_tail":build_tail})
     deno_safe=[{"id":x.get("id"),"slug":x.get("slug"),"labels":x.get("labels")} for x in apps]
     db_safe=[{"name":x.get("Name") or x.get("name"),"id":x.get("DbId") or x.get("id"),"hostname":x.get("Hostname") or x.get("hostname"),"group":x.get("group"),"primary_region":x.get("primaryRegion") or x.get("primary_region")} for x in dbs]
     groups=sorted(set(str(x.get("group") or "") for x in dbs if x.get("group")))
     receipt={
       "status":"PASS","read_only":True,"no_paid_action":True,"stable_public_activation":False,
-      "render":{"owner_count":len(owners),"owners":[{"id":x.get("owner",x).get("id"),"name":x.get("owner",x).get("name"),"type":x.get("owner",x).get("type")} for x in owners if isinstance(x,dict)],"service_count":len(services),"services":render_safe},
+      "render":{"owner_count":len(owners),"owners":[{"id":x.get("owner",x).get("id"),"name":x.get("owner",x).get("name"),"type":x.get("owner",x).get("type")} for x in owners if isinstance(x,dict)],"service_count":len(services),"services":render_safe,"diagnostics":render_diag},
       "deno":{"app_count":len(apps),"apps":deno_safe},
       "turso":{"organization":org,"database_count":len(dbs),"groups":groups,"databases":db_safe},
       "primary":{"beta":{"worker":"pickpack","d1_id":beta_db,"environment_id":btext(bb,"ENVIRONMENT_ID") or "BETA","audience":btext(bb,"SERVICE_AUDIENCE") or "PICK_PACK_1291_BETA","gas_distinct":len(set(beta_gas))==3},
