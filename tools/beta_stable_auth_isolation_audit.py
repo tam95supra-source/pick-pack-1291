@@ -8,7 +8,7 @@ def need(n):
     return v
 def req(url,method="GET",token=None,body=None,headers=None,timeout=40):
     data=None if body is None else json.dumps(body,separators=(",",":")).encode()
-    h={"Accept":"application/json"}
+    h={"Accept":"application/json","User-Agent":"PickPack1291-Audit/1"}
     if token:h["Authorization"]="Bearer "+token
     if data is not None:h["Content-Type"]="application/json"
     if headers:h.update(headers)
@@ -52,7 +52,9 @@ def api(base,env,aud,path,method="GET",body=None,token=None):
     return req(base+path,method,body=body,headers=h)
 def login(base,env,aud,user,password,device):
     c,j=api(base,env,aud,"/v1/auth/challenge","POST",{"login_id":user})
-    if c!=200 or not j.get("ok"): raise RuntimeError("CHALLENGE_FAILED:"+env+":"+str(c))
+    if c!=200 or not j.get("ok"):
+        err=(j.get("error") or {}) if isinstance(j,dict) else {}
+        raise RuntimeError("CHALLENGE_FAILED:"+env+":"+str(c)+":"+str(err.get("code") or j.get("code") or "NO_CODE"))
     p=proof(password,j)
     c2,j2=api(base,env,aud,"/v1/auth/login","POST",{"login_id":user,"challenge_id":j["challenge_id"],"proof":p,"device_id":device})
     return c2,j2
@@ -70,6 +72,11 @@ def main():
     srows=dq(stable_db,"SELECT login_id,verifier,verifier_hash,role,status FROM accounts WHERE login_id='admin'")
     if len(srows)!=1 or srows[0].get("role")!="SUPERADMIN" or srows[0].get("status")!="ACTIVE": raise RuntimeError("STABLE_ADMIN_BASELINE_INVALID")
     if dq(stable_db,"SELECT COUNT(*) n FROM auth_sessions")[0].get("n",0)!=0 or dq(stable_db,"SELECT COUNT(*) n FROM auth_web_sessions")[0].get("n",0)!=0: raise RuntimeError("STABLE_SESSION_NOT_CLEAN_PREFLIGHT")
+    # Transport/fence preflight before any verifier/account mutation.
+    ec,ej=api(stable,"STABLE","PICK_PACK_1291_STABLE","/v1/auth/challenge","POST",{"login_id":"__audit_preflight__"})
+    if ec!=200 or not ej.get("ok"):
+        err=(ej.get("error") or {}) if isinstance(ej,dict) else {}
+        raise RuntimeError("STABLE_AUTH_PREFLIGHT:"+str(ec)+":"+str(err.get("code") or ej.get("code") or "NO_CODE"))
     oldv,oldh=str(srows[0]["verifier"]),str(srows[0]["verifier_hash"])
     canary="__audit_auth_"+str(os.environ.get("GITHUB_RUN_ID","local"))
     spass=b64u(secrets.token_bytes(24)); bpass=b64u(secrets.token_bytes(24))
