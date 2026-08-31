@@ -480,7 +480,9 @@ jobs:
         with:
           fetch-depth: 0
       - name: Validate runtime verifier
-        run: python3 -m py_compile tools/beta_stable_runtime_verify.py
+        run: |
+          python3 -m py_compile tools/beta_stable_runtime_verify.py
+          python3 tools/beta_stable_runtime_verify.py --self-test
       - name: Verify Beta Stable runtime Technical DoD
         shell: bash
         run: |
