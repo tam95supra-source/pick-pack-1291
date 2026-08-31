@@ -71,6 +71,38 @@ def table_count(db,name):
 def table_exists(db,name):
     return bool(d1_rows(db,"SELECT name FROM sqlite_master WHERE type='table' AND name="+q(name)))
 def q(v):return "'"+str(v).replace("'","''")+"'"
+QUOTA_KEYS=("WARN_DB_PERCENT","PREPARE_NEXT_DB_PERCENT","CUTOVER_DB_PERCENT","OWNER_TOTAL_QUOTA_WARN_PERCENT","RETENTION_DAYS","D1_DB_QUOTA_BYTES","D1_ACCOUNT_QUOTA_BYTES")
+def validate_quota_rows(rows,limits):
+    got={str(x.get("config_key")):str(x.get("config_value")) for x in rows}
+    missing=[k for k in QUOTA_KEYS if k not in got]
+    if missing:raise RuntimeError("BETA_QUOTA_GUARD_MISSING:"+",".join(missing))
+    try:nums={k:float(got[k]) for k in QUOTA_KEYS}
+    except:raise RuntimeError("BETA_QUOTA_GUARD_NON_NUMERIC")
+    free=limits.get("cloudflare_workers_free") or {}
+    if int(nums["D1_DB_QUOTA_BYTES"])!=int(free.get("d1_database_bytes") or 0):raise RuntimeError("BETA_DB_QUOTA_BYTES_DRIFT")
+    if int(nums["D1_ACCOUNT_QUOTA_BYTES"])!=int(free.get("d1_account_bytes") or 0):raise RuntimeError("BETA_ACCOUNT_QUOTA_BYTES_DRIFT")
+    warn,prepare,cutover=nums["WARN_DB_PERCENT"],nums["PREPARE_NEXT_DB_PERCENT"],nums["CUTOVER_DB_PERCENT"]
+    if not (0<warn<prepare<cutover<100):raise RuntimeError("BETA_QUOTA_THRESHOLDS_INVALID")
+    if not (0<nums["OWNER_TOTAL_QUOTA_WARN_PERCENT"]<=100):raise RuntimeError("BETA_OWNER_QUOTA_THRESHOLD_INVALID")
+    if nums["RETENTION_DAYS"]<45:raise RuntimeError("BETA_RETENTION_GUARD_INVALID")
+    return {k:got[k] for k in QUOTA_KEYS}
+def quota_selftest():
+    limits={"cloudflare_workers_free":{"d1_database_bytes":524288000,"d1_account_bytes":5368709120}}
+    good=[
+      {"config_key":"WARN_DB_PERCENT","config_value":"70"},{"config_key":"PREPARE_NEXT_DB_PERCENT","config_value":"80"},
+      {"config_key":"CUTOVER_DB_PERCENT","config_value":"85"},{"config_key":"OWNER_TOTAL_QUOTA_WARN_PERCENT","config_value":"80"},
+      {"config_key":"RETENTION_DAYS","config_value":"45"},{"config_key":"D1_DB_QUOTA_BYTES","config_value":"524288000"},
+      {"config_key":"D1_ACCOUNT_QUOTA_BYTES","config_value":"5368709120"}]
+    validate_quota_rows(good,limits)
+    for bad,expected in [
+      ([x for x in good if x["config_key"]!="PREPARE_NEXT_DB_PERCENT"],"BETA_QUOTA_GUARD_MISSING"),
+      ([{**x,"config_value":"1"} if x["config_key"]=="D1_DB_QUOTA_BYTES" else x for x in good],"BETA_DB_QUOTA_BYTES_DRIFT"),
+      ([{**x,"config_value":"90"} if x["config_key"]=="WARN_DB_PERCENT" else x for x in good],"BETA_QUOTA_THRESHOLDS_INVALID")]:
+        try:validate_quota_rows(bad,limits)
+        except RuntimeError as e:
+            if not str(e).startswith(expected):raise
+        else:raise RuntimeError("QUOTA_SELFTEST_NEGATIVE_FAIL:"+expected)
+
 def sheet_values(tok,sid,rng):
     code,j=req("https://sheets.googleapis.com/v4/spreadsheets/"+urllib.parse.quote(sid,safe="")+"/values/"+urllib.parse.quote(rng,safe=""),token=tok)
     if code//100!=2:raise RuntimeError("SHEET_READ_FAILED:"+str(code))
@@ -181,8 +213,8 @@ def main():
     if table_count(stable_db,"replication_status")<1 or table_count(stable_db,"runtime_config")<1:raise RuntimeError("STABLE_RUNTIME_GUARD_MISSING")
     ba=d1_rows(beta_db,"SELECT mode,scope,service_generation FROM authority_state WHERE singleton_id=1")
     if len(ba)!=1 or ba[0].get("mode")!="SERVICE_PRIMARY" or ba[0].get("scope")!="PRODUCTION" or str(ba[0].get("service_generation") or "")!=btext(bb,"SERVICE_GENERATION"):raise RuntimeError("BETA_WRITER_FENCE_DRIFT")
-    quota=d1_rows(beta_db,"SELECT config_key,config_value FROM runtime_config WHERE config_key IN ('D1_DB_QUOTA_BYTES','D1_ACCOUNT_QUOTA_BYTES','CUTOVER_DB_PERCENT','ROLLOVER_DB_PERCENT')")
-    if len({str(x.get("config_key")) for x in quota})<4:raise RuntimeError("BETA_QUOTA_GUARD_MISSING")
+    quota=d1_rows(beta_db,"SELECT config_key,config_value FROM runtime_config WHERE config_key IN ('WARN_DB_PERCENT','PREPARE_NEXT_DB_PERCENT','CUTOVER_DB_PERCENT','OWNER_TOTAL_QUOTA_WARN_PERCENT','RETENTION_DAYS','D1_DB_QUOTA_BYTES','D1_ACCOUNT_QUOTA_BYTES')")
+    quota_cfg=validate_quota_rows(quota,limits)
     if not limits.get("sources",{}).get("cloudflare_d1"):raise RuntimeError("PROVIDER_LIMIT_SOURCE_MISSING")
     verified=datetime.date.fromisoformat(str(limits.get("verified_at")));max_age=int(limits.get("max_age_days",0))
     if (datetime.date.today()-verified).days>max_age:raise RuntimeError("PROVIDER_LIMITS_STALE")
@@ -238,6 +270,13 @@ def main():
     pathlib.Path("/tmp/beta-stable-runtime-verify.json").write_text(json.dumps(receipt,indent=2,ensure_ascii=False)+"\n")
     print(json.dumps({"status":"PASS","phase":"PRE_OTA_RUNTIME_DOD","d1":3,"beta_auth":5,"stable_auth":1,"gas":3,"backup_restore":"PASS","stable_public":False}))
 if __name__=="__main__":
+    if "--self-test" in sys.argv:
+        try:
+            quota_selftest()
+            print("beta_stable_runtime_quota_selftest=PASS")
+        except Exception as e:
+            print("BETA_STABLE_RUNTIME_QUOTA_SELFTEST_ERROR:"+str(e),file=sys.stderr);sys.exit(1)
+        sys.exit(0)
     try:main()
     except Exception as e:
         pathlib.Path("/tmp/beta-stable-runtime-verify.json").write_text(json.dumps({"status":"FAIL","error":str(e)[:1200],"plaintext_secret":False},indent=2)+"\n")
