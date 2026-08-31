@@ -1,8 +1,8 @@
 {
-  "purpose": "READ_ONLY_PARTIAL_MUTATION_READBACK_AFTER_REPAIR_RUN_33373338807",
+  "purpose": "READ_ONLY_POST_RUN_33374108247_BASELINE_CONFIRM",
   "read_only": true,
   "requested_at_utc": "2026-08-30T13:25:00Z",
   "expected_deployment_version": 206,
-  "execution_nonce": "beta-gas-partial-mutation-readback-20260831-04",
-  "prior_repair_run_id": 33373338807
+  "execution_nonce": "beta-gas-post-run9-baseline-20260831-05",
+  "prior_repair_run_id": 33374108247
 }
