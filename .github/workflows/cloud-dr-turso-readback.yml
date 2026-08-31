@@ -73,7 +73,7 @@ jobs:
           out={"status":"PASS","provider":"TURSO","organization":org,"database_count":len(dbs),"databases":[pick(d) for d in dbs],
                "beta_target_present":any((d.get("Name") or d.get("name"))=="pick-pack-1291-dr-beta" for d in dbs),
                "stable_target_present":any((d.get("Name") or d.get("name"))=="pick-pack-1291-dr-stable" for d in dbs),
-               "mutation":false if False else False}
+               "mutation":False}
           pathlib.Path("/tmp/turso-readback.json").write_text(json.dumps(out,indent=2)+"\n")
           print(json.dumps({"status":"PASS","database_count":out["database_count"],"beta_target_present":out["beta_target_present"],"stable_target_present":out["stable_target_present"]}))
           PY
