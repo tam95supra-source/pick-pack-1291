@@ -1,12 +1,12 @@
 {
   "stage": "BUILD_VERIFY",
-  "mode": "BETA103_STALE_DISCOVERY_FIX_PRE_OTA",
-  "version_name": "0.4.2-beta.103",
-  "version_code": 109,
+  "mode": "BETA104_STALE_DISCOVERY_TTL_FIX_PRE_OTA",
+  "version_name": "0.4.2-beta.104",
+  "version_code": 110,
   "base_version": "0.4.2-beta.102",
   "base_version_code": 108,
   "base_source_sha": "8653e8e1a8c0585a4dcab95ccb3da0636650d8a5",
-  "source_sha": "a418a9cca55f9b4000dd250c9796ea84e346814e",
+  "source_sha": "c31bb1b7ad68e6fd114727d8f08508796013bcef",
   "package": "vn.pickpack1291.app.beta.publicbeta",
   "service_gate_required": false,
   "service_gate": "PASS_INHERITED_BETA102_EXACT_SERVICE_SOURCE_UNCHANGED",
@@ -16,13 +16,13 @@
   "candidate_locked": false,
   "rebuild": false,
   "resign": false,
-  "scope": "beta103-stale-environment-scoped-service-discovery-cache-fix",
+  "scope": "beta104-stale-environment-scoped-service-discovery-cache-ttl-fix",
   "owner": "Nguyen Van Tam",
   "live": false,
   "release_notes": [
-    "Loại stale Service discovery cache nếu environment/audience không khớp BETA hiện tại.",
-    "Live Service session/read/sync/outbox refresh discovery theo TTL hoặc force thay vì ưu tiên cache cũ.",
-    "Không hardcode provider/root domain; Stable vẫn READY_NOT_LIVE/private/public=false."
+    "Stale discovery cache chỉ được reuse khi exact environment/audience khớp BETA.",
+    "TTL branch dùng validated cache; missing/old environment cache buộc fresh GAS discovery.",
+    "Session/read/sync/outbox dùng dynamic discovery; Stable vẫn READY_NOT_LIVE/private/public=false."
   ],
   "signer_sha256": "d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e",
   "base_candidate_run_id": 33338713705,
@@ -37,5 +37,6 @@
   "google_drive_apk": "FORBIDDEN",
   "regression_case": "SERVICE-DISCOVERY-001",
   "owner_failure_evidence": "manual-20260831-172725-4aaccadf-0df6-4d6d-9eca-589b274b1659.json",
-  "execution_nonce": "beta103-build-verify-stale-discovery-20260831-01"
+  "supersedes_pre_ota_candidate_run": 33383445974,
+  "execution_nonce": "beta104-build-verify-stale-discovery-ttl-20260831-01"
 }
