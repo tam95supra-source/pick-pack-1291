@@ -75,9 +75,9 @@ Mỗi invariant tối thiểu có:
 - Rule: Beta APK = GITHUB_RELEASE_ONLY; Google Drive APK FORBIDDEN cho backup/staging/mirror/upload/download/rollback/distribution.
 - Authority: GitHub Actions exact candidate → GitHub Release exact bytes → Beta manifest/update API → OTA exact readback.
 - Regression: exact SHA256/size/version/package/signer, Stable/main/authority unchanged.
-- Publish-verifier regression: receipt-driven screenshot evidence; legacy receipt 26 PASS, Beta101 receipt 35 PASS, actual-count mismatch / missing viewport / summary mismatch / human gate false FAIL; Fast Check run 33310187636 PASS.
-- Evidence: Beta101 terminal run 33310230934; final artifact 9731780051; OTA 0.4.2-beta.100 → 0.4.2-beta.101 exact SHA/size/version/package/signer + install/open PASS; GitHub Release asset exact SHA256/size; GAS deployment version 205 readback PASS.
-- Last verified: 0.4.2-beta.101.
+- Publish-verifier regression: receipt-driven screenshot evidence; legacy receipt 26 PASS, Beta101 receipt 35 PASS, actual-count mismatch / missing viewport / summary mismatch / human gate false FAIL; Fast Check run 33377060461 PASS.
+- Evidence: Beta102 terminal run 33377501045; final artifact 9752558407; GitHub Release asset v0.4.2-beta.102-publicbeta SHA256 6178085afb3d5b9d7e3a913ca38d3842dd7b2d6db585ac2bbe04a95dcaa5c0b1 / size 13593589; OTA 0.4.2-beta.101 → 0.4.2-beta.102 exact SHA/size/version/package/signer + install/open PASS; publish fresh GAS readback deployment 213 PASS; Stable unchanged.
+- Last verified: 0.4.2-beta.102.
 
 ## 4. LOCKED_REQUIREMENT_PENDING_FIX
 
@@ -92,6 +92,15 @@ Mỗi invariant tối thiểu có:
 - Regression matrix tối thiểu: active PDA / no PDA / PDA đã trả / stale pda_serial / thiếu assignment snapshot / phiên cũ có PDA nhưng phiên hiện tại không có.
 - Technical evidence: OWNER-accepted Beta99 baseline remains ACTIVE_PASS; reverified on Beta101 exact candidate visual/PDA run 33309271079 and terminal publish/OTA/install/readback/finalize run 33310230934 PASS.
 - OWNER acceptance: PASS — item 1 OK và item 2 OK trên Beta99. Latest manual evidence 2026-08-30 13:21 + OWNER confirmation: session_work_update Đổi/Trả PDA hoạt động, không còn USER_PICK_UNAVAILABLE. Khóa ACTIVE_PASS từ Beta99.
+
+### ENV-ISOLATION-001
+- Status: TECHNICAL_PASS_AWAITING_OWNER
+- Scope: Beta/Stable environment isolation / HTTP / GAS / LAN-NSD / release
+- OWNER rule: Beta và Stable phải tách environment/audience, data/accounts/service/GAS/OTA/LAN mutable state; cross-environment automatic write/fallback/auth/session/manifest/LAN sharing bị cấm. Stable giữ READY_NOT_LIVE/private/public=false cho tới lệnh promotion riêng của OWNER.
+- Regression: distinct BETA/STABLE environment+audience; cross/missing environment request bị reject; D1/Sheet/GAS tách; LAN/NSD type tách; BETA GAS discovery trỏ canonical BETA Service; Stable không OTA/public/promotion; Stable/main/signer/authority không đổi.
+- Technical evidence: exact Beta102 source 8653e8e1a8c0585a4dcab95ccb3da0636650d8a5; BETA GAS source-only repair run 33376373374 artifact 9752024220 → deployment 213; independent/publish fresh readback 33376476824 + publish run 33377501045 xác nhận BETA/PICK_PACK_1291_BETA canonical Worker; Fast Check 33377060461 PASS; runtime DoD 33377306088 artifact 9752375833 PASS (D1=3, BETA auth=5, Stable auth=1, GAS=3, backup/restore PASS, Stable public=false); terminal publish/OTA/install/readback/finalize run 33377501045 PASS, final artifact 9752558407.
+- Release identity: 0.4.2-beta.102 / versionCode 108 / package vn.pickpack1291.app.beta.publicbeta / SHA256 6178085afb3d5b9d7e3a913ca38d3842dd7b2d6db585ac2bbe04a95dcaa5c0b1 / size 13593589 / signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e.
+- OWNER acceptance: PENDING — chưa được chuyển ACTIVE_PASS trước phản hồi nghiệm thu của Nguyễn Văn Tâm.
 
 ### INFRA-RESILIENCE-001
 - Status: TECHNICAL_PASS_AWAITING_OWNER
