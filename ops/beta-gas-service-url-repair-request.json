@@ -10,5 +10,6 @@
   "expected_source": "config.environment_contracts.BETA.current_service.url",
   "legacy_drift_source": "config.environment_contracts.STABLE.target_web_origin",
   "owner": "Nguyen Van Tam",
-  "execution_nonce": "beta-gas-service-url-repair-20260831-01"
+  "execution_nonce": "beta-gas-service-url-repair-20260831-02",
+  "prior_run_id": 33369814378
 }
