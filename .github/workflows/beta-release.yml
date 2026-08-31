@@ -468,6 +468,8 @@ jobs:
       GOOGLE_OAUTH_REFRESH_TOKEN: ${{ secrets.GOOGLE_OAUTH_REFRESH_TOKEN }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: Validate runtime verifier
         run: python3 -m py_compile tools/beta_stable_runtime_verify.py
       - name: Verify Beta Stable runtime Technical DoD
