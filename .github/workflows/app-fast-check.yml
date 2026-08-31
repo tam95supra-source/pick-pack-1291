@@ -142,6 +142,13 @@ jobs:
           python3 tools/beta_auth_converge.py --self-test
           python3 -m py_compile tools/ci_release_fencing_contract.py
           python3 -m py_compile tools/beta_stable_runtime_verify.py
+          python3 - <<'PY'
+import pathlib,re
+s=pathlib.Path(".github/workflows/beta-release.yml").read_text()
+m=re.search(r"(?ms)^  runtime_dod_verify:.*?^  publish:",s)
+assert m and re.search(r"actions/checkout@v4\\n\\s+with:\\n\\s+fetch-depth:\\s*0",m.group(0)), "runtime_dod_verify must fetch full history"
+print("runtime_dod_checkout_history=PASS")
+PY
           python3 tools/ci_release_fencing_contract.py
           python3 -m py_compile tools/verify_promotion_lock.py
           python3 tools/verify_promotion_lock.py
