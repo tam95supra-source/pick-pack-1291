@@ -137,13 +137,14 @@ def canary(url,tok,kind,cid):
     if cleanup_error:raise cleanup_error
 
 def source_guard(cfg):
-    expected=str(cfg.get("repair_script_sha256") or "")
-    actual=hashlib.sha256(pathlib.Path(__file__).read_bytes()).hexdigest()
-    if expected!=actual:raise RuntimeError("REPAIR_SCRIPT_SHA256_MISMATCH")
+    expected=str(cfg.get("repair_script_blob_sha") or "")
+    p_hash=subprocess.run(["git","hash-object",str(pathlib.Path(__file__).relative_to(ROOT))],cwd=ROOT,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,text=True)
+    actual=p_hash.stdout.strip() if p_hash.returncode==0 else ""
+    if expected!=actual:raise RuntimeError("REPAIR_SCRIPT_BLOB_SHA_MISMATCH")
     commit=str(cfg.get("repair_source_commit") or "")
     if len(commit)!=40:raise RuntimeError("REPAIR_SOURCE_COMMIT_REQUIRED")
     p=subprocess.run(["git","show",commit+":tools/stable_gas_properties_repair.py"],cwd=ROOT,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL)
-    if p.returncode or hashlib.sha256(p.stdout).hexdigest()!=actual:raise RuntimeError("REPAIR_SOURCE_COMMIT_MISMATCH")
+    if p.returncode or hashlib.sha1(b"blob "+str(len(p.stdout)).encode()+b"\\0"+p.stdout).hexdigest()!=actual:raise RuntimeError("REPAIR_SOURCE_COMMIT_MISMATCH")
     accepted=str(cfg.get("accepted_service_source_sha") or "")
     if len(accepted)!=40:raise RuntimeError("ACCEPTED_SERVICE_SOURCE_SHA_REQUIRED")
     if subprocess.run(["git","diff","--quiet",accepted,"HEAD","--","service"],cwd=ROOT).returncode!=0:
