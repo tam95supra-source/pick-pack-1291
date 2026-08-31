@@ -65,10 +65,14 @@ def worker_contract(env,worker):
     gen=btext(b,"SERVICE_GENERATION")
     if not gen: raise RuntimeError(env+"_SERVICE_GENERATION_MISSING")
     gas={k:btext(b,k) for k in ("GAS_API_URL","OUTBOUND_GAS_API_URL","DR_GAS_API_URL")}
-    present=[v for v in gas.values() if v.startswith("https://script.google.com/")]
-    if not present: raise RuntimeError(env+"_GAS_BINDING_MISSING")
+    if not gas["GAS_API_URL"].startswith("https://script.google.com/"): raise RuntimeError(env+"_PRIMARY_GAS_BINDING_MISSING")
     target=btext(b,"DR_TARGET_ID")
-    if not target: raise RuntimeError(env+"_DR_TARGET_ID_MISSING")
+    if env=="STABLE":
+        if any(not gas[k].startswith("https://script.google.com/") for k in ("OUTBOUND_GAS_API_URL","DR_GAS_API_URL")): raise RuntimeError("STABLE_GAS_BINDING_MISSING")
+        if not target: raise RuntimeError("STABLE_DR_TARGET_ID_MISSING")
+    else:
+        for k in ("OUTBOUND_GAS_API_URL","DR_GAS_API_URL"):
+            if gas[k] and not gas[k].startswith("https://script.google.com/"): raise RuntimeError("BETA_OPTIONAL_GAS_BINDING_INVALID:"+k)
     sub=cf("/workers/subdomain") or {}
     sd=str(sub.get("subdomain") or "")
     if not sd: raise RuntimeError("WORKERS_SUBDOMAIN_MISSING")
@@ -138,7 +142,7 @@ def source_bundle():
     return data,hashlib.sha256(data).hexdigest()
 
 def required_plain(contract,url,limits):
-    return {
+    out={
       "TURSO_DATABASE_URL":url,
       "SERVICE_GENERATION":contract["generation"],
       "DISCOVERY_URL":contract["discovery_url"],
@@ -146,13 +150,17 @@ def required_plain(contract,url,limits):
       "ENVIRONMENT_ID":contract["environment"],
       "SERVICE_AUDIENCE":contract["audience"],
       "GAS_API_URL":contract["gas"]["GAS_API_URL"],
-      "OUTBOUND_GAS_API_URL":contract["gas"]["OUTBOUND_GAS_API_URL"],
-      "DR_GAS_API_URL":contract["gas"]["DR_GAS_API_URL"],
-      "DR_TARGET_ID":contract["dr_target_id"],
       "DR_MAX_REQUESTS_PER_MINUTE":str(int(limits["max_dr_requests_per_minute"])),
       "DR_MAX_MUTATIONS_PER_BATCH":str(int(limits["max_dr_mutations_per_batch"])),
       "DR_KILL_SWITCH":"1",
     }
+    if contract["environment"]=="STABLE":
+        out.update({"OUTBOUND_GAS_API_URL":contract["gas"]["OUTBOUND_GAS_API_URL"],"DR_GAS_API_URL":contract["gas"]["DR_GAS_API_URL"],"DR_TARGET_ID":contract["dr_target_id"]})
+    else:
+        for k in ("OUTBOUND_GAS_API_URL","DR_GAS_API_URL"):
+            if contract["gas"][k]: out[k]=contract["gas"][k]
+        if contract["dr_target_id"]: out["DR_TARGET_ID"]=contract["dr_target_id"]
+    return out
 
 def config_ok(app):
     cfg=app.get("config") or {};rt=cfg.get("runtime") or {}
