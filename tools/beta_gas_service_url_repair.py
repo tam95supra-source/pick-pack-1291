@@ -1,164 +1,305 @@
 #!/usr/bin/env python3
-import json,os,pathlib,re,sys,time,urllib.error,urllib.request
+import json, os, pathlib, re, sys, time, urllib.error, urllib.request
+
 ROOT=pathlib.Path(__file__).resolve().parents[1]
 API="https://script.googleapis.com/v1/projects"
 OUT=pathlib.Path("/tmp/beta-gas-service-url-repair.json")
-MARK="// __BETA_SERVICE_URL_REPAIR_ONCE_V1__"
+TEMP_MARK="__BETA_ENVIRONMENT_REPAIR_ONCE_V2__"
+TARGET_FUNCS_PICK=["ppBoundEnvironmentBootstrap_","ppEnvironmentId_","ppServiceAudience_","ppSheetId_","ppEnvironmentFence_"]
+TARGET_FUNCS_M2=["ppM2StateSnapshot_","ppM2Discovery_","ppM2ServiceFetch_"]
 
-def need(n):
-    v=os.environ.get(n,"").strip()
-    if not v: raise RuntimeError("MISSING_REQUIRED_SECRET:"+n)
+def need(name):
+    v=os.environ.get(name,"").strip()
+    if not v: raise RuntimeError("MISSING_REQUIRED_SECRET:"+name)
     return v
 
-def api(url,token,method="GET",body=None):
+def req(url,token,method="GET",body=None):
     data=None if body is None else json.dumps(body,separators=(",",":")).encode()
-    h={"Authorization":"Bearer "+token,"Accept":"application/json"}
-    if data is not None: h["Content-Type"]="application/json; charset=utf-8"
-    q=urllib.request.Request(url,data=data,headers=h,method=method)
+    headers={"Authorization":"Bearer "+token,"Accept":"application/json"}
+    if data is not None: headers["Content-Type"]="application/json; charset=utf-8"
+    r=urllib.request.Request(url,data=data,headers=headers,method=method)
     try:
-        with urllib.request.urlopen(q,timeout=45) as r:
-            raw=r.read().decode("utf-8","replace")
+        with urllib.request.urlopen(r,timeout=45) as x:
+            raw=x.read().decode("utf-8","replace")
             return json.loads(raw) if raw.strip() else {}
     except urllib.error.HTTPError as e:
         raw=e.read().decode("utf-8","replace")
-        raise RuntimeError("APPS_SCRIPT_API_"+method+"_HTTP_"+str(e.code)+":"+raw[:700]) from e
-
-def dep_id(v):
-    v=(v or "").strip()
-    return v.split("/s/",1)[1].split("/",1)[0] if "/s/" in v else v
+        raise RuntimeError("APPS_SCRIPT_API_"+method+"_HTTP_"+str(e.code)+":"+raw[:900]) from e
 
 def post(url,body):
-    q=urllib.request.Request(url,data=json.dumps(body,separators=(",",":")).encode(),headers={"Content-Type":"application/json"},method="POST")
+    r=urllib.request.Request(url,data=json.dumps(body,separators=(",",":")).encode(),
+        headers={"Content-Type":"application/json"},method="POST")
     try:
-        with urllib.request.urlopen(q,timeout=60) as r:
-            raw=r.read().decode("utf-8","replace")
-            return r.status,json.loads(raw or "{}")
+        with urllib.request.urlopen(r,timeout=60) as x:
+            raw=x.read().decode("utf-8","replace")
+            return x.status,json.loads(raw or "{}")
     except urllib.error.HTTPError as e:
         raw=e.read().decode("utf-8","replace")
         try:j=json.loads(raw or "{}")
         except:j={"raw":raw[:700]}
         return e.code,j
 
+def get_json(url):
+    r=urllib.request.Request(url,headers={"Accept":"application/json"},method="GET")
+    try:
+        with urllib.request.urlopen(r,timeout=45) as x:
+            raw=x.read().decode("utf-8","replace")
+            return x.status,json.loads(raw or "{}")
+    except urllib.error.HTTPError as e:
+        raw=e.read().decode("utf-8","replace")
+        try:j=json.loads(raw or "{}")
+        except:j={"raw":raw[:700]}
+        return e.code,j
+
+def normalize_dep(v):
+    v=(v or "").strip()
+    return v.split("/s/",1)[1].split("/",1)[0] if "/s/" in v else v
+
+def files(project):
+    return [{k:f[k] for k in ("name","type","source") if k in f} for f in project.get("files") or []]
+
+def server_source(project):
+    return "\n".join(str(f.get("source") or "") for f in project.get("files") or [] if f.get("type")=="SERVER_JS")
+
+def extract_function(src,name):
+    m=re.search(r"function\s+"+re.escape(name)+r"\s*\(",src)
+    if not m: raise RuntimeError("FUNCTION_NOT_FOUND:"+name)
+    start=m.start();brace=src.find("{",m.end())
+    if brace<0: raise RuntimeError("FUNCTION_BRACE_NOT_FOUND:"+name)
+    depth=0;state="code";i=brace
+    while i<len(src):
+        c=src[i];n=src[i+1] if i+1<len(src) else ""
+        if state=="code":
+            if c=="'":state="sq"
+            elif c=='"':state="dq"
+            elif c=="\x60":state="tpl"
+            elif c=="/" and n=="/":state="line";i+=1
+            elif c=="/" and n=="*":state="block";i+=1
+            elif c=="{":depth+=1
+            elif c=="}":
+                depth-=1
+                if depth==0:return src[start:i+1]
+        elif state in ("sq","dq","tpl"):
+            end={"sq":"'","dq":'"',"tpl":"\x60"}[state]
+            if c=="\\":i+=1
+            elif c==end:state="code"
+        elif state=="line":
+            if c=="\n":state="code"
+        elif state=="block" and c=="*" and n=="/":
+            state="code";i+=1
+        i+=1
+    raise RuntimeError("FUNCTION_PARSE_FAILED:"+name)
+
+def replace_function(dst,src,name):
+    want=extract_function(src,name)
+    try:old=extract_function(dst,name)
+    except RuntimeError:return dst,None,want
+    return dst.replace(old,want,1),old,want
+
+def insert_before(src,anchor,block):
+    i=src.find(anchor)
+    if i<0: raise RuntimeError("INSERT_ANCHOR_NOT_FOUND:"+anchor)
+    return src[:i]+block.rstrip()+"\n\n"+src[i:]
+
+def ensure_do_post_fence(src):
+    if "const environmentFence=ppEnvironmentFence_(body);" in src:return src
+    pat=re.compile(r"(const\s+action\s*=\s*String\(body\.action\s*\|\|\s*['\"]['\"]\)\.trim\(\);)")
+    m=pat.search(src)
+    if not m: raise RuntimeError("DO_POST_ACTION_ANCHOR_MISSING")
+    block="\n    const environmentFence=ppEnvironmentFence_(body);\n    if(environmentFence)return ppJson_(environmentFence);"
+    return src[:m.end()]+block+src[m.end():]
+
+def add_temp_route(src):
+    if TEMP_MARK in src: raise RuntimeError("TEMP_MARK_ALREADY_PRESENT")
+    anchor="    if (action === 'service_discovery') return ppJson_(ppM2Discovery_(body));"
+    if anchor not in src: raise RuntimeError("SERVICE_DISCOVERY_ROUTE_ANCHOR_MISSING")
+    route="    if (action === '__beta_environment_repair_once') return ppJson_(ppBetaEnvironmentRepairOnce_(body)); // "+TEMP_MARK+"\n"
+    src=src.replace(anchor,route+anchor,1)
+    helper=r'''
+// __BETA_ENVIRONMENT_REPAIR_ONCE_V2__
+function ppBetaEnvironmentRepairOnce_(body){
+  if(ppEnvironmentId_()!=='BETA'||ppServiceAudience_()!=='PICK_PACK_1291_BETA')return {ok:false,error:'BETA_ENVIRONMENT_REPAIR_WRONG_ENV'};
+  const token=String((body||{}).google_access_token||''), expected=String((body||{}).expected_current||'').replace(/\/+$/,''),
+    target=String((body||{}).target_service_url||'').replace(/\/+$/,'');
+  if(!token||!expected||!/^https:\/\/[A-Za-z0-9._-]+$/.test(target))return {ok:false,error:'BETA_ENVIRONMENT_REPAIR_FIELDS_INVALID'};
+  const id=ppSheetId_(),url='https://www.googleapis.com/drive/v3/files/'+encodeURIComponent(id)+'?fields=id,mimeType,owners(emailAddress)&supportsAllDrives=true';
+  const rr=UrlFetchApp.fetch(url,{method:'get',muteHttpExceptions:true,headers:{Authorization:'Bearer '+token}});
+  let jj={};try{jj=JSON.parse(rr.getContentText()||'{}');}catch(_){return {ok:false,error:'BETA_ENVIRONMENT_REPAIR_OWNER_JSON'};}
+  const owner=(jj.owners||[]).some(function(x){return String(x.emailAddress||'').toLowerCase()==='tam95.supra@gmail.com';});
+  if(rr.getResponseCode()<200||rr.getResponseCode()>=300||String(jj.id||'')!==id||!owner)return {ok:false,error:'BETA_ENVIRONMENT_REPAIR_OWNER_PROOF_FAILED'};
+  const p=PropertiesService.getScriptProperties(),current=String(p.getProperty('PP_M2_SERVICE_URL')||'').replace(/\/+$/,'');
+  if(current===target)return {ok:true,idempotent:true,environment_id:'BETA',service_audience:'PICK_PACK_1291_BETA',service_url:target};
+  if(current!==expected)return {ok:false,error:'BETA_ENVIRONMENT_REPAIR_UNEXPECTED_CURRENT',current_service_url:current};
+  p.setProperty('PP_M2_SERVICE_URL',target);
+  const readback=String(p.getProperty('PP_M2_SERVICE_URL')||'').replace(/\/+$/,'');
+  if(readback!==target)return {ok:false,error:'BETA_ENVIRONMENT_REPAIR_PROPERTY_READBACK_FAILED'};
+  return {ok:true,idempotent:false,environment_id:'BETA',service_audience:'PICK_PACK_1291_BETA',service_url:readback};
+}
+'''
+    return src.rstrip()+"\n\n"+helper.strip()+"\n"
+
+def build_final(old_files,repo_pick,repo_m2):
+    out=[];pick_done=False;m2_done=False
+    helpers="\n\n".join(extract_function(repo_pick,n) for n in TARGET_FUNCS_PICK)
+    for f in old_files:
+        item=dict(f);src=str(item.get("source") or "")
+        if item.get("type")=="SERVER_JS" and item.get("name")=="PICK_PACK_API":
+            for n in TARGET_FUNCS_PICK:
+                try: src,_,_=replace_function(src,repo_pick,n)
+                except RuntimeError as e:
+                    if str(e)!="FUNCTION_NOT_FOUND:"+n: raise
+            missing=[n for n in TARGET_FUNCS_PICK if ("function "+n+"(") not in src]
+            if missing:
+                src=insert_before(src,"function doGet()",helpers)
+            for n in TARGET_FUNCS_PICK:
+                if ("function "+n+"(") not in src: raise RuntimeError("PICK_HELPER_PATCH_MISSING:"+n)
+            src=ensure_do_post_fence(src);item["source"]=src;pick_done=True
+        elif item.get("type")=="SERVER_JS" and item.get("name")=="SERVICE_MIGRATION_M2":
+            for n in TARGET_FUNCS_M2:
+                src,_,_=replace_function(src,repo_m2,n)
+            item["source"]=src;m2_done=True
+        out.append(item)
+    if not pick_done or not m2_done: raise RuntimeError("LIVE_CANONICAL_FILE_MAPPING_MISSING")
+    return out
+
+def make_temp(final_files):
+    out=[]
+    for f in final_files:
+        item=dict(f)
+        if item.get("type")=="SERVER_JS" and item.get("name")=="PICK_PACK_API":
+            item["source"]=add_temp_route(str(item.get("source") or ""))
+        out.append(item)
+    return out
+
 def wait_dep(sid,dep,token,want):
     last=None
     for i in range(12):
-        d=api(f"{API}/{sid}/deployments/{dep}",token)
+        d=req(f"{API}/{sid}/deployments/{dep}",token)
         last=(d.get("deploymentConfig") or {}).get("versionNumber")
-        if last==want:return
+        if last==want:return d
         time.sleep(min(2+i*2,10))
     raise RuntimeError("DEPLOYMENT_VERSION_READBACK_MISMATCH:"+str(last))
 
-def files_of(project):
-    return [{k:f[k] for k in ("name","type","source") if k in f} for f in project.get("files") or []]
-
-def patched_files(files):
-    out=[];changed=0
-    route='    if (action === "__repair_beta_service_url_once") return ppJson_(ppRepairBetaServiceUrlOnce_(body));\n'
-    helper=r'''
-// __BETA_SERVICE_URL_REPAIR_ONCE_V1__
-function ppRepairBetaServiceUrlOnce_(body){
-  if(ppEnvironmentId_()!=='BETA')return {ok:false,error:'BETA_ONLY'};
-  const token=String((body||{}).google_access_token||''),expected=String((body||{}).expected_current||'').replace(/\/+$/,''),
-    target=String((body||{}).target_service_url||'').replace(/\/+$/,'');
-  if(!token||!expected||!target||!ppM2ValidServiceUrl_(target))return {ok:false,error:'BETA_SERVICE_URL_REPAIR_FIELDS_INVALID'};
-  const ss=ppSs_();
-  if(!ppStableOwnerFile_(token,ss.getId(),'application/vnd.google-apps.spreadsheet'))return {ok:false,error:'BETA_SERVICE_URL_REPAIR_OWNER_PROOF_FAILED'};
-  const p=PropertiesService.getScriptProperties(),current=String(p.getProperty('PP_M2_SERVICE_URL')||'').replace(/\/+$/,'');
-  if(current===target)return {ok:true,idempotent:true,environment_id:'BETA',service_url:target};
-  if(current!==expected)return {ok:false,error:'BETA_SERVICE_URL_REPAIR_UNEXPECTED_CURRENT',current_service_url:current};
-  p.setProperty('PP_M2_SERVICE_URL',target);
-  const readback=String(p.getProperty('PP_M2_SERVICE_URL')||'').replace(/\/+$/,'');
-  if(readback!==target)return {ok:false,error:'BETA_SERVICE_URL_REPAIR_READBACK_FAILED'};
-  return {ok:true,idempotent:false,environment_id:'BETA',service_url:readback};
-}
-'''
-    for f in files:
-        item=dict(f);src=str(item.get("source") or "")
-        if item.get("type")=="SERVER_JS" and "function doPost(" in src:
-            if MARK in src: raise RuntimeError("TEMP_REPAIR_MARK_ALREADY_PRESENT")
-            a=re.search(r"(\n\s*const environmentFence=ppEnvironmentFence_\(body\);\s*\n\s*if\(environmentFence\)return ppJson_\(environmentFence\);\s*\n)",src)
-            if not a: raise RuntimeError("TEMP_REPAIR_ROUTE_ANCHOR_MISSING")
-            if "function ppStableOwnerFile_(" not in src: raise RuntimeError("OWNER_PROOF_HELPER_MISSING")
-            src=src[:a.end()]+route+src[a.end():]
-            item["source"]=src.rstrip()+"\n\n"+helper.strip()+"\n";changed+=1
-        out.append(item)
-    if changed!=1: raise RuntimeError("TEMP_REPAIR_EXPECTED_ONE_SERVER_FILE:"+str(changed))
-    return out
+def deploy_version(sid,dep,token,version,manifest,description):
+    payload={"deploymentConfig":{"scriptId":sid,"versionNumber":version,"manifestFileName":manifest,"description":description}}
+    req(f"{API}/{sid}/deployments/{dep}",token,"PUT",payload)
+    return wait_dep(sid,dep,token,version)
 
 def discovery(web):
     return post(web,{"action":"service_discovery","_app_channel":"BETA","_environment_id":"BETA","_service_audience":"PICK_PACK_1291_BETA"})
 
-def main():
-    token=need("ACCESS_TOKEN");sid=need("GAS_SCRIPT_ID");dep=dep_id(need("GAS_DEPLOYMENT_ID"))
-    reqj=json.loads((ROOT/"ops/beta-gas-service-url-repair-request.json").read_text())
-    rel=json.loads((ROOT/"ops/beta-release-request.json").read_text())
-    cfg=json.loads((ROOT/"config/environment_contracts.json").read_text())
-    if reqj.get("stage")!="BETA_GAS_SERVICE_URL_REPAIR" or reqj.get("stable_publish")!="FORBIDDEN" or reqj.get("authority_change")!="NONE":
-        raise RuntimeError("REPAIR_REQUEST_FAIL_CLOSED")
-    if rel.get("candidate_locked") is not True or rel.get("rebuild") is not False or rel.get("resign") is not False:
-        raise RuntimeError("BETA_RELEASE_LOCK_NOT_INTACT")
-    beta=cfg["environments"]["BETA"];stable=cfg["environments"]["STABLE"]
-    target=str((beta.get("current_service") or {}).get("url") or "").rstrip("/")
-    expected=str(stable.get("target_web_origin") or "").rstrip("/")
-    if not target.startswith("https://") or ".workers.dev" not in target or not expected.startswith("https://") or target==expected:
-        raise RuntimeError("SERVICE_URL_CONTRACT_INVALID")
-    web=f"https://script.google.com/macros/s/{dep}/exec"
-    code,before=discovery(web)
-    if code!=200 or before.get("ok") is not True or before.get("environment_id")!="BETA" or before.get("service_audience")!="PICK_PACK_1291_BETA":
-        raise RuntimeError("BETA_DISCOVERY_PRECHECK_FAILED:"+str(code)+":"+json.dumps({k:before.get(k) for k in ("ok","error","environment_id","service_audience","service_url","authority_mode")},separators=(",",":")))
-    current=str(before.get("service_url") or "").rstrip("/")
-    authority_before=before.get("authority");generation_before=before.get("service_generation")
-    if current==target:
-        rec={"status":"PASS","mode":"BETA_GAS_SERVICE_URL_REPAIR","idempotent":True,"before_service_url":current,"after_service_url":target,
-             "authority_unchanged":True,"stable_touched":False,"source_restored":True,"deployment_restored":True,"candidate_rebuilt":False,"candidate_resigned":False}
-        OUT.write_text(json.dumps(rec,indent=2)+"\n");print(json.dumps(rec));return
-    if current!=expected:
-        raise RuntimeError("BETA_DISCOVERY_UNEXPECTED_CURRENT:"+json.dumps({"expected_legacy":expected,"got":current},separators=(",",":")))
+def mismatch(web):
+    return post(web,{"action":"service_discovery","_app_channel":"STABLE","_environment_id":"STABLE","_service_audience":"PICK_PACK_1291_STABLE"})
 
-    depj=api(f"{API}/{sid}/deployments/{dep}",token);old_cfg=dict(depj.get("deploymentConfig") or {});old_version=old_cfg.get("versionNumber")
+def update_check(web):
+    return post(web,{"action":"update_check","channel":"BETA","current_version":"0.0.0","_app_channel":"BETA","_environment_id":"BETA","_service_audience":"PICK_PACK_1291_BETA"})
+
+def main():
+    token=need("ACCESS_TOKEN");sid=need("GAS_SCRIPT_ID");dep=normalize_dep(need("GAS_DEPLOYMENT_ID"))
+    request=json.loads((ROOT/"ops/beta-gas-service-url-repair-request.json").read_text())
+    release=json.loads((ROOT/"ops/beta-release-request.json").read_text())
+    contracts=json.loads((ROOT/"config/environment_contracts.json").read_text())
+    if request.get("stage")!="BETA_GAS_SERVICE_URL_REPAIR" or request.get("stable_publish")!="FORBIDDEN" or request.get("authority_change")!="NONE":
+        raise RuntimeError("REPAIR_REQUEST_FAIL_CLOSED")
+    if release.get("candidate_locked") is not True or release.get("rebuild") is not False or release.get("resign") is not False or release.get("live") is not False:
+        raise RuntimeError("BETA_RELEASE_LOCK_NOT_INTACT")
+    beta=contracts["environments"]["BETA"];stable=contracts["environments"]["STABLE"]
+    target=str((beta.get("current_service") or {}).get("url") or "").rstrip("/")
+    old_expected=str(stable.get("target_web_origin") or "").rstrip("/")
+    if beta.get("environment_id")!="BETA" or beta.get("service_audience")!="PICK_PACK_1291_BETA" or not target.endswith(".workers.dev"):
+        raise RuntimeError("BETA_CONTRACT_INVALID")
+    if stable.get("stable_publish_allowed") is not False: raise RuntimeError("STABLE_PUBLIC_GUARD_INVALID")
+
+    depj=req(f"{API}/{sid}/deployments/{dep}",token);old_cfg=dict(depj.get("deploymentConfig") or {})
+    old_version=old_cfg.get("versionNumber")
     if not isinstance(old_version,int): raise RuntimeError("CURRENT_DEPLOYMENT_VERSION_MISSING")
-    old_files=files_of(api(f"{API}/{sid}/content",token));patched=patched_files(old_files)
-    temp=None;temp_deployed=False;restore=[]
+    expected_version=request.get("expected_deployment_version")
+    if expected_version is not None and int(expected_version)!=old_version: raise RuntimeError("DEPLOYMENT_VERSION_DRIFT:"+str(old_version))
+    head=req(f"{API}/{sid}/content",token);deployed=req(f"{API}/{sid}/content?versionNumber={old_version}",token)
+    old_files=files(head);old_deployed=files(deployed)
+    if [(f.get("name"),f.get("type"),f.get("source")) for f in old_files] != [(f.get("name"),f.get("type"),f.get("source")) for f in old_deployed]:
+        raise RuntimeError("HEAD_DEPLOYMENT_SOURCE_DRIFT_BEFORE_REPAIR")
+
+    old_all=server_source(head)
+    old_ota=extract_function(old_all,"ppUpdateCheck_")
+    web=f"https://script.google.com/macros/s/{dep}/exec"
+    c0,before=discovery(web)
+    if c0!=200 or before.get("ok") is not True or before.get("authority_mode")!="SERVICE_PRIMARY":
+        raise RuntimeError("BETA_DISCOVERY_PRECHECK_FAILED:"+str(c0))
+    current=str(before.get("service_url") or "").rstrip("/")
+    if current not in (old_expected,target):
+        raise RuntimeError("BETA_DISCOVERY_UNEXPECTED_CURRENT:"+json.dumps({"expected_legacy":old_expected,"target":target,"got":current},separators=(",",":")))
+
+    repo_pick=(ROOT/"google-apps-script/PICK_PACK_API.gs").read_text(encoding="utf-8")
+    repo_m2=(ROOT/"google-apps-script/SERVICE_MIGRATION_M2.gs").read_text(encoding="utf-8")
+    final_files=build_final(old_files,repo_pick,repo_m2)
+    final_all="\n".join(str(f.get("source") or "") for f in final_files if f.get("type")=="SERVER_JS")
+    if extract_function(final_all,"ppUpdateCheck_")!=old_ota: raise RuntimeError("OTA_FUNCTION_CHANGED_BY_PATCH")
+    for n in TARGET_FUNCS_PICK+TARGET_FUNCS_M2:
+        if ("function "+n+"(") not in final_all: raise RuntimeError("FINAL_CONTRACT_FUNCTION_MISSING:"+n)
+    if "x-pick-pack-environment" not in final_all.lower() or "x-pick-pack-audience" not in final_all.lower():
+        raise RuntimeError("FINAL_SERVICE_FETCH_HEADERS_MISSING")
+    temp_files=make_temp(final_files)
+
+    temp_version=None;final_version=None;property_changed=False
     try:
-        api(f"{API}/{sid}/content",token,"PUT",{"files":patched})
-        temp=int(api(f"{API}/{sid}/versions",token,"POST",{"description":"TEMP BETA service URL property repair; source restored immediately"})["versionNumber"])
-        cfg2={"scriptId":sid,"versionNumber":temp,"manifestFileName":str(old_cfg.get("manifestFileName") or "appsscript"),"description":"TEMP BETA service URL property repair"}
-        api(f"{API}/{sid}/deployments/{dep}",token,"PUT",{"deploymentConfig":cfg2});temp_deployed=True;wait_dep(sid,dep,token,temp)
-        c,res=post(web,{"action":"__repair_beta_service_url_once","_app_channel":"BETA","_environment_id":"BETA","_service_audience":"PICK_PACK_1291_BETA",
+        req(f"{API}/{sid}/content",token,"PUT",{"files":temp_files})
+        temp_version=int(req(f"{API}/{sid}/versions",token,"POST",{"description":"TEMP Beta GAS environment repair with rollback"})["versionNumber"])
+        deploy_version(sid,dep,token,temp_version,str(old_cfg.get("manifestFileName") or "appsscript"),"TEMP Beta GAS environment repair")
+        c1,r1=post(web,{"action":"__beta_environment_repair_once","_app_channel":"BETA","_environment_id":"BETA","_service_audience":"PICK_PACK_1291_BETA",
                         "google_access_token":token,"expected_current":current,"target_service_url":target})
-        if c!=200 or res.get("ok") is not True or str(res.get("service_url") or "").rstrip("/")!=target:
-            raise RuntimeError("BETA_SERVICE_URL_REPAIR_CALL_FAILED:"+str(c)+":"+str(res.get("error") or "ASSERT"))
-        c2,mid=discovery(web)
-        if c2!=200 or str(mid.get("service_url") or "").rstrip("/")!=target: raise RuntimeError("TEMP_READBACK_FAILED")
-    finally:
-        if temp_deployed:
+        if c1!=200 or r1.get("ok") is not True or str(r1.get("service_url") or "").rstrip("/")!=target:
+            raise RuntimeError("BETA_SERVICE_URL_PROPERTY_REPAIR_FAILED:"+str(c1)+":"+str(r1.get("error") or "ASSERT"))
+        property_changed=(current!=target)
+
+        req(f"{API}/{sid}/content",token,"PUT",{"files":final_files})
+        final_version=int(req(f"{API}/{sid}/versions",token,"POST",{"description":"Beta GAS environment/audience/service discovery canonical contract"})["versionNumber"])
+        deploy_version(sid,dep,token,final_version,str(old_cfg.get("manifestFileName") or "appsscript"),"Beta GAS environment/audience/service discovery canonical contract")
+
+        c2,after=discovery(web);cm,bad=mismatch(web);cu,ota=update_check(web);cg,getj=get_json(web)
+        if c2!=200 or after.get("ok") is not True or after.get("environment_id")!="BETA" or after.get("service_audience")!="PICK_PACK_1291_BETA" or str(after.get("service_url") or "").rstrip("/")!=target:
+            raise RuntimeError("BETA_DISCOVERY_FINAL_READBACK_FAILED:"+str(c2)+":"+json.dumps({k:after.get(k) for k in ("ok","environment_id","service_audience","service_url")},separators=(",",":")))
+        if cm!=200 or bad.get("ok") is not False or bad.get("error") not in ("ENVIRONMENT_MISMATCH","SERVICE_AUDIENCE_MISMATCH","CHANNEL_ENVIRONMENT_MISMATCH"):
+            raise RuntimeError("BETA_ENVIRONMENT_NEGATIVE_FENCE_FAILED:"+str(cm)+":"+str(bad.get("error")))
+        if cu!=200 or ota.get("ok") is not True or ota.get("version_name")!=release.get("base_version") or ota.get("source")!="GITHUB_RELEASE":
+            raise RuntimeError("BETA_OTA_CONTRACT_REGRESSION:"+str(cu))
+        if cg!=200 or getj.get("ok") is not True or getj.get("environment_id")!="BETA" or getj.get("service_audience")!="PICK_PACK_1291_BETA":
+            raise RuntimeError("BETA_GAS_GET_ENVIRONMENT_FAILED:"+str(cg))
+
+        deployed_final=req(f"{API}/{sid}/content?versionNumber={final_version}",token)
+        head_final=req(f"{API}/{sid}/content",token)
+        if files(deployed_final)!=files(head_final): raise RuntimeError("FINAL_HEAD_DEPLOYMENT_SOURCE_DRIFT")
+        final_live=server_source(deployed_final)
+        if TEMP_MARK in final_live: raise RuntimeError("TEMP_REPAIR_ROUTE_LEAK")
+        if extract_function(final_live,"ppUpdateCheck_")!=old_ota: raise RuntimeError("DEPLOYED_OTA_FUNCTION_CHANGED")
+        result={"status":"PASS","mode":"BETA_GAS_ENVIRONMENT_DISCOVERY_CANONICAL_REPAIR","previous_deployment_version":old_version,
+                "temporary_version":temp_version,"deployment_version":final_version,"environment_id":"BETA","service_audience":"PICK_PACK_1291_BETA",
+                "service_url":target,"legacy_service_url_removed":current!=target,"environment_negative_fence":"PASS","service_fetch_headers":"PASS",
+                "ota_function_unchanged":True,"ota_manifest_version":ota.get("version_name"),"stable_touched":False,"stable_publish":"FORBIDDEN",
+                "authority_change":"NONE","candidate_rebuilt":False,"candidate_resigned":False,"rollback_ready":True}
+        OUT.write_text(json.dumps(result,indent=2)+"\n");print(json.dumps(result))
+    except Exception:
+        rollback_errors=[]
+        if property_changed and temp_version is not None:
             try:
-                back={"scriptId":sid,"versionNumber":old_version,"manifestFileName":str(old_cfg.get("manifestFileName") or "appsscript"),
-                      "description":str(old_cfg.get("description") or "Restore canonical deployment")}
-                api(f"{API}/{sid}/deployments/{dep}",token,"PUT",{"deploymentConfig":back});wait_dep(sid,dep,token,old_version)
-            except Exception as e: restore.append("deployment:"+str(e))
-        try: api(f"{API}/{sid}/content",token,"PUT",{"files":old_files})
-        except Exception as e: restore.append("head:"+str(e))
-    if restore: raise RuntimeError("REPAIR_RECOVERY_FAILED:"+"|".join(restore))
-    c3,after=discovery(web)
-    got=str(after.get("service_url") or "").rstrip("/")
-    if c3!=200 or after.get("ok") is not True or after.get("environment_id")!="BETA" or after.get("service_audience")!="PICK_PACK_1291_BETA" or got!=target:
-        raise RuntimeError("BETA_DISCOVERY_POST_RESTORE_FAILED:"+str(c3)+":"+got)
-    if after.get("authority")!=authority_before or after.get("service_generation")!=generation_before:
-        raise RuntimeError("BETA_AUTHORITY_CHANGED_DURING_SERVICE_URL_REPAIR")
-    if MARK in "\n".join(str(f.get("source") or "") for f in files_of(api(f"{API}/{sid}/content",token))):
-        raise RuntimeError("TEMP_REPAIR_SOURCE_NOT_REMOVED")
-    final=api(f"{API}/{sid}/deployments/{dep}",token)
-    if (final.get("deploymentConfig") or {}).get("versionNumber")!=old_version: raise RuntimeError("CANONICAL_DEPLOYMENT_NOT_RESTORED")
-    rec={"status":"PASS","mode":"BETA_GAS_SERVICE_URL_REPAIR","idempotent":False,"before_service_url":current,"after_service_url":got,
-         "authority_unchanged":True,"service_generation_unchanged":True,"stable_touched":False,"source_restored":True,"deployment_restored":True,
-         "canonical_deployment_version":old_version,"temporary_version_created":temp,"temporary_version_unreferenced":True,
-         "candidate_rebuilt":False,"candidate_resigned":False}
-    OUT.write_text(json.dumps(rec,indent=2)+"\n");print(json.dumps(rec))
+                deploy_version(sid,dep,token,temp_version,str(old_cfg.get("manifestFileName") or "appsscript"),"TEMP rollback Beta GAS service URL")
+                cr,rr=post(web,{"action":"__beta_environment_repair_once","_app_channel":"BETA","_environment_id":"BETA","_service_audience":"PICK_PACK_1291_BETA",
+                                "google_access_token":token,"expected_current":target,"target_service_url":current})
+                if cr!=200 or rr.get("ok") is not True or str(rr.get("service_url") or "").rstrip("/")!=current:
+                    raise RuntimeError("PROPERTY_ROLLBACK_ASSERT")
+            except Exception as e: rollback_errors.append("property:"+str(e))
+        try:
+            req(f"{API}/{sid}/content",token,"PUT",{"files":old_files})
+        except Exception as e: rollback_errors.append("head:"+str(e))
+        try:
+            deploy_version(sid,dep,token,old_version,str(old_cfg.get("manifestFileName") or "appsscript"),str(old_cfg.get("description") or "Restore pre-repair deployment"))
+        except Exception as e: rollback_errors.append("deployment:"+str(e))
+        if rollback_errors: raise RuntimeError("BETA_GAS_REPAIR_ROLLBACK_FAILED:"+"|".join(rollback_errors))
+        raise
 
 if __name__=="__main__":
-    try: main()
+    try:main()
     except Exception as e:
         OUT.parent.mkdir(parents=True,exist_ok=True)
-        OUT.write_text(json.dumps({"status":"FAIL","mode":"BETA_GAS_SERVICE_URL_REPAIR","error":str(e)[:1800],"stable_touched":False},indent=2)+"\n")
-        print("BETA_GAS_SERVICE_URL_REPAIR_ERROR:"+str(e)[:1800],file=sys.stderr);sys.exit(1)
+        OUT.write_text(json.dumps({"status":"FAIL","mode":"BETA_GAS_ENVIRONMENT_DISCOVERY_CANONICAL_REPAIR","error":str(e)[:1800],"stable_touched":False},indent=2)+"\n")
+        print("BETA_GAS_ENVIRONMENT_REPAIR_ERROR:"+str(e)[:1800],file=sys.stderr);sys.exit(1)
