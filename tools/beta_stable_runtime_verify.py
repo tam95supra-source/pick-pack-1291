@@ -267,8 +267,17 @@ def main():
         if CANARY_SHEET in sheet_titles(tok,sid):raise RuntimeError("STABLE_GAS_CANARY_CLEANUP_READBACK_FAILED:"+kind)
     if len(scripts)!=3 or len(deployments)!=3:raise RuntimeError("STABLE_GAS_DEPLOYMENTS_NOT_DISTINCT")
     if CANARY_SHEET in sheet_titles(tok,beta_c["gsheet"]["spreadsheet_id"]):raise RuntimeError("STABLE_CANARY_WRITTEN_TO_BETA")
-    # Beta manifest must still be exact previous LIVE before publish; Beta102 must not leak pre-OTA.
+    # Beta GAS discovery is environment-routing authority and must converge to canonical BETA Service.
     beta_gas=btext(bb,"GAS_API_URL")
+    discovery_code,discovery=curl_json("POST",beta_gas,body={"action":"service_discovery","_app_channel":"BETA","_environment_id":"BETA","_service_audience":"PICK_PACK_1291_BETA"},follow=True,timeout=60)
+    expected_beta_service=str((beta_c.get("current_service") or {}).get("url") or "").rstrip("/")
+    got_beta_service=str(discovery.get("service_url") or "").rstrip("/")
+    if discovery_code!=200 or discovery.get("ok") is not True or discovery.get("environment_id")!="BETA" or discovery.get("service_audience")!="PICK_PACK_1291_BETA":
+        raise RuntimeError("BETA_GAS_SERVICE_DISCOVERY_ENV_FAILED:"+str(discovery_code))
+    if not expected_beta_service or got_beta_service!=expected_beta_service:
+        raise RuntimeError("BETA_GAS_SERVICE_DISCOVERY_DRIFT:"+json.dumps({"expected":expected_beta_service,"got":got_beta_service},separators=(",",":")))
+
+    # Beta manifest must still be exact previous LIVE before publish; Beta102 must not leak pre-OTA.
     manifest_code,manifest=curl_json("POST",beta_gas,body={"action":"update_check","channel":"BETA","current_version":"0.0.0","_environment_id":"BETA","_service_audience":"PICK_PACK_1291_BETA"},follow=True,timeout=60)
     if manifest_code!=200 or manifest.get("ok") is not True:raise RuntimeError("BETA_MANIFEST_READBACK_FAILED:"+str(manifest_code))
     if manifest.get("version_name")!=release.get("base_version") or release.get("live") is not False:raise RuntimeError("BETA102_PREOTA_MANIFEST_LEAK")
@@ -279,6 +288,7 @@ def main():
       "d1":{"count":3,"rehearsal_absent":True,"stable_ready_not_live_zero_state":stable_zero,"quota_guard":"PASS","writer_fencing":"PASS"},
       "backup_restore":{"run_id":proof["run_id"],"artifact_id":proof["artifact_id"],"backup_sha256":proof["backup_sha256"],"restore_compare":"PASS","canary_deleted":True,"current_binding_unchanged":True},
       "workers":{"beta":beta_name,"stable":stable_name,"db_separate":True,"sheet_separate":True,"gas_separate":True,"stable_broad_google_oauth_absent":True},
+      "beta_gas_discovery":{"service_url":got_beta_service,"environment_id":discovery.get("environment_id"),"service_audience":discovery.get("service_audience"),"status":"PASS"},
       "auth":{"beta_active":[x[0] for x in beta_active],"stable_active":[x[0] for x in stable_active],"sheet_parity":"PASS"},
       "cross_environment":{"headers_rejected_both_ways":True,"stable_missing_env_rejected":True,"fallback_cross_route_absent":True},
       "gas":gas,"gas_deployments":{"distinct_projects":True,"distinct_deployments":True,"policy":"ANYONE_ANONYMOUS/USER_DEPLOYING","canary_cleanup_readback":"PASS","beta_sheet_untouched":True},
