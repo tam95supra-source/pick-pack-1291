@@ -105,7 +105,7 @@ def main():
     web=f"https://script.google.com/macros/s/{dep}/exec"
     code,before=discovery(web)
     if code!=200 or before.get("ok") is not True or before.get("environment_id")!="BETA" or before.get("service_audience")!="PICK_PACK_1291_BETA":
-        raise RuntimeError("BETA_DISCOVERY_PRECHECK_FAILED:"+str(code))
+        raise RuntimeError("BETA_DISCOVERY_PRECHECK_FAILED:"+str(code)+":"+json.dumps({k:before.get(k) for k in ("ok","error","environment_id","service_audience","service_url","authority_mode")},separators=(",",":")))
     current=str(before.get("service_url") or "").rstrip("/")
     authority_before=before.get("authority");generation_before=before.get("service_generation")
     if current==target:
