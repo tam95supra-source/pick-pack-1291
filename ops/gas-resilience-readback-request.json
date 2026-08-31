@@ -1,11 +1,13 @@
 {
-  "purpose": "READ_ONLY_BETA_GAS_V206_CANONICALIZER_CALLSITES",
+  "purpose": "READ_ONLY_POST_REPAIR_BETA_GAS_V213_FULL_READBACK",
   "read_only": true,
   "requested_at_utc": "2026-08-30T13:25:00Z",
-  "expected_deployment_version": 206,
-  "execution_nonce": "beta-gas-v206-canonicalizer-callsites-20260831-10",
+  "expected_deployment_version": 213,
+  "execution_nonce": "beta-gas-v213-post-repair-readback-20260831-11",
   "prior_repair_run_id": 33376220989,
   "prior_failed_run_id": 33374605200,
   "exact_input_retry": true,
-  "prior_readback_run_id": 33375858186
+  "prior_readback_run_id": 33375858186,
+  "repair_run_id": 33376373374,
+  "repair_artifact_id": 9752024220
 }
