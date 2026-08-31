@@ -1,0 +1,57 @@
+{
+  "project": "APK PICK PACK 1291",
+  "owner": "Nguyen Van Tam",
+  "status": "LOCKED_PRE_PUBLISH",
+  "channel": "BETA",
+  "stable_publish": "FORBIDDEN",
+  "authority_change": "NONE",
+  "version_name": "0.4.2-beta.104",
+  "version_code": 110,
+  "package": "vn.pickpack1291.app.beta.publicbeta",
+  "source_sha": "c31bb1b7ad68e6fd114727d8f08508796013bcef",
+  "candidate_run_id": 33384004708,
+  "candidate_artifact_id": 9754938692,
+  "candidate_artifact_name": "beta-candidate-33384004708",
+  "apk_sha256": "523b7ca4fe3463acdec8281d6232f36cd15e8df13a5f25585ca4ff4b82f2d6f1",
+  "apk_size": 13593589,
+  "signer_sha256": "d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e",
+  "visual": {
+    "run_id": 33384004708,
+    "artifact_id": 9755057622,
+    "artifact_name": "beta-verify-33384004708",
+    "automated_status": "PASS",
+    "human_status": "PASS",
+    "human_receipt": "ops/beta104-human-visual-receipt.json",
+    "screenshot_count": 35,
+    "viewports": ["320x568", "360x640", "480x800"],
+    "back_api36": "PASS",
+    "pda_functional_pre_ota": "PASS"
+  },
+  "service_discovery_regression": {
+    "status": "PASS",
+    "run_id": 33388577027,
+    "artifact_id": 9756583802,
+    "case": "SERVICE-DISCOVERY-001"
+  },
+  "fast_check": {
+    "status": "PASS",
+    "run_id": 33388933459
+  },
+  "runtime_dod": {
+    "status": "PASS",
+    "run_id": 33389060092,
+    "artifact_id": 9756743967
+  },
+  "runtime_readback": {
+    "beta_environment": "BETA",
+    "beta_service_audience": "PICK_PACK_1291_BETA",
+    "beta_service_url": "https://pickpack.1291.workers.dev",
+    "stable_public": false,
+    "stable_lifecycle": "READY_NOT_LIVE"
+  },
+  "apk_transport": "GITHUB_RELEASE_ONLY",
+  "google_drive_apk": "FORBIDDEN",
+  "rebuild": false,
+  "resign": false,
+  "publish_exact_bytes_only": true
+}
