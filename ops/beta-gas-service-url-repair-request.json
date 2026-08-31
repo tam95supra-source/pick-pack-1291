@@ -1,0 +1,14 @@
+{
+  "stage": "BETA_GAS_SERVICE_URL_REPAIR",
+  "mode": "REPAIR_BETA_GAS_DISCOVERY_AFTER_DOMAIN_SPLIT",
+  "failure_run_id": 33368991771,
+  "candidate_source_sha": "8653e8e1a8c0585a4dcab95ccb3da0636650d8a5",
+  "stable_publish": "FORBIDDEN",
+  "authority_change": "NONE",
+  "rebuild": false,
+  "resign": false,
+  "expected_source": "config.environment_contracts.BETA.current_service.url",
+  "legacy_drift_source": "config.environment_contracts.STABLE.target_web_origin",
+  "owner": "Nguyen Van Tam",
+  "execution_nonce": "beta-gas-service-url-repair-20260831-01"
+}
