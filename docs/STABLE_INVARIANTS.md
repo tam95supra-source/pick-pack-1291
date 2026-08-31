@@ -94,23 +94,23 @@ Mỗi invariant tối thiểu có:
 - OWNER acceptance: PASS — item 1 OK và item 2 OK trên Beta99. Latest manual evidence 2026-08-30 13:21 + OWNER confirmation: session_work_update Đổi/Trả PDA hoạt động, không còn USER_PICK_UNAVAILABLE. Khóa ACTIVE_PASS từ Beta99.
 
 ### ENV-ISOLATION-001
-- Status: TECHNICAL_PASS_AWAITING_OWNER
+- Status: ACTIVE_PASS
 - Scope: Beta/Stable environment isolation / HTTP / GAS / LAN-NSD / release
 - OWNER rule: Beta và Stable phải tách environment/audience, data/accounts/service/GAS/OTA/LAN mutable state; cross-environment automatic write/fallback/auth/session/manifest/LAN sharing bị cấm. Stable giữ READY_NOT_LIVE/private/public=false cho tới lệnh promotion riêng của OWNER.
 - Regression: distinct BETA/STABLE environment+audience; cross/missing environment request bị reject; D1/Sheet/GAS tách; LAN/NSD type tách; BETA GAS discovery trỏ canonical BETA Service; Stable không OTA/public/promotion; Stable/main/signer/authority không đổi.
 - Technical evidence: Beta104 source c31bb1b7ad68e6fd114727d8f08508796013bcef; candidate 33384004708 / 9754938692; exact-device SERVICE-DISCOVERY-001 33388577027 / 9756583802 PASS; Fast Check 33388933459 PASS; runtime DoD 33389060092 / 9756743967 PASS; terminal publish/OTA/install/readback/finalize 33391700817 PASS; publish 9757752307; OTA preserved-data 9757829287; final 9757837384; exact APK SHA256 523b7ca4fe3463acdec8281d6232f36cd15e8df13a5f25585ca4ff4b82f2d6f1 / size 13593589 / signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; BETA environment/audience/Worker readback PASS; Stable available=false, main unchanged.
 - Prior OWNER failure: Beta102 stale discovery connectivity failure. Technical remediation is PASS on Beta104; OWNER re-acceptance remains required.
-- OWNER acceptance: PENDING_BETA104.
+- OWNER acceptance: PASS — Beta104 checklist 1–6 OK, 2026-08-31 20:22 +07:00. Locked ACTIVE_PASS.
 
 ### SERVICE-DISCOVERY-001
-- Status: TECHNICAL_PASS_AWAITING_OWNER
+- Status: ACTIVE_PASS
 - Scope: Android dynamic Service discovery/cache
 - OWNER rule: BETA phải kết nối Service qua environment-scoped dynamic discovery; stale cache từ endpoint/environment cũ không được điều khiển Service session/read/sync/outbox sau OTA hoặc isolation cutover.
 - Failure evidence: manual-20260831-172725-4aaccadf-0df6-4d6d-9eca-589b274b1659.json — Beta102/adminbeta; session_http=-1; UnknownHostException tới pickpack1291.cc.cd; runtime_error=SESSION_EXCHANGE_FAILED trong khi canonical BETA discovery trỏ BETA Worker riêng.
 - Regression required: cache phải match exact BuildConfig environment/audience; stale/missing-env cache bị invalidate; discoverySnapshot honor TTL/force; live session/direct-read/sync/outbox/resilience path refresh discovery; Android không hardcode Stable root hoặc provider URL.
 - Technical evidence: Beta104 source c31bb1b7ad68e6fd114727d8f08508796013bcef; exact-device run 33388577027 / artifact 9756583802 seeded stale pickpack1291.cc.cd and PASS with environment=BETA, audience=PICK_PACK_1291_BETA, service_url=https://pickpack.1291.workers.dev, stable_root_reused=false, cache_rewritten_in_process=true; OTA preserved-data Beta102→Beta104 run 33391700817 / artifact 9757829287 repeated stale-cache migration without clear/reinstall and PASS; terminal final artifact 9757837384.
 - Technical candidate: 0.4.2-beta.104 LIVE.
-- OWNER acceptance: PENDING_BETA104.
+- OWNER acceptance: PASS — Beta104 checklist 1–6 OK, 2026-08-31 20:22 +07:00. Locked ACTIVE_PASS.
 
 ### INFRA-RESILIENCE-001
 - Status: TECHNICAL_PASS_AWAITING_OWNER
