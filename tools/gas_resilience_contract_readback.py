@@ -87,6 +87,27 @@ def function_body_selftest():
     if missing!="":
         raise RuntimeError("FUNCTION_BODY_NEGATIVE_SELFTEST_FAILED")
 
+def m2_resolution_semantics(project):
+    src=server_source(project)
+    names=["ppM2ServiceUrl_","ppM2StateSnapshot_","ppM2Discovery_"]
+    bodies={n:function_body(src,n) for n in names}
+    joined="\n".join(bodies.values())
+    return {
+        "service_url_reads_property":"PP_M2_SERVICE_URL" in bodies["ppM2ServiceUrl_"],
+        "snapshot_reads_all_properties":"getProperties()" in bodies["ppM2StateSnapshot_"],
+        "snapshot_reads_service_url_property":"PP_M2_SERVICE_URL" in bodies["ppM2StateSnapshot_"],
+        "snapshot_calls_service_url_helper":"ppM2ServiceUrl_(" in bodies["ppM2StateSnapshot_"],
+        "discovery_calls_snapshot":"ppM2StateSnapshot_(" in bodies["ppM2Discovery_"],
+        "discovery_calls_service_url_helper":"ppM2ServiceUrl_(" in bodies["ppM2Discovery_"],
+        "uses_cache_service":"CacheService" in joined,
+        "uses_properties_service":"PropertiesService" in joined,
+        "contains_stable_root":"pickpack1291.cc.cd" in joined,
+        "contains_workers_dev":"pickpack.1291.workers.dev" in joined,
+        "service_url_body":" ".join(bodies["ppM2ServiceUrl_"].split()),
+        "snapshot_body":" ".join(bodies["ppM2StateSnapshot_"].split()),
+        "discovery_body":" ".join(bodies["ppM2Discovery_"].split()),
+    }
+
 def m2_service_url_diag(project):
     src=server_source(project)
     body=function_body(src,"ppM2ServiceUrl_")
@@ -184,6 +205,9 @@ def main():
         "deployment_m2_service_url_diag":m2_service_url_diag(deployed),
         "head_m2_service_url_diag":m2_service_url_diag(head),
         "repo_m2_service_url_diag":m2_service_url_diag(repo_obj),
+        "deployment_m2_resolution_semantics":m2_resolution_semantics(deployed),
+        "head_m2_resolution_semantics":m2_resolution_semantics(head),
+        "repo_m2_resolution_semantics":m2_resolution_semantics(repo_obj),
     }
     out.parent.mkdir(parents=True,exist_ok=True)
     out.write_text(json.dumps(data,indent=2)+"\n",encoding="utf-8")
