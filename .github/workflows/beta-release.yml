@@ -95,7 +95,9 @@ jobs:
               ;;
             PUBLISH)
               jq -e '.candidate_locked==true and .human_visual_pass==true and .visual_matrix=="PASS" and .pda_functional_pre_ota=="PASS" and
-                     .rebuild==false and .resign==false and .back_api36=="PASS" and
+                     .rebuild==false and .resign==false and .back_api36=="PASS" and .fast_check=="PASS" and
+                     .beta_auth_status=="PASS" and .stable_gas_repair_status=="PASS" and .beta_domain_status=="PASS" and .runtime_dod_status=="PASS" and
+                     (.runtime_dod_run_id|type=="number") and (.runtime_dod_artifact_id|type=="number") and
                      (.candidate_run_id|type=="number") and (.candidate_artifact_name|type=="string" and length>0) and
                      (.verify_run_id|type=="number") and (.verify_artifact_name|type=="string" and length>0) and
                      (.base_candidate_run_id|type=="number") and (.base_candidate_artifact_name|type=="string" and length>0) and
