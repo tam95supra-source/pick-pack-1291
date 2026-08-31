@@ -160,7 +160,8 @@ jobs:
           assert m and "CLOUDFLARE_API_TOKEN" in m.group(0), "beta domain job missing token"
           assert "stable_publish==\"FORBIDDEN\"" in s, "stable publish fail-closed missing"
           t=pathlib.Path("tools/beta_domain_prepare.py").read_text()
-          assert "STABLE_ROOT_DOMAIN_ALREADY_ATTACHED" in t and "STABLE_ROOT_DOMAIN_MUTATED" in t
+          assert "STABLE_ROOT_DOMAIN_ATTACHED_OUTSIDE_BETA_MIGRATION_SCOPE" in t
+          assert "STABLE_ROOT_DOMAIN_STILL_ATTACHED" in t and "STABLE_ROOT_DOMAIN_STILL_PUBLIC" in t
           assert "BETA_WORKER_BINDINGS_CHANGED_DURING_DOMAIN_ATTACH" in t
           assert "BETA_D1_CHANGED_DURING_DOMAIN_ATTACH" in t
           assert "STABLE_ROOT_DOMAIN_ATTACHED_OUTSIDE_BETA_MIGRATION_SCOPE" in t
