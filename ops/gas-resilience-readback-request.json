@@ -1,13 +1,14 @@
 {
-  "purpose": "READ_ONLY_POST_REPAIR_BETA_GAS_V213_FULL_READBACK",
+  "purpose": "AUDIT_POSTLIVE_BETA104_GAS_FULL_READBACK",
   "read_only": true,
-  "requested_at_utc": "2026-08-30T13:25:00Z",
+  "requested_at_utc": "2026-08-31T15:36:00Z",
   "expected_deployment_version": 213,
-  "execution_nonce": "beta-gas-v213-post-repair-readback-20260831-11",
+  "execution_nonce": "beta104-postlive-gas-readback-20260831-audit-1",
   "prior_repair_run_id": 33376220989,
   "prior_failed_run_id": 33374605200,
   "exact_input_retry": true,
   "prior_readback_run_id": 33375858186,
   "repair_run_id": 33376373374,
-  "repair_artifact_id": 9752024220
+  "repair_artifact_id": 9752024220,
+  "audit_scope": "BETA_STABLE_MASTER_AUDIT"
 }
