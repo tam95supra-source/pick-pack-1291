@@ -9,15 +9,31 @@ import { legacySyncPortable } from "../../../service/src/legacy_sync_portable";
 import { attendanceEnterV2, sessionResourceMutateV2, sessionResourceSnapshotV2 } from "../../../service/src/session_v2_compat";
 import { sessionExitGuarded } from "../../../service/src/session_hotfix";
 
-export type DrRuntimeEnv={TURSO_DATABASE_URL:string;TURSO_AUTH_TOKEN:string;SERVICE_TOKEN_SECRET:string;SERVICE_GENERATION:string;DISCOVERY_URL:string;DR_WRITER_MODE:string;ENVIRONMENT_ID?:string;SERVICE_AUDIENCE?:string;GAS_API_URL?:string;OUTBOUND_GAS_API_URL?:string;DR_GAS_API_URL?:string;DR_TARGET_ID?:string};
-const err=(code:string,status=400)=>json({ok:false,error:{code,error_class:status===401?"AUTH":status===409?"CONFLICT":"VALIDATION",retryable:status>=500}},status);
+export type DrRuntimeEnv={TURSO_DATABASE_URL:string;TURSO_AUTH_TOKEN:string;SERVICE_TOKEN_SECRET:string;SERVICE_GENERATION:string;DISCOVERY_URL:string;DR_WRITER_MODE:string;ENVIRONMENT_ID:string;SERVICE_AUDIENCE:string;GAS_API_URL?:string;OUTBOUND_GAS_API_URL?:string;DR_GAS_API_URL?:string;DR_TARGET_ID?:string};
+const err=(code:string,status=400)=>json({ok:false,error:{code,error_class:status===401?"AUTH":(status===403||status===409)?"PERMISSION":"VALIDATION",retryable:status>=500}},status);
 const realtimeNoop={getByName:(_name:string)=>({invalidate:async(_message:Record<string,unknown>)=>0,broadcast:async(_event:Record<string,unknown>)=>0})};
-const envFor=(db:D1Database,e:DrRuntimeEnv):Env=>({
-  DB:db,SERVICE_TOKEN_SECRET:e.SERVICE_TOKEN_SECRET,SERVICE_GENERATION:e.SERVICE_GENERATION,
-  ENVIRONMENT_ID:String(e.ENVIRONMENT_ID||"BETA").toUpperCase(),SERVICE_AUDIENCE:String(e.SERVICE_AUDIENCE||"PICK_PACK_1291_BETA"),GAS_API_URL:String(e.GAS_API_URL||""),OUTBOUND_GAS_API_URL:String(e.OUTBOUND_GAS_API_URL||""),DR_GAS_API_URL:String(e.DR_GAS_API_URL||""),DR_TARGET_ID:String(e.DR_TARGET_ID||""),M1_ADMIN_TOKEN:"",
-  GAS_BRIDGE_SHARED_SECRET:"",GOOGLE_OAUTH_CLIENT_ID:"",GOOGLE_OAUTH_CLIENT_SECRET:"",GOOGLE_OAUTH_REFRESH_TOKEN:"",
-  GOOGLE_SOURCE_SHEET_ID:"",GOOGLE_OUTBOUND_SHEET_ID:"",REALTIME_HUB:realtimeNoop,
-});
+const drIdentity=(e:DrRuntimeEnv)=>{
+  const environmentId=String(e.ENVIRONMENT_ID||"").toUpperCase(),serviceAudience=String(e.SERVICE_AUDIENCE||"");
+  const expectedAudience=environmentId==="BETA"?"PICK_PACK_1291_BETA":environmentId==="STABLE"?"PICK_PACK_1291_STABLE":"";
+  if(!expectedAudience||serviceAudience!==expectedAudience)throw new Error("DR_ENVIRONMENT_CONFIG_INVALID");
+  return {environmentId,serviceAudience};
+};
+const environmentFence=(request:Request,e:DrRuntimeEnv):Response|null=>{
+  const {environmentId,serviceAudience}=drIdentity(e),got=String(request.headers.get("x-pick-pack-environment")||"").toUpperCase(),audience=String(request.headers.get("x-pick-pack-audience")||"");
+  if(!got||!audience)return err("ENVIRONMENT_ID_REQUIRED",403);
+  if(got!==environmentId)return err("ENVIRONMENT_MISMATCH",409);
+  if(audience!==serviceAudience)return err("SERVICE_AUDIENCE_MISMATCH",409);
+  return null;
+};
+const envFor=(db:D1Database,e:DrRuntimeEnv):Env=>{
+  const {environmentId,serviceAudience}=drIdentity(e);
+  return {
+    DB:db,SERVICE_TOKEN_SECRET:e.SERVICE_TOKEN_SECRET,SERVICE_GENERATION:e.SERVICE_GENERATION,
+    ENVIRONMENT_ID:environmentId,SERVICE_AUDIENCE:serviceAudience,GAS_API_URL:String(e.GAS_API_URL||""),OUTBOUND_GAS_API_URL:String(e.OUTBOUND_GAS_API_URL||""),DR_GAS_API_URL:String(e.DR_GAS_API_URL||""),DR_TARGET_ID:String(e.DR_TARGET_ID||""),M1_ADMIN_TOKEN:"",
+    GAS_BRIDGE_SHARED_SECRET:"",GOOGLE_OAUTH_CLIENT_ID:"",GOOGLE_OAUTH_CLIENT_SECRET:"",GOOGLE_OAUTH_REFRESH_TOKEN:"",
+    GOOGLE_SOURCE_SHEET_ID:"",GOOGLE_OUTBOUND_SHEET_ID:"",REALTIME_HUB:realtimeNoop,
+  };
+};
 
 async function legacyBatch(request:Request,db:D1Database,e:DrRuntimeEnv):Promise<Response>{
   const env=envFor(db,e),auth=await authenticate(db,env,request);if(!auth)return err("UNAUTHORIZED",401);
@@ -35,10 +51,12 @@ async function canonicalBatch(request:Request,db:D1Database,e:DrRuntimeEnv):Prom
 }
 
 export async function handle(request:Request,e:DrRuntimeEnv):Promise<Response>{
-  const db=new LibsqlD1Adapter(e.TURSO_DATABASE_URL,e.TURSO_AUTH_TOKEN),env=envFor(db,e);
+  const db=new LibsqlD1Adapter(e.TURSO_DATABASE_URL,e.TURSO_AUTH_TOKEN);
   try{
-    const u=new URL(request.url),method=request.method;
-    if(u.pathname==="/health"){const a=await currentAuthority(db);return json({ok:true,service:"pick-pack-1291-cloud-dr",provider:"TURSO",writer_mode:e.DR_WRITER_MODE,generation:e.SERVICE_GENERATION,authority:a});}
+    const env=envFor(db,e),identity=drIdentity(e),u=new URL(request.url),method=request.method;
+    if(u.pathname==="/environment.json"&&method==="GET")return json({ok:true,environment_id:identity.environmentId,service_audience:identity.serviceAudience,release_channel:identity.environmentId});
+    if(u.pathname==="/health"){const a=await currentAuthority(db);return json({ok:true,service:"pick-pack-1291-cloud-dr",provider:"TURSO",writer_mode:e.DR_WRITER_MODE,generation:e.SERVICE_GENERATION,environment_id:identity.environmentId,service_audience:identity.serviceAudience,authority:a});}
+    const fence=environmentFence(request,e);if(fence)return fence;
     if(e.DR_WRITER_MODE!=="ACTIVE_WRITE")return err("DR_PASSIVE_FENCED",409);
     if(u.pathname==="/v1/auth/gas-session"&&method==="POST")return exchangeGasSession(request,env);
     if(u.pathname==="/v1/mobile/read"&&method==="POST")return mobileRead(request,env);
