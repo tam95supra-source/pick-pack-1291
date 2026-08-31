@@ -28,10 +28,10 @@ jobs:
           node-version: '22'
       - name: Install exact service export tooling
         working-directory: service
-        run: npm ci --ignore-scripts --no-audit --no-fund
+        run: npm install --ignore-scripts --no-audit --no-fund --package-lock=false --no-save wrangler@4.119.0
       - name: Install exact cloud DR client
         working-directory: services/cloud-dr
-        run: npm ci --ignore-scripts --no-audit --no-fund
+        run: npm install --ignore-scripts --no-audit --no-fund --package-lock=false --no-save @libsql/client@0.15.15
       - name: Validate Turso isolation provisioner
         run: python3 -m py_compile tools/cloud_dr_turso_isolation_provision.py
       - name: Snapshot D1 and provision isolated Turso DR
