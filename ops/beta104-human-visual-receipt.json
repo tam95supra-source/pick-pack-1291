@@ -1,0 +1,29 @@
+{
+  "project": "APK PICK PACK 1291",
+  "owner": "Nguyen Van Tam",
+  "status": "PASS",
+  "gate": "HUMAN_VISUAL_INSPECTION",
+  "version_name": "0.4.2-beta.104",
+  "version_code": 110,
+  "package": "vn.pickpack1291.app.beta.publicbeta",
+  "source_sha": "c31bb1b7ad68e6fd114727d8f08508796013bcef",
+  "candidate_run_id": 33384004708,
+  "candidate_artifact_id": 9754938692,
+  "visual_artifact_id": 9755057622,
+  "apk_sha256": "523b7ca4fe3463acdec8281d6232f36cd15e8df13a5f25585ca4ff4b82f2d6f1",
+  "apk_size": 13593589,
+  "signer_sha256": "d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e",
+  "screenshot_count": 35,
+  "viewports": ["320x568", "360x640", "480x800"],
+  "checks": {
+    "blank_crash_infinite_loading": "PASS",
+    "clipping_overlap_hidden_controls": "PASS",
+    "density_scale": "PASS",
+    "cross_viewport_consistency": "PASS",
+    "pinned_network_sync_service_status": "PASS",
+    "no_stable_root_domain_provider_exposed": "PASS",
+    "no_visual_regression_from_service_discovery_fix": "PASS",
+    "metadata_sequence_complete": "PASS"
+  },
+  "decision": "FRESH_PASS_EXACT_ARTIFACT_9755057622"
+}
