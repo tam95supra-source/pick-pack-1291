@@ -222,8 +222,11 @@ def main():
     beta_url=f"https://{beta_name}.{sub}.workers.dev";stable_url=f"https://{stable_name}.{sub}.workers.dev"
     bh=curl_json("GET",beta_url+"/health")[1];sh=curl_json("GET",stable_url+"/health")[1]
     if not bh.get("ok") or not sh.get("ok"):raise RuntimeError("WORKER_HEALTH_FAILED")
-    be=curl_json("GET",beta_url+"/environment.json")[1];se=curl_json("GET",stable_url+"/environment.json")[1]
-    if be.get("environment_id")!="BETA" or se.get("environment_id")!="STABLE":raise RuntimeError("ENVIRONMENT_ENDPOINT_FAILED")
+    be_code,be=curl_json("GET",beta_url+"/environment.json");se_code,se=curl_json("GET",stable_url+"/environment.json")
+    if be_code!=200 or se_code!=200 or be.get("environment_id")!="BETA" or se.get("environment_id")!="STABLE":
+        diag={"beta":{"http":be_code,"environment_id":be.get("environment_id"),"service_audience":be.get("service_audience"),"release_channel":be.get("release_channel")},
+              "stable":{"http":se_code,"environment_id":se.get("environment_id"),"service_audience":se.get("service_audience"),"release_channel":se.get("release_channel")}}
+        raise RuntimeError("ENVIRONMENT_ENDPOINT_FAILED:"+json.dumps(diag,separators=(",",":")))
     b_mismatch,_=curl_json("GET",beta_url+"/v1/sync/status",headers={"X-Pick-Pack-Environment":"STABLE","X-Pick-Pack-Audience":"PICK_PACK_1291_STABLE"})
     s_mismatch,_=curl_json("GET",stable_url+"/v1/sync/status",headers={"X-Pick-Pack-Environment":"BETA","X-Pick-Pack-Audience":"PICK_PACK_1291_BETA"})
     s_missing,_=curl_json("GET",stable_url+"/v1/sync/status")
