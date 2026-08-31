@@ -1,8 +1,8 @@
 {
-  "purpose": "READ_ONLY_BETA_GAS_ENVIRONMENT_CONTRACT_AFTER_DOMAIN_SPLIT",
+  "purpose": "READ_ONLY_BETA_GAS_ENVIRONMENT_FILE_MAP",
   "read_only": true,
   "requested_at_utc": "2026-08-30T13:25:00Z",
   "expected_deployment_version": 206,
-  "execution_nonce": "beta-gas-env-readback-20260831-01",
+  "execution_nonce": "beta-gas-env-readback-20260831-02",
   "prior_repair_run_id": 33369978876
 }
