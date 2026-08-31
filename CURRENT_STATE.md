@@ -1,38 +1,45 @@
 # CURRENT STATE — PICK PACK 1291
 
-- updated_at: 2026-08-31T12:30:25Z
-- status: BETA104_LIVE_OWNER_ACCEPTED
-- technical_dod_status: PASS
-- owner_acceptance: COMPLETE_BETA104_CHECKLIST_1_TO_6_OK
-- continuity_branch: release/beta102-beta-stable-isolation-20260831
+- updated_at: 2026-08-31T17:41:19Z
+- status: BETA104_LIVE_OWNER_ACCEPTED_STABLE_READY_NOT_LIVE
+- technical_dod_status: PASS_BETA_STABLE_AUDIT
+- audit_verdict: TECHNICAL_PASS_AWAITING_OWNER
+- owner_acceptance: BETA104_CHECKLIST_1_TO_6_COMPLETE / BETA_STABLE_CHECKLIST_1_TO_18_AWAITING_OWNER
+- continuity_branch: release/audit-beta104-stable-private-20260831
 - source_sha: c31bb1b7ad68e6fd114727d8f08508796013bcef
 - beta_live: 0.4.2-beta.104 (versionCode 110)
 - package: vn.pickpack1291.app.beta.publicbeta
 - candidate_run: 33384004708
 - candidate_artifact: 9754938692
 - visual_artifact: 9755057622
-- human_visual_receipt: ops/beta104-human-visual-receipt.json
 - release_lock: ops/beta104-release-lock.json
 - apk_sha256: 523b7ca4fe3463acdec8281d6232f36cd15e8df13a5f25585ca4ff4b82f2d6f1
 - apk_size: 13593589
 - signer_sha256: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
-- service_discovery_device: PASS run 33388577027 / artifact 9756583802
-- fast_check: PASS run 33388933459
-- runtime_dod: PASS run 33389060092 / artifact 9756743967
-- terminal_run: 33391700817 PASS
-- publish_artifact: 9757752307
-- ota_preserved_data_artifact: 9757829287
-- final_artifact: 9757837384
-- handoff_artifact: 9757842679
-- github_release_asset_id: 537953189
-- beta_ota: exact 0.4.2-beta.102 -> 0.4.2-beta.104 PASS; data/cache preserved; stale Stable-root cache invalidated without clear/reinstall
-- beta_ota_url: https://github.com/tam95supra-source/pick-pack-1291/releases/download/v0.4.2-beta.104-publicbeta/pick-pack-1291-public-beta-0.4.2-beta.104.apk
-- service_discovery: BETA / PICK_PACK_1291_BETA / https://pickpack.1291.workers.dev / stable_root_reused=false
-- beta_gas_publish_contract: deployment 215 (ppUpdateCheck-only); prior service/discovery repair evidence v213 inherited
+- beta_terminal_run: 33391700817 PASS / final artifact 9757837384
+- stable_private_apk: PASS run 33401278044 / artifact 9761451846 / package vn.pickpack1291.app.stable / side-by-side PASS / non-release debug signer
+- stable_environment_contract: READY_NOT_LIVE / worker pickpack1291-stable-private / D1 pick-pack-1291-service-stable / separate Stable primary Sheet / publish=false
+- stable: READY_NOT_LIVE / private / public=false / manifest=false / OTA=false / promotion_authorized=false
+- stable_root_cutover: false
+- beta_state_copied_to_stable: false
+- promotion_dry_run: PASS run 33419578736 / artifact 9768397541
+- promotion_result: cross_write PASS / cross_token PASS / cross_discovery PASS / cross_manifest PASS / cross_data PASS / backup_restore PASS
+- final_ci: PASS run 33419578501
+- final_impacted_regression: PASS run 33420663673 / artifact 9768750476 / digest sha256:af9e82f38e51574e97f1d8ac4d5f8ff0b8c2089a0838f132d84a146b8b7ea02c
+- final_registry_ci: PASS run 33420845501
+- turso_dr: PASS_AFTER_FIX run 33413666617 / artifact 9766154727
+- deno_dr: PASS_AFTER_FIX run 33416165785 / artifact 9767094401
+- render_dr: PASS_AFTER_FIX run 33417320129 / artifact 9767567227 / both targets suspended after verify
+- quota: PASS_CANONICAL config/provider_free_limits.json / final CI provider preflight PASS
+- audit_registry: ops/beta-stable-audit-registry.json
+- invariant_pending_owner: BETA-STABLE-AUDIT-001
+- existing_active_invariants_semantics_changed: false
+- INFRA-RESILIENCE-001: TECHNICAL_PASS_AWAITING_OWNER / prior OWNER deferred scope remains unchanged
+- common_mode_note: free provider/account-wide outage can remain a shared availability risk; environment data/write credentials/state are fenced and Beta capacity is bounded; no claim of absolute provider-wide outage isolation
 - apk_transport: GITHUB_RELEASE_ONLY
 - google_drive_apk: FORBIDDEN
-- stable: READY_NOT_LIVE / private / public=false / available=false / no OTA / no promotion
 - main_sha: 021dac5c6932b3ac5c60ce8fdba562ddf3d9688f / unchanged
 - authority: SERVICE_PRIMARY / PRODUCTION / epoch 9 / generation m2-prod-reset-20260823-001 / unchanged
-- rollback: skipped
-- next_action: WAIT_FOR_OWNER_NEW_SCOPE
+- protected_stable_main_signer_authority_changed: false
+- rollback: Beta104 release rollback available; future Stable rollback is Stable-only and requires promotion authorization
+- next_action: OWNER_ACCEPTANCE_BETA_STABLE_CHECKLIST_1_TO_18

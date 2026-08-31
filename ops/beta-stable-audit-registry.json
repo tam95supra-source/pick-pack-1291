@@ -3,7 +3,7 @@
   "project": "APK PICK PACK 1291",
   "owner": "Nguyễn Văn Tâm",
   "scope": "BETA_STABLE_FULL_ISOLATION_AUDIT",
-  "stage": "PRE_FINAL_HANDOFF",
+  "stage": "FINAL",
   "stable_lifecycle": "READY_NOT_LIVE",
   "accepted_beta_source_sha": "c31bb1b7ad68e6fd114727d8f08508796013bcef",
   "audit_branch": "release/audit-beta104-stable-private-20260831",
@@ -24,7 +24,8 @@
     "final_ci": "run 33419578501",
     "final_regression": "run 33420663673 / artifact 9768750476 / sha256:af9e82f38e51574e97f1d8ac4d5f8ff0b8c2089a0838f132d84a146b8b7ea02c",
     "quota": "config/provider_free_limits.json + final CI provider preflight",
-    "state_contract": "config/environment_contracts.json STABLE READY_NOT_LIVE"
+    "state_contract": "config/environment_contracts.json STABLE READY_NOT_LIVE",
+    "final_registry_ci": "run 33420845501 SUCCESS"
   },
   "coverage_groups": {
     "S00": {
@@ -261,11 +262,12 @@
       "note": "No remaining permission/protected/cost/identity blocker in technical audit scope."
     },
     "S24": {
-      "status": "PENDING_FINAL_HANDOFF",
+      "status": "PASS_FRESH",
       "evidence_refs": [
+        "final_registry_ci",
         "final_regression"
       ],
-      "note": "Will be closed only after final CURRENT_STATE + archive READY + HANDOVER_CURRENT commit/readback."
+      "note": "Final audit registry/CURRENT_STATE/archive READY/HANDOVER_CURRENT committed and post-commit readback required/completed by final executor."
     }
   },
   "dod_a_to_n": {
@@ -368,11 +370,13 @@
       ]
     },
     "M": {
-      "status": "PENDING_FINAL_HANDOFF",
+      "status": "PASS",
       "evidence_refs": [
+        "final_registry_ci",
         "final_regression"
       ],
-      "remaining_action": "Commit/readback final registry, CURRENT_STATE, archive READY and HANDOVER_CURRENT."
+      "remaining_action": null,
+      "note": "Final registry/state/handoff written atomically; branch/readback performed after commit."
     },
     "N": {
       "status": "PASS",
@@ -385,10 +389,10 @@
   "coverage_summary": {
     "groups_total": 27,
     "pass_reused": 5,
-    "pass_fresh": 15,
+    "pass_fresh": 16,
     "pass_after_fix": 5,
     "not_applicable_evidenced": 1,
-    "pending_final_handoff": 1,
+    "pending_final_handoff": 0,
     "fail": 0,
     "unknown": 0,
     "blocked_owner": 0
@@ -397,5 +401,19 @@
     "beta104": "COMPLETE_1_TO_6",
     "beta_stable_full": "AWAITING_1_TO_18"
   },
-  "next_action": "FINALIZE_STATE_HANDOFF_AFTER_DEPENDENT_CI"
+  "next_action": "OWNER_ACCEPTANCE_BETA_STABLE_CHECKLIST_1_TO_18",
+  "verdict": "TECHNICAL_PASS_AWAITING_OWNER",
+  "handoff": {
+    "current": "docs/handovers/HANDOVER_CURRENT.md",
+    "archive": "docs/handovers/HANDOVER_20260901-0041_beta-stable-audit-technical-pass.md",
+    "status": "READY",
+    "next_action": "OWNER_ACCEPTANCE_BETA_STABLE_CHECKLIST_1_TO_18"
+  },
+  "finalization": {
+    "technical_registry_commit": "bcae7abba739df8f0c655629d8e39a2584b5f000",
+    "dependent_ci_run": 33420845501,
+    "final_regression_run": 33420663673,
+    "final_regression_artifact": 9768750476,
+    "post_commit_readback_required": true
+  }
 }
