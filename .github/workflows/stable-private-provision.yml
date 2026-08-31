@@ -7,6 +7,7 @@ on:
     paths:
       - ops/stable-private-provision-request.json
       - tools/stable_private_provision.py
+      - tools/stable_gas_canary_prepare.py
       - .github/workflows/stable-private-provision.yml
       - google-apps-script/stable-primary-appsscript.json
       - google-apps-script/stable-outbound/**
@@ -43,8 +44,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python3 -m py_compile tools/stable_private_provision.py
-          jq -e '.environment=="STABLE" and .stable_public_activation==false and (.mode=="PREFLIGHT_ONLY" or .mode=="PROVISION_PRIVATE")' ops/stable-private-provision-request.json >/dev/null
+          python3 -m py_compile tools/stable_private_provision.py tools/stable_gas_canary_prepare.py
+          jq -e '.environment=="STABLE" and .stable_public_activation==false and (.mode=="PREFLIGHT_ONLY" or .mode=="PROVISION_PRIVATE" or .mode=="GAS_CANARY_UPDATE")' ops/stable-private-provision-request.json >/dev/null
       - name: Install Worker tooling
         shell: bash
         run: |
@@ -59,7 +60,12 @@ jobs:
             test -n "${!n:-}" || { echo "MISSING_REQUIRED_SECRET:$n"; exit 2; }
             echo "::add-mask::${!n}"
           done
-          python3 tools/stable_private_provision.py
+          MODE=$(jq -r '.mode' ops/stable-private-provision-request.json)
+          if [[ "$MODE" == "GAS_CANARY_UPDATE" ]]; then
+            python3 tools/stable_gas_canary_prepare.py
+          else
+            python3 tools/stable_private_provision.py
+          fi
       - uses: actions/upload-artifact@v4
         if: always()
         with:
