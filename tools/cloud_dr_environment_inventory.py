@@ -120,14 +120,19 @@ def main():
             deploy_rows=[x.get("deploy",x) if isinstance(x,dict) else {} for x in rows(dj)] if dc==200 else []
             deploy_rows.sort(key=lambda x:str(x.get("createdAt") or ""),reverse=True)
             latest=deploy_rows[0] if deploy_rows else {}
-            build_tail=[]
+            build_tail=[];app_tail=[];log_types=[]
             if len(owner_ids)==1:
-                q=urllib.parse.urlencode({"ownerId":owner_ids[0],"resource":sid,"type":"build","limit":"100"})
-                lc,lj=get_json("https://api.render.com/v1/logs?"+q,render)
-                if lc==200:
-                    lr=rows(lj)
-                    build_tail=[{"timestamp":x.get("timestamp"),"message":redact_log_text(x.get("message"))} for x in lr[-30:] if isinstance(x,dict)]
-            render_diag.append({"id":sid,"name":name,"latest_deploy":{"id":latest.get("id"),"status":latest.get("status"),"commit":(latest.get("commit") or {}).get("id"),"trigger":latest.get("trigger"),"startedAt":latest.get("startedAt"),"finishedAt":latest.get("finishedAt")},"build_log_tail":build_tail})
+                tvq=urllib.parse.urlencode({"ownerId":owner_ids[0],"resource":sid,"label":"type","limit":"100"})
+                tc,tj=get_json("https://api.render.com/v1/logs/values?"+tvq,render)
+                if tc==200:
+                    log_types=[str(x.get("value") if isinstance(x,dict) else x) for x in rows(tj)]
+                for typ,dest in (("build",build_tail),("app",app_tail)):
+                    q=urllib.parse.urlencode({"ownerId":owner_ids[0],"resource":sid,"type":typ,"limit":"100","direction":"forward"})
+                    lc,lj=get_json("https://api.render.com/v1/logs?"+q,render)
+                    if lc==200:
+                        lr=rows(lj)
+                        dest.extend([{"timestamp":x.get("timestamp"),"level":x.get("level"),"message":redact_log_text(x.get("message"))} for x in lr[-40:] if isinstance(x,dict)])
+            render_diag.append({"id":sid,"name":name,"latest_deploy":{"id":latest.get("id"),"status":latest.get("status"),"commit":(latest.get("commit") or {}).get("id"),"trigger":latest.get("trigger"),"startedAt":latest.get("startedAt"),"finishedAt":latest.get("finishedAt")},"available_log_types":log_types,"build_log_tail":build_tail,"app_log_tail":app_tail})
     deno_safe=[{"id":x.get("id"),"slug":x.get("slug"),"labels":x.get("labels")} for x in apps]
     db_safe=[{"name":x.get("Name") or x.get("name"),"id":x.get("DbId") or x.get("id"),"hostname":x.get("Hostname") or x.get("hostname"),"group":x.get("group"),"primary_region":x.get("primaryRegion") or x.get("primary_region")} for x in dbs]
     groups=sorted(set(str(x.get("group") or "") for x in dbs if x.get("group")))
