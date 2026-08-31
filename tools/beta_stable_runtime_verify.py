@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import datetime,hashlib,json,os,pathlib,re,subprocess,sys,urllib.error,urllib.parse,urllib.request
 ROOT=pathlib.Path(__file__).resolve().parents[1]
+# Runtime DoD exact-source comparison requires full git history in the workflow checkout.
 CF="https://api.cloudflare.com/client/v4"
 SCRIPT_API="https://script.googleapis.com/v1/projects"
 CANARY_SHEET="__STABLE_RUNTIME_CANARY"
