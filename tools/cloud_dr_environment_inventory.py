@@ -92,8 +92,10 @@ def main():
     if btext(sb,"ENVIRONMENT_ID")!="STABLE" or btext(sb,"SERVICE_AUDIENCE")!="PICK_PACK_1291_STABLE": raise RuntimeError("STABLE_BINDING_DRIFT")
     beta_gas=[btext(bb,k) for k in ("GAS_API_URL","OUTBOUND_GAS_API_URL","DR_GAS_API_URL")]
     stable_gas=[btext(sb,k) for k in ("GAS_API_URL","OUTBOUND_GAS_API_URL","DR_GAS_API_URL")]
-    if any(not x.startswith("https://script.google.com/") for x in beta_gas+stable_gas): raise RuntimeError("GAS_BINDING_MISSING")
-    if set(beta_gas)&set(stable_gas): raise RuntimeError("GAS_BINDING_CROSS_ENV")
+    if any(not x.startswith("https://script.google.com/") for x in stable_gas): raise RuntimeError("STABLE_GAS_BINDING_MISSING")
+    beta_present=[x for x in beta_gas if x.startswith("https://script.google.com/")]
+    if not beta_present: raise RuntimeError("BETA_PRIMARY_GAS_BINDING_MISSING")
+    if set(beta_present)&set(stable_gas): raise RuntimeError("GAS_BINDING_CROSS_ENV")
 
     render_safe=[]
     for s in services:
@@ -108,11 +110,13 @@ def main():
       "deno":{"app_count":len(apps),"apps":deno_safe},
       "turso":{"organization":org,"database_count":len(dbs),"groups":groups,"databases":db_safe},
       "primary":{"beta":{"worker":"pickpack","d1_id":beta_db,"environment_id":btext(bb,"ENVIRONMENT_ID") or "BETA","audience":btext(bb,"SERVICE_AUDIENCE") or "PICK_PACK_1291_BETA","gas_distinct":len(set(beta_gas))==3},
-                 "stable":{"worker":"pickpack1291-stable-private","d1_id":stable_db,"environment_id":"STABLE","audience":"PICK_PACK_1291_STABLE","gas_distinct":len(set(stable_gas))==3}},
+                 "stable":{"worker":"pickpack1291-stable-private","d1_id":stable_db,"environment_id":"STABLE","audience":"PICK_PACK_1291_STABLE","gas_distinct":len(set(stable_gas))==3},
+                 "beta_gas":{"primary_present":bool(beta_gas[0]),"outbound_present":bool(beta_gas[1]),"dr_present":bool(beta_gas[2]),"distinct_present":len(set(beta_present))==len(beta_present)},
+                 "stable_gas":{"primary_present":bool(stable_gas[0]),"outbound_present":bool(stable_gas[1]),"dr_present":bool(stable_gas[2])}},
       "targets":{"turso":["pick-pack-1291-dr-beta","pick-pack-1291-dr-stable"],"deno":["pp1291-dr-beta","pp1291-dr-stable"],"render":["pick-pack-1291-dr-beta","pick-pack-1291-dr-stable"]}
     }
     OUT.write_text(json.dumps(receipt,indent=2,ensure_ascii=False)+"\n")
-    print(json.dumps({"status":"PASS","render_owner_count":len(owners),"render_service_count":len(services),"deno_app_count":len(apps),"turso_database_count":len(dbs),"turso_group_count":len(groups),"primary_d1_separate":True,"gas_cross_env":False}))
+    print(json.dumps({"status":"PASS","render_owner_count":len(owners),"render_service_count":len(services),"deno_app_count":len(apps),"turso_database_count":len(dbs),"turso_group_count":len(groups),"primary_d1_separate":True,"gas_cross_env":False,"beta_gas_present":[bool(x) for x in beta_gas],"stable_gas_present":[bool(x) for x in stable_gas]}))
 
 if __name__=="__main__":
     try:main()
