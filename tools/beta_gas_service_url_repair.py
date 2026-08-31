@@ -211,15 +211,18 @@ def temp_action(web,token,expected,target):
     return post(web,{"action":"__beta_environment_repair_once","_app_channel":"BETA","_environment_id":"BETA","_service_audience":"PICK_PACK_1291_BETA",
                      "google_access_token":token,"expected_current":expected,"target_service_url":target})
 
-def wait_temp_runtime(web,token,current,attempts=18):
+def wait_temp_runtime(web,token,current,target,attempts=18):
     last=None
     for i in range(attempts):
         c,j=temp_action(web,token,current,current);last=(c,j)
-        if c==200 and j.get("ok") is True and j.get("environment_id")=="BETA" and j.get("service_audience")=="PICK_PACK_1291_BETA" and str(j.get("service_url") or "").rstrip("/")==current:
-            return j
+        got=str(j.get("service_url") or j.get("current_service_url") or "").rstrip("/")
+        if c==200 and j.get("environment_id")=="BETA" and j.get("service_audience")=="PICK_PACK_1291_BETA":
+            if j.get("ok") is True and got==current:return current
+            if j.get("error")=="BETA_ENVIRONMENT_REPAIR_UNEXPECTED_CURRENT" and got==target:return target
         time.sleep(min(2+i,8))
     c,j=last or (-1,{})
-    raise RuntimeError("TEMP_RUNTIME_NOT_READY:"+str(c)+":"+str(j.get("error") or j.get("transport_error") or "ASSERT"))
+    got=str(j.get("service_url") or j.get("current_service_url") or "").rstrip("/")
+    raise RuntimeError("TEMP_RUNTIME_NOT_READY:"+str(c)+":"+str(j.get("error") or j.get("transport_error") or "ASSERT")+":current="+got)
 
 def wait_final_runtime(web,target,base_version,attempts=24):
     last={};consecutive=0
@@ -339,11 +342,15 @@ def main():
         req(f"{API}/{sid}/content",token,"PUT",{"files":temp_files})
         temp_version=int(req(f"{API}/{sid}/versions",token,"POST",{"description":"TEMP Beta GAS environment repair with rollback"})["versionNumber"])
         deploy_version(sid,dep,token,temp_version,str(old_cfg.get("manifestFileName") or "appsscript"),"TEMP Beta GAS environment repair")
-        wait_temp_runtime(web,token,current)
-        c1,r1=temp_action(web,token,current,target)
-        if c1!=200 or r1.get("ok") is not True or str(r1.get("service_url") or "").rstrip("/")!=target:
-            raise RuntimeError("BETA_SERVICE_URL_PROPERTY_REPAIR_FAILED:"+str(c1)+":"+str(r1.get("error") or r1.get("transport_error") or "ASSERT"))
-        property_changed=(current!=target)
+        observed_property=wait_temp_runtime(web,token,current,target)
+        if observed_property==target:
+            r1={"ok":True,"idempotent":True,"service_url":target}
+            property_changed=False
+        else:
+            c1,r1=temp_action(web,token,observed_property,target)
+            if c1!=200 or r1.get("ok") is not True or str(r1.get("service_url") or "").rstrip("/")!=target:
+                raise RuntimeError("BETA_SERVICE_URL_PROPERTY_REPAIR_FAILED:"+str(c1)+":"+str(r1.get("error") or r1.get("transport_error") or "ASSERT"))
+            property_changed=True
 
         req(f"{API}/{sid}/content",token,"PUT",{"files":final_files})
         final_version=int(req(f"{API}/{sid}/versions",token,"POST",{"description":"Beta GAS environment/audience/service discovery canonical contract"})["versionNumber"])
@@ -367,8 +374,8 @@ def main():
         if property_changed and temp_version is not None:
             try:
                 deploy_version(sid,dep,token,temp_version,str(old_cfg.get("manifestFileName") or "appsscript"),"TEMP rollback Beta GAS service URL")
-                wait_temp_runtime(web,token,target)
-                cr,rr=temp_action(web,token,target,current)
+                rollback_observed=wait_temp_runtime(web,token,target,current)
+                cr,rr=temp_action(web,token,rollback_observed,current)
                 if cr!=200 or rr.get("ok") is not True or str(rr.get("service_url") or "").rstrip("/")!=current:
                     raise RuntimeError("PROPERTY_ROLLBACK_ASSERT:"+str(cr)+":"+str(rr.get("error") or rr.get("transport_error") or "ASSERT"))
             except Exception as e: rollback_errors.append("property:"+str(e))
