@@ -36,9 +36,9 @@ invariants:
     status: ACTIVE_PASS
     scope: beta-release
     rule: "Beta APK GitHub Release only; Google Drive APK forbidden; exact bytes/signature/readback."
-    last_verified: "0.4.2-beta.101 / terminal run 33310230934"
-    technical_evidence: "final artifact 9731780051; GitHub Release exact SHA256/size; OTA 0.4.2-beta.100 -> 0.4.2-beta.101 install/open/readback PASS; GAS deployment 205"
-    publish_verifier_regression: "Fast Check 33310187636 PASS; receipt-driven count; legacy26 PASS; beta101-35 PASS; mismatch/missing-viewport/summary-mismatch/human-gate-false FAIL"
+    last_verified: "0.4.2-beta.102 / terminal run 33377501045"
+    technical_evidence: "final artifact 9752558407; release asset SHA256 6178085afb3d5b9d7e3a913ca38d3842dd7b2d6db585ac2bbe04a95dcaa5c0b1 size 13593589; OTA 0.4.2-beta.101 -> 0.4.2-beta.102 install/open/readback PASS; BETA GAS deployment 213; Stable unchanged"
+    publish_verifier_regression: "Fast Check 33377060461 PASS; receipt-driven count; legacy26 PASS; beta101-35 PASS; mismatch/missing-viewport/summary-mismatch/human-gate-false FAIL"
   - id: PDA-EXIT-001
     status: ACTIVE_PASS
     scope: pda-exit
@@ -47,6 +47,14 @@ invariants:
     regression_minimum: [active_pda, no_pda, returned_pda, stale_pda_serial, missing_assignment_snapshot, old_session_pda]
     technical_evidence: "OWNER-accepted Beta99 baseline reverified on Beta101 verify 33309271079; terminal publish/OTA/install/readback/finalize 33310230934 PASS"
     owner_acceptance: "ACTIVE_PASS_OWNER_ITEMS_1_AND_2_OK_BETA99_2026-08-30"
+  - id: ENV-ISOLATION-001
+    status: TECHNICAL_PASS_AWAITING_OWNER
+    scope: environment-isolation
+    rule: "BETA and STABLE must isolate environment/audience, data/accounts/service/GAS/OTA/LAN mutable state; cross-environment automatic write/fallback/auth/session/manifest/LAN sharing is forbidden; STABLE remains READY_NOT_LIVE/private/public=false until explicit OWNER promotion."
+    technical_candidate: "0.4.2-beta.102"
+    technical_evidence: "source 8653e8e1a8c0585a4dcab95ccb3da0636650d8a5; GAS repair 33376373374 artifact 9752024220 -> deployment213; readback 33376476824 PASS; Fast Check 33377060461 PASS; runtime DoD 33377306088 artifact 9752375833 PASS; terminal publish/OTA/install/readback/finalize 33377501045 final artifact 9752558407 PASS; exact APK SHA256 6178085afb3d5b9d7e3a913ca38d3842dd7b2d6db585ac2bbe04a95dcaa5c0b1 size 13593589 signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable public=false"
+    regression_minimum: [environment_audience_fence, cross_env_reject, distinct_d1_sheet_gas, lan_nsd_isolation, beta_gas_canonical_discovery, stable_private_no_ota, release_identity]
+    owner_acceptance: "PENDING_OWNER_BETA102"
   - id: INFRA-RESILIENCE-001
     status: TECHNICAL_PASS_AWAITING_OWNER
     scope: infra-dr
@@ -57,8 +65,9 @@ invariants:
     priority: "DEFERRED_NON_BLOCKING_BY_OWNER"
     resume_condition: "OWNER_REOPENS_BACKUP_DR_SCOPE"
 impact_map:
-  "app/**": [UI-STATUS-001, QR-LOCAL-001, MEAL-DATE-001, MEAL-WARN-001, ROLE-HISTORY-001, OTA-BETA-001, PDA-EXIT-001, INFRA-RESILIENCE-001]
-  "service/**": [QR-LOCAL-001, MEAL-DATE-001, PDA-EXIT-001, INFRA-RESILIENCE-001]
-  "services/**": [INFRA-RESILIENCE-001]
-  "google-apps-script/**": [INFRA-RESILIENCE-001, OTA-BETA-001]
-  ".github/workflows/**": [OTA-BETA-001, INFRA-RESILIENCE-001]
+  "app/**": [UI-STATUS-001, QR-LOCAL-001, MEAL-DATE-001, MEAL-WARN-001, ROLE-HISTORY-001, OTA-BETA-001, PDA-EXIT-001, ENV-ISOLATION-001, INFRA-RESILIENCE-001]
+  "service/**": [QR-LOCAL-001, MEAL-DATE-001, PDA-EXIT-001, ENV-ISOLATION-001, INFRA-RESILIENCE-001]
+  "services/**": [ENV-ISOLATION-001, INFRA-RESILIENCE-001]
+  "google-apps-script/**": [ENV-ISOLATION-001, INFRA-RESILIENCE-001, OTA-BETA-001]
+  ".github/workflows/**": [OTA-BETA-001, ENV-ISOLATION-001, INFRA-RESILIENCE-001]
+  "config/environment_contracts.json": [ENV-ISOLATION-001]
