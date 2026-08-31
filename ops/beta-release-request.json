@@ -1,6 +1,6 @@
 {
-  "stage": "BETA_AUTH_MIGRATE",
-  "mode": "BETA_AUTH_TARGET_5_REPLACEMENT_FIRST_STABLE_FROZEN",
+  "stage": "RUNTIME_DOD_VERIFY",
+  "mode": "FINAL_PRE_OTA_RUNTIME_DOD_AFTER_AUTH_PASS",
   "version_name": "0.4.2-beta.102",
   "version_code": 108,
   "base_version": "0.4.2-beta.101",
@@ -46,7 +46,7 @@
   "visual_matrix": "PASS_INHERITED_RUN_33338713705_EXACT_CANDIDATE",
   "pda_functional_pre_ota": "PASS_INHERITED_RUN_33338713705_EXACT_CANDIDATE",
   "back_api36": "PASS_INHERITED_RUN_33339717799_EXACT_CANDIDATE",
-  "execution_nonce": "beta-auth-stable-frozen-20260831-04",
+  "execution_nonce": "runtime-dod-after-auth-pass-20260831-01",
   "human_visual_sizes": [
     "320x568",
     "360x640",
@@ -54,5 +54,7 @@
   ],
   "human_visual_evidence": "TECHNICAL_INSPECTION_EXACT_ARTIFACT_9740012172_35_SCREENSHOTS",
   "fast_check": "PASS",
-  "fast_check_run_id": 33346108483
+  "fast_check_run_id": 33346108483,
+  "beta_auth_run_id": 33351251376,
+  "beta_auth_status": "PASS"
 }
