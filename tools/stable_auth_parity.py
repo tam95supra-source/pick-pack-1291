@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import hashlib,json,os,pathlib,sys,urllib.error,urllib.parse,urllib.request
+import base64,hashlib,json,os,pathlib,secrets,sys,urllib.error,urllib.parse,urllib.request
 ROOT=pathlib.Path(__file__).resolve().parents[1]
 CF="https://api.cloudflare.com/client/v4"
 OWNER_EMAIL="tam95.supra@gmail.com"
@@ -42,6 +42,22 @@ def sheet_values(tok,sid,rng):
 def sheet_put(tok,sid,rng,vals):
     code,j=req("https://sheets.googleapis.com/v4/spreadsheets/"+urllib.parse.quote(sid,safe="")+"/values/"+urllib.parse.quote(rng,safe="")+"?valueInputOption=RAW","PUT",tok,{"range":rng,"majorDimension":"ROWS","values":vals})
     if code//100!=2:raise RuntimeError("SHEET_WRITE_FAILED:"+str(code))
+def b64u(b):return base64.urlsafe_b64encode(b).rstrip(b"=").decode()
+def valid_verifier(v):
+    try:
+        p=str(v).split("$")
+        if len(p)!=4 or p[0]!="pbkdf2_sha256" or int(p[1])<100000:return False
+        for x,want in ((p[2],16),(p[3],32)):
+            raw=x+"="*((4-len(x)%4)%4)
+            if len(base64.urlsafe_b64decode(raw))!=want:return False
+        return "$" not in str(v)
+    except Exception:return False
+def make_verifier():
+    password=b64u(secrets.token_bytes(24));salt=secrets.token_bytes(16);it=120000
+    key=hashlib.pbkdf2_hmac("sha256",password.encode(),salt,it,32)
+    v="pbkdf2_sha256$"+str(it)+"$"+b64u(salt)+"$"+b64u(key)
+    return password,v,hashlib.sha256(v.encode()).hexdigest()
+def q(v):return "'"+str(v).replace("'","''")+"'"
 def main():
     tok=oauth();print("::add-mask::"+tok)
     cfg=json.loads((ROOT/"ops/stable-private-provision-request.json").read_text())
@@ -52,8 +68,15 @@ def main():
     rows=d1_query(db,"SELECT login_id,verifier,verifier_hash,role,email,status FROM accounts ORDER BY login_id")
     active=[r for r in rows if str(r.get("status") or "").upper()=="ACTIVE"]
     if len(active)!=1 or active[0].get("login_id")!="admin" or active[0].get("role")!="SUPERADMIN":raise RuntimeError("STABLE_D1_AUTH_NOT_EXACT_ONE_ADMIN")
-    a=active[0];ver=str(a.get("verifier") or "");vh=str(a.get("verifier_hash") or "")
-    if not ver or not vh or hashlib.sha256(ver.encode()).hexdigest()!=vh:raise RuntimeError("STABLE_D1_VERIFIER_INVALID")
+    a=active[0];ver=str(a.get("verifier") or "");vh=str(a.get("verifier_hash") or "");d1_changed=False
+    if not valid_verifier(ver) or not vh or hashlib.sha256(ver.encode()).hexdigest()!=vh:
+        password,ver,vh=make_verifier()
+        for secret in (password,ver,vh):print("::add-mask::"+secret)
+        checksum=hashlib.sha256(("admin|SUPERADMIN|ACTIVE|"+vh).encode()).hexdigest()
+        d1_query(db,"UPDATE accounts SET verifier="+q(ver)+",verifier_hash="+q(vh)+",source_checksum="+q(checksum)+" WHERE login_id='admin' AND role='SUPERADMIN' AND status='ACTIVE'")
+        check=d1_query(db,"SELECT verifier,verifier_hash FROM accounts WHERE login_id='admin'")
+        if len(check)!=1 or check[0].get("verifier")!=ver or check[0].get("verifier_hash")!=vh:raise RuntimeError("STABLE_D1_VERIFIER_REPAIR_READBACK_FAILED")
+        d1_changed=True
     print("::add-mask::"+ver);print("::add-mask::"+vh)
     sid=str(cfg["stable_primary_sheet_id"])
     if not sid or sid=="1E7ZWz-4eMcBliQxDYBVoogIoeSYyiaXGwj0I6mbMm78":raise RuntimeError("STABLE_SHEET_BINDING_INVALID")
@@ -72,8 +95,10 @@ def main():
     elif len(admins)==1:
         row,cur=admins[0]
         curver=str(cur[1]) if len(cur)>1 else "";currole=str(cur[2]).upper() if len(cur)>2 else "";curstatus=(str(cur[8]).upper() if len(cur)>8 and str(cur[8]).strip() else "ACTIVE")
-        if curver!=ver or currole!="SUPERADMIN" or curstatus!="ACTIVE":raise RuntimeError("STABLE_SHEET_ADMIN_MISMATCH")
-        changed=False
+        if currole!="SUPERADMIN" or curstatus!="ACTIVE":raise RuntimeError("STABLE_SHEET_ADMIN_ROLE_STATUS_MISMATCH")
+        if curver!=ver:
+            sheet_put(tok,sid,f"'Danh sách Admin'!A{row}:K{row}",[rowvals]);changed=True
+        else:changed=False
     else:raise RuntimeError("STABLE_SHEET_ADMIN_DUPLICATE")
     after=sheet_values(tok,sid,"'Danh sách Admin'!A1:K200")
     active_after=[]
@@ -82,8 +107,8 @@ def main():
         status=(str(r[8]).upper().strip() if len(r)>8 and str(r[8]).strip() else "ACTIVE")
         if status=="ACTIVE":active_after.append((str(r[0]),str(r[2]).upper() if len(r)>2 else ""))
     if active_after!=[("admin","SUPERADMIN")]:raise RuntimeError("STABLE_SHEET_AUTH_READBACK_FAILED:"+json.dumps(active_after))
-    rec={"status":"PASS","mode":"AUTH_PARITY_REPAIR","environment":"STABLE","d1_changed":False,"beta_touched":False,"sheet_changed":changed,
-      "active_accounts":1,"login_id":"admin","role":"SUPERADMIN","verifier_hash_match":True,"password_plaintext":False}
+    rec={"status":"PASS","mode":"AUTH_PARITY_REPAIR","environment":"STABLE","d1_changed":d1_changed,"beta_touched":False,"sheet_changed":changed,
+      "active_accounts":1,"login_id":"admin","role":"SUPERADMIN","verifier_hash_match":True,"verifier_format_valid":valid_verifier(ver),"password_plaintext":False}
     pathlib.Path("/tmp/stable-private-provision-receipt.json").write_text(json.dumps(rec,indent=2)+"\n")
     print(json.dumps(rec))
 if __name__=="__main__":
