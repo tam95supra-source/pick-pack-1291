@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "status": "PASS",
+  "environment": "STABLE",
+  "source": "GITHUB_ACTIONS_ARTIFACT",
+  "run_id": 33338403974,
+  "artifact_id": 9739756071,
+  "artifact_name": "stable-isolation-verify-33338403974",
+  "artifact_digest": "sha256:5384aca20f54cff31d256660d01a1a091580bc7cf44e1e616273dcc1967c359b",
+  "target_d1_name": "pick-pack-1291-service-stable",
+  "d1_count_before": 3,
+  "d1_count_after": 3,
+  "backup_sha256": "595f48d63b898e2f7dfa7a3fed424a201c1cb03ea5a9fc2b999a6858f24e3860",
+  "restore_compare": "PASS",
+  "restore_canary_deleted": true,
+  "cross_environment": {
+    "beta_headers_to_stable_rejected": true,
+    "missing_headers_to_stable_rejected": true
+  },
+  "stable_worker_separate_d1": true,
+  "broad_google_oauth_absent": true,
+  "beta_resources_preserved": true,
+  "inherited_only_if": {
+    "target_d1_binding_unchanged": true,
+    "d1_count_current": 3,
+    "restore_canary_absent": true
+  }
+}
