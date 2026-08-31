@@ -151,22 +151,64 @@ def deployment_readback(tok,script_id,deployment_id,url):
     ep=eps[0]
     if ep["url"]!=url or ep["access"]!="ANYONE_ANONYMOUS" or ep["executeAs"]!="USER_DEPLOYING":raise RuntimeError("GAS_WEBAPP_POLICY_DRIFT")
     return ep
-def gas_runtime_canary(kind,url,tok,canary_id):
+def _canary_diag(code,j):
+    return {"http":code,"ok":j.get("ok"),"error":j.get("error"),"idempotent":j.get("idempotent"),"cleanup":j.get("cleanup")}
+
+def cleanup_stable_gas_canary(kind,url,tok,canary_id,request_fn=None):
+    request_fn=request_fn or curl_json
+    base={"action":"stable_runtime_canary","_environment_id":"STABLE","_service_audience":"PICK_PACK_1291_STABLE","google_access_token":tok,"canary_id":canary_id}
+    c1,j1=request_fn("POST",url,body={**base,"operation":"CLEANUP"},follow=True,timeout=60)
+    first_ok=c1==200 and j1.get("ok") is True and (j1.get("cleanup") is True or j1.get("idempotent") is True)
+    if not first_ok:raise RuntimeError("STABLE_GAS_CANARY_RECOVERY_CLEANUP_FAILED:"+kind+":"+json.dumps(_canary_diag(c1,j1),separators=(",",":")))
+    c2,j2=request_fn("POST",url,body={**base,"operation":"CLEANUP"},follow=True,timeout=60)
+    if c2!=200 or j2.get("ok") is not True or j2.get("idempotent") is not True:
+        raise RuntimeError("STABLE_GAS_CANARY_RECOVERY_REPLAY_FAILED:"+kind+":"+json.dumps(_canary_diag(c2,j2),separators=(",",":")))
+    return {"cleanup":"PASS","cleanup_replay":"PASS","first_idempotent":j1.get("idempotent") is True}
+
+def gas_runtime_canary(kind,url,tok,canary_id,request_fn=None):
+    request_fn=request_fn or curl_json
     expected=kind.upper()
-    get_code,get_j=curl_json("GET",url,follow=True)
+    get_code,get_j=request_fn("GET",url,follow=True)
     if get_code!=200 or get_j.get("ok") is not True or get_j.get("environment_id")!="STABLE":raise RuntimeError("STABLE_GAS_GET_FAILED:"+kind+":"+str(get_code))
     base={"action":"stable_runtime_canary","_environment_id":"STABLE","_service_audience":"PICK_PACK_1291_STABLE","google_access_token":tok,"canary_id":canary_id}
-    c1,j1=curl_json("POST",url,body={**base,"operation":"UPSERT"},follow=True,timeout=60)
-    if c1!=200:raise RuntimeError("STABLE_GAS_RUNTIME_NOT_AUTHORIZED:"+kind+":"+str(c1))
-    if j1.get("ok") is not True or j1.get("idempotent") is not False or j1.get("environment_id")!="STABLE" or j1.get("kind")!=expected or j1.get("properties_ok") is not True or j1.get("bound_sheet") is not True:
-        raise RuntimeError("STABLE_GAS_CANARY_FIRST_WRITE_FAILED:"+kind+":"+str(j1.get("error") or "ASSERT"))
-    c2,j2=curl_json("POST",url,body={**base,"operation":"UPSERT"},follow=True,timeout=60)
-    if c2!=200 or j2.get("ok") is not True or j2.get("idempotent") is not True:raise RuntimeError("STABLE_GAS_CANARY_REPLAY_FAILED:"+kind)
-    c3,j3=curl_json("POST",url,body={**base,"operation":"CLEANUP"},follow=True,timeout=60)
-    if c3!=200 or j3.get("ok") is not True or j3.get("cleanup") is not True:raise RuntimeError("STABLE_GAS_CANARY_CLEANUP_FAILED:"+kind)
-    c4,j4=curl_json("POST",url,body={**base,"operation":"CLEANUP"},follow=True,timeout=60)
-    if c4!=200 or j4.get("ok") is not True or j4.get("idempotent") is not True:raise RuntimeError("STABLE_GAS_CANARY_CLEANUP_REPLAY_FAILED:"+kind)
-    return {"http":200,"get":"PASS","first_write":"PASS","replay_idempotent":"PASS","cleanup":"PASS","cleanup_replay":"PASS","properties":"PASS","bound_sheet":"PASS"}
+    primary_error=None
+    try:
+        c1,j1=request_fn("POST",url,body={**base,"operation":"UPSERT"},follow=True,timeout=60)
+        if c1!=200:raise RuntimeError("STABLE_GAS_RUNTIME_NOT_AUTHORIZED:"+kind+":"+str(c1))
+        if j1.get("ok") is not True or j1.get("idempotent") is not False or j1.get("environment_id")!="STABLE" or j1.get("kind")!=expected or j1.get("properties_ok") is not True or j1.get("bound_sheet") is not True:
+            raise RuntimeError("STABLE_GAS_CANARY_FIRST_WRITE_FAILED:"+kind+":"+json.dumps(_canary_diag(c1,j1),separators=(",",":")))
+        c2,j2=request_fn("POST",url,body={**base,"operation":"UPSERT"},follow=True,timeout=60)
+        if c2!=200 or j2.get("ok") is not True or j2.get("idempotent") is not True:
+            raise RuntimeError("STABLE_GAS_CANARY_REPLAY_FAILED:"+kind+":"+json.dumps(_canary_diag(c2,j2),separators=(",",":")))
+    except Exception as e:
+        primary_error=e
+    cleanup_error=None
+    cleanup_result=None
+    try:
+        cleanup_result=cleanup_stable_gas_canary(kind,url,tok,canary_id,request_fn=request_fn)
+    except Exception as e:
+        cleanup_error=e
+    if primary_error and cleanup_error:raise RuntimeError(str(primary_error)+";"+str(cleanup_error))
+    if primary_error:raise primary_error
+    if cleanup_error:raise cleanup_error
+    return {"http":200,"get":"PASS","first_write":"PASS","replay_idempotent":"PASS","cleanup":cleanup_result["cleanup"],"cleanup_replay":cleanup_result["cleanup_replay"],"properties":"PASS","bound_sheet":"PASS"}
+
+def gas_runtime_canary_selftest():
+    calls=[]
+    def fake(method,url,body=None,follow=False,timeout=35):
+        op=(body or {}).get("operation")
+        calls.append(op or method)
+        if method=="GET":return 200,{"ok":True,"environment_id":"STABLE"}
+        if op=="UPSERT" and calls.count("UPSERT")==1:return 200,{"ok":True,"idempotent":False,"environment_id":"STABLE","kind":"DR","properties_ok":True,"bound_sheet":True}
+        if op=="UPSERT":return 200,{"ok":False,"error":"SYNTHETIC_REPLAY_FAIL","idempotent":False}
+        if op=="CLEANUP" and calls.count("CLEANUP")==1:return 200,{"ok":True,"cleanup":True,"idempotent":False}
+        if op=="CLEANUP":return 200,{"ok":True,"idempotent":True}
+        return 500,{"ok":False}
+    try:gas_runtime_canary("dr","https://example.invalid","tok","cid",request_fn=fake)
+    except RuntimeError as e:
+        if not str(e).startswith("STABLE_GAS_CANARY_REPLAY_FAILED:dr:"):raise
+    else:raise RuntimeError("GAS_CANARY_SELFTEST_EXPECTED_REPLAY_FAILURE")
+    if calls.count("CLEANUP")!=2:raise RuntimeError("GAS_CANARY_SELFTEST_CLEANUP_NOT_ATTEMPTED")
 def assert_exact_candidate_source(source):
     p=subprocess.run(["git","diff","--quiet",source,"HEAD","--","app","service","google-apps-script"],cwd=ROOT)
     if p.returncode!=0:raise RuntimeError("EXACT_BETA102_SOURCE_DRIFT")
@@ -181,6 +223,28 @@ def repo_secret_sanity(obj,label):
         elif isinstance(x,list):
             for i,v in enumerate(x):walk(v,path+f"[{i}]")
     walk(obj)
+def recover_runtime_canary_if_requested(tok,prov,release):
+    if release.get("mode")!="RECOVER_STABLE_DR_CANARY_AFTER_RUNTIME_DOD_FAILURE":return False
+    cid=str(release.get("runtime_recovery_canary_id") or "")
+    failed_run=int(release.get("runtime_recovery_failed_run_id") or 0)
+    if cid!="__CI_STABLE_CANARY_"+str(failed_run) or failed_run<=0:
+        raise RuntimeError("STABLE_GAS_CANARY_RECOVERY_ID_INVALID")
+    sid=str(prov.get("stable_dr_sheet_id") or "")
+    if not sid:raise RuntimeError("STABLE_DR_SHEET_ID_MISSING")
+    c=sheet_contract(tok,sid)
+    if c.get("environment_id")!="STABLE" or c.get("stable_spreadsheet_id")!=sid:
+        raise RuntimeError("STABLE_DR_CONTRACT_RECOVERY_FAILED")
+    script_id=str(c.get("gas_script_id") or "");deployment_id=str(c.get("gas_deployment_id") or "");url=str(c.get("gas_web_url") or "")
+    if not script_id or not deployment_id or not url:raise RuntimeError("STABLE_DR_GAS_RECOVERY_ID_MISSING")
+    deployment_readback(tok,script_id,deployment_id,url)
+    result=cleanup_stable_gas_canary("dr",url,tok,cid)
+    if CANARY_SHEET in sheet_titles(tok,sid):raise RuntimeError("STABLE_DR_CANARY_RECOVERY_SHEET_LEAK")
+    receipt={"status":"PASS","phase":"STABLE_GAS_CANARY_RECOVERY","failed_run_id":failed_run,"canary_id":cid,
+      "target":"dr","cleanup":result,"stable_public":False,"beta_touched":False,"auth_changed":False,"d1_changed":False}
+    pathlib.Path("/tmp/beta-stable-runtime-verify.json").write_text(json.dumps(receipt,indent=2,ensure_ascii=False)+"\n")
+    print(json.dumps({"status":"PASS","phase":"STABLE_GAS_CANARY_RECOVERY","target":"dr","stable_public":False}))
+    return True
+
 def main():
     for n in ["CLOUDFLARE_API_TOKEN","CLOUDFLARE_ACCOUNT_ID","GOOGLE_OAUTH_CLIENT_ID","GOOGLE_OAUTH_CLIENT_SECRET","GOOGLE_OAUTH_REFRESH_TOKEN"]:
         print("::add-mask::"+need(n))
@@ -188,6 +252,8 @@ def main():
     contract=json.loads((ROOT/"config/environment_contracts.json").read_text())
     prov=json.loads((ROOT/"ops/stable-private-provision-request.json").read_text())
     release=json.loads((ROOT/"ops/beta-release-request.json").read_text())
+    if release.get("candidate_locked") is not True or release.get("rebuild") is not False or release.get("resign") is not False or release.get("stable_publish")!="FORBIDDEN":raise RuntimeError("BETA_RELEASE_LOCK_INVALID")
+    if recover_runtime_canary_if_requested(tok,prov,release):return
     promo=json.loads((ROOT/"ops/promotion-lock-dry-run.json").read_text())
     proof=json.loads((ROOT/"ops/stable-isolation-proof.json").read_text())
     limits=json.loads((ROOT/"config/provider_free_limits.json").read_text())
@@ -302,7 +368,9 @@ if __name__=="__main__":
     if "--self-test" in sys.argv:
         try:
             quota_selftest()
+            gas_runtime_canary_selftest()
             print("beta_stable_runtime_quota_selftest=PASS")
+            print("beta_stable_runtime_gas_canary_selftest=PASS")
         except Exception as e:
             print("BETA_STABLE_RUNTIME_QUOTA_SELFTEST_ERROR:"+str(e),file=sys.stderr);sys.exit(1)
         sys.exit(0)
