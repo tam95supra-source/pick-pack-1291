@@ -1,6 +1,6 @@
 {
   "stage": "BETA_DOMAIN_PREPARE",
-  "mode": "BETA_CUSTOM_DOMAIN_ATTACH_ONLY",
+  "mode": "BETA_CUSTOM_DOMAIN_INVENTORY_RETRY",
   "version_name": "0.4.2-beta.102",
   "version_code": 108,
   "base_version": "0.4.2-beta.101",
@@ -46,7 +46,7 @@
   "visual_matrix": "PASS_INHERITED_RUN_33338713705_EXACT_CANDIDATE",
   "pda_functional_pre_ota": "PASS_INHERITED_RUN_33338713705_EXACT_CANDIDATE",
   "back_api36": "PASS_INHERITED_RUN_33339717799_EXACT_CANDIDATE",
-  "execution_nonce": "beta-domain-prepare-20260831-01",
+  "execution_nonce": "beta-domain-inventory-20260831-02",
   "human_visual_sizes": [
     "320x568",
     "360x640",
@@ -54,7 +54,7 @@
   ],
   "human_visual_evidence": "TECHNICAL_INSPECTION_EXACT_ARTIFACT_9740012172_35_SCREENSHOTS",
   "fast_check": "PASS",
-  "fast_check_run_id": 33360738709,
+  "fast_check_run_id": 33360904158,
   "beta_auth_run_id": 33351251376,
   "beta_auth_status": "PASS",
   "stable_gas_repair_run_id": 33359199067,
