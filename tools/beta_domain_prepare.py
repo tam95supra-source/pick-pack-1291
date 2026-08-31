@@ -91,9 +91,15 @@ def main():
     domains=list_domains()
     stable_matches=[d for d in domains if str(d.get("hostname") or "").lower()==stable_host.lower()]
     beta_matches=[d for d in domains if str(d.get("hostname") or "").lower()==host.lower()]
+    root_migration_required=False
+    root_domain_id=""
     if stable_matches:
         safe=[{"id":d.get("id"),"hostname":d.get("hostname"),"service":d.get("service"),"zone_name":d.get("zone_name")} for d in stable_matches]
-        raise RuntimeError("STABLE_ROOT_DOMAIN_ALREADY_ATTACHED:"+json.dumps(safe,separators=(",",":")))
+        if len(stable_matches)!=1 or str(stable_matches[0].get("service") or "")!=worker or str(stable_matches[0].get("zone_name") or "").lower()!=stable_host.lower():
+            raise RuntimeError("STABLE_ROOT_DOMAIN_ATTACHED_OUTSIDE_BETA_MIGRATION_SCOPE:"+json.dumps(safe,separators=(",",":")))
+        root_domain_id=str(stable_matches[0].get("id") or "")
+        if not root_domain_id:raise RuntimeError("STABLE_ROOT_DOMAIN_ID_MISSING")
+        root_migration_required=True
     changed=False
     if beta_matches:
         if len(beta_matches)!=1 or str(beta_matches[0].get("service") or "")!=worker:
@@ -107,18 +113,7 @@ def main():
         domain=j.get("result") or {}
         changed=True
 
-    after_domains=list_domains()
-    beta_after=[d for d in after_domains if str(d.get("hostname") or "").lower()==host.lower()]
-    stable_after=[d for d in after_domains if str(d.get("hostname") or "").lower()==stable_host.lower()]
-    if len(beta_after)!=1 or str(beta_after[0].get("service") or "")!=worker:raise RuntimeError("BETA_DOMAIN_ATTACH_READBACK_FAILED")
-    if stable_after:raise RuntimeError("STABLE_ROOT_DOMAIN_MUTATED")
-
-    after_raw=worker_settings(worker);after_bind=bindings(after_raw)
-    after_secret_names=sorted(x["name"] for x in after_bind if x["type"]=="secret_text")
-    if before_bind!=after_bind:raise RuntimeError("BETA_WORKER_BINDINGS_CHANGED_DURING_DOMAIN_ATTACH")
-    if before_secret_names!=after_secret_names:raise RuntimeError("BETA_SECRET_BINDINGS_CHANGED_DURING_DOMAIN_ATTACH")
-    if before_d1!=digest(d1_state(db)):raise RuntimeError("BETA_D1_CHANGED_DURING_DOMAIN_ATTACH")
-
+    # Verify the new Beta hostname before removing the legacy root route, preventing Beta downtime.
     status=0
     for _ in range(12):
         status=curl_status("https://"+host)
@@ -126,13 +121,34 @@ def main():
         import time;time.sleep(10)
     if status not in (200,301,302,307,308,401,403):raise RuntimeError("BETA_DOMAIN_NOT_READY_AFTER_ATTACH:"+str(status))
 
+    if root_migration_required:
+        code,j=req(f"{CF}/accounts/{need('CLOUDFLARE_ACCOUNT_ID')}/workers/domains/"+urllib.parse.quote(root_domain_id,safe=""),"DELETE")
+        if code//100!=2 or j.get("success") is not True:
+            raise RuntimeError("STABLE_ROOT_BETA_ROUTE_DETACH_FAILED:"+str(code)+":"+json.dumps(j.get("errors",j))[:900])
+
+    after_domains=list_domains()
+    beta_after=[d for d in after_domains if str(d.get("hostname") or "").lower()==host.lower()]
+    stable_after=[d for d in after_domains if str(d.get("hostname") or "").lower()==stable_host.lower()]
+    if len(beta_after)!=1 or str(beta_after[0].get("service") or "")!=worker:raise RuntimeError("BETA_DOMAIN_ATTACH_READBACK_FAILED")
+    if stable_after:raise RuntimeError("STABLE_ROOT_DOMAIN_STILL_ATTACHED")
+
+    stable_status=curl_status("https://"+stable_host)
+    if stable_status in (200,301,302,307,308):raise RuntimeError("STABLE_ROOT_DOMAIN_STILL_PUBLIC:"+str(stable_status))
+
+    after_raw=worker_settings(worker);after_bind=bindings(after_raw)
+    after_secret_names=sorted(x["name"] for x in after_bind if x["type"]=="secret_text")
+    if before_bind!=after_bind:raise RuntimeError("BETA_WORKER_BINDINGS_CHANGED_DURING_DOMAIN_ATTACH")
+    if before_secret_names!=after_secret_names:raise RuntimeError("BETA_SECRET_BINDINGS_CHANGED_DURING_DOMAIN_ATTACH")
+    if before_d1!=digest(d1_state(db)):raise RuntimeError("BETA_D1_CHANGED_DURING_DOMAIN_ATTACH")
+
     d=beta_after[0]
     rec={"status":"PASS","mode":"BETA_DOMAIN_PREPARE","environment":"BETA","hostname":host,"service":worker,
       "changed":changed,"domain_id":d.get("id"),"zone_name":d.get("zone_name"),"http_status":status,
+      "legacy_root_beta_route_migrated":root_migration_required,"stable_root_http_status":stable_status,
       "stable_root_attached":False,"worker_bindings_changed":False,"secret_binding_names_changed":False,"d1_changed":False,
       "beta102_source_unchanged":True,"stable_publish":"FORBIDDEN"}
     pathlib.Path("/tmp/beta-domain-prepare-receipt.json").write_text(json.dumps(rec,indent=2)+"\n")
-    print(json.dumps({"status":"PASS","hostname":host,"service":worker,"changed":changed,"http_status":status,"stable_root_attached":False}))
+    print(json.dumps({"status":"PASS","hostname":host,"service":worker,"changed":changed,"http_status":status,"legacy_root_beta_route_migrated":root_migration_required,"stable_root_attached":False}))
 
 if __name__=="__main__":
     try:main()
