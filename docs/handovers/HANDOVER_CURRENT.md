@@ -7,8 +7,8 @@
 - branch: release/beta102-beta-stable-isolation-20260831
 - release_trigger_sha: f319628629d074fe7d738b618205f795f0fa138c
 - archive_file: docs/handovers/HANDOVER_20260831-095232_beta102-technical-pass-awaiting-owner.md
-- technical_dod_status: TECHNICAL_PASS_AWAITING_OWNER
-- owner_acceptance: PENDING_BETA102_ENV_ISOLATION
+- technical_dod_status: INVALIDATED_SERVICE_DISCOVERY_PENDING_FIX
+- owner_acceptance: FAILED_BETA102_SERVICE_CONNECTIVITY
 
 ## LIVE / RELEASE
 - LIVE BETA: 0.4.2-beta.102 / versionCode 108 / package vn.pickpack1291.app.beta.publicbeta.
@@ -37,12 +37,15 @@
 ## REGRESSION / INVARIANTS
 - Existing ACTIVE_PASS invariants preserved.
 - OTA-BETA-001 remains ACTIVE_PASS; Beta102 evidence refreshed without semantic change.
-- ENV-ISOLATION-001 = TECHNICAL_PASS_AWAITING_OWNER.
+- ENV-ISOLATION-001 = LOCKED_REQUIREMENT_PENDING_FIX.
+- SERVICE-DISCOVERY-001 = LOCKED_REQUIREMENT_PENDING_FIX.
 - INFRA-RESILIENCE-001 remains DEFERRED_BY_OWNER and non-blocking.
 - Registry/invariant canonical files updated.
 
-## Blocker
-Không có.
+## Regression mới từ OWNER
+- Beta102 manual log 2026-08-31 17:27: Service session dùng stale cache `pickpack1291.cc.cd` → DNS fail / SESSION_EXCHANGE_FAILED.
+- Root cause: Android cache-first path bypass TTL/environment refresh; canonical BETA GAS v213/Worker vẫn đúng.
+- Fix source Beta103: `a418a9cca55f9b4000dd250c9796ea84e346814e`.
 
 ## NEXT_ACTION
-OWNER_ACCEPTANCE_BETA102_ENV_ISOLATION
+BUILD_VERIFY_BETA103_STALE_DISCOVERY_FIX
