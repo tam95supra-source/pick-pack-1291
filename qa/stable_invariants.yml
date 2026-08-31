@@ -48,22 +48,22 @@ invariants:
     technical_evidence: "OWNER-accepted Beta99 baseline reverified on Beta101 verify 33309271079; terminal publish/OTA/install/readback/finalize 33310230934 PASS"
     owner_acceptance: "ACTIVE_PASS_OWNER_ITEMS_1_AND_2_OK_BETA99_2026-08-30"
   - id: ENV-ISOLATION-001
-    status: TECHNICAL_PASS_AWAITING_OWNER
+    status: ACTIVE_PASS
     scope: environment-isolation
     rule: "BETA and STABLE must isolate environment/audience, data/accounts/service/GAS/OTA/LAN mutable state; cross-environment automatic write/fallback/auth/session/manifest/LAN sharing is forbidden; STABLE remains READY_NOT_LIVE/private/public=false until explicit OWNER promotion."
     technical_candidate: "0.4.2-beta.104 LIVE"
     technical_evidence: "source c31bb1b7ad68e6fd114727d8f08508796013bcef; candidate 33384004708/9754938692; device 33388577027/9756583802 PASS; Fast Check 33388933459 PASS; runtime 33389060092/9756743967 PASS; terminal 33391700817 PASS; publish 9757752307; OTA preserved-data 9757829287; final 9757837384; exact SHA256 523b7ca4fe3463acdec8281d6232f36cd15e8df13a5f25585ca4ff4b82f2d6f1 size 13593589 signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable available=false; main unchanged"
     regression_minimum: [environment_audience_fence, cross_env_reject, distinct_d1_sheet_gas, lan_nsd_isolation, beta_gas_canonical_discovery, stable_private_no_ota, release_identity]
-    owner_acceptance: "PENDING_BETA104"
+    owner_acceptance: "ACTIVE_PASS_OWNER_BETA104_CHECKLIST_1_TO_6_OK_2026-08-31T20:22+07:00"
   - id: SERVICE-DISCOVERY-001
-    status: TECHNICAL_PASS_AWAITING_OWNER
+    status: ACTIVE_PASS
     scope: android-service-discovery
     rule: "BETA live Service routes must use environment-scoped dynamic discovery; stale endpoint/environment cache must never drive Service session/read/sync/outbox after OTA or isolation cutover."
     failure_evidence: "Beta102 manual log: UnknownHost pickpack1291.cc.cd / SESSION_EXCHANGE_FAILED."
     technical_candidate: "c31bb1b7ad68e6fd114727d8f08508796013bcef / 0.4.2-beta.104 LIVE"
     technical_evidence: "exact-device 33388577027/9756583802 PASS; OTA preserved-data terminal 33391700817/9757829287 PASS; stale cache pickpack1291.cc.cd preserved then invalidated without clear; environment=BETA; audience=PICK_PACK_1291_BETA; service_url=https://pickpack.1291.workers.dev; stable_root_reused=false; final 9757837384"
     regression_minimum: [environment_cache_fence, audience_cache_fence, stale_cache_invalidation, ttl_force_refresh, service_session_refresh, direct_read_refresh, sync_refresh, outbox_refresh, no_endpoint_hardcode]
-    owner_acceptance: "PENDING_BETA104"
+    owner_acceptance: "ACTIVE_PASS_OWNER_BETA104_CHECKLIST_1_TO_6_OK_2026-08-31T20:22+07:00"
   - id: INFRA-RESILIENCE-001
     status: TECHNICAL_PASS_AWAITING_OWNER
     scope: infra-dr
