@@ -1,39 +1,29 @@
 # CURRENT STATE — PICK PACK 1291
 
-- updated_at: 2026-08-31T09:52:32Z
-- status: BETA102_LIVE_SERVICE_DISCOVERY_REGRESSION
-- technical_dod_status: INVALIDATED_SERVICE_DISCOVERY_PENDING_FIX
-- owner_acceptance: FAILED_BETA102_SERVICE_CONNECTIVITY
+- updated_at: 2026-08-31T12:30:08Z
+- status: BETA104_PASS_LIVE
 - continuity_branch: release/beta102-beta-stable-isolation-20260831
-- source_sha: 8653e8e1a8c0585a4dcab95ccb3da0636650d8a5
-- beta_live: 0.4.2-beta.102 (versionCode 108)
+- source_sha: c31bb1b7ad68e6fd114727d8f08508796013bcef
+- beta_live: 0.4.2-beta.104 (versionCode 110)
 - package: vn.pickpack1291.app.beta.publicbeta
-- candidate_run: 33338713705
-- candidate_artifact: 9739892022
-- verify_run: 33338713705
-- verify_artifact: 9740012172
-- apk_sha256: 6178085afb3d5b9d7e3a913ca38d3842dd7b2d6db585ac2bbe04a95dcaa5c0b1
+- candidate_run: 33384004708
+- candidate_artifact: 9754938692
+- verify_run: 33384004708
+- verify_artifact: 9755057622
+- apk_sha256: 523b7ca4fe3463acdec8281d6232f36cd15e8df13a5f25585ca4ff4b82f2d6f1
 - apk_size: 13593589
 - signer_sha256: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
-- terminal_run: 33377501045
-- final_artifact: 9752558407
-- runtime_dod_run: 33377306088
-- runtime_dod_artifact: 9752375833
-- beta_gas: deployment 213 / BETA / PICK_PACK_1291_BETA / https://pickpack.1291.workers.dev
+- terminal_run: 33391700817
 - fast_check: PASS
-- service_gate: PASS_INHERITED_RUN_33338713705_EXACT_SERVICE_SOURCE
+- service_gate: PASS_INHERITED_BETA102_EXACT_SERVICE_SOURCE_UNCHANGED
 - visual_matrix: PASS 320x568 / 360x640 / 480x800
 - human_visual: PASS
 - pda_functional_pre_ota: PASS
-- beta_ota: exact 0.4.2-beta.102 PASS via GitHub Release
-- beta_ota_url: https://github.com/tam95supra-source/pick-pack-1291/releases/download/v0.4.2-beta.102-publicbeta/pick-pack-1291-public-beta-0.4.2-beta.102.apk
+- beta_ota: exact 0.4.2-beta.104 PASS via GitHub Release
+- beta_ota_url: https://github.com/tam95supra-source/pick-pack-1291/releases/download/v0.4.2-beta.104-publicbeta/pick-pack-1291-public-beta-0.4.2-beta.104.apk
 - apk_transport: GITHUB_RELEASE_ONLY
 - google_drive_apk: FORBIDDEN
-- stable: READY_NOT_LIVE / private / public=false / no OTA / no promotion / unchanged
+- stable: unchanged
 - main_sha: 021dac5c6932b3ac5c60ce8fdba562ddf3d9688f
 - authority: SERVICE_PRIMARY / PRODUCTION / epoch 9 / generation m2-prod-reset-20260823-001
-- next_action: BUILD_VERIFY_BETA103_STALE_DISCOVERY_FIX
-
-- beta103_fix_source_sha: a418a9cca55f9b4000dd250c9796ea84e346814e
-- regression_evidence: manual-20260831-172725-4aaccadf-0df6-4d6d-9eca-589b274b1659.json / UnknownHost pickpack1291.cc.cd / SESSION_EXCHANGE_FAILED
-- root_cause: Android Beta102 stale discovery cache bypassed TTL/environment refresh after Beta/Stable isolation cutover.
+- next_action: WAIT_FOR_OWNER_NEW_SCOPE

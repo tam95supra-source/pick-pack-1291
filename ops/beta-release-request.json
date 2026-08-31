@@ -1,6 +1,6 @@
 {
-  "stage": "PUBLISH",
-  "mode": "BETA104_EXACT_LOCKED_PUBLISH_AFTER_HUMAN_DEVICE_RUNTIME_PASS",
+  "stage": "pass_live",
+  "mode": "PASS_LIVE_EXACT_BYTES_GITHUB_RELEASE_ONLY",
   "version_name": "0.4.2-beta.104",
   "version_code": 110,
   "base_version": "0.4.2-beta.102",
@@ -18,7 +18,7 @@
   "resign": false,
   "scope": "beta104-stale-environment-scoped-service-discovery-cache-ttl-fix",
   "owner": "Nguyen Van Tam",
-  "live": false,
+  "live": true,
   "release_notes": [
     "Stale discovery cache chỉ được reuse khi exact environment/audience khớp BETA.",
     "TTL branch dùng validated cache; missing/old environment cache buộc fresh GAS discovery.",
@@ -82,5 +82,6 @@
   "runtime_dod_run_id": 33389060092,
   "runtime_dod_artifact_id": 9756743967,
   "runtime_dod_artifact_name": "beta-stable-runtime-33389060092",
-  "next_action": "PUBLISH_EXACT_BETA104_THEN_OTA_PRESERVED_DATA_READBACK"
+  "next_action": "WAIT_FOR_OWNER_NEW_SCOPE",
+  "publish_run_id": "33391700817"
 }
