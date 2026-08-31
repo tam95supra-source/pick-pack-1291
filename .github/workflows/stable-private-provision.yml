@@ -46,6 +46,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 -m py_compile tools/stable_private_provision.py tools/stable_gas_canary_prepare.py tools/stable_auth_parity.py
+          python3 tools/stable_private_provision.py --self-test
           jq -e '.environment=="STABLE" and .stable_public_activation==false and (.mode=="PREFLIGHT_ONLY" or .mode=="PROVISION_PRIVATE" or .mode=="GAS_CANARY_UPDATE" or .mode=="AUTH_PARITY_REPAIR")' ops/stable-private-provision-request.json >/dev/null
       - name: Install Worker tooling
         shell: bash
