@@ -10,9 +10,10 @@
   "expected_source": "config.environment_contracts.BETA.current_service.url",
   "legacy_drift_source": "config.environment_contracts.STABLE.target_web_origin",
   "owner": "Nguyen Van Tam",
-  "execution_nonce": "beta-gas-env-canonical-repair-20260831-04",
-  "prior_run_id": 33369978876,
+  "execution_nonce": "beta-gas-env-canonical-repair-20260831-05",
+  "prior_run_id": 33372926010,
   "expected_deployment_version": 206,
   "file_map_run_id": 33370222772,
-  "file_map_artifact_id": 9749746779
+  "file_map_artifact_id": 9749746779,
+  "rollback_readback_run_id": 33373072936
 }
