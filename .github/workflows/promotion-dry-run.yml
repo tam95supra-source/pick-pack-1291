@@ -1,0 +1,64 @@
+name: Promotion dry-run
+on:
+  push:
+    branches:
+      - 'release/audit-beta104-stable-private-20260831'
+    paths:
+      - ops/promotion-lock-dry-run.json
+      - ops/beta104-owner-acceptance.json
+      - tools/verify_promotion_lock.py
+      - tools/beta_stable_runtime_verify.py
+      - tools/beta_stable_auth_isolation_audit.py
+      - tools/beta_stable_data_isolation_audit.py
+      - .github/workflows/promotion-dry-run.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: promotion-dry-run
+  cancel-in-progress: false
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+      GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+      GOOGLE_OAUTH_REFRESH_TOKEN: ${{ secrets.GOOGLE_OAUTH_REFRESH_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Validate promotion harness
+        run: |
+          set -euo pipefail
+          python3 -m py_compile tools/verify_promotion_lock.py tools/beta_stable_runtime_verify.py tools/beta_stable_auth_isolation_audit.py tools/beta_stable_data_isolation_audit.py
+          python3 tools/verify_promotion_lock.py
+      - name: Fresh promotion runtime dry-run
+        run: python3 tools/beta_stable_runtime_verify.py --promotion-dry-run
+      - name: Fresh reversible auth isolation
+        run: python3 tools/beta_stable_auth_isolation_audit.py
+      - name: Fresh reversible data isolation
+        run: python3 tools/beta_stable_data_isolation_audit.py
+      - name: Assemble promotion dry-run receipt
+        run: |
+          set -euo pipefail
+          jq -e '.status=="PASS" and .phase=="PROMOTION_DRY_RUN" and .candidate.exact_source_unchanged==true and .promotion.owner_acceptance=="OWNER_ACCEPTED_BETA104" and .promotion.owner_promotion_authorization==null and .promotion.stable_public==false and .release.stable_manifest_available==false and .release.stable_ota==false and .release.stable_release==false and .workers.db_separate==true and .workers.sheet_separate==true and .workers.gas_separate==true and .backup_restore.restore_compare=="PASS"' /tmp/beta-stable-runtime-verify.json >/dev/null
+          jq -e '.status=="PASS" and .cross_token_both_ways=="PASS" and .logout_isolation=="PASS" and .role_isolation=="PASS" and .cleanup_beta_exact_five==true and .cleanup_stable_exact_one==true and .stable_sessions_clean==true' /tmp/beta-stable-auth-isolation.json >/dev/null
+          jq -e '.status=="PASS" and .create_both_same_id=="PASS" and .beta_update_stable_unchanged=="PASS" and .stable_update_beta_unchanged=="PASS" and .beta_delete_stable_survives=="PASS" and .stable_delete_beta_survives=="PASS" and .cleanup_beta_absent==true and .cleanup_stable_absent==true and .critical_beta_counts_unchanged==true and .critical_stable_counts_unchanged==true' /tmp/beta-stable-data-isolation.json >/dev/null
+          jq -n --slurpfile runtime /tmp/beta-stable-runtime-verify.json --slurpfile auth /tmp/beta-stable-auth-isolation.json --slurpfile data /tmp/beta-stable-data-isolation.json             --arg source_sha "c31bb1b7ad68e6fd114727d8f08508796013bcef"             '{status:"PASS",phase:"PROMOTION_DRY_RUN",accepted_beta_source_sha:$source_sha,stable_publish:false,stable_manifest:false,stable_ota:false,stable_public:false,cross_write:"PASS",cross_token:"PASS",cross_discovery:"PASS",cross_manifest:"PASS",cross_data:"PASS",backup_restore:"PASS",runtime:$runtime[0],auth:$auth[0],data:$data[0]}' > /tmp/promotion-dry-run.json
+          cat /tmp/promotion-dry-run.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: promotion-dry-run-${{ github.run_id }}
+          path: |
+            /tmp/promotion-dry-run.json
+            /tmp/beta-stable-runtime-verify.json
+            /tmp/beta-stable-auth-isolation.json
+            /tmp/beta-stable-data-isolation.json
+          retention-days: 90
+          if-no-files-found: error

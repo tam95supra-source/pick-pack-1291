@@ -246,6 +246,7 @@ def recover_runtime_canary_if_requested(tok,prov,release):
     return True
 
 def main():
+    promotion_mode="--promotion-dry-run" in sys.argv
     for n in ["CLOUDFLARE_API_TOKEN","CLOUDFLARE_ACCOUNT_ID","GOOGLE_OAUTH_CLIENT_ID","GOOGLE_OAUTH_CLIENT_SECRET","GOOGLE_OAUTH_REFRESH_TOKEN"]:
         print("::add-mask::"+need(n))
     tok=oauth();print("::add-mask::"+tok)
@@ -255,6 +256,7 @@ def main():
     if release.get("candidate_locked") is not True or release.get("rebuild") is not False or release.get("resign") is not False or release.get("stable_publish")!="FORBIDDEN":raise RuntimeError("BETA_RELEASE_LOCK_INVALID")
     if recover_runtime_canary_if_requested(tok,prov,release):return
     promo=json.loads((ROOT/"ops/promotion-lock-dry-run.json").read_text())
+    owner_acceptance=json.loads((ROOT/"ops/beta104-owner-acceptance.json").read_text()) if promotion_mode else None
     proof=json.loads((ROOT/"ops/stable-isolation-proof.json").read_text())
     limits=json.loads((ROOT/"config/provider_free_limits.json").read_text())
     repo_secret_sanity(release,"release");repo_secret_sanity(prov,"provision");repo_secret_sanity(promo,"promotion");repo_secret_sanity(proof,"backup")
@@ -263,7 +265,14 @@ def main():
     if not isinstance(release.get("device_regression_run_id"),int) or not isinstance(release.get("device_regression_artifact_id"),int):raise RuntimeError("SERVICE_DISCOVERY_DEVICE_EVIDENCE_MISSING")
     source=str(release.get("source_sha") or "");assert_exact_candidate_source(source)
     beta_lock=promo["beta_acceptance_lock"];beta_meta=beta_lock.get("beta") or {}
-    if beta_lock.get("source_sha")!=source or beta_lock.get("owner_acceptance_ref") is not None:raise RuntimeError("BETA_ACCEPTANCE_LOCK_INVALID")
+    if beta_lock.get("source_sha")!=source:raise RuntimeError("BETA_ACCEPTANCE_LOCK_SOURCE_INVALID")
+    if promotion_mode:
+        if beta_lock.get("status")!="OWNER_ACCEPTED" or beta_lock.get("owner_acceptance_ref")!="ops/beta104-owner-acceptance.json":raise RuntimeError("BETA_ACCEPTANCE_LOCK_OWNER_STATE_INVALID")
+        if not owner_acceptance or owner_acceptance.get("status")!="OWNER_ACCEPTED" or owner_acceptance.get("release")!=release.get("version_name"):raise RuntimeError("BETA_OWNER_ACCEPTANCE_RECEIPT_INVALID")
+        if any(str((owner_acceptance.get("checklist") or {}).get(str(i)))!="OK" for i in range(1,7)):raise RuntimeError("BETA_OWNER_ACCEPTANCE_CHECKLIST_INCOMPLETE")
+        if release.get("live") is not True:raise RuntimeError("BETA104_NOT_LIVE_FOR_PROMOTION_DRY_RUN")
+    else:
+        if beta_lock.get("owner_acceptance_ref") is not None:raise RuntimeError("BETA_ACCEPTANCE_LOCK_INVALID")
     if release.get("version_name")!=beta_meta.get("version_name") or int(release.get("version_code",0))!=int(beta_meta.get("version_code",0)) or release.get("package")!=beta_meta.get("package_name"):raise RuntimeError("BETA_CANDIDATE_METADATA_DRIFT")
     if release.get("apk_sha256")!=beta_meta.get("apk_sha256") or int(release.get("apk_size",0))!=int(beta_meta.get("apk_size",0)) or release.get("signer_sha256")!=beta_meta.get("signer_sha256"):raise RuntimeError("BETA_CANDIDATE_RELEASE_IDENTITY_DRIFT")
     if proof.get("status")!="PASS" or proof.get("restore_compare")!="PASS" or proof.get("restore_canary_deleted") is not True or proof.get("d1_count_after")!=3:raise RuntimeError("STABLE_BACKUP_RESTORE_PROOF_INVALID")
@@ -347,14 +356,23 @@ def main():
     if not expected_beta_service or got_beta_service!=expected_beta_service:
         raise RuntimeError("BETA_GAS_SERVICE_DISCOVERY_DRIFT:"+json.dumps({"expected":expected_beta_service,"got":got_beta_service},separators=(",",":")))
 
-    # Beta manifest must still be exact previous LIVE before publish; Beta102 must not leak pre-OTA.
+    # Manifest readback: pre-OTA expects previous LIVE; promotion dry-run expects OWNER-accepted Beta104 LIVE.
     manifest_code,manifest=curl_json("POST",beta_gas,body={"action":"update_check","channel":"BETA","current_version":"0.0.0","_environment_id":"BETA","_service_audience":"PICK_PACK_1291_BETA"},follow=True,timeout=60)
     if manifest_code!=200 or manifest.get("ok") is not True:raise RuntimeError("BETA_MANIFEST_READBACK_FAILED:"+str(manifest_code))
-    if manifest.get("version_name")!=release.get("base_version") or release.get("live") is not False:raise RuntimeError("BETA_PREOTA_MANIFEST_LEAK")
+    if promotion_mode:
+        if manifest.get("version_name")!=release.get("version_name") or release.get("live") is not True:raise RuntimeError("BETA_LIVE_MANIFEST_DRIFT")
+        if str(manifest.get("sha256") or "")!=str(release.get("apk_sha256") or "") or int(manifest.get("size") or 0)!=int(release.get("apk_size") or 0):raise RuntimeError("BETA_LIVE_MANIFEST_IDENTITY_DRIFT")
+        stable_manifest_code,stable_manifest=curl_json("POST",stable_gas_urls[0],body={"action":"update_check","channel":"STABLE","current_version":"0.0.0","_environment_id":"STABLE","_service_audience":"PICK_PACK_1291_STABLE"},follow=True,timeout=60)
+        if stable_manifest_code!=200 or stable_manifest.get("ok") is not True or stable_manifest.get("channel")!="STABLE" or stable_manifest.get("available") is not False:raise RuntimeError("STABLE_PRIVATE_MANIFEST_NOT_DISABLED:"+str(stable_manifest_code))
+        if stable_manifest.get("apk_url") or stable_manifest.get("sha256"):raise RuntimeError("STABLE_PRIVATE_MANIFEST_LEAK")
+    else:
+        stable_manifest={"available":False}
+        if manifest.get("version_name")!=release.get("base_version") or release.get("live") is not False:raise RuntimeError("BETA_PREOTA_MANIFEST_LEAK")
     beta_domain=curl_status(str(beta_c["target_web_origin"]));stable_domain=curl_status(str(stable_c["target_web_origin"]))
     if beta_domain not in (200,301,302,307,308,401,403):raise RuntimeError("BETA_TARGET_DOMAIN_NOT_READY:"+str(beta_domain))
     if stable_domain in (200,301,302,307,308):raise RuntimeError("STABLE_ROOT_DOMAIN_PUBLIC:"+str(stable_domain))
-    receipt={"status":"PASS","phase":"PRE_OTA_RUNTIME_DOD","candidate":{"source_sha":source,"version_name":release["version_name"],"version_code":release["version_code"],"package":release["package"],"apk_sha256":release["apk_sha256"],"apk_size":release["apk_size"],"signer_sha256":release["signer_sha256"],"exact_source_unchanged":True},
+    phase="PROMOTION_DRY_RUN" if promotion_mode else "PRE_OTA_RUNTIME_DOD"
+    receipt={"status":"PASS","phase":phase,"candidate":{"source_sha":source,"version_name":release["version_name"],"version_code":release["version_code"],"package":release["package"],"apk_sha256":release["apk_sha256"],"apk_size":release["apk_size"],"signer_sha256":release["signer_sha256"],"exact_source_unchanged":True},
       "d1":{"count":3,"rehearsal_absent":True,"stable_ready_not_live_zero_state":stable_zero,"quota_guard":"PASS","writer_fencing":"PASS"},
       "backup_restore":{"run_id":proof["run_id"],"artifact_id":proof["artifact_id"],"backup_sha256":proof["backup_sha256"],"restore_compare":"PASS","canary_deleted":True,"current_binding_unchanged":True},
       "workers":{"beta":beta_name,"stable":stable_name,"db_separate":True,"sheet_separate":True,"gas_separate":True,"stable_broad_google_oauth_absent":True},
@@ -364,11 +382,11 @@ def main():
       "cross_environment":{"headers_rejected_both_ways":True,"stable_missing_env_rejected":True,"fallback_cross_route_absent":True},
       "gas":gas,"gas_deployments":{"distinct_projects":True,"distinct_deployments":True,"policy":"ANYONE_ANONYMOUS/USER_DEPLOYING","canary_cleanup_readback":"PASS","beta_sheet_untouched":True},
       "domains":{"beta_target_http":beta_domain,"stable_root_http":stable_domain,"stable_public":False},
-      "release":{"beta_manifest_version":manifest.get("version_name"),"candidate_manifest_leak":False,"stable_manifest":False,"stable_ota":False,"stable_release":False},
-      "promotion":{"owner_acceptance":None,"owner_promotion_authorization":None,"stable_public":False},
+      "release":{"beta_manifest_version":manifest.get("version_name"),"beta_manifest_sha256":manifest.get("sha256"),"stable_manifest_available":stable_manifest.get("available"),"candidate_manifest_leak":False,"stable_manifest":False,"stable_ota":False,"stable_release":False},
+      "promotion":{"owner_acceptance":("OWNER_ACCEPTED_BETA104" if promotion_mode else None),"owner_promotion_authorization":None,"stable_public":False,"dry_run":promotion_mode},
       "secrets":{"plaintext_in_receipt":False},"stable_lifecycle_target":"READY_NOT_LIVE"}
     pathlib.Path("/tmp/beta-stable-runtime-verify.json").write_text(json.dumps(receipt,indent=2,ensure_ascii=False)+"\n")
-    print(json.dumps({"status":"PASS","phase":"PRE_OTA_RUNTIME_DOD","d1":3,"beta_auth":5,"stable_auth":1,"gas":3,"backup_restore":"PASS","stable_public":False}))
+    print(json.dumps({"status":"PASS","phase":phase,"d1":3,"beta_auth":5,"stable_auth":1,"gas":3,"backup_restore":"PASS","stable_public":False,"stable_manifest_available":stable_manifest.get("available")}))
 if __name__=="__main__":
     if "--self-test" in sys.argv:
         try:

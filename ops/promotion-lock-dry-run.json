@@ -1,7 +1,7 @@
 {
   "beta_acceptance_lock": {
     "lock_type": "BETA_ACCEPTANCE_LOCK",
-    "status": "DRY_RUN_OWNER_ACCEPTANCE_REQUIRED",
+    "status": "OWNER_ACCEPTED",
     "source_sha": "c31bb1b7ad68e6fd114727d8f08508796013bcef",
     "beta": {
       "version_name": "0.4.2-beta.104",
@@ -14,16 +14,19 @@
     },
     "evidence": {
       "purpose": "promotion-contract-dry-run-only",
-      "live_state": "BETA102_LIVE_BETA104_CANDIDATE",
+      "live_state": "BETA104_LIVE_OWNER_ACCEPTED",
       "candidate_build": "PASS_RUN_33384004708",
       "service_regression": "PASS_INHERITED_BETA102_EXACT_SERVICE_SOURCE_UNCHANGED",
       "visual_pda": "PASS_EXACT_CANDIDATE_RUN_33384004708_ARTIFACT_9755057622",
       "back_api36": "PASS_RUN_33384004708",
       "service_discovery_device": "PASS_RUN_33388577027_ARTIFACT_9756583802",
-      "technical_visual_inspection": "PASS_35_SCREENSHOTS_ARTIFACT_9755057622"
+      "technical_visual_inspection": "PASS_35_SCREENSHOTS_ARTIFACT_9755057622",
+      "terminal_release": "PASS_RUN_33391700817",
+      "owner_acceptance": "ops/beta104-owner-acceptance.json",
+      "final_artifact": "9757837384"
     },
-    "owner_acceptance_ref": null,
-    "created_at": "2026-08-31T00:00:00+07:00"
+    "owner_acceptance_ref": "ops/beta104-owner-acceptance.json",
+    "created_at": "2026-09-01T00:22:00+07:00"
   },
   "stable_promotion_lock": {
     "lock_type": "STABLE_PROMOTION_LOCK",
@@ -53,8 +56,8 @@
       "notification_binding"
     ],
     "regressions": {
-      "required": "FULL_ACTIVE_PASS_BEFORE_PROMOTION",
-      "beta104_candidate_pre_ota": "DEVICE_PASS_AWAITING_RUNTIME_DOD_AND_OWNER_ACCEPTANCE"
+      "required": "FINAL_ACTIVE_PASS_IMPACTED_REGRESSION_BEFORE_OWNER_PROMOTION",
+      "beta104_candidate_pre_ota": "LIVE_OWNER_ACCEPTED"
     },
     "isolation": {
       "copy_beta_transactional_data": false,
@@ -68,6 +71,6 @@
       "required": true,
       "stable_only": true
     },
-    "created_at": "2026-08-31T00:00:00+07:00"
+    "created_at": "2026-09-01T00:22:00+07:00"
   }
 }
