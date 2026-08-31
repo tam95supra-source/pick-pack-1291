@@ -28,12 +28,21 @@
       "stable_publish_allowed": false
     },
     "STABLE": {
-      "lifecycle": "PROVISIONING",
+      "lifecycle": "READY_NOT_LIVE",
       "application_id": "vn.pickpack1291.app.stable",
       "release_channel": "STABLE",
       "target_web_origin": "https://pickpack1291.cc.cd",
-      "current_service": null,
-      "gsheet": null,
+      "current_service": {
+        "worker": "pickpack1291-stable-private",
+        "url": null,
+        "authority_mode": "SERVICE_PRIMARY",
+        "authority_scope": "PRIVATE_READY_NOT_LIVE",
+        "d1_database": "pick-pack-1291-service-stable"
+      },
+      "gsheet": {
+        "spreadsheet_id": "1Z5tKgGjQxcQqKY-UJO2nOVvM3dA0_VtJx5ayKjWSAy0",
+        "title": "STABLE_PRIMARY_PRIVATE"
+      },
       "environment_id": "STABLE",
       "service_audience": "PICK_PACK_1291_STABLE",
       "lan_service_type": "_pp1291s._tcp.",
