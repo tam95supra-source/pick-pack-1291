@@ -207,9 +207,39 @@ def mismatch(web):
 def update_check(web):
     return post(web,{"action":"update_check","channel":"BETA","current_version":"0.0.0","_app_channel":"BETA","_environment_id":"BETA","_service_audience":"PICK_PACK_1291_BETA"})
 
+def recover_temp_deployment_only(sid,dep,token,request):
+    target=int(request.get("rollback_target_version") or 0)
+    expected=int(request.get("expected_current_deployment_version") or 0)
+    if target<=0 or expected<=0: raise RuntimeError("RECOVERY_VERSION_FIELDS_REQUIRED")
+    d=req(f"{API}/{sid}/deployments/{dep}",token);cfg=dict(d.get("deploymentConfig") or {});current=cfg.get("versionNumber")
+    if current==target:
+        result={"status":"PASS","mode":"RECOVER_TEMP_DEPLOYMENT_ONLY","idempotent":True,"deployment_version":target,"stable_touched":False,"property_touched":False}
+        OUT.write_text(json.dumps(result,indent=2)+"\n");print(json.dumps(result));return
+    if current!=expected: raise RuntimeError("RECOVERY_CURRENT_VERSION_DRIFT:"+str(current))
+    cur=req(f"{API}/{sid}/content?versionNumber={current}",token)
+    old=req(f"{API}/{sid}/content?versionNumber={target}",token)
+    head=req(f"{API}/{sid}/content",token)
+    if TEMP_MARK not in server_source(cur): raise RuntimeError("RECOVERY_EXPECTED_TEMP_MARK_MISSING")
+    if TEMP_MARK in server_source(old): raise RuntimeError("RECOVERY_TARGET_CONTAINS_TEMP_MARK")
+    if files(head)!=files(old): raise RuntimeError("RECOVERY_HEAD_NOT_EQUAL_TARGET_VERSION")
+    deploy_version(sid,dep,token,target,str(cfg.get("manifestFileName") or "appsscript"),"Recover exact pre-repair Beta GAS deployment")
+    for i in range(4):
+        time.sleep(3+i*2)
+        check=req(f"{API}/{sid}/deployments/{dep}",token)
+        if (check.get("deploymentConfig") or {}).get("versionNumber")!=target:
+            if i==3: raise RuntimeError("RECOVERY_DEPLOYMENT_NOT_STABLE_AT_TARGET")
+            continue
+    result={"status":"PASS","mode":"RECOVER_TEMP_DEPLOYMENT_ONLY","idempotent":False,"previous_deployment_version":current,
+            "deployment_version":target,"head_equal_target":True,"temp_marker_removed_from_deployment":True,"stable_touched":False,
+            "property_touched":False,"candidate_rebuilt":False,"candidate_resigned":False}
+    OUT.write_text(json.dumps(result,indent=2)+"\n");print(json.dumps(result))
+
 def main():
     token=need("ACCESS_TOKEN");sid=need("GAS_SCRIPT_ID");dep=normalize_dep(need("GAS_DEPLOYMENT_ID"))
     request=json.loads((ROOT/"ops/beta-gas-service-url-repair-request.json").read_text())
+    if request.get("mode")=="RECOVER_TEMP_DEPLOYMENT_ONLY":
+        recover_temp_deployment_only(sid,dep,token,request)
+        return
     release=json.loads((ROOT/"ops/beta-release-request.json").read_text())
     contracts=json.loads((ROOT/"config/environment_contracts.json").read_text())
     if request.get("stage")!="BETA_GAS_SERVICE_URL_REPAIR" or request.get("stable_publish")!="FORBIDDEN" or request.get("authority_change")!="NONE":
