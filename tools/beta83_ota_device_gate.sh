@@ -24,6 +24,11 @@ adb install "$OLD" > "$OUT/install-beta81.txt"
 adb shell dumpsys package "$PKG" > "$OUT/pkg81.txt";grep -Fq "versionName=$BASE" "$OUT/pkg81.txt";grep -Eq "versionCode=$BASE_CODE([[:space:]]|$)" "$OUT/pkg81.txt"
 adb shell appops set "$PKG" REQUEST_INSTALL_PACKAGES allow >/dev/null 2>&1 || true
 adb install -r "$VERIFY_HARNESS_APK" > "$OUT/install-harness.txt"
+adb shell am instrument -w -r -e mode seed-stale-discovery vn.pickpack1291.verify/.Beta83UiChecksInstrumentation > "$OUT/stale-seed-before-ota.txt" 2>&1
+grep -Fq 'INSTRUMENTATION_CODE: 0' "$OUT/stale-seed-before-ota.txt"
+grep -Fq 'stale_discovery_seed=PASS' "$OUT/stale-seed-before-ota.txt"
+adb shell cat "/data/user/0/$PKG/shared_prefs/pp_m2_service_transport.xml" > "$OUT/stale-cache-before-ota.xml"
+grep -Fq 'pickpack1291.cc.cd' "$OUT/stale-cache-before-ota.xml"
 URL_B64=$(printf '%s' "$OTA_URL"|base64 -w0)
 adb shell am instrument -w -r -e mode ota -e version "$VERSION" -e url_b64 "$URL_B64" -e sha "$SHA" vn.pickpack1291.verify/.Beta80VerifyInstrumentation > "$OUT/ota-instrument.txt" 2>&1 &
 PID=$!
@@ -42,6 +47,12 @@ test "$(sha256sum "$OUT/installed.apk"|awk '{print $1}')" = "$SHA";test "$(stat 
 "$ANDROID_SDK_ROOT/build-tools/36.0.0/apksigner" verify --print-certs "$OUT/installed.apk" > "$OUT/cert.txt"
 INST_SIGNER=$(grep -m1 'Signer #1 certificate SHA-256 digest:' "$OUT/cert.txt"|sed 's/.*digest: //'|tr 'A-F' 'a-f'|tr -d ':[:space:]');test "$INST_SIGNER" = "$SIGNER"
 adb shell am start -W -n "$PKG/vn.pickpack1291.app.beta.FullBetaActivity" > "$OUT/launch.txt";! grep -Eq 'Error type|Permission Denial' "$OUT/launch.txt"
+adb shell am force-stop "$PKG" >/dev/null 2>&1 || true
+adb shell am instrument -w -r -e mode service-discovery-preserved vn.pickpack1291.verify/.Beta83UiChecksInstrumentation > "$OUT/service-discovery-preserved.txt" 2>&1
+grep -Fq 'INSTRUMENTATION_CODE: 0' "$OUT/service-discovery-preserved.txt"
+grep -Fq 'service_discovery_cache_regression=PASS' "$OUT/service-discovery-preserved.txt"
+adb shell cat "/data/user/0/$PKG/shared_prefs/pp_m2_service_transport.xml" > "$OUT/cache-after-ota.xml"
+! grep -Fq '>https://pickpack1291.cc.cd<' "$OUT/cache-after-ota.xml"
 
 RAW=$(printf '%s' "$GAS_DEPLOYMENT_ID"|tr -d '\r\n\t ');DEP="$RAW";if [[ "$RAW" == *"/s/"* ]]; then DEP="${RAW#*/s/}";DEP="${DEP%%/*}";fi
 GAS_URL="https://script.google.com/macros/s/$DEP/exec";echo "::add-mask::$GAS_URL"
@@ -77,6 +88,7 @@ jq -n --arg v "$VERSION" --argjson c "$CODE" --arg p "$PKG" --arg base "$BASE" -
   --slurpfile beta "$OUT/beta-old.json" --slurpfile current "$OUT/beta-current.json" --slurpfile stable "$OUT/stable.json" --slurpfile auth "$OUT/authority.json" \
   '{status:"PASS",version_name:$v,version_code:$c,package:$p,base_version:$base,apk_sha256:$h,apk_size:$z,signer_sha256:$signer,
     ota_transport:"GITHUB_RELEASE",google_drive_apk:"FORBIDDEN",ota_from_base:true,ota_download_exact:true,
-    installed_exact_bytes:true,installed_and_opened:true,beta_readback:$beta[0],target_current_readback:$current[0],stable_readback:$stable[0],
+    installed_exact_bytes:true,installed_and_opened:true,stale_discovery_preserved_across_ota:true,stale_discovery_invalidated_without_clear:true,
+    beta_readback:$beta[0],target_current_readback:$current[0],stable_readback:$stable[0],
     stable_unchanged:true,main_sha:$main,main_unchanged:true,authority:$auth[0].authority,authority_change:"NONE"}' > "$OUT/receipt.json"
 cat "$OUT/receipt.json"

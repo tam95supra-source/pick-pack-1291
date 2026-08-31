@@ -28,6 +28,8 @@ on:
       - tools/beta_domain_prepare.py
       - tools/beta_auth_converge.py
       - tools/beta83_ota_device_gate.sh
+      - tools/Beta83UiChecksInstrumentation.java
+      - .github/workflows/beta-release.yml
       - tools/beta83_publish_ota.sh
       - tools/verify_beta_visual_receipt.py
       - qa/**
@@ -145,6 +147,17 @@ jobs:
           python3 -m py_compile tools/beta_stable_runtime_verify.py
           python3 -m py_compile tools/beta_domain_prepare.py
           python3 tools/beta_stable_runtime_verify.py --self-test
+          python3 - <<'PY'
+          import pathlib
+          w=pathlib.Path(".github/workflows/beta-release.yml").read_text()
+          h=pathlib.Path("tools/Beta83UiChecksInstrumentation.java").read_text()
+          o=pathlib.Path("tools/beta83_ota_device_gate.sh").read_text()
+          assert "SERVICE_DISCOVERY_ONLY)" in w and "service_discovery_only:" in w
+          assert "service-discovery-preserved" in h and "seed-stale-discovery" in h
+          assert "seed-stale-discovery" in o and "service-discovery-preserved" in o
+          assert "stale_discovery_preserved_across_ota:true" in o
+          print("service_discovery_device_ota_contract=PASS")
+          PY
           python3 - <<'PY'
           import pathlib,re
           s=pathlib.Path(".github/workflows/beta-release.yml").read_text()

@@ -53,7 +53,9 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
       if("checks".equals(mode))runChecks();
       else if("visual".equals(mode))runVisual();
       else if("back36".equals(mode))runBack36();
-      else if("service-discovery".equals(mode))runServiceDiscoveryCacheRegression();
+      else if("seed-stale-discovery".equals(mode))seedStaleServiceDiscovery();
+      else if("service-discovery".equals(mode))runServiceDiscoveryCacheRegression(true);
+      else if("service-discovery-preserved".equals(mode))runServiceDiscoveryCacheRegression(false);
       else throw new IllegalArgumentException("MODE_UNSUPPORTED:"+mode);
     }catch(Throwable t){
       Bundle x=new Bundle();
@@ -62,10 +64,22 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     }
   }
 
-  private void runServiceDiscoveryCacheRegression() throws Exception {
+  private void seedStaleServiceDiscovery(){
     android.content.SharedPreferences p=target.getSharedPreferences("pp_m2_service_transport",Context.MODE_PRIVATE);
     String stale="{\"ok\":true,\"authority_mode\":\"SERVICE_PRIMARY\",\"service_url\":\"https://pickpack1291.cc.cd\"}";
     p.edit().putString("discovery_json",stale).putLong("discovery_at",System.currentTimeMillis()).remove("service_token").commit();
+    Bundle x=new Bundle();x.putString("stale_discovery_seed","PASS");finish(0,x);
+  }
+
+  private void runServiceDiscoveryCacheRegression(boolean seed) throws Exception {
+    android.content.SharedPreferences p=target.getSharedPreferences("pp_m2_service_transport",Context.MODE_PRIVATE);
+    String stale="{\"ok\":true,\"authority_mode\":\"SERVICE_PRIMARY\",\"service_url\":\"https://pickpack1291.cc.cd\"}";
+    if(seed)p.edit().putString("discovery_json",stale).putLong("discovery_at",System.currentTimeMillis()).remove("service_token").commit();
+    else{
+      JSONObject before=new JSONObject(p.getString("discovery_json","{}"));
+      require("https://pickpack1291.cc.cd".equals(before.optString("service_url")),"PRESERVED_STALE_DISCOVERY_MISSING:"+before.optString("service_url"));
+      require(System.currentTimeMillis()-p.getLong("discovery_at",0L)<300000L,"PRESERVED_STALE_DISCOVERY_TTL_NOT_FRESH");
+    }
     Class<?> c=target.getClassLoader().loadClass("vn.pickpack1291.app.beta.M2ServiceTransport");
     Object transport=c.getConstructor(Context.class).newInstance(target);
     Method m=c.getMethod("discoverySnapshot",boolean.class);
