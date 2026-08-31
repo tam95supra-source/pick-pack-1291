@@ -166,6 +166,7 @@ def build_final(old_files,repo_pick,repo_m2):
                 src=insert_before(src,"function doGet()",helpers)
             for n in TARGET_FUNCS_PICK:
                 if ("function "+n+"(") not in src: raise RuntimeError("PICK_HELPER_PATCH_MISSING:"+n)
+            src,_,_=replace_function(src,repo_pick,"doGet")
             src=ensure_do_post_fence(src);item["source"]=src;pick_done=True
         elif item.get("type")=="SERVER_JS" and item.get("name")=="SERVICE_MIGRATION_M2":
             for n in TARGET_FUNCS_M2:
@@ -257,6 +258,105 @@ def wait_legacy_runtime(web,current,attempts=18):
     c,j=last or (-1,{})
     raise RuntimeError("LEGACY_RUNTIME_NOT_RESTORED:"+str(c)+":"+str(j.get("error") or j.get("transport_error") or "ASSERT"))
 
+def source_only_canonical_repair(sid,dep,token,request):
+    release=json.loads((ROOT/"ops/beta-release-request.json").read_text())
+    contracts=json.loads((ROOT/"config/environment_contracts.json").read_text())
+    if request.get("stage")!="BETA_GAS_SERVICE_URL_REPAIR" or request.get("stable_publish")!="FORBIDDEN" or request.get("authority_change")!="NONE":
+        raise RuntimeError("SOURCE_ONLY_REQUEST_FAIL_CLOSED")
+    if release.get("candidate_locked") is not True or release.get("rebuild") is not False or release.get("resign") is not False or release.get("live") is not False:
+        raise RuntimeError("SOURCE_ONLY_RELEASE_LOCK_NOT_INTACT")
+    beta=contracts["environments"]["BETA"];stable=contracts["environments"]["STABLE"]
+    target=str((beta.get("current_service") or {}).get("url") or "").rstrip("/")
+    if beta.get("environment_id")!="BETA" or beta.get("service_audience")!="PICK_PACK_1291_BETA" or not target.endswith(".workers.dev"):
+        raise RuntimeError("SOURCE_ONLY_BETA_CONTRACT_INVALID")
+    if stable.get("stable_publish_allowed") is not False:
+        raise RuntimeError("SOURCE_ONLY_STABLE_PUBLIC_GUARD_INVALID")
+
+    depj=req(f"{API}/{sid}/deployments/{dep}",token);old_cfg=dict(depj.get("deploymentConfig") or {})
+    old_version=old_cfg.get("versionNumber")
+    expected=int(request.get("expected_deployment_version") or 0)
+    if not isinstance(old_version,int) or old_version!=expected:
+        raise RuntimeError("SOURCE_ONLY_DEPLOYMENT_VERSION_DRIFT:"+str(old_version))
+    head=req(f"{API}/{sid}/content",token);deployed=req(f"{API}/{sid}/content?versionNumber={old_version}",token)
+    old_files=files(head)
+    if old_files!=files(deployed):
+        raise RuntimeError("SOURCE_ONLY_HEAD_DEPLOYMENT_DRIFT")
+
+    old_all=server_source(head)
+    old_ota=extract_function(old_all,"ppUpdateCheck_")
+    web=f"https://script.google.com/macros/s/{dep}/exec"
+    c0,before=discovery(web)
+    if c0!=200 or before.get("ok") is not True or before.get("authority_mode")!="SERVICE_PRIMARY":
+        raise RuntimeError("SOURCE_ONLY_PRECHECK_FAILED:"+str(c0))
+    legacy_url=str(before.get("service_url") or "").rstrip("/")
+    if legacy_url==target and before.get("environment_id")=="BETA" and before.get("service_audience")=="PICK_PACK_1291_BETA":
+        raise RuntimeError("SOURCE_ONLY_ALREADY_CANONICAL_USE_READBACK")
+    if legacy_url not in (str(stable.get("target_web_origin") or "").rstrip("/"),target):
+        raise RuntimeError("SOURCE_ONLY_UNEXPECTED_LEGACY_URL:"+legacy_url)
+
+    repo_pick=(ROOT/"google-apps-script/PICK_PACK_API.gs").read_text(encoding="utf-8")
+    repo_m2=(ROOT/"google-apps-script/SERVICE_MIGRATION_M2.gs").read_text(encoding="utf-8")
+    final_files=build_final(old_files,repo_pick,repo_m2)
+    final_all=server_source({"files":final_files})
+    if extract_function(final_all,"ppUpdateCheck_")!=old_ota:
+        raise RuntimeError("SOURCE_ONLY_OTA_FUNCTION_CHANGED")
+    if "ppM2CanonicalServiceUrl_(" in extract_function(final_all,"ppM2ServiceUrl_"):
+        raise RuntimeError("SOURCE_ONLY_LEGACY_CANONICALIZER_STILL_IN_RESOLVER")
+    if "ppM2CanonicalServiceUrl_(" in extract_function(final_all,"ppM2StateSnapshot_"):
+        raise RuntimeError("SOURCE_ONLY_LEGACY_CANONICALIZER_STILL_IN_SNAPSHOT")
+    if final_all.count("ppM2CanonicalServiceUrl_(")>1:
+        raise RuntimeError("SOURCE_ONLY_LEGACY_CANONICALIZER_ACTIVE_REFERENCE_REMAINS")
+    if "environment_id:s.environmentId" not in extract_function(final_all,"ppM2Discovery_") or "service_audience:s.serviceAudience" not in extract_function(final_all,"ppM2Discovery_"):
+        raise RuntimeError("SOURCE_ONLY_DISCOVERY_ENVIRONMENT_FIELDS_MISSING")
+    if "x-pick-pack-environment" not in extract_function(final_all,"ppM2ServiceFetch_").lower() or "x-pick-pack-audience" not in extract_function(final_all,"ppM2ServiceFetch_").lower():
+        raise RuntimeError("SOURCE_ONLY_SERVICE_HEADERS_MISSING")
+    if "environment_id:ppEnvironmentId_()" not in extract_function(final_all,"doGet") or "service_audience:ppServiceAudience_()" not in extract_function(final_all,"doGet"):
+        raise RuntimeError("SOURCE_ONLY_DOGET_ENVIRONMENT_FIELDS_MISSING")
+    do_post=extract_function(final_all,"doPost")
+    if "const environmentFence=ppEnvironmentFence_(body);" not in do_post:
+        raise RuntimeError("SOURCE_ONLY_DOPOST_FENCE_MISSING")
+
+    new_version=None
+    try:
+        req(f"{API}/{sid}/content",token,"PUT",{"files":final_files})
+        new_version=int(req(f"{API}/{sid}/versions",token,"POST",{"description":"Beta GAS canonical resolver/environment source-only repair"})["versionNumber"])
+        deploy_version(sid,dep,token,new_version,str(old_cfg.get("manifestFileName") or "appsscript"),"Beta GAS canonical resolver/environment source-only repair")
+        after,bad,ota,getj=wait_final_runtime(web,target,release.get("base_version"))
+
+        deployed_final=req(f"{API}/{sid}/content?versionNumber={new_version}",token)
+        head_final=req(f"{API}/{sid}/content",token)
+        if files(deployed_final)!=files(head_final):
+            raise RuntimeError("SOURCE_ONLY_FINAL_HEAD_DEPLOYMENT_DRIFT")
+        live_src=server_source(deployed_final)
+        if TEMP_MARK in live_src:
+            raise RuntimeError("SOURCE_ONLY_TEMP_MARK_LEAK")
+        if extract_function(live_src,"ppUpdateCheck_")!=old_ota:
+            raise RuntimeError("SOURCE_ONLY_DEPLOYED_OTA_CHANGED")
+        if "ppM2CanonicalServiceUrl_(" in extract_function(live_src,"ppM2ServiceUrl_") or "ppM2CanonicalServiceUrl_(" in extract_function(live_src,"ppM2StateSnapshot_"):
+            raise RuntimeError("SOURCE_ONLY_DEPLOYED_LEGACY_CANONICALIZER_ACTIVE")
+
+        result={
+            "status":"PASS","mode":"BETA_GAS_SOURCE_ONLY_CANONICAL_RESOLVER_REPAIR",
+            "previous_deployment_version":old_version,"deployment_version":new_version,
+            "service_url":target,"environment_id":"BETA","service_audience":"PICK_PACK_1291_BETA",
+            "legacy_canonicalizer_active":False,"environment_negative_fence":"PASS","service_fetch_headers":"PASS",
+            "ota_function_unchanged":True,"ota_manifest_version":ota.get("version_name"),
+            "property_touched":False,"stable_touched":False,"stable_publish":"FORBIDDEN","authority_change":"NONE",
+            "candidate_rebuilt":False,"candidate_resigned":False,"rollback_version":old_version,"rollback_ready":True
+        }
+        OUT.write_text(json.dumps(result,indent=2)+"\n");print(json.dumps(result))
+    except Exception as original:
+        errors=[]
+        try:req(f"{API}/{sid}/content",token,"PUT",{"files":old_files})
+        except Exception as e:errors.append("head:"+str(e))
+        try:
+            deploy_version(sid,dep,token,old_version,str(old_cfg.get("manifestFileName") or "appsscript"),str(old_cfg.get("description") or "Restore exact v206 Beta GAS baseline"))
+            wait_legacy_runtime(web,legacy_url)
+        except Exception as e:errors.append("deployment:"+str(e))
+        if errors:
+            raise RuntimeError("SOURCE_ONLY_ROLLBACK_FAILED:original="+str(original)[:700]+"|"+"|".join(errors))
+        raise
+
 def recover_temp_deployment_only(sid,dep,token,request):
     target=int(request.get("rollback_target_version") or 0)
     expected=int(request.get("expected_current_deployment_version") or 0)
@@ -289,6 +389,9 @@ def main():
     request=json.loads((ROOT/"ops/beta-gas-service-url-repair-request.json").read_text())
     if request.get("mode")=="RECOVER_TEMP_DEPLOYMENT_ONLY":
         recover_temp_deployment_only(sid,dep,token,request)
+        return
+    if request.get("mode")=="BETA_GAS_SOURCE_ONLY_CANONICAL_RESOLVER_REPAIR":
+        source_only_canonical_repair(sid,dep,token,request)
         return
     release=json.loads((ROOT/"ops/beta-release-request.json").read_text())
     contracts=json.loads((ROOT/"config/environment_contracts.json").read_text())
