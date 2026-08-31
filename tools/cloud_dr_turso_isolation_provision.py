@@ -176,8 +176,25 @@ def cross_denied(url,token):
     p=subprocess.run(["node","--input-type=module","-e",code],cwd=ROOT/"services/cloud-dr",env=env,text=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=60)
     return p.returncode==0 and p.stdout.strip().endswith("DENIED")
 
-def provision_target(org,group,source,target,limit,maxdb,current_count):
-    if current_count>=maxdb-1:raise RuntimeError("TURSO_FREE_DATABASE_HEADROOM_INSUFFICIENT")
+def assert_restore_environment(source_env,target_env):
+    s=str(source_env or "").strip().upper();t=str(target_env or "").strip().upper()
+    if s not in ("BETA","STABLE") or t not in ("BETA","STABLE"):raise RuntimeError("RESTORE_ENVIRONMENT_INVALID")
+    if s!=t:raise RuntimeError("CROSS_ENV_RESTORE_REJECTED:"+s+"_TO_"+t)
+    return True
+
+def verify_cross_restore_guard():
+    rejected=[]
+    for s,t in (("BETA","STABLE"),("STABLE","BETA")):
+        try:assert_restore_environment(s,t)
+        except RuntimeError as e:
+            if str(e).startswith("CROSS_ENV_RESTORE_REJECTED:"):rejected.append(s+"_TO_"+t)
+            else:raise
+        else:raise RuntimeError("CROSS_ENV_RESTORE_GUARD_BYPASSED:"+s+"_TO_"+t)
+    if rejected!=["BETA_TO_STABLE","STABLE_TO_BETA"]:raise RuntimeError("CROSS_ENV_RESTORE_GUARD_INCOMPLETE")
+    return "REJECTED_BOTH_WAYS_PRE_MUTATION"
+
+def provision_target(org,group,source,target,target_env,limit,maxdb,current_count):
+    assert_restore_environment(source.get("env"),target_env)
     c,j=turso_json(org,"/databases?limit=100")
     if c!=200:raise RuntimeError("TURSO_LIST_FAILED:"+str(c))
     rows=j.get("databases") or [];existing=[x for x in rows if str(x.get("Name") or x.get("name"))==target]
@@ -186,6 +203,7 @@ def provision_target(org,group,source,target,limit,maxdb,current_count):
         if existing:
             dbj=existing[0]
         else:
+            if current_count>=maxdb:raise RuntimeError("TURSO_FREE_DATABASE_HEADROOM_INSUFFICIENT")
             c,j=turso_json(org,"/databases","POST",{"name":target,"group":group,"seed":{"type":"database_upload"},"size_limit":str(limit)})
             if c not in (200,201):raise RuntimeError("TURSO_CREATE_FAILED:"+target+":"+str(c)+":"+str((j.get("error") if isinstance(j,dict) else ""))[:180])
             dbj=j.get("database") or j;created=True
@@ -194,7 +212,7 @@ def provision_target(org,group,source,target,limit,maxdb,current_count):
             c,j=turso_json(org,"/databases/"+urllib.parse.quote(target,safe=""))
             dbj=j.get("database") or j;host=str(dbj.get("Hostname") or dbj.get("hostname") or "")
         if not host:raise RuntimeError("TURSO_HOST_MISSING:"+target)
-        c,j=turso_json(org,"/databases/"+urllib.parse.quote(target,safe="")+"/auth/tokens?authorization=full-access","POST",{})
+        c,j=turso_json(org,"/databases/"+urllib.parse.quote(target,safe="")+"/auth/tokens?expiration=30m&authorization=full-access","POST",{})
         if c!=200 or not str(j.get("jwt") or ""):raise RuntimeError("TURSO_DB_TOKEN_CREATE_FAILED:"+target+":"+str(c))
         token=str(j["jwt"]);print("::add-mask::"+token)
         url="libsql://"+host
@@ -237,23 +255,35 @@ def main():
     groups=sorted(set(str(x.get("group") or "") for x in dbs if x.get("group")))
     if len(groups)!=1:raise RuntimeError("TURSO_GROUP_NOT_UNIQUE:"+str(groups))
     group=groups[0]
-    if len(dbs)+2>maxdb:raise RuntimeError("TURSO_FREE_DATABASE_COUNT_WOULD_EXCEED")
+    required_targets={"pick-pack-1291-dr-beta","pick-pack-1291-dr-stable"}
+    before_names=set(str(x.get("Name") or x.get("name") or "") for x in dbs)
+    expected_new=len(required_targets-before_names)
+    if len(dbs)+expected_new>maxdb:raise RuntimeError("TURSO_FREE_DATABASE_COUNT_WOULD_EXCEED")
+    cross_restore=verify_cross_restore_guard()
     beta=export_d1("BETA","pickpack");stable=export_d1("STABLE","pickpack1291-stable-private")
     before=len(dbs)
-    pb=provision_target(org,group,beta,"pick-pack-1291-dr-beta",limit,maxdb,before)
-    ps=provision_target(org,group,stable,"pick-pack-1291-dr-stable",limit,maxdb,before+1)
+    beta_new=1 if "pick-pack-1291-dr-beta" not in before_names else 0
+    pb=provision_target(org,group,beta,"pick-pack-1291-dr-beta","BETA",limit,maxdb,before)
+    ps=provision_target(org,group,stable,"pick-pack-1291-dr-stable","STABLE",limit,maxdb,before+beta_new)
     if not cross_denied(ps["url"],pb["token"]):raise RuntimeError("BETA_DB_TOKEN_CAN_ACCESS_STABLE")
     if not cross_denied(pb["url"],ps["token"]):raise RuntimeError("STABLE_DB_TOKEN_CAN_ACCESS_BETA")
     c,j=turso_json(org,"/databases?limit=100")
-    after=len(j.get("databases") or []) if c==200 else -1
-    if after<before+2:raise RuntimeError("TURSO_DATABASE_COUNT_READBACK_FAILED")
+    rows_after=(j.get("databases") or []) if c==200 else []
+    after=len(rows_after) if c==200 else -1
+    after_names=set(str(x.get("Name") or x.get("name") or "") for x in rows_after)
+    if not required_targets.issubset(after_names):raise RuntimeError("TURSO_TARGET_PRESENCE_READBACK_FAILED")
+    if after<before+expected_new:raise RuntimeError("TURSO_DATABASE_COUNT_READBACK_FAILED")
+    if after>maxdb:raise RuntimeError("TURSO_DATABASE_COUNT_EXCEEDS_FREE_LIMIT")
     receipt={"status":"PASS","environment":"BETA_STABLE","provider":"TURSO","zero_cost_guard":"PASS","organization":org,"group":group,
-      "database_count_before":before,"database_count_after":after,"max_databases":maxdb,"size_limit_bytes":limit,
-      "beta":{"source_d1_id":beta["source_d1_id"],"source_d1_name":beta["source_d1_name"],"target_database":pb["target"],"target_id":pb["id"],"hostname":pb["host"],"backup_sql_sha256":beta["sql_sha256"],"sqlite_sha256":beta["sqlite_sha256"],"restore_compare":"PASS","signature":beta["signature"]},
-      "stable":{"source_d1_id":stable["source_d1_id"],"source_d1_name":stable["source_d1_name"],"target_database":ps["target"],"target_id":ps["id"],"hostname":ps["host"],"backup_sql_sha256":stable["sql_sha256"],"sqlite_sha256":stable["sqlite_sha256"],"restore_compare":"PASS","signature":stable["signature"]},
-      "cross_credentials":"DENIED_BOTH_WAYS","tokens_exposed":False,"legacy_database_untouched":True,"stable_public_activation":False}
+      "database_count_before":before,"database_count_after":after,"expected_new_databases":expected_new,"max_databases":maxdb,"size_limit_bytes":limit,
+      "beta":{"source_d1_id":beta["source_d1_id"],"source_d1_name":beta["source_d1_name"],"target_database":pb["target"],"target_id":pb["id"],"hostname":pb["host"],"backup_sql_sha256":beta["sql_sha256"],"sqlite_sha256":beta["sqlite_sha256"],"upload_pragmas":beta["upload_pragmas"],"restore_compare":"PASS","signature":beta["signature"],"created":pb["created"],"uploaded":pb["uploaded"]},
+      "stable":{"source_d1_id":stable["source_d1_id"],"source_d1_name":stable["source_d1_name"],"target_database":ps["target"],"target_id":ps["id"],"hostname":ps["host"],"backup_sql_sha256":stable["sql_sha256"],"sqlite_sha256":stable["sqlite_sha256"],"upload_pragmas":stable["upload_pragmas"],"restore_compare":"PASS","signature":stable["signature"],"created":ps["created"],"uploaded":ps["uploaded"]},
+      "cross_credentials":"DENIED_BOTH_WAYS","cross_restore":cross_restore,
+      "credential_scope":"DATABASE_SCOPED","credential_expiration":"30m","temporary_credentials_cleanup":"AUTO_EXPIRE_30M","tokens_exposed":False,
+      "temporary_provider_resources_created":0,"cleanup":"PASS_NO_TEMP_CANARY_RESOURCES",
+      "legacy_database_untouched":True,"stable_public_activation":False}
     OUT.write_text(json.dumps(receipt,indent=2,ensure_ascii=False)+"\n")
-    print(json.dumps({"status":"PASS","provider":"TURSO","beta_restore":"PASS","stable_restore":"PASS","cross_credentials":"DENIED_BOTH_WAYS","database_count_before":before,"database_count_after":after,"tokens_exposed":False}))
+    print(json.dumps({"status":"PASS","provider":"TURSO","beta_restore":"PASS","stable_restore":"PASS","cross_credentials":"DENIED_BOTH_WAYS","cross_restore":cross_restore,"database_count_before":before,"database_count_after":after,"tokens_exposed":False}))
 
 if __name__=="__main__":
     try:main()
