@@ -149,10 +149,20 @@ jq -n --arg mode "$BASELINE_READBACK" --arg v "$PREV" --arg h "$BASE_SHA" --argj
   --slurpfile final "$BASE_FINAL" --slurpfile gh "$E/base-github-release.json" \
   '{status:"PASS",mode:$mode,version_name:$v,sha256:$h,size:$z,apk_url:$url,final_receipt:$final[0],github_release:$gh[0]}' > "$E/baseline-evidence.json"
 
-DISCOVERY_BODY=$(jq -nc '{action:"service_discovery",_app_channel:"BETA"}')
+EXPECTED_BETA_SERVICE_URL=$(jq -r '.environments.BETA.current_service.url // empty' config/environment_contracts.json)
+test -n "$EXPECTED_BETA_SERVICE_URL"
+DISCOVERY_BODY=$(jq -nc '{action:"service_discovery",_app_channel:"BETA",_environment_id:"BETA",_service_audience:"PICK_PACK_1291_BETA"}')
 gas "$DISCOVERY_BODY" "$E/discovery-before.json"
-SERVICE_URL=$(jq -r '.service_url' "$E/discovery-before.json")
-jq -e '.authority_mode=="SERVICE_PRIMARY" and .authority.mode=="SERVICE_PRIMARY" and .authority.scope=="PRODUCTION"' "$E/discovery-before.json" >/dev/null
+SERVICE_URL=$(jq -r '.service_url // empty' "$E/discovery-before.json")
+if ! jq -e --arg u "$EXPECTED_BETA_SERVICE_URL" '
+  .ok==true and .environment_id=="BETA" and .service_audience=="PICK_PACK_1291_BETA" and
+  .authority_mode=="SERVICE_PRIMARY" and .authority.mode=="SERVICE_PRIMARY" and .authority.scope=="PRODUCTION" and
+  (.service_url|rtrimstr("/"))==($u|rtrimstr("/"))
+' "$E/discovery-before.json" >/dev/null; then
+  echo "BETA_SERVICE_DISCOVERY_DRIFT" >&2
+  jq '{ok,environment_id,service_audience,authority_mode,service_url}' "$E/discovery-before.json" >&2 || true
+  exit 71
+fi
 [[ "$SERVICE_URL" == https://* ]]
 echo "::add-mask::$SERVICE_URL"
 curl -fsSL --connect-timeout 15 --max-time 30 "$SERVICE_URL/v1/authority" > "$E/authority-before.json"
