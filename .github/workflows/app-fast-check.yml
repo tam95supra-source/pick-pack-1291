@@ -142,6 +142,7 @@ jobs:
           python3 tools/beta_auth_converge.py --self-test
           python3 -m py_compile tools/ci_release_fencing_contract.py
           python3 -m py_compile tools/beta_stable_runtime_verify.py
+          python3 tools/beta_stable_runtime_verify.py --self-test
           python3 - <<'PY'
           import pathlib,re
           s=pathlib.Path(".github/workflows/beta-release.yml").read_text()
