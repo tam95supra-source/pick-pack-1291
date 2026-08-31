@@ -5,6 +5,7 @@ on:
       - 'release/audit-beta104-stable-private-20260831'
     paths:
       - ops/beta-stable-audit-evidence.json
+      - config/environment_contracts.json
       - tools/final_audit_regression.py
       - .github/workflows/final-audit-regression.yml
   workflow_dispatch:
