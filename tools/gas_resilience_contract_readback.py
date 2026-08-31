@@ -77,7 +77,7 @@ def live_post(url,body):
     cmd=["curl","-sS","-L","--connect-timeout","12","--max-time","60","-H","Content-Type: application/json","--data-binary","@-","-w","\\n__STATUS__:%{http_code}",url]
     p=subprocess.run(cmd,input=json.dumps(body,separators=(",",":")),text=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=70)
     if p.returncode:return -1,{"transport_error":p.stderr[-300:]}
-    marker="\\n__STATUS__:"
+    marker="\n__STATUS__:"
     if marker not in p.stdout:return -1,{"transport_error":"STATUS_MISSING"}
     raw,code=p.stdout.rsplit(marker,1)
     try:j=json.loads(raw) if raw.strip() else {}
