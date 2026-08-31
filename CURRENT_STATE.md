@@ -1,7 +1,9 @@
 # CURRENT STATE — PICK PACK 1291
 
-- updated_at: 2026-08-31T09:28:53Z
+- updated_at: 2026-08-31T09:52:32Z
 - status: BETA102_PASS_LIVE
+- technical_dod_status: TECHNICAL_PASS_AWAITING_OWNER
+- owner_acceptance: PENDING_BETA102_ENV_ISOLATION
 - continuity_branch: release/beta102-beta-stable-isolation-20260831
 - source_sha: 8653e8e1a8c0585a4dcab95ccb3da0636650d8a5
 - beta_live: 0.4.2-beta.102 (versionCode 108)
@@ -14,6 +16,10 @@
 - apk_size: 13593589
 - signer_sha256: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
 - terminal_run: 33377501045
+- final_artifact: 9752558407
+- runtime_dod_run: 33377306088
+- runtime_dod_artifact: 9752375833
+- beta_gas: deployment 213 / BETA / PICK_PACK_1291_BETA / https://pickpack.1291.workers.dev
 - fast_check: PASS
 - service_gate: PASS_INHERITED_RUN_33338713705_EXACT_SERVICE_SOURCE
 - visual_matrix: PASS 320x568 / 360x640 / 480x800
@@ -23,7 +29,7 @@
 - beta_ota_url: https://github.com/tam95supra-source/pick-pack-1291/releases/download/v0.4.2-beta.102-publicbeta/pick-pack-1291-public-beta-0.4.2-beta.102.apk
 - apk_transport: GITHUB_RELEASE_ONLY
 - google_drive_apk: FORBIDDEN
-- stable: unchanged
+- stable: READY_NOT_LIVE / private / public=false / no OTA / no promotion / unchanged
 - main_sha: 021dac5c6932b3ac5c60ce8fdba562ddf3d9688f
 - authority: SERVICE_PRIMARY / PRODUCTION / epoch 9 / generation m2-prod-reset-20260823-001
-- next_action: WAIT_FOR_OWNER_NEW_SCOPE
+- next_action: OWNER_ACCEPTANCE_BETA102_ENV_ISOLATION
