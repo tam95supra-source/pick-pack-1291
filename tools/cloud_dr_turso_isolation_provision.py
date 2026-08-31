@@ -117,9 +117,27 @@ def export_d1(env,worker):
     sh(["npx","wrangler","d1","export",name,"--remote","--output",str(sql),"--config",str(cfg)],cwd=ROOT/"service")
     raw=sql.read_bytes()
     con=sqlite3.connect(str(db))
-    try:con.executescript(raw.decode("utf-8"));con.commit()
+    upload_pragmas={}
+    try:
+        con.executescript(raw.decode("utf-8"));con.commit()
+        enc=str(con.execute("PRAGMA encoding").fetchone()[0] or "").strip().upper()
+        if enc not in ("UTF-8","UTF8"):raise RuntimeError(env+"_SQLITE_ENCODING_UNSUPPORTED:"+enc)
+        page=int(con.execute("PRAGMA page_size").fetchone()[0])
+        auto=int(con.execute("PRAGMA auto_vacuum").fetchone()[0])
+        if page!=4096 or auto!=0:
+            con.execute("PRAGMA journal_mode=DELETE")
+            con.execute("PRAGMA page_size=4096")
+            con.execute("PRAGMA auto_vacuum=0")
+            con.execute("VACUUM")
+            con.commit()
+        jm=str(con.execute("PRAGMA journal_mode=WAL").fetchone()[0] or "").lower()
+        if jm!="wal":raise RuntimeError(env+"_SQLITE_WAL_ENABLE_FAILED:"+jm)
+        con.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+        con.commit()
+        upload_pragmas={"journal_mode":jm,"page_size":int(con.execute("PRAGMA page_size").fetchone()[0]),"auto_vacuum":int(con.execute("PRAGMA auto_vacuum").fetchone()[0]),"encoding":str(con.execute("PRAGMA encoding").fetchone()[0] or "")}
+        if upload_pragmas["page_size"]!=4096 or upload_pragmas["auto_vacuum"]!=0:raise RuntimeError(env+"_SQLITE_UPLOAD_PRAGMA_MISMATCH")
     finally:con.close()
-    return {"env":env,"worker":worker,"source_d1_id":dbid,"source_d1_name":name,"sql":sql,"db":db,"sql_sha256":hashlib.sha256(raw).hexdigest(),"sqlite_sha256":hashlib.sha256(db.read_bytes()).hexdigest(),"signature":sqlite_signature(db),"bindings":by}
+    return {"env":env,"worker":worker,"source_d1_id":dbid,"source_d1_name":name,"sql":sql,"db":db,"sql_sha256":hashlib.sha256(raw).hexdigest(),"sqlite_sha256":hashlib.sha256(db.read_bytes()).hexdigest(),"signature":sqlite_signature(db),"bindings":by,"upload_pragmas":upload_pragmas}
 
 def upload(host,token,path):
     data=path.read_bytes()
@@ -180,18 +198,27 @@ def provision_target(org,group,source,target,limit,maxdb,current_count):
         if c!=200 or not str(j.get("jwt") or ""):raise RuntimeError("TURSO_DB_TOKEN_CREATE_FAILED:"+target+":"+str(c))
         token=str(j["jwt"]);print("::add-mask::"+token)
         url="libsql://"+host
-        if created:
+        target_sig=None;uploaded=False;last=""
+        if not created:
+            try:
+                existing_sig=node_signature(url,token)
+                if existing_sig!=source["signature"]:raise RuntimeError("TURSO_EXISTING_TARGET_SIGNATURE_MISMATCH:"+target)
+                target_sig=existing_sig
+            except RuntimeError as e:
+                if str(e).startswith("TURSO_EXISTING_TARGET_SIGNATURE_MISMATCH:"):raise
+                last=str(e)
+            except Exception as e:last=str(e)
+        if target_sig is None:
             uc,ud=upload(host,token,source["db"])
             if uc not in (200,201,202,204):raise RuntimeError("TURSO_UPLOAD_FAILED:"+target+":"+str(uc)+":"+ud[:180])
-        target_sig=None
-        last=""
-        for _ in range(30):
-            try:
-                target_sig=node_signature(url,token);break
-            except Exception as e:last=str(e);time.sleep(2)
+            uploaded=True
+            for _ in range(30):
+                try:
+                    target_sig=node_signature(url,token);break
+                except Exception as e:last=str(e);time.sleep(2)
         if target_sig is None:raise RuntimeError("TURSO_RESTORE_READBACK_TIMEOUT:"+target+":"+last[:200])
         if target_sig!=source["signature"]:raise RuntimeError("TURSO_RESTORE_SIGNATURE_MISMATCH:"+target)
-        return {"target":target,"host":host,"id":dbj.get("DbId") or dbj.get("id"),"url":url,"token":token,"created":created,"signature":target_sig}
+        return {"target":target,"host":host,"id":dbj.get("DbId") or dbj.get("id"),"url":url,"token":token,"created":created,"uploaded":uploaded,"signature":target_sig}
     except Exception:
         if created:
             try:
