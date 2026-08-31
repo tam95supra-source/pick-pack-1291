@@ -172,7 +172,7 @@ def service_safe(s):
             "repo":s.get("repo"),"branch":s.get("branch"),"autoDeploy":s.get("autoDeploy")}
 
 def expected_commands():
-    build="cd services/cloud-dr && npm install --ignore-scripts --no-audit --no-fund --package-lock=false --no-save @libsql/client@0.15.15 esbuild@0.25.9 typescript@5.9.2 @types/node@24.3.0 && npm run check && npm test && npm run build"
+    build="cd services/cloud-dr && npm install --ignore-scripts --no-audit --no-fund --package-lock=false --no-save @libsql/client@0.15.15 esbuild@0.25.9 typescript@5.9.2 @types/node@24.3.0 && npm run check && npm test && npx esbuild src/render.ts --bundle --format=esm --platform=node --target=es2023 --outfile=dist/render.mjs --packages=external"
     start="node services/cloud-dr/dist/render.mjs"
     return build,start
 
@@ -196,7 +196,20 @@ def validate_existing(s,name):
     if region!="singapore":raise RuntimeError("RENDER_EXISTING_TARGET_REGION_DRIFT:"+name+":"+region)
     if str(s.get("branch") or "")!=BRANCH:raise RuntimeError("RENDER_EXISTING_TARGET_BRANCH_DRIFT:"+name)
     if str(s.get("repo") or "").rstrip("/")!=REPO:raise RuntimeError("RENDER_EXISTING_TARGET_REPO_DRIFT:"+name)
+    if str(s.get("autoDeploy") or "")!="no":raise RuntimeError("RENDER_EXISTING_TARGET_AUTODEPLOY_DRIFT:"+name)
     return True
+
+def update_service_commands(sid):
+    build,start=expected_commands()
+    payload={"autoDeploy":"no","serviceDetails":{"envSpecificDetails":{"buildCommand":build,"startCommand":start}}}
+    c,j=request(RENDER+"/services/"+urllib.parse.quote(sid,safe=""),"PATCH",need("RENDER_API_KEY"),payload,90)
+    if c==402:raise RuntimeError("RENDER_PAID_ACTION_BLOCKED_402")
+    if c!=200:raise RuntimeError("RENDER_COMMAND_UPDATE_FAILED:"+sid+":"+str(c)+":"+safe(json.dumps(j))[:400])
+    s=j.get("service",j) if isinstance(j,dict) else {}
+    d=service_details(s);e=d.get("envSpecificDetails") or {}
+    if str(e.get("buildCommand") or "")!=build or str(e.get("startCommand") or "")!=start:
+        raise RuntimeError("RENDER_COMMAND_UPDATE_READBACK_FAILED:"+sid)
+    return s
 
 def update_env(sid,vals):
     body=[{"key":k,"value":v} for k,v in vals.items()]
@@ -308,7 +321,10 @@ def main():
         runtime=turso_token(org,dbnames[env])
         vals=env_vars(contract,urls[env],runtime,dl)
         if existing:
-            sid=str(existing.get("id") or "");update_env(sid,vals);service=render("/services/"+urllib.parse.quote(sid,safe=""))
+            sid=str(existing.get("id") or "")
+            update_service_commands(sid)
+            update_env(sid,vals)
+            service=render("/services/"+urllib.parse.quote(sid,safe=""))
         else:
             service=create_service(owner,name,env,contract,urls[env],runtime,dl);sid=str(service.get("id") or "")
         d=service_details(service)
@@ -340,9 +356,26 @@ def main():
     print(json.dumps({"status":"PASS","provider":"RENDER","beta":"SUSPENDED_PASSIVE","stable":"SUSPENDED_PASSIVE",
       "cross_credentials":"DENIED_BOTH_WAYS","plan":"free","region":"singapore","auto_deploy":"OFF","secrets_exposed":False}))
 
+def recovery_suspend_targets():
+    recovered=[]
+    try:
+        services=unwrap_services(render("/services?limit=100&includePreviews=false"))
+        for s in services:
+            if str(s.get("name") or "") not in ("pick-pack-1291-dr-beta","pick-pack-1291-dr-stable"):continue
+            sid=str(s.get("id") or "")
+            if not sid:continue
+            try:
+                x=suspend_and_readback(sid);recovered.append({"id":sid,"name":s.get("name"),"suspended":x.get("suspended")})
+            except Exception as ex:
+                recovered.append({"id":sid,"name":s.get("name"),"suspend_error":safe(str(ex))[:240]})
+    except Exception as ex:
+        recovered.append({"inventory_error":safe(str(ex))[:240]})
+    return recovered
+
 if __name__=="__main__":
     try:main()
     except Exception as e:
+        recovery=recovery_suspend_targets()
         OUT.write_text(json.dumps({"status":"FAIL","provider":"RENDER","error":safe(str(e))[:1200],
-          "secrets_exposed":False,"stable_public_activation":False},indent=2)+"\n")
+          "recovery_suspend":recovery,"secrets_exposed":False,"stable_public_activation":False},indent=2)+"\n")
         print("CLOUD_DR_RENDER_ISOLATION_ERROR:"+safe(str(e))[:1600],file=sys.stderr);sys.exit(1)
