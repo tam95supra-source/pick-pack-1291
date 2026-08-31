@@ -175,6 +175,17 @@ jobs:
           assert detach < post, "detach PASS must be established by custom-domain readback"
           print("beta_domain_prepare_contract=PASS")
           PY
+          python3 - <<'PY'
+          import pathlib,re
+          s=pathlib.Path(".github/workflows/beta-release.yml").read_text()
+          m=re.search(r"(?ms)^            PUBLISH\).*?^              ;;",s)
+          assert m, "PUBLISH route missing"
+          b=m.group(0)
+          for token in ['.runtime_dod_status=="PASS"','.beta_auth_status=="PASS"','.stable_gas_repair_status=="PASS"','.beta_domain_status=="PASS"','.fast_check=="PASS"']:
+              assert token in b, "publish evidence gate missing: "+token
+          assert "runtime_dod_run_id" in b and "runtime_dod_artifact_id" in b
+          print("publish_runtime_evidence_gate=PASS")
+          PY
           python3 tools/ci_release_fencing_contract.py
           python3 -m py_compile tools/verify_promotion_lock.py
           python3 tools/verify_promotion_lock.py
