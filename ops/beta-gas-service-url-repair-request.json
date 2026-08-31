@@ -1,6 +1,6 @@
 {
   "stage": "BETA_GAS_SERVICE_URL_REPAIR",
-  "mode": "BETA_GAS_ENVIRONMENT_DISCOVERY_CANONICAL_REPAIR",
+  "mode": "RECOVER_TEMP_DEPLOYMENT_ONLY",
   "failure_run_id": 33368991771,
   "candidate_source_sha": "8653e8e1a8c0585a4dcab95ccb3da0636650d8a5",
   "stable_publish": "FORBIDDEN",
@@ -10,10 +10,13 @@
   "expected_source": "config.environment_contracts.BETA.current_service.url",
   "legacy_drift_source": "config.environment_contracts.STABLE.target_web_origin",
   "owner": "Nguyen Van Tam",
-  "execution_nonce": "beta-gas-env-canonical-repair-20260831-07",
-  "prior_run_id": 33373228169,
+  "execution_nonce": "beta-gas-recover-temp-deployment-20260831-08",
+  "prior_run_id": 33373338807,
   "expected_deployment_version": 206,
   "file_map_run_id": 33370222772,
   "file_map_artifact_id": 9749746779,
-  "rollback_readback_run_id": 33373072936
+  "rollback_readback_run_id": 33373072936,
+  "expected_current_deployment_version": 209,
+  "rollback_target_version": 206,
+  "partial_readback_run_id": 33373450105
 }
