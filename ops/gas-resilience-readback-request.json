@@ -1,11 +1,11 @@
 {
-  "purpose": "READ_ONLY_BETA_GAS_V206_RESOLVER_SNAPSHOT_SEMANTICS",
+  "purpose": "READ_ONLY_BETA_GAS_V206_LEGACY_CANONICALIZER",
   "read_only": true,
   "requested_at_utc": "2026-08-30T13:25:00Z",
   "expected_deployment_version": 206,
-  "execution_nonce": "beta-gas-v206-resolver-semantics-20260831-08",
+  "execution_nonce": "beta-gas-v206-canonicalizer-20260831-09",
   "prior_repair_run_id": 33374108247,
   "prior_failed_run_id": 33374605200,
   "exact_input_retry": true,
-  "prior_readback_run_id": 33375787030
+  "prior_readback_run_id": 33375858186
 }
