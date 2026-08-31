@@ -54,7 +54,7 @@ def b64u(b): return base64.urlsafe_b64encode(b).rstrip(b"=").decode()
 def verifier(password):
     salt=secrets.token_bytes(16); it=120000
     key=hashlib.pbkdf2_hmac("sha256",password.encode(),salt,it,dklen=32)
-    v=f"pbkdf2_sha256$${it}$${b64u(salt)}$${b64u(key)}"
+    v=f"pbkdf2_sha256${it}${b64u(salt)}${b64u(key)}"
     return v,hashlib.sha256(v.encode()).hexdigest()
 
 def sheet_values(token,sid,range_a1):
@@ -272,6 +272,20 @@ def main():
     print(json.dumps({"status":"PASS","mode":mode,"environment":"STABLE","worker":req["target_worker_name"],"d1":req["target_d1_name"],"gas_count":3,"active_accounts":1,"password_exposed":False}))
 
 if __name__=="__main__":
+    if "--self-test" in sys.argv:
+        try:
+            value,h=verifier("stable-verifier-selftest")
+            parts=value.split("$")
+            if len(parts)!=4 or parts[0]!="pbkdf2_sha256" or parts[1]!="120000" or not parts[2] or not parts[3]:
+                raise RuntimeError("STABLE_VERIFIER_FORMAT_SELFTEST")
+            if hashlib.sha256(value.encode()).hexdigest()!=h:
+                raise RuntimeError("STABLE_VERIFIER_HASH_SELFTEST")
+            if "$" in value:
+                raise RuntimeError("STABLE_VERIFIER_DOUBLE_DOLLAR_SELFTEST")
+            print("stable_verifier_selftest=PASS")
+        except Exception as e:
+            print("STABLE_VERIFIER_SELFTEST_ERROR:"+str(e),file=sys.stderr);sys.exit(1)
+        sys.exit(0)
     try: main()
     except Exception as e:
         pathlib.Path("/tmp/stable-private-provision-receipt.json").write_text(json.dumps({"status":"FAIL","error":str(e)[:1000],"stable_public_activation":False},indent=2)+"\n")
