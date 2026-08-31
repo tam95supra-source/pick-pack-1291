@@ -157,6 +157,8 @@ jobs:
           assert "service-discovery-preserved" in h and "seed-stale-discovery" in h
           assert "seed-stale-discovery" in o and "service-discovery-preserved" in o
           assert "stale_discovery_preserved_across_ota:true" in o
+          assert "cache_rewritten_in_process=PASS" in o
+          assert '.device_regression_status=="PASS"' in w
           print("service_discovery_device_ota_contract=PASS")
           PY
           python3 - <<'PY'

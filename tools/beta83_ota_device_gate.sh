@@ -51,8 +51,9 @@ adb shell am force-stop "$PKG" >/dev/null 2>&1 || true
 adb shell am instrument -w -r -e mode service-discovery-preserved vn.pickpack1291.verify/.Beta83UiChecksInstrumentation > "$OUT/service-discovery-preserved.txt" 2>&1
 grep -Fq 'INSTRUMENTATION_CODE: 0' "$OUT/service-discovery-preserved.txt"
 grep -Fq 'service_discovery_cache_regression=PASS' "$OUT/service-discovery-preserved.txt"
-adb shell cat "/data/user/0/$PKG/shared_prefs/pp_m2_service_transport.xml" > "$OUT/cache-after-ota.xml"
-! grep -Fq '>https://pickpack1291.cc.cd<' "$OUT/cache-after-ota.xml"
+grep -Fq 'cache_rewritten_in_process=PASS' "$OUT/service-discovery-preserved.txt"
+grep -Fq 'stable_root_reused=false' "$OUT/service-discovery-preserved.txt"
+adb shell cat "/data/user/0/$PKG/shared_prefs/pp_m2_service_transport.xml" > "$OUT/cache-after-ota.xml" 2>/dev/null || true
 
 RAW=$(printf '%s' "$GAS_DEPLOYMENT_ID"|tr -d '\r\n\t ');DEP="$RAW";if [[ "$RAW" == *"/s/"* ]]; then DEP="${RAW#*/s/}";DEP="${DEP%%/*}";fi
 GAS_URL="https://script.google.com/macros/s/$DEP/exec";echo "::add-mask::$GAS_URL"

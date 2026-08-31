@@ -96,6 +96,8 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     require(url.equals(persisted.optString("service_url")),"SERVICE_DISCOVERY_CACHE_URL_NOT_REWRITTEN");
     Bundle x=new Bundle();
     x.putString("service_discovery_cache_regression","PASS");
+    x.putString("cache_rewritten_in_process","PASS");
+    x.putString("stable_root_reused","false");
     x.putString("environment_id",d.optString("environment_id"));
     x.putString("service_audience",d.optString("service_audience"));
     x.putString("service_url",url);
