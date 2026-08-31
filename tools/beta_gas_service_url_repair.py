@@ -46,8 +46,21 @@ def curl_json(method,url,body=None,timeout=60):
     except:j={"raw":raw[:500]}
     return int(code.strip()),j
 
-def post(url,body): return curl_json("POST",url,body,60)
-def get_json(url): return curl_json("GET",url,None,45)
+def post(url,body):
+    last=(-1,{"transport_error":"NOT_ATTEMPTED"})
+    for i in range(3):
+        last=curl_json("POST",url,body,60)
+        if last[0]!=-1:return last
+        time.sleep(2+i*3)
+    return last
+
+def get_json(url):
+    last=(-1,{"transport_error":"NOT_ATTEMPTED"})
+    for i in range(3):
+        last=curl_json("GET",url,None,45)
+        if last[0]!=-1:return last
+        time.sleep(2+i*3)
+    return last
 
 def normalize_dep(v):
     v=(v or "").strip()
@@ -225,7 +238,7 @@ def main():
     web=f"https://script.google.com/macros/s/{dep}/exec"
     c0,before=discovery(web)
     if c0!=200 or before.get("ok") is not True or before.get("authority_mode")!="SERVICE_PRIMARY":
-        raise RuntimeError("BETA_DISCOVERY_PRECHECK_FAILED:"+str(c0))
+        raise RuntimeError("BETA_DISCOVERY_PRECHECK_FAILED:"+str(c0)+":"+str(before.get("transport_error") or before.get("error") or "ASSERT")[:500])
     current=str(before.get("service_url") or "").rstrip("/")
     if current not in (old_expected,target):
         raise RuntimeError("BETA_DISCOVERY_UNEXPECTED_CURRENT:"+json.dumps({"expected_legacy":old_expected,"target":target,"got":current},separators=(",",":")))
