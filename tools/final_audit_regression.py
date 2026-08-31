@@ -77,6 +77,19 @@ def main():
     run(["node","tools/beta_stable_isolation_contract.mjs"])
     run(["node","tools/resilience_static_gate.mjs"])
 
+    gradle=(ROOT/"app/build.gradle.kts").read_text()
+    fcm=(ROOT/"app/src/main/java/vn/pickpack1291/app/beta/M2Firebase.kt").read_text()
+    manifest=(ROOT/"app/src/main/AndroidManifest.xml").read_text()
+    for marker in ['configValue("STABLE_FIREBASE_PROJECT_ID")','configValue("STABLE_FIREBASE_GOOGLE_APP_ID")','configValue("STABLE_FIREBASE_API_KEY")','configValue("STABLE_FIREBASE_GCM_SENDER_ID")']:
+        if marker not in gradle:fail("STABLE_FCM_SEPARATE_CONFIG_MISSING:"+marker)
+    if 'implementation("com.google.firebase:firebase-messaging")' not in gradle:fail("FCM_MESSAGING_DEPENDENCY_MISSING")
+    for forbidden in ["firebase-auth","firebase-database","firebase-firestore","firebase-storage"]:
+        if forbidden in gradle.lower():fail("FIREBASE_NON_FCM_DEPENDENCY_PRESENT:"+forbidden)
+    if "BuildConfig.FIREBASE_PROJECT_ID" not in fcm or "BuildConfig.FIREBASE_GOOGLE_APP_ID" not in fcm or "discoverySnapshot()" not in fcm or '.put("channel", BuildConfig.CHANNEL)' not in fcm:
+        fail("FCM_ENVIRONMENT_SCOPING_MISSING")
+    if "subscribeToTopic" in fcm or "unsubscribeFromTopic" in fcm:fail("FCM_SHARED_TOPIC_PRESENT")
+    if 'android:name=".M2FirebaseMessagingService"' not in manifest or 'android:exported="false"' not in manifest:fail("FCM_SERVICE_EXPORT_FENCE_MISSING")
+
     cloud=(ROOT/"services/cloud-dr/test/contract.test.mjs").read_text()
     for marker in ["cross-environment requests fail closed","Beta primary-only, Stable strict","DR quota guard is fail-closed and bounded"]:
         if marker not in cloud:fail("CLOUD_DR_REGRESSION_ASSERTION_MISSING:"+marker)
