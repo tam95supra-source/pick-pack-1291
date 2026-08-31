@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import json, os, sys, urllib.request, urllib.error
+import json, os, sys, urllib.request, urllib.error, hashlib
 from pathlib import Path
 
 API="https://script.googleapis.com/v1/projects"
@@ -48,6 +48,31 @@ def environment_flags(source):
 def environment_ok(value):
     return all(value.values())
 
+def file_features(project):
+    out=[]
+    for f in project.get("files") or []:
+        if f.get("type")!="SERVER_JS": continue
+        src=str(f.get("source") or "")
+        out.append({
+            "name":str(f.get("name") or ""),
+            "sha256":hashlib.sha256(src.encode()).hexdigest(),
+            "doPost":"function doPost(" in src,
+            "update_check":"function ppUpdateCheck_(" in src,
+            "environment_helper":"function ppEnvironmentId_(" in src,
+            "environment_fence":"function ppEnvironmentFence_(" in src,
+            "m2_snapshot":"function ppM2StateSnapshot_(" in src,
+            "m2_discovery":"function ppM2Discovery_(" in src,
+            "m2_service_fetch":"function ppM2ServiceFetch_(" in src,
+            "resilience_marker":"RESILIENCE_V1 GOOGLE EMERGENCY LEDGER" in src,
+        })
+    return out
+
+def repo_project():
+    files=[]
+    for path in sorted((Path("google-apps-script")).glob("*.gs")):
+        files.append({"name":path.stem,"type":"SERVER_JS","source":path.read_text(encoding="utf-8")})
+    return {"files":files}
+
 def main():
     out=Path(sys.argv[1])
     sid=os.environ.get("GAS_SCRIPT_ID","").strip()
@@ -61,7 +86,8 @@ def main():
         raise RuntimeError("deployment version missing")
     deployed=req(f"{API}/{sid}/content?versionNumber={version}",token)
     head=req(f"{API}/{sid}/content",token)
-    repo=Path("google-apps-script/PICK_PACK_API.gs").read_text(encoding="utf-8")
+    repo_obj=repo_project()
+    repo=server_source(repo_obj)
     deployed_flags=flags(server_source(deployed))
     head_flags=flags(server_source(head))
     repo_flags=flags(repo)
@@ -84,6 +110,9 @@ def main():
         "deployment_has_full_environment_contract":environment_ok(deployed_environment),
         "head_has_full_environment_contract":environment_ok(head_environment),
         "repo_has_full_environment_contract":environment_ok(repo_environment),
+        "deployment_server_files":file_features(deployed),
+        "head_server_files":file_features(head),
+        "repo_server_files":file_features(repo_obj),
     }
     out.parent.mkdir(parents=True,exist_ok=True)
     out.write_text(json.dumps(data,indent=2)+"\n",encoding="utf-8")
