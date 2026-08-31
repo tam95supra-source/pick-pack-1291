@@ -148,7 +148,24 @@ jobs:
           COUNT=$(jq '.result|length' /tmp/d1-inventory.json)
           (( COUNT <= MAX_DBS )) || { echo "D1_DATABASE_COUNT_EXCEEDS_AUTHORITY:$COUNT/$MAX_DBS"; exit 31; }
           TOTAL=0
-          while IFS=
+          while IFS= read -r row; do
+            decoded=$(printf '%s' "$row" | base64 --decode)
+            name=$(jq -r '.[0]' <<<"$decoded")
+            id=$(jq -r '.[1]' <<<"$decoded")
+            [[ -n "$id" ]] || { echo "D1_ID_MISSING:$name"; exit 32; }
+            enc=$(jq -rn --arg v "$id" '$v|@uri')
+            curl -fsS -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "$API/d1/database/$enc" > /tmp/d1-one.json
+            jq -e '.success==true' /tmp/d1-one.json >/dev/null
+            bytes=$(jq -r '.result.file_size // 0' /tmp/d1-one.json)
+            [[ "$bytes" =~ ^[0-9]+$ ]] || { echo "D1_SIZE_INVALID:$name"; exit 33; }
+            (( bytes <= DB_LIMIT )) || { echo "D1_DATABASE_BYTES_EXCEED_AUTHORITY:$name:$bytes/$DB_LIMIT"; exit 34; }
+            TOTAL=$((TOTAL+bytes))
+          done < <(jq -r '.result[]|[(.name//"UNKNOWN"),(.uuid//.id//"")]|@base64' /tmp/d1-inventory.json)
+          (( TOTAL <= ACCOUNT_LIMIT )) || { echo "D1_ACCOUNT_BYTES_EXCEED_AUTHORITY:$TOTAL/$ACCOUNT_LIMIT"; exit 35; }
+          echo "d1_database_count=$COUNT/$MAX_DBS"
+          echo "d1_account_bytes=$TOTAL/$ACCOUNT_LIMIT"
+          [[ "$COUNT" -lt "$MAX_DBS" ]] && echo "stable_d1_slot_available=true" || echo "stable_d1_slot_available=false"
+
       - name: Release verifier regressions
         shell: bash
         run: |
