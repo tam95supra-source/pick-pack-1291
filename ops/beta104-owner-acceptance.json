@@ -1,0 +1,30 @@
+{
+  "project": "APK PICK PACK 1291",
+  "owner": "Nguyen Van Tam",
+  "accepted_at_local": "2026-08-31T20:22:00+07:00",
+  "release": "0.4.2-beta.104",
+  "status": "OWNER_ACCEPTED",
+  "checklist": {
+    "1": "OK",
+    "2": "OK",
+    "3": "OK",
+    "4": "OK",
+    "5": "OK",
+    "6": "OK"
+  },
+  "accepted_scope": [
+    "OTA preserves data/app state",
+    "Service connectivity no longer fails from stale discovery cache",
+    "Login/session works",
+    "Read/sync/business operations work without Stable root reuse",
+    "Service status is online and operational",
+    "No new regression observed in OWNER acceptance"
+  ],
+  "activate_invariants": [
+    "ENV-ISOLATION-001",
+    "SERVICE-DISCOVERY-001"
+  ],
+  "unchanged_deferred": [
+    "INFRA-RESILIENCE-001"
+  ]
+}
