@@ -38,7 +38,7 @@
   "regression_case": "SERVICE-DISCOVERY-001",
   "owner_failure_evidence": "manual-20260831-172725-4aaccadf-0df6-4d6d-9eca-589b274b1659.json",
   "supersedes_pre_ota_candidate_run": 33383445974,
-  "execution_nonce": "beta104-service-discovery-only-20260831-01",
+  "execution_nonce": "beta104-service-discovery-only-20260831-02",
   "candidate_source_sha": "c31bb1b7ad68e6fd114727d8f08508796013bcef",
   "candidate_run_id": 33384004708,
   "candidate_artifact_id": 9754938692,
@@ -57,7 +57,7 @@
   "verify_artifact_id": 9755057622,
   "verify_artifact_name": "beta-verify-33384004708",
   "fast_check": "PASS",
-  "fast_check_run_id": 33387482645,
-  "device_regression_status": "PENDING",
+  "fast_check_run_id": 33387828810,
+  "device_regression_status": "PENDING_RETRY_AFTER_HARNESS_FIX",
   "next_action": "SERVICE_DISCOVERY_ONLY_EXACT_CANDIDATE"
 }
