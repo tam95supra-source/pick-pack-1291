@@ -36,9 +36,9 @@ invariants:
     status: ACTIVE_PASS
     scope: beta-release
     rule: "Beta APK GitHub Release only; Google Drive APK forbidden; exact bytes/signature/readback."
-    last_verified: "0.4.2-beta.102 / terminal run 33377501045"
-    technical_evidence: "final artifact 9752558407; release asset SHA256 6178085afb3d5b9d7e3a913ca38d3842dd7b2d6db585ac2bbe04a95dcaa5c0b1 size 13593589; OTA 0.4.2-beta.101 -> 0.4.2-beta.102 install/open/readback PASS; BETA GAS deployment 213; Stable unchanged"
-    publish_verifier_regression: "Fast Check 33377060461 PASS; receipt-driven count; legacy26 PASS; beta101-35 PASS; mismatch/missing-viewport/summary-mismatch/human-gate-false FAIL"
+    last_verified: "0.4.2-beta.104 / terminal run 33391700817"
+    technical_evidence: "publish artifact 9757752307; OTA preserved-data artifact 9757829287; final artifact 9757837384; GitHub Release asset 537953189 SHA256 523b7ca4fe3463acdec8281d6232f36cd15e8df13a5f25585ca4ff4b82f2d6f1 size 13593589; OTA 0.4.2-beta.102 -> 0.4.2-beta.104 exact install/open/readback; Stable/main/authority unchanged"
+    publish_verifier_regression: "Fast Check 33388933459 PASS; receipt-driven visual/human gate enforced"
   - id: PDA-EXIT-001
     status: ACTIVE_PASS
     scope: pda-exit
@@ -48,21 +48,22 @@ invariants:
     technical_evidence: "OWNER-accepted Beta99 baseline reverified on Beta101 verify 33309271079; terminal publish/OTA/install/readback/finalize 33310230934 PASS"
     owner_acceptance: "ACTIVE_PASS_OWNER_ITEMS_1_AND_2_OK_BETA99_2026-08-30"
   - id: ENV-ISOLATION-001
-    status: LOCKED_REQUIREMENT_PENDING_FIX
+    status: TECHNICAL_PASS_AWAITING_OWNER
     scope: environment-isolation
     rule: "BETA and STABLE must isolate environment/audience, data/accounts/service/GAS/OTA/LAN mutable state; cross-environment automatic write/fallback/auth/session/manifest/LAN sharing is forbidden; STABLE remains READY_NOT_LIVE/private/public=false until explicit OWNER promotion."
-    technical_candidate: "0.4.2-beta.102"
-    technical_evidence: "source 8653e8e1a8c0585a4dcab95ccb3da0636650d8a5; GAS repair 33376373374 artifact 9752024220 -> deployment213; readback 33376476824 PASS; Fast Check 33377060461 PASS; runtime DoD 33377306088 artifact 9752375833 PASS; terminal publish/OTA/install/readback/finalize 33377501045 final artifact 9752558407 PASS; exact APK SHA256 6178085afb3d5b9d7e3a913ca38d3842dd7b2d6db585ac2bbe04a95dcaa5c0b1 size 13593589 signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable public=false"
+    technical_candidate: "0.4.2-beta.104 LIVE"
+    technical_evidence: "source c31bb1b7ad68e6fd114727d8f08508796013bcef; candidate 33384004708/9754938692; device 33388577027/9756583802 PASS; Fast Check 33388933459 PASS; runtime 33389060092/9756743967 PASS; terminal 33391700817 PASS; publish 9757752307; OTA preserved-data 9757829287; final 9757837384; exact SHA256 523b7ca4fe3463acdec8281d6232f36cd15e8df13a5f25585ca4ff4b82f2d6f1 size 13593589 signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable available=false; main unchanged"
     regression_minimum: [environment_audience_fence, cross_env_reject, distinct_d1_sheet_gas, lan_nsd_isolation, beta_gas_canonical_discovery, stable_private_no_ota, release_identity]
-    owner_acceptance: "FAILED_OWNER_BETA102_SERVICE_CONNECTIVITY_2026-08-31"
+    owner_acceptance: "PENDING_BETA104"
   - id: SERVICE-DISCOVERY-001
-    status: LOCKED_REQUIREMENT_PENDING_FIX
+    status: TECHNICAL_PASS_AWAITING_OWNER
     scope: android-service-discovery
     rule: "BETA live Service routes must use environment-scoped dynamic discovery; stale endpoint/environment cache must never drive Service session/read/sync/outbox after OTA or isolation cutover."
-    failure_evidence: "manual-20260831-172725-4aaccadf-0df6-4d6d-9eca-589b274b1659.json: Beta102 session_http=-1 UnknownHost pickpack1291.cc.cd, SESSION_EXCHANGE_FAILED while canonical BETA GAS v213 points to isolated BETA Worker."
-    technical_candidate: "a418a9cca55f9b4000dd250c9796ea84e346814e / 0.4.2-beta.103 TARGET"
+    failure_evidence: "Beta102 manual log: UnknownHost pickpack1291.cc.cd / SESSION_EXCHANGE_FAILED."
+    technical_candidate: "c31bb1b7ad68e6fd114727d8f08508796013bcef / 0.4.2-beta.104 LIVE"
+    technical_evidence: "exact-device 33388577027/9756583802 PASS; OTA preserved-data terminal 33391700817/9757829287 PASS; stale cache pickpack1291.cc.cd preserved then invalidated without clear; environment=BETA; audience=PICK_PACK_1291_BETA; service_url=https://pickpack.1291.workers.dev; stable_root_reused=false; final 9757837384"
     regression_minimum: [environment_cache_fence, audience_cache_fence, stale_cache_invalidation, ttl_force_refresh, service_session_refresh, direct_read_refresh, sync_refresh, outbox_refresh, no_endpoint_hardcode]
-    owner_acceptance: "PENDING"
+    owner_acceptance: "PENDING_BETA104"
   - id: INFRA-RESILIENCE-001
     status: TECHNICAL_PASS_AWAITING_OWNER
     scope: infra-dr
