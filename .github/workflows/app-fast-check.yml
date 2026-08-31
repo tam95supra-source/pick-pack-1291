@@ -146,6 +146,15 @@ jobs:
           python3 tools/beta_auth_converge.py --self-test
           python3 -m py_compile tools/ci_release_fencing_contract.py
           python3 -m py_compile tools/beta_stable_runtime_verify.py
+          python3 - <<'PY'
+          from pathlib import Path
+          t=Path("tools/beta_stable_runtime_verify.py").read_text()
+          assert "BETA102_METADATA_DRIFT" not in t
+          assert "EXACT_BETA102_SOURCE_DRIFT" not in t
+          assert "SERVICE_DISCOVERY_DEVICE_REGRESSION_NOT_PASS" in t
+          assert "BETA_CANDIDATE_RELEASE_IDENTITY_DRIFT" in t
+          print("runtime_candidate_generic_device_gate=PASS")
+          PY
           python3 -m py_compile tools/beta_domain_prepare.py
           python3 tools/beta_stable_runtime_verify.py --self-test
           python3 - <<'PY'

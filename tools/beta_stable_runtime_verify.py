@@ -211,7 +211,7 @@ def gas_runtime_canary_selftest():
     if calls.count("CLEANUP")!=2:raise RuntimeError("GAS_CANARY_SELFTEST_CLEANUP_NOT_ATTEMPTED")
 def assert_exact_candidate_source(source):
     p=subprocess.run(["git","diff","--quiet",source,"HEAD","--","app","service","google-apps-script"],cwd=ROOT)
-    if p.returncode!=0:raise RuntimeError("EXACT_BETA102_SOURCE_DRIFT")
+    if p.returncode!=0:raise RuntimeError("EXACT_BETA_CANDIDATE_SOURCE_DRIFT")
 def repo_secret_sanity(obj,label):
     def walk(x,path=""):
         if isinstance(x,dict):
@@ -259,10 +259,14 @@ def main():
     limits=json.loads((ROOT/"config/provider_free_limits.json").read_text())
     repo_secret_sanity(release,"release");repo_secret_sanity(prov,"provision");repo_secret_sanity(promo,"promotion");repo_secret_sanity(proof,"backup")
     if release.get("candidate_locked") is not True or release.get("rebuild") is not False or release.get("resign") is not False or release.get("stable_publish")!="FORBIDDEN":raise RuntimeError("BETA_RELEASE_LOCK_INVALID")
-    if release.get("version_name")!="0.4.2-beta.102" or int(release.get("version_code",0))!=108 or release.get("package")!="vn.pickpack1291.app.beta.publicbeta":raise RuntimeError("BETA102_METADATA_DRIFT")
+    if release.get("device_regression_status")!="PASS":raise RuntimeError("SERVICE_DISCOVERY_DEVICE_REGRESSION_NOT_PASS")
+    if not isinstance(release.get("device_regression_run_id"),int) or not isinstance(release.get("device_regression_artifact_id"),int):raise RuntimeError("SERVICE_DISCOVERY_DEVICE_EVIDENCE_MISSING")
     source=str(release.get("source_sha") or "");assert_exact_candidate_source(source)
+    beta_lock=promo["beta_acceptance_lock"];beta_meta=beta_lock.get("beta") or {}
+    if beta_lock.get("source_sha")!=source or beta_lock.get("owner_acceptance_ref") is not None:raise RuntimeError("BETA_ACCEPTANCE_LOCK_INVALID")
+    if release.get("version_name")!=beta_meta.get("version_name") or int(release.get("version_code",0))!=int(beta_meta.get("version_code",0)) or release.get("package")!=beta_meta.get("package_name"):raise RuntimeError("BETA_CANDIDATE_METADATA_DRIFT")
+    if release.get("apk_sha256")!=beta_meta.get("apk_sha256") or int(release.get("apk_size",0))!=int(beta_meta.get("apk_size",0)) or release.get("signer_sha256")!=beta_meta.get("signer_sha256"):raise RuntimeError("BETA_CANDIDATE_RELEASE_IDENTITY_DRIFT")
     if proof.get("status")!="PASS" or proof.get("restore_compare")!="PASS" or proof.get("restore_canary_deleted") is not True or proof.get("d1_count_after")!=3:raise RuntimeError("STABLE_BACKUP_RESTORE_PROOF_INVALID")
-    if promo["beta_acceptance_lock"].get("source_sha")!=source or promo["beta_acceptance_lock"].get("owner_acceptance_ref") is not None:raise RuntimeError("BETA_ACCEPTANCE_LOCK_INVALID")
     sp=promo["stable_promotion_lock"]
     if sp.get("accepted_source_sha")!=source or sp.get("owner_promotion_authorization") is not None:raise RuntimeError("STABLE_PROMOTION_AUTHORIZATION_INVALID")
     if any(bool(sp["stable"].get(k)) for k in ["manifest_active","ota_active","public_domain_active"]):raise RuntimeError("STABLE_PROMOTION_ALREADY_PUBLIC")
@@ -346,7 +350,7 @@ def main():
     # Beta manifest must still be exact previous LIVE before publish; Beta102 must not leak pre-OTA.
     manifest_code,manifest=curl_json("POST",beta_gas,body={"action":"update_check","channel":"BETA","current_version":"0.0.0","_environment_id":"BETA","_service_audience":"PICK_PACK_1291_BETA"},follow=True,timeout=60)
     if manifest_code!=200 or manifest.get("ok") is not True:raise RuntimeError("BETA_MANIFEST_READBACK_FAILED:"+str(manifest_code))
-    if manifest.get("version_name")!=release.get("base_version") or release.get("live") is not False:raise RuntimeError("BETA102_PREOTA_MANIFEST_LEAK")
+    if manifest.get("version_name")!=release.get("base_version") or release.get("live") is not False:raise RuntimeError("BETA_PREOTA_MANIFEST_LEAK")
     beta_domain=curl_status(str(beta_c["target_web_origin"]));stable_domain=curl_status(str(stable_c["target_web_origin"]))
     if beta_domain not in (200,301,302,307,308,401,403):raise RuntimeError("BETA_TARGET_DOMAIN_NOT_READY:"+str(beta_domain))
     if stable_domain in (200,301,302,307,308):raise RuntimeError("STABLE_ROOT_DOMAIN_PUBLIC:"+str(stable_domain))
@@ -355,11 +359,12 @@ def main():
       "backup_restore":{"run_id":proof["run_id"],"artifact_id":proof["artifact_id"],"backup_sha256":proof["backup_sha256"],"restore_compare":"PASS","canary_deleted":True,"current_binding_unchanged":True},
       "workers":{"beta":beta_name,"stable":stable_name,"db_separate":True,"sheet_separate":True,"gas_separate":True,"stable_broad_google_oauth_absent":True},
       "beta_gas_discovery":{"service_url":got_beta_service,"environment_id":discovery.get("environment_id"),"service_audience":discovery.get("service_audience"),"status":"PASS"},
+      "service_discovery_device":{"status":"PASS","run_id":release["device_regression_run_id"],"artifact_id":release["device_regression_artifact_id"],"exact_candidate":True},
       "auth":{"beta_active":[x[0] for x in beta_active],"stable_active":[x[0] for x in stable_active],"sheet_parity":"PASS"},
       "cross_environment":{"headers_rejected_both_ways":True,"stable_missing_env_rejected":True,"fallback_cross_route_absent":True},
       "gas":gas,"gas_deployments":{"distinct_projects":True,"distinct_deployments":True,"policy":"ANYONE_ANONYMOUS/USER_DEPLOYING","canary_cleanup_readback":"PASS","beta_sheet_untouched":True},
       "domains":{"beta_target_http":beta_domain,"stable_root_http":stable_domain,"stable_public":False},
-      "release":{"beta_manifest_version":manifest.get("version_name"),"beta102_manifest_leak":False,"stable_manifest":False,"stable_ota":False,"stable_release":False},
+      "release":{"beta_manifest_version":manifest.get("version_name"),"candidate_manifest_leak":False,"stable_manifest":False,"stable_ota":False,"stable_release":False},
       "promotion":{"owner_acceptance":None,"owner_promotion_authorization":None,"stable_public":False},
       "secrets":{"plaintext_in_receipt":False},"stable_lifecycle_target":"READY_NOT_LIVE"}
     pathlib.Path("/tmp/beta-stable-runtime-verify.json").write_text(json.dumps(receipt,indent=2,ensure_ascii=False)+"\n")

@@ -2,24 +2,25 @@
   "beta_acceptance_lock": {
     "lock_type": "BETA_ACCEPTANCE_LOCK",
     "status": "DRY_RUN_OWNER_ACCEPTANCE_REQUIRED",
-    "source_sha": "8653e8e1a8c0585a4dcab95ccb3da0636650d8a5",
+    "source_sha": "c31bb1b7ad68e6fd114727d8f08508796013bcef",
     "beta": {
-      "version_name": "0.4.2-beta.102",
-      "version_code": 108,
+      "version_name": "0.4.2-beta.104",
+      "version_code": 110,
       "package_name": "vn.pickpack1291.app.beta.publicbeta",
       "signer_sha256": "d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e",
-      "apk_sha256": "6178085afb3d5b9d7e3a913ca38d3842dd7b2d6db585ac2bbe04a95dcaa5c0b1",
+      "apk_sha256": "523b7ca4fe3463acdec8281d6232f36cd15e8df13a5f25585ca4ff4b82f2d6f1",
       "apk_size": 13593589,
-      "artifact_ref": "run:33338713705/artifact:9739892022"
+      "artifact_ref": "run:33384004708/artifact:9754938692"
     },
     "evidence": {
       "purpose": "promotion-contract-dry-run-only",
-      "live_state": "BETA101_LIVE_BETA102_CANDIDATE",
-      "candidate_build": "PASS_RUN_33338713705",
-      "service_regression": "PASS_RUN_33338713705",
-      "visual_pda": "PASS_EXACT_CANDIDATE_RUN_33338713705",
-      "back_api36": "PASS_RUN_33339717799",
-      "technical_visual_inspection": "PASS_35_SCREENSHOTS_ARTIFACT_9740012172"
+      "live_state": "BETA102_LIVE_BETA104_CANDIDATE",
+      "candidate_build": "PASS_RUN_33384004708",
+      "service_regression": "PASS_INHERITED_BETA102_EXACT_SERVICE_SOURCE_UNCHANGED",
+      "visual_pda": "PASS_EXACT_CANDIDATE_RUN_33384004708_ARTIFACT_9755057622",
+      "back_api36": "PASS_RUN_33384004708",
+      "service_discovery_device": "PASS_RUN_33388577027_ARTIFACT_9756583802",
+      "technical_visual_inspection": "PASS_35_SCREENSHOTS_ARTIFACT_9755057622"
     },
     "owner_acceptance_ref": null,
     "created_at": "2026-08-31T00:00:00+07:00"
@@ -28,7 +29,7 @@
     "lock_type": "STABLE_PROMOTION_LOCK",
     "status": "DRY_RUN_READY",
     "beta_acceptance_lock_ref": "ops/promotion-lock-dry-run.json#/beta_acceptance_lock",
-    "accepted_source_sha": "8653e8e1a8c0585a4dcab95ccb3da0636650d8a5",
+    "accepted_source_sha": "c31bb1b7ad68e6fd114727d8f08508796013bcef",
     "stable": {
       "package_name": "vn.pickpack1291.app.stable",
       "release_channel": "STABLE",
@@ -53,7 +54,7 @@
     ],
     "regressions": {
       "required": "FULL_ACTIVE_PASS_BEFORE_PROMOTION",
-      "beta102_candidate_pre_ota": "PASS_AWAITING_FULL_ENVIRONMENT_DOD"
+      "beta104_candidate_pre_ota": "DEVICE_PASS_AWAITING_RUNTIME_DOD_AND_OWNER_ACCEPTANCE"
     },
     "isolation": {
       "copy_beta_transactional_data": false,
