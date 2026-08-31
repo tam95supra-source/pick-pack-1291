@@ -12,6 +12,7 @@ grep -q "versionCode = $CODE" app/build.gradle.kts
 grep -q "versionName = \"$VERSION\"" app/build.gradle.kts
 grep -q 'versionCode = 1' app/build.gradle.kts
 grep -q 'versionName = "0.1.0-stable"' app/build.gradle.kts
+python3 tools/service_discovery_cache_regression.py
 OPS=app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt
 grep -Fq 'validActionTimePassword(value:String)' "$OPS"
 grep -Fq 'out.sortByDescending{atMillis(it)}' "$OPS"

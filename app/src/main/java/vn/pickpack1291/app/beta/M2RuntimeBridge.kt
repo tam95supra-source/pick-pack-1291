@@ -8,7 +8,7 @@ import java.net.URL
 
 /**
  * S31D_RUNTIME_BRIDGE_COMPILE_FIX
- * Cache-only routing for Service-primary direct actions. GAS is used only when authoritative discovery is GOOGLE_FALLBACK.
+ * Environment-scoped discovery routing for Service-primary direct actions. Cached discovery is accepted only when it matches the current environment/audience.
  * Device-local provider fault injection blocks that provider; it never promotes authority on its own.
  */
 class M2RuntimeBridge(context: Context) {
@@ -18,7 +18,7 @@ class M2RuntimeBridge(context: Context) {
 
     fun ensureServiceSession(gasToken:String?,force:Boolean=false):Boolean {
         if(ServiceFaultInjection.cloudflareDisabled(app)){recordServicePending("TEST_CLOUDFLARE_DISABLED");return false}
-        val d=transport.cachedDiscoverySnapshot() ?: transport.discoverySnapshot() ?: return false
+        val d=transport.discoverySnapshot(force=force) ?: return false
         val mode=d.optString("authority_mode");val base=d.optString("service_url").trimEnd('/')
         prefs.edit().putString(KEY_AUTHORITY_MODE,mode).putString(KEY_SERVICE_URL,base).apply()
         if(mode!="SERVICE_PRIMARY"||!validServiceUrl(base))return false
@@ -29,7 +29,7 @@ class M2RuntimeBridge(context: Context) {
 
     fun directRead(action:String,payload:JSONObject,gasToken:String?):M2ServiceTransport.TransportResult {
         if(action !in DIRECT_READS)return M2ServiceTransport.TransportResult(false,false,0,null,null)
-        val discovery=transport.cachedDiscoverySnapshot() ?: return M2ServiceTransport.TransportResult(true,false,0,null,"DISCOVERY_WARMING")
+        val discovery=transport.discoverySnapshot() ?: return M2ServiceTransport.TransportResult(true,false,0,null,"DISCOVERY_WARMING")
         val mode=discovery.optString("authority_mode")
         if(ServiceFaultInjection.cloudflareDisabled(app)&&mode!="GOOGLE_FALLBACK"){
             recordServicePending("TEST_CLOUDFLARE_DISABLED")
@@ -41,7 +41,10 @@ class M2RuntimeBridge(context: Context) {
         if(mode!="SERVICE_PRIMARY"||!validServiceUrl(base))return M2ServiceTransport.TransportResult(true,false,0,null,"AUTHORITY_NOT_SERVICE_PRIMARY")
         if(!ensureServiceSession(gasToken))return M2ServiceTransport.TransportResult(true,false,0,null,"SERVICE_SESSION_UNAVAILABLE")
 
-        fun one():HttpResult=httpJson("$base/v1/mobile/read",JSONObject(payload.toString()).put("action",action),prefs.getString(KEY_SERVICE_TOKEN,null))
+        fun one():HttpResult{
+            val currentBase=transport.cachedDiscoverySnapshot()?.optString("service_url").orEmpty().trimEnd('/').ifBlank{base}
+            return httpJson("$currentBase/v1/mobile/read",JSONObject(payload.toString()).put("action",action),prefs.getString(KEY_SERVICE_TOKEN,null))
+        }
         return try{
             var response=one()
             if(response.code==401&&ensureServiceSession(gasToken,force=true))response=one()

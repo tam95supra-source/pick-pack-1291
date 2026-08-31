@@ -119,8 +119,7 @@ class M2ServiceTransport(context: Context) {
             return ok
         }
         fun serviceSubmit(allowDiscovery:Boolean):JSONObject{
-            var discovery=cachedDiscoverySnapshot()
-            if(discovery==null&&allowDiscovery)discovery=discover(force=true)
+            val discovery=if(allowDiscovery) discoverySnapshot() else cachedDiscoverySnapshot()
             if(discovery==null)return JSONObject().put("ok",false).put("error","SERVICE_DISCOVERY_CACHE_EMPTY")
             if(discovery.optString("authority_mode")!="SERVICE_PRIMARY")
                 return JSONObject().put("ok",false).put("error","AUTHORITY_NOT_SERVICE_PRIMARY")
@@ -404,7 +403,7 @@ class M2ServiceTransport(context: Context) {
         if (action !in SYNC_ACTIONS) return TransportResult(false, false, 0, null, null)
         if (ServiceFaultInjection.cloudflareDisabled(app)) return TransportResult(false,false,-1,null,"TEST_CLOUDFLARE_DISABLED")
         if (!hasNetwork()) return TransportResult(true, false, -1, null, "OFFLINE_LOCAL")
-        val discovery = cachedDiscoverySnapshot() ?: return TransportResult(true, false, 0, null, "DISCOVERY_WARMING")
+        val discovery = discoverySnapshot() ?: return TransportResult(true, false, 0, null, "DISCOVERY_WARMING")
         val mode = discovery.optString("authority_mode")
         if (mode == "GOOGLE_FALLBACK") return TransportResult(false, false, 0, null, "FENCED_GOOGLE_FALLBACK")
         if (mode != "SERVICE_PRIMARY") return TransportResult(true, false, 0, null, "AUTHORITY_NOT_SERVICE_PRIMARY")
@@ -447,7 +446,7 @@ class M2ServiceTransport(context: Context) {
         val items=store.unresolvedMutations(100);if(items.isEmpty())return true
         if (!hasNetwork()) return serviceUnavailable(items,"NETWORK_UNAVAILABLE",false)
         if(ServiceFaultInjection.cloudflareDisabled(app))return serviceUnavailable(items,"TEST_CLOUDFLARE_DISABLED",true)
-        var discovery=cachedDiscoverySnapshot();if(discovery==null)discovery=discover(force=true)
+        val discovery=discoverySnapshot()
         if(discovery==null)return serviceUnavailable(items,"SERVICE_DISCOVERY_UNAVAILABLE",true)
         if(discovery.optString("authority_mode")=="GOOGLE_FALLBACK")return serviceUnavailable(items,"GOOGLE_FALLBACK_AUTHORITY",true)
         if(discovery.optString("authority_mode")!="SERVICE_PRIMARY")return serviceUnavailable(items,"AUTHORITY_NOT_SERVICE_PRIMARY",true)
@@ -516,8 +515,18 @@ class M2ServiceTransport(context: Context) {
 
     private fun exchangeBackgroundServiceSession(base:String):String? = M2ServiceSessionManager.ensure(app,base,force=true)
 
-    fun cachedDiscoverySnapshot(): JSONObject? = prefs.getString(KEY_DISCOVERY_JSON, null)?.let { runCatching { JSONObject(it) }.getOrNull() }
-    fun discoverySnapshot(): JSONObject? = cachedDiscoverySnapshot()
+    private fun discoveryMatchesEnvironment(j:JSONObject):Boolean {
+        if(j.optString("environment_id")!=BuildConfig.ENVIRONMENT_ID)return false
+        if(j.optString("service_audience")!=BuildConfig.SERVICE_AUDIENCE)return false
+        val service=j.optString("service_url").trimEnd('/')
+        return service.isBlank()||validServiceUrl(service)
+    }
+
+    fun cachedDiscoverySnapshot(): JSONObject? = prefs.getString(KEY_DISCOVERY_JSON, null)
+        ?.let { runCatching { JSONObject(it) }.getOrNull() }
+        ?.takeIf { discoveryMatchesEnvironment(it) }
+
+    fun discoverySnapshot(force:Boolean=false): JSONObject? = discover(force=force)
 
     private fun captureEmergency(items:List<OperationalDataStore.PendingMutation>):Boolean{
         if(ServiceFaultInjection.googleDisabled(app))return false
@@ -566,8 +575,8 @@ class M2ServiceTransport(context: Context) {
             val body = JSONObject().put("action", "service_discovery").put("_device_id", M2DeviceIdentity.id(app)).put("_app_version", BuildConfig.VERSION_NAME).put("_app_channel", BuildConfig.CHANNEL).put("_environment_id", BuildConfig.ENVIRONMENT_ID).put("_service_audience", BuildConfig.SERVICE_AUDIENCE)
             val r = httpJson(BuildConfig.GSHEET_API_URL, body, null, requireServiceHost = false)
             if (!r.ok || r.json == null) return cachedDiscoverySnapshot()
-            val j = r.json; val service = j.optString("service_url")
-            if (service.isNotBlank() && !validServiceUrl(service)) return cachedDiscoverySnapshot()
+            val j = r.json
+            if (!discoveryMatchesEnvironment(j)) return cachedDiscoverySnapshot()
             prefs.edit().putString(KEY_DISCOVERY_JSON, j.toString()).putLong(KEY_DISCOVERY_AT, now).apply(); j.optJSONObject("authority")?.let(store::saveAuthority); j
         } catch (_: Throwable) { cachedDiscoverySnapshot() }
     }
