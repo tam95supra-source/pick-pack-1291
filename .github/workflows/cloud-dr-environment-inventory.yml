@@ -1,0 +1,38 @@
+name: Cloud DR environment inventory
+on:
+  push:
+    branches:
+      - 'release/audit-beta104-stable-private-20260831'
+    paths:
+      - tools/cloud_dr_environment_inventory.py
+      - .github/workflows/cloud-dr-environment-inventory.yml
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: cloud-dr-environment-inventory
+  cancel-in-progress: false
+jobs:
+  inventory:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+      TURSO_API_TOKEN: ${{ secrets.TURSO_API_TOKEN }}
+      TURSO_ORGANIZATION: ${{ vars.TURSO_ORGANIZATION }}
+      DENO_DEPLOY_TOKEN: ${{ secrets.DENO_DEPLOY_TOKEN }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate inventory verifier
+        run: python3 -m py_compile tools/cloud_dr_environment_inventory.py
+      - name: Fresh-read provider and environment inventory
+        run: python3 tools/cloud_dr_environment_inventory.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cloud-dr-environment-inventory-${{ github.run_id }}
+          path: /tmp/cloud-dr-environment-inventory.json
+          retention-days: 90
+          if-no-files-found: error
