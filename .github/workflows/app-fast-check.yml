@@ -29,6 +29,7 @@ on:
       - tools/beta_auth_converge.py
       - tools/beta83_ota_device_gate.sh
       - tools/Beta83UiChecksInstrumentation.java
+      - tools/service_discovery_device_gate.sh
       - .github/workflows/beta-release.yml
       - tools/beta83_publish_ota.sh
       - tools/verify_beta_visual_receipt.py
@@ -204,6 +205,7 @@ jobs:
           python3 tools/verify_promotion_lock.py
           bash -n tools/beta83_publish_ota.sh
           bash -n tools/stable_private_apk_verify.sh
+          bash -n tools/service_discovery_device_gate.sh
 
       - name: Static resilience gates
         shell: bash
