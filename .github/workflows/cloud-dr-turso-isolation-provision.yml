@@ -1,0 +1,45 @@
+name: Cloud DR Turso isolation provision
+on:
+  push:
+    branches:
+      - 'release/audit-beta104-stable-private-20260831'
+    paths:
+      - tools/cloud_dr_turso_isolation_provision.py
+      - .github/workflows/cloud-dr-turso-isolation-provision.yml
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: cloud-dr-turso-isolation-provision
+  cancel-in-progress: false
+jobs:
+  provision:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      TURSO_API_TOKEN: ${{ secrets.TURSO_API_TOKEN }}
+      TURSO_ORGANIZATION: ${{ vars.TURSO_ORGANIZATION }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install exact service export tooling
+        working-directory: service
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Install exact cloud DR client
+        working-directory: services/cloud-dr
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Validate Turso isolation provisioner
+        run: python3 -m py_compile tools/cloud_dr_turso_isolation_provision.py
+      - name: Snapshot D1 and provision isolated Turso DR
+        run: python3 tools/cloud_dr_turso_isolation_provision.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cloud-dr-turso-isolation-${{ github.run_id }}
+          path: /tmp/cloud-dr-turso-isolation.json
+          retention-days: 90
+          if-no-files-found: error
