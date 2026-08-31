@@ -39,7 +39,7 @@ def curl_json(method,url,body=None,timeout=60):
     cmd += ["-w","\\n__STATUS__:%{http_code}",url]
     p=subprocess.run(cmd,input=data,text=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=timeout+10)
     if p.returncode:return -1,{"transport_error":p.stderr[-300:]}
-    marker="\\n__STATUS__:"
+    marker="\n__STATUS__:"
     if marker not in p.stdout:return -1,{"transport_error":"STATUS_MISSING"}
     raw,code=p.stdout.rsplit(marker,1)
     try:j=json.loads(raw) if raw.strip() else {}
