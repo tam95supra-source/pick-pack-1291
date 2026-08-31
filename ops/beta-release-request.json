@@ -1,6 +1,6 @@
 {
-  "stage": "SERVICE_DISCOVERY_ONLY",
-  "mode": "BETA104_EXACT_STALE_DISCOVERY_DEVICE_REGRESSION",
+  "stage": "RUNTIME_DOD_VERIFY",
+  "mode": "BETA104_RUNTIME_DOD_AFTER_DEVICE_PASS",
   "version_name": "0.4.2-beta.104",
   "version_code": 110,
   "base_version": "0.4.2-beta.102",
@@ -38,7 +38,7 @@
   "regression_case": "SERVICE-DISCOVERY-001",
   "owner_failure_evidence": "manual-20260831-172725-4aaccadf-0df6-4d6d-9eca-589b274b1659.json",
   "supersedes_pre_ota_candidate_run": 33383445974,
-  "execution_nonce": "beta104-service-discovery-only-20260831-03",
+  "execution_nonce": "beta104-runtime-dod-20260831-01",
   "candidate_source_sha": "c31bb1b7ad68e6fd114727d8f08508796013bcef",
   "candidate_run_id": 33384004708,
   "candidate_artifact_id": 9754938692,
@@ -57,7 +57,11 @@
   "verify_artifact_id": 9755057622,
   "verify_artifact_name": "beta-verify-33384004708",
   "fast_check": "PASS",
-  "fast_check_run_id": 33388470611,
-  "device_regression_status": "PENDING_RETRY_INSTRUMENTATION_RESULT_GATE",
-  "next_action": "SERVICE_DISCOVERY_ONLY_EXACT_CANDIDATE"
+  "fast_check_run_id": 33388933459,
+  "device_regression_status": "PASS",
+  "next_action": "RUNTIME_DOD_VERIFY_EXACT_BETA104",
+  "device_regression_run_id": 33388577027,
+  "device_regression_artifact_id": 9756583802,
+  "device_regression_artifact_name": "beta-service-discovery-33388577027",
+  "runtime_dod_status": "PENDING"
 }
