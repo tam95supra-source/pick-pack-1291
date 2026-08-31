@@ -1,6 +1,6 @@
 {
   "stage": "RUNTIME_DOD_VERIFY",
-  "mode": "FINAL_PRE_OTA_RUNTIME_DOD_ENV_DIAGNOSTIC",
+  "mode": "FINAL_PRE_OTA_RUNTIME_DOD_AFTER_STABLE_CODE_SYNC",
   "version_name": "0.4.2-beta.102",
   "version_code": 108,
   "base_version": "0.4.2-beta.101",
@@ -46,7 +46,7 @@
   "visual_matrix": "PASS_INHERITED_RUN_33338713705_EXACT_CANDIDATE",
   "pda_functional_pre_ota": "PASS_INHERITED_RUN_33338713705_EXACT_CANDIDATE",
   "back_api36": "PASS_INHERITED_RUN_33339717799_EXACT_CANDIDATE",
-  "execution_nonce": "runtime-dod-env-diagnostic-20260831-04",
+  "execution_nonce": "runtime-dod-stable-codesync-20260831-05",
   "human_visual_sizes": [
     "320x568",
     "360x640",
