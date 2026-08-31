@@ -1,6 +1,6 @@
 {
-  "stage": "pass_live",
-  "mode": "PASS_LIVE_EXACT_BYTES_GITHUB_RELEASE_ONLY",
+  "stage": "STABLE_PRIVATE_APK_VERIFY",
+  "mode": "AUDIT_STABLE_PRIVATE_APK_VERIFY_EXACT_BETA104",
   "version_name": "0.4.2-beta.104",
   "version_code": 110,
   "base_version": "0.4.2-beta.102",
@@ -82,6 +82,7 @@
   "runtime_dod_run_id": 33389060092,
   "runtime_dod_artifact_id": 9756743967,
   "runtime_dod_artifact_name": "beta-stable-runtime-33389060092",
-  "next_action": "WAIT_FOR_OWNER_NEW_SCOPE",
-  "publish_run_id": "33391700817"
+  "next_action": "AUDIT_STABLE_PRIVATE_APK_VERIFY_EXACT_BETA104",
+  "publish_run_id": "33391700817",
+  "audit_only": true
 }
