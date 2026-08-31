@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import json, os, sys, urllib.request, urllib.error, hashlib
+import json, os, sys, urllib.request, urllib.error, hashlib, subprocess
 from pathlib import Path
 
 API="https://script.googleapis.com/v1/projects"
@@ -73,6 +73,17 @@ def repo_project():
         files.append({"name":path.stem,"type":"SERVER_JS","source":path.read_text(encoding="utf-8")})
     return {"files":files}
 
+def live_post(url,body):
+    cmd=["curl","-sS","-L","--connect-timeout","12","--max-time","60","-H","Content-Type: application/json","--data-binary","@-","-w","\\n__STATUS__:%{http_code}",url]
+    p=subprocess.run(cmd,input=json.dumps(body,separators=(",",":")),text=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=70)
+    if p.returncode:return -1,{"transport_error":p.stderr[-300:]}
+    marker="\\n__STATUS__:"
+    if marker not in p.stdout:return -1,{"transport_error":"STATUS_MISSING"}
+    raw,code=p.stdout.rsplit(marker,1)
+    try:j=json.loads(raw) if raw.strip() else {}
+    except:j={"raw":raw[:500]}
+    return int(code.strip()),j
+
 def main():
     out=Path(sys.argv[1])
     sid=os.environ.get("GAS_SCRIPT_ID","").strip()
@@ -86,6 +97,8 @@ def main():
         raise RuntimeError("deployment version missing")
     deployed=req(f"{API}/{sid}/content?versionNumber={version}",token)
     head=req(f"{API}/{sid}/content",token)
+    web=f"https://script.google.com/macros/s/{dep}/exec"
+    live_code,live_discovery=live_post(web,{"action":"service_discovery","_app_channel":"BETA","_environment_id":"BETA","_service_audience":"PICK_PACK_1291_BETA"})
     repo_obj=repo_project()
     repo=server_source(repo_obj)
     deployed_flags=flags(server_source(deployed))
@@ -113,6 +126,7 @@ def main():
         "deployment_server_files":file_features(deployed),
         "head_server_files":file_features(head),
         "repo_server_files":file_features(repo_obj),
+        "live_discovery":{"http":live_code,"ok":live_discovery.get("ok"),"error":live_discovery.get("error"),"environment_id":live_discovery.get("environment_id"),"service_audience":live_discovery.get("service_audience"),"service_url":live_discovery.get("service_url"),"authority_mode":live_discovery.get("authority_mode")},
     }
     out.parent.mkdir(parents=True,exist_ok=True)
     out.write_text(json.dumps(data,indent=2)+"\n",encoding="utf-8")
