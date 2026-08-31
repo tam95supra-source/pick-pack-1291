@@ -53,12 +53,39 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
       if("checks".equals(mode))runChecks();
       else if("visual".equals(mode))runVisual();
       else if("back36".equals(mode))runBack36();
+      else if("service-discovery".equals(mode))runServiceDiscoveryCacheRegression();
       else throw new IllegalArgumentException("MODE_UNSUPPORTED:"+mode);
     }catch(Throwable t){
       Bundle x=new Bundle();
       x.putString("error",t.getClass().getSimpleName()+":"+String.valueOf(t.getMessage()));
       finish(1,x);
     }
+  }
+
+  private void runServiceDiscoveryCacheRegression() throws Exception {
+    android.content.SharedPreferences p=target.getSharedPreferences("pp_m2_service_transport",Context.MODE_PRIVATE);
+    String stale="{\"ok\":true,\"authority_mode\":\"SERVICE_PRIMARY\",\"service_url\":\"https://pickpack1291.cc.cd\"}";
+    p.edit().putString("discovery_json",stale).putLong("discovery_at",System.currentTimeMillis()).remove("service_token").commit();
+    Class<?> c=target.getClassLoader().loadClass("vn.pickpack1291.app.beta.M2ServiceTransport");
+    Object transport=c.getConstructor(Context.class).newInstance(target);
+    Method m=c.getMethod("discoverySnapshot",boolean.class);
+    Object raw=m.invoke(transport,false);
+    require(raw instanceof JSONObject,"SERVICE_DISCOVERY_REFRESH_EMPTY");
+    JSONObject d=(JSONObject)raw;
+    require("BETA".equals(d.optString("environment_id")),"SERVICE_DISCOVERY_ENV_NOT_BETA:"+d.optString("environment_id"));
+    require("PICK_PACK_1291_BETA".equals(d.optString("service_audience")),"SERVICE_DISCOVERY_AUDIENCE_MISMATCH:"+d.optString("service_audience"));
+    String url=d.optString("service_url");
+    require(url.startsWith("https://"),"SERVICE_DISCOVERY_URL_INVALID:"+url);
+    require(!"https://pickpack1291.cc.cd".equals(url),"SERVICE_DISCOVERY_STALE_ROOT_REUSED");
+    JSONObject persisted=new JSONObject(p.getString("discovery_json","{}"));
+    require("BETA".equals(persisted.optString("environment_id")),"SERVICE_DISCOVERY_CACHE_NOT_REWRITTEN");
+    require(url.equals(persisted.optString("service_url")),"SERVICE_DISCOVERY_CACHE_URL_NOT_REWRITTEN");
+    Bundle x=new Bundle();
+    x.putString("service_discovery_cache_regression","PASS");
+    x.putString("environment_id",d.optString("environment_id"));
+    x.putString("service_audience",d.optString("service_audience"));
+    x.putString("service_url",url);
+    finish(0,x);
   }
 
   private String req(String k){
