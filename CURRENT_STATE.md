@@ -1,29 +1,38 @@
 # CURRENT STATE — PICK PACK 1291
 
-- updated_at: 2026-08-31T12:30:08Z
-- status: BETA104_PASS_LIVE
+- updated_at: 2026-08-31T12:30:25Z
+- status: BETA104_LIVE_TECHNICAL_PASS_AWAITING_OWNER
+- technical_dod_status: TECHNICAL_PASS_AWAITING_OWNER
+- owner_acceptance: PENDING_BETA104
 - continuity_branch: release/beta102-beta-stable-isolation-20260831
 - source_sha: c31bb1b7ad68e6fd114727d8f08508796013bcef
 - beta_live: 0.4.2-beta.104 (versionCode 110)
 - package: vn.pickpack1291.app.beta.publicbeta
 - candidate_run: 33384004708
 - candidate_artifact: 9754938692
-- verify_run: 33384004708
-- verify_artifact: 9755057622
+- visual_artifact: 9755057622
+- human_visual_receipt: ops/beta104-human-visual-receipt.json
+- release_lock: ops/beta104-release-lock.json
 - apk_sha256: 523b7ca4fe3463acdec8281d6232f36cd15e8df13a5f25585ca4ff4b82f2d6f1
 - apk_size: 13593589
 - signer_sha256: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
-- terminal_run: 33391700817
-- fast_check: PASS
-- service_gate: PASS_INHERITED_BETA102_EXACT_SERVICE_SOURCE_UNCHANGED
-- visual_matrix: PASS 320x568 / 360x640 / 480x800
-- human_visual: PASS
-- pda_functional_pre_ota: PASS
-- beta_ota: exact 0.4.2-beta.104 PASS via GitHub Release
+- service_discovery_device: PASS run 33388577027 / artifact 9756583802
+- fast_check: PASS run 33388933459
+- runtime_dod: PASS run 33389060092 / artifact 9756743967
+- terminal_run: 33391700817 PASS
+- publish_artifact: 9757752307
+- ota_preserved_data_artifact: 9757829287
+- final_artifact: 9757837384
+- handoff_artifact: 9757842679
+- github_release_asset_id: 537953189
+- beta_ota: exact 0.4.2-beta.102 -> 0.4.2-beta.104 PASS; data/cache preserved; stale Stable-root cache invalidated without clear/reinstall
 - beta_ota_url: https://github.com/tam95supra-source/pick-pack-1291/releases/download/v0.4.2-beta.104-publicbeta/pick-pack-1291-public-beta-0.4.2-beta.104.apk
+- service_discovery: BETA / PICK_PACK_1291_BETA / https://pickpack.1291.workers.dev / stable_root_reused=false
+- beta_gas_publish_contract: deployment 215 (ppUpdateCheck-only); prior service/discovery repair evidence v213 inherited
 - apk_transport: GITHUB_RELEASE_ONLY
 - google_drive_apk: FORBIDDEN
-- stable: unchanged
-- main_sha: 021dac5c6932b3ac5c60ce8fdba562ddf3d9688f
-- authority: SERVICE_PRIMARY / PRODUCTION / epoch 9 / generation m2-prod-reset-20260823-001
-- next_action: WAIT_FOR_OWNER_NEW_SCOPE
+- stable: READY_NOT_LIVE / private / public=false / available=false / no OTA / no promotion
+- main_sha: 021dac5c6932b3ac5c60ce8fdba562ddf3d9688f / unchanged
+- authority: SERVICE_PRIMARY / PRODUCTION / epoch 9 / generation m2-prod-reset-20260823-001 / unchanged
+- rollback: skipped
+- next_action: OWNER_ACCEPTANCE_BETA104_CHECKLIST
