@@ -73,10 +73,20 @@ invariants:
     owner_acceptance: "DEFERRED_BY_OWNER_2026-08-30_NON_BLOCKING_UNTIL_REOPENED"
     priority: "DEFERRED_NON_BLOCKING_BY_OWNER"
     resume_condition: "OWNER_REOPENS_BACKUP_DR_SCOPE"
+  - id: BETA-STABLE-AUDIT-001
+    status: TECHNICAL_PASS_AWAITING_OWNER
+    scope: beta-stable-full-isolation
+    rule: "Beta104 LIVE remains independent; Stable is READY_NOT_LIVE with separate package/runtime/data/auth/GSheet/GAS/DR/release state; no cross-write/auth/session/fallback/manifest/data copy; Stable public activation requires fresh explicit OWNER promotion."
+    technical_candidate: "Beta104 accepted source c31bb1b7ad68e6fd114727d8f08508796013bcef + Stable private readiness"
+    technical_evidence: "Stable private APK 33401278044/9761451846; Turso 33413666617/9766154727; Deno 33416165785/9767094401; Render 33417320129/9767567227; promotion dry-run 33419578736/9768397541; final CI 33419578501; final impacted regression 33420663673/9768750476 PASS"
+    regression_minimum: [exact_beta_source, stable_private_coinstall, env_audience_fence, auth_isolation, data_isolation, gsheet_gas_isolation, service_state_fencing, dr_restore_cross_token, quota_guard, promotion_dry_run, stable_publish_fail_closed, fcm_environment_scope]
+    owner_acceptance: "AWAITING_OWNER_BETA_STABLE_CHECKLIST_1_TO_18"
+    common_mode_note: "Free-provider/account-wide outage risk remains an availability common mode; no claim of absolute provider outage isolation."
+
 impact_map:
   "app/**": [UI-STATUS-001, QR-LOCAL-001, MEAL-DATE-001, MEAL-WARN-001, ROLE-HISTORY-001, OTA-BETA-001, PDA-EXIT-001, ENV-ISOLATION-001, SERVICE-DISCOVERY-001, INFRA-RESILIENCE-001]
   "service/**": [QR-LOCAL-001, MEAL-DATE-001, PDA-EXIT-001, ENV-ISOLATION-001, INFRA-RESILIENCE-001]
-  "services/**": [ENV-ISOLATION-001, INFRA-RESILIENCE-001]
+  "services/**": [ENV-ISOLATION-001, INFRA-RESILIENCE-001, BETA-STABLE-AUDIT-001]
   "google-apps-script/**": [ENV-ISOLATION-001, INFRA-RESILIENCE-001, OTA-BETA-001]
-  ".github/workflows/**": [OTA-BETA-001, ENV-ISOLATION-001, INFRA-RESILIENCE-001]
-  "config/environment_contracts.json": [ENV-ISOLATION-001]
+  ".github/workflows/**": [OTA-BETA-001, ENV-ISOLATION-001, INFRA-RESILIENCE-001, BETA-STABLE-AUDIT-001]
+  "config/environment_contracts.json": [ENV-ISOLATION-001, BETA-STABLE-AUDIT-001]

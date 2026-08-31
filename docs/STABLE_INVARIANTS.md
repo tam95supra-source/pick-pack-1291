@@ -120,6 +120,18 @@ Mỗi invariant tối thiểu có:
 - Test fidelity: NORMAL_SERVICE_PRIMARY dùng Service/idempotency thật. Google fallback sau GAS206 là safe live-path drill. DEVICE_OFFLINE_LOCAL và SERVICE_GOOGLE_OFFLINE_LOCAL là isolated simulation + real recovery, không phải physical outage. GOOGLE_UNAVAILABLE_SERVICE dùng Service thật nhưng Google-down được mô phỏng. LAN chỉ có giá trị khi có topology multi-device thực sự active.
 - OWNER acceptance: DEFERRED_BY_OWNER ngày 2026-08-30. Item 6 tạm pending, không phải PASS, không chặn scope phát triển khác; chỉ rerun Beta101/GAS206 + LAN topology thật khi OWNER mở lại scope backup/DR trước khi ACTIVE_PASS.
 
+
+### BETA-STABLE-AUDIT-001
+- Status: TECHNICAL_PASS_AWAITING_OWNER
+- Scope: Beta/Stable full isolation / private Stable readiness / future promotion
+- Rule: Beta104 LIVE remains the accepted development environment; Stable is an independent READY_NOT_LIVE environment with separate package/runtime/data/auth/GSheet/GAS/DR/release state. Cross-environment write/auth/session/fallback/manifest/data reuse is forbidden. Stable public root/manifest/OTA/promotion remain disabled until a fresh explicit OWNER promotion authorization.
+- Regression: exact accepted Beta product source unchanged; Stable private APK side-by-side install; runtime environment/audience mismatch reject; auth and data canary isolation; GAS destination/idempotency/cleanup; provider DR restore/cross-token/cross-restore; canonical quota guard; promotion dry-run; Stable publish fail-closed; FCM-only environment scoping; final impacted regression.
+- Technical evidence: accepted Beta source c31bb1b7ad68e6fd114727d8f08508796013bcef / Beta104 terminal 33391700817; Stable private APK run 33401278044 artifact 9761451846; Turso 33413666617/9766154727; Deno 33416165785/9767094401; Render 33417320129/9767567227; promotion dry-run 33419578736/9768397541; final CI 33419578501; final impacted regression 33420663673/9768750476 PASS. Stable manifest/OTA/public/promotion all false; no Beta transactional/account/session/outbox/log state copied.
+- Common-mode note: free providers can retain provider/account-wide availability risk; resource/credential/write-path isolation and canonical quota/kill-switch guards prevent cross-environment data contamination and planned Beta quota exhaustion, but this invariant does not claim immunity from a provider-wide outage.
+- OWNER acceptance: AWAITING_OWNER_BETA_STABLE_CHECKLIST_1_TO_18.
+- Last verified: 2026-09-01 / audit branch release/audit-beta104-stable-private-20260831.
+
+
 ## 5. Quy tắc tích lũy sau mỗi task
 
 Khi DoD PASS:

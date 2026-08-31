@@ -1,0 +1,401 @@
+{
+  "schema_version": 1,
+  "project": "APK PICK PACK 1291",
+  "owner": "Nguyễn Văn Tâm",
+  "scope": "BETA_STABLE_FULL_ISOLATION_AUDIT",
+  "stage": "PRE_FINAL_HANDOFF",
+  "stable_lifecycle": "READY_NOT_LIVE",
+  "accepted_beta_source_sha": "c31bb1b7ad68e6fd114727d8f08508796013bcef",
+  "audit_branch": "release/audit-beta104-stable-private-20260831",
+  "product_source_unchanged": true,
+  "stable_public": false,
+  "stable_manifest": false,
+  "stable_ota": false,
+  "stable_promotion_authorized": false,
+  "common_mode_note": "Free provider/account-wide availability outage remains a shared risk where the provider cannot hard-isolate it; data/write credentials/state are environment-fenced and Beta quota is bounded. No absolute provider-outage isolation claim.",
+  "evidence": {
+    "beta104": "run 33391700817 / final artifact 9757837384 / source c31bb1b7ad68e6fd114727d8f08508796013bcef",
+    "stable_private_apk": "run 33401278044 / artifact 9761451846",
+    "stable_isolation_restore": "run 33338403974 / artifact 9739756071",
+    "turso": "run 33413666617 / artifact 9766154727",
+    "deno": "run 33416165785 / artifact 9767094401",
+    "render": "run 33417320129 / artifact 9767567227",
+    "promotion": "run 33419578736 / artifact 9768397541",
+    "final_ci": "run 33419578501",
+    "final_regression": "run 33420663673 / artifact 9768750476 / sha256:af9e82f38e51574e97f1d8ac4d5f8ff0b8c2089a0838f132d84a146b8b7ea02c",
+    "quota": "config/provider_free_limits.json + final CI provider preflight",
+    "state_contract": "config/environment_contracts.json STABLE READY_NOT_LIVE"
+  },
+  "coverage_groups": {
+    "S00": {
+      "status": "PASS_AFTER_FIX",
+      "evidence_refs": [
+        "final_regression"
+      ],
+      "note": "Deterministic/harness failures recovered without rebuilding accepted APK."
+    },
+    "S01": {
+      "status": "PASS_FRESH",
+      "evidence_refs": [
+        "promotion",
+        "final_ci",
+        "final_regression"
+      ],
+      "note": "Fresh audit/readback or final verification."
+    },
+    "S02": {
+      "status": "PASS_FRESH",
+      "evidence_refs": [
+        "promotion",
+        "final_ci",
+        "final_regression"
+      ],
+      "note": "Fresh audit/readback or final verification."
+    },
+    "S04": {
+      "status": "PASS_FRESH",
+      "evidence_refs": [
+        "promotion",
+        "final_ci",
+        "final_regression"
+      ],
+      "note": "Fresh audit/readback or final verification."
+    },
+    "S06": {
+      "status": "PASS_FRESH",
+      "evidence_refs": [
+        "promotion",
+        "final_ci",
+        "final_regression"
+      ],
+      "note": "Fresh audit/readback or final verification."
+    },
+    "S08": {
+      "status": "PASS_FRESH",
+      "evidence_refs": [
+        "promotion",
+        "final_ci",
+        "final_regression"
+      ],
+      "note": "Fresh audit/readback or final verification."
+    },
+    "S09": {
+      "status": "PASS_FRESH",
+      "evidence_refs": [
+        "promotion",
+        "final_ci",
+        "final_regression"
+      ],
+      "note": "Fresh audit/readback or final verification."
+    },
+    "S10": {
+      "status": "PASS_FRESH",
+      "evidence_refs": [
+        "promotion",
+        "final_ci",
+        "final_regression"
+      ],
+      "note": "Fresh audit/readback or final verification."
+    },
+    "S12": {
+      "status": "PASS_FRESH",
+      "evidence_refs": [
+        "promotion",
+        "final_ci",
+        "final_regression"
+      ],
+      "note": "Fresh audit/readback or final verification."
+    },
+    "S16": {
+      "status": "PASS_FRESH",
+      "evidence_refs": [
+        "promotion",
+        "final_ci",
+        "final_regression"
+      ],
+      "note": "Fresh audit/readback or final verification."
+    },
+    "S18": {
+      "status": "PASS_FRESH",
+      "evidence_refs": [
+        "promotion",
+        "final_ci",
+        "final_regression"
+      ],
+      "note": "Fresh audit/readback or final verification."
+    },
+    "S19": {
+      "status": "PASS_FRESH",
+      "evidence_refs": [
+        "promotion",
+        "final_ci",
+        "final_regression"
+      ],
+      "note": "Fresh audit/readback or final verification."
+    },
+    "S21": {
+      "status": "PASS_FRESH",
+      "evidence_refs": [
+        "promotion",
+        "final_ci",
+        "final_regression"
+      ],
+      "note": "Fresh audit/readback or final verification."
+    },
+    "S22": {
+      "status": "PASS_FRESH",
+      "evidence_refs": [
+        "promotion",
+        "final_ci",
+        "final_regression"
+      ],
+      "note": "Fresh audit/readback or final verification."
+    },
+    "S25": {
+      "status": "PASS_FRESH",
+      "evidence_refs": [
+        "promotion",
+        "final_ci",
+        "final_regression"
+      ],
+      "note": "Fresh audit/readback or final verification."
+    },
+    "S26": {
+      "status": "PASS_FRESH",
+      "evidence_refs": [
+        "promotion",
+        "final_ci",
+        "final_regression"
+      ],
+      "note": "Fresh audit/readback or final verification."
+    },
+    "S03": {
+      "status": "PASS_REUSED",
+      "evidence_refs": [
+        "beta104",
+        "stable_private_apk"
+      ],
+      "note": "Fingerprint/product source unchanged; protected Stable/main/signer/authority not changed."
+    },
+    "S05": {
+      "status": "PASS_REUSED",
+      "evidence_refs": [
+        "beta104",
+        "stable_private_apk"
+      ],
+      "note": "Fingerprint/product source unchanged; protected Stable/main/signer/authority not changed."
+    },
+    "S07": {
+      "status": "PASS_REUSED",
+      "evidence_refs": [
+        "beta104",
+        "stable_private_apk"
+      ],
+      "note": "Fingerprint/product source unchanged; protected Stable/main/signer/authority not changed."
+    },
+    "S17": {
+      "status": "PASS_REUSED",
+      "evidence_refs": [
+        "beta104",
+        "stable_private_apk"
+      ],
+      "note": "Fingerprint/product source unchanged; protected Stable/main/signer/authority not changed."
+    },
+    "S20": {
+      "status": "PASS_REUSED",
+      "evidence_refs": [
+        "beta104",
+        "stable_private_apk"
+      ],
+      "note": "Fingerprint/product source unchanged; protected Stable/main/signer/authority not changed."
+    },
+    "S11": {
+      "status": "PASS_AFTER_FIX",
+      "evidence_refs": [
+        "turso",
+        "deno",
+        "render",
+        "final_ci",
+        "final_regression"
+      ],
+      "note": "Canonical quota/DR/CI/regression gaps fixed and reverified."
+    },
+    "S13": {
+      "status": "PASS_AFTER_FIX",
+      "evidence_refs": [
+        "turso",
+        "deno",
+        "render",
+        "final_ci",
+        "final_regression"
+      ],
+      "note": "Canonical quota/DR/CI/regression gaps fixed and reverified."
+    },
+    "S14": {
+      "status": "PASS_AFTER_FIX",
+      "evidence_refs": [
+        "turso",
+        "deno",
+        "render",
+        "final_ci",
+        "final_regression"
+      ],
+      "note": "Canonical quota/DR/CI/regression gaps fixed and reverified."
+    },
+    "S15": {
+      "status": "PASS_AFTER_FIX",
+      "evidence_refs": [
+        "turso",
+        "deno",
+        "render",
+        "final_ci",
+        "final_regression"
+      ],
+      "note": "Canonical quota/DR/CI/regression gaps fixed and reverified."
+    },
+    "S23": {
+      "status": "NOT_APPLICABLE_EVIDENCED",
+      "evidence_refs": [
+        "final_regression"
+      ],
+      "note": "No remaining permission/protected/cost/identity blocker in technical audit scope."
+    },
+    "S24": {
+      "status": "PENDING_FINAL_HANDOFF",
+      "evidence_refs": [
+        "final_regression"
+      ],
+      "note": "Will be closed only after final CURRENT_STATE + archive READY + HANDOVER_CURRENT commit/readback."
+    }
+  },
+  "dod_a_to_n": {
+    "A": {
+      "status": "PASS",
+      "evidence_refs": [
+        "promotion",
+        "final_ci",
+        "final_regression"
+      ]
+    },
+    "B": {
+      "status": "PASS",
+      "evidence_refs": [
+        "promotion",
+        "final_ci",
+        "final_regression"
+      ]
+    },
+    "C": {
+      "status": "PASS",
+      "evidence_refs": [
+        "promotion",
+        "final_ci",
+        "final_regression"
+      ]
+    },
+    "D": {
+      "status": "PASS",
+      "evidence_refs": [
+        "promotion",
+        "final_ci",
+        "final_regression"
+      ]
+    },
+    "E": {
+      "status": "PASS",
+      "evidence_refs": [
+        "promotion",
+        "final_ci",
+        "final_regression"
+      ]
+    },
+    "F": {
+      "status": "PASS",
+      "evidence_refs": [
+        "promotion",
+        "final_ci",
+        "final_regression"
+      ]
+    },
+    "G": {
+      "status": "PASS",
+      "evidence_refs": [
+        "promotion",
+        "final_ci",
+        "final_regression"
+      ]
+    },
+    "H": {
+      "status": "PASS",
+      "evidence_refs": [
+        "promotion",
+        "final_ci",
+        "final_regression"
+      ]
+    },
+    "I": {
+      "status": "PASS",
+      "evidence_refs": [
+        "stable_isolation_restore",
+        "turso",
+        "deno",
+        "render",
+        "final_regression"
+      ]
+    },
+    "J": {
+      "status": "PASS",
+      "evidence_refs": [
+        "quota",
+        "final_ci",
+        "final_regression"
+      ]
+    },
+    "K": {
+      "status": "PASS",
+      "evidence_refs": [
+        "promotion",
+        "final_ci",
+        "final_regression"
+      ]
+    },
+    "L": {
+      "status": "PASS",
+      "evidence_refs": [
+        "promotion",
+        "final_ci",
+        "final_regression"
+      ]
+    },
+    "M": {
+      "status": "PENDING_FINAL_HANDOFF",
+      "evidence_refs": [
+        "final_regression"
+      ],
+      "remaining_action": "Commit/readback final registry, CURRENT_STATE, archive READY and HANDOVER_CURRENT."
+    },
+    "N": {
+      "status": "PASS",
+      "evidence_refs": [
+        "promotion",
+        "final_regression"
+      ]
+    }
+  },
+  "coverage_summary": {
+    "groups_total": 27,
+    "pass_reused": 5,
+    "pass_fresh": 15,
+    "pass_after_fix": 5,
+    "not_applicable_evidenced": 1,
+    "pending_final_handoff": 1,
+    "fail": 0,
+    "unknown": 0,
+    "blocked_owner": 0
+  },
+  "owner_acceptance": {
+    "beta104": "COMPLETE_1_TO_6",
+    "beta_stable_full": "AWAITING_1_TO_18"
+  },
+  "next_action": "FINALIZE_STATE_HANDOFF_AFTER_DEPENDENT_CI"
+}
