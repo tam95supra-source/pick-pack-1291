@@ -90,8 +90,10 @@ def main():
 
     domains=list_domains()
     stable_matches=[d for d in domains if str(d.get("hostname") or "").lower()==stable_host.lower()]
-    if stable_matches:raise RuntimeError("STABLE_ROOT_DOMAIN_ALREADY_ATTACHED")
     beta_matches=[d for d in domains if str(d.get("hostname") or "").lower()==host.lower()]
+    if stable_matches:
+        safe=[{"id":d.get("id"),"hostname":d.get("hostname"),"service":d.get("service"),"zone_name":d.get("zone_name")} for d in stable_matches]
+        raise RuntimeError("STABLE_ROOT_DOMAIN_ALREADY_ATTACHED:"+json.dumps(safe,separators=(",",":")))
     changed=False
     if beta_matches:
         if len(beta_matches)!=1 or str(beta_matches[0].get("service") or "")!=worker:
