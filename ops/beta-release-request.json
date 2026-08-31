@@ -1,6 +1,6 @@
 {
-  "stage": "PUBLISH",
-  "mode": "BETA102_EXACT_LOCKED_PUBLISH_AFTER_FULL_RUNTIME_DOD",
+  "stage": "pass_live",
+  "mode": "PASS_LIVE_EXACT_BYTES_GITHUB_RELEASE_ONLY",
   "version_name": "0.4.2-beta.102",
   "version_code": 108,
   "base_version": "0.4.2-beta.101",
@@ -17,7 +17,7 @@
   "resign": false,
   "scope": "beta102-beta-stable-environment-audience-http-gas-lan-nsd-isolation",
   "owner": "Nguyen Van Tam",
-  "live": false,
+  "live": true,
   "release_notes": [
     "Tách environment/audience BETA và STABLE trên Android HTTP, GAS fallback và service session.",
     "Tách LAN/NSD theo environment; peer/frame khác environment bị reject.",
@@ -82,5 +82,7 @@
   "beta_gas_readback_run_id": 33376476824,
   "runtime_recovery_run_id": 33377177462,
   "runtime_recovery_artifact_id": 9752326622,
-  "prior_failed_runtime_dod_run_id": 33376556040
+  "prior_failed_runtime_dod_run_id": 33376556040,
+  "publish_run_id": "33377501045",
+  "next_action": "WAIT_FOR_OWNER_NEW_SCOPE"
 }
