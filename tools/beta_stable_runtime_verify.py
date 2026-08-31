@@ -36,13 +36,28 @@ def oauth():
     t=str(j.get("access_token",""))
     if not t:raise RuntimeError("GOOGLE_TOKEN_MISSING")
     return t
-def curl_json(method,url,headers=None,body=None,follow=False,timeout=35):
-    cmd=["curl","-sS","--connect-timeout","12","--max-time",str(timeout),"-X",method]
+def curl_args(method,headers=None,body_present=False,follow=False,timeout=35):
+    method=str(method).upper()
+    cmd=["curl","-sS","--connect-timeout","12","--max-time",str(timeout)]
     if follow:cmd.append("-L")
     for k,v in (headers or {}).items():cmd += ["-H",f"{k}: {v}"]
+    if body_present:
+        cmd += ["-H","Content-Type: application/json","--data-binary","@-"]
+        if method!="POST":cmd += ["-X",method]
+    elif method!="GET":
+        cmd += ["-X",method]
+    return cmd
+def curl_transport_selftest():
+    post=curl_args("POST",body_present=True,follow=True)
+    if "-X" in post or "--data-binary" not in post or "-L" not in post:raise RuntimeError("CURL_REDIRECT_POST_SELFTEST_FAIL")
+    get=curl_args("GET",follow=True)
+    if "-X" in get:raise RuntimeError("CURL_GET_SELFTEST_FAIL")
+    put=curl_args("PUT",body_present=True)
+    if "-X" not in put or put[put.index("-X")+1]!="PUT":raise RuntimeError("CURL_NONPOST_METHOD_SELFTEST_FAIL")
+def curl_json(method,url,headers=None,body=None,follow=False,timeout=35):
+    cmd=curl_args(method,headers=headers,body_present=body is not None,follow=follow,timeout=timeout)
     inp=None
-    if body is not None:
-        cmd += ["-H","Content-Type: application/json","--data-binary","@-"];inp=json.dumps(body,separators=(",",":"))
+    if body is not None:inp=json.dumps(body,separators=(",",":"))
     cmd += ["-w","\n__STATUS__:%{http_code}",url]
     p=subprocess.run(cmd,input=inp,text=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=timeout+10)
     if p.returncode:return -1,{"transport_error":p.stderr[-300:]}
@@ -87,6 +102,7 @@ def validate_quota_rows(rows,limits):
     if nums["RETENTION_DAYS"]<45:raise RuntimeError("BETA_RETENTION_GUARD_INVALID")
     return {k:got[k] for k in QUOTA_KEYS}
 def quota_selftest():
+    curl_transport_selftest()
     limits={"cloudflare_workers_free":{"d1_database_bytes":524288000,"d1_account_bytes":5368709120}}
     good=[
       {"config_key":"WARN_DB_PERCENT","config_value":"70"},{"config_key":"PREPARE_NEXT_DB_PERCENT","config_value":"80"},
