@@ -280,8 +280,8 @@ if __name__=="__main__":
                 raise RuntimeError("STABLE_VERIFIER_FORMAT_SELFTEST")
             if hashlib.sha256(value.encode()).hexdigest()!=h:
                 raise RuntimeError("STABLE_VERIFIER_HASH_SELFTEST")
-            if "$" in value:
-                raise RuntimeError("STABLE_VERIFIER_DOUBLE_DOLLAR_SELFTEST")
+            if value.count("$")!=3:
+                raise RuntimeError("STABLE_VERIFIER_DELIMITER_COUNT_SELFTEST")
             print("stable_verifier_selftest=PASS")
         except Exception as e:
             print("STABLE_VERIFIER_SELFTEST_ERROR:"+str(e),file=sys.stderr);sys.exit(1)
