@@ -123,7 +123,7 @@ def main():
 
     if root_migration_required:
         code,j=req(f"{CF}/accounts/{need('CLOUDFLARE_ACCOUNT_ID')}/workers/domains/"+urllib.parse.quote(root_domain_id,safe=""),"DELETE")
-        if code//100!=2 or j.get("success") is not True:
+        if code//100!=2:
             raise RuntimeError("STABLE_ROOT_BETA_ROUTE_DETACH_FAILED:"+str(code)+":"+json.dumps(j.get("errors",j))[:900])
 
     after_domains=list_domains()
