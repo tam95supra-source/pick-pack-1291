@@ -1,5 +1,6 @@
 name: Cloud DR Turso readback
 on:
+  workflow_dispatch:
   push:
     branches:
       - 'release/audit-beta104-stable-private-20260831'
