@@ -1,0 +1,81 @@
+{
+  "schema_version": 1,
+  "project": "APK PICK PACK 1291",
+  "audit_scope": "BETA_STABLE_FULL_ISOLATION_TECHNICAL_AUDIT",
+  "accepted_beta": {
+    "source_sha": "c31bb1b7ad68e6fd114727d8f08508796013bcef",
+    "version_name": "0.4.2-beta.104",
+    "version_code": 110,
+    "package": "vn.pickpack1291.app.beta.publicbeta",
+    "apk_sha256": "523b7ca4fe3463acdec8281d6232f36cd15e8df13a5f25585ca4ff4b82f2d6f1",
+    "apk_size": 13593589,
+    "signer_sha256": "d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e",
+    "candidate_run": 33384004708,
+    "candidate_artifact": 9754938692,
+    "visual_artifact": 9755057622,
+    "release_run": 33391700817,
+    "final_artifact": 9757837384,
+    "owner_acceptance": "ops/beta104-owner-acceptance.json"
+  },
+  "stable_private_apk": {
+    "run": 33401278044,
+    "artifact": 9761451846,
+    "artifact_digest": "sha256:d5c0ac87cc77b536d4854878de517b729209392874812eb1beaa68977b366cd3",
+    "package": "vn.pickpack1291.app.stable",
+    "version_name": "0.1.0-stable",
+    "version_code": 1,
+    "apk_sha256": "e4be2861a216a657b3a175681a2845b9b495b505feb8ed8afc5f878505c83c43",
+    "apk_size": 17430084,
+    "signer_kind": "DEBUG_PRIVATE_NON_RELEASE",
+    "side_by_side_install": "PASS",
+    "public_release": false
+  },
+  "isolation": {
+    "promotion_run": 33419578736,
+    "promotion_artifact": 9768397541,
+    "promotion_artifact_digest": "sha256:087c342f92a1c7110d3c5d4aa283fb59fc18636be6c095f30f8cba678414a0a0",
+    "final_ci_run": 33419578501,
+    "auth": "PASS_FRESH_IN_PROMOTION_RUN",
+    "data": "PASS_FRESH_IN_PROMOTION_RUN",
+    "runtime": "PASS_FRESH_IN_PROMOTION_RUN",
+    "stable_public": false,
+    "stable_manifest": false,
+    "stable_ota": false,
+    "owner_promotion_authorization": null
+  },
+  "backup_dr": {
+    "turso": {
+      "run": 33413666617,
+      "artifact": 9766154727,
+      "status": "PASS_AFTER_FIX"
+    },
+    "deno": {
+      "run": 33416165785,
+      "artifact": 9767094401,
+      "status": "PASS_AFTER_FIX"
+    },
+    "render": {
+      "run": 33417320129,
+      "artifact": 9767567227,
+      "status": "PASS_AFTER_FIX"
+    },
+    "restore_proof": {
+      "run": 33338403974,
+      "artifact": 9739756071,
+      "status": "PASS_REUSED_BINDING_UNCHANGED"
+    }
+  },
+  "quota": {
+    "authority": "config/provider_free_limits.json",
+    "final_ci_run": 33419578501,
+    "status": "PASS_CANONICAL"
+  },
+  "stable_safety": {
+    "lifecycle": "READY_NOT_LIVE",
+    "root_public": false,
+    "manifest_active": false,
+    "ota_active": false,
+    "promotion_authorized": false,
+    "beta_state_copy": false
+  }
+}

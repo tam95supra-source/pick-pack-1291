@@ -1,0 +1,43 @@
+name: Final impacted audit regression
+on:
+  push:
+    branches:
+      - 'release/audit-beta104-stable-private-20260831'
+    paths:
+      - ops/beta-stable-audit-evidence.json
+      - tools/final_audit_regression.py
+      - .github/workflows/final-audit-regression.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: final-impacted-audit-regression
+  cancel-in-progress: false
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate final regression harness
+        run: |
+          set -euo pipefail
+          python3 -m py_compile tools/final_audit_regression.py
+          git diff --check HEAD^ HEAD
+      - name: Run final impacted regression only
+        run: python3 tools/final_audit_regression.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: final-impacted-audit-regression-${{ github.run_id }}
+          path: /tmp/final-impacted-regression.json
+          retention-days: 90
+          if-no-files-found: error
