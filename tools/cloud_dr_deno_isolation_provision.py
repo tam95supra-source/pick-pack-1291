@@ -226,11 +226,44 @@ def ensure_app(slug,env,plain,runtime_token,bundle,bundle_sha,source_sha,apps_be
     hostnames=[]
     for t in (r.get("timelines") or []):
         hostnames += [str(x) for x in (t.get("hostnames") or []) if str(x)]
-    if hostnames:raise RuntimeError("DENO_PUBLIC_DOMAIN_ATTACHED:"+slug)
+    hostnames=sorted(set(hostnames))
+    if not hostnames:raise RuntimeError("DENO_DEFAULT_DOMAIN_MISSING:"+slug)
+    custom=[h for h in hostnames if not h.lower().endswith(".deno.net")]
+    if custom:raise RuntimeError("DENO_CUSTOM_DOMAIN_ATTACHED:"+slug+":"+custom[0][:160])
     if str(r.get("status"))!="succeeded":raise RuntimeError("DENO_REVISION_NOT_SUCCEEDED:"+slug)
+    base="https://"+hostnames[0]
+    def read(path,headers=None,method="GET"):
+        q=urllib.request.Request(base+path,headers=headers or {},method=method)
+        try:
+            with urllib.request.urlopen(q,timeout=30) as x:
+                raw=x.read().decode("utf-8","replace")
+                try:j=json.loads(raw)
+                except:j={}
+                return x.status,j
+        except urllib.error.HTTPError as e:
+            raw=e.read().decode("utf-8","replace")
+            try:j=json.loads(raw)
+            except:j={}
+            return e.code,j
+    hc,hj=read("/health")
+    if hc!=200 or hj.get("ok") is not True or hj.get("provider")!="TURSO" or hj.get("writer_mode")!="PASSIVE" or str(hj.get("environment_id") or "").upper()!=env:
+        raise RuntimeError("DENO_PASSIVE_HEALTH_READBACK_FAILED:"+slug+":"+str(hc))
+    ec,ej=read("/environment.json")
+    if ec!=200 or str(ej.get("environment_id") or "").upper()!=env:
+        raise RuntimeError("DENO_ENVIRONMENT_READBACK_FAILED:"+slug+":"+str(ec))
+    fc,fj=read("/v1/mobile/read",{"x-pick-pack-environment":env,"x-pick-pack-audience":plain["SERVICE_AUDIENCE"]},"POST")
+    code=str(((fj.get("error") or {}).get("code")) or "")
+    if fc!=503 or code!="DR_KILL_SWITCH_ACTIVE":
+        raise RuntimeError("DENO_KILL_SWITCH_READBACK_FAILED:"+slug+":"+str(fc)+":"+code)
+    mc,mj=read("/v1/mobile/read",{},"POST")
+    mcode=str(((mj.get("error") or {}).get("code")) or "")
+    if mc!=403 or mcode!="ENVIRONMENT_ID_REQUIRED":
+        raise RuntimeError("DENO_ENV_FENCE_READBACK_FAILED:"+slug+":"+str(mc)+":"+mcode)
     return {"slug":slug,"app_id":app.get("id"),"created":created,"env":env_proof,
             "revision_id":r.get("id"),"revision_status":"succeeded","deployed":deployed,
-            "public_hostnames":[],"writer_mode":"PASSIVE","kill_switch":"1"}
+            "provider_hostnames":hostnames,"custom_domains_attached":0,
+            "health_readback":"PASS","environment_readback":"PASS","kill_switch_readback":"PASS","environment_fence_readback":"PASS",
+            "writer_mode":"PASSIVE","kill_switch":"1"}
 
 def main():
     for n in ("DENO_DEPLOY_TOKEN","TURSO_API_TOKEN","CLOUDFLARE_API_TOKEN","CLOUDFLARE_ACCOUNT_ID"):mask(need(n))
@@ -313,14 +346,14 @@ def main():
       "bundle_sha256":bsha,"source_sha":source_sha,
       "cross_credentials":"DENIED_BOTH_WAYS","temporary_cross_check_tokens":"AUTO_EXPIRE_30M",
       "resource_separation":"SEPARATE_APPS","credential_separation":"SEPARATE_DATABASE_AND_SERVICE_SECRETS",
-      "runtime_mode":"PASSIVE","kill_switch":"ACTIVE","public_domains_attached":0,
+      "runtime_mode":"PASSIVE","kill_switch":"ACTIVE","default_provider_domains_only":True,"custom_domains_attached":0,"discovery_activation":False,
       "beta":out["beta"],"stable":out["stable"],
       "gas_cross_environment":False,"secrets_exposed":False,"paid_action":False,
       "stable_public_activation":False,"cleanup":"PASS_NO_TEMP_APP_OR_REVISION"}
     OUT.write_text(json.dumps(receipt,indent=2,ensure_ascii=False)+"\n")
     print(json.dumps({"status":"PASS","provider":"DENO","beta_revision":out["beta"]["revision_status"],
       "stable_revision":out["stable"]["revision_status"],"cross_credentials":"DENIED_BOTH_WAYS",
-      "public_domains_attached":0,"app_count_before":len(apps_before),"app_count_after":len(after),"secrets_exposed":False}))
+      "default_provider_domains_only":True,"custom_domains_attached":0,"app_count_before":len(apps_before),"app_count_after":len(after),"secrets_exposed":False}))
 
 if __name__=="__main__":
     try:main()
