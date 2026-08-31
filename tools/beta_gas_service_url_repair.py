@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import json, os, pathlib, re, sys, time, urllib.error, urllib.request
+import json, os, pathlib, re, sys, time, urllib.error, urllib.request, subprocess
 
 ROOT=pathlib.Path(__file__).resolve().parents[1]
 API="https://script.googleapis.com/v1/projects"
@@ -26,30 +26,28 @@ def req(url,token,method="GET",body=None):
         raw=e.read().decode("utf-8","replace")
         raise RuntimeError("APPS_SCRIPT_API_"+method+"_HTTP_"+str(e.code)+":"+raw[:900]) from e
 
-def post(url,body):
-    r=urllib.request.Request(url,data=json.dumps(body,separators=(",",":")).encode(),
-        headers={"Content-Type":"application/json"},method="POST")
-    try:
-        with urllib.request.urlopen(r,timeout=60) as x:
-            raw=x.read().decode("utf-8","replace")
-            return x.status,json.loads(raw or "{}")
-    except urllib.error.HTTPError as e:
-        raw=e.read().decode("utf-8","replace")
-        try:j=json.loads(raw or "{}")
-        except:j={"raw":raw[:700]}
-        return e.code,j
+def curl_json(method,url,body=None,timeout=60):
+    method=str(method).upper()
+    cmd=["curl","-sS","-L","--connect-timeout","12","--max-time",str(timeout)]
+    data=None
+    if body is not None:
+        cmd += ["-H","Content-Type: application/json","--data-binary","@-"]
+        data=json.dumps(body,separators=(",",":"))
+        if method!="POST":cmd += ["-X",method]
+    elif method!="GET":
+        cmd += ["-X",method]
+    cmd += ["-w","\\n__STATUS__:%{http_code}",url]
+    p=subprocess.run(cmd,input=data,text=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=timeout+10)
+    if p.returncode:return -1,{"transport_error":p.stderr[-300:]}
+    marker="\\n__STATUS__:"
+    if marker not in p.stdout:return -1,{"transport_error":"STATUS_MISSING"}
+    raw,code=p.stdout.rsplit(marker,1)
+    try:j=json.loads(raw) if raw.strip() else {}
+    except:j={"raw":raw[:500]}
+    return int(code.strip()),j
 
-def get_json(url):
-    r=urllib.request.Request(url,headers={"Accept":"application/json"},method="GET")
-    try:
-        with urllib.request.urlopen(r,timeout=45) as x:
-            raw=x.read().decode("utf-8","replace")
-            return x.status,json.loads(raw or "{}")
-    except urllib.error.HTTPError as e:
-        raw=e.read().decode("utf-8","replace")
-        try:j=json.loads(raw or "{}")
-        except:j={"raw":raw[:700]}
-        return e.code,j
+def post(url,body): return curl_json("POST",url,body,60)
+def get_json(url): return curl_json("GET",url,None,45)
 
 def normalize_dep(v):
     v=(v or "").strip()
@@ -102,12 +100,14 @@ def insert_before(src,anchor,block):
     return src[:i]+block.rstrip()+"\n\n"+src[i:]
 
 def ensure_do_post_fence(src):
-    if "const environmentFence=ppEnvironmentFence_(body);" in src:return src
+    do_post=extract_function(src,"doPost")
+    if "const environmentFence=ppEnvironmentFence_(body);" in do_post:return src
     pat=re.compile(r"(const\s+action\s*=\s*String\(body\.action\s*\|\|\s*['\"]['\"]\)\.trim\(\);)")
-    m=pat.search(src)
+    m=pat.search(do_post)
     if not m: raise RuntimeError("DO_POST_ACTION_ANCHOR_MISSING")
     block="\n    const environmentFence=ppEnvironmentFence_(body);\n    if(environmentFence)return ppJson_(environmentFence);"
-    return src[:m.end()]+block+src[m.end():]
+    patched=do_post[:m.end()]+block+do_post[m.end():]
+    return src.replace(do_post,patched,1)
 
 def add_temp_route(src):
     if TEMP_MARK in src: raise RuntimeError("TEMP_MARK_ALREADY_PRESENT")
@@ -239,6 +239,9 @@ def main():
         if ("function "+n+"(") not in final_all: raise RuntimeError("FINAL_CONTRACT_FUNCTION_MISSING:"+n)
     if "x-pick-pack-environment" not in final_all.lower() or "x-pick-pack-audience" not in final_all.lower():
         raise RuntimeError("FINAL_SERVICE_FETCH_HEADERS_MISSING")
+    final_do_post=extract_function(final_all,"doPost")
+    if "const environmentFence=ppEnvironmentFence_(body);" not in final_do_post or "if(environmentFence)return ppJson_(environmentFence);" not in final_do_post:
+        raise RuntimeError("DO_POST_ENVIRONMENT_FENCE_NOT_PATCHED")
     temp_files=make_temp(final_files)
 
     temp_version=None;final_version=None;property_changed=False
