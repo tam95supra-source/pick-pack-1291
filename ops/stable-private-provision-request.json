@@ -2,7 +2,7 @@
   "project": "APK PICK PACK 1291",
   "environment": "STABLE",
   "lifecycle_target": "READY_NOT_LIVE",
-  "mode": "PREFLIGHT_ONLY",
+  "mode": "GAS_PROPERTIES_REPAIR",
   "stable_primary_sheet_id": "1Z5tKgGjQxcQqKY-UJO2nOVvM3dA0_VtJx5ayKjWSAy0",
   "stable_dr_sheet_id": "1h2xbRX4hGL40CMeCfmdALffLZ0Un4_S44cAgCABBWhk",
   "stable_outbound_sheet_id": "1Z_TlJ5CdrSb2duUeTPY1rmi0W6vP69c8Ml3QbDkd2Wo",
@@ -14,5 +14,9 @@
   "target_worker_name": "pickpack1291-stable-private",
   "target_d1_name": "pick-pack-1291-service-stable",
   "stable_public_activation": false,
-  "execution_nonce": "stable-gas-repair-sourceguard-frozen-20260831"
+  "execution_nonce": "stable-gas-properties-repair-20260831-02",
+  "repair_transaction_id": "stable-gas-properties-repair-20260831-v1",
+  "repair_source_commit": "dc3b2d7e5796361519d0658b094ecce6dd724191",
+  "repair_script_blob_sha": "c318a7a05c90a1013030184b9330a733a6855a7f",
+  "accepted_service_source_sha": "8653e8e1a8c0585a4dcab95ccb3da0636650d8a5"
 }
