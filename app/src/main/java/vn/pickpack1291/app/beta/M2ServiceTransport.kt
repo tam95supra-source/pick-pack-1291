@@ -567,8 +567,9 @@ class M2ServiceTransport(context: Context) {
         if(ServiceFaultInjection.googleDisabled(app)) return cachedDiscoverySnapshot()
         val now = System.currentTimeMillis()
         if (!force) {
-            val cachedAt = prefs.getLong(KEY_DISCOVERY_AT, 0L); val cached = prefs.getString(KEY_DISCOVERY_JSON, null)
-            if (cached != null && now - cachedAt < DISCOVERY_TTL_MS) return runCatching { JSONObject(cached) }.getOrNull()
+            val cachedAt = prefs.getLong(KEY_DISCOVERY_AT, 0L)
+            val cached = cachedDiscoverySnapshot()
+            if (cached != null && now - cachedAt < DISCOVERY_TTL_MS) return cached
         }
         if (!hasNetwork()) return cachedDiscoverySnapshot()
         return try {

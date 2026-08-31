@@ -10,6 +10,8 @@ need(transport,'if(j.optString("environment_id")!=BuildConfig.ENVIRONMENT_ID)ret
 need(transport,'if(j.optString("service_audience")!=BuildConfig.SERVICE_AUDIENCE)return false',"AUDIENCE_CACHE_FENCE")
 need(transport,'?.takeIf { discoveryMatchesEnvironment(it) }',"STALE_CACHE_INVALIDATION")
 need(transport,'fun discoverySnapshot(force:Boolean=false): JSONObject? = discover(force=force)',"TTL_FORCE_DISCOVERY")
+need(transport,'val cached = cachedDiscoverySnapshot()',"TTL_USES_VALIDATED_CACHE")
+forbid(transport,'val cached = prefs.getString(KEY_DISCOVERY_JSON, null)\n            if (cached != null && now - cachedAt < DISCOVERY_TTL_MS)',"TTL_RAW_CACHE_REUSE")
 need(transport,'val discovery = discoverySnapshot() ?: return TransportResult(true, false, 0, null, "DISCOVERY_WARMING")',"SYNC_REFRESH")
 need(transport,'val discovery=discoverySnapshot()',"OUTBOX_REFRESH")
 need(transport,'val discovery=if(allowDiscovery) discoverySnapshot() else cachedDiscoverySnapshot()',"RESILIENCE_REFRESH")
