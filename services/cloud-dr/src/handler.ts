@@ -9,9 +9,18 @@ import { legacySyncPortable } from "../../../service/src/legacy_sync_portable";
 import { attendanceEnterV2, sessionResourceMutateV2, sessionResourceSnapshotV2 } from "../../../service/src/session_v2_compat";
 import { sessionExitGuarded } from "../../../service/src/session_hotfix";
 
-export type DrRuntimeEnv={TURSO_DATABASE_URL:string;TURSO_AUTH_TOKEN:string;SERVICE_TOKEN_SECRET:string;SERVICE_GENERATION:string;DISCOVERY_URL:string;DR_WRITER_MODE:string;ENVIRONMENT_ID:string;SERVICE_AUDIENCE:string;GAS_API_URL?:string;OUTBOUND_GAS_API_URL?:string;DR_GAS_API_URL?:string;DR_TARGET_ID?:string};
+export type DrRuntimeEnv={TURSO_DATABASE_URL:string;TURSO_AUTH_TOKEN:string;SERVICE_TOKEN_SECRET:string;SERVICE_GENERATION:string;DISCOVERY_URL:string;DR_WRITER_MODE:string;ENVIRONMENT_ID:string;SERVICE_AUDIENCE:string;GAS_API_URL?:string;OUTBOUND_GAS_API_URL?:string;DR_GAS_API_URL?:string;DR_TARGET_ID?:string;DR_MAX_REQUESTS_PER_MINUTE:string;DR_MAX_MUTATIONS_PER_BATCH:string;DR_KILL_SWITCH:string};
 const err=(code:string,status=400)=>json({ok:false,error:{code,error_class:status===401?"AUTH":(status===403||status===409)?"PERMISSION":"VALIDATION",retryable:status>=500}},status);
 const realtimeNoop={getByName:(_name:string)=>({invalidate:async(_message:Record<string,unknown>)=>0,broadcast:async(_event:Record<string,unknown>)=>0})};
+let requestWindow=0,requestCount=0;
+const positiveInt=(value:string,label:string,max:number)=>{const n=Number(value);if(!Number.isInteger(n)||n<1||n>max)throw new Error(label+"_INVALID");return n};
+const rateGate=(e:DrRuntimeEnv):Response|null=>{
+  const limit=positiveInt(e.DR_MAX_REQUESTS_PER_MINUTE,"DR_MAX_REQUESTS_PER_MINUTE",600),window=Math.floor(Date.now()/60000);
+  if(window!==requestWindow){requestWindow=window;requestCount=0}
+  requestCount++;
+  return requestCount>limit?err("DR_RATE_LIMITED",429):null;
+};
+const mutationBatchLimit=(e:DrRuntimeEnv)=>positiveInt(e.DR_MAX_MUTATIONS_PER_BATCH,"DR_MAX_MUTATIONS_PER_BATCH",100);
 const drIdentity=(e:DrRuntimeEnv)=>{
   const environmentId=String(e.ENVIRONMENT_ID||"").toUpperCase(),serviceAudience=String(e.SERVICE_AUDIENCE||"");
   const expectedAudience=environmentId==="BETA"?"PICK_PACK_1291_BETA":environmentId==="STABLE"?"PICK_PACK_1291_STABLE":"";
@@ -37,14 +46,14 @@ const envFor=(db:D1Database,e:DrRuntimeEnv):Env=>{
 
 async function legacyBatch(request:Request,db:D1Database,e:DrRuntimeEnv):Promise<Response>{
   const env=envFor(db,e),auth=await authenticate(db,env,request);if(!auth)return err("UNAUTHORIZED",401);
-  const body=await request.json() as {events?:LegacyMutationInput[]},events=Array.isArray(body.events)?body.events:[];if(!events.length||events.length>100)return err("LEGACY_MUTATION_BATCH_INVALID");
+  const body=await request.json() as {events?:LegacyMutationInput[]},events=Array.isArray(body.events)?body.events:[];if(!events.length||events.length>mutationBatchLimit(e))return err("LEGACY_MUTATION_BATCH_INVALID");
   const results:Record<string,unknown>[]=[];
   for(const input of events){const local=String(input?.event_id||"");try{const x=await commitLegacyMutation(db,env,auth,input),v=x.event as {event_id:string;authority_epoch:number;authority_seq:number;new_version:number};results.push({local_event_id:local,status:x.duplicate?"DUPLICATE":"CONFIRMED",canonical_event_id:v.event_id,authority_epoch:v.authority_epoch,authority_seq:v.authority_seq,new_version:v.new_version,error_code:null,conflict:null,realtime_delivered:0});}catch(ex){if(ex instanceof CoreError){const review=ex.errorClass==="CONFLICT"||ex.errorClass==="RESOURCE";results.push({local_event_id:local,status:review?"REVIEW_REQUIRED":"REJECTED",canonical_event_id:null,error_code:ex.code,conflict:ex.conflict??null,retryable:ex.retryable});}else throw ex}}
   return json({ok:true,results});
 }
 async function canonicalBatch(request:Request,db:D1Database,e:DrRuntimeEnv):Promise<Response>{
   const env=envFor(db,e),auth=await authenticate(db,env,request);if(!auth)return err("UNAUTHORIZED",401);
-  const body=await request.json() as {events?:CanonicalMutationRequest[]},events=Array.isArray(body.events)?body.events:[];if(!events.length||events.length>100)return err("MUTATION_BATCH_INVALID");
+  const body=await request.json() as {events?:CanonicalMutationRequest[]},events=Array.isArray(body.events)?body.events:[];if(!events.length||events.length>mutationBatchLimit(e))return err("MUTATION_BATCH_INVALID");
   const results:Record<string,unknown>[]=[];
   for(const input of events){const local=String(input?.event_id||"");try{const x=await commitMutation(db,env,auth,input),v=x.event;results.push({local_event_id:local,status:x.duplicate?"DUPLICATE":"CONFIRMED",canonical_event_id:v.event_id,authority_epoch:v.authority_epoch,authority_seq:v.authority_seq,new_version:v.new_version,error_code:null,conflict:null,realtime_delivered:0});}catch(ex){if(ex instanceof CoreError){const review=ex.errorClass==="CONFLICT"||ex.errorClass==="RESOURCE";results.push({local_event_id:local,status:review?"REVIEW_REQUIRED":"REJECTED",canonical_event_id:null,error_code:ex.code,conflict:ex.conflict??null,retryable:ex.retryable});}else throw ex}}
   return json({ok:true,results});
@@ -57,7 +66,9 @@ export async function handle(request:Request,e:DrRuntimeEnv):Promise<Response>{
     if(u.pathname==="/environment.json"&&method==="GET")return json({ok:true,environment_id:identity.environmentId,service_audience:identity.serviceAudience,release_channel:identity.environmentId});
     if(u.pathname==="/health"){const a=await currentAuthority(db);return json({ok:true,service:"pick-pack-1291-cloud-dr",provider:"TURSO",writer_mode:e.DR_WRITER_MODE,generation:e.SERVICE_GENERATION,environment_id:identity.environmentId,service_audience:identity.serviceAudience,authority:a});}
     const fence=environmentFence(request,e);if(fence)return fence;
+    if(String(e.DR_KILL_SWITCH)!=="0")return err("DR_KILL_SWITCH_ACTIVE",503);
     if(e.DR_WRITER_MODE!=="ACTIVE_WRITE")return err("DR_PASSIVE_FENCED",409);
+    const rate=rateGate(e);if(rate)return rate;
     if(u.pathname==="/v1/auth/gas-session"&&method==="POST")return exchangeGasSession(request,env);
     if(u.pathname==="/v1/mobile/read"&&method==="POST")return mobileRead(request,env);
     if(u.pathname==="/v1/legacy-sync"&&method==="POST")return legacySyncPortable(request,env);
