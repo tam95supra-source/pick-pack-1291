@@ -197,7 +197,7 @@ def ensure_app(slug,env,plain,runtime_token,bundle,bundle_sha,source_sha,apps_be
         service_secret=mask(base64.urlsafe_b64encode(secrets.token_bytes(48)).rstrip(b"=").decode())
         ev=[env_input(k,v,False) for k,v in plain.items()]
         ev += [env_input("TURSO_AUTH_TOKEN",runtime_token,True),env_input("SERVICE_TOKEN_SECRET",service_secret,True)]
-        app=deno("POST","/apps",{"slug":slug,"labels":{"pp1291.project":"pick-pack-1291","pp1291.environment":env,"pp1291.role":"cloud-dr"},
+        app=deno("POST","/apps",{"slug":slug,"labels":{"custom.project":"pick-pack-1291","custom.environment":env,"custom.role":"cloud-dr"},
                                   "env_vars":ev,"config":cfg})
         created=True
     else:
@@ -205,8 +205,8 @@ def ensure_app(slug,env,plain,runtime_token,bundle,bundle_sha,source_sha,apps_be
         if not config_ok(app):raise RuntimeError("DENO_APP_CONFIG_DRIFT:"+slug)
     env_proof=verify_app_env(app,plain)
     revs=revisions(slug)
-    exact=[r for r in revs if str((r.get("labels") or {}).get("pp1291.source_sha") or "")==source_sha and
-                                 str((r.get("labels") or {}).get("pp1291.bundle_sha") or "")==bundle_sha]
+    exact=[r for r in revs if str((r.get("labels") or {}).get("custom.source_sha") or "")==source_sha and
+                                 str((r.get("labels") or {}).get("custom.bundle_sha") or "")==bundle_sha]
     if exact:
         exact.sort(key=lambda x:str(x.get("created_at") or ""),reverse=True)
         r=exact[0];st=str(r.get("status") or "")
@@ -217,7 +217,7 @@ def ensure_app(slug,env,plain,runtime_token,bundle,bundle_sha,source_sha,apps_be
     else:
         payload={"assets":{"main.mjs":{"kind":"file","encoding":"base64","content":base64.b64encode(bundle).decode()}},
                  "config":cfg,
-                 "labels":{"pp1291.source_sha":source_sha,"pp1291.bundle_sha":bundle_sha,"pp1291.environment":env},
+                 "labels":{"custom.source_sha":source_sha,"custom.bundle_sha":bundle_sha,"custom.environment":env},
                  "production":{"domains":[]},"preview":False,"retention":"auto"}
         r=deno("POST","/apps/"+urllib.parse.quote(slug,safe="")+"/deploy",payload)
         rid=str(r.get("id") or "")
