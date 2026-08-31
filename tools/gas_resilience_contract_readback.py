@@ -89,10 +89,14 @@ def function_body_selftest():
 
 def m2_resolution_semantics(project):
     src=server_source(project)
-    names=["ppM2ServiceUrl_","ppM2StateSnapshot_","ppM2Discovery_"]
+    names=["ppM2CanonicalServiceUrl_","ppM2ServiceUrl_","ppM2StateSnapshot_","ppM2Discovery_"]
     bodies={n:function_body(src,n) for n in names}
     joined="\n".join(bodies.values())
     return {
+        "canonicalizer_present":bool(bodies["ppM2CanonicalServiceUrl_"]),
+        "canonicalizer_contains_stable_root":"pickpack1291.cc.cd" in bodies["ppM2CanonicalServiceUrl_"],
+        "canonicalizer_contains_workers_dev":"pickpack.1291.workers.dev" in bodies["ppM2CanonicalServiceUrl_"],
+        "canonicalizer_body":" ".join(bodies["ppM2CanonicalServiceUrl_"].split()),
         "service_url_reads_property":"PP_M2_SERVICE_URL" in bodies["ppM2ServiceUrl_"],
         "snapshot_reads_all_properties":"getProperties()" in bodies["ppM2StateSnapshot_"],
         "snapshot_reads_service_url_property":"PP_M2_SERVICE_URL" in bodies["ppM2StateSnapshot_"],
