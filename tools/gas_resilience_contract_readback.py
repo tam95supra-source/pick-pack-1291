@@ -34,6 +34,20 @@ def flags(source):
 def all_ok(value):
     return all(value["actions"].values()) and all(value["functions"].values())
 
+def environment_flags(source):
+    return {
+        "environment_helper": "function ppEnvironmentId_(" in source,
+        "audience_helper": "function ppServiceAudience_(" in source,
+        "environment_fence": "function ppEnvironmentFence_(" in source,
+        "discovery_environment_id": "environment_id:s.environmentId" in source,
+        "discovery_service_audience": "service_audience:s.serviceAudience" in source,
+        "service_fetch_environment_header": "x-pick-pack-environment" in source.lower(),
+        "service_fetch_audience_header": "x-pick-pack-audience" in source.lower(),
+    }
+
+def environment_ok(value):
+    return all(value.values())
+
 def main():
     out=Path(sys.argv[1])
     sid=os.environ.get("GAS_SCRIPT_ID","").strip()
@@ -51,6 +65,9 @@ def main():
     deployed_flags=flags(server_source(deployed))
     head_flags=flags(server_source(head))
     repo_flags=flags(repo)
+    deployed_environment=environment_flags(server_source(deployed))
+    head_environment=environment_flags(server_source(head))
+    repo_environment=environment_flags(repo)
     data={
         "status":"PASS" if all_ok(deployed_flags) else "FAIL",
         "read_only":True,
@@ -61,6 +78,12 @@ def main():
         "deployment_has_full_resilience_contract":all_ok(deployed_flags),
         "head_has_full_resilience_contract":all_ok(head_flags),
         "repo_has_full_resilience_contract":all_ok(repo_flags),
+        "deployment_environment_contract":deployed_environment,
+        "head_environment_contract":head_environment,
+        "repo_environment_contract":repo_environment,
+        "deployment_has_full_environment_contract":environment_ok(deployed_environment),
+        "head_has_full_environment_contract":environment_ok(head_environment),
+        "repo_has_full_environment_contract":environment_ok(repo_environment),
     }
     out.parent.mkdir(parents=True,exist_ok=True)
     out.write_text(json.dumps(data,indent=2)+"\n",encoding="utf-8")
