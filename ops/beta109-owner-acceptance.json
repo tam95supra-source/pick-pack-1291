@@ -1,0 +1,26 @@
+{
+  "status": "OWNER_ACCEPTED_ACTIVE_PASS",
+  "invariant_id": "DOCUMENT-MANAGEMENT-001",
+  "owner": "Nguyễn Văn Tâm",
+  "accepted_at": "2026-09-01T22:04:00+07:00",
+  "version_name": "0.4.2-beta.109",
+  "version_code": 115,
+  "source_sha": "a72d8e20eaebe60235338fd1b9aaebde42507825",
+  "terminal_run_id": 33515483109,
+  "technical_receipt": "ops/beta109-technical-pass.json",
+  "prior_accepted_subitems": [
+    1,
+    2,
+    5,
+    6,
+    7,
+    8
+  ],
+  "final_retest": {
+    "1": "OK — ảnh gần giống cảnh báo đúng, exact duplicate giữ nguyên",
+    "2": "OK — offline giữ danh mục/hàng chờ, restart không mất ảnh đang chọn, có mạng tự retry"
+  },
+  "invariant_status": "ACTIVE_PASS",
+  "active_pass": true,
+  "next_action": "WAIT_FOR_OWNER_NEW_SCOPE"
+}
