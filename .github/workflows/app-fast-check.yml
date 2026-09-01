@@ -13,7 +13,8 @@ on:
       - google-apps-script/**
       - config/mutation_fallback_policy.json
       - config/provider_free_limits.json
-      - tools/resilience_static_gate.mjs\n      - tools/document_management_contract.py
+      - tools/resilience_static_gate.mjs
+      - tools/document_management_contract.py
       - tools/beta_stable_isolation_contract.mjs
       - tools/portable_backup_verify.sh
       - tools/d1_generation_autopilot.sh
