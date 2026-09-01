@@ -88,6 +88,10 @@ jobs:
           RUN_REF: ${{ github.ref_name }}
         run: |
           set -euo pipefail
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            echo "FAST_CHECK_MARKER_SKIPPED_PR_READ_ONLY"
+            exit 0
+          fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           NONCE=$(jq -r '.execution_nonce // ""' ops/beta-release-request.json)
