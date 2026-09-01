@@ -801,7 +801,7 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     shot(tag+"-04-incomplete-dialog");
 
     clickText("HIỂN THỊ CHI TIẾT NHÂN SỰ",true,10000L);
-    waitText("DANH SÁCH NHÂN SỰ THEO CA",true,false,10000L);
+    // App bar intentionally renders only the persistent Network/Sync/Service header; identify the roster by its filter/NCC content.
     waitText("Tất cả (",false,true,10000L);
     waitText("Trong ca (",false,true,10000L);
     waitText("Đã ra ca (",false,true,10000L);
