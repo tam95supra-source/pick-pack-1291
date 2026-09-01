@@ -26,6 +26,7 @@ const MAX_IMAGE_BYTES=10*1024*1024;
 const SIMILAR_DHASH_DISTANCE=6;
 const RECENT_DHASH_SCAN_LIMIT=300;
 const CATEGORY_MUTATION_BATCH=5;
+// Beta108 owner-locked category mutation: rename-all/hard-delete durable job.
 
 async function requireAdmin(request:Request,env:Env):Promise<AuthContext|Response>{
   const auth=await authenticate(env.DB,env,request);
