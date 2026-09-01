@@ -48,7 +48,8 @@ on:
       - services/**
       - google-apps-script/**
       - config/mutation_fallback_policy.json
-      - tools/resilience_static_gate.mjs\n      - tools/document_management_contract.py
+      - tools/resilience_static_gate.mjs
+      - tools/document_management_contract.py
       - qa/**
       - .github/workflows/app-fast-check.yml
   workflow_dispatch:
@@ -95,7 +96,15 @@ jobs:
             '{run_id:$run_id,run_sha:$run_sha,ref:$ref,execution_nonce:$nonce,stage:$stage,observed_at:(now|todateiso8601)}' > ops/app-fast-check-observe.json
           git add ops/app-fast-check-observe.json
           git commit -m "ci: observe App fast check $RUN_ID"
-          git push origin HEAD:"$RUN_REF"
+          if ! git push --force-with-lease="refs/heads/$RUN_REF:$RUN_SHA" origin HEAD:"$RUN_REF"; then
+            REMOTE_SHA=$(git ls-remote origin "refs/heads/$RUN_REF" | awk '{print $1}')
+            if [[ -n "$REMOTE_SHA" && "$REMOTE_SHA" != "$RUN_SHA" ]]; then
+              echo "FAST_CHECK_MARKER_SKIPPED_BRANCH_ADVANCED:$RUN_SHA->$REMOTE_SHA"
+            else
+              echo "FAST_CHECK_MARKER_PUSH_FAILED_WITHOUT_REF_ADVANCE" >&2
+              exit 1
+            fi
+          fi
 
       - uses: actions/setup-java@v5
         with:
