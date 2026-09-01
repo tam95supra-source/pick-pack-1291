@@ -22,6 +22,7 @@ class DocumentMediaCache(context:Context) {
         prune()
     }
     fun clear(documentId:String)=synchronized(lock){file(documentId).delete()}
+    fun clearAll()=synchronized(lock){dir.listFiles()?.forEach{it.delete()}}
 
     private fun prune(){
         val files=dir.listFiles()?.filter{it.isFile&&it.name.endsWith(".jpg")}?.sortedByDescending{it.lastModified()}.orEmpty()
