@@ -1,6 +1,6 @@
 {
   "stage": "VERIFY_ONLY",
-  "mode": "BETA105_VERIFY_EXACT_CANDIDATE_OFFLINE_QR_VISUAL_PLUS_STATIC_ROUTE",
+  "mode": "BETA105_VERIFY_EXACT_CANDIDATE_AFTER_VISUAL_COUNT_FIX",
   "version_name": "0.4.2-beta.105",
   "version_code": 111,
   "base_version": "0.4.2-beta.104",
@@ -36,8 +36,8 @@
   "apk_transport": "GITHUB_RELEASE_ONLY",
   "google_drive_apk": "FORBIDDEN",
   "regression_case": "SHIFT-STAFF-DOWNLOAD-QR-001",
-  "execution_nonce": "beta105-verify-exact-candidate-offline-qr-static-route-20260901-05",
-  "next_action": "VERIFY_EXACT_BETA105_CANDIDATE_WITH_OFFLINE_QR_VISUAL",
+  "execution_nonce": "beta105-verify-exact-candidate-visual-count-fix-20260901-06",
+  "next_action": "VERIFY_EXACT_BETA105_CANDIDATE_AFTER_VISUAL_COUNT_FIX",
   "candidate_source_sha": "5bd5d42a1155b6ecdbaecfd1686f2d673da81cda",
   "candidate_run_id": 33466716439,
   "candidate_artifact_id": 9785187509,
