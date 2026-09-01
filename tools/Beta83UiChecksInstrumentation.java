@@ -597,16 +597,26 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     clickTextScrolling("Quản lý biên bản",10000L);
     waitText("Loại biên bản",true,false,10000L);
     waitText("Chụp ảnh",true,true,10000L);
-    waitText("Chọn từ máy",true,true,10000L);
-    waitText("Tải biên bản lên",true,true,10000L);
+    waitText("Chọn nhiều ảnh",true,true,10000L);
+    waitText("Một biên bản nhiều trang",true,false,10000L);
+    waitText("Tải lên",true,true,10000L);
     waitText("Ảnh chờ tải",true,false,10000L);
-    shot(tag+"-01a-beta107-documents");
+    waitText("Tất cả loại biên bản",true,false,10000L);
+    waitText("Xóa đã chọn",true,true,10000L);
+    shot(tag+"-01a-beta110-documents");
     open("BUSINESS");
     waitText("Quét QR nhân sự",true,true,10000L);
     clickText("Điểm danh nhân sự",true,10000L);
-    waitText("ĐIỂM DANH SAU GIỜ ĂN",true,false,10000L);
-    waitText("Quét MNV điểm danh trở lại",false,false,10000L);
-    shot(tag+"-01b-beta95-meal");
+    waitText("ĐIỂM DANH",true,false,10000L);
+    require(findText("null",false,false)==null,"MEAL_LITERAL_NULL_VISIBLE");
+    shot(tag+"-01b-beta110-meal");
+    try{ui.executeShellCommand("input keyevent 4").close();}catch(Exception ignored){}
+    SystemClock.sleep(300L);
+    waitText("Quét QR nhân sự",true,true,10000L);
+    clickTextScrolling("Công nhật",10000L);
+    waitText("Đang thực hiện",true,false,10000L);
+    waitText("Scan / Nhập mã nhân viên",true,false,10000L);
+    shot(tag+"-01c-beta110-labor");
     try{ui.executeShellCommand("input keyevent 4").close();}catch(Exception ignored){}
     SystemClock.sleep(300L);
     waitText("Quét QR nhân sự",true,true,10000L);
@@ -734,11 +744,15 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     Class<?> storeClass=cl.loadClass("vn.pickpack1291.app.beta.DocumentPendingStore");
     Object store1=storeClass.getConstructor(Context.class).newInstance(target);
     String idem="b108-local-"+System.nanoTime();
-    Object item=storeClass.getMethod("enqueue",String.class,String.class,String.class,String.class,String.class,imageClass)
-      .invoke(store1,"admin","b108-category","CAMERA","2026-09-01T00:00:00Z",idem,image);
+    Object item=storeClass.getMethod("enqueue",String.class,String.class,String.class,String.class,String.class,imageClass,String.class,String.class,int.class,int.class)
+      .invoke(store1,"admin","b110-category","CAMERA","2026-09-01T00:00:00Z",idem,image,"b110-group","MULTI_PAGE",1,2);
     Class<?> itemClass=cl.loadClass("vn.pickpack1291.app.beta.DocumentPendingStore$Item");
     String pendingId=String.valueOf(itemClass.getMethod("getPendingId").invoke(item));
     require(!pendingId.isEmpty(),"DOCUMENT_PENDING_ID_MISSING");
+    Class<?> itemClassMeta=cl.loadClass("vn.pickpack1291.app.beta.DocumentPendingStore$Item");
+    require("b110-group".equals(String.valueOf(itemClassMeta.getMethod("getGroupId").invoke(item))),"DOCUMENT_PENDING_GROUP_MISSING");
+    require("MULTI_PAGE".equals(String.valueOf(itemClassMeta.getMethod("getGroupMode").invoke(item))),"DOCUMENT_PENDING_GROUP_MODE_MISSING");
+    require(((Integer)itemClassMeta.getMethod("getPageIndex").invoke(item))==1&&((Integer)itemClassMeta.getMethod("getPageCount").invoke(item))==2,"DOCUMENT_PENDING_PAGE_META_MISSING");
     Object store2=storeClass.getConstructor(Context.class).newInstance(target);
     Object found=storeClass.getMethod("find",String.class).invoke(store2,pendingId);
     require(found!=null,"DOCUMENT_PENDING_NOT_DURABLE_ACROSS_STORE_INSTANCE");
@@ -753,8 +767,13 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     String draftIdem="b109-draft-"+System.nanoTime();
     draftClass.getMethod("save",String.class,String.class,String.class,String.class,imageClass)
       .invoke(draft1,draftLogin,"CAMERA","2026-09-01T00:00:00Z",draftIdem,image);
+    String draftIdem2="b110-draft2-"+System.nanoTime();
+    draftClass.getMethod("append",String.class,String.class,String.class,String.class,imageClass)
+      .invoke(draft1,draftLogin,"GALLERY","2026-09-01T00:01:00Z",draftIdem2,image);
     Object draft2=draftClass.getConstructor(Context.class).newInstance(target);
-    Object restoredDraft=draftClass.getMethod("load",String.class).invoke(draft2,draftLogin);
+    java.util.List<?> restoredDrafts=(java.util.List<?>)draftClass.getMethod("loadAll",String.class).invoke(draft2,draftLogin);
+    require(restoredDrafts.size()==2,"DOCUMENT_SELECTED_MULTI_DRAFT_NOT_DURABLE");
+    Object restoredDraft=restoredDrafts.get(0);
     require(restoredDraft!=null,"DOCUMENT_SELECTED_DRAFT_NOT_DURABLE");
     Class<?> draftDataClass=cl.loadClass("vn.pickpack1291.app.beta.DocumentDraftStore$Draft");
     require(draftIdem.equals(String.valueOf(draftDataClass.getMethod("getIdempotencyKey").invoke(restoredDraft))),"DOCUMENT_SELECTED_DRAFT_IDEMPOTENCY_MISMATCH");
@@ -762,6 +781,7 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     draftClass.getMethod("remove",String.class).invoke(draft2,draftLogin);
     require(draftClass.getMethod("load",String.class).invoke(draft2,draftLogin)==null,"DOCUMENT_SELECTED_DRAFT_REMOVE_FAILED");
     mark("document_selected_draft_durable_beta109");
+    mark("document_selected_multi_draft_beta110");
 
     Class<?> categoryClass=cl.loadClass("vn.pickpack1291.app.beta.DocumentCategoryCache");
     Class<?> entryClass=cl.loadClass("vn.pickpack1291.app.beta.DocumentCategoryCache$Entry");
@@ -833,12 +853,15 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     clickTextScrolling("Quản lý biên bản",10000L);
     waitText("Loại biên bản",true,false,10000L);
     waitText("Chụp ảnh",true,true,10000L);
-    waitText("Chọn từ máy",true,true,10000L);
-    waitText("Tải biên bản lên",true,true,10000L);
+    waitText("Chọn nhiều ảnh",true,true,10000L);
+    waitText("Một biên bản nhiều trang",true,false,10000L);
+    waitText("Tải lên",true,true,10000L);
     waitText("Ảnh chờ tải",true,false,10000L);
     waitText("Không có ảnh chờ tải.",true,false,10000L);
-    waitText("Tối đa 60 ảnh / 120 MB",false,false,10000L);
-    waitText("Sửa: đổi tên toàn bộ biên bản và file Drive",false,false,10000L);
+    waitText("Tất cả loại biên bản",true,false,10000L);
+    waitText("Xóa đã chọn",true,true,10000L);
+    require(findText("Cần OWNER",false,false)==null,"OWNER_HELPER_COPY_VISIBLE");
+    mark("document_batch_controls_beta110");
     waitText("Mạng",true,false,10000L);waitText("Đồng bộ",true,false,10000L);waitText("Dịch vụ",true,false,10000L);
     mark("document_management_card_beta107");
     mark("document_management_controls_beta107");
@@ -855,8 +878,8 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
 
     waitText("Điểm danh nhân sự",true,true,10000L);
     clickText("Điểm danh nhân sự",true,10000L);
-    waitText("ĐIỂM DANH SAU GIỜ ĂN",true,false,10000L);
-    waitText("Quét MNV điểm danh trở lại",false,false,10000L);
+    waitText("ĐIỂM DANH",true,false,10000L);
+    require(findText("null",false,false)==null,"MEAL_LITERAL_NULL_VISIBLE");
     waitText("Mạng",true,false,10000L);waitText("Đồng bộ",true,false,10000L);waitText("Dịch vụ",true,false,10000L);
     mark("status_header_meal");
     shot(tag+"-00-beta95-meal");
@@ -870,7 +893,14 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     waitText("Đã điểm danh",false,false,10000L);
     setEmployee(mnv);
     waitText("Nhân sự đã điểm danh lúc",false,false,10000L);
-    mark("meal_attendance_module");mark("meal_current_day_scan");mark("meal_duplicate_local");
+    mark("meal_attendance_module");mark("meal_current_day_scan");mark("meal_duplicate_local");mark("meal_null_dash_beta110");
+    try{ui.executeShellCommand("input keyevent 4").close();}catch(Exception ignored){}
+    SystemClock.sleep(300L);
+    waitText("Điểm danh nhân sự",true,true,10000L);
+    clickTextScrolling("Công nhật",10000L);
+    waitText("Đang thực hiện",true,false,10000L);
+    waitText("Scan / Nhập mã nhân viên",true,false,10000L);
+    mark("labor_open_list_beta110");
     try{ui.executeShellCommand("input keyevent 4").close();}catch(Exception ignored){}
     SystemClock.sleep(300L);
     waitText("Điểm danh nhân sự",true,true,10000L);
