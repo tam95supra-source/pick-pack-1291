@@ -99,10 +99,6 @@ object DocumentManagementFeature {
             scroll.addView(body,ViewGroup.LayoutParams(-1,-2))
             root.addView(scroll,LinearLayout.LayoutParams(-1,0,1f))
 
-            body.addView(text("Ảnh được nén trên máy rồi tải thẳng lên Google Drive. Service chỉ lưu thông tin biên bản và dấu vân tay chống trùng.",9.6f,muted))
-            body.addView(gap(3))
-            body.addView(text("Người tải: ${displayName.ifBlank{login}}",9.2f,ink,true))
-            body.addView(gap(9))
 
             val categoryBox=column().apply{background=bg();setPadding(dp(10),dp(9),dp(10),dp(10))}
             categoryBox.addView(text("Loại biên bản",10f,muted,true))
@@ -118,17 +114,21 @@ object DocumentManagementFeature {
             categoryActions.addView(edit,LinearLayout.LayoutParams(0,dp(42),1f).apply{marginStart=dp(3);marginEnd=dp(3)})
             categoryActions.addView(remove,LinearLayout.LayoutParams(0,dp(42),1f).apply{marginStart=dp(3)})
             categoryBox.addView(categoryActions,LinearLayout.LayoutParams(-1,-2))
-            categoryBox.addView(gap(5))
-            categoryBox.addView(text("Sửa: đổi tên toàn bộ biên bản và file Drive thuộc loại. Xóa: xóa hẳn ảnh + dữ liệu. Cả hai đều yêu cầu mã xác nhận.",8.8f,muted))
             body.addView(categoryBox,LinearLayout.LayoutParams(-1,-2))
             body.addView(gap(10))
 
             val imageBox=column().apply{background=bg();setPadding(dp(10),dp(9),dp(10),dp(10))}
             imageBox.addView(text("Ảnh biên bản",10f,muted,true))
-            imageBox.addView(gap(6))
+            imageBox.addView(gap(5))
+            modeSpinner=Spinner(activity).apply{
+                adapter=ArrayAdapter(activity,android.R.layout.simple_spinner_dropdown_item,listOf("Một biên bản nhiều trang","Nhiều biên bản"))
+                minimumHeight=dp(42);setPadding(dp(8),0,dp(8),0);background=bg();isEnabled=false
+            }
+            imageBox.addView(modeSpinner,LinearLayout.LayoutParams(-1,dp(42)))
+            imageBox.addView(gap(5))
             val sourceActions=row()
             val camera=button("Chụp ảnh",teal)
-            val gallery=button("Chọn từ máy",navy)
+            val gallery=button("Chọn nhiều ảnh",navy)
             sourceActions.addView(camera,LinearLayout.LayoutParams(0,dp(44),1f).apply{marginEnd=dp(4)})
             sourceActions.addView(gallery,LinearLayout.LayoutParams(0,dp(44),1f).apply{marginStart=dp(4)})
             imageBox.addView(sourceActions,LinearLayout.LayoutParams(-1,-2))
@@ -138,10 +138,10 @@ object DocumentManagementFeature {
                 contentDescription="Ảnh biên bản đã chọn";visibility=View.GONE
             }
             imageBox.addView(preview,LinearLayout.LayoutParams(-1,dp(190)))
-            previewMeta=text("Chưa chọn ảnh.",9.4f,muted)
+            previewMeta=text("0 ảnh",9.4f,muted)
             imageBox.addView(previewMeta)
             imageBox.addView(gap(8))
-            uploadButton=button("Tải biên bản lên",green).apply{isEnabled=false;alpha=.4f}
+            uploadButton=button("Tải lên",green).apply{isEnabled=false;alpha=.4f}
             imageBox.addView(uploadButton,LinearLayout.LayoutParams(-1,dp(46)))
             body.addView(imageBox,LinearLayout.LayoutParams(-1,-2))
             body.addView(gap(10))
@@ -155,8 +155,6 @@ object DocumentManagementFeature {
             pendingBox.addView(gap(4))
             pendingText=text("Đang kiểm tra ảnh chờ...",9.1f,muted)
             pendingBox.addView(pendingText)
-            pendingBox.addView(gap(3))
-            pendingBox.addView(text("Ảnh chỉ giữ tạm trên máy khi chưa được Drive xác nhận; tải xong sẽ tự xóa. Tối đa 60 ảnh / 120 MB.",8.7f,muted))
             body.addView(pendingBox,LinearLayout.LayoutParams(-1,-2))
             body.addView(gap(12))
 
@@ -164,8 +162,18 @@ object DocumentManagementFeature {
             listHead.addView(text("Biên bản đã tải",11.5f,navy,true),LinearLayout.LayoutParams(0,-2,1f))
             val refresh=button("Làm mới",navy)
             listHead.addView(refresh,LinearLayout.LayoutParams(dp(90),dp(38)))
-            body.addView(listHead,LinearLayout.LayoutParams(-1,-2));body.addView(gap(6))
-            emptyText=text("Đang tải danh sách...",9.5f,muted).apply{setPadding(dp(4),dp(8),dp(4),dp(8))}
+            body.addView(listHead,LinearLayout.LayoutParams(-1,-2));body.addView(gap(5))
+            filterSpinner=Spinner(activity).apply{minimumHeight=dp(42);setPadding(dp(8),0,dp(8),0);background=bg()}
+            filterCategoryIds=listOf("")+categoryIds
+            filterSpinner.adapter=ArrayAdapter(activity,android.R.layout.simple_spinner_dropdown_item,listOf("Tất cả loại biên bản")+categoryNames)
+            body.addView(filterSpinner,LinearLayout.LayoutParams(-1,dp(42)));body.addView(gap(5))
+            val selectionRow=row()
+            selectedDeleteText=text("Đã chọn 0 ảnh",9.3f,muted,true)
+            deleteSelectedButton=button("Xóa đã chọn",red).apply{isEnabled=false;alpha=.4f}
+            selectionRow.addView(selectedDeleteText,LinearLayout.LayoutParams(0,-2,1f))
+            selectionRow.addView(deleteSelectedButton,LinearLayout.LayoutParams(dp(112),dp(38)))
+            body.addView(selectionRow);body.addView(gap(5))
+            emptyText=text("Đang tải...",9.5f,muted).apply{setPadding(dp(4),dp(8),dp(4),dp(8))}
             body.addView(emptyText)
             recordsHost=column()
             body.addView(recordsHost,LinearLayout.LayoutParams(-1,-2))
@@ -178,6 +186,11 @@ object DocumentManagementFeature {
             uploadButton.setOnClickListener{uploadSelected()}
             retryPendingButton.setOnClickListener{retryPending()}
             refresh.setOnClickListener{refreshDocuments();refreshPending()}
+            deleteSelectedButton.setOnClickListener{deleteSelectedRecords()}
+            filterSpinner.onItemSelectedListener=object:AdapterView.OnItemSelectedListener{
+                override fun onNothingSelected(parent:AdapterView<*>?)=Unit
+                override fun onItemSelected(parent:AdapterView<*>?,view:View?,position:Int,id:Long){if(!suppressFilter)refreshDocuments()}
+            }
             restoreCachedCategories()
             restoreDraft()
             refreshCategories()
