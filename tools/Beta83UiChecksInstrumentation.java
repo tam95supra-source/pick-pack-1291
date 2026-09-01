@@ -75,10 +75,19 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     android.content.SharedPreferences p=target.getSharedPreferences("pp_m2_service_transport",Context.MODE_PRIVATE);
     String stale="{\"ok\":true,\"authority_mode\":\"SERVICE_PRIMARY\",\"service_url\":\"https://pickpack1291.cc.cd\"}";
     if(seed)p.edit().putString("discovery_json",stale).putLong("discovery_at",System.currentTimeMillis()).remove("service_token").commit();
+    boolean staleBeforeCheck=true;
     else{
       JSONObject before=new JSONObject(p.getString("discovery_json","{}"));
-      require("https://pickpack1291.cc.cd".equals(before.optString("service_url")),"PRESERVED_STALE_DISCOVERY_MISSING:"+before.optString("service_url"));
-      require(System.currentTimeMillis()-p.getLong("discovery_at",0L)<300000L,"PRESERVED_STALE_DISCOVERY_TTL_NOT_FRESH");
+      String beforeUrl=before.optString("service_url");
+      staleBeforeCheck="https://pickpack1291.cc.cd".equals(beforeUrl);
+      if(staleBeforeCheck){
+        require(System.currentTimeMillis()-p.getLong("discovery_at",0L)<300000L,"PRESERVED_STALE_DISCOVERY_TTL_NOT_FRESH");
+      }else{
+        require("BETA".equals(before.optString("environment_id")),"PRECHECK_REWRITTEN_CACHE_ENV_NOT_BETA:"+before.optString("environment_id"));
+        require("PICK_PACK_1291_BETA".equals(before.optString("service_audience")),"PRECHECK_REWRITTEN_CACHE_AUDIENCE_MISMATCH:"+before.optString("service_audience"));
+        require(beforeUrl.startsWith("https://"),"PRECHECK_REWRITTEN_CACHE_URL_INVALID:"+beforeUrl);
+        require(!"https://pickpack1291.cc.cd".equals(beforeUrl),"PRECHECK_STALE_ROOT_REUSED");
+      }
     }
     Class<?> c=target.getClassLoader().loadClass("vn.pickpack1291.app.beta.M2ServiceTransport");
     Object transport=c.getConstructor(Context.class).newInstance(target);
@@ -101,6 +110,7 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     x.putString("environment_id",d.optString("environment_id"));
     x.putString("service_audience",d.optString("service_audience"));
     x.putString("service_url",url);
+    x.putString("stale_cache_before_check",staleBeforeCheck?"STALE_PRESERVED":"ALREADY_REWRITTEN_BY_APP");
     finish(0,x);
   }
 
