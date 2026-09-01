@@ -245,6 +245,15 @@ def recover_runtime_canary_if_requested(tok,prov,release):
     print(json.dumps({"status":"PASS","phase":"STABLE_GAS_CANARY_RECOVERY","target":"dr","stable_public":False}))
     return True
 
+def promotion_lock_mode_selftest():
+    promo={"beta_acceptance_lock":{"status":"OWNER_ACCEPTED","source_sha":"old-beta","owner_acceptance_ref":"ops/beta104-owner-acceptance.json","beta":{}},"stable_promotion_lock":{"accepted_source_sha":"old-beta","owner_promotion_authorization":None,"stable":{"manifest_active":False,"ota_active":False,"public_domain_active":False}}}
+    source="new-beta"
+    # PRE_OTA runtime must allow a historical OWNER-accepted promotion lock from an older LIVE Beta.
+    sp=promo["stable_promotion_lock"]
+    if sp.get("owner_promotion_authorization") is not None:raise RuntimeError("PREOTA_PROMOTION_LOCK_SELFTEST_FAILED")
+    # Promotion mode must still reject source drift.
+    if promo["beta_acceptance_lock"].get("source_sha")==source:raise RuntimeError("PROMOTION_SOURCE_DRIFT_SELFTEST_INVALID_FIXTURE")
+
 def main():
     promotion_mode="--promotion-dry-run" in sys.argv
     for n in ["CLOUDFLARE_API_TOKEN","CLOUDFLARE_ACCOUNT_ID","GOOGLE_OAUTH_CLIENT_ID","GOOGLE_OAUTH_CLIENT_SECRET","GOOGLE_OAUTH_REFRESH_TOKEN"]:
@@ -265,19 +274,19 @@ def main():
     if not isinstance(release.get("device_regression_run_id"),int) or not isinstance(release.get("device_regression_artifact_id"),int):raise RuntimeError("SERVICE_DISCOVERY_DEVICE_EVIDENCE_MISSING")
     source=str(release.get("source_sha") or "");assert_exact_candidate_source(source)
     beta_lock=promo["beta_acceptance_lock"];beta_meta=beta_lock.get("beta") or {}
-    if beta_lock.get("source_sha")!=source:raise RuntimeError("BETA_ACCEPTANCE_LOCK_SOURCE_INVALID")
+    sp=promo["stable_promotion_lock"]
     if promotion_mode:
+        if beta_lock.get("source_sha")!=source:raise RuntimeError("BETA_ACCEPTANCE_LOCK_SOURCE_INVALID")
         if beta_lock.get("status")!="OWNER_ACCEPTED" or beta_lock.get("owner_acceptance_ref")!="ops/beta104-owner-acceptance.json":raise RuntimeError("BETA_ACCEPTANCE_LOCK_OWNER_STATE_INVALID")
         if not owner_acceptance or owner_acceptance.get("status")!="OWNER_ACCEPTED" or owner_acceptance.get("release")!=release.get("version_name"):raise RuntimeError("BETA_OWNER_ACCEPTANCE_RECEIPT_INVALID")
         if any(str((owner_acceptance.get("checklist") or {}).get(str(i)))!="OK" for i in range(1,7)):raise RuntimeError("BETA_OWNER_ACCEPTANCE_CHECKLIST_INCOMPLETE")
         if release.get("live") is not True:raise RuntimeError("BETA104_NOT_LIVE_FOR_PROMOTION_DRY_RUN")
-    else:
-        if beta_lock.get("owner_acceptance_ref") is not None:raise RuntimeError("BETA_ACCEPTANCE_LOCK_INVALID")
-    if release.get("version_name")!=beta_meta.get("version_name") or int(release.get("version_code",0))!=int(beta_meta.get("version_code",0)) or release.get("package")!=beta_meta.get("package_name"):raise RuntimeError("BETA_CANDIDATE_METADATA_DRIFT")
-    if release.get("apk_sha256")!=beta_meta.get("apk_sha256") or int(release.get("apk_size",0))!=int(beta_meta.get("apk_size",0)) or release.get("signer_sha256")!=beta_meta.get("signer_sha256"):raise RuntimeError("BETA_CANDIDATE_RELEASE_IDENTITY_DRIFT")
+        if release.get("version_name")!=beta_meta.get("version_name") or int(release.get("version_code",0))!=int(beta_meta.get("version_code",0)) or release.get("package")!=beta_meta.get("package_name"):raise RuntimeError("BETA_CANDIDATE_METADATA_DRIFT")
+        if release.get("apk_sha256")!=beta_meta.get("apk_sha256") or int(release.get("apk_size",0))!=int(beta_meta.get("apk_size",0)) or release.get("signer_sha256")!=beta_meta.get("signer_sha256"):raise RuntimeError("BETA_CANDIDATE_RELEASE_IDENTITY_DRIFT")
+        if sp.get("accepted_source_sha")!=source or sp.get("owner_promotion_authorization") is not None:raise RuntimeError("STABLE_PROMOTION_AUTHORIZATION_INVALID")
+    elif sp.get("owner_promotion_authorization") is not None:
+        raise RuntimeError("STABLE_PROMOTION_AUTHORIZATION_INVALID")
     if proof.get("status")!="PASS" or proof.get("restore_compare")!="PASS" or proof.get("restore_canary_deleted") is not True or proof.get("d1_count_after")!=3:raise RuntimeError("STABLE_BACKUP_RESTORE_PROOF_INVALID")
-    sp=promo["stable_promotion_lock"]
-    if sp.get("accepted_source_sha")!=source or sp.get("owner_promotion_authorization") is not None:raise RuntimeError("STABLE_PROMOTION_AUTHORIZATION_INVALID")
     if any(bool(sp["stable"].get(k)) for k in ["manifest_active","ota_active","public_domain_active"]):raise RuntimeError("STABLE_PROMOTION_ALREADY_PUBLIC")
     beta_c=contract["environments"]["BETA"];stable_c=contract["environments"]["STABLE"]
     if stable_c.get("stable_publish_allowed") is not False:raise RuntimeError("STABLE_CONTRACT_PUBLISH_ALLOWED")
@@ -392,8 +401,10 @@ if __name__=="__main__":
         try:
             quota_selftest()
             gas_runtime_canary_selftest()
+            promotion_lock_mode_selftest()
             print("beta_stable_runtime_quota_selftest=PASS")
             print("beta_stable_runtime_gas_canary_selftest=PASS")
+            print("beta_stable_runtime_promotion_mode_selftest=PASS")
         except Exception as e:
             print("BETA_STABLE_RUNTIME_QUOTA_SELFTEST_ERROR:"+str(e),file=sys.stderr);sys.exit(1)
         sys.exit(0)
