@@ -1,6 +1,6 @@
 # Beta109 — DOCUMENT-MANAGEMENT-001 regression
 
-Status: TECHNICAL_PASS_AWAITING_OWNER  
+Status: ACTIVE_PASS  
 Version: 0.4.2-beta.109 / versionCode 115  
 Source: a72d8e20eaebe60235338fd1b9aaebde42507825  
 Exact APK SHA256: 1c01a58eefe5d0501eccbfe0359a2d5c0b3ec159f5ef37889d757f0984bbc7c8
@@ -25,8 +25,9 @@ Exact APK SHA256: 1c01a58eefe5d0501eccbfe0359a2d5c0b3ec159f5ef37889d757f0984bbc7
 - Stable/main/signer/authority unchanged.
 
 ## OWNER acceptance
-- Đã khóa từ Beta108: 1,2,5,6,7,8 OK.
-- Chỉ cần OWNER nghiệm thu lại:
-  1. Ảnh gần giống có cảnh báo đúng; ảnh trùng hoàn toàn vẫn hoạt động như trước.
-  2. Mất mạng vẫn thấy danh mục, vẫn gửi vào hàng chờ; tắt/mở app không mất ảnh đang chọn và có mạng thì tự gửi lại.
-- Chỉ chuyển DOCUMENT-MANAGEMENT-001 sang ACTIVE_PASS sau OWNER xác nhận cả 2 mục trên OK.
+- Beta108 đã khóa: 1,2,5,6,7,8 OK.
+- OWNER xác nhận thêm ngày 2026-09-01 22:04 +07:00:
+  1. Near-similar warning: OK; exact duplicate giữ nguyên.
+  2. Offline category + durable selected draft + queued auto retry: OK.
+- DOCUMENT-MANAGEMENT-001 = ACTIVE_PASS.
+- Receipt: ops/beta109-owner-acceptance.json.
