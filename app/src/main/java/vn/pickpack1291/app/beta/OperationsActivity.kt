@@ -1489,19 +1489,75 @@ class OperationsActivity : Activity() {
         if(initialMnv.isNotBlank())mnv.post{submit()}
         attach(root,body);mnv.requestFocus()
     }
-    private fun showLaborContext    private fun showLaborContext(ctx:JSONObject, masters:JSONObject){
-        screenState = "LABOR_CONTEXT"
-        val e=ctx.optJSONObject("employee")?:JSONObject();val state=ctx.optString("state");val active=ctx.optJSONObject("active_labor");val root=baseRoot("CÔNG NHẬT");val body=body();body.addView(employeeCard(e));body.addView(gap(10))
-        if(state!="ACTIVE"){body.addView(status(if(state=="ENDED")"Mã nhân viên ĐÃ HẾT PHIÊN" else "Mã nhân viên CHƯA VÀO CA",red,Color.rgb(255,238,239)));body.addView(gap(9));body.addView(primary("Mã nhân viên KHÁC",navy){initialMnv="";laborHome()},matchWrap());attach(root,body);return}
-        val s=ctx.optJSONObject("session")?:JSONObject();body.addView(details(listOf("Ca" to s.optString("shift"),"Vị trí" to workText(s.optString("work_choice")),"Vào lúc" to formatIso(s.optString("enter_at")))));body.addView(gap(10))
-        if(active!=null){body.addView(status("ĐANG LÀM CÔNG NHẬT",green,Color.rgb(235,248,239)));body.addView(gap(8));body.addView(details(listOf("Nội dung" to active.optString("labor_type"),"Bắt đầu" to formatIso(active.optString("start_at")),"Mốc thời gian" to active.optString("time_marker"),"Ghi chú" to dash(active.optString("note")))));body.addView(gap(9));val note=input("Ghi chú khi kết thúc (tùy chọn)",false);body.addView(note,matchWrap());body.addView(gap(9));val finish=primary("HOÀN THÀNH CÔNG NHẬT",red){};finish.setOnClickListener{finish.isEnabled=false;finish.text="ĐANG GHI...";api.call("labor_finish",JSONObject().put("event_id",UUID.randomUUID().toString()).put("mnv",e.optString("mnv")).put("note",note.text.toString())){r->runOnUiThread{finish.isEnabled=true;finish.text="HOÀN THÀNH CÔNG NHẬT";if(handleAuth(r))return@runOnUiThread;if(!r.ok)showError(r.error?:"Không kết thúc được công nhật")else{initialMnv=e.optString("mnv");laborHome()}}}};body.addView(finish,matchWrap())
-        }else{
-            body.addView(status("CHƯA CÓ CÔNG NHẬT ĐANG LÀM",blue,Color.rgb(237,244,255)));body.addView(gap(9));val types=catalogValues("CÔNG NHẬT_Thông tin công nhật",jsonStrings(masters.optJSONArray("labor_types")));val markers=catalogValues("CÔNG NHẬT_Mốc thời gian",jsonStrings(masters.optJSONArray("time_markers")));val typeSpinner=spinner((if(types.isEmpty())listOf("Khác")else types).toTypedArray());val markerSpinner=spinner((if(markers.isEmpty())listOf("Trong ngày")else markers).toTypedArray());val note=input("Ghi chú (tùy chọn)",false);body.addView(labelled("Thông tin công nhật",typeSpinner));body.addView(gap(8));body.addView(labelled("Mốc thời gian",markerSpinner));body.addView(gap(8));val fixedMain=foldLocal(e.optString("main_position")).let{it.contains("KEO HANG")||it.contains("TO TRUONG")};val deduct=CheckBox(this).apply{text="Khấu trừ nhân sự";isChecked=false;setTextColor(ink);textSize=11f};fun updateDeduct(){val fixedLabor=foldLocal(typeSpinner.selectedItem?.toString().orEmpty()).let{it.contains("KEO HANG")||it.contains("TO TRUONG")};val blocked=fixedMain||fixedLabor;deduct.isEnabled=!blocked;if(blocked)deduct.isChecked=false;deduct.setTextColor(if(blocked)muted else ink)};typeSpinner.onItemSelectedListener=object:android.widget.AdapterView.OnItemSelectedListener{override fun onItemSelected(p:android.widget.AdapterView<*>?,v:View?,pos:Int,id:Long){updateDeduct()};override fun onNothingSelected(p:android.widget.AdapterView<*>?)=Unit};updateDeduct();body.addView(deduct,matchWrap());body.addView(gap(6));body.addView(note,matchWrap());body.addView(gap(9));val start=primary("BẮT ĐẦU CÔNG NHẬT",green){};start.setOnClickListener{start.isEnabled=false;start.text="ĐANG GHI...";api.call("labor_start",JSONObject().put("event_id",UUID.randomUUID().toString()).put("mnv",e.optString("mnv")).put("shift",s.optString("shift"))/* S21_LABOR_SHIFT_APPLIED */.put("labor_type",typeSpinner.selectedItem.toString()).put("time_marker",markerSpinner.selectedItem.toString()).put("deduct_staff",deduct.isChecked&&deduct.isEnabled).put("note",note.text.toString())){r->runOnUiThread{start.isEnabled=true;start.text="BẮT ĐẦU CÔNG NHẬT";if(handleAuth(r))return@runOnUiThread;if(!r.ok)showError(r.error?:"Không bắt đầu được công nhật")else{initialMnv=e.optString("mnv");laborHome()}}}};body.addView(start,matchWrap())
+    private fun showLaborContext(ctx:JSONObject, masters:JSONObject){
+        screenState="LABOR_CONTEXT"
+        val e=ctx.optJSONObject("employee")?:JSONObject();val state=ctx.optString("state");val active=ctx.optJSONObject("active_labor")
+        val root=baseRoot("CÔNG NHẬT");val body=body();body.addView(employeeCard(e));body.addView(gap(7))
+        if(state!="ACTIVE"){
+            body.addView(status(if(state=="ENDED")"ĐÃ HẾT PHIÊN" else "CHƯA VÀO CA",red,Color.rgb(255,238,239)))
+            body.addView(gap(7));body.addView(primary("Mã nhân viên KHÁC",navy){initialMnv="";laborHome()},matchWrap());attach(root,body);return
         }
-        body.addView(gap(9));body.addView(primary("Mã nhân viên KHÁC",navy){initialMnv="";laborHome()},matchWrap());attach(root,body)
+        val ses=ctx.optJSONObject("session")?:JSONObject()
+        body.addView(details(listOf("Ca" to dash(ses.optString("shift")),"Vị trí" to dash(workText(ses.optString("work_choice"))),"Vào lúc" to formatIso(ses.optString("enter_at")))));body.addView(gap(7))
+        val tz=ZoneId.of("Asia/Ho_Chi_Minh")
+        fun pickClock(currentIso:String,onPick:(String)->Unit){
+            val z=runCatching{Instant.parse(currentIso).atZone(tz)}.getOrDefault(java.time.ZonedDateTime.now(tz))
+            android.app.TimePickerDialog(this,{_,hour,minute->
+                val picked=z.toLocalDate().atTime(hour,minute).atZone(tz).toInstant()
+                if(picked.isAfter(Instant.now().plusSeconds(60))){TopNotice.show(this,"Thời gian không được ở tương lai.",TopNotice.Kind.WARNING);return@TimePickerDialog}
+                onPick(picked.toString())
+            },z.hour,z.minute,true).show()
+        }
+        fun timeButton(iso:String):Button=Button(this).apply{
+            text=compactAttendanceTime(iso);textSize=12f;isAllCaps=false;setTextColor(navy);background=outlineBg(surface,11);minHeight=0;minimumHeight=0
+        }
+        if(active!=null){
+            body.addView(status("ĐANG LÀM CÔNG NHẬT",green,Color.rgb(235,248,239)));body.addView(gap(6))
+            body.addView(details(listOf("Nội dung" to dash(active.optString("labor_type")),"Bắt đầu" to formatIso(active.optString("start_at")),"Ghi chú" to dash(active.optString("note")))));body.addView(gap(7))
+            var endIso=Instant.now().toString()
+            val endRow=row(bg);endRow.addView(txt("Kết thúc",10.2f,ink,true),LinearLayout.LayoutParams(0,-2,1f))
+            val endTime=timeButton(endIso);endRow.addView(endTime,LinearLayout.LayoutParams(dp(112),dp(42)));body.addView(endRow,matchWrap());body.addView(gap(6))
+            endTime.setOnClickListener{pickClock(endIso){picked->endIso=picked;endTime.text=compactAttendanceTime(endIso)}}
+            val note=input("Ghi chú",false);body.addView(note,matchWrap());body.addView(gap(7))
+            val finish=primary("HOÀN THÀNH",red){}
+            finish.setOnClickListener{
+                val startMs=runCatching{Instant.parse(active.optString("start_at")).toEpochMilli()}.getOrDefault(0L)
+                val endMs=runCatching{Instant.parse(endIso).toEpochMilli()}.getOrDefault(0L)
+                if(startMs>0&&endMs<startMs){TopNotice.show(this,"Giờ kết thúc phải sau giờ bắt đầu.",TopNotice.Kind.WARNING);return@setOnClickListener}
+                finish.isEnabled=false;finish.text="ĐANG GHI..."
+                api.call("labor_finish",JSONObject().put("event_id",UUID.randomUUID().toString()).put("mnv",e.optString("mnv")).put("end_at",endIso).put("note",note.text.toString())){r->runOnUiThread{
+                    finish.isEnabled=true;finish.text="HOÀN THÀNH";if(handleAuth(r))return@runOnUiThread
+                    if(!r.ok)showError(r.error?:"Không kết thúc được công nhật")else{initialMnv=e.optString("mnv");laborHome()}
+                }}
+            }
+            body.addView(finish,matchWrap())
+        }else{
+            val types=catalogValues("CÔNG NHẬT_Thông tin công nhật",jsonStrings(masters.optJSONArray("labor_types")))
+            val typeSpinner=spinner((if(types.isEmpty())listOf("Khác")else types).toTypedArray())
+            body.addView(labelled("Thông tin công nhật",typeSpinner));body.addView(gap(7))
+            var startIso=Instant.now().toString()
+            val startRow=row(bg);startRow.addView(txt("Bắt đầu",10.2f,ink,true),LinearLayout.LayoutParams(0,-2,1f))
+            val startTime=timeButton(startIso);startRow.addView(startTime,LinearLayout.LayoutParams(dp(112),dp(42)));body.addView(startRow,matchWrap());body.addView(gap(6))
+            startTime.setOnClickListener{pickClock(startIso){picked->startIso=picked;startTime.text=compactAttendanceTime(startIso)}}
+            val fixedMain=foldLocal(e.optString("main_position")).let{it.contains("KEO HANG")||it.contains("TO TRUONG")}
+            val deduct=CheckBox(this).apply{text="Khấu trừ nhân sự";isChecked=false;setTextColor(ink);textSize=11f}
+            fun updateDeduct(){val fixedLabor=foldLocal(typeSpinner.selectedItem?.toString().orEmpty()).let{it.contains("KEO HANG")||it.contains("TO TRUONG")};val blocked=fixedMain||fixedLabor;deduct.isEnabled=!blocked;if(blocked)deduct.isChecked=false;deduct.setTextColor(if(blocked)muted else ink)}
+            typeSpinner.onItemSelectedListener=object:android.widget.AdapterView.OnItemSelectedListener{override fun onItemSelected(p:android.widget.AdapterView<*>?,v:View?,pos:Int,id:Long){updateDeduct()};override fun onNothingSelected(p:android.widget.AdapterView<*>?)=Unit};updateDeduct()
+            body.addView(deduct,matchWrap());body.addView(gap(5))
+            val note=input("Ghi chú",false);body.addView(note,matchWrap());body.addView(gap(7))
+            val start=primary("BẮT ĐẦU",green){}
+            start.setOnClickListener{
+                start.isEnabled=false;start.text="ĐANG GHI..."
+                api.call("labor_start",JSONObject().put("event_id",UUID.randomUUID().toString()).put("mnv",e.optString("mnv")).put("shift",ses.optString("shift")).put("labor_type",typeSpinner.selectedItem.toString()).put("start_at",startIso).put("deduct_staff",deduct.isChecked&&deduct.isEnabled).put("note",note.text.toString())){r->runOnUiThread{
+                    start.isEnabled=true;start.text="BẮT ĐẦU";if(handleAuth(r))return@runOnUiThread
+                    if(!r.ok)showError(r.error?:"Không bắt đầu được công nhật")else{initialMnv=e.optString("mnv");laborHome()}
+                }}
+            }
+            body.addView(start,matchWrap())
+        }
+        body.addView(gap(7));body.addView(primary("Mã nhân viên KHÁC",navy){initialMnv="";laborHome()},matchWrap());attach(root,body)
     }
-
-    private fun resourceHome(){
+    private fun resourceHome    private fun resourceHome(){
         screenState="RESOURCE_HOME"
         val root=baseRoot("TÀI NGUYÊN");val body=body()
         val cards=listOf(
