@@ -1,6 +1,7 @@
 package vn.pickpack1291.app.beta
 
 import android.content.Context
+import org.json.JSONArray
 import org.json.JSONObject
 
 class DocumentUploadEngine(context:Context, private val api:BetaApiClient) {
@@ -44,6 +45,7 @@ class DocumentUploadEngine(context:Context, private val api:BetaApiClient) {
         val payload=JSONObject()
             .put("category_id",item.categoryId).put("mime_type",item.mimeType).put("byte_size",item.byteSize)
             .put("sha256",item.sha256).put("md5",item.md5).put("dhash64",item.dhash64)
+            .put("dhash64_variants",JSONArray(item.dhash64Variants))
             .put("width",item.width).put("height",item.height).put("source_kind",item.sourceKind)
             .put("captured_at",item.capturedAt).put("idempotency_key",item.idempotencyKey).put("allow_similar",item.allowSimilar)
         val session=client.post("/v1/documents/upload-session",payload)
