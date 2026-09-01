@@ -558,12 +558,23 @@ async function processDocumentDeleteMutation(env:Env,mutationId:string):Promise<
     const rows=await env.DB.prepare("SELECT mutation_id,document_id,drive_file_id,state FROM document_delete_items WHERE mutation_id=?1 AND state='PENDING' ORDER BY document_id LIMIT ?2")
       .bind(mutationId,DOCUMENT_DELETE_BATCH).all<{mutation_id:string;document_id:string;drive_file_id:string|null;state:string}>();
     for(const row of rows.results||[]){
+      const doc=await env.DB.prepare("SELECT document_id,group_id,group_mode FROM document_records WHERE document_id=?1").bind(row.document_id)
+        .first<{document_id:string;group_id:string|null;group_mode:string|null}>();
+      const siblings=(doc?.group_id&&doc.group_mode==="MULTI_PAGE")
+        ?(await env.DB.prepare("SELECT document_id FROM document_records WHERE group_id=?1 AND document_id<>?2 AND status='COMPLETE' ORDER BY page_index ASC,created_at ASC")
+          .bind(doc.group_id,row.document_id).all<{document_id:string}>()).results||[]
+        :[];
       if(row.drive_file_id)await deleteDriveFile(token,row.drive_file_id);
-      const at=nowIso();
-      await env.DB.batch([
+      const at=nowIso(),stmts:D1PreparedStatement[]=[
         env.DB.prepare("DELETE FROM document_records WHERE document_id=?1").bind(row.document_id),
         env.DB.prepare("UPDATE document_delete_items SET state='DONE',last_error=NULL,updated_at=?1 WHERE mutation_id=?2 AND document_id=?3").bind(at,mutationId,row.document_id)
-      ]);
+      ];
+      if(doc?.group_id&&doc.group_mode==="MULTI_PAGE"){
+        const pageCount=siblings.length;
+        siblings.forEach((x,i)=>stmts.push(env.DB.prepare("UPDATE document_records SET page_index=?1,page_count=?2,updated_at=?3 WHERE document_id=?4")
+          .bind(i+1,pageCount,at,x.document_id)));
+      }
+      await env.DB.batch(stmts);
     }
     const done=await env.DB.prepare("SELECT COUNT(*) AS n FROM document_delete_items WHERE mutation_id=?1 AND state='DONE'").bind(mutationId).first<{n:number}>();
     const pending=await env.DB.prepare("SELECT COUNT(*) AS n FROM document_delete_items WHERE mutation_id=?1 AND state='PENDING'").bind(mutationId).first<{n:number}>();
