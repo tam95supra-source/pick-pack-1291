@@ -34,7 +34,7 @@ class DocumentDraftStore(context:Context){
     }
 
     fun load(ownerLogin:String):Draft?=synchronized(lock){loadAllUnlocked(ownerLogin).firstOrNull()}
-    fun loadAll(ownerLogin:String):List<Draft>=synchronized(lock){loadAllUnlocked(ownerLogin)}
+    fun loadAll(ownerLogin:String):List<Draft> = synchronized(lock){loadAllUnlocked(ownerLogin)}
     fun remove(ownerLogin:String)=synchronized(lock){accountDir(ownerLogin,false)?.deleteRecursively()}
 
     private fun appendUnlocked(ownerLogin:String,sourceKind:String,capturedAt:String,idempotencyKey:String,image:DocumentImageProcessor.ProcessedImage):Draft{
@@ -43,7 +43,8 @@ class DocumentDraftStore(context:Context){
         val existingIds=manifestIds(account).toMutableList()
         if(existingIds.size>=60)throw IllegalStateException("DOCUMENT_DRAFT_ITEM_LIMIT")
         val generation=UUID.randomUUID().toString()
-        val bytesTmp=File(account,"$generation.jpg.tmp"),bytesFile=File(account,"$generation.jpg")
+        val bytesTmp=File(account,"$generation.jpg.tmp")
+        val bytesFile=File(account,"$generation.jpg")
         bytesTmp.outputStream().use{out->out.write(image.bytes);runCatching{out.fd.sync()}}
         if(!bytesTmp.renameTo(bytesFile)){bytesTmp.delete();throw IllegalStateException("DOCUMENT_DRAFT_BYTES_COMMIT_FAILED")}
         val now=System.currentTimeMillis()
@@ -53,7 +54,8 @@ class DocumentDraftStore(context:Context){
             .put("dhash64",image.dhash64).put("dhash64_variants",JSONArray(image.dhash64Variants))
             .put("width",image.width).put("height",image.height).put("mime_type",image.mimeType)
             .put("byte_size",image.bytes.size).put("updated_at",now)
-        val metaTmp=File(account,"$generation.json.tmp"),metaFile=File(account,"$generation.json")
+        val metaTmp=File(account,"$generation.json.tmp")
+        val metaFile=File(account,"$generation.json")
         metaTmp.writeText(meta.toString(),Charsets.UTF_8)
         if(!metaTmp.renameTo(metaFile)){bytesFile.delete();metaTmp.delete();throw IllegalStateException("DOCUMENT_DRAFT_META_COMMIT_FAILED")}
         try{
@@ -71,7 +73,8 @@ class DocumentDraftStore(context:Context){
         val ids=manifestIds(account)
         val out=mutableListOf<Draft>()
         for(generation in ids){
-            val metaFile=File(account,"$generation.json"),bytesFile=File(account,"$generation.jpg")
+            val metaFile=File(account,"$generation.json")
+            val bytesFile=File(account,"$generation.jpg")
             if(!metaFile.isFile||!bytesFile.isFile)continue
             val draft=runCatching{
                 val j=JSONObject(metaFile.readText(Charsets.UTF_8))
@@ -117,7 +120,8 @@ class DocumentDraftStore(context:Context){
     }
 
     private fun writeManifest(account:File,ids:List<String>){
-        val tmp=File(account,"manifest.json.tmp"),target=File(account,"manifest.json")
+        val tmp=File(account,"manifest.json.tmp")
+        val target=File(account,"manifest.json")
         tmp.writeText(JSONObject().put("generations",JSONArray(ids)).toString(),Charsets.UTF_8)
         runCatching{FileOutputStream(tmp,true).use{it.fd.sync()}}
         if(target.exists())target.delete()
