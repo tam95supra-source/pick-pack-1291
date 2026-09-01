@@ -188,58 +188,77 @@ object DocumentManagementFeature {
         }
 
         fun dispose(){disposed=true;executor.shutdownNow()}
-        fun onImageSelected(uri:Uri,sourceKind:String){
+        fun onImageSelected(uri:Uri,sourceKind:String)=onImagesSelected(listOf(uri),sourceKind)
+
+        fun onImagesSelected(uris:List<Uri>,sourceKind:String){
             if(disposed||busy)return
+            val input=uris.distinctBy{it.toString()}.take((60-selected.size).coerceAtLeast(0))
+            if(input.isEmpty()){warning("Đã đạt tối đa 60 ảnh đang chọn.");return}
             busy=true
-            postUi{previewMeta.text="Đang tối ưu ảnh...";uploadButton.isEnabled=false;uploadButton.alpha=.4f}
+            postUi{previewMeta.text="Đang xử lý ${input.size} ảnh...";uploadButton.isEnabled=false;uploadButton.alpha=.4f}
             executor.execute{
-                try{
-                    val image=DocumentImageProcessor.process(activity,uri)
-                    val capturedAt=Instant.now().toString()
-                    val idempotencyKey=UUID.randomUUID().toString()
-                    draftStore.save(login,sourceKind,capturedAt,idempotencyKey,image)
-                    selected=Selected(image,sourceKind,capturedAt,idempotencyKey)
-                    postUi{
-                        val bmp=BitmapFactory.decodeByteArray(image.bytes,0,image.bytes.size)
-                        preview.setImageBitmap(bmp);preview.visibility=View.VISIBLE
-                        previewMeta.text="${image.width} × ${image.height} • ${formatBytes(image.bytes.size.toLong())} • đã tạo dấu vân tay chống trùng"
-                        uploadButton.isEnabled=categoryIds.isNotEmpty();uploadButton.alpha=if(uploadButton.isEnabled)1f else .4f
-                    }
-                }catch(t:Throwable){
-                    postUi{error("Không đọc được ảnh: ${t.message?:"IMAGE_READ_FAILED"}");previewMeta.text="Chưa chọn ảnh."}
-                }finally{
-                    if(sourceKind=="CAMERA")runCatching{activity.contentResolver.delete(uri,null,null)}
-                    busy=false
+                var added=0;var firstError:String?=null
+                for(uri in input){
+                    try{
+                        val image=DocumentImageProcessor.process(activity,uri)
+                        val capturedAt=Instant.now().toString();val idempotencyKey=UUID.randomUUID().toString()
+                        draftStore.append(login,sourceKind,capturedAt,idempotencyKey,image)
+                        selected.add(Selected(image,sourceKind,capturedAt,idempotencyKey));added++
+                    }catch(t:Throwable){if(firstError==null)firstError=t.message?:"IMAGE_READ_FAILED"}
+                    finally{if(sourceKind=="CAMERA")runCatching{activity.contentResolver.delete(uri,null,null)}}
+                }
+                busy=false
+                postUi{
+                    renderSelectedPreview()
+                    if(firstError!=null)warning("Có ảnh không đọc được: $firstError")
+                    if(added==0&&firstError!=null)error("Không thêm được ảnh.")
                 }
             }
         }
 
-        private fun applyCategoryEntries(entries:List<DocumentCategoryCache.Entry>){
-            categoryIds=entries.map{it.id}
-            categoryNames=entries.map{it.name}
-            categorySpinner.adapter=ArrayAdapter(activity,android.R.layout.simple_spinner_dropdown_item,if(categoryNames.isEmpty())listOf("Chưa có loại biên bản") else categoryNames)
-            uploadButton.isEnabled=selected!=null&&categoryIds.isNotEmpty()
+        private fun renderSelectedPreview(){
+            if(selected.isEmpty()){
+                preview.setImageDrawable(null);preview.visibility=View.GONE;previewMeta.text="0 ảnh"
+            }else{
+                val last=selected.last();val bmp=BitmapFactory.decodeByteArray(last.image.bytes,0,last.image.bytes.size)
+                preview.setImageBitmap(bmp);preview.visibility=View.VISIBLE
+                val total=selected.sumOf{it.image.bytes.size.toLong()}
+                previewMeta.text="${selected.size} ảnh • ${formatBytes(total)}"
+            }
+            if(::modeSpinner.isInitialized)modeSpinner.isEnabled=selected.size>1
+            uploadButton.isEnabled=selected.isNotEmpty()&&categoryIds.isNotEmpty()&&!busy
             uploadButton.alpha=if(uploadButton.isEnabled)1f else .4f
         }
-        private fun restoreCachedCategories(){
+        private fun applyCategoryEntries        private fun applyCategoryEntries(entries:List<DocumentCategoryCache.Entry>){
+            val previousCategory=selectedCategory()?.first
+            val previousFilter=if(::filterSpinner.isInitialized)filterCategoryIds.getOrNull(filterSpinner.selectedItemPosition).orEmpty() else ""
+            categoryIds=entries.map{it.id};categoryNames=entries.map{it.name}
+            categorySpinner.adapter=ArrayAdapter(activity,android.R.layout.simple_spinner_dropdown_item,if(categoryNames.isEmpty())listOf("Chưa có loại biên bản") else categoryNames)
+            val categoryIndex=previousCategory?.let{categoryIds.indexOf(it)}?.takeIf{it>=0}?:0
+            if(categoryIds.isNotEmpty())categorySpinner.setSelection(categoryIndex)
+            if(::filterSpinner.isInitialized){
+                filterCategoryIds=listOf("")+categoryIds
+                suppressFilter=true
+                filterSpinner.adapter=ArrayAdapter(activity,android.R.layout.simple_spinner_dropdown_item,listOf("Tất cả loại biên bản")+categoryNames)
+                filterSpinner.setSelection(filterCategoryIds.indexOf(previousFilter).takeIf{it>=0}?:0)
+                suppressFilter=false
+            }
+            renderSelectedPreview()
+        }
+        private fun restoreCachedCategories        private fun restoreCachedCategories(){
             val cached=categoryCache.load(login)
             if(cached.isNotEmpty())applyCategoryEntries(cached)
             else categorySpinner.adapter=ArrayAdapter(activity,android.R.layout.simple_spinner_dropdown_item,listOf("Đang tải loại biên bản..."))
         }
         private fun restoreDraft(){
             executor.execute{
-                val draft=draftStore.load(login)?:return@execute
-                selected=Selected(draft.image,draft.sourceKind,draft.capturedAt,draft.idempotencyKey)
-                postUi{
-                    val bmp=BitmapFactory.decodeByteArray(draft.image.bytes,0,draft.image.bytes.size)
-                    if(bmp==null){draftStore.remove(login);selected=null;return@postUi}
-                    preview.setImageBitmap(bmp);preview.visibility=View.VISIBLE
-                    previewMeta.text="${draft.image.width} × ${draft.image.height} • ${formatBytes(draft.image.bytes.size.toLong())} • đã khôi phục ảnh đang chọn"
-                    uploadButton.isEnabled=categoryIds.isNotEmpty();uploadButton.alpha=if(uploadButton.isEnabled)1f else .4f
-                }
+                val drafts=draftStore.loadAll(login)
+                if(drafts.isEmpty())return@execute
+                selected.clear();selected.addAll(drafts.map{Selected(it.image,it.sourceKind,it.capturedAt,it.idempotencyKey)})
+                postUi{renderSelectedPreview()}
             }
         }
-        private fun refreshCategories(){
+        private fun refreshCategories        private fun refreshCategories(){
             executor.execute{
                 val result=client.get("/v1/documents/categories")
                 postUi{
