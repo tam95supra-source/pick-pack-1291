@@ -552,28 +552,46 @@ object DocumentManagementFeature {
                     val arr=result.json?.optJSONArray("items")?:JSONArray()
                     if(arr.length()==0){emptyText.visibility=View.VISIBLE;emptyText.text="Chưa có biên bản.";return@postUi}
                     emptyText.visibility=View.GONE
-                    for(i in 0 until arr.length()){val item=arr.optJSONObject(i)?:continue;recordsHost.addView(recordCard(item),LinearLayout.LayoutParams(-1,-2).apply{bottomMargin=dp(5)})}
+                    val groups=linkedMapOf<String,MutableList<JSONObject>>()
+                    for(i in 0 until arr.length()){
+                        val item=arr.optJSONObject(i)?:continue
+                        val key=item.optString("group_id").takeIf{it.isNotBlank()}?:item.optString("document_id")
+                        groups.getOrPut(key){mutableListOf()}.add(item)
+                    }
+                    groups.values.forEach{items->
+                        recordsHost.addView(recordGroupCard(items.sortedBy{it.optInt("page_index",1)}),LinearLayout.LayoutParams(-1,-2).apply{bottomMargin=dp(5)})
+                    }
                 }
             }
         }
-        private fun recordCard(o:JSONObject):View{
-            val card=column().apply{background=bg();setPadding(dp(7),dp(6),dp(7),dp(6))}
-            val top=row();val id=o.optString("document_id")
-            val check=CheckBox(activity).apply{
-                isChecked=id in selectedDocumentIds
-                setOnCheckedChangeListener{_,on->if(on)selectedDocumentIds.add(id)else selectedDocumentIds.remove(id);updateDeleteSelection()}
+        private fun recordGroupCard(items:List<JSONObject>):View{
+            val first=items.firstOrNull()?:return Space(activity)
+            val card=column().apply{background=bg();setPadding(dp(8),dp(7),dp(8),dp(7))}
+            val category=first.optString("category_name").takeUnless{it.isBlank()||it.equals("null",true)}?:"-"
+            val who=first.optString("uploader_name").ifBlank{first.optString("uploader_id")}.takeUnless{it.equals("null",true)}?:"-"
+            val head=row()
+            head.addView(text(category,10.5f,navy,true),LinearLayout.LayoutParams(0,-2,1f))
+            head.addView(text(if(items.size>1)"${items.size} trang" else "1 ảnh",8.8f,muted,true))
+            card.addView(head)
+            card.addView(text("$who • ${formatTime(first.optString("completed_at").ifBlank{first.optString("created_at")})}",8.8f,muted))
+            card.addView(gap(4))
+            items.forEach{item->
+                val id=item.optString("document_id")
+                val pages=item.optInt("page_count",1).coerceAtLeast(1)
+                val page=item.optInt("page_index",1).coerceAtLeast(1)
+                val line=row(Color.rgb(248,250,252)).apply{setPadding(dp(2),dp(2),dp(2),dp(2))}
+                val check=CheckBox(activity).apply{
+                    isChecked=id in selectedDocumentIds
+                    setOnCheckedChangeListener{_,on->if(on)selectedDocumentIds.add(id)else selectedDocumentIds.remove(id);updateDeleteSelection()}
+                }
+                line.addView(check,LinearLayout.LayoutParams(dp(38),dp(38)))
+                val label=if(pages>1)"Trang $page/$pages" else "Ảnh"
+                line.addView(text("$label • ${item.optInt("width")}×${item.optInt("height")} • ${formatBytes(item.optLong("byte_size"))}",8.9f,ink,true),LinearLayout.LayoutParams(0,-2,1f))
+                val view=button("Xem",teal)
+                line.addView(view,LinearLayout.LayoutParams(dp(60),dp(34)))
+                view.setOnClickListener{viewDocument(id)}
+                card.addView(line);card.addView(gap(3))
             }
-            top.addView(check,LinearLayout.LayoutParams(dp(40),dp(40)))
-            val detail=column()
-            detail.addView(text(o.optString("category_name").takeUnless{it.isBlank()||it.equals("null",true)}?:"-",10.5f,navy,true))
-            val pages=o.optInt("page_count",1).coerceAtLeast(1);val page=o.optInt("page_index",1).coerceAtLeast(1)
-            val pageLabel=if(pages>1)"Trang $page/$pages" else "1 trang"
-            val who=o.optString("uploader_name").ifBlank{o.optString("uploader_id")}.takeUnless{it.equals("null",true)}?:"-"
-            detail.addView(text("$pageLabel • $who • ${formatTime(o.optString("completed_at").ifBlank{o.optString("created_at")})}",8.9f,ink))
-            detail.addView(text("${o.optInt("width")}×${o.optInt("height")} • ${formatBytes(o.optLong("byte_size"))}",8.5f,muted))
-            top.addView(detail,LinearLayout.LayoutParams(0,-2,1f))
-            val view=button("Xem",teal);top.addView(view,LinearLayout.LayoutParams(dp(64),dp(36)))
-            card.addView(top);view.setOnClickListener{viewDocument(id)}
             return card
         }
         private fun updateDeleteSelection(){
