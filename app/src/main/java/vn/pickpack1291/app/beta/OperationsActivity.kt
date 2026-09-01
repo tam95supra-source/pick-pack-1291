@@ -2105,7 +2105,7 @@ class OperationsActivity : Activity() {
         }
         card.addView(qr,LinearLayout.LayoutParams(qrSize,qrSize).apply{gravity=Gravity.CENTER_HORIZONTAL})
         card.addView(gap(5))
-        val sizeText=json.optLong("size",0L).takeIf{it>0L}?.let{humanBytes(it)}?:"chưa có dung lượng"
+        val sizeText=json?.optLong("size",0L)?.takeIf{it>0L}?.let{humanBytes(it)}?:"chưa có dung lượng"
         card.addView(txt("Nguồn tải: GitHub Release • $sizeText",8.8f,muted,false).apply{gravity=Gravity.CENTER_HORIZONTAL})
         body.addView(card,matchWrap());body.addView(gap(8))
     }
