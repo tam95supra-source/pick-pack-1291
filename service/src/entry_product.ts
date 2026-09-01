@@ -14,7 +14,7 @@ import { enqueueInvalidation } from "./push";
 import { claimMaintenance, d1CapacitySnapshot, recordVerifiedBackup, runD1Retention } from "./d1_maintenance";
 import { apiError, json, nowIso } from "./util";
 import { lanReplayBatch } from "./lan_recovery";
-import { documentCategories, documentCategoryMutate, documentComplete, documentList, documentMedia, documentUploadSession } from "./document_management";
+import { documentCategories, documentCategoryMutate, documentComplete, documentList, documentMedia, documentUploadSession, processDocumentCategoryMutations } from "./document_management";
 
 export { RealtimeHub };
 
@@ -104,6 +104,10 @@ export default {
   async scheduled(controller:ScheduledController,env:Env,ctx:ExecutionContext):Promise<void>{
     await current.scheduled(controller,env,ctx);
     await flushSessionSpecialProjections(env);
+    try{
+      const docMut=await processDocumentCategoryMutations(env);
+      if(docMut.processed>0)console.log(JSON.stringify({level:"info",kind:"document_category_mutations",...docMut}));
+    }catch(e){console.log(JSON.stringify({level:"error",kind:"document_category_mutations_failed",error:String(e).slice(0,500)}));}
     try{const outbound=await replicateOutboundPending(env);console.log(JSON.stringify({level:"info",kind:"beta78_outbound_replication",...outbound}));}
     catch(e){console.log(JSON.stringify({level:"error",kind:"beta78_outbound_replication_failed",error:String(e).slice(0,500)}));}
     try{
