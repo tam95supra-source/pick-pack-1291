@@ -20,6 +20,14 @@ if [[ "$STAGE" == "VERIFY_ONLY" ]]; then
 fi
 OPS=app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt
 SYNC=app/src/main/java/vn/pickpack1291/app/beta/ForegroundSyncCoordinator.kt
+API=app/src/main/java/vn/pickpack1291/app/beta/BetaApiClient.kt
+grep -Fq 'QRCodeWriter().encode' "$OPS"
+grep -Fq 'api.latestGithubRelease("BETA")' "$OPS"
+grep -Fq 'api.latestGithubRelease("STABLE")' "$OPS"
+grep -Fq 'if (channel.equals("STABLE", true))' "$API"
+grep -Fq 'callback(githubUpdate("BETA", "0.0.0"))' "$API"
+grep -Fq 'put("apk_url", asset.optString("browser_download_url"))' "$API"
+grep -Fq 'STABLE_NOT_PUBLIC' "$API"
 grep -q 'businessRealtimeRefresh' "$OPS"
 grep -q 'reportRealtimeRefresh' "$OPS"
 grep -q 'historyRealtimeRefresh' "$OPS"
