@@ -1,0 +1,95 @@
+{
+  "status": "TECHNICAL_PASS_AWAITING_OWNER",
+  "invariant_id": "DOCUMENT-MANAGEMENT-001",
+  "version_name": "0.4.2-beta.109",
+  "version_code": 115,
+  "package": "vn.pickpack1291.app.beta.publicbeta",
+  "source_sha": "a72d8e20eaebe60235338fd1b9aaebde42507825",
+  "exact_candidate": {
+    "run_id": 33506205883,
+    "artifact_id": 9799840161,
+    "sha256": "1c01a58eefe5d0501eccbfe0359a2d5c0b3ec159f5ef37889d757f0984bbc7c8",
+    "size": 14167029,
+    "signer_sha256": "d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e"
+  },
+  "gates": {
+    "fast_check": {
+      "status": "PASS",
+      "run_id": 33510974424
+    },
+    "service_live": {
+      "status": "PASS",
+      "run_id": 33509679186,
+      "attempt": 2,
+      "artifact_id": 9801444305,
+      "exact_duplicate_guard": "PASS",
+      "rotation_aware_near_similar": "PASS"
+    },
+    "visual_pda_api36": {
+      "status": "PASS",
+      "run_id": 33511409449,
+      "artifact_id": 9801982052,
+      "screenshot_count": 39,
+      "viewports": [
+        "320x568",
+        "360x640",
+        "480x800"
+      ]
+    },
+    "human_visual": "PASS",
+    "offline_category_cache": "PASS",
+    "selected_draft_durability": "PASS",
+    "device_regression": {
+      "status": "PASS",
+      "run_id": 33514582110,
+      "artifact_id": 9803110874
+    },
+    "runtime_dod": {
+      "status": "PASS",
+      "run_id": 33514927663,
+      "attempt": 2,
+      "artifact_id": 9803295906
+    },
+    "publish": {
+      "status": "PASS",
+      "run_id": 33515483109,
+      "artifact_id": 9803429207
+    },
+    "ota_install_readback": {
+      "status": "PASS",
+      "run_id": 33515483109,
+      "artifact_id": 9803518172,
+      "from": "0.4.2-beta.108",
+      "installed_and_opened": true,
+      "exact_bytes": true
+    },
+    "finalize": {
+      "status": "PASS",
+      "run_id": 33515483109,
+      "artifact_id": 9803526992
+    }
+  },
+  "release": {
+    "tag": "v0.4.2-beta.109-publicbeta",
+    "asset_id": 539613285,
+    "transport": "GITHUB_RELEASE_ONLY",
+    "google_drive_apk": "FORBIDDEN"
+  },
+  "stable_main_signer_authority_unchanged": true,
+  "owner_prior_acceptance": {
+    "accepted_subitems": [
+      1,
+      2,
+      5,
+      6,
+      7,
+      8
+    ],
+    "pending_retest": [
+      "near-similar warning; exact duplicate behavior unchanged",
+      "offline categories + retained selected photo across restart + queued auto retry"
+    ]
+  },
+  "active_pass": false,
+  "next_action": "WAIT_OWNER_RETEST_ONLY_2_REMAINING_ITEMS"
+}
