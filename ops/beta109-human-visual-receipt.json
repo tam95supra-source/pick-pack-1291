@@ -1,0 +1,41 @@
+{
+  "status": "PASS",
+  "gate": "HUMAN_VISUAL_INSPECTION",
+  "version_name": "0.4.2-beta.109",
+  "version_code": 115,
+  "package": "vn.pickpack1291.app.beta.publicbeta",
+  "source_sha": "a72d8e20eaebe60235338fd1b9aaebde42507825",
+  "candidate_run_id": 33506205883,
+  "candidate_artifact_id": 9799840161,
+  "visual_run_id": 33511409449,
+  "visual_artifact_id": 9801982052,
+  "apk_sha256": "1c01a58eefe5d0501eccbfe0359a2d5c0b3ec159f5ef37889d757f0984bbc7c8",
+  "apk_size": 14167029,
+  "screenshot_count": 39,
+  "viewports": [
+    "320x568",
+    "360x640",
+    "480x800"
+  ],
+  "checks": {
+    "document_management_layout": "PASS",
+    "clipping_overlap": "PASS",
+    "readable_actions": "PASS",
+    "cross_viewport_consistency": "PASS",
+    "existing_navigation_layout": "PASS",
+    "offline_category_cache_harness": "PASS",
+    "selected_draft_durability_harness": "PASS"
+  },
+  "local_durability_evidence": {
+    "document_selected_draft_durable_beta109": true,
+    "document_category_cache_offline_beta109": true
+  },
+  "service_evidence": {
+    "run_id": 33509679186,
+    "attempt": 2,
+    "artifact_id": 9801444305,
+    "exact_duplicate_guard": "PASS",
+    "rotation_aware_near_similar": "PASS"
+  },
+  "decision": "FRESH_PASS_EXACT_ARTIFACT_9801982052_39_SCREENSHOTS"
+}
