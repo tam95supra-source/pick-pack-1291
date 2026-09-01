@@ -806,12 +806,14 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     waitText("Trong ca (",false,true,10000L);
     waitText("Đã ra ca (",false,true,10000L);
     waitText("TEST",true,false,10000L);
-    // Fixture employees are grouped under the explicit TEST supplier; blank-NCC fallback is covered by code-path/static checks, not required in this fixture.
+    waitText("Chưa xác định NCC",true,false,10000L);
+    require(findText("null",true,false)==null,"SHIFT_STAFF_VISIBLE_NULL_FOUND");
     waitText(mnv,false,true,10000L);
     waitText(mnv2,false,true,10000L);
     mark("detail_reconciliation_visible");
     mark("shift_staff_grouped_ncc_beta105");
     mark("shift_staff_filter_counts_beta105");
+    mark("shift_staff_null_sanitized_beta106");
     shot(tag+"-05-staff-list-beta105");
     clickText(mnv2,false,10000L);
     waitText("THÔNG TIN CA",true,false,12000L);
