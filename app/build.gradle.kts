@@ -93,7 +93,7 @@ dependencies {
 // Firebase client identifiers are injected at build time and default blank so source never contains project config.
 // GSHEET_API_URL remains public discovery/fallback configuration and manual update lookup path; no Service URL is compiled into APK.
 // Signing material remains outside this repository and the Android signer is owner-locked.
-// Beta106: sanitize JSONObject.NULL/\"null\" master fields in NCC roster; preserve Beta105 roster/download-QR scope. Stable remains READY_NOT_LIVE until OWNER release.
+// Beta107: Quản lý biên bản stores metadata in Service/D1 while image bytes upload direct to Google Drive; exact + perceptual duplicate detection. Category edit/archive remains OWNER-decision fail-closed. Stable unchanged.\n// Beta106: sanitize JSONObject.NULL/\"null\" master fields in NCC roster; preserve Beta105 roster/download-QR scope. Stable remains READY_NOT_LIVE until OWNER release.
 // Beta105: NCC-grouped shift staff roster, direct employee QR context, and dynamic GitHub Release download QR. Stable remains READY_NOT_LIVE until OWNER release.
 // Beta104: ensure TTL cache branch also passes environment/audience validation before reuse; Beta103 pre-OTA superseded. Stable remains READY_NOT_LIVE.
 // Beta103 pre-OTA superseded: invalidate cross-environment stale discovery cache and refresh dynamic BETA Service discovery before live Service session/read/sync/outbox routes. Stable remains READY_NOT_LIVE.
