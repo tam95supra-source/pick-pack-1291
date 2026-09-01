@@ -1,6 +1,6 @@
 {
   "stage": "RUNTIME_DOD_VERIFY",
-  "mode": "BETA106_RUNTIME_DOD_AFTER_DEVICE_PASS",
+  "mode": "BETA106_RUNTIME_DOD_AFTER_PROMOTION_LOCK_HARNESS_FIX",
   "version_name": "0.4.2-beta.106",
   "version_code": 112,
   "base_version": "0.4.2-beta.104",
@@ -37,8 +37,8 @@
   "apk_transport": "GITHUB_RELEASE_ONLY",
   "google_drive_apk": "FORBIDDEN",
   "regression_case": "SHIFT-STAFF-DOWNLOAD-QR-NULL-001",
-  "execution_nonce": "beta106-runtime-dod-20260901-01",
-  "next_action": "RUNTIME_DOD_VERIFY_EXACT_BETA106",
+  "execution_nonce": "beta106-runtime-dod-20260901-02",
+  "next_action": "RUNTIME_DOD_VERIFY_EXACT_BETA106_AFTER_HARNESS_FIX",
   "candidate_source_sha": "57e02d45b436c6bcb64bc5731671044af7c7c86d",
   "candidate_run_id": 33473965249,
   "candidate_artifact_id": 9787581956,
