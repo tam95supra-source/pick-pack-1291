@@ -76,10 +76,10 @@ invariants:
   - id: DOCUMENT-MANAGEMENT-001
     status: LOCKED_REQUIREMENT_PENDING_FIX
     scope: document-management
-    rule: "Ảnh biên bản upload trực tiếp Google Drive; Service/D1 chỉ lưu metadata/hash/audit; exact duplicate bị chặn, near-duplicate phải cảnh báo; dữ liệu cũ không được mất liên kết khi quản lý danh mục."
+    rule: "Ảnh biên bản upload trực tiếp Google Drive; Service/D1 chỉ lưu metadata/hash/audit; exact duplicate bị chặn, near-duplicate phải cảnh báo; Sửa loại = rename toàn bộ metadata + tên file Drive; Xóa loại = hard delete ảnh Drive + dữ liệu nghiệp vụ; Sửa/Xóa đều qua mã xác nhận canonical HHmm ±2 phút của app."
     technical_candidate: "0.4.2-beta.108"
-    regression_minimum: [drive_direct_upload, no_d1_blob, exact_duplicate_block, perceptual_duplicate_warning, durable_pending_queue, post_drive_completion_resume, bounded_media_cache, account_scoped_retry, category_snapshot_immutable, owner_category_mutation_fail_closed, beta_stable_isolation]
-    owner_decision_pending: "Quy tắc Sửa/Xóa loại biên bản: đề xuất rename chỉ đổi display_name, file cũ giữ nguyên; xóa = ARCHIVED/ẩn, không xóa ảnh/bản ghi cũ. Chờ OWNER chốt trước khi mở mutation."
+    regression_minimum: [drive_direct_upload, no_d1_blob, exact_duplicate_block, perceptual_duplicate_warning, durable_pending_queue, post_drive_completion_resume, bounded_media_cache, account_scoped_retry, category_rename_all_metadata, category_rename_all_drive_files, category_hard_delete_drive_and_records, category_mutation_durable_resume, category_mutation_confirmation_hhmm, beta_stable_isolation]
+    owner_decision: "OWNER 2026-09-01: Sửa = rename lại toàn bộ dữ liệu + file Drive; Xóa = xóa hẳn ảnh + dữ liệu; cả hai dùng mã xác nhận theo logic thời gian hiện tại của app. Hard delete chỉ giữ receipt kỹ thuật tối thiểu để audit."
     regression_case: "DOCUMENT-MANAGEMENT-001 / tools/document_management_contract.py + beta89_service_live_gate.sh"
 
   - id: INFRA-RESILIENCE-001
