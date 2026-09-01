@@ -34,6 +34,8 @@ jobs:
       service_gate_required: ${{ steps.route.outputs.service_gate_required }}
       prior_verify_run_id: ${{ steps.route.outputs.prior_verify_run_id }}
       prior_verify_artifact_name: ${{ steps.route.outputs.prior_verify_artifact_name }}
+      rollback_publish_run_id: ${{ steps.route.outputs.rollback_publish_run_id }}
+      rollback_publish_artifact_name: ${{ steps.route.outputs.rollback_publish_artifact_name }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -111,6 +113,12 @@ jobs:
               git diff --quiet "$(jq -r '.candidate_source_sha' "$R")" HEAD -- app
               python3 -m py_compile tools/beta_domain_prepare.py
               ;;
+            ROLLBACK_ONLY)
+              jq -e '.candidate_locked==true and .stable_publish=="FORBIDDEN" and .authority_change=="NONE" and
+                     (.base_candidate_run_id|type=="number") and (.base_candidate_artifact_name|type=="string" and length>0) and
+                     (.rollback_publish_run_id|type=="number") and (.rollback_publish_artifact_name|type=="string" and length>0)' "$R" >/dev/null
+              bash -n tools/beta83_rollback.sh tools/ensure_beta_github_release.sh
+              ;;
             PUBLISH)
               jq -e '.candidate_locked==true and .human_visual_pass==true and .visual_matrix=="PASS" and .pda_functional_pre_ota=="PASS" and
                      .rebuild==false and .resign==false and .back_api36=="PASS" and .fast_check=="PASS" and
@@ -150,6 +158,8 @@ jobs:
           echo "service_gate_required=$(jq -r '.service_gate_required // false' "$R")" >> "$GITHUB_OUTPUT"
           echo "prior_verify_run_id=$(jq -r '.prior_verify_run_id // empty' "$R")" >> "$GITHUB_OUTPUT"
           echo "prior_verify_artifact_name=$(jq -r '.prior_verify_artifact_name // empty' "$R")" >> "$GITHUB_OUTPUT"
+          echo "rollback_publish_run_id=$(jq -r '.rollback_publish_run_id // empty' "$R")" >> "$GITHUB_OUTPUT"
+          echo "rollback_publish_artifact_name=$(jq -r '.rollback_publish_artifact_name // empty' "$R")" >> "$GITHUB_OUTPUT"
 
       - name: Publish fenced run marker
         shell: bash
@@ -755,6 +765,46 @@ jobs:
           retention-days: 30
           if-no-files-found: error
 
+  rollback_only:
+    name: rollback-beta-only
+    needs: route
+    if: ${{ needs.route.outputs.stage == 'ROLLBACK_ONLY' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+      GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+      GOOGLE_OAUTH_REFRESH_TOKEN: ${{ secrets.GOOGLE_OAUTH_REFRESH_TOKEN }}
+      GAS_SCRIPT_ID: ${{ secrets.GAS_SCRIPT_ID }}
+      GAS_DEPLOYMENT_ID: ${{ secrets.GAS_DEPLOYMENT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.route.outputs.base_candidate_artifact_name }}
+          path: /tmp/beta-base
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ needs.route.outputs.base_candidate_run_id }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.route.outputs.rollback_publish_artifact_name }}
+          path: /tmp/beta-publish
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ needs.route.outputs.rollback_publish_run_id }}
+      - name: Restore Beta baseline OTA
+        shell: bash
+        run: bash tools/beta83_rollback.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: beta83-rollback-${{ github.run_id }}
+          path: /tmp/beta-rollback
+          retention-days: 30
+          if-no-files-found: error
+
   rollback:
     name: rollback-beta
     needs: [route,publish,pda_verify]
@@ -827,7 +877,7 @@ jobs:
 
   handoff-finalizer:
     name: handoff-finalizer
-    needs: [route,candidate,service_live,verify,service_discovery_only,back36_only,beta_auth_migrate,stable_private_apk_verify,runtime_dod_verify,beta_domain_prepare,publish,pda_verify,rollback,finalize]
+    needs: [route,candidate,service_live,verify,service_discovery_only,back36_only,beta_auth_migrate,stable_private_apk_verify,runtime_dod_verify,beta_domain_prepare,publish,pda_verify,rollback_only,rollback,finalize]
     if: ${{ always() }}
     runs-on: ubuntu-24.04
     timeout-minutes: 8
