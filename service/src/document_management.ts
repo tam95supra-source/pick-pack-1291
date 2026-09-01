@@ -305,7 +305,7 @@ async function processDocumentCategoryMutation(env:Env,mutationId:string):Promis
           env.DB.prepare("UPDATE document_category_mutations SET old_display_name='',new_display_name=NULL,new_normalized_name=NULL WHERE category_id=?1").bind(job.category_id),
           env.DB.prepare("UPDATE document_category_mutations SET state='DONE',processed_items=total_items,updated_at=?1,completed_at=?1,last_error=NULL WHERE mutation_id=?2").bind(at,job.mutation_id)
         ]);
-        await audit(env,mutationAuth(job),"CATEGORY_DELETE_ALL","DOCUMENT_DELETE_RECEIPT",job.mutation_id,{category_id:job.category_id,category_name:job.old_display_name,total_items:Number(job.total_items||0),mutation_id:job.mutation_id});
+        await audit(env,mutationAuth(job),"CATEGORY_DELETE_ALL","DOCUMENT_DELETE_RECEIPT",job.mutation_id,{category_id:job.category_id,total_items:Number(job.total_items||0),mutation_id:job.mutation_id});
       }
     }
   }catch(e){
@@ -544,8 +544,8 @@ async function processDocumentDeleteMutation(env:Env,mutationId:string):Promise<
   let job=await deleteMutationById(env,mutationId);if(!job||job.state!=="RUNNING")return job;
   try{
     const token=await googleToken(env);
-    const rows=await env.DB.prepare("SELECT mutation_id,document_id,drive_file_id,category_id,category_name_snapshot,file_name,state FROM document_delete_items WHERE mutation_id=?1 AND state='PENDING' ORDER BY document_id LIMIT ?2")
-      .bind(mutationId,DOCUMENT_DELETE_BATCH).all<{mutation_id:string;document_id:string;drive_file_id:string|null;category_id:string|null;category_name_snapshot:string|null;file_name:string|null;state:string}>();
+    const rows=await env.DB.prepare("SELECT mutation_id,document_id,drive_file_id,state FROM document_delete_items WHERE mutation_id=?1 AND state='PENDING' ORDER BY document_id LIMIT ?2")
+      .bind(mutationId,DOCUMENT_DELETE_BATCH).all<{mutation_id:string;document_id:string;drive_file_id:string|null;state:string}>();
     for(const row of rows.results||[]){
       if(row.drive_file_id)await deleteDriveFile(token,row.drive_file_id);
       const at=nowIso();
@@ -561,6 +561,7 @@ async function processDocumentDeleteMutation(env:Env,mutationId:string):Promise<
       await env.DB.prepare("UPDATE document_delete_mutations SET state='DONE',processed_items=?1,updated_at=?2,completed_at=?2,last_error=NULL WHERE mutation_id=?3").bind(Number(done?.n||0),at,mutationId).run();
       job=await deleteMutationById(env,mutationId);
       if(job)await audit(env,deleteMutationAuth(job),"DOCUMENT_DELETE_SELECTED","DOCUMENT_DELETE_RECEIPT",mutationId,{deleted_count:Number(done?.n||0),mutation_id:mutationId});
+      await env.DB.prepare("DELETE FROM document_delete_items WHERE mutation_id=?1").bind(mutationId).run();
     }else{
       await env.DB.prepare("UPDATE document_delete_mutations SET processed_items=?1,updated_at=?2,last_error=NULL WHERE mutation_id=?3").bind(Number(done?.n||0),at,mutationId).run();
     }
@@ -599,8 +600,8 @@ export async function documentDeleteMutate(request:Request,env:Env):Promise<Resp
     env.DB.prepare("INSERT INTO document_delete_mutations(mutation_id,idempotency_key,state,total_items,processed_items,actor_id,actor_role,created_at,updated_at) VALUES(?1,?2,'RUNNING',?3,0,?4,?5,?6,?6)")
       .bind(mutationId,idem,rows.length,auth.login_id,auth.role,at)
   ];
-  for(const row of rows)stmts.push(env.DB.prepare("INSERT INTO document_delete_items(mutation_id,document_id,drive_file_id,category_id,category_name_snapshot,file_name,state,last_error,updated_at) VALUES(?1,?2,?3,?4,?5,?6,'PENDING',NULL,?7)")
-    .bind(mutationId,row.document_id,row.drive_file_id,row.category_id,row.category_name_snapshot,row.file_name,at));
+  for(const row of rows)stmts.push(env.DB.prepare("INSERT INTO document_delete_items(mutation_id,document_id,drive_file_id,category_id,category_name_snapshot,file_name,state,last_error,updated_at) VALUES(?1,?2,?3,NULL,NULL,NULL,'PENDING',NULL,?4)")
+    .bind(mutationId,row.document_id,row.drive_file_id,at));
   await env.DB.batch(stmts);
   const job=await processDocumentDeleteMutation(env,mutationId);
   return json({ok:true,mutation:job?deleteMutationPublic(job):null,requested_count:ids.length,matched_count:rows.length},202);
