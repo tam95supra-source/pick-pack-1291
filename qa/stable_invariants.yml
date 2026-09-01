@@ -77,8 +77,8 @@ invariants:
     status: LOCKED_REQUIREMENT_PENDING_FIX
     scope: document-management
     rule: "Ảnh biên bản upload trực tiếp Google Drive; Service/D1 chỉ lưu metadata/hash/audit; exact duplicate bị chặn, near-duplicate phải cảnh báo; dữ liệu cũ không được mất liên kết khi quản lý danh mục."
-    technical_candidate: "0.4.2-beta.107"
-    regression_minimum: [drive_direct_upload, no_d1_blob, exact_duplicate_block, perceptual_duplicate_warning, category_snapshot_immutable, owner_category_mutation_fail_closed, beta_stable_isolation]
+    technical_candidate: "0.4.2-beta.108"
+    regression_minimum: [drive_direct_upload, no_d1_blob, exact_duplicate_block, perceptual_duplicate_warning, durable_pending_queue, post_drive_completion_resume, bounded_media_cache, account_scoped_retry, category_snapshot_immutable, owner_category_mutation_fail_closed, beta_stable_isolation]
     owner_decision_pending: "Quy tắc Sửa/Xóa loại biên bản: đề xuất rename chỉ đổi display_name, file cũ giữ nguyên; xóa = ARCHIVED/ẩn, không xóa ảnh/bản ghi cũ. Chờ OWNER chốt trước khi mở mutation."
     regression_case: "DOCUMENT-MANAGEMENT-001 / tools/document_management_contract.py + beta89_service_live_gate.sh"
 
@@ -102,8 +102,8 @@ invariants:
     common_mode_note: "Free-provider/account-wide outage risk remains an availability common mode; no claim of absolute provider outage isolation."
 
 impact_map:
-  "app/**": [UI-STATUS-001, QR-LOCAL-001, MEAL-DATE-001, MEAL-WARN-001, ROLE-HISTORY-001, OTA-BETA-001, PDA-EXIT-001, ENV-ISOLATION-001, SERVICE-DISCOVERY-001, SHIFT-STAFF-DOWNLOAD-QR-001, INFRA-RESILIENCE-001]
-  "service/**": [QR-LOCAL-001, MEAL-DATE-001, PDA-EXIT-001, ENV-ISOLATION-001, INFRA-RESILIENCE-001]
+  "app/**": [UI-STATUS-001, QR-LOCAL-001, MEAL-DATE-001, MEAL-WARN-001, ROLE-HISTORY-001, OTA-BETA-001, PDA-EXIT-001, ENV-ISOLATION-001, SERVICE-DISCOVERY-001, SHIFT-STAFF-DOWNLOAD-QR-001, DOCUMENT-MANAGEMENT-001, INFRA-RESILIENCE-001]
+  "service/**": [QR-LOCAL-001, MEAL-DATE-001, PDA-EXIT-001, ENV-ISOLATION-001, DOCUMENT-MANAGEMENT-001, INFRA-RESILIENCE-001]
   "services/**": [ENV-ISOLATION-001, INFRA-RESILIENCE-001, BETA-STABLE-AUDIT-001]
   "google-apps-script/**": [ENV-ISOLATION-001, INFRA-RESILIENCE-001, OTA-BETA-001]
   ".github/workflows/**": [OTA-BETA-001, ENV-ISOLATION-001, INFRA-RESILIENCE-001, BETA-STABLE-AUDIT-001]
