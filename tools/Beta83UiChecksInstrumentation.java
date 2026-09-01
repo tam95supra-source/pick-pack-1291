@@ -593,6 +593,14 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     open("BUSINESS");
     waitText("Quét QR nhân sự",true,true,12000L);
     shot(tag+"-01-business");
+    clickTextScrolling("Quản lý biên bản",10000L);
+    waitText("Loại biên bản",true,false,10000L);
+    waitText("Chụp ảnh",true,true,10000L);
+    waitText("Chọn từ máy",true,true,10000L);
+    waitText("Tải biên bản lên",true,true,10000L);
+    shot(tag+"-01a-beta107-documents");
+    open("BUSINESS");
+    waitText("Quét QR nhân sự",true,true,10000L);
     clickText("Điểm danh nhân sự",true,10000L);
     waitText("ĐIỂM DANH SAU GIỜ ĂN",true,false,10000L);
     waitText("Quét MNV điểm danh trở lại",false,false,10000L);
@@ -742,6 +750,22 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     try{ui.executeShellCommand("input keyevent 4").close();}catch(Exception ignored){}
     SystemClock.sleep(200L);
     mark("status_chip_details_beta100");
+
+    // Beta107: existing business card opens the native document-management screen.
+    open("BUSINESS");
+    clickTextScrolling("Quản lý biên bản",10000L);
+    waitText("Loại biên bản",true,false,10000L);
+    waitText("Chụp ảnh",true,true,10000L);
+    waitText("Chọn từ máy",true,true,10000L);
+    waitText("Tải biên bản lên",true,true,10000L);
+    waitText("Sửa/Xóa đang khóa chờ OWNER",false,false,10000L);
+    waitText("Mạng",true,false,10000L);waitText("Đồng bộ",true,false,10000L);waitText("Dịch vụ",true,false,10000L);
+    mark("document_management_card_beta107");
+    mark("document_management_controls_beta107");
+    mark("document_category_mutation_fail_closed_beta107");
+    shot(tag+"-00b-beta107-documents");
+    open("BUSINESS");
+
     waitText("Điểm danh nhân sự",true,true,10000L);
     clickText("Điểm danh nhân sự",true,10000L);
     waitText("ĐIỂM DANH SAU GIỜ ĂN",true,false,10000L);
@@ -949,7 +973,7 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     waitText("THAY ĐỔI BẢN MỚI",false,false,10000L);
     waitText("Sửa lỗi tài nguyên bản mới",false,false,10000L);
     waitText("THAY ĐỔI BẢN HIỆN TẠI",false,false,10000L);
-    waitText("Danh sách chi tiết nhân sự theo ca được nhóm theo NCC",false,false,10000L);
+    waitText("Quản lý biên bản đã hoạt động trong thẻ hiện có",false,false,10000L);
     require(findText("SHA256",false,false)==null,"TECHNICAL_RELEASE_METADATA_VISIBLE_IN_CHANGELOG");
     mark("dual_changelog");
     shot(tag+"-07-settings-top");
