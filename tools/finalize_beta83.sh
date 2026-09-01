@@ -158,6 +158,11 @@ git config user.name 'github-actions[bot]'
 git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
 git add CURRENT_STATE.md ops/beta-release-request.json ops/beta-ota-current.json docs/handovers
 git commit -m "[skip ci] finalize $VERSION PASS/LIVE GitHub Release only"
+git fetch origin "$BRANCH" --quiet
+CANDIDATE_SOURCE=$(jq -r '.candidate_source_sha // .source_sha' "$R")
+git diff --quiet "$SOURCE" "origin/$BRANCH" -- service google-apps-script
+git diff --quiet "$CANDIDATE_SOURCE" "origin/$BRANCH" -- app
+git rebase "origin/$BRANCH"
 FINAL=$(git rev-parse HEAD)
 git push origin "HEAD:$BRANCH"
 git fetch origin "$BRANCH" --quiet
