@@ -1,7 +1,7 @@
 # CURRENT STATE — PICK PACK 1291
 
 - updated_at: 2026-09-01T13:50:37Z
-- status: BETA109_PASS_LIVE
+- status: BETA109_LIVE_TECHNICAL_PASS_AWAITING_OWNER_DOCUMENT_ACCEPTANCE
 - continuity_branch: release/beta108-document-management
 - source_sha: a72d8e20eaebe60235338fd1b9aaebde42507825
 - beta_live: 0.4.2-beta.109 (versionCode 115)
@@ -13,17 +13,28 @@
 - apk_sha256: 1c01a58eefe5d0501eccbfe0359a2d5c0b3ec159f5ef37889d757f0984bbc7c8
 - apk_size: 14167029
 - signer_sha256: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
-- terminal_run: 33515483109
-- fast_check: PASS
-- service_gate: PASS_FRESH_RUN_33509679186_ATTEMPT_2
+- service_live: 33509679186 attempt 2 / 9801444305 PASS
+- fast_check: 33510974424 PASS
+- device_regression: 33514582110 / 9803110874 PASS
+- runtime_dod: 33514927663 attempt 2 / 9803295906 PASS
+- terminal_run: 33515483109 PASS
+- publish_artifact: 9803429207
+- pda_ota_artifact: 9803518172
+- final_artifact: 9803526992
+- github_release_asset: 539613285
 - visual_matrix: PASS 320x568 / 360x640 / 480x800
 - human_visual: PASS
 - pda_functional_pre_ota: PASS
-- beta_ota: exact 0.4.2-beta.109 PASS via GitHub Release
+- beta_ota: exact 0.4.2-beta.108 -> 0.4.2-beta.109 PASS via GitHub Release
 - beta_ota_url: https://github.com/tam95supra-source/pick-pack-1291/releases/download/v0.4.2-beta.109-publicbeta/pick-pack-1291-public-beta-0.4.2-beta.109.apk
 - apk_transport: GITHUB_RELEASE_ONLY
 - google_drive_apk: FORBIDDEN
+- document_management_invariant: DOCUMENT-MANAGEMENT-001 = TECHNICAL_PASS_AWAITING_OWNER
+- technical_receipt: ops/beta109-technical-pass.json
+- regression_case: qa/beta109_document_management_regression.md
+- owner_accepted_subitems: 1,2,5,6,7,8
+- owner_retest_required: near-similar warning; offline categories + durable selected draft + queued auto retry
 - stable: unchanged
 - main_sha: 021dac5c6932b3ac5c60ce8fdba562ddf3d9688f
 - authority: SERVICE_PRIMARY / PRODUCTION / epoch 9 / generation m2-prod-reset-20260823-001
-- next_action: WAIT_FOR_OWNER_NEW_SCOPE
+- next_action: WAIT_OWNER_RETEST_ONLY_2_DOCUMENT_ITEMS
