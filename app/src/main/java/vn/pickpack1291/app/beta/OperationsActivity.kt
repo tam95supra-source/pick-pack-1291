@@ -1442,22 +1442,19 @@ class OperationsActivity : Activity() {
     }
     private fun laborHome(){
         screenState="LABOR_HOME"
-        if(!isAdmin()){simpleMessage("CÔNG NHẬT","Chức năng Công nhật dành cho ADMIN/SUPERADMIN theo phân quyền hiện tại.");return}
+        if(!isAdmin()){simpleMessage("CÔNG NHẬT","Không có quyền truy cập.");return}
         val root=baseRoot("CÔNG NHẬT");val body=body()
-        val mnv=mnvInput("Scan / Nhập mã nhân viên").apply{setText(initialMnv)};body.addView(labelled("Mã nhân viên",mnv));body.addView(gap(5))
+        val openBox=column(bg)
+        body.addView(section("Đang thực hiện"));body.addView(openBox,matchWrap());body.addView(gap(8))
+        val mnv=mnvInput("Scan / Nhập mã nhân viên").apply{setText(initialMnv)}
+        body.addView(labelled("Mã nhân viên",mnv));body.addView(gap(5))
         var busy=false
         fun submit(){
             val v=mnv.text.toString().trim();if(v.isBlank()){TopNotice.show(this,"Nhập Mã nhân viên.",TopNotice.Kind.WARNING);return};if(busy)return
             val local=PdaLocalProjection.employeeContext(this,v)
             if(local!=null){
-                if(!local.optBoolean("session_known",true)){
-                    renderCachedEmployee(local.optJSONObject("employee")?:JSONObject())
-                    TopNotice.show(this,"Đã đọc nhân sự từ PDA • đang đối chiếu phiên/công nhật nền",TopNotice.Kind.INFO)
-                    foregroundSync.requestSync();return
-                }
-                showLaborContext(local,MasterDataCache.snapshot(this)?:JSONObject())
-                foregroundSync.requestSync()
-                return
+                if(!local.optBoolean("session_known",true)){renderCachedEmployee(local.optJSONObject("employee")?:JSONObject());foregroundSync.requestSync();return}
+                showLaborContext(local,MasterDataCache.snapshot(this)?:JSONObject());foregroundSync.requestSync();return
             }
             busy=true
             api.call("employee_context",JSONObject().put("mnv",v).put("include_labor",true).put("include_options",false)){r->runOnUiThread{
@@ -1466,10 +1463,33 @@ class OperationsActivity : Activity() {
                 showLaborContext(r.json?:JSONObject(),MasterDataCache.snapshot(this@OperationsActivity)?:JSONObject())
             }}
         }
-        bindScannerEnter(mnv){submit()};if(initialMnv.isNotBlank())mnv.post{submit()};attach(root,body);mnv.requestFocus()
+        fun loadOpen(){
+            openBox.removeAllViews();openBox.addView(txt("Đang tải...",9.5f,muted,false))
+            api.call("list_labor"){r->runOnUiThread{
+                if(screenState!="LABOR_HOME")return@runOnUiThread
+                openBox.removeAllViews();if(handleAuth(r))return@runOnUiThread
+                if(!r.ok){openBox.addView(txt("-",10f,muted,false));return@runOnUiThread}
+                val a=r.json?.optJSONArray("items")?:JSONArray();val rows=mutableListOf<JSONObject>()
+                for(i in 0 until a.length()){val x=a.optJSONObject(i)?:continue;if(x.optString("state").equals("OPEN",true))rows.add(x)}
+                if(rows.isEmpty()){openBox.addView(txt("Không có công nhật đang thực hiện.",9.8f,muted,false));return@runOnUiThread}
+                rows.sortedBy{it.optString("start_at")}.forEach{x->
+                    val id=x.optString("mnv");val emp=x.optJSONObject("employee_snapshot")?:MasterDataCache.employee(this,id)?:JSONObject()
+                    val name=dash(emp.optString("full_name"));val supplier=dash(emp.optString("supplier"))
+                    val card=column(surface).apply{
+                        setPadding(dp(9),dp(7),dp(9),dp(7));background=outlineBg(surface,12)
+                        addView(txt("$id • $name",10.5f,navy,true))
+                        addView(txt("$supplier • ${dash(x.optString("labor_type"))} • ${compactAttendanceTime(x.optString("start_at"))} → -",9.2f,muted,false))
+                        setOnClickListener{mnv.setText(id);submit()}
+                    }
+                    openBox.addView(card,matchWrap());openBox.addView(gap(5))
+                }
+            }}
+        }
+        bindScannerEnter(mnv){submit()};loadOpen()
+        if(initialMnv.isNotBlank())mnv.post{submit()}
+        attach(root,body);mnv.requestFocus()
     }
-
-    private fun showLaborContext(ctx:JSONObject, masters:JSONObject){
+    private fun showLaborContext    private fun showLaborContext(ctx:JSONObject, masters:JSONObject){
         screenState = "LABOR_CONTEXT"
         val e=ctx.optJSONObject("employee")?:JSONObject();val state=ctx.optString("state");val active=ctx.optJSONObject("active_labor");val root=baseRoot("CÔNG NHẬT");val body=body();body.addView(employeeCard(e));body.addView(gap(10))
         if(state!="ACTIVE"){body.addView(status(if(state=="ENDED")"Mã nhân viên ĐÃ HẾT PHIÊN" else "Mã nhân viên CHƯA VÀO CA",red,Color.rgb(255,238,239)));body.addView(gap(9));body.addView(primary("Mã nhân viên KHÁC",navy){initialMnv="";laborHome()},matchWrap());attach(root,body);return}
