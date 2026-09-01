@@ -745,6 +745,39 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     storeClass.getMethod("remove",String.class).invoke(store2,pendingId);
     require(storeClass.getMethod("find",String.class).invoke(store2,pendingId)==null,"DOCUMENT_PENDING_REMOVE_FAILED");
 
+    Class<?> draftClass=cl.loadClass("vn.pickpack1291.app.beta.DocumentDraftStore");
+    Object draft1=draftClass.getConstructor(Context.class).newInstance(target);
+    String draftLogin="admin";
+    String draftIdem="b109-draft-"+System.nanoTime();
+    draftClass.getMethod("save",String.class,String.class,String.class,String.class,imageClass)
+      .invoke(draft1,draftLogin,"CAMERA","2026-09-01T00:00:00Z",draftIdem,image);
+    Object draft2=draftClass.getConstructor(Context.class).newInstance(target);
+    Object restoredDraft=draftClass.getMethod("load",String.class).invoke(draft2,draftLogin);
+    require(restoredDraft!=null,"DOCUMENT_SELECTED_DRAFT_NOT_DURABLE");
+    Class<?> draftDataClass=cl.loadClass("vn.pickpack1291.app.beta.DocumentDraftStore$Draft");
+    require(draftIdem.equals(String.valueOf(draftDataClass.getMethod("getIdempotencyKey").invoke(restoredDraft))),"DOCUMENT_SELECTED_DRAFT_IDEMPOTENCY_MISMATCH");
+    require(draftClass.getMethod("load",String.class).invoke(draft2,"other-account")==null,"DOCUMENT_SELECTED_DRAFT_ACCOUNT_FENCE_FAILED");
+    draftClass.getMethod("remove",String.class).invoke(draft2,draftLogin);
+    require(draftClass.getMethod("load",String.class).invoke(draft2,draftLogin)==null,"DOCUMENT_SELECTED_DRAFT_REMOVE_FAILED");
+    mark("document_selected_draft_durable_beta109");
+
+    Class<?> categoryClass=cl.loadClass("vn.pickpack1291.app.beta.DocumentCategoryCache");
+    Class<?> entryClass=cl.loadClass("vn.pickpack1291.app.beta.DocumentCategoryCache$Entry");
+    Object categoryEntry=entryClass.getConstructor(String.class,String.class).newInstance("b109-category","Biên bản Beta109");
+    java.util.List<Object> categoryEntries=new java.util.ArrayList<>();
+    categoryEntries.add(categoryEntry);
+    Object category1=categoryClass.getConstructor(Context.class).newInstance(target);
+    categoryClass.getMethod("save",String.class,java.util.List.class).invoke(category1,draftLogin,categoryEntries);
+    Object category2=categoryClass.getConstructor(Context.class).newInstance(target);
+    java.util.List<?> restoredCategories=(java.util.List<?>)categoryClass.getMethod("load",String.class).invoke(category2,draftLogin);
+    require(restoredCategories.size()==1,"DOCUMENT_CATEGORY_CACHE_NOT_DURABLE");
+    Object restoredCategory=restoredCategories.get(0);
+    require("b109-category".equals(String.valueOf(entryClass.getMethod("getId").invoke(restoredCategory))),"DOCUMENT_CATEGORY_CACHE_ID_MISMATCH");
+    require("Biên bản Beta109".equals(String.valueOf(entryClass.getMethod("getName").invoke(restoredCategory))),"DOCUMENT_CATEGORY_CACHE_NAME_MISMATCH");
+    java.util.List<?> otherCategories=(java.util.List<?>)categoryClass.getMethod("load",String.class).invoke(category2,"other-account");
+    require(otherCategories.isEmpty(),"DOCUMENT_CATEGORY_CACHE_ACCOUNT_FENCE_FAILED");
+    mark("document_category_cache_offline_beta109");
+
     Class<?> cacheClass=cl.loadClass("vn.pickpack1291.app.beta.DocumentMediaCache");
     Object cache1=cacheClass.getConstructor(Context.class).newInstance(target);
     String cacheId="b108-cache-"+System.nanoTime();
@@ -759,6 +792,7 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
   }
 
   private void runChecks()throws Exception{
+    verifyDocumentLocalDurability();
     String tag=req("tag"),mnv=req("mnv"),mnv2=req("mnv2"),mnv3=req("mnv3");
     verifyFirstLogMetadata();
     seedAuth();seedService();seedData(mnv,mnv2,mnv3);
