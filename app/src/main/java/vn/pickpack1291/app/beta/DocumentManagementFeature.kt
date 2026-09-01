@@ -41,6 +41,8 @@ object DocumentManagementFeature {
     ){
         private val client=DocumentServiceClient(activity){api.token}
         private val pendingStore=DocumentPendingStore(activity)
+        private val draftStore=DocumentDraftStore(activity)
+        private val categoryCache=DocumentCategoryCache(activity)
         private val uploadEngine=DocumentUploadEngine(activity,api)
         private val mediaCache=DocumentMediaCache(activity)
         private val executor=Executors.newSingleThreadExecutor()
@@ -169,6 +171,8 @@ object DocumentManagementFeature {
             uploadButton.setOnClickListener{uploadSelected()}
             retryPendingButton.setOnClickListener{retryPending()}
             refresh.setOnClickListener{refreshDocuments();refreshPending()}
+            restoreCachedCategories()
+            restoreDraft()
             refreshCategories()
             refreshPending()
             DocumentUploadWorker.schedule(activity)
@@ -184,7 +188,10 @@ object DocumentManagementFeature {
             executor.execute{
                 try{
                     val image=DocumentImageProcessor.process(activity,uri)
-                    selected=Selected(image,sourceKind,Instant.now().toString(),UUID.randomUUID().toString())
+                    val capturedAt=Instant.now().toString()
+                    val idempotencyKey=UUID.randomUUID().toString()
+                    draftStore.save(login,sourceKind,capturedAt,idempotencyKey,image)
+                    selected=Selected(image,sourceKind,capturedAt,idempotencyKey)
                     postUi{
                         val bmp=BitmapFactory.decodeByteArray(image.bytes,0,image.bytes.size)
                         preview.setImageBitmap(bmp);preview.visibility=View.VISIBLE
@@ -200,21 +207,54 @@ object DocumentManagementFeature {
             }
         }
 
+        private fun applyCategoryEntries(entries:List<DocumentCategoryCache.Entry>){
+            categoryIds=entries.map{it.id}
+            categoryNames=entries.map{it.name}
+            categorySpinner.adapter=ArrayAdapter(activity,android.R.layout.simple_spinner_dropdown_item,if(categoryNames.isEmpty())listOf("Chưa có loại biên bản") else categoryNames)
+            uploadButton.isEnabled=selected!=null&&categoryIds.isNotEmpty()
+            uploadButton.alpha=if(uploadButton.isEnabled)1f else .4f
+        }
+        private fun restoreCachedCategories(){
+            val cached=categoryCache.load(login)
+            if(cached.isNotEmpty())applyCategoryEntries(cached)
+            else categorySpinner.adapter=ArrayAdapter(activity,android.R.layout.simple_spinner_dropdown_item,listOf("Đang tải loại biên bản..."))
+        }
+        private fun restoreDraft(){
+            executor.execute{
+                val draft=draftStore.load(login)?:return@execute
+                selected=Selected(draft.image,draft.sourceKind,draft.capturedAt,draft.idempotencyKey)
+                postUi{
+                    val bmp=BitmapFactory.decodeByteArray(draft.image.bytes,0,draft.image.bytes.size)
+                    if(bmp==null){draftStore.remove(login);selected=null;return@postUi}
+                    preview.setImageBitmap(bmp);preview.visibility=View.VISIBLE
+                    previewMeta.text="${draft.image.width} × ${draft.image.height} • ${formatBytes(draft.image.bytes.size.toLong())} • đã khôi phục ảnh đang chọn"
+                    uploadButton.isEnabled=categoryIds.isNotEmpty();uploadButton.alpha=if(uploadButton.isEnabled)1f else .4f
+                }
+            }
+        }
         private fun refreshCategories(){
             executor.execute{
                 val result=client.get("/v1/documents/categories")
                 postUi{
-                    if(!result.ok){categoryIds=emptyList();categoryNames=emptyList();categorySpinner.adapter=ArrayAdapter(activity,android.R.layout.simple_spinner_dropdown_item,listOf("Chưa có loại biên bản"));warning(messageFor(result.error));return@postUi}
+                    if(!result.ok){
+                        if(categoryIds.isEmpty()){
+                            val cached=categoryCache.load(login)
+                            if(cached.isNotEmpty())applyCategoryEntries(cached)
+                            else categorySpinner.adapter=ArrayAdapter(activity,android.R.layout.simple_spinner_dropdown_item,listOf("Chưa tải được loại biên bản"))
+                        }
+                        if(categoryIds.isNotEmpty())warning("Mất kết nối Service. Đang dùng danh mục đã lưu trên máy.")
+                        else warning(messageFor(result.error))
+                        return@postUi
+                    }
                     val arr=result.json?.optJSONArray("items")?:JSONArray()
-                    val ids=mutableListOf<String>();val names=mutableListOf<String>()
+                    val entries=mutableListOf<DocumentCategoryCache.Entry>()
                     for(i in 0 until arr.length()){
                         val o=arr.optJSONObject(i)?:continue
                         val id=o.optString("category_id").trim();val name=o.optString("display_name").trim()
-                        if(id.isNotBlank()&&name.isNotBlank()){ids.add(id);names.add(name)}
+                        if(id.isNotBlank()&&name.isNotBlank())entries.add(DocumentCategoryCache.Entry(id,name))
                     }
-                    categoryIds=ids;categoryNames=names
-                    categorySpinner.adapter=ArrayAdapter(activity,android.R.layout.simple_spinner_dropdown_item,if(names.isEmpty())listOf("Chưa có loại biên bản") else names)
-                    uploadButton.isEnabled=selected!=null&&ids.isNotEmpty();uploadButton.alpha=if(uploadButton.isEnabled)1f else .4f
+                    categoryCache.save(login,entries)
+                    applyCategoryEntries(entries)
                 }
             }
         }
@@ -347,6 +387,7 @@ object DocumentManagementFeature {
                     }
                     return@execute
                 }
+                draftStore.remove(login)
                 selected=null
                 postUi{clearSelected();refreshPending();uploadButton.text="Đang tải thẳng lên Drive..."}
                 val outcome=uploadEngine.runOne(pending)
