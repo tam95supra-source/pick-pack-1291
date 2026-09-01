@@ -1,0 +1,29 @@
+{
+  "status": "PASS",
+  "gate": "HUMAN_VISUAL_INSPECTION",
+  "version_name": "0.4.2-beta.108",
+  "version_code": 114,
+  "package": "vn.pickpack1291.app.beta.publicbeta",
+  "source_sha": "378f1c294641c774cee361ae2bd2cc9fc868ee23",
+  "candidate_run_id": 33491085275,
+  "candidate_artifact_id": 9793922815,
+  "visual_run_id": 33497121749,
+  "visual_artifact_id": 9796518681,
+  "apk_sha256": "bd82ca39ca702a771b435ef67ab626cbc36e9771478981912fa20e588bb9bc6e",
+  "apk_size": 14150645,
+  "screenshot_count": 39,
+  "viewports": [
+    "320x568",
+    "360x640",
+    "480x800"
+  ],
+  "checks": {
+    "document_management_layout": "PASS",
+    "clipping_overlap": "PASS",
+    "readable_actions": "PASS",
+    "cross_viewport_consistency": "PASS",
+    "existing_navigation_layout": "PASS"
+  },
+  "harness_state_note": "Service warning banner in emulator is a visual harness state; fresh service-live gate on the same exact candidate source passed before inspection.",
+  "decision": "FRESH_PASS_EXACT_ARTIFACT_9796518681"
+}
