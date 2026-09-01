@@ -588,6 +588,7 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
   private void runVisual()throws Exception{
     String tag=req("tag"),mnv=req("mnv"),mnv2=req("mnv2"),mnv3=req("mnv3");
     verifyFirstLogMetadata();
+    verifyDocumentLocalDurability();
     seedAuth();seedService();seedData(mnv,mnv2,mnv3);
 
     open("BUSINESS");
@@ -598,6 +599,7 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     waitText("Chụp ảnh",true,true,10000L);
     waitText("Chọn từ máy",true,true,10000L);
     waitText("Tải biên bản lên",true,true,10000L);
+    waitText("Ảnh chờ tải",true,false,10000L);
     shot(tag+"-01a-beta107-documents");
     open("BUSINESS");
     waitText("Quét QR nhân sự",true,true,10000L);
@@ -717,6 +719,45 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     mark("log_metadata_persisted");
   }
 
+  private void verifyDocumentLocalDurability()throws Exception{
+    ClassLoader cl=target.getClassLoader();
+    Class<?> imageClass=cl.loadClass("vn.pickpack1291.app.beta.DocumentImageProcessor$ProcessedImage");
+    java.lang.reflect.Constructor<?> imageCtor=imageClass.getDeclaredConstructor(byte[].class,String.class,String.class,String.class,int.class,int.class,String.class);
+    imageCtor.setAccessible(true);
+    byte[] fixture=new byte[]{11,22,33,44,55,66};
+    Object image=imageCtor.newInstance(fixture,
+      "0000000000000000000000000000000000000000000000000000000000000108",
+      "00000000000000000000000000000108",
+      "0000000000000108",2,3,"image/jpeg");
+    Class<?> storeClass=cl.loadClass("vn.pickpack1291.app.beta.DocumentPendingStore");
+    Object store1=storeClass.getConstructor(Context.class).newInstance(target);
+    String idem="b108-local-"+System.nanoTime();
+    Object item=storeClass.getMethod("enqueue",String.class,String.class,String.class,String.class,String.class,imageClass)
+      .invoke(store1,"admin","b108-category","CAMERA","2026-09-01T00:00:00Z",idem,image);
+    Class<?> itemClass=cl.loadClass("vn.pickpack1291.app.beta.DocumentPendingStore$Item");
+    String pendingId=String.valueOf(itemClass.getMethod("getPendingId").invoke(item));
+    require(!pendingId.isEmpty(),"DOCUMENT_PENDING_ID_MISSING");
+    Object store2=storeClass.getConstructor(Context.class).newInstance(target);
+    Object found=storeClass.getMethod("find",String.class).invoke(store2,pendingId);
+    require(found!=null,"DOCUMENT_PENDING_NOT_DURABLE_ACROSS_STORE_INSTANCE");
+    byte[] restored=(byte[])storeClass.getMethod("bytes",itemClass).invoke(store2,found);
+    require(java.util.Arrays.equals(fixture,restored),"DOCUMENT_PENDING_BYTES_MISMATCH");
+    storeClass.getMethod("remove",String.class).invoke(store2,pendingId);
+    require(storeClass.getMethod("find",String.class).invoke(store2,pendingId)==null,"DOCUMENT_PENDING_REMOVE_FAILED");
+
+    Class<?> cacheClass=cl.loadClass("vn.pickpack1291.app.beta.DocumentMediaCache");
+    Object cache1=cacheClass.getConstructor(Context.class).newInstance(target);
+    String cacheId="b108-cache-"+System.nanoTime();
+    cacheClass.getMethod("put",String.class,byte[].class).invoke(cache1,cacheId,fixture);
+    Object cache2=cacheClass.getConstructor(Context.class).newInstance(target);
+    byte[] cached=(byte[])cacheClass.getMethod("get",String.class).invoke(cache2,cacheId);
+    require(cached!=null&&java.util.Arrays.equals(fixture,cached),"DOCUMENT_MEDIA_CACHE_NOT_DURABLE");
+    cacheClass.getMethod("clear",String.class).invoke(cache2,cacheId);
+    require(cacheClass.getMethod("get",String.class).invoke(cache2,cacheId)==null,"DOCUMENT_MEDIA_CACHE_CLEAR_FAILED");
+    mark("document_pending_durable_beta108");
+    mark("document_media_cache_beta108");
+  }
+
   private void runChecks()throws Exception{
     String tag=req("tag"),mnv=req("mnv"),mnv2=req("mnv2"),mnv3=req("mnv3");
     verifyFirstLogMetadata();
@@ -758,10 +799,14 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     waitText("Chụp ảnh",true,true,10000L);
     waitText("Chọn từ máy",true,true,10000L);
     waitText("Tải biên bản lên",true,true,10000L);
+    waitText("Ảnh chờ tải",true,false,10000L);
+    waitText("Không có ảnh chờ tải.",true,false,10000L);
+    waitText("Tối đa 60 ảnh / 120 MB",false,false,10000L);
     waitText("Sửa/Xóa đang khóa chờ OWNER",false,false,10000L);
     waitText("Mạng",true,false,10000L);waitText("Đồng bộ",true,false,10000L);waitText("Dịch vụ",true,false,10000L);
     mark("document_management_card_beta107");
     mark("document_management_controls_beta107");
+    mark("document_pending_ui_beta108");
     mark("document_category_mutation_fail_closed_beta107");
     shot(tag+"-00b-beta107-documents");
     open("BUSINESS");
