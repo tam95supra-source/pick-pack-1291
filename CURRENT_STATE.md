@@ -1,7 +1,7 @@
 # CURRENT STATE — PICK PACK 1291
 
-- updated_at: 2026-09-01T10:55:36Z
-- status: BETA108_PASS_LIVE
+- updated_at: 2026-09-01T18:15:00+07:00
+- status: BETA108_LIVE_TECHNICAL_PASS_AWAITING_OWNER
 - continuity_branch: release/beta108-document-management
 - source_sha: 378f1c294641c774cee361ae2bd2cc9fc868ee23
 - beta_live: 0.4.2-beta.108 (versionCode 114)
@@ -13,17 +13,25 @@
 - apk_sha256: bd82ca39ca702a771b435ef67ab626cbc36e9771478981912fa20e588bb9bc6e
 - apk_size: 14150645
 - signer_sha256: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
-- terminal_run: 33499528769
-- fast_check: PASS
-- service_gate: PASS_FRESH_RUN_33497121749
+- service_live: 33497121749 / 9796321745 PASS
+- fast_check: 33498475427 PASS
+- device_regression: 33498411807 / 9796733630 PASS
+- runtime_dod: 33498657720 / 9796803109 PASS
+- terminal_run: 33499528769 PASS
+- publish_artifact: 9797165484
+- pda_ota_artifact: 9797234412
+- final_artifact: 9797240852
 - visual_matrix: PASS 320x568 / 360x640 / 480x800
 - human_visual: PASS
 - pda_functional_pre_ota: PASS
-- beta_ota: exact 0.4.2-beta.108 PASS via GitHub Release
+- beta_ota: exact 0.4.2-beta.106 -> 0.4.2-beta.108 PASS via GitHub Release
 - beta_ota_url: https://github.com/tam95supra-source/pick-pack-1291/releases/download/v0.4.2-beta.108-publicbeta/pick-pack-1291-public-beta-0.4.2-beta.108.apk
 - apk_transport: GITHUB_RELEASE_ONLY
 - google_drive_apk: FORBIDDEN
+- document_management_invariant: DOCUMENT-MANAGEMENT-001 = TECHNICAL_PASS_AWAITING_OWNER
+- technical_receipt: ops/beta108-technical-pass.json
+- regression_case: qa/beta108_document_management_regression.md
 - stable: unchanged
 - main_sha: 021dac5c6932b3ac5c60ce8fdba562ddf3d9688f
 - authority: SERVICE_PRIMARY / PRODUCTION / epoch 9 / generation m2-prod-reset-20260823-001
-- next_action: WAIT_FOR_OWNER_NEW_SCOPE
+- next_action: OWNER_ACCEPTANCE_DOCUMENT_MANAGEMENT_001
