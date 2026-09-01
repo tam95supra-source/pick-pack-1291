@@ -76,8 +76,8 @@ Mỗi invariant tối thiểu có:
 - Authority: GitHub Actions exact candidate → GitHub Release exact bytes → Beta manifest/update API → OTA exact readback.
 - Regression: exact SHA256/size/version/package/signer, Stable/main/authority unchanged.
 - Publish-verifier regression: receipt-driven screenshot evidence; actual-count mismatch / missing viewport / summary mismatch / human gate false phải FAIL; Beta104 Fast Check run 33388933459 PASS.
-- Evidence: Beta106 terminal run 33476108449 PASS; publish artifact 9788246064; OTA/install/readback artifact 9788292824; final artifact 9788296923; exact candidate run 33473965249 / artifact 9787581956; SHA256 ea5bdf9696d9dae77f02fab815df6435a8317a66178bdb4c36bc051aa5bcd000 / size 14068725 / signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; OTA 0.4.2-beta.104 → 0.4.2-beta.106 exact SHA/size/version/package/signer + install/open PASS; Stable/main/authority unchanged.
-- Last verified: 0.4.2-beta.106.
+- Evidence: Beta108 terminal run 33499528769 PASS; publish artifact 9797165484; OTA/install/readback artifact 9797234412; final artifact 9797240852; exact candidate run 33491085275 / artifact 9793922815; SHA256 bd82ca39ca702a771b435ef67ab626cbc36e9771478981912fa20e588bb9bc6e / size 14150645 / signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; OTA 0.4.2-beta.106 → 0.4.2-beta.108 exact SHA/size/version/package/signer + install/open PASS; Stable/main/authority unchanged. Finalizer non-fast-forward harness failure được rollback Beta106 trước, sửa fencing/rebase rồi republish cùng exact Beta108 bytes; terminal PASS.
+- Last verified: 0.4.2-beta.108.
 
 ## 4. LOCKED_REQUIREMENT_PENDING_FIX / AWAITING OWNER / DEFERRED
 
@@ -108,8 +108,8 @@ Mỗi invariant tối thiểu có:
 - OWNER rule: BETA phải kết nối Service qua environment-scoped dynamic discovery; stale cache từ endpoint/environment cũ không được điều khiển Service session/read/sync/outbox sau OTA hoặc isolation cutover.
 - Failure evidence: manual-20260831-172725-4aaccadf-0df6-4d6d-9eca-589b274b1659.json — Beta102/adminbeta; session_http=-1; UnknownHostException tới pickpack1291.cc.cd; runtime_error=SESSION_EXCHANGE_FAILED trong khi canonical BETA discovery trỏ BETA Worker riêng.
 - Regression required: cache phải match exact BuildConfig environment/audience; stale/missing-env cache bị invalidate; discoverySnapshot honor TTL/force; live session/direct-read/sync/outbox/resilience path refresh discovery; Android không hardcode Stable root hoặc provider URL.
-- Technical evidence: Beta106 exact-device run 33474768649 / artifact 9787794484 PASS; terminal OTA 33476108449 / artifact 9788292824 PASS on exact candidate ea5bdf9696d9dae77f02fab815df6435a8317a66178bdb4c36bc051aa5bcd000. Post-OTA regression accepts both safe states: stale cache survives until explicit discovery check and is then rewritten, or the app eagerly rewrites it during startup; in both cases final cache must be environment=BETA, audience=PICK_PACK_1291_BETA, canonical Beta Service URL, stable_root_reused=false. First publish attempt 33475493287 proved exact install but harness incorrectly required stale cache to remain; Beta104 rollback 9788091781 PASS, harness fixed, same exact Beta106 bytes republished and terminal PASS.
-- Technical candidate: 0.4.2-beta.106 LIVE.
+- Technical evidence: Beta108 exact-device run 33498411807 / artifact 9796733630 PASS; terminal OTA 33499528769 / artifact 9797234412 PASS on exact candidate bd82ca39ca702a771b435ef67ab626cbc36e9771478981912fa20e588bb9bc6e. Post-OTA readback recorded stale_cache_state_before_post_ota_check=ALREADY_REWRITTEN_BY_APP, stale_discovery_invalidated_without_clear=true, stale_discovery_safe_after_ota=true; final environment/audience/canonical Beta discovery remained safe. Prior Beta106 harness history retained as regression history.
+- Technical candidate: 0.4.2-beta.108 LIVE.
 - OWNER acceptance: PASS — Beta104 checklist 1–6 OK, 2026-08-31 20:22 +07:00. Locked ACTIVE_PASS.
 
 ### SHIFT-STAFF-DOWNLOAD-QR-001
@@ -123,14 +123,18 @@ Mỗi invariant tối thiểu có:
 
 
 ### DOCUMENT-MANAGEMENT-001
-- Status: LOCKED_REQUIREMENT_PENDING_FIX
+- Status: TECHNICAL_PASS_AWAITING_OWNER
 - Scope: Quản lý biên bản / Google Drive / D1 / xác nhận thao tác
 - OWNER rule 2026-09-01: Sửa loại biên bản = đổi tên toàn bộ dữ liệu lịch sử thuộc loại đó và đổi tên toàn bộ file tương ứng trên Google Drive. Xóa loại biên bản = xóa hẳn file Drive + bản ghi biên bản + danh mục; chỉ giữ receipt kỹ thuật tối thiểu (ai, khi nào, số lượng, mã job), không giữ nội dung/ảnh/tên file cũ.
 - Xác nhận: cả Sửa và Xóa phải dùng đúng canonical confirmation hiện tại của app: HHmm giờ Việt Nam, inclusive ±2 phút; SUPERADMIN giữ đường re-auth mật khẩu tài khoản như logic hiện hành.
 - Consistency: mutation phải chạy dạng durable job/checkpoint; upload mới bị fence trong lúc mutation; retry/crash không được tạo trạng thái nửa chừng.
-- Regression tối thiểu: rename all D1 metadata; rename all Drive names; hard delete Drive + records; pending-upload fence; idempotent mutation; scheduled resume; exact confirmation callback; Beta/Stable isolation.
-- Technical candidate: 0.4.2-beta.108.
-- OWNER acceptance: chưa nghiệm thu; chỉ chuyển ACTIVE_PASS sau Technical PASS + OWNER OK.
+- Regression tối thiểu: drive direct upload / no D1 blob / exact duplicate block / near-duplicate warning / durable pending queue / post-Drive resume / bounded cache / account-scoped retry / rename all D1 metadata / rename all Drive names / hard delete Drive + records / durable mutation resume / exact confirmation HHmm ±2 / Beta-Stable isolation.
+- Technical evidence: Beta108 source 378f1c294641c774cee361ae2bd2cc9fc868ee23; candidate 33491085275 / 9793922815; Service live 33497121749 / 9796321745 PASS; visual + direct PDA + API36 33497121749 / 9796518681 PASS; 39 screenshots + human visual PASS 320x568 / 360x640 / 480x800; Fast Check full app 33498475427 PASS; exact-device regression 33498411807 / 9796733630 PASS; runtime DoD 33498657720 / 9796803109 PASS; terminal publish/OTA/install/readback/finalize 33499528769 PASS; publish 9797165484; PDA 9797234412; final 9797240852; exact APK SHA256 bd82ca39ca702a771b435ef67ab626cbc36e9771478981912fa20e588bb9bc6e / size 14150645 / signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged.
+- Regression case: qa/beta108_document_management_regression.md + tools/document_management_contract.py + tools/beta89_service_live_gate.sh.
+- Technical receipt: ops/beta108-technical-pass.json.
+- Technical candidate: 0.4.2-beta.108 LIVE.
+- OWNER acceptance: PENDING; chỉ chuyển ACTIVE_PASS sau OWNER xác nhận OK.
+- Last verified: 0.4.2-beta.108 / terminal run 33499528769.
 
 ### INFRA-RESILIENCE-001
 - Status: TECHNICAL_PASS_AWAITING_OWNER
