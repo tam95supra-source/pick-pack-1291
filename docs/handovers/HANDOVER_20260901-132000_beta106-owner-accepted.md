@@ -16,7 +16,7 @@ next_action: WAIT_FOR_OWNER_NEW_SCOPE
 ## 1. Trạng thái
 - Beta LIVE: 0.4.2-beta.106 / versionCode 112 / package `vn.pickpack1291.app.beta.publicbeta`.
 - Technical DoD: PASS.
-- OWNER acceptance: PASS cho toàn bộ scope Beta106.
+- OWNER acceptance: PASS cho toàn bộ scope Beta106 / receipt `ops/beta106-owner-acceptance.json`.
 - OWNER lưu ý layout còn vài điểm chưa ưng nhưng sẽ chỉnh ở scope sau; không phủ nhận acceptance hiện tại.
 - Stable: giữ nguyên READY_NOT_LIVE; không phát hành Stable trong scope này.
 
