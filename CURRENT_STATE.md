@@ -2,7 +2,10 @@
 
 - updated_at: 2026-09-01T06:08:59Z
 - status: BETA106_PASS_LIVE
-- continuity_branch: release/beta106-ncc-null-sanitize
+- technical_dod_status: PASS_BETA106_AWAITING_OWNER_ACCEPTANCE
+- owner_acceptance: PENDING_BETA106_SCOPE
+- invariant_pending_owner: SHIFT-STAFF-DOWNLOAD-QR-001
+- continuity_branch: beta/current
 - source_sha: 57e02d45b436c6bcb64bc5731671044af7c7c86d
 - beta_live: 0.4.2-beta.106 (versionCode 112)
 - package: vn.pickpack1291.app.beta.publicbeta
@@ -26,4 +29,4 @@
 - stable: unchanged
 - main_sha: 021dac5c6932b3ac5c60ce8fdba562ddf3d9688f
 - authority: SERVICE_PRIMARY / PRODUCTION / epoch 9 / generation m2-prod-reset-20260823-001
-- next_action: WAIT_FOR_OWNER_NEW_SCOPE
+- next_action: WAIT_FOR_OWNER_BETA106_ACCEPTANCE
