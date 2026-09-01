@@ -80,7 +80,7 @@ invariants:
     technical_candidate: "Beta104 accepted source c31bb1b7ad68e6fd114727d8f08508796013bcef + Stable private readiness"
     technical_evidence: "Stable private APK 33401278044/9761451846; Turso 33413666617/9766154727; Deno 33416165785/9767094401; Render 33417320129/9767567227; promotion dry-run 33419578736/9768397541; final CI 33419578501; final impacted regression 33420663673/9768750476 PASS"
     regression_minimum: [exact_beta_source, stable_private_coinstall, env_audience_fence, auth_isolation, data_isolation, gsheet_gas_isolation, service_state_fencing, dr_restore_cross_token, quota_guard, promotion_dry_run, stable_publish_fail_closed, fcm_environment_scope]
-    owner_acceptance: "AWAITING_OWNER_BETA_STABLE_CHECKLIST_1_TO_18"
+    owner_acceptance: "DEFERRED_BY_OWNER_UNTIL_FIRST_STABLE_RELEASE_2026-09-01T07:14+07:00"
     common_mode_note: "Free-provider/account-wide outage risk remains an availability common mode; no claim of absolute provider outage isolation."
 
 impact_map:

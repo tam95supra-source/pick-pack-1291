@@ -399,15 +399,15 @@
   },
   "owner_acceptance": {
     "beta104": "COMPLETE_1_TO_6",
-    "beta_stable_full": "AWAITING_1_TO_18"
+    "beta_stable_full": "DEFERRED_BY_OWNER_UNTIL_FIRST_STABLE_RELEASE"
   },
-  "next_action": "OWNER_ACCEPTANCE_BETA_STABLE_CHECKLIST_1_TO_18",
+  "next_action": "WAIT_FOR_OWNER_FIRST_STABLE_RELEASE_SCOPE",
   "verdict": "TECHNICAL_PASS_AWAITING_OWNER",
   "handoff": {
     "current": "docs/handovers/HANDOVER_CURRENT.md",
-    "archive": "docs/handovers/HANDOVER_20260901-0041_beta-stable-audit-technical-pass.md",
+    "archive": "docs/handovers/HANDOVER_20260901-0714_beta-stable-owner-pending-first-stable.md",
     "status": "READY",
-    "next_action": "OWNER_ACCEPTANCE_BETA_STABLE_CHECKLIST_1_TO_18"
+    "next_action": "WAIT_FOR_OWNER_FIRST_STABLE_RELEASE_SCOPE"
   },
   "finalization": {
     "technical_registry_commit": "bcae7abba739df8f0c655629d8e39a2584b5f000",
@@ -415,5 +415,10 @@
     "final_regression_run": 33420663673,
     "final_regression_artifact": 9768750476,
     "post_commit_readback_required": true
+  },
+  "owner_decision": {
+    "time": "2026-09-01T07:14:00+07:00",
+    "decision": "DEFER_BETA_STABLE_CHECKLIST_1_TO_18",
+    "condition": "After a new Beta is developed and OWNER-approved, execute the first Stable release, then OWNER answers checklist 1–18."
   }
 }

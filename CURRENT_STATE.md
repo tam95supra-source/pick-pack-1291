@@ -1,10 +1,10 @@
 # CURRENT STATE — PICK PACK 1291
 
-- updated_at: 2026-08-31T17:41:19Z
+- updated_at: 2026-09-01T00:14:00Z
 - status: BETA104_LIVE_OWNER_ACCEPTED_STABLE_READY_NOT_LIVE
 - technical_dod_status: PASS_BETA_STABLE_AUDIT
 - audit_verdict: TECHNICAL_PASS_AWAITING_OWNER
-- owner_acceptance: BETA104_CHECKLIST_1_TO_6_COMPLETE / BETA_STABLE_CHECKLIST_1_TO_18_AWAITING_OWNER
+- owner_acceptance: BETA104_CHECKLIST_1_TO_6_COMPLETE / BETA_STABLE_CHECKLIST_1_TO_18_DEFERRED_BY_OWNER_UNTIL_FIRST_STABLE_RELEASE
 - continuity_branch: release/audit-beta104-stable-private-20260831
 - source_sha: c31bb1b7ad68e6fd114727d8f08508796013bcef
 - beta_live: 0.4.2-beta.104 (versionCode 110)
@@ -42,4 +42,4 @@
 - authority: SERVICE_PRIMARY / PRODUCTION / epoch 9 / generation m2-prod-reset-20260823-001 / unchanged
 - protected_stable_main_signer_authority_changed: false
 - rollback: Beta104 release rollback available; future Stable rollback is Stable-only and requires promotion authorization
-- next_action: OWNER_ACCEPTANCE_BETA_STABLE_CHECKLIST_1_TO_18
+- next_action: WAIT_FOR_OWNER_FIRST_STABLE_RELEASE_SCOPE
