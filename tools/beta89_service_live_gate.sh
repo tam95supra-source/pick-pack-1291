@@ -107,8 +107,11 @@ B92_BLOCKED_TABLE="__B92_BLOCKED_TABLE_${SUFFIX}"; B92_BLOCKED_PACK="__B92_BLOCK
 B99_PROBE="__B99_RESILIENCE_PROBE_${SUFFIX}"
 DOC_CATEGORY_ID=""
 DOC_CATEGORY_NAME="__B107_BIEN_BAN_${SUFFIX}"
+DOC_CATEGORY_RENAMED="__B108_RENAMED_${SUFFIX}"
 DOC_IDEMPOTENCY="__B107_DOC_${SUFFIX}"
 DOC_DUP_IDEMPOTENCY="__B107_DOC_DUP_${SUFFIX}"
+DOC_RENAME_IDEMPOTENCY="__B108_RENAME_${SUFFIX}"
+DOC_DELETE_IDEMPOTENCY="__B108_DELETE_${SUFFIX}"
 DOC_DRIVE_ID=""
 DOC_BYTES="$D/b107-document.jpg"
 NOW=$(date -u +%Y-%m-%dT%H:%M:%SZ)
@@ -135,7 +138,7 @@ cleanup_document_drive(){
 cleanup_d1(){
   set +e
   if [[ -n "${DOC_CATEGORY_ID:-}" ]]; then
-    sql "DELETE FROM document_audit WHERE target_id IN (SELECT document_id FROM document_records WHERE category_id='$DOC_CATEGORY_ID') OR target_id='$DOC_CATEGORY_ID'; DELETE FROM document_records WHERE category_id='$DOC_CATEGORY_ID'; DELETE FROM document_categories WHERE category_id='$DOC_CATEGORY_ID';" >/dev/null 2>&1 || true
+    sql "DELETE FROM document_audit WHERE target_id IN (SELECT document_id FROM document_records WHERE category_id='$DOC_CATEGORY_ID') OR target_id='$DOC_CATEGORY_ID'; DELETE FROM document_records WHERE category_id='$DOC_CATEGORY_ID'; DELETE FROM document_category_mutation_items WHERE mutation_id IN (SELECT mutation_id FROM document_category_mutations WHERE category_id='$DOC_CATEGORY_ID'); DELETE FROM document_category_mutations WHERE category_id='$DOC_CATEGORY_ID'; DELETE FROM document_categories WHERE category_id='$DOC_CATEGORY_ID';" >/dev/null 2>&1 || true
   fi
   sql "DELETE FROM outbound_replication_outbox WHERE event_id IN (SELECT event_id FROM events WHERE actor_id='$LOGIN'); DELETE FROM sheet_replication_outbox WHERE event_id IN (SELECT event_id FROM events WHERE actor_id='$LOGIN'); DELETE FROM outbound_drop_records WHERE record_id='$DROP_ID'; DELETE FROM outbound_locations WHERE location_key LIKE '__B78%'; DELETE FROM resource_daily_consumption WHERE mnv='$B80_MNV'; DELETE FROM resource_leases WHERE mnv='$B80_MNV'; DELETE FROM post_meal_attendance_audit WHERE mnv='$B80_MNV'; DELETE FROM post_meal_attendance WHERE mnv='$B80_MNV'; DELETE FROM attendance_sessions WHERE mnv='$B80_MNV'; DELETE FROM events WHERE actor_id='$LOGIN'; DELETE FROM resource_pack_map WHERE pack_table IN ('$B91_TABLE','$B91_BLOCKED_TABLE','$B92_USED_TABLE','$B92_BLOCKED_TABLE') OR user_pack IN ('$B91_PACK','$B91_BLOCKED_PACK','$B92_USED_PACK','$B92_BLOCKED_PACK'); DELETE FROM resources WHERE resource_id IN ('$B80_PDA','$B89_PDA2','$B89_PICK','$B89_BLOCKED_PICK','$B91_TABLE','$B91_PACK','$B91_BLOCKED_TABLE','$B91_BLOCKED_PACK','$B92_USED_PICK','$B92_USED_TABLE','$B92_USED_PACK','$B92_BLOCKED_TABLE','$B92_BLOCKED_PACK'); DELETE FROM employees WHERE mnv='$B80_MNV'; DELETE FROM auth_sessions WHERE login_id='$LOGIN'; DELETE FROM accounts WHERE login_id='$LOGIN';" >/dev/null 2>&1
   set -e
@@ -342,18 +345,35 @@ jq -e --arg id "$DOC_ID" '.error.code=="DOCUMENT_EXACT_DUPLICATE" and .duplicate
 curl -fsS --connect-timeout 10 --max-time 30 -H "Authorization: Bearer $TOKEN" "$SERVICE_URL/v1/documents/$DOC_ID/media" > "$D/b107-media.jpg"
 [[ "$(sha256sum "$D/b107-media.jpg" | awk '{print $1}')" == "$DOC_SHA" ]]
 
-DOC_EDIT_HTTP=$(curl -sS --connect-timeout 10 --max-time 20 -o "$D/b107-category-edit-blocked.json" -w '%{http_code}' -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' --data-binary "{\"operation\":\"UPDATE\",\"category_id\":\"$DOC_CATEGORY_ID\",\"display_name\":\"BLOCKED\"}" "$SERVICE_URL/v1/documents/categories")
-[[ "$DOC_EDIT_HTTP" == 409 ]]
-jq -e '.error.code=="DOCUMENT_CATEGORY_EDIT_DELETE_OWNER_DECISION_REQUIRED"' "$D/b107-category-edit-blocked.json" >/dev/null
+owner_api /v1/documents/categories b108-category-rename "{\"operation\":\"UPDATE\",\"category_id\":\"$DOC_CATEGORY_ID\",\"display_name\":\"$DOC_CATEGORY_RENAMED\",\"idempotency_key\":\"$DOC_RENAME_IDEMPOTENCY\"}"
+jq -e '.ok==true and .mutation.operation=="UPDATE" and .mutation.state=="DONE" and .mutation.processed_items==1' "$D/b108-category-rename.json" >/dev/null
+DOC_RENAME_DB=$(sql "SELECT c.display_name,c.mutation_state,d.category_name_snapshot,d.file_name FROM document_categories c JOIN document_records d ON d.category_id=c.category_id WHERE c.category_id='$DOC_CATEGORY_ID' AND d.document_id='$DOC_ID';")
+printf '%s' "$DOC_RENAME_DB" > "$D/b108-category-rename-db.json"
+RENAMED_FILE=$(node -e 'const j=JSON.parse(process.argv[1]),r=j?.[0]?.results?.[0];if(!r||r.display_name!==process.argv[2]||r.category_name_snapshot!==process.argv[2]||r.mutation_state!=="NONE")throw new Error("B108_RENAME_DB_MISMATCH:"+JSON.stringify(r));process.stdout.write(String(r.file_name||""))' "$DOC_RENAME_DB" "$DOC_CATEGORY_RENAMED")
+test -n "$RENAMED_FILE"
+curl -fsS --connect-timeout 10 --max-time 20 -H "Authorization: Bearer $GOOGLE_TOKEN" "https://www.googleapis.com/drive/v3/files/$DOC_DRIVE_ID?fields=id,name,trashed" > "$D/b108-drive-renamed.json"
+jq -e --arg id "$DOC_DRIVE_ID" --arg name "$RENAMED_FILE" '.id==$id and .name==$name and (.trashed|not)' "$D/b108-drive-renamed.json" >/dev/null
 
-curl -fsS --connect-timeout 10 --max-time 20 -H "Authorization: Bearer $TOKEN" "$SERVICE_URL/v1/documents?limit=10" > "$D/b107-list.json"
-jq -e --arg id "$DOC_ID" '[.items[]|select(.document_id==$id and .status=="COMPLETE")]|length==1' "$D/b107-list.json" >/dev/null
+curl -fsS --connect-timeout 10 --max-time 20 -H "Authorization: Bearer $TOKEN" "$SERVICE_URL/v1/documents?limit=10" > "$D/b108-list-renamed.json"
+jq -e --arg id "$DOC_ID" --arg name "$DOC_CATEGORY_RENAMED" '[.items[]|select(.document_id==$id and .status=="COMPLETE" and .category_name==$name)]|length==1' "$D/b108-list-renamed.json" >/dev/null
 
-cleanup_document_drive
+owner_api /v1/documents/categories b108-category-delete "{\"operation\":\"DELETE\",\"category_id\":\"$DOC_CATEGORY_ID\",\"idempotency_key\":\"$DOC_DELETE_IDEMPOTENCY\"}"
+jq -e '.ok==true and .mutation.operation=="DELETE" and .mutation.state=="DONE" and .mutation.processed_items==1' "$D/b108-category-delete.json" >/dev/null
+DOC_DRIVE_DELETE_HTTP=$(curl -sS --connect-timeout 10 --max-time 20 -o "$D/b108-drive-deleted.json" -w '%{http_code}' -H "Authorization: Bearer $GOOGLE_TOKEN" "https://www.googleapis.com/drive/v3/files/$DOC_DRIVE_ID?fields=id,name,trashed")
+[[ "$DOC_DRIVE_DELETE_HTTP" == 404 ]]
+DOC_DELETE_DB=$(sql "SELECT
+  (SELECT COUNT(*) FROM document_records WHERE document_id='$DOC_ID') AS documents,
+  (SELECT COUNT(*) FROM document_categories WHERE category_id='$DOC_CATEGORY_ID') AS categories,
+  (SELECT COUNT(*) FROM document_audit WHERE target_id IN ('$DOC_ID','$DOC_CATEGORY_ID')) AS business_audit,
+  (SELECT COUNT(*) FROM document_category_mutation_items WHERE mutation_id IN (SELECT mutation_id FROM document_category_mutations WHERE category_id='$DOC_CATEGORY_ID')) AS mutation_items,
+  (SELECT COUNT(*) FROM document_category_mutations WHERE category_id='$DOC_CATEGORY_ID' AND (old_display_name<>'' OR new_display_name IS NOT NULL OR new_normalized_name IS NOT NULL)) AS retained_names,
+  (SELECT COUNT(*) FROM document_category_mutations WHERE category_id='$DOC_CATEGORY_ID' AND state='DONE') AS receipts;")
+printf '%s' "$DOC_DELETE_DB" > "$D/b108-category-delete-db.json"
+node -e 'const j=JSON.parse(process.argv[1]),r=j?.[0]?.results?.[0];if(Number(r.documents)!==0||Number(r.categories)!==0||Number(r.business_audit)!==0||Number(r.mutation_items)!==0||Number(r.retained_names)!==0||Number(r.receipts)<2)throw new Error("B108_HARD_DELETE_MISMATCH:"+JSON.stringify(r))' "$DOC_DELETE_DB"
+DOC_DRIVE_ID=""
+
 cleanup_d1
-DOC_CLEAN=$(sql "SELECT (SELECT COUNT(*) FROM document_records WHERE document_id='$DOC_ID')+(SELECT COUNT(*) FROM document_categories WHERE category_id='$DOC_CATEGORY_ID')+(SELECT COUNT(*) FROM document_audit WHERE target_id IN ('$DOC_ID','$DOC_CATEGORY_ID')) AS n;")
-node -e 'const j=JSON.parse(process.argv[1]);if(Number(j?.[0]?.results?.[0]?.n)!==0)throw new Error("B107_DOCUMENT_TEST_DATA_REMAINS")' "$DOC_CLEAN"
-echo 'beta107_document_management=PASS drive_scope=PASS resumable_direct=PASS exact_readback=PASS duplicate_guard=PASS category_mutation_fail_closed=PASS cleanup=PASS'
+echo 'beta108_document_management=PASS drive_scope=PASS resumable_direct=PASS exact_readback=PASS duplicate_guard=PASS category_rename_all=PASS category_hard_delete=PASS mutation_receipt_minimal=PASS cleanup=PASS'
 
 META=$(curl -fsS -H "Authorization: Bearer $GOOGLE_TOKEN" "https://sheets.googleapis.com/v4/spreadsheets/$OUTBOUND_SHEET_ID?fields=sheets.properties(sheetId,title)")
 DROP_SHEET_ID=$(printf '%s' "$META" | jq -r '.sheets[]|select(.properties.title=="Nhận hàng rớt")|.properties.sheetId')
