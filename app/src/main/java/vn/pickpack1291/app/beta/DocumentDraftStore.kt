@@ -21,7 +21,7 @@ class DocumentDraftStore(context:Context){
     private val root=File(context.filesDir,"document-draft-v1").apply{mkdirs()}
 
     fun save(ownerLogin:String,sourceKind:String,capturedAt:String,idempotencyKey:String,image:DocumentImageProcessor.ProcessedImage):Draft=synchronized(lock){
-        val account=accountDir(ownerLogin)
+        val account=accountDir(ownerLogin)?:throw IllegalStateException("DOCUMENT_DRAFT_DIR_UNAVAILABLE")
         val generation=UUID.randomUUID().toString()
         val bytesTmp=File(account,"$generation.jpg.tmp")
         val bytesFile=File(account,"$generation.jpg")
