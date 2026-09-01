@@ -945,7 +945,8 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     waitText("MỞ QR TẢI ỨNG DỤNG",true,true,10000L);
     clickText("MỞ QR TẢI ỨNG DỤNG",true,10000L);
     // Titleless persistent status header: verify the download screen by its release-card content instead of an app-bar title.
-    waitText("Quét QR để tải trực tiếp APK mới nhất",false,false,25000L);
+    // The functional matrix uses an offline Service fixture; verify graceful Beta lookup failure here. Live GitHub-release resolution is covered by the release readback/static contract.
+    waitText("Không lấy được bản Beta công khai mới nhất",false,false,25000L);
     waitText("Stable chưa có bản phát hành công khai",false,false,25000L);
     mark("settings_download_qr_beta105");
     shot(tag+"-16-beta105-download-qr");
