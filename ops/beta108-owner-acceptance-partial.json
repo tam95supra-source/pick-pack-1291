@@ -1,0 +1,26 @@
+{
+  "status": "PARTIAL_OWNER_ACCEPTANCE_WITH_FIX_REQUIRED",
+  "version_name": "0.4.2-beta.108",
+  "invariant_id": "DOCUMENT-MANAGEMENT-001",
+  "owner": "Nguyễn Văn Tâm",
+  "recorded_at": "2026-09-01T18:32:00+07:00",
+  "accepted": {
+    "1": "OK — chụp/chọn ảnh",
+    "2": "OK — chọn loại/upload/xem ảnh",
+    "5": "OK — sửa loại rename toàn bộ",
+    "6": "OK — xóa loại hard delete",
+    "7": "OK — xác nhận HHmm ±2",
+    "8": "OK — giao diện/luồng tổng thể"
+  },
+  "failed": {
+    "3": "PARTIAL — exact duplicate OK; near-similar không cảnh báo",
+    "4": "FAIL — mất mạng làm danh mục biến mất; ảnh đang chọn không được giữ qua restart"
+  },
+  "latest_manual_log": {
+    "drive_file_id": "1dAQQQ5N6kmLUbM1m0VHhxyKxSLL-U5Mf",
+    "title": "manual-20260901-183159-fd9d9ebb-b421-4152-a745-fe3b4b4f7d96.json",
+    "evidence": "2026-09-01 18:26:02+07 Unable to resolve host pickpack.1291.workers.dev; network/DNS outage real; service recovered by 18:31"
+  },
+  "next_action": "FIX_NEAR_SIMILAR_AND_OFFLINE_DRAFT_ONLY",
+  "active_pass_for_full_invariant": false
+}
