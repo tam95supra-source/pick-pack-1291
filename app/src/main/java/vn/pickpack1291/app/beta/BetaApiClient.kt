@@ -271,7 +271,7 @@ class BetaApiClient(context: Context) {
         }
     }
 
-    /** OTA metadata comes from Apps Script, which reads the channel-specific Google Drive release folder. */
+    /** OTA metadata comes from the environment-scoped update API. */
     fun updateCheck(channel: String, currentVersion: String, callback: (Result) -> Unit) {
         executor.execute {
             try {
@@ -435,6 +435,19 @@ class BetaApiClient(context: Context) {
         }
     }
 
+    /**
+     * Read-only public release lookup used by the Settings download-QR screen.
+     * This never mutates environment data and only returns a published GitHub Release APK.
+     */
+    fun latestGithubRelease(channel: String, callback: (Result) -> Unit) {
+        executor.execute {
+            try {
+                callback(githubUpdate(channel, "0.0.0"))
+            } catch (t: Throwable) {
+                callback(failure(t))
+            }
+        }
+    }
     private fun githubUpdate(channelRaw: String, current: String): Result {
         val channel = if (channelRaw.equals("STABLE", true)) "STABLE" else "BETA"
         val releases = getJsonArray(RELEASES_URL)
