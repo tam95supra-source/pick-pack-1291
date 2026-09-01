@@ -74,9 +74,10 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
   private void runServiceDiscoveryCacheRegression(boolean seed) throws Exception {
     android.content.SharedPreferences p=target.getSharedPreferences("pp_m2_service_transport",Context.MODE_PRIVATE);
     String stale="{\"ok\":true,\"authority_mode\":\"SERVICE_PRIMARY\",\"service_url\":\"https://pickpack1291.cc.cd\"}";
-    if(seed)p.edit().putString("discovery_json",stale).putLong("discovery_at",System.currentTimeMillis()).remove("service_token").commit();
     boolean staleBeforeCheck=true;
-    else{
+    if(seed){
+      p.edit().putString("discovery_json",stale).putLong("discovery_at",System.currentTimeMillis()).remove("service_token").commit();
+    }else{
       JSONObject before=new JSONObject(p.getString("discovery_json","{}"));
       String beforeUrl=before.optString("service_url");
       staleBeforeCheck="https://pickpack1291.cc.cd".equals(beforeUrl);
