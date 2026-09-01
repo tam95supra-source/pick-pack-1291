@@ -53,6 +53,13 @@ grep -Fq 'INSTRUMENTATION_CODE: 0' "$OUT/service-discovery-preserved.txt"
 grep -Fq 'service_discovery_cache_regression=PASS' "$OUT/service-discovery-preserved.txt"
 grep -Fq 'cache_rewritten_in_process=PASS' "$OUT/service-discovery-preserved.txt"
 grep -Fq 'stable_root_reused=false' "$OUT/service-discovery-preserved.txt"
+STALE_CACHE_STATE=$(sed -n 's/^INSTRUMENTATION_RESULT: stale_cache_before_check=//p' "$OUT/service-discovery-preserved.txt" | tail -n1 | tr -d '\r')
+case "$STALE_CACHE_STATE" in
+  STALE_PRESERVED|ALREADY_REWRITTEN_BY_APP) ;;
+  *) echo "POST_OTA_STALE_CACHE_STATE_INVALID:$STALE_CACHE_STATE" >&2; exit 1;;
+esac
+STALE_PRESERVED=false
+[[ "$STALE_CACHE_STATE" == STALE_PRESERVED ]] && STALE_PRESERVED=true
 adb shell cat "/data/user/0/$PKG/shared_prefs/pp_m2_service_transport.xml" > "$OUT/cache-after-ota.xml" 2>/dev/null || true
 
 RAW=$(printf '%s' "$GAS_DEPLOYMENT_ID"|tr -d '\r\n\t ');DEP="$RAW";if [[ "$RAW" == *"/s/"* ]]; then DEP="${RAW#*/s/}";DEP="${DEP%%/*}";fi
@@ -86,10 +93,13 @@ SERVICE_URL=$(curl -fsSL --connect-timeout 15 --max-time 35 -H 'content-type: ap
 curl -fsSL --connect-timeout 15 --max-time 30 "$SERVICE_URL/v1/authority" > "$OUT/authority.json"
 jq -S '.authority' "$PUB" > "$OUT/pub-auth";jq -S '.authority' "$OUT/authority.json" > "$OUT/live-auth";cmp -s "$OUT/pub-auth" "$OUT/live-auth"
 jq -n --arg v "$VERSION" --argjson c "$CODE" --arg p "$PKG" --arg base "$BASE" --arg h "$SHA" --argjson z "$SIZE" --arg signer "$INST_SIGNER" --arg main "$MAIN_AFTER" \
+  --arg stale_state "$STALE_CACHE_STATE" --argjson stale_preserved "$STALE_PRESERVED" \
   --slurpfile beta "$OUT/beta-old.json" --slurpfile current "$OUT/beta-current.json" --slurpfile stable "$OUT/stable.json" --slurpfile auth "$OUT/authority.json" \
   '{status:"PASS",version_name:$v,version_code:$c,package:$p,base_version:$base,apk_sha256:$h,apk_size:$z,signer_sha256:$signer,
     ota_transport:"GITHUB_RELEASE",google_drive_apk:"FORBIDDEN",ota_from_base:true,ota_download_exact:true,
-    installed_exact_bytes:true,installed_and_opened:true,stale_discovery_preserved_across_ota:true,stale_discovery_invalidated_without_clear:true,
+    installed_exact_bytes:true,installed_and_opened:true,
+    stale_cache_state_before_post_ota_check:$stale_state,stale_discovery_preserved_across_ota:$stale_preserved,
+    stale_discovery_invalidated_without_clear:true,stale_discovery_safe_after_ota:true,
     beta_readback:$beta[0],target_current_readback:$current[0],stable_readback:$stable[0],
     stable_unchanged:true,main_sha:$main,main_unchanged:true,authority:$auth[0].authority,authority_change:"NONE"}' > "$OUT/receipt.json"
 cat "$OUT/receipt.json"
