@@ -420,7 +420,9 @@ object DocumentManagementFeature {
                     if(enqueueError==null){
                         val groupId=if(mode=="MULTI_PAGE")sharedGroup else "doc-"+item.idempotencyKey
                         try{
-                            queued+=pendingStore.enqueue(login,categoryId,item.sourceKind,item.capturedAt,item.idempotencyKey,item.image,groupId,mode,index+1,if(mode=="MULTI_PAGE")batch.size else 1)
+                            val pageIndex=if(mode=="MULTI_PAGE")index+1 else 1
+                            val pageCount=if(mode=="MULTI_PAGE")batch.size else 1
+                            queued+=pendingStore.enqueue(login,categoryId,item.sourceKind,item.capturedAt,item.idempotencyKey,item.image,groupId,mode,pageIndex,pageCount)
                         }catch(t:Throwable){enqueueError=t.message?:"DOCUMENT_PENDING_SAVE_FAILED"}
                     }
                 }
