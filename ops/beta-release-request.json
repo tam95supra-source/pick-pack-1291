@@ -1,6 +1,6 @@
 {
-  "stage": "BUILD_VERIFY",
-  "mode": "BETA105_OWNER_STAFF_ROSTER_DOWNLOAD_QR",
+  "stage": "VERIFY_ONLY",
+  "mode": "BETA105_VERIFY_EXACT_CANDIDATE_AFTER_HARNESS_FIX",
   "version_name": "0.4.2-beta.105",
   "version_code": 111,
   "base_version": "0.4.2-beta.104",
@@ -13,9 +13,9 @@
   "human_visual_pass": false,
   "stable_publish": "FORBIDDEN",
   "authority_change": "NONE",
-  "candidate_locked": false,
-  "rebuild": true,
-  "resign": true,
+  "candidate_locked": true,
+  "rebuild": false,
+  "resign": false,
   "scope": "beta105-ncc-grouped-shift-staff-roster-and-download-qr",
   "owner": "Nguyen Van Tam",
   "live": false,
@@ -36,6 +36,14 @@
   "apk_transport": "GITHUB_RELEASE_ONLY",
   "google_drive_apk": "FORBIDDEN",
   "regression_case": "SHIFT-STAFF-DOWNLOAD-QR-001",
-  "execution_nonce": "beta105-build-verify-owner-roster-qr-20260901-02",
-  "next_action": "BUILD_VERIFY_BETA105_AFTER_COMPILE_FIX"
+  "execution_nonce": "beta105-verify-exact-candidate-20260901-01",
+  "next_action": "VERIFY_EXACT_BETA105_CANDIDATE",
+  "candidate_source_sha": "5bd5d42a1155b6ecdbaecfd1686f2d673da81cda",
+  "candidate_run_id": 33466716439,
+  "candidate_artifact_id": 9785187509,
+  "candidate_artifact_name": "beta-candidate-33466716439",
+  "apk_sha256": "ac40ab58bd9f03b1dc62d0f535792035ce5923427a3f264a1bd6f952815f8246",
+  "apk_size": 14068725,
+  "fast_check": "PASS",
+  "fast_check_run_id": 33466706819
 }
