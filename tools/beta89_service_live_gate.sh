@@ -136,6 +136,7 @@ DOC_CATEGORY_NAME="__B107_BIEN_BAN_${SUFFIX}"
 DOC_CATEGORY_RENAMED="__B108_RENAMED_${SUFFIX}"
 DOC_IDEMPOTENCY="__B107_DOC_${SUFFIX}"
 DOC_DUP_IDEMPOTENCY="__B107_DOC_DUP_${SUFFIX}"
+DOC_SIMILAR_IDEMPOTENCY="__B109_DOC_SIMILAR_${SUFFIX}"
 DOC_RENAME_IDEMPOTENCY="__B108_RENAME_${SUFFIX}"
 DOC_DELETE_IDEMPOTENCY="__B108_DELETE_${SUFFIX}"
 DOC_DRIVE_ID=""
@@ -380,6 +381,27 @@ DOC_DUP_HTTP=$(curl -sS --connect-timeout 10 --max-time 20 -o "$D/b107-duplicate
 [[ "$DOC_DUP_HTTP" == 409 ]]
 jq -e --arg id "$DOC_ID" '.error.code=="DOCUMENT_EXACT_DUPLICATE" and .duplicate.kind=="EXACT" and .duplicate.document.document_id==$id' "$D/b107-duplicate.json" >/dev/null
 
+# Beta109: prove rotation-aware near-similar detection. Primary incoming dHash is intentionally far;
+# only a rotated variant is within threshold 16 of the stored complete document fingerprint.
+sql "UPDATE document_records SET dhash64='000000000000000f' WHERE document_id='$DOC_ID';" > "$D/b109-similar-seed.json"
+DOC_SIMILAR_BODY=$(printf '%s' "$DOC_SESSION_BODY" | jq -c \
+  --arg idem "$DOC_SIMILAR_IDEMPOTENCY" \
+  '.idempotency_key=$idem
+   | .sha256="ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+   | .md5="ffffffffffffffffffffffffffffffff"
+   | .dhash64="ffffffffffffffff"
+   | .dhash64_variants=["ffffffffffffffff","00000000000000ff"]')
+DOC_SIMILAR_HTTP=$(curl -sS --connect-timeout 10 --max-time 20 -o "$D/b109-similar.json" -w '%{http_code}' \
+  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' --data-binary "$DOC_SIMILAR_BODY" \
+  "$SERVICE_URL/v1/documents/upload-session")
+[[ "$DOC_SIMILAR_HTTP" == 409 ]]
+jq -e --arg id "$DOC_ID" '.error.code=="DOCUMENT_SIMILAR_IMAGE"
+  and .duplicate.kind=="SIMILAR"
+  and .duplicate.document.document_id==$id
+  and .duplicate.rotation_aware==true
+  and .duplicate.threshold==16
+  and (.duplicate.distance|numbers) <= 16' "$D/b109-similar.json" >/dev/null
+
 curl -fsS --connect-timeout 10 --max-time 30 -H "Authorization: Bearer $TOKEN" "$SERVICE_URL/v1/documents/$DOC_ID/media" > "$D/b107-media.jpg"
 [[ "$(sha256sum "$D/b107-media.jpg" | awk '{print $1}')" == "$DOC_SHA" ]]
 
@@ -413,7 +435,7 @@ DOC_DRIVE_ID=""
 cleanup_document_d1
 AUTH_FIXTURE=$(sql "SELECT (SELECT COUNT(*) FROM accounts WHERE login_id='$LOGIN') AS account_rows,(SELECT COUNT(*) FROM auth_sessions WHERE login_id='$LOGIN' AND session_id='$AUTH_SESSION') AS session_rows;")
 node -e 'const j=JSON.parse(process.argv[1]),r=j?.[0]?.results?.[0];if(Number(r?.account_rows)!==1||Number(r?.session_rows)!==1)throw new Error("B108_SHARED_AUTH_CLEANUP_REGRESSION:"+JSON.stringify(r))' "$AUTH_FIXTURE"
-echo 'beta108_document_management=PASS worker_google_secret_sync=PASS drive_scope=PASS resumable_direct=PASS exact_readback=PASS duplicate_guard=PASS category_rename_all=PASS category_hard_delete=PASS mutation_receipt_minimal=PASS document_cleanup_only=PASS shared_auth_retained=PASS'
+echo 'beta109_document_management=PASS worker_google_secret_sync=PASS drive_scope=PASS resumable_direct=PASS exact_readback=PASS exact_duplicate_guard=PASS rotation_aware_near_similar=PASS category_rename_all=PASS category_hard_delete=PASS mutation_receipt_minimal=PASS document_cleanup_only=PASS shared_auth_retained=PASS'
 
 META=$(curl -fsS -H "Authorization: Bearer $GOOGLE_TOKEN" "https://sheets.googleapis.com/v4/spreadsheets/$OUTBOUND_SHEET_ID?fields=sheets.properties(sheetId,title)")
 DROP_SHEET_ID=$(printf '%s' "$META" | jq -r '.sheets[]|select(.properties.title=="Nhận hàng rớt")|.properties.sheetId')
