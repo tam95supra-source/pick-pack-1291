@@ -3,6 +3,7 @@ package vn.pickpack1291.app.beta
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.ImageDecoder
+import android.graphics.Matrix
 import android.net.Uri
 import java.io.ByteArrayOutputStream
 import java.security.MessageDigest
@@ -15,6 +16,7 @@ object DocumentImageProcessor {
         val sha256:String,
         val md5:String,
         val dhash64:String,
+        val dhash64Variants:List<String>,
         val width:Int,
         val height:Int,
         val mimeType:String="image/jpeg"
@@ -35,11 +37,13 @@ object DocumentImageProcessor {
         }
         try{
             val bytes=compress(bitmap)
+            val dhashes=dhashVariants(bitmap)
             return ProcessedImage(
                 bytes=bytes,
                 sha256=digest("SHA-256",bytes),
                 md5=digest("MD5",bytes),
-                dhash64=dhash(bitmap),
+                dhash64=dhashes.first(),
+                dhash64Variants=dhashes,
                 width=bitmap.width,
                 height=bitmap.height
             )
@@ -57,6 +61,15 @@ object DocumentImageProcessor {
     }
     private fun digest(algorithm:String,bytes:ByteArray)=MessageDigest.getInstance(algorithm).digest(bytes)
         .joinToString(""){(it.toInt() and 0xff).toString(16).padStart(2,'0')}
+    private fun dhashVariants(bitmap:Bitmap):List<String>{
+        val out=linkedSetOf<String>()
+        out.add(dhash(bitmap))
+        for(angle in floatArrayOf(90f,180f,270f)){
+            val rotated=Bitmap.createBitmap(bitmap,0,0,bitmap.width,bitmap.height,Matrix().apply{postRotate(angle)},true)
+            try{out.add(dhash(rotated))}finally{if(rotated!==bitmap)rotated.recycle()}
+        }
+        return out.toList()
+    }
     private fun dhash(bitmap:Bitmap):String{
         val tiny=Bitmap.createScaledBitmap(bitmap,9,8,true)
         try{
