@@ -88,7 +88,33 @@ DB_BYTES=$(jq -er '.result.file_size | numbers' "$D/d1-space-before.json")
 CUTOVER_PERCENT=$(npx wrangler d1 execute "$D1_NAME" --remote --config wrangler.live.jsonc --command "SELECT config_value FROM runtime_config WHERE config_key='CUTOVER_DB_PERCENT';" --json | jq -er '.[0].results[0].config_value|tonumber')
 DB_PERCENT=$(awk -v b="$DB_BYTES" -v l="$DB_LIMIT" 'BEGIN{printf "%.4f",(b/l)*100}')
 awk -v p="$DB_PERCENT" -v c="$CUTOVER_PERCENT" 'BEGIN{exit !(p<c)}' || { echo "D1_CUTOVER_REQUIRED:$DB_PERCENT" >&2; exit 11; }
-npx wrangler deploy --config wrangler.live.jsonc 2>&1 | tee "$D/deploy.log"
+# Keep Worker OAuth credentials converged with the same CI authority used by the live Drive probe.
+# The temporary JSON lives outside the uploaded evidence directory and is deleted on every exit.
+npx wrangler secret list --config wrangler.live.jsonc --format json > "$D/worker-secret-names-before.json"
+WORKER_SECRETS_FILE=$(mktemp /tmp/pp1291-worker-google-secrets.XXXXXX.json)
+chmod 600 "$WORKER_SECRETS_FILE"
+node - "$WORKER_SECRETS_FILE" <<'NODE'
+const fs=require('fs');
+const out=process.argv[2];
+const keys=['GOOGLE_OAUTH_CLIENT_ID','GOOGLE_OAUTH_CLIENT_SECRET','GOOGLE_OAUTH_REFRESH_TOKEN'];
+const payload={};
+for(const k of keys){
+  const v=process.env[k]||'';
+  if(!v)throw new Error('WORKER_GOOGLE_SECRET_SOURCE_MISSING:'+k);
+  payload[k]=v;
+}
+fs.writeFileSync(out,JSON.stringify(payload),{mode:0o600});
+NODE
+trap 'rm -f "${WORKER_SECRETS_FILE:-}"' EXIT
+npx wrangler deploy --config wrangler.live.jsonc --secrets-file "$WORKER_SECRETS_FILE" 2>&1 | tee "$D/deploy.log"
+rm -f "$WORKER_SECRETS_FILE"
+WORKER_SECRETS_FILE=""
+trap - EXIT
+npx wrangler secret list --config wrangler.live.jsonc --format json > "$D/worker-secret-names-after.json"
+jq -e '[.[].name] as $n |
+  ($n|index("GOOGLE_OAUTH_CLIENT_ID")!=null) and
+  ($n|index("GOOGLE_OAUTH_CLIENT_SECRET")!=null) and
+  ($n|index("GOOGLE_OAUTH_REFRESH_TOKEN")!=null)' "$D/worker-secret-names-after.json" >/dev/null
 curl -fsS "$SERVICE_URL/health" > "$D/health-after.json"
 jq -e --arg gen "$GEN" --argjson epoch "$EPOCH" '.ok==true and .environment=="production" and (.generation|tostring)==$gen and .authority.mode=="SERVICE_PRIMARY" and .authority.scope=="PRODUCTION" and .authority.authority_epoch==$epoch' "$D/health-after.json" >/dev/null
 
@@ -380,7 +406,7 @@ node -e 'const j=JSON.parse(process.argv[1]),r=j?.[0]?.results?.[0];if(Number(r.
 DOC_DRIVE_ID=""
 
 cleanup_d1
-echo 'beta108_document_management=PASS drive_scope=PASS resumable_direct=PASS exact_readback=PASS duplicate_guard=PASS category_rename_all=PASS category_hard_delete=PASS mutation_receipt_minimal=PASS cleanup=PASS'
+echo 'beta108_document_management=PASS worker_google_secret_sync=PASS drive_scope=PASS resumable_direct=PASS exact_readback=PASS duplicate_guard=PASS category_rename_all=PASS category_hard_delete=PASS mutation_receipt_minimal=PASS cleanup=PASS'
 
 META=$(curl -fsS -H "Authorization: Bearer $GOOGLE_TOKEN" "https://sheets.googleapis.com/v4/spreadsheets/$OUTBOUND_SHEET_ID?fields=sheets.properties(sheetId,title)")
 DROP_SHEET_ID=$(printf '%s' "$META" | jq -r '.sheets[]|select(.properties.title=="Nhận hàng rớt")|.properties.sheetId')
