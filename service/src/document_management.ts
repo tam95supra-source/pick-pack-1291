@@ -255,8 +255,9 @@ async function processDocumentCategoryMutation(env:Env,mutationId:string):Promis
           env.DB.prepare("DELETE FROM document_audit WHERE target_type='DOCUMENT' AND target_id IN (SELECT document_id FROM document_category_mutation_items WHERE mutation_id=?1)").bind(job.mutation_id),
           env.DB.prepare("DELETE FROM document_audit WHERE target_type='DOCUMENT_CATEGORY' AND target_id=?1").bind(job.category_id),
           env.DB.prepare("DELETE FROM document_categories WHERE category_id=?1 AND mutation_id=?2").bind(job.category_id,job.mutation_id),
-          env.DB.prepare("DELETE FROM document_category_mutation_items WHERE mutation_id=?1").bind(job.mutation_id),
-          env.DB.prepare("UPDATE document_category_mutations SET state='DONE',processed_items=total_items,old_display_name='',new_display_name=NULL,new_normalized_name=NULL,updated_at=?1,completed_at=?1,last_error=NULL WHERE mutation_id=?2").bind(at,job.mutation_id)
+          env.DB.prepare("DELETE FROM document_category_mutation_items WHERE mutation_id IN (SELECT mutation_id FROM document_category_mutations WHERE category_id=?1)").bind(job.category_id),
+          env.DB.prepare("UPDATE document_category_mutations SET old_display_name='',new_display_name=NULL,new_normalized_name=NULL WHERE category_id=?1").bind(job.category_id),
+          env.DB.prepare("UPDATE document_category_mutations SET state='DONE',processed_items=total_items,updated_at=?1,completed_at=?1,last_error=NULL WHERE mutation_id=?2").bind(at,job.mutation_id)
         ]);
       }
     }
