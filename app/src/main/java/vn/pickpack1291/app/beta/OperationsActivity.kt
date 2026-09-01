@@ -303,7 +303,8 @@ class OperationsActivity : Activity() {
             displayName=name,
             actualRole=role,
             onCamera={launchDocumentCamera()},
-            onGallery={launchDocumentGallery()}
+            onGallery={launchDocumentGallery()},
+            confirmAction={label,after->verifyActionPassword(label,after)}
         )
         root.addView(documentController!!.build(),LinearLayout.LayoutParams(-1,0,1f))
         setScreen(root)
