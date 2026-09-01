@@ -6,12 +6,15 @@ package vn.pickpack1291.app.beta
 
 import android.app.Activity
 import android.app.AlertDialog
-import android.content.res.ColorStateList\nimport android.content.Intent
+import android.content.res.ColorStateList
+import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
-import android.graphics.drawable.ColorDrawable\nimport android.net.Uri\nimport android.provider.MediaStore
+import android.graphics.drawable.ColorDrawable
+import android.net.Uri
+import android.provider.MediaStore
 import android.os.Build
 import android.os.Bundle
 import android.text.InputType
@@ -29,7 +32,8 @@ import com.google.zxing.BarcodeFormat
 import com.google.zxing.qrcode.QRCodeWriter
 import org.json.JSONArray
 import org.json.JSONObject
-import java.io.File\nimport java.time.Instant
+import java.io.File
+import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.UUID
