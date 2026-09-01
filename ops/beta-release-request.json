@@ -1,29 +1,30 @@
 {
   "stage": "BUILD_VERIFY",
-  "mode": "BUILD_VERIFY_BETA108_DURABLE_DOCUMENTS",
+  "mode": "BUILD_VERIFY_BETA108_DOCUMENT_RENAME_DELETE",
   "version_name": "0.4.2-beta.108",
   "version_code": 114,
   "base_version": "0.4.2-beta.106",
   "base_version_code": 112,
   "base_source_sha": "57e02d45b436c6bcb64bc5731671044af7c7c86d",
-  "source_sha": "e1f7f367cf46479b32f63896381ab4303d4e114a",
+  "source_sha": "378f1c294641c774cee361ae2bd2cc9fc868ee23",
   "package": "vn.pickpack1291.app.beta.publicbeta",
   "service_gate_required": true,
-  "service_gate": "PENDING_FRESH_BETA108_DOCUMENT_DRIVE",
+  "service_gate": "PENDING_FRESH_BETA108_DRIVE_RENAME_DELETE",
   "human_visual_pass": false,
   "stable_publish": "FORBIDDEN",
   "authority_change": "NONE",
   "candidate_locked": false,
   "rebuild": true,
   "resign": true,
-  "scope": "beta108-document-management-drive-direct-durable-queue-cache",
+  "scope": "beta108-document-management-drive-direct-durable-queue-cache-rename-all-hard-delete",
   "owner": "Nguyen Van Tam",
   "live": false,
   "release_notes": [
-    "Quản lý biên bản trong thẻ hiện có: chụp/chọn ảnh, chọn loại, tải trực tiếp Google Drive.",
-    "Service/D1 chỉ giữ metadata/hash/audit; chặn ảnh trùng tuyệt đối và cảnh báo ảnh gần giống.",
-    "Ảnh chưa hoàn tất được giữ bền vững trên máy, tự retry sau restart/login/network; trạng thái sau Drive upload được tiếp tục completion mà không tạo file Drive mới.",
-    "Ảnh xem lại dùng cache LRU giới hạn 64 MB/60 ảnh; Sửa/Xóa loại biên bản vẫn fail-closed chờ OWNER chốt."
+    "Quản lý biên bản: chụp/chọn ảnh, chọn loại, tối ưu ảnh và tải trực tiếp Google Drive; Service/D1 không lưu blob ảnh.",
+    "Ảnh chưa hoàn tất được giữ bền vững trên máy và tự retry sau restart/login/network; cache xem ảnh giới hạn 64 MB/60 ảnh.",
+    "Chặn ảnh trùng tuyệt đối và cảnh báo ảnh gần giống trước upload.",
+    "Sửa loại biên bản = đổi tên toàn bộ metadata lịch sử và toàn bộ file Drive; Xóa = xóa hẳn ảnh Drive + dữ liệu nghiệp vụ, chỉ giữ receipt kỹ thuật tối thiểu.",
+    "Sửa/Xóa dùng đúng mã xác nhận canonical hiện tại của app: HHmm giờ Việt Nam ±2 phút; SUPERADMIN giữ re-auth tài khoản hiện hành."
   ],
   "signer_sha256": "d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e",
   "base_candidate_run_id": 33473965249,
@@ -37,6 +38,6 @@
   "apk_transport": "GITHUB_RELEASE_ONLY",
   "google_drive_apk": "FORBIDDEN",
   "regression_case": "DOCUMENT-MANAGEMENT-001",
-  "execution_nonce": "beta108-build-verify-20260901-01",
-  "next_action": "RUN_FAST_CHECK_THEN_BUILD_VERIFY"
+  "execution_nonce": "beta108-build-verify-20260901-02",
+  "next_action": "BUILD_SIGN_SERVICE_LIVE_VISUAL_PDA"
 }
