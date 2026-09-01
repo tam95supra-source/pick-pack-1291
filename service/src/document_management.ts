@@ -250,7 +250,7 @@ export async function documentUploadSession(request:Request,env:Env):Promise<Res
       file_name,mime_type,byte_size,sha256,md5,dhash64,width,height,source_kind,drive_file_id,duplicate_of_document_id,last_error
     ) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?8,'PENDING',?9,?10,?11,?12,?13,?14,?15,?16,?17,NULL,NULL,NULL)`)
       .bind(documentId,idempotency,category.category_id,category.display_name,auth.login_id,uploaderName,capturedAt,at,fileName,mimeType,size,sha256,md5,dhash64||null,width,height,sourceKind).run();
-    row=await env.DB.prepare("SELECT * FROM document_records WHERE document_id=?1").bind(documentId).first<DocRow>()||undefined;
+    row=await env.DB.prepare("SELECT * FROM document_records WHERE document_id=?1").bind(documentId).first<DocRow>()||null;
   }
   if(!row)return apiError("DOCUMENT_PENDING_CREATE_FAILED","INTERNAL",500,true);
   try{
