@@ -62,7 +62,7 @@ class DocumentPendingStore(context:Context) {
         item
     }
 
-    fun list():List<Item>=synchronized(lock){listUnlocked()}
+    fun list():List<Item> = synchronized(lock){listUnlocked()}
     fun count():Int=synchronized(lock){listUnlocked().size}
     fun totalBytes():Long=synchronized(lock){listUnlocked().sumOf{it.byteSize.toLong()}}
     fun find(pendingId:String):Item?=synchronized(lock){readMeta(metaFile(pendingId))}
@@ -108,7 +108,7 @@ class DocumentPendingStore(context:Context) {
     private fun metaFile(id:String)=File(dir,id+".json")
     private fun bytesFile(id:String)=File(dir,id+".jpg")
     private fun writeMeta(item:Item){
-        val f=metaFile(item.pendingId),tmp=File(dir,item.pendingId+".json.tmp")
+        val f=metaFile(item.pendingId)\n        val tmp=File(dir,item.pendingId+".json.tmp")
         tmp.writeText(toJson(item).toString(),Charsets.UTF_8)
         if(!tmp.renameTo(f)){tmp.delete();throw IllegalStateException("DOCUMENT_PENDING_META_COMMIT_FAILED")}
     }
