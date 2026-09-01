@@ -36,8 +36,8 @@ invariants:
     status: ACTIVE_PASS
     scope: beta-release
     rule: "Beta APK GitHub Release only; Google Drive APK forbidden; exact bytes/signature/readback."
-    last_verified: "0.4.2-beta.106 / terminal run 33476108449"
-    technical_evidence: "Beta106 terminal 33476108449 PASS; publish 9788246064; OTA/install/readback 9788292824; final 9788296923; exact candidate 33473965249/9787581956 SHA256 ea5bdf9696d9dae77f02fab815df6435a8317a66178bdb4c36bc051aa5bcd000 size 14068725; Stable/main/authority unchanged"
+    last_verified: "0.4.2-beta.108 / terminal run 33499528769"
+    technical_evidence: "Beta108 terminal 33499528769 PASS; publish 9797165484; OTA/install/readback 9797234412; final 9797240852; exact candidate 33491085275/9793922815 SHA256 bd82ca39ca702a771b435ef67ab626cbc36e9771478981912fa20e588bb9bc6e size 14150645 signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged; post-publish finalizer harness failure was rolled back to Beta106 before fencing fix and same exact Beta108 bytes republished"
     publish_verifier_regression: "Fast Check 33388933459 PASS; receipt-driven visual/human gate enforced"
   - id: PDA-EXIT-001
     status: ACTIVE_PASS
@@ -60,8 +60,8 @@ invariants:
     scope: android-service-discovery
     rule: "BETA live Service routes must use environment-scoped dynamic discovery; stale endpoint/environment cache must never drive Service session/read/sync/outbox after OTA or isolation cutover."
     failure_evidence: "Beta102 manual log: UnknownHost pickpack1291.cc.cd / SESSION_EXCHANGE_FAILED."
-    technical_candidate: "57e02d45b436c6bcb64bc5731671044af7c7c86d / 0.4.2-beta.106 LIVE"
-    technical_evidence: "Beta106 exact-device 33474768649/9787794484 PASS; terminal OTA 33476108449/9788292824 PASS. Safe post-OTA states: stale preserved then rewritten OR app eagerly rewrites during startup; final environment=BETA, audience=PICK_PACK_1291_BETA, canonical Beta Service, stable_root_reused=false. First publish harness-only failure 33475493287 rolled back Beta104 via 9788091781; fixed harness and republished same exact bytes."
+    technical_candidate: "378f1c294641c774cee361ae2bd2cc9fc868ee23 / 0.4.2-beta.108 LIVE"
+    technical_evidence: "Beta108 exact-device 33498411807/9796733630 PASS; terminal OTA 33499528769/9797234412 PASS; stale_cache_state_before_post_ota_check=ALREADY_REWRITTEN_BY_APP, stale_discovery_invalidated_without_clear=true, stale_discovery_safe_after_ota=true; canonical Beta discovery remained safe."
     regression_minimum: [environment_cache_fence, audience_cache_fence, stale_cache_invalidation, ttl_force_refresh, service_session_refresh, direct_read_refresh, sync_refresh, outbox_refresh, no_endpoint_hardcode]
     owner_acceptance: "ACTIVE_PASS_OWNER_BETA104_CHECKLIST_1_TO_6_OK_2026-08-31T20:22+07:00"
   - id: SHIFT-STAFF-DOWNLOAD-QR-001
@@ -74,13 +74,17 @@ invariants:
     regression_case: "SHIFT-STAFF-DOWNLOAD-QR-NULL-001 / qa/beta106_shift_staff_null_regression.md"
     owner_acceptance: "ACTIVE_PASS_OWNER_ACCEPTED_2026-09-01_BETA106_SCOPE / ops/beta106-owner-acceptance.json"
   - id: DOCUMENT-MANAGEMENT-001
-    status: LOCKED_REQUIREMENT_PENDING_FIX
+    status: TECHNICAL_PASS_AWAITING_OWNER
     scope: document-management
     rule: "Ảnh biên bản upload trực tiếp Google Drive; Service/D1 chỉ lưu metadata/hash/audit; exact duplicate bị chặn, near-duplicate phải cảnh báo; Sửa loại = rename toàn bộ metadata + tên file Drive; Xóa loại = hard delete ảnh Drive + dữ liệu nghiệp vụ; Sửa/Xóa đều qua mã xác nhận canonical HHmm ±2 phút của app."
-    technical_candidate: "0.4.2-beta.108"
+    technical_candidate: "378f1c294641c774cee361ae2bd2cc9fc868ee23 / 0.4.2-beta.108 LIVE"
+    technical_evidence: "candidate 33491085275/9793922815; service 33497121749/9796321745; visual+PDA+API36 33497121749/9796518681 with 39 screenshots and human PASS 320x568 360x640 480x800; Fast Check 33498475427; device 33498411807/9796733630; runtime 33498657720/9796803109; terminal 33499528769; publish 9797165484; PDA 9797234412; final 9797240852; exact SHA256 bd82ca39ca702a771b435ef67ab626cbc36e9771478981912fa20e588bb9bc6e size 14150645 signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged"
     regression_minimum: [drive_direct_upload, no_d1_blob, exact_duplicate_block, perceptual_duplicate_warning, durable_pending_queue, post_drive_completion_resume, bounded_media_cache, account_scoped_retry, category_rename_all_metadata, category_rename_all_drive_files, category_hard_delete_drive_and_records, category_mutation_durable_resume, category_mutation_confirmation_hhmm, beta_stable_isolation]
     owner_decision: "OWNER 2026-09-01: Sửa = rename lại toàn bộ dữ liệu + file Drive; Xóa = xóa hẳn ảnh + dữ liệu; cả hai dùng mã xác nhận theo logic thời gian hiện tại của app. Hard delete chỉ giữ receipt kỹ thuật tối thiểu để audit."
-    regression_case: "DOCUMENT-MANAGEMENT-001 / tools/document_management_contract.py + beta89_service_live_gate.sh"
+    regression_case: "DOCUMENT-MANAGEMENT-001 / qa/beta108_document_management_regression.md + tools/document_management_contract.py + beta89_service_live_gate.sh"
+    technical_receipt: "ops/beta108-technical-pass.json"
+    owner_acceptance: "PENDING_OWNER_ACCEPTANCE"
+    last_verified: "0.4.2-beta.108 / terminal run 33499528769"
 
   - id: INFRA-RESILIENCE-001
     status: TECHNICAL_PASS_AWAITING_OWNER
