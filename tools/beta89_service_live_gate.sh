@@ -307,7 +307,7 @@ printf '%s' '/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODww
 DOC_SIZE=$(wc -c < "$DOC_BYTES" | tr -d ' ')
 DOC_SHA=$(sha256sum "$DOC_BYTES" | awk '{print $1}')
 DOC_MD5=$(md5sum "$DOC_BYTES" | awk '{print $1}')
-[[ "$DOC_SIZE" == 631 && "$DOC_SHA" == "1be3f9ca58201af206881cc788805d1b9ebf6a2515f3c9c67ecbd3721cc67563" && "$DOC_MD5" == "ff950b3db06643852a986f33d778c81a" ]]
+[[ "$DOC_SIZE" == 628 && "$DOC_SHA" == "019e4b6a6820624a952704fc7cdb1444ae5feb56db8168c9866c25023211a662" && "$DOC_MD5" == "99f7345ed203198e87f6e028f96476b2" ]]
 
 owner_api /v1/documents/categories b107-category-create "{\"operation\":\"CREATE\",\"display_name\":\"$DOC_CATEGORY_NAME\"}"
 jq -e '.ok==true and .item.category_id|type=="string"' "$D/b107-category-create.json" >/dev/null
