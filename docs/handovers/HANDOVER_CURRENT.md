@@ -2,48 +2,56 @@
 
 - schema_version: 2
 - status: READY
-- time_utc: 2026-09-01T10:55:36Z
+- task_state: TECHNICAL_PASS_AWAITING_OWNER
+- time_local: 2026-09-01T18:15:00+07:00
 - owner: Nguyễn Văn Tâm
 - branch: release/beta108-document-management
-- release_trigger_sha: fdf750e989ddc5bb78baf431bd1a7edd7a66befa
-- archive_file: docs/handovers/HANDOVER_20260901-105536_beta108-pass-live.md
+- archive_file: docs/handovers/HANDOVER_20260901-181500_beta108-technical-pass-awaiting-owner.md
 
-## Mục tiêu + DoD
-Release 0.4.2-beta.108 hoàn tất scope beta108-document-management-drive-direct-durable-queue-cache-rename-all-hard-delete; toàn bộ pre-OTA + GitHub Release exact bytes + OTA install/readback + finalizer PASS.
-
-## LIVE / TARGET / CANDIDATE
+## Trạng thái
 - LIVE BETA: 0.4.2-beta.108 / versionCode 114 / package vn.pickpack1291.app.beta.publicbeta.
-- TARGET: PASS/LIVE.
-- CANDIDATE LOCKED: run 33491085275; artifact 9793922815; source 378f1c294641c774cee361ae2bd2cc9fc868ee23; SHA256 bd82ca39ca702a771b435ef67ab626cbc36e9771478981912fa20e588bb9bc6e; size 14150645; signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e.
-- Fast Check: PASS run 33498475427.
-- Service: PASS_FRESH_RUN_33497121749.
-- Visual/PDA pre-OTA: PASS run 33497121749, artifact 9796518681.
-- Human visual 320x568 / 360x640 / 480x800: PASS.
+- DOCUMENT-MANAGEMENT-001: TECHNICAL_PASS_AWAITING_OWNER.
 - Stable/main/signer/authority: unchanged.
+- Không có blocker kỹ thuật.
 
-## Evidence
-- 3 ô Mạng / Đồng bộ / Dịch vụ ghim trên cùng ở mọi màn scope: PASS.
-- QR nhân sự local fast-path giữ nguyên; functional + service regression PASS.
-- Điểm danh chỉ chấp nhận ACTIVE session đúng business_date hiện tại; ACTIVE phiên cũ bị chặn: PASS.
-- Cảnh báo chưa điểm danh ở trên cùng Nghiệp vụ; USER không thấy/deep-link được Lịch sử: PASS.
-- GitHub Release asset exact bytes khớp candidate SHA256/size; OTA tải trực tiếp từ GitHub Release: PASS.
-- OTA 0.4.2-beta.106 → 0.4.2-beta.108: download/install exact SHA/size/version/package/signer và mở app: PASS.
-- Google Drive APK: FORBIDDEN từ Beta97; không backup/staging/mirror/upload/download/rollback/phân phối APK qua Drive.
+## Exact release evidence
+- Source: 378f1c294641c774cee361ae2bd2cc9fc868ee23.
+- Candidate: run 33491085275 / artifact 9793922815.
+- APK SHA256: bd82ca39ca702a771b435ef67ab626cbc36e9771478981912fa20e588bb9bc6e.
+- Size: 14150645.
+- Signer: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e.
+- Service live: 33497121749 / 9796321745 PASS.
+- Visual + direct PDA + API36: 33497121749 / 9796518681 PASS; 39 screenshots; human visual PASS 320x568 / 360x640 / 480x800.
+- Fast Check full app: 33498475427 PASS.
+- Device regression: 33498411807 / 9796733630 PASS.
+- Runtime DoD: 33498657720 / 9796803109 PASS.
+- Terminal publish/OTA/install/readback/finalize: 33499528769 PASS.
+- Publish / PDA / final artifacts: 9797165484 / 9797234412 / 9797240852.
+- OTA 0.4.2-beta.106 -> 0.4.2-beta.108 exact bytes + install/open PASS.
+- Technical receipt: ops/beta108-technical-pass.json.
+- Regression: qa/beta108_document_management_regression.md.
 
-## Lỗi/root cause/PASS path
-- VERIFY_ONLY harness cũ đếm text guard HISTORY cứng; sửa verifier semantics và exact candidate PASS.
-- Publish cũ có luồng Drive APK song song và DriveApp/public APK bị Google chặn; loại bỏ toàn bộ Drive dependency khỏi Beta APK pipeline.
-- Canonical Beta APK path: GitHub Actions exact candidate → GitHub Release exact asset → GAS manifest GitHub URL → OTA install/readback → finalizer.
-- Rollback canonical: exact LIVE baseline GitHub Actions/GitHub Release → atomic Beta manifest restore; không dùng Drive APK.
-- Candidate được build/sign đúng một lần; mọi recovery dùng exact locked bytes, không rebuild/resign.
+## Document-management semantics chờ OWNER nghiệm thu
+1. Chụp ảnh trực tiếp hoặc chọn ảnh trong máy; chọn loại biên bản; ảnh được tối ưu trước upload.
+2. Ảnh lưu trực tiếp Google Drive; Service/D1 chỉ lưu metadata/hash/audit, không lưu blob ảnh.
+3. Ảnh trùng tuyệt đối bị chặn; ảnh gần giống có cảnh báo trước khi tiếp tục.
+4. Pending upload bền vững và tự retry sau restart/login/network; cache ảnh có giới hạn.
+5. Sửa loại biên bản đổi tên toàn bộ metadata lịch sử và toàn bộ tên file Drive liên quan.
+6. Xóa loại biên bản xóa hẳn file Drive + dữ liệu nghiệp vụ + danh mục; chỉ giữ receipt kỹ thuật tối thiểu.
+7. Sửa/Xóa dùng mã xác nhận HHmm giờ Việt Nam ±2 phút; SUPERADMIN giữ re-auth hiện hành.
+8. Mutation durable/checkpoint/idempotent, có fence upload trong lúc xử lý; Beta/Stable không cross-write.
 
-## Blocker
-Không có.
+## Recovery đã khóa
+- Finalize lần đầu fail do git non-fast-forward, không phải lỗi APK/OTA.
+- Đã rollback exact Beta106 trước khi sửa harness.
+- Đã vá finalizer bằng fetch + source-drift guard + rebase fencing.
+- Republish cùng exact Beta108 bytes; OTA/readback/finalize PASS.
+- Không rebuild/resign candidate.
 
 ## Invariants
-- Stable/main/signer/authority không đổi.
-- APK Beta release/OTA/rollback = GITHUB_RELEASE_ONLY.
-- Google Drive không được dùng cho APK; GSheet/GAS nghiệp vụ không bị xóa/thay authority.
+- DOCUMENT-MANAGEMENT-001 chưa ACTIVE_PASS cho tới OWNER OK.
+- OTA-BETA-001 và SERVICE-DISCOVERY-001 được reverify trên Beta108.
+- Các ACTIVE_PASS khác không đổi semantics.
 
 ## NEXT_ACTION
-WAIT_FOR_OWNER_NEW_SCOPE
+OWNER_ACCEPTANCE_DOCUMENT_MANAGEMENT_001
