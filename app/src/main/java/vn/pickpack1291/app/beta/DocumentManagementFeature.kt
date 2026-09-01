@@ -53,10 +53,17 @@ object DocumentManagementFeature {
         private val muted=Color.rgb(100,116,139)
         private val red=Color.rgb(218,45,53)
         private val green=Color.rgb(36,153,85)
-        private var selected:Selected?=null
+        private val selected=mutableListOf<Selected>()
+        private val selectedDocumentIds=linkedSetOf<String>()
         private var categoryIds=listOf<String>()
         private var categoryNames=listOf<String>()
         private lateinit var categorySpinner:Spinner
+        private lateinit var modeSpinner:Spinner
+        private lateinit var filterSpinner:Spinner
+        private lateinit var deleteSelectedButton:Button
+        private lateinit var selectedDeleteText:TextView
+        private var filterCategoryIds=listOf<String>("")
+        private var suppressFilter=false
         private lateinit var preview:ImageView
         private lateinit var previewMeta:TextView
         private lateinit var uploadButton:Button
