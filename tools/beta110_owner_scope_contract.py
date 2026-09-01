@@ -20,6 +20,8 @@ for token in ["Intent.EXTRA_ALLOW_MULTIPLE","onImagesSelected(uris","clipData"]:
     assert token in activity, token
 for token in ["Một biên bản nhiều trang","Nhiều biên bản","MULTI_PAGE","MULTI_DOCUMENT","selectedDocumentIds","deleteSelectedRecords","filterSpinner"]:
     assert token in document, token
+assert 'val pageIndex=if(mode=="MULTI_PAGE")index+1 else 1' in document
+assert 'val pageCount=if(mode=="MULTI_PAGE")batch.size else 1' in document
 assert "fun loadAll(ownerLogin:String):List<Draft>" in draft
 assert "fun append(ownerLogin:String" in draft and '"manifest.json"' in draft
 for token in ["groupId:String","groupMode:String","pageIndex:Int","pageCount:Int"]:
