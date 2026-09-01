@@ -21,6 +21,7 @@ import java.util.UUID
 import java.util.concurrent.Executors
 
 object DocumentManagementFeature {
+    // Beta108 final owner rule: category UPDATE renames all; DELETE hard-purges; both reuse canonical action confirmation.
     private data class Selected(
         val image:DocumentImageProcessor.ProcessedImage,
         val sourceKind:String,
