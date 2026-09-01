@@ -1,6 +1,6 @@
 {
   "stage": "PUBLISH",
-  "mode": "BETA106_PUBLISH_EXACT_AFTER_ALL_PRE_OTA_GATES_PASS",
+  "mode": "BETA106_REPUBLISH_EXACT_AFTER_POST_OTA_HARNESS_FIX_AND_ROLLBACK",
   "version_name": "0.4.2-beta.106",
   "version_code": 112,
   "base_version": "0.4.2-beta.104",
@@ -37,8 +37,8 @@
   "apk_transport": "GITHUB_RELEASE_ONLY",
   "google_drive_apk": "FORBIDDEN",
   "regression_case": "SHIFT-STAFF-DOWNLOAD-QR-NULL-001",
-  "execution_nonce": "beta106-publish-exact-20260901-01",
-  "next_action": "PUBLISH_EXACT_BETA106_AND_VERIFY_OTA_READBACK",
+  "execution_nonce": "beta106-publish-exact-20260901-02",
+  "next_action": "REPUBLISH_EXACT_BETA106_AND_VERIFY_OTA_WITH_FIXED_HARNESS",
   "candidate_source_sha": "57e02d45b436c6bcb64bc5731671044af7c7c86d",
   "candidate_run_id": 33473965249,
   "candidate_artifact_id": 9787581956,
@@ -61,7 +61,7 @@
   "verify_artifact_id": 9787692571,
   "verify_artifact_name": "beta-verify-33473965249",
   "fast_check": "PASS",
-  "fast_check_run_id": 33474362890,
+  "fast_check_run_id": 33476011598,
   "device_regression_status": "PASS",
   "device_regression_run_id": 33474768649,
   "device_regression_artifact_id": 9787794484,
@@ -82,5 +82,12 @@
   "beta_gas_repair_artifact_id": 9752024220,
   "beta_gas_repair_deployment_version": 213,
   "beta_gas_readback_run_id": 33376476824,
-  "inherited_gate_note": "BETA104 auth/domain/GAS/service gates inherited because their source/config inputs are unchanged; Beta106 runtime DoD fresh-read PASS immediately before publish."
+  "inherited_gate_note": "BETA104 auth/domain/GAS/service gates inherited because their source/config inputs are unchanged; Beta106 runtime DoD fresh-read PASS immediately before publish.",
+  "prior_publish_run_id": 33475493287,
+  "prior_publish_status": "ROLLED_BACK_AFTER_HARNESS_ONLY_POST_OTA_FAILURE",
+  "prior_pda_artifact_id": 9788082688,
+  "rollback_run_id": 33475493287,
+  "rollback_artifact_id": 9788091781,
+  "rollback_status": "PASS_BETA104_RESTORED",
+  "post_publish_failure_root_cause": "HARNESS_EXPECTED_STALE_CACHE_TO_REMAIN_UNTIL_EXPLICIT_CHECK_BUT_APP_SAFELY_REWROTE_BETA_DISCOVERY_DURING_STARTUP"
 }
