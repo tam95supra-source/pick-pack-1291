@@ -123,7 +123,7 @@ Mỗi invariant tối thiểu có:
 
 
 ### DOCUMENT-MANAGEMENT-001
-- Status: TECHNICAL_PASS_AWAITING_OWNER
+- Status: LOCKED_REQUIREMENT_PENDING_FIX
 - Scope: Quản lý biên bản / Google Drive / D1 / xác nhận thao tác
 - OWNER rule 2026-09-01: Sửa loại biên bản = đổi tên toàn bộ dữ liệu lịch sử thuộc loại đó và đổi tên toàn bộ file tương ứng trên Google Drive. Xóa loại biên bản = xóa hẳn file Drive + bản ghi biên bản + danh mục; chỉ giữ receipt kỹ thuật tối thiểu (ai, khi nào, số lượng, mã job), không giữ nội dung/ảnh/tên file cũ.
 - Xác nhận: cả Sửa và Xóa phải dùng đúng canonical confirmation hiện tại của app: HHmm giờ Việt Nam, inclusive ±2 phút; SUPERADMIN giữ đường re-auth mật khẩu tài khoản như logic hiện hành.
@@ -133,8 +133,11 @@ Mỗi invariant tối thiểu có:
 - Regression case: qa/beta108_document_management_regression.md + tools/document_management_contract.py + tools/beta89_service_live_gate.sh.
 - Technical receipt: ops/beta108-technical-pass.json.
 - Technical candidate: 0.4.2-beta.108 LIVE.
-- OWNER acceptance: PENDING; chỉ chuyển ACTIVE_PASS sau OWNER xác nhận OK.
-- Last verified: 0.4.2-beta.108 / terminal run 33499528769.
+- OWNER acceptance 2026-09-01: mục 1,2,5,6,7,8 OK; mục 3 exact duplicate OK nhưng near-similar chưa cảnh báo; mục 4 FAIL khi mất mạng vì danh mục biến mất và ảnh đang chọn mất sau restart. Các mục đã OK phải được bảo vệ, chỉ sửa 3-near-similar và 4-offline/draft.
+- Failure evidence: manual-20260901-183159-fd9d9ebb-b421-4152-a745-fe3b4b4f7d96.json; 18:26:02 +07 DNS/network outage thật tới pickpack.1291.workers.dev. Root cause Android: refreshCategories xóa catalog khi Service fail; selected image chỉ ở RAM trước enqueue. Root cause near-similar: dHash một hướng + threshold 6 quá chặt cho ảnh cùng cảnh khác xoay/góc.
+- Partial acceptance receipt: ops/beta108-owner-acceptance-partial.json.
+- Next fix: chỉ near-similar rotation-aware warning + offline cached categories + durable selected-image draft; không đổi semantics 1,2,5,6,7,8.
+- Last verified: 0.4.2-beta.108 / terminal run 33499528769; OWNER partial acceptance 2026-09-01.
 
 ### INFRA-RESILIENCE-001
 - Status: TECHNICAL_PASS_AWAITING_OWNER
