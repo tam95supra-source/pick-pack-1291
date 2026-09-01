@@ -44,6 +44,9 @@ assert all(x in service for x in ["group_id","MULTI_PAGE","MULTI_DOCUMENT","proc
 assert 'category_name:job.old_display_name' not in service, "hard delete receipt must not retain deleted category name"
 assert 'DELETE FROM document_delete_items WHERE mutation_id=?1' in service, "bulk delete checkpoints must be purged after completion"
 assert 'VALUES(?1,?2,?3,NULL,NULL,NULL' in service, "bulk delete checkpoint must not persist names"
+assert "documentHistoryDetail" in service and 'target_label:targetLabel' in service
+history_block=service[service.index("function documentHistoryDetail"):service.index("async function audit")]
+assert "detail.category_name" not in history_block and "detail.file_name" not in history_block and "detail.display_name" not in history_block, "canonical document history must not retain names"
 
 assert 'businessCard(R.drawable.ic_pp_document,"Quản lý biên bản","",isAdmin()){documentManagementScreen()}' in activity
 assert "ACTION_IMAGE_CAPTURE" in activity and "ACTION_OPEN_DOCUMENT" in activity
