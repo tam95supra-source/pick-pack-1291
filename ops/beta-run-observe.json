@@ -1,8 +1,8 @@
 {
-  "run_id": 33554345340,
-  "run_sha": "c54e177e891e1da5518e996d95b481885d2180bd",
+  "run_id": 33568634524,
+  "run_sha": "08d201fbd815ccfac8c2e73625605271f00f2eef",
   "ref": "release/beta110-document-labor-attendance",
-  "execution_nonce": "beta110-build-verify-20260902-01",
-  "stage": "BUILD_VERIFY",
-  "observed_at": "2026-09-01T20:16:35Z"
+  "execution_nonce": "beta110-service-only-20260902-02",
+  "stage": "SERVICE_ONLY",
+  "observed_at": "2026-09-01T22:55:58Z"
 }
