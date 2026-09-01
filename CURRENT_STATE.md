@@ -1,30 +1,26 @@
 # CURRENT STATE — PICK PACK 1291
 
-- updated_at: 2026-09-01T06:24:46Z
-- status: BETA106_PASS_LIVE
-- technical_dod_status: PASS_BETA106_OWNER_ACCEPTED
-- owner_acceptance: BETA106_SCOPE_ACCEPTED
-- owner_acceptance_receipt: ops/beta106-owner-acceptance.json
-- invariant_active: SHIFT-STAFF-DOWNLOAD-QR-001
-- continuity_branch: beta/current
-- source_sha: 57e02d45b436c6bcb64bc5731671044af7c7c86d
-- beta_live: 0.4.2-beta.106 (versionCode 112)
+- updated_at: 2026-09-01T10:55:36Z
+- status: BETA108_PASS_LIVE
+- continuity_branch: release/beta108-document-management
+- source_sha: 378f1c294641c774cee361ae2bd2cc9fc868ee23
+- beta_live: 0.4.2-beta.108 (versionCode 114)
 - package: vn.pickpack1291.app.beta.publicbeta
-- candidate_run: 33473965249
-- candidate_artifact: 9787581956
-- verify_run: 33473965249
-- verify_artifact: 9787692571
-- apk_sha256: ea5bdf9696d9dae77f02fab815df6435a8317a66178bdb4c36bc051aa5bcd000
-- apk_size: 14068725
+- candidate_run: 33491085275
+- candidate_artifact: 9793922815
+- verify_run: 33497121749
+- verify_artifact: 9796518681
+- apk_sha256: bd82ca39ca702a771b435ef67ab626cbc36e9771478981912fa20e588bb9bc6e
+- apk_size: 14150645
 - signer_sha256: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
-- terminal_run: 33476108449
+- terminal_run: 33499528769
 - fast_check: PASS
-- service_gate: PASS_INHERITED_BETA104_SERVICE_SOURCE_UNCHANGED
+- service_gate: PASS_FRESH_RUN_33497121749
 - visual_matrix: PASS 320x568 / 360x640 / 480x800
 - human_visual: PASS
 - pda_functional_pre_ota: PASS
-- beta_ota: exact 0.4.2-beta.106 PASS via GitHub Release
-- beta_ota_url: https://github.com/tam95supra-source/pick-pack-1291/releases/download/v0.4.2-beta.106-publicbeta/pick-pack-1291-public-beta-0.4.2-beta.106.apk
+- beta_ota: exact 0.4.2-beta.108 PASS via GitHub Release
+- beta_ota_url: https://github.com/tam95supra-source/pick-pack-1291/releases/download/v0.4.2-beta.108-publicbeta/pick-pack-1291-public-beta-0.4.2-beta.108.apk
 - apk_transport: GITHUB_RELEASE_ONLY
 - google_drive_apk: FORBIDDEN
 - stable: unchanged

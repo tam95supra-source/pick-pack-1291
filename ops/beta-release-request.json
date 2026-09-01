@@ -1,6 +1,6 @@
 {
-  "stage": "PUBLISH",
-  "mode": "BETA108_REPUBLISH_EXACT_AFTER_FINALIZER_HARNESS_FIX",
+  "stage": "pass_live",
+  "mode": "PASS_LIVE_EXACT_BYTES_GITHUB_RELEASE_ONLY",
   "version_name": "0.4.2-beta.108",
   "version_code": 114,
   "base_version": "0.4.2-beta.106",
@@ -18,7 +18,7 @@
   "resign": false,
   "scope": "beta108-document-management-drive-direct-durable-queue-cache-rename-all-hard-delete",
   "owner": "Nguyen Van Tam",
-  "live": false,
+  "live": true,
   "release_notes": [
     "Quản lý biên bản: chụp/chọn ảnh, chọn loại, tối ưu ảnh và tải trực tiếp Google Drive; Service/D1 không lưu blob ảnh.",
     "Ảnh chưa hoàn tất được giữ bền vững trên máy và tự retry sau restart/login/network; cache xem ảnh giới hạn 64 MB/60 ảnh.",
@@ -39,7 +39,7 @@
   "google_drive_apk": "FORBIDDEN",
   "regression_case": "DOCUMENT-MANAGEMENT-001",
   "execution_nonce": "beta108-publish-exact-20260901-02",
-  "next_action": "PUBLISH_EXACT_BETA108_AND_VERIFY_OTA_READBACK_FINALIZER_FIXED",
+  "next_action": "WAIT_FOR_OWNER_NEW_SCOPE",
   "candidate_source_sha": "378f1c294641c774cee361ae2bd2cc9fc868ee23",
   "candidate_run_id": 33491085275,
   "candidate_artifact_id": 9793922815,
@@ -85,5 +85,6 @@
   "beta_gas_readback_run_id": 33376476824,
   "inherited_gate_note": "Beta106 auth/domain/GAS gates inherited because their exact source/config inputs are unchanged. Beta108 service-live, visual/PDA/API36, Fast Check, device regression, runtime DoD and human visual are fresh PASS.",
   "rollback_publish_run_id": 33498900078,
-  "rollback_publish_artifact_name": "beta-publish-33498900078"
+  "rollback_publish_artifact_name": "beta-publish-33498900078",
+  "publish_run_id": "33499528769"
 }
