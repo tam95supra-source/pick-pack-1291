@@ -27,5 +27,7 @@ assert "DOCUMENT_EXACT_DUPLICATE" in feature and "DOCUMENT_SIMILAR_IMAGE" in fea
 assert "MAX_EDGE=2400" in image and 'digest("SHA-256"' in image and "dhash64" in image
 assert 'cache-path name="document_camera"' in paths
 assert 'versionCode = 1' in gradle and 'versionName = "0.1.0-stable"' in gradle
-assert 'versionCode = 113' in gradle and 'versionName = "0.4.2-beta.107"' in gradle
+release_request=(root/"ops/beta-release-request.json").read_text()
+assert '"version_name": "0.4.2-beta.106"' in release_request and '"version_code": 112' in release_request
+assert 'versionCode = 112' in gradle and 'versionName = "0.4.2-beta.106"' in gradle
 print("document_management_contract=PASS")
