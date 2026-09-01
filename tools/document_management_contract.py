@@ -14,6 +14,8 @@ feature=read("app/src/main/java/vn/pickpack1291/app/beta/DocumentManagementFeatu
 image=read("app/src/main/java/vn/pickpack1291/app/beta/DocumentImageProcessor.kt")
 client=read("app/src/main/java/vn/pickpack1291/app/beta/DocumentServiceClient.kt")
 pending=read("app/src/main/java/vn/pickpack1291/app/beta/DocumentPendingStore.kt")
+draft=read("app/src/main/java/vn/pickpack1291/app/beta/DocumentDraftStore.kt")
+category_cache=read("app/src/main/java/vn/pickpack1291/app/beta/DocumentCategoryCache.kt")
 engine=read("app/src/main/java/vn/pickpack1291/app/beta/DocumentUploadEngine.kt")
 worker=read("app/src/main/java/vn/pickpack1291/app/beta/DocumentUploadWorker.kt")
 cache=read("app/src/main/java/vn/pickpack1291/app/beta/DocumentMediaCache.kt")
@@ -25,7 +27,8 @@ assert " BLOB" not in migration.upper(), "document schema must never store image
 assert "sha256 TEXT NOT NULL" in migration and "dhash64 TEXT" in migration and "md5 TEXT NOT NULL" in migration
 assert 'set("uploadType","resumable")' in service
 assert "DOCUMENT_EXACT_DUPLICATE" in service and "DOCUMENT_SIMILAR_IMAGE" in service
-assert "SIMILAR_DHASH_DISTANCE" in service and "hammingHex64" in service
+assert "SIMILAR_DHASH_DISTANCE=16" in service and "MAX_DHASH_VARIANTS=4" in service and "hammingHex64" in service
+assert "dhash64_variants" in service and "rotation_aware:true" in service
 assert "CATEGORY_MUTATION_BATCH=5" in service
 assert "CATEGORY_RENAME_ALL" in service and "renameDriveFile" in service
 assert "deleteDriveFile" in service and "processDocumentCategoryMutations" in service
@@ -39,6 +42,10 @@ assert 'businessCard(R.drawable.ic_pp_document,"Quản lý biên bản","",isAdm
 assert "ACTION_IMAGE_CAPTURE" in activity and "ACTION_OPEN_DOCUMENT" in activity
 assert "DocumentImageProcessor.process" in feature
 assert "DocumentPendingStore(activity)" in feature and "DocumentUploadEngine(activity,api)" in feature
+assert "DocumentDraftStore(activity)" in feature and "DocumentCategoryCache(activity)" in feature
+assert "restoreCachedCategories()" in feature and "restoreDraft()" in feature
+assert "draftStore.save(login" in feature and "draftStore.remove(login)" in feature
+assert "Đang dùng danh mục đã lưu trên máy" in feature
 assert 'confirmAction("sửa loại biên bản")' in feature and 'confirmAction("xóa loại biên bản")' in feature
 assert 'startCategoryMutation("UPDATE"' in feature and 'startCategoryMutation("DELETE"' in feature
 assert "localPending>0" in feature and "mediaCache.clearAll()" in feature
@@ -46,20 +53,31 @@ assert "DocumentMediaCache(activity)" in feature and "DocumentUploadWorker.sched
 assert "pendingStore.enqueue" in feature and "uploadEngine.runOne" in feature
 assert "mediaCache.get" in feature and "mediaCache.put" in feature
 
-assert "MAX_EDGE=2400" in image and 'digest("SHA-256"' in image and "dhash64" in image
+assert "MAX_EDGE=2400" in image and 'digest("SHA-256"' in image and "dhash64Variants" in image
+assert "dhashVariants(bitmap)" in image and "postRotate(angle)" in image and "90f,180f,270f" in image
 assert "uploadToDrive" in client and "UPLOAD_URL_NOT_GOOGLE" in client
 
 assert 'File(context.filesDir,"document-pending-v1")' in pending
 assert "MAX_ITEMS=60" in pending and "MAX_BYTES=120L*1024L*1024L" in pending
-assert '"document_id"' in pending and '"drive_file_id"' in pending
+assert '"document_id"' in pending and '"drive_file_id"' in pending and '"dhash64_variants"' in pending
 assert "DOCUMENT_PENDING_BYTES_MISSING" in pending
 assert "listUnlocked().firstOrNull{it.idempotencyKey==idempotencyKey}" in pending
+
+assert 'File(context.filesDir,"document-draft-v1")' in draft
+assert '"current.tmp"' in draft and '"current"' in draft
+assert "DOCUMENT_DRAFT_BYTES_COMMIT_FAILED" in draft and "DOCUMENT_DRAFT_POINTER_COMMIT_FAILED" in draft
+assert 'if(owner!=ownerLogin.trim())return null' in draft and 'digest("SHA-256",bytes)' in draft
+assert "dhash64Variants=variants.distinct().take(4)" in draft
+
+assert 'pp1291_document_category_cache_v1' in category_cache
+assert 'BuildConfig.ENVIRONMENT_ID+"|"+ownerLogin.trim().lowercase()' in category_cache
+assert '"category_id"' in category_cache and '"display_name"' in category_cache
 
 assert "if(!item.documentId.isNullOrBlank()&&!item.driveFileId.isNullOrBlank())" in engine
 assert 'store.update(item,driveFileId=driveId' in engine
 assert 'store.update(item,documentId=documentId' in engine
 assert "EXACT_DUPLICATE_RESOLVED" in engine and "SIMILAR_REVIEW_REQUIRED" in engine
-assert "ACCOUNT_MISMATCH" in engine
+assert "ACCOUNT_MISMATCH" in engine and '"dhash64_variants"' in engine
 
 assert "NetworkType.CONNECTED" in worker
 assert "BackoffPolicy.EXPONENTIAL" in worker
@@ -74,4 +92,4 @@ assert 'versionCode = 1' in gradle and 'versionName = "0.1.0-stable"' in gradle
 assert 'versionCode = 114' in gradle and 'versionName = "0.4.2-beta.108"' in gradle
 assert request["version_name"]=="0.4.2-beta.108" and request["version_code"]==114
 assert request["stable_publish"]=="FORBIDDEN" and request["authority_change"]=="NONE"
-print("document_management_contract=PASS durable_queue=PASS post_drive_resume=PASS bounded_cache=PASS rename_all=PASS hard_delete=PASS confirmation_reuse=PASS")
+print("document_management_contract=PASS durable_queue=PASS post_drive_resume=PASS bounded_cache=PASS rotation_similar=PASS offline_category_cache=PASS durable_draft_restore=PASS rename_all=PASS hard_delete=PASS confirmation_reuse=PASS")
