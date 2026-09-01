@@ -89,6 +89,30 @@ invariants:
     active_pass: true
     last_verified: "0.4.2-beta.109 LIVE / terminal run 33515483109 / OWNER acceptance complete 2026-09-01T22:04+07:00"
 
+  - id: DOCUMENT-BATCH-001
+    status: LOCKED_REQUIREMENT_PENDING_FIX
+    scope: document-management-ui
+    rule: "Quản lý biên bản hỗ trợ chọn nhiều ảnh; upload theo Một biên bản nhiều trang hoặc Nhiều biên bản; lọc theo loại; chọn một/nhiều ảnh đã tải để hard-delete qua mutation bền vững; thao tác xuất hiện trong Lịch sử."
+    regression_minimum: [multi_gallery_select, durable_multi_draft, multipage_group, multiple_document_group, category_filter, bulk_selected_delete, delete_resume, document_history]
+    parent_invariant: DOCUMENT-MANAGEMENT-001
+
+  - id: LABOR-TIME-RANGE-001
+    status: LOCKED_REQUIREMENT_PENDING_FIX
+    scope: labor
+    rule: "Công nhật dùng giờ-phút được chọn bằng bộ chọn thay cho mốc thời gian; cho phép ghi bắt đầu trước và kết thúc sau; công nhật OPEN chặn Ra ca; màn Công nhật và trang Nghiệp vụ hiển thị/cảnh báo người còn công nhật OPEN."
+    regression_minimum: [time_picker_only, explicit_start_at, explicit_end_at, start_without_end, end_after_start, open_labor_exit_block, open_labor_list, open_labor_warning]
+
+  - id: MEAL-UI-NULL-001
+    status: LOCKED_REQUIREMENT_PENDING_FIX
+    scope: attendance-ui
+    rule: "Điểm danh dùng layout gọn, đủ thông tin; mọi giá trị thiếu/JSON null hiển thị dấu -; không thay đổi MEAL-DATE-001 và MEAL-WARN-001."
+    regression_minimum: [compact_layout, no_visible_null, dash_for_missing, current_day_write_only, warning_preserved]
+
+  - id: UI-COPY-DENSITY-001
+    status: LOCKED_REQUIREMENT_PENDING_FIX
+    scope: ui-copy
+    rule: "Màn nghiệp vụ không hiển thị text giải thích kiểu AI/OWNER hoặc hướng dẫn kỹ thuật thừa; ưu tiên nội dung nghiệp vụ và diện tích hiển thị."
+    regression_minimum: [no_owner_ai_helper_copy, compact_document_copy, compact_labor_copy, compact_attendance_copy]
   - id: INFRA-RESILIENCE-001
     status: TECHNICAL_PASS_AWAITING_OWNER
     scope: infra-dr
@@ -109,8 +133,8 @@ invariants:
     common_mode_note: "Free-provider/account-wide outage risk remains an availability common mode; no claim of absolute provider outage isolation."
 
 impact_map:
-  "app/**": [UI-STATUS-001, QR-LOCAL-001, MEAL-DATE-001, MEAL-WARN-001, ROLE-HISTORY-001, OTA-BETA-001, PDA-EXIT-001, ENV-ISOLATION-001, SERVICE-DISCOVERY-001, SHIFT-STAFF-DOWNLOAD-QR-001, DOCUMENT-MANAGEMENT-001, INFRA-RESILIENCE-001]
-  "service/**": [QR-LOCAL-001, MEAL-DATE-001, PDA-EXIT-001, ENV-ISOLATION-001, DOCUMENT-MANAGEMENT-001, INFRA-RESILIENCE-001]
+  "app/**": [UI-STATUS-001, QR-LOCAL-001, MEAL-DATE-001, MEAL-WARN-001, ROLE-HISTORY-001, OTA-BETA-001, PDA-EXIT-001, ENV-ISOLATION-001, SERVICE-DISCOVERY-001, SHIFT-STAFF-DOWNLOAD-QR-001, DOCUMENT-MANAGEMENT-001, DOCUMENT-BATCH-001, LABOR-TIME-RANGE-001, MEAL-UI-NULL-001, UI-COPY-DENSITY-001, INFRA-RESILIENCE-001]
+  "service/**": [QR-LOCAL-001, MEAL-DATE-001, PDA-EXIT-001, ENV-ISOLATION-001, DOCUMENT-MANAGEMENT-001, DOCUMENT-BATCH-001, LABOR-TIME-RANGE-001, INFRA-RESILIENCE-001]
   "services/**": [ENV-ISOLATION-001, INFRA-RESILIENCE-001, BETA-STABLE-AUDIT-001]
   "google-apps-script/**": [ENV-ISOLATION-001, INFRA-RESILIENCE-001, OTA-BETA-001]
   ".github/workflows/**": [OTA-BETA-001, ENV-ISOLATION-001, INFRA-RESILIENCE-001, BETA-STABLE-AUDIT-001]
