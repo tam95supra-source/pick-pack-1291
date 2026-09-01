@@ -108,7 +108,8 @@ class DocumentPendingStore(context:Context) {
     private fun metaFile(id:String)=File(dir,id+".json")
     private fun bytesFile(id:String)=File(dir,id+".jpg")
     private fun writeMeta(item:Item){
-        val f=metaFile(item.pendingId)\n        val tmp=File(dir,item.pendingId+".json.tmp")
+        val f=metaFile(item.pendingId)
+        val tmp=File(dir,item.pendingId+".json.tmp")
         tmp.writeText(toJson(item).toString(),Charsets.UTF_8)
         if(!tmp.renameTo(f)){tmp.delete();throw IllegalStateException("DOCUMENT_PENDING_META_COMMIT_FAILED")}
     }
