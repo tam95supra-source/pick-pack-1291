@@ -1,6 +1,6 @@
 {
-  "stage": "SERVICE_ONLY",
-  "mode": "SERVICE_ONLY_BETA109_ROTATION_NEAR_SIMILAR_LIVE_REGRESSION",
+  "stage": "VERIFY_ONLY",
+  "mode": "VERIFY_EXACT_BETA109_DRAFT_CATEGORY_CACHE_ENHANCED",
   "version_name": "0.4.2-beta.109",
   "version_code": 115,
   "base_version": "0.4.2-beta.108",
@@ -8,8 +8,8 @@
   "base_source_sha": "378f1c294641c774cee361ae2bd2cc9fc868ee23",
   "source_sha": "a72d8e20eaebe60235338fd1b9aaebde42507825",
   "package": "vn.pickpack1291.app.beta.publicbeta",
-  "service_gate_required": true,
-  "service_gate": "PENDING_FRESH_BETA109_ROTATION_NEAR_SIMILAR",
+  "service_gate_required": false,
+  "service_gate": "PENDING_TRANSIENT_RETRY_RUN_33509679186",
   "human_visual_pass": false,
   "stable_publish": "FORBIDDEN",
   "authority_change": "NONE",
@@ -37,14 +37,14 @@
   "apk_transport": "GITHUB_RELEASE_ONLY",
   "google_drive_apk": "FORBIDDEN",
   "regression_case": "DOCUMENT-MANAGEMENT-001",
-  "execution_nonce": "beta109-service-near-similar-20260901-03",
-  "next_action": "RUN_LIVE_ROTATION_NEAR_SIMILAR_REGRESSION_EXACT_SOURCE",
+  "execution_nonce": "beta109-verify-draft-cache-20260901-04",
+  "next_action": "VERIFY_DRAFT_CACHE_VISUAL_PDA_API36_EXACT_CANDIDATE",
   "candidate_source_sha": "a72d8e20eaebe60235338fd1b9aaebde42507825",
   "candidate_run_id": 33506205883,
   "candidate_artifact_id": 9799840161,
   "candidate_artifact_name": "beta-candidate-33506205883",
   "apk_sha256": "1c01a58eefe5d0501eccbfe0359a2d5c0b3ec159f5ef37889d757f0984bbc7c8",
   "apk_size": 14167029,
-  "visual_matrix": "PASS_RUN_33507614507_PENDING_ENHANCED_LOCAL_RERUN",
-  "pda_functional_pre_ota": "PASS_RUN_33507614507_PENDING_ENHANCED_LOCAL_RERUN"
+  "visual_matrix": "PENDING_ENHANCED_EXACT_RERUN",
+  "pda_functional_pre_ota": "PENDING_ENHANCED_EXACT_RERUN"
 }
