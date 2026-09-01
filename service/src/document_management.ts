@@ -23,7 +23,8 @@ type DocRow={
 };
 
 const MAX_IMAGE_BYTES=10*1024*1024;
-const SIMILAR_DHASH_DISTANCE=6;
+const SIMILAR_DHASH_DISTANCE=16;
+const MAX_DHASH_VARIANTS=4;
 const RECENT_DHASH_SCAN_LIMIT=300;
 const CATEGORY_MUTATION_BATCH=5;
 // Beta108 owner-locked category mutation: rename-all/hard-delete durable job.
@@ -376,6 +377,9 @@ export async function documentUploadSession(request:Request,env:Env):Promise<Res
   const sha256=String(body.sha256||"").toLowerCase();
   const md5=String(body.md5||"").toLowerCase();
   const dhash64=String(body.dhash64||"").toLowerCase();
+  const dhashVariantsRaw=Array.isArray(body.dhash64_variants)?body.dhash64_variants:[];
+  const dhashVariants=[dhash64,...dhashVariantsRaw.map(v=>String(v||"").toLowerCase())]
+    .filter((v,i,a)=>v.length>0&&a.indexOf(v)===i).slice(0,MAX_DHASH_VARIANTS);
   const width=Number(body.width||0),height=Number(body.height||0);
   const sourceKind=String(body.source_kind||"").toUpperCase();
   const capturedAt=String(body.captured_at||"").trim()||null;
@@ -385,6 +389,7 @@ export async function documentUploadSession(request:Request,env:Env):Promise<Res
   if(!Number.isInteger(size)||size<=0||size>MAX_IMAGE_BYTES)return apiError("DOCUMENT_IMAGE_SIZE_INVALID","VALIDATION",400,false);
   if(!/^[0-9a-f]{64}$/.test(sha256)||!/^[0-9a-f]{32}$/.test(md5))return apiError("DOCUMENT_IMAGE_HASH_INVALID","VALIDATION",400,false);
   if(dhash64&&!/^[0-9a-f]{16}$/.test(dhash64))return apiError("DOCUMENT_IMAGE_FINGERPRINT_INVALID","VALIDATION",400,false);
+  if(dhashVariants.some(v=>!/^[0-9a-f]{16}$/.test(v)))return apiError("DOCUMENT_IMAGE_FINGERPRINT_INVALID","VALIDATION",400,false);
   if(!Number.isInteger(width)||width<1||!Number.isInteger(height)||height<1)return apiError("DOCUMENT_IMAGE_DIMENSIONS_INVALID","VALIDATION",400,false);
   if(sourceKind!=="CAMERA"&&sourceKind!=="GALLERY")return apiError("DOCUMENT_IMAGE_SOURCE_INVALID","VALIDATION",400,false);
   if(idempotency.length<8||idempotency.length>120)return apiError("DOCUMENT_IDEMPOTENCY_INVALID","VALIDATION",400,false);
@@ -403,16 +408,18 @@ export async function documentUploadSession(request:Request,env:Env):Promise<Res
     if(exact){
       return json({ok:false,error:{code:"DOCUMENT_EXACT_DUPLICATE",error_class:"CONFLICT",retryable:false},duplicate:{kind:"EXACT",document:documentPublic(exact)}},409);
     }
-    if(dhash64&&!allowSimilar){
+    if(dhashVariants.length>0&&!allowSimilar){
       const recent=await env.DB.prepare("SELECT * FROM document_records WHERE status='COMPLETE' AND dhash64 IS NOT NULL ORDER BY completed_at DESC LIMIT ?1").bind(RECENT_DHASH_SCAN_LIMIT).all<DocRow>();
       let best:{row:DocRow;distance:number}|null=null;
       for(const r of recent.results||[]){
         if(!r.dhash64||!/^[0-9a-f]{16}$/.test(r.dhash64))continue;
-        const distance=hammingHex64(dhash64,r.dhash64);
-        if(distance<=SIMILAR_DHASH_DISTANCE&&(!best||distance<best.distance))best={row:r,distance};
+        for(const incoming of dhashVariants){
+          const distance=hammingHex64(incoming,r.dhash64);
+          if(distance<=SIMILAR_DHASH_DISTANCE&&(!best||distance<best.distance))best={row:r,distance};
+        }
       }
       if(best){
-        return json({ok:false,error:{code:"DOCUMENT_SIMILAR_IMAGE",error_class:"CONFLICT",retryable:false},duplicate:{kind:"SIMILAR",distance:best.distance,document:documentPublic(best.row)}},409);
+        return json({ok:false,error:{code:"DOCUMENT_SIMILAR_IMAGE",error_class:"CONFLICT",retryable:false},duplicate:{kind:"SIMILAR",distance:best.distance,rotation_aware:true,threshold:SIMILAR_DHASH_DISTANCE,document:documentPublic(best.row)}},409);
       }
     }
   }
