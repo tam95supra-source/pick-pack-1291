@@ -1,0 +1,64 @@
+{
+  "status": "TECHNICAL_PASS_AWAITING_OWNER",
+  "invariant_id": "DOCUMENT-MANAGEMENT-001",
+  "version_name": "0.4.2-beta.108",
+  "version_code": 114,
+  "package": "vn.pickpack1291.app.beta.publicbeta",
+  "source_sha": "378f1c294641c774cee361ae2bd2cc9fc868ee23",
+  "candidate_run_id": 33491085275,
+  "candidate_artifact_id": 9793922815,
+  "apk_sha256": "bd82ca39ca702a771b435ef67ab626cbc36e9771478981912fa20e588bb9bc6e",
+  "apk_size": 14150645,
+  "signer_sha256": "d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e",
+  "service_live": {
+    "run_id": 33497121749,
+    "artifact_id": 9796321745,
+    "status": "PASS"
+  },
+  "visual_pda": {
+    "run_id": 33497121749,
+    "artifact_id": 9796518681,
+    "status": "PASS",
+    "screenshots": 39,
+    "viewports": [
+      "320x568",
+      "360x640",
+      "480x800"
+    ],
+    "human_visual": "PASS"
+  },
+  "fast_check": {
+    "run_id": 33498475427,
+    "status": "PASS"
+  },
+  "device_regression": {
+    "run_id": 33498411807,
+    "artifact_id": 9796733630,
+    "status": "PASS"
+  },
+  "runtime_dod": {
+    "run_id": 33498657720,
+    "artifact_id": 9796803109,
+    "status": "PASS"
+  },
+  "terminal_release": {
+    "run_id": 33499528769,
+    "publish_artifact_id": 9797165484,
+    "pda_artifact_id": 9797234412,
+    "final_artifact_id": 9797240852,
+    "status": "PASS"
+  },
+  "ota": {
+    "from": "0.4.2-beta.106",
+    "to": "0.4.2-beta.108",
+    "exact_download": true,
+    "exact_install": true,
+    "opened": true,
+    "transport": "GITHUB_RELEASE"
+  },
+  "stable_unchanged": true,
+  "main_sha": "021dac5c6932b3ac5c60ce8fdba562ddf3d9688f",
+  "authority_change": "NONE",
+  "owner_acceptance": "PENDING",
+  "next_action": "OWNER_ACCEPTANCE_DOCUMENT_MANAGEMENT_001"
+}
