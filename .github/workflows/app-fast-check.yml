@@ -53,7 +53,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   actions: read
 
 concurrency:
@@ -77,6 +77,24 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 2
+
+      - name: Publish fenced fast-check run marker
+        shell: bash
+        env:
+          RUN_ID: ${{ github.run_id }}
+          RUN_SHA: ${{ github.sha }}
+          RUN_REF: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          NONCE=$(jq -r '.execution_nonce // ""' ops/beta-release-request.json)
+          STAGE=$(jq -r '.stage // ""' ops/beta-release-request.json)
+          jq -n --argjson run_id "$RUN_ID" --arg run_sha "$RUN_SHA" --arg ref "$RUN_REF" --arg nonce "$NONCE" --arg stage "$STAGE" \
+            '{run_id:$run_id,run_sha:$run_sha,ref:$ref,execution_nonce:$nonce,stage:$stage,observed_at:(now|todateiso8601)}' > ops/app-fast-check-observe.json
+          git add ops/app-fast-check-observe.json
+          git commit -m "ci: observe App fast check $RUN_ID"
+          git push origin HEAD:"$RUN_REF"
 
       - uses: actions/setup-java@v5
         with:
@@ -120,6 +138,13 @@ jobs:
           if [[ "${{ github.event_name }}" == "push" ]]; then
             app=false
             git diff --name-only HEAD^ HEAD | grep -q '^app/' && app=true || true
+          fi
+          if [[ -f ops/beta-release-request.json ]] && jq -e '.candidate_locked==true and (.candidate_source_sha|type=="string" and length==40)' ops/beta-release-request.json >/dev/null 2>&1; then
+            CANDIDATE_SOURCE_SHA=$(jq -r '.candidate_source_sha' ops/beta-release-request.json)
+            if git cat-file -e "$CANDIDATE_SOURCE_SHA^{commit}" 2>/dev/null && git diff --quiet "$CANDIDATE_SOURCE_SHA" HEAD -- app; then
+              app=true
+              echo "impact_app_source=LOCKED_CANDIDATE_MATCH"
+            fi
           fi
           echo "app=$app" >> "$GITHUB_OUTPUT"
           echo "impact_app=$app"
