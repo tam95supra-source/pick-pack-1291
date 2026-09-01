@@ -105,6 +105,12 @@ B91_ADD="__B91_ADD_${SUFFIX}"; B91_RETAIN="__B91_RETAIN_${SUFFIX}"; B91_BLOCKED=
 B92_USED_PICK="__B92_USED_PICK_${SUFFIX}"; B92_USED_TABLE="__B92_USED_TABLE_${SUFFIX}"; B92_USED_PACK="__B92_USED_PACK_${SUFFIX}"
 B92_BLOCKED_TABLE="__B92_BLOCKED_TABLE_${SUFFIX}"; B92_BLOCKED_PACK="__B92_BLOCKED_PACK_${SUFFIX}"; B92_BLOCKED="__B92_BLOCKED_${SUFFIX}"
 B99_PROBE="__B99_RESILIENCE_PROBE_${SUFFIX}"
+DOC_CATEGORY_ID=""
+DOC_CATEGORY_NAME="__B107_BIEN_BAN_${SUFFIX}"
+DOC_IDEMPOTENCY="__B107_DOC_${SUFFIX}"
+DOC_DUP_IDEMPOTENCY="__B107_DOC_DUP_${SUFFIX}"
+DOC_DRIVE_ID=""
+DOC_BYTES="$D/b107-document.jpg"
 NOW=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 for v in "$LOGIN" "$DEVICE" "$AUTH_SESSION" "$LOC1" "$LOC2" "$DROP_ID" "$BASE_ID" "$B80_MNV" "$B80_PDA" "$B89_PDA2" "$B89_PICK" "$B89_BLOCKED_PICK" "$B91_TABLE" "$B91_PACK" "$B91_BLOCKED_TABLE" "$B91_BLOCKED_PACK" "$B92_USED_PICK" "$B92_USED_TABLE" "$B92_USED_PACK" "$B92_BLOCKED_TABLE" "$B92_BLOCKED_PACK"; do echo "::add-mask::$v"; done
 SERVICE_TOKEN_SECRET=$(printf '%s' "$CLOUDFLARE_ACCOUNT_ID|$GOOGLE_OAUTH_CLIENT_SECRET|pick-pack-1291-m2-service-token-v1" | sha256sum | awk '{print $1}')
@@ -118,12 +124,23 @@ echo "::add-mask::$TOKEN"
 sql(){ npx wrangler d1 execute "$D1_NAME" --remote --config wrangler.live.jsonc --command "$1" --json; }
 read_api(){ local name=$1 body=$2; curl -fsS --connect-timeout 10 --max-time 20 -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' --data-binary "$body" "$SERVICE_URL/v1/mobile/read" > "$D/$name.json"; }
 mutation_api(){ local name=$1 body=$2; curl -fsS --connect-timeout 10 --max-time 20 -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' --data-binary "$body" "$SERVICE_URL/v1/legacy-mutations/batch" > "$D/$name.json"; }
+cleanup_document_drive(){
+  set +e
+  if [[ -n "${DOC_DRIVE_ID:-}" && -n "${GOOGLE_TOKEN:-}" ]]; then
+    curl -sS -o /dev/null -X DELETE -H "Authorization: Bearer $GOOGLE_TOKEN" "https://www.googleapis.com/drive/v3/files/$DOC_DRIVE_ID" || true
+    DOC_DRIVE_ID=""
+  fi
+  set -e
+}
 cleanup_d1(){
   set +e
+  if [[ -n "${DOC_CATEGORY_ID:-}" ]]; then
+    sql "DELETE FROM document_audit WHERE target_id IN (SELECT document_id FROM document_records WHERE category_id='$DOC_CATEGORY_ID') OR target_id='$DOC_CATEGORY_ID'; DELETE FROM document_records WHERE category_id='$DOC_CATEGORY_ID'; DELETE FROM document_categories WHERE category_id='$DOC_CATEGORY_ID';" >/dev/null 2>&1 || true
+  fi
   sql "DELETE FROM outbound_replication_outbox WHERE event_id IN (SELECT event_id FROM events WHERE actor_id='$LOGIN'); DELETE FROM sheet_replication_outbox WHERE event_id IN (SELECT event_id FROM events WHERE actor_id='$LOGIN'); DELETE FROM outbound_drop_records WHERE record_id='$DROP_ID'; DELETE FROM outbound_locations WHERE location_key LIKE '__B78%'; DELETE FROM resource_daily_consumption WHERE mnv='$B80_MNV'; DELETE FROM resource_leases WHERE mnv='$B80_MNV'; DELETE FROM post_meal_attendance_audit WHERE mnv='$B80_MNV'; DELETE FROM post_meal_attendance WHERE mnv='$B80_MNV'; DELETE FROM attendance_sessions WHERE mnv='$B80_MNV'; DELETE FROM events WHERE actor_id='$LOGIN'; DELETE FROM resource_pack_map WHERE pack_table IN ('$B91_TABLE','$B91_BLOCKED_TABLE','$B92_USED_TABLE','$B92_BLOCKED_TABLE') OR user_pack IN ('$B91_PACK','$B91_BLOCKED_PACK','$B92_USED_PACK','$B92_BLOCKED_PACK'); DELETE FROM resources WHERE resource_id IN ('$B80_PDA','$B89_PDA2','$B89_PICK','$B89_BLOCKED_PICK','$B91_TABLE','$B91_PACK','$B91_BLOCKED_TABLE','$B91_BLOCKED_PACK','$B92_USED_PICK','$B92_USED_TABLE','$B92_USED_PACK','$B92_BLOCKED_TABLE','$B92_BLOCKED_PACK'); DELETE FROM employees WHERE mnv='$B80_MNV'; DELETE FROM auth_sessions WHERE login_id='$LOGIN'; DELETE FROM accounts WHERE login_id='$LOGIN';" >/dev/null 2>&1
   set -e
 }
-trap 'rc=$?; cleanup_d1; exit $rc' EXIT
+trap 'rc=$?; cleanup_document_drive; cleanup_d1; exit $rc' EXIT
 cleanup_d1
 sql "INSERT INTO accounts(login_id,verifier,verifier_hash,role,display_name,position,email,status,source_row,source_checksum,is_shadow_test) VALUES('$LOGIN','b78-test','$VH','SUPERADMIN','Beta78 Test','TEST','tam95.supra@gmail.com','ACTIVE',-78,'b78-test',1); INSERT INTO auth_sessions(login_id,session_id,device_id,issued_at) VALUES('$LOGIN','$AUTH_SESSION','$DEVICE','$NOW'); INSERT INTO employees(mnv,full_name,main_position,source_row,source_checksum) VALUES('$B80_MNV','Beta80 Session Fixture','Pick',-80,'b80-fixture'); INSERT INTO resources(resource_type,resource_id,status_label,available,metadata_json,source_row,source_checksum) VALUES('PDA','$B80_PDA','Tốt',1,'{}',-80,'b80-fixture'),('PDA','$B89_PDA2','Tốt',1,'{}',-89,'b89-fixture'),('USER_PICK','$B89_PICK','Hoạt động',1,'{}',-89,'b89-fixture'),('USER_PICK','$B89_BLOCKED_PICK','Không khả dụng',0,'{}',-89,'b89-fixture'),('PACK_TABLE','$B91_TABLE','Khả dụng',1,'{}',-91,'b91-fixture'),('USER_PACK','$B91_PACK','Khả dụng',1,'{}',-91,'b91-fixture'),('PACK_TABLE','$B91_BLOCKED_TABLE','Không khả dụng',0,'{}',-91,'b91-fixture'),('USER_PACK','$B91_BLOCKED_PACK','Khả dụng',1,'{}',-91,'b91-fixture'),('USER_PICK','$B92_USED_PICK','Hoạt động',1,'{}',-92,'b92-fixture'),('PACK_TABLE','$B92_USED_TABLE','Khả dụng',1,'{}',-92,'b92-fixture'),('USER_PACK','$B92_USED_PACK','Khả dụng',1,'{}',-92,'b92-fixture'),('PACK_TABLE','$B92_BLOCKED_TABLE','Khả dụng',1,'{}',-92,'b92-fixture'),('USER_PACK','$B92_BLOCKED_PACK','Không khả dụng',0,'{}',-92,'b92-fixture'); INSERT INTO resource_pack_map(pack_table,shift,user_pack,label,available,source_row,source_checksum) VALUES('$B91_TABLE','Ca 2','$B91_PACK','Ca 2-91',1,-91,'b91-fixture'),('$B91_BLOCKED_TABLE','Ca 2','$B91_BLOCKED_PACK','Ca 2-92',1,-91,'b91-fixture'),('$B92_USED_TABLE','Ca 2','$B92_USED_PACK','Ca 2-93',1,-92,'b92-fixture'),('$B92_BLOCKED_TABLE','Ca 2','$B92_BLOCKED_PACK','Ca 2-94',1,-92,'b92-fixture');" >/dev/null
 
@@ -282,6 +299,58 @@ done < "$D/historical.tsv"
 GOOGLE_TOKEN=$(curl -fsS https://oauth2.googleapis.com/token -d client_id="$GOOGLE_OAUTH_CLIENT_ID" -d client_secret="$GOOGLE_OAUTH_CLIENT_SECRET" -d refresh_token="$GOOGLE_OAUTH_REFRESH_TOKEN" -d grant_type=refresh_token | jq -r '.access_token')
 test -n "$GOOGLE_TOKEN" -a "$GOOGLE_TOKEN" != null
 echo "::add-mask::$GOOGLE_TOKEN"
+
+# Beta107 document management LIVE contract: Drive scope + direct resumable upload + exact-byte readback + duplicate guard.
+DRIVE_SCOPE_HTTP=$(curl -sS --connect-timeout 10 --max-time 20 -o "$D/b107-drive-about.json" -w '%{http_code}' -H "Authorization: Bearer $GOOGLE_TOKEN" "https://www.googleapis.com/drive/v3/about?fields=user(displayName)")
+[[ "$DRIVE_SCOPE_HTTP" == 200 ]] || { echo "B107_DRIVE_OAUTH_SCOPE_REQUIRED:http=$DRIVE_SCOPE_HTTP" >&2; cat "$D/b107-drive-about.json" >&2; exit 21; }
+printf '%s' '/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAACAAIDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD6pooooA//2Q==' | base64 -d > "$DOC_BYTES"
+DOC_SIZE=$(wc -c < "$DOC_BYTES" | tr -d ' ')
+DOC_SHA=$(sha256sum "$DOC_BYTES" | awk '{print $1}')
+DOC_MD5=$(md5sum "$DOC_BYTES" | awk '{print $1}')
+[[ "$DOC_SIZE" == 631 && "$DOC_SHA" == "1be3f9ca58201af206881cc788805d1b9ebf6a2515f3c9c67ecbd3721cc67563" && "$DOC_MD5" == "ff950b3db06643852a986f33d778c81a" ]]
+
+owner_api /v1/documents/categories b107-category-create "{\"operation\":\"CREATE\",\"display_name\":\"$DOC_CATEGORY_NAME\"}"
+jq -e '.ok==true and .item.category_id|type=="string"' "$D/b107-category-create.json" >/dev/null
+DOC_CATEGORY_ID=$(jq -r '.item.category_id' "$D/b107-category-create.json")
+test -n "$DOC_CATEGORY_ID" -a "$DOC_CATEGORY_ID" != null
+
+DOC_SESSION_BODY=$(jq -nc --arg category "$DOC_CATEGORY_ID" --arg sha "$DOC_SHA" --arg md5 "$DOC_MD5" --arg idem "$DOC_IDEMPOTENCY" --arg at "$NOW" --argjson size "$DOC_SIZE" '{
+  category_id:$category,mime_type:"image/jpeg",byte_size:$size,sha256:$sha,md5:$md5,
+  width:2,height:2,source_kind:"CAMERA",captured_at:$at,idempotency_key:$idem
+}')
+owner_api /v1/documents/upload-session b107-upload-session "$DOC_SESSION_BODY"
+jq -e '.ok==true and .upload_method=="PUT" and (.upload_url|startswith("https://")) and .document.status=="PENDING"' "$D/b107-upload-session.json" >/dev/null
+DOC_ID=$(jq -r '.document.document_id' "$D/b107-upload-session.json")
+DOC_UPLOAD_URL=$(jq -r '.upload_url' "$D/b107-upload-session.json")
+DOC_UPLOAD_HTTP=$(curl -sS --connect-timeout 10 --max-time 60 -o "$D/b107-drive-upload.json" -w '%{http_code}' -X PUT -H 'Content-Type: image/jpeg' --data-binary @"$DOC_BYTES" "$DOC_UPLOAD_URL")
+[[ "$DOC_UPLOAD_HTTP" =~ ^2 ]] || { echo "B107_DRIVE_UPLOAD_FAILED:http=$DOC_UPLOAD_HTTP" >&2; cat "$D/b107-drive-upload.json" >&2; exit 22; }
+DOC_DRIVE_ID=$(jq -r '.id // empty' "$D/b107-drive-upload.json")
+test -n "$DOC_DRIVE_ID"
+
+owner_api /v1/documents/complete b107-complete "{\"document_id\":\"$DOC_ID\",\"drive_file_id\":\"$DOC_DRIVE_ID\"}"
+jq -e --arg id "$DOC_ID" '.ok==true and .document.document_id==$id and .document.status=="COMPLETE"' "$D/b107-complete.json" >/dev/null
+
+DOC_DUP_BODY=$(printf '%s' "$DOC_SESSION_BODY" | jq -c --arg idem "$DOC_DUP_IDEMPOTENCY" '.idempotency_key=$idem')
+DOC_DUP_HTTP=$(curl -sS --connect-timeout 10 --max-time 20 -o "$D/b107-duplicate.json" -w '%{http_code}' -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' --data-binary "$DOC_DUP_BODY" "$SERVICE_URL/v1/documents/upload-session")
+[[ "$DOC_DUP_HTTP" == 409 ]]
+jq -e --arg id "$DOC_ID" '.error.code=="DOCUMENT_EXACT_DUPLICATE" and .duplicate.kind=="EXACT" and .duplicate.document.document_id==$id' "$D/b107-duplicate.json" >/dev/null
+
+curl -fsS --connect-timeout 10 --max-time 30 -H "Authorization: Bearer $TOKEN" "$SERVICE_URL/v1/documents/$DOC_ID/media" > "$D/b107-media.jpg"
+[[ "$(sha256sum "$D/b107-media.jpg" | awk '{print $1}')" == "$DOC_SHA" ]]
+
+DOC_EDIT_HTTP=$(curl -sS --connect-timeout 10 --max-time 20 -o "$D/b107-category-edit-blocked.json" -w '%{http_code}' -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' --data-binary "{\"operation\":\"UPDATE\",\"category_id\":\"$DOC_CATEGORY_ID\",\"display_name\":\"BLOCKED\"}" "$SERVICE_URL/v1/documents/categories")
+[[ "$DOC_EDIT_HTTP" == 409 ]]
+jq -e '.error.code=="DOCUMENT_CATEGORY_EDIT_DELETE_OWNER_DECISION_REQUIRED"' "$D/b107-category-edit-blocked.json" >/dev/null
+
+curl -fsS --connect-timeout 10 --max-time 20 -H "Authorization: Bearer $TOKEN" "$SERVICE_URL/v1/documents?limit=10" > "$D/b107-list.json"
+jq -e --arg id "$DOC_ID" '[.items[]|select(.document_id==$id and .status=="COMPLETE")]|length==1' "$D/b107-list.json" >/dev/null
+
+cleanup_document_drive
+cleanup_d1
+DOC_CLEAN=$(sql "SELECT (SELECT COUNT(*) FROM document_records WHERE document_id='$DOC_ID')+(SELECT COUNT(*) FROM document_categories WHERE category_id='$DOC_CATEGORY_ID')+(SELECT COUNT(*) FROM document_audit WHERE target_id IN ('$DOC_ID','$DOC_CATEGORY_ID')) AS n;")
+node -e 'const j=JSON.parse(process.argv[1]);if(Number(j?.[0]?.results?.[0]?.n)!==0)throw new Error("B107_DOCUMENT_TEST_DATA_REMAINS")' "$DOC_CLEAN"
+echo 'beta107_document_management=PASS drive_scope=PASS resumable_direct=PASS exact_readback=PASS duplicate_guard=PASS category_mutation_fail_closed=PASS cleanup=PASS'
+
 META=$(curl -fsS -H "Authorization: Bearer $GOOGLE_TOKEN" "https://sheets.googleapis.com/v4/spreadsheets/$OUTBOUND_SHEET_ID?fields=sheets.properties(sheetId,title)")
 DROP_SHEET_ID=$(printf '%s' "$META" | jq -r '.sheets[]|select(.properties.title=="Nhận hàng rớt")|.properties.sheetId')
 test -n "$DROP_SHEET_ID" -a "$DROP_SHEET_ID" != null
@@ -352,6 +421,6 @@ NODE
 BACKUP_ID=$(jq -r .backup_id "$D/portable-backup/manifest.json")
 AUTOPILOT_STATE=$(jq -r .state "$D/d1-autopilot/receipt.json")
 ROLLOVER_STATUS=$(jq -r .status "$D/d1-rollover-rehearsal/receipt.json")
-jq -n --arg source_sha "${SERVICE_SOURCE_SHA:-$GITHUB_SHA}" --arg service_url "$SERVICE_URL" --arg worker "$WORKER_NAME" --arg generation "$GEN" --arg backup_id "$BACKUP_ID" --arg autopilot "$AUTOPILOT_STATE" --arg rollover "$ROLLOVER_STATUS" --argjson baseline_ms "$BASELINE_MS" --argjson service_ack_ms "$SERVICE_ACK_MS" --argjson replication_ms "$REPLICATION_MS" --argjson d1_bytes "$DB_BYTES" --argjson d1_limit "$DB_LIMIT" '{status:"PASS",source_sha:$source_sha,worker:$worker,service_url:$service_url,generation:$generation,d1:{bytes:$d1_bytes,limit_bytes:$d1_limit,usage_ratio:($d1_bytes/$d1_limit),retention_config_range_days:"45..365",portable_backup:"VERIFIED",backup_id:$backup_id,capacity_autopilot:$autopilot,rollover_rehearsal_2x:$rollover,heavy_repair_interval_minutes:30},beta99:{resilience_probe_service_direct:"PASS",resilience_probe_duplicate:"PASS",business_projection:"NONE"},historical_sessions:["07323dde-0456-45f8-a1d6-942e9f2e602e","03b1337f-08fd-46a1-ab94-8b0700763df3","d94d968a-0cf6-4086-8352-85154a5ec62e"],historical_result:"3/3_SERVICE_D1_EXACT",outbound:{location_crud:"PASS",duplicate:"PASS",gsheet_readback:"PASS",baseline_google_append_readback_ms:$baseline_ms,service_d1_ack_ms:$service_ack_ms,background_replication_ms:$replication_ms,dual_write:false},authority_change:"NONE",beta89:{pda_return:"PASS",pda_exchange:"PASS",same_session_user_pick:"PASS",unavailable_new_assignment:"PASS",duplicate_leases:"PASS",audit_storage_before_after:"PASS",legacy_sync_payload_projection:"PASS"},beta95:{meal_attendance:"PASS",idempotency:"PASS",late_audit:"PASS",history_14d:"PASS",d1_retention:"CONFIG_45_365_BACKUP_GUARDED",repair_scan_interval:"30M"},test_cleanup:"PASS"}' > "$D/receipt.json"
+jq -n --arg source_sha "${SERVICE_SOURCE_SHA:-$GITHUB_SHA}" --arg service_url "$SERVICE_URL" --arg worker "$WORKER_NAME" --arg generation "$GEN" --arg backup_id "$BACKUP_ID" --arg autopilot "$AUTOPILOT_STATE" --arg rollover "$ROLLOVER_STATUS" --argjson baseline_ms "$BASELINE_MS" --argjson service_ack_ms "$SERVICE_ACK_MS" --argjson replication_ms "$REPLICATION_MS" --argjson d1_bytes "$DB_BYTES" --argjson d1_limit "$DB_LIMIT" '{status:"PASS",source_sha:$source_sha,worker:$worker,service_url:$service_url,generation:$generation,d1:{bytes:$d1_bytes,limit_bytes:$d1_limit,usage_ratio:($d1_bytes/$d1_limit),retention_config_range_days:"45..365",portable_backup:"VERIFIED",backup_id:$backup_id,capacity_autopilot:$autopilot,rollover_rehearsal_2x:$rollover,heavy_repair_interval_minutes:30},beta99:{resilience_probe_service_direct:"PASS",resilience_probe_duplicate:"PASS",business_projection:"NONE"},historical_sessions:["07323dde-0456-45f8-a1d6-942e9f2e602e","03b1337f-08fd-46a1-ab94-8b0700763df3","d94d968a-0cf6-4086-8352-85154a5ec62e"],historical_result:"3/3_SERVICE_D1_EXACT",outbound:{location_crud:"PASS",duplicate:"PASS",gsheet_readback:"PASS",baseline_google_append_readback_ms:$baseline_ms,service_d1_ack_ms:$service_ack_ms,background_replication_ms:$replication_ms,dual_write:false},authority_change:"NONE",beta89:{pda_return:"PASS",pda_exchange:"PASS",same_session_user_pick:"PASS",unavailable_new_assignment:"PASS",duplicate_leases:"PASS",audit_storage_before_after:"PASS",legacy_sync_payload_projection:"PASS"},beta95:{meal_attendance:"PASS",idempotency:"PASS",late_audit:"PASS",history_14d:"PASS",d1_retention:"CONFIG_45_365_BACKUP_GUARDED",repair_scan_interval:"30M"},beta107:{document_management:"PASS",drive_scope:"PASS",resumable_direct_upload:"PASS",exact_byte_readback:"PASS",exact_duplicate_guard:"PASS",category_edit_delete:"OWNER_DECISION_FAIL_CLOSED",cleanup:"PASS"},test_cleanup:"PASS"}' > "$D/receipt.json"
 jq -e '.status=="PASS" and .historical_result=="3/3_SERVICE_D1_EXACT" and .outbound.duplicate=="PASS" and .outbound.gsheet_readback=="PASS"' "$D/receipt.json" >/dev/null
 cat "$D/receipt.json"
