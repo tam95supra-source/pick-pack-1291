@@ -1,8 +1,8 @@
 {
-  "run_id": 33498657720,
-  "run_sha": "d123b4bc2c312ba689009d603eea9c4f306b8852",
+  "run_id": 33498900078,
+  "run_sha": "40898e934c2aaca4e54d2365fe7ed8d10516d255",
   "ref": "release/beta108-document-management",
-  "execution_nonce": "beta108-runtime-dod-20260901-01",
-  "stage": "RUNTIME_DOD_VERIFY",
-  "observed_at": "2026-09-01T10:41:09Z"
+  "execution_nonce": "beta108-publish-exact-20260901-01",
+  "stage": "PUBLISH",
+  "observed_at": "2026-09-01T10:44:01Z"
 }
