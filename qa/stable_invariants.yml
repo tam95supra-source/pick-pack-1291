@@ -73,6 +73,15 @@ invariants:
     regression_minimum: [group_by_ncc, filter_counts, null_supplier_fallback, no_visible_null, employee_to_qr, beta_download_qr, stable_download_fail_closed]
     regression_case: "SHIFT-STAFF-DOWNLOAD-QR-NULL-001 / qa/beta106_shift_staff_null_regression.md"
     owner_acceptance: "ACTIVE_PASS_OWNER_ACCEPTED_2026-09-01_BETA106_SCOPE / ops/beta106-owner-acceptance.json"
+  - id: DOCUMENT-MANAGEMENT-001
+    status: LOCKED_REQUIREMENT_PENDING_FIX
+    scope: document-management
+    rule: "Ảnh biên bản upload trực tiếp Google Drive; Service/D1 chỉ lưu metadata/hash/audit; exact duplicate bị chặn, near-duplicate phải cảnh báo; dữ liệu cũ không được mất liên kết khi quản lý danh mục."
+    technical_candidate: "0.4.2-beta.107"
+    regression_minimum: [drive_direct_upload, no_d1_blob, exact_duplicate_block, perceptual_duplicate_warning, category_snapshot_immutable, owner_category_mutation_fail_closed, beta_stable_isolation]
+    owner_decision_pending: "Quy tắc Sửa/Xóa loại biên bản: đề xuất rename chỉ đổi display_name, file cũ giữ nguyên; xóa = ARCHIVED/ẩn, không xóa ảnh/bản ghi cũ. Chờ OWNER chốt trước khi mở mutation."
+    regression_case: "DOCUMENT-MANAGEMENT-001 / tools/document_management_contract.py + beta89_service_live_gate.sh"
+
   - id: INFRA-RESILIENCE-001
     status: TECHNICAL_PASS_AWAITING_OWNER
     scope: infra-dr
