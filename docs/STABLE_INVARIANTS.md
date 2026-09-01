@@ -123,21 +123,28 @@ Mỗi invariant tối thiểu có:
 
 
 ### DOCUMENT-MANAGEMENT-001
-- Status: LOCKED_REQUIREMENT_PENDING_FIX
+- Status: TECHNICAL_PASS_AWAITING_OWNER
 - Scope: Quản lý biên bản / Google Drive / D1 / xác nhận thao tác
 - OWNER rule 2026-09-01: Sửa loại biên bản = đổi tên toàn bộ dữ liệu lịch sử thuộc loại đó và đổi tên toàn bộ file tương ứng trên Google Drive. Xóa loại biên bản = xóa hẳn file Drive + bản ghi biên bản + danh mục; chỉ giữ receipt kỹ thuật tối thiểu (ai, khi nào, số lượng, mã job), không giữ nội dung/ảnh/tên file cũ.
 - Xác nhận: cả Sửa và Xóa phải dùng đúng canonical confirmation hiện tại của app: HHmm giờ Việt Nam, inclusive ±2 phút; SUPERADMIN giữ đường re-auth mật khẩu tài khoản như logic hiện hành.
 - Consistency: mutation phải chạy dạng durable job/checkpoint; upload mới bị fence trong lúc mutation; retry/crash không được tạo trạng thái nửa chừng.
-- Regression tối thiểu: drive direct upload / no D1 blob / exact duplicate block / near-duplicate warning / durable pending queue / post-Drive resume / bounded cache / account-scoped retry / rename all D1 metadata / rename all Drive names / hard delete Drive + records / durable mutation resume / exact confirmation HHmm ±2 / Beta-Stable isolation.
-- Technical evidence: Beta108 source 378f1c294641c774cee361ae2bd2cc9fc868ee23; candidate 33491085275 / 9793922815; Service live 33497121749 / 9796321745 PASS; visual + direct PDA + API36 33497121749 / 9796518681 PASS; 39 screenshots + human visual PASS 320x568 / 360x640 / 480x800; Fast Check full app 33498475427 PASS; exact-device regression 33498411807 / 9796733630 PASS; runtime DoD 33498657720 / 9796803109 PASS; terminal publish/OTA/install/readback/finalize 33499528769 PASS; publish 9797165484; PDA 9797234412; final 9797240852; exact APK SHA256 bd82ca39ca702a771b435ef67ab626cbc36e9771478981912fa20e588bb9bc6e / size 14150645 / signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged.
-- Regression case: qa/beta108_document_management_regression.md + tools/document_management_contract.py + tools/beta89_service_live_gate.sh.
-- Technical receipt: ops/beta108-technical-pass.json.
-- Technical candidate: 0.4.2-beta.108 LIVE.
-- OWNER acceptance 2026-09-01: mục 1,2,5,6,7,8 OK; mục 3 exact duplicate OK nhưng near-similar chưa cảnh báo; mục 4 FAIL khi mất mạng vì danh mục biến mất và ảnh đang chọn mất sau restart. Các mục đã OK phải được bảo vệ, chỉ sửa 3-near-similar và 4-offline/draft.
-- Failure evidence: manual-20260901-183159-fd9d9ebb-b421-4152-a745-fe3b4b4f7d96.json; 18:26:02 +07 DNS/network outage thật tới pickpack.1291.workers.dev. Root cause Android: refreshCategories xóa catalog khi Service fail; selected image chỉ ở RAM trước enqueue. Root cause near-similar: dHash một hướng + threshold 6 quá chặt cho ảnh cùng cảnh khác xoay/góc.
+- Regression tối thiểu: drive direct upload / no D1 blob / exact duplicate block / near-duplicate warning / durable pending queue / post-Drive resume / bounded cache / account-scoped retry / rename all D1 metadata / rename all Drive names / hard delete Drive + records / durable mutation resume / exact confirmation HHmm ±2 / Beta-Stable isolation / offline category cache / durable selected-image draft restore.
+- Technical evidence Beta109: source a72d8e20eaebe60235338fd1b9aaebde42507825; candidate 33506205883 / 9799840161; exact APK SHA256 1c01a58eefe5d0501eccbfe0359a2d5c0b3ec159f5ef37889d757f0984bbc7c8 / size 14167029 / signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e.
+- Service live: run 33509679186 attempt 2 / artifact 9801444305 PASS; exact duplicate guard PASS; rotation-aware near-similar PASS.
+- Visual/PDA/API36/local durability: run 33511409449 / artifact 9801982052 PASS; 39 screenshots + human visual PASS 320x568 / 360x640 / 480x800; document_selected_draft_durable_beta109=true; document_category_cache_offline_beta109=true.
+- Fast Check: run 33510974424 PASS.
+- Exact-device stale-discovery regression: run 33514582110 / artifact 9803110874 PASS.
+- Runtime DoD: run 33514927663 attempt 2 / artifact 9803295906 PASS.
+- Terminal publish/OTA/install/readback/finalize: run 33515483109 PASS; publish artifact 9803429207; PDA OTA artifact 9803518172; final artifact 9803526992; GitHub Release asset 539613285 exact SHA256/size; OTA 0.4.2-beta.108 → 0.4.2-beta.109 exact bytes, install/open PASS; Stable/main/signer/authority unchanged.
+- Regression case: qa/beta109_document_management_regression.md + tools/document_management_contract.py + tools/beta89_service_live_gate.sh + tools/Beta83UiChecksInstrumentation.java.
+- Technical receipt: ops/beta109-technical-pass.json.
+- Technical candidate: 0.4.2-beta.109 LIVE.
+- OWNER acceptance đã khóa từ Beta108: mục 1,2,5,6,7,8 OK.
+- OWNER cần nghiệm thu lại duy nhất: (1) near-similar có cảnh báo đúng trong khi exact duplicate giữ nguyên; (2) mất mạng vẫn giữ danh mục + hàng chờ, restart không mất ảnh đang chọn và có mạng tự retry.
+- Historical failure evidence: manual-20260901-183159-fd9d9ebb-b421-4152-a745-fe3b4b4f7d96.json; Beta108 từng fail near-similar và offline draft/category.
 - Partial acceptance receipt: ops/beta108-owner-acceptance-partial.json.
-- Next fix: chỉ near-similar rotation-aware warning + offline cached categories + durable selected-image draft; không đổi semantics 1,2,5,6,7,8.
-- Last verified: 0.4.2-beta.108 / terminal run 33499528769; OWNER partial acceptance 2026-09-01.
+- ACTIVE_PASS: chưa được phép cho tới khi OWNER xác nhận cả 2 mục còn lại OK.
+- Last verified: 0.4.2-beta.109 LIVE / terminal run 33515483109 / Technical DoD PASS awaiting OWNER.
 
 ### INFRA-RESILIENCE-001
 - Status: TECHNICAL_PASS_AWAITING_OWNER
