@@ -7,6 +7,7 @@ package vn.pickpack1291.app.beta
 import android.app.Activity
 import android.app.AlertDialog
 import android.content.res.ColorStateList
+import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -24,6 +25,8 @@ import android.view.ViewGroup
 import android.view.WindowInsets
 import android.view.inputmethod.EditorInfo
 import android.widget.*
+import com.google.zxing.BarcodeFormat
+import com.google.zxing.qrcode.QRCodeWriter
 import org.json.JSONArray
 import org.json.JSONObject
 import java.time.Instant
@@ -287,18 +290,35 @@ class OperationsActivity : Activity() {
             Regex("""\b\d{2}:\d{2}\b""").find(v)?.value?:clean
         }
     }
-    private data class ShiftStaffIdentity(val supplier:String,val mnv:String,val fullName:String)
+
+    private data class ShiftStaffIdentity(
+        val supplier:String,
+        val mnv:String,
+        val fullName:String,
+        val position:String
+    )
     private fun shiftStaffIdentity(ses:JSONObject):ShiftStaffIdentity{
         val mnv=ses.optString("mnv").trim()
         val emp=MasterDataCache.employee(this,mnv)
         val snap=ses.optJSONObject("employee_snapshot")
         val supplier=emp?.optString("supplier").orEmpty().ifBlank{snap?.optString("supplier").orEmpty()}.trim()
         val fullName=emp?.optString("full_name").orEmpty().ifBlank{snap?.optString("full_name").orEmpty()}.trim()
-        return ShiftStaffIdentity(supplier,mnv,fullName)
+        val position=emp?.optString("main_position").orEmpty().ifBlank{snap?.optString("main_position").orEmpty()}.trim()
+        return ShiftStaffIdentity(supplier,mnv,fullName,position)
+    }
+    private fun shiftStaffEnded(ses:JSONObject)=ses.optString("state").equals("ENDED",true)&&dash(ses.optString("exit_at"))!="-"
+    private fun staffInitials(fullName:String,mnv:String):String{
+        val words=fullName.trim().split(Regex("\\s+")).filter{it.isNotBlank()}
+        val raw=when{
+            words.size>=2->"${words.first().first()}${words.last().first()}"
+            words.size==1->words.first().take(2)
+            else->mnv.takeLast(2)
+        }
+        return raw.uppercase().ifBlank{"--"}
     }
     private fun shiftStaffOrdered(rows:List<JSONObject>):List<JSONObject>{
         val unique=rows.distinctBy{it.optString("session_id").ifBlank{"${it.optString("mnv")}|${it.optString("enter_at")}"}}
-            .filter{dash(it.optString("enter_at"))!="-"}
+            .filter{dash(it.optString("enter_at"))!="-" }
         fun foldedOrLast(v:String)=foldLocal(v).ifBlank{"\uFFFF"}
         return unique.sortedWith(Comparator{a,b->
             val x=shiftStaffIdentity(a);val y=shiftStaffIdentity(b)
@@ -309,22 +329,92 @@ class OperationsActivity : Activity() {
             foldedOrLast(x.fullName).compareTo(foldedOrLast(y.fullName))
         })
     }
-    private fun showCurrentDayShiftStaff(date:String,shift:String,rows:List<JSONObject>){
+    private fun showCurrentDayShiftStaff(date:String,shift:String,rows:List<JSONObject>,filter:String="ALL"){
         screenState="SHIFT_STAFF_LIST"
-        val root=baseRoot("$shift • ${businessDateVi(date)}")
+        val root=baseRoot("DANH SÁCH NHÂN SỰ THEO CA")
         val body=body()
-        addBusinessShiftReconciliation(body);body.addView(gap(5))
         val clean=shiftStaffOrdered(rows)
-        if(clean.isEmpty()){
-            body.addView(info("Chưa có nhân sự vào $shift trong ngày ${businessDateVi(date)}."))
-        }else clean.forEach{ses->
-            val identity=shiftStaffIdentity(ses)
-            val ended=ses.optString("state").equals("ENDED",true)&&dash(ses.optString("exit_at"))!="-"
-            val card=listCard("${dash(identity.supplier)} • ${dash(identity.mnv)} • ${dash(identity.fullName)}","Vào ${compactAttendanceTime(ses.optString("enter_at"))} • Ra ${if(ended)compactAttendanceTime(ses.optString("exit_at")) else "-"}")
-            card.isClickable=true
-            card.isFocusable=true
-            card.setOnClickListener{if(identity.mnv.isNotBlank())loadEmployee(identity.mnv)}
-            body.addView(card,matchWrap());body.addView(gap(5))
+        val endedCount=clean.count{shiftStaffEnded(it)}
+        val activeCount=(clean.size-endedCount).coerceAtLeast(0)
+
+        body.addView(txt("$shift • ${businessDateVi(date)}",11f,navy,true).apply{setPadding(dp(2),dp(2),dp(2),dp(7))})
+        val filters=row(bg).apply{gravity=Gravity.CENTER_VERTICAL}
+        fun chip(label:String,count:Int,key:String):TextView{
+            val selected=filter==key
+            return txt("$label ($count)",9.3f,if(selected)Color.WHITE else navy,true).apply{
+                gravity=Gravity.CENTER
+                setPadding(dp(4),0,dp(4),0)
+                background=if(selected)round(teal,12) else outlineBg(surface,12)
+                isClickable=true;isFocusable=true
+                setOnClickListener{if(filter!=key)showCurrentDayShiftStaff(date,shift,rows,key)}
+            }
+        }
+        listOf(Triple("Tất cả",clean.size,"ALL"),Triple("Trong ca",activeCount,"ACTIVE"),Triple("Đã ra ca",endedCount,"ENDED")).forEachIndexed{i,(label,count,key)->
+            filters.addView(chip(label,count,key),LinearLayout.LayoutParams(0,dp(40),1f).apply{
+                if(i>0)marginStart=dp(3)
+                if(i<2)marginEnd=dp(3)
+            })
+        }
+        body.addView(filters,matchWrap());body.addView(gap(8))
+
+        val visible=when(filter){
+            "ACTIVE"->clean.filterNot{shiftStaffEnded(it)}
+            "ENDED"->clean.filter{shiftStaffEnded(it)}
+            else->clean
+        }
+        if(visible.isEmpty()){
+            body.addView(info("Không có nhân sự phù hợp bộ lọc trong $shift ngày ${businessDateVi(date)}."))
+            attach(root,body);return
+        }
+
+        fun supplierKey(ses:JSONObject)=shiftStaffIdentity(ses).supplier.ifBlank{"Chưa xác định NCC"}
+        val allGroups=clean.groupBy{supplierKey(it)}
+        val visibleGroups=visible.groupBy{supplierKey(it)}
+        visibleGroups.forEach{(supplier,groupRows)->
+            val allGroup=allGroups[supplier].orEmpty()
+            val groupEnded=allGroup.count{shiftStaffEnded(it)}
+            val groupActive=(allGroup.size-groupEnded).coerceAtLeast(0)
+            val box=column(surface).apply{background=outlineBg(surface,10)}
+            val header=column(teal).apply{setPadding(dp(10),dp(7),dp(10),dp(7));background=round(teal,10)}
+            val headerTop=row(teal).apply{gravity=Gravity.CENTER_VERTICAL}
+            headerTop.addView(txt(supplier,12f,Color.WHITE,true),LinearLayout.LayoutParams(0,-2,1f))
+            headerTop.addView(txt("${allGroup.size} người",9.4f,Color.WHITE,true))
+            header.addView(headerTop,matchWrap())
+            header.addView(txt("Trong ca $groupActive  •  Đã ra ca $groupEnded",8.8f,Color.WHITE,false))
+            box.addView(header,matchWrap())
+
+            groupRows.forEachIndexed{index,ses->
+                val identity=shiftStaffIdentity(ses)
+                val ended=shiftStaffEnded(ses)
+                val item=row(surface).apply{
+                    gravity=Gravity.CENTER_VERTICAL
+                    setPadding(dp(8),dp(8),dp(8),dp(8))
+                    isClickable=true;isFocusable=true
+                    contentDescription="Mở quét QR vào ra ${dash(identity.fullName)}"
+                    setOnClickListener{if(identity.mnv.isNotBlank())loadEmployee(identity.mnv)}
+                }
+                val initials=txt(staffInitials(identity.fullName,identity.mnv),10.5f,teal,true).apply{
+                    gravity=Gravity.CENTER
+                    background=GradientDrawable().apply{shape=GradientDrawable.OVAL;setColor(Color.rgb(232,247,238))}
+                }
+                item.addView(initials,LinearLayout.LayoutParams(dp(36),dp(36)).apply{marginEnd=dp(8)})
+                val infoCol=column(surface)
+                infoCol.addView(txt(dash(identity.fullName),11.4f,ink,true))
+                infoCol.addView(txt("MNV: ${dash(identity.mnv)} • ${dash(identity.position)}",9.2f,muted,false))
+                infoCol.addView(txt("Vào ${compactAttendanceTime(ses.optString("enter_at"))} • Ra ${if(ended)compactAttendanceTime(ses.optString("exit_at")) else "-"}",9.2f,muted,false))
+                item.addView(infoCol,LinearLayout.LayoutParams(0,-2,1f))
+                val statusText=if(ended)"Đã ra ca" else "Trong ca"
+                val statusFg=if(ended)Color.rgb(82,93,103) else green
+                val statusBg=if(ended)Color.rgb(244,246,248) else Color.rgb(235,248,239)
+                item.addView(txt(statusText,8.8f,statusFg,true).apply{
+                    gravity=Gravity.CENTER
+                    setPadding(dp(5),0,dp(5),0)
+                    background=round(statusBg,10)
+                },LinearLayout.LayoutParams(dp(72),dp(30)).apply{marginStart=dp(6)})
+                box.addView(item,matchWrap())
+                if(index<groupRows.lastIndex)box.addView(View(this).apply{setBackgroundColor(line)},LinearLayout.LayoutParams(-1,dp(1)).apply{marginStart=dp(52)})
+            }
+            body.addView(box,matchWrap());body.addView(gap(8))
         }
         attach(root,body)
     }
@@ -1985,6 +2075,63 @@ class OperationsActivity : Activity() {
         body.addView(gap(7))
     }
 
+
+    private fun qrBitmap(value:String,sizePx:Int):Bitmap{
+        val matrix=QRCodeWriter().encode(value,BarcodeFormat.QR_CODE,sizePx,sizePx)
+        val pixels=IntArray(sizePx*sizePx)
+        for(y in 0 until sizePx)for(x in 0 until sizePx)pixels[y*sizePx+x]=if(matrix[x,y])Color.BLACK else Color.WHITE
+        return Bitmap.createBitmap(sizePx,sizePx,Bitmap.Config.RGB_565).apply{setPixels(pixels,0,sizePx,0,0,sizePx,sizePx)}
+    }
+    private fun addReleaseQrCard(body:LinearLayout,label:String,result:BetaApiClient.Result){
+        val json=result.json
+        val url=json?.optString("apk_url").orEmpty().trim()
+        val version=json?.optString("version_name").orEmpty().trim()
+        body.addView(section(label))
+        if(!result.ok||url.isBlank()||version.isBlank()){
+            val message=if(label=="STABLE")"Stable chưa có bản phát hành công khai. QR Stable sẽ tự xuất hiện sau khi OWNER phát hành Stable." else "Không lấy được bản Beta công khai mới nhất. Kiểm tra mạng và thử lại."
+            body.addView(info(message));body.addView(gap(8));return
+        }
+        val card=column(surface).apply{setPadding(dp(12),dp(10),dp(12),dp(12));background=outlineBg(surface,10)}
+        card.addView(txt("$label • $version",12f,navy,true))
+        card.addView(txt("Quét QR để tải trực tiếp APK mới nhất từ GitHub Release.",9.2f,muted,false))
+        card.addView(gap(7))
+        val qrSize=dp(210).coerceAtLeast(210)
+        val qr=ImageView(this).apply{
+            setImageBitmap(qrBitmap(url,qrSize))
+            adjustViewBounds=true
+            contentDescription="QR tải ứng dụng $label $version"
+            setPadding(dp(5),dp(5),dp(5),dp(5))
+            setBackgroundColor(Color.WHITE)
+        }
+        card.addView(qr,LinearLayout.LayoutParams(qrSize,qrSize).apply{gravity=Gravity.CENTER_HORIZONTAL})
+        card.addView(gap(5))
+        val sizeText=json.optLong("size",0L).takeIf{it>0L}?.let{humanBytes(it)}?:"chưa có dung lượng"
+        card.addView(txt("Nguồn tải: GitHub Release • $sizeText",8.8f,muted,false).apply{gravity=Gravity.CENTER_HORIZONTAL})
+        body.addView(card,matchWrap());body.addView(gap(8))
+    }
+    private fun renderAppDownloadQrScreen(beta:BetaApiClient.Result,stable:BetaApiClient.Result){
+        if(screenState!="APP_DOWNLOAD_QR")return
+        val root=baseRoot("QR TẢI ỨNG DỤNG")
+        val body=body()
+        body.addView(info("Quét QR bằng điện thoại/PDA để tải APK mới nhất. Link được đọc động từ GitHub Release; không dùng Google Drive."))
+        body.addView(gap(6))
+        addReleaseQrCard(body,"BETA",beta)
+        addReleaseQrCard(body,"STABLE",stable)
+        attach(root,body)
+    }
+    private fun appDownloadQrScreen(){
+        module="SETTINGS";screenState="APP_DOWNLOAD_QR"
+        val root=baseRoot("QR TẢI ỨNG DỤNG")
+        val body=body()
+        body.addView(info("Đang lấy bản Beta và Stable mới nhất…"))
+        attach(root,body)
+        api.latestGithubRelease("BETA"){beta->
+            api.latestGithubRelease("STABLE"){stable->
+                runOnUiThread{renderAppDownloadQrScreen(beta,stable)}
+            }
+        }
+    }
+
     private fun settingsScreen(){
         module="SETTINGS"
         screenState="SETTINGS"
@@ -2032,6 +2179,11 @@ class OperationsActivity : Activity() {
         if(pendingUpdate!=null)addVersionChangelog(body,"THAY ĐỔI BẢN MỚI",pendingUpdate.version,pendingUpdate.notes)
         addVersionChangelog(body,"THAY ĐỔI BẢN HIỆN TẠI",BuildConfig.VERSION_NAME,ReleaseNotes.currentText())
         body.addView(primary(if(pendingUpdate!=null)"TIẾP TỤC CẬP NHẬT" else "KIỂM TRA CẬP NHẬT",teal){UpdateManager.openManual(this)},matchWrap())
+        body.addView(gap(10))
+        body.addView(section("QR TẢI ỨNG DỤNG"))
+        body.addView(info("Tạo QR tải trực tiếp APK mới nhất theo từng kênh phát hành."))
+        body.addView(gap(6))
+        body.addView(primary("MỞ QR TẢI ỨNG DỤNG",teal){appDownloadQrScreen()},matchWrap())
         body.addView(gap(10))
         body.addView(section("NHẬT KÝ"))
         val basicLogRows=LocalLogManager.detailRows(this).filter{it.first in setOf("Tên tệp nhật ký","Dung lượng tệp","Thời gian cập nhật mới nhất","Trạng thái tải lên / đồng bộ")}
@@ -2378,7 +2530,7 @@ class OperationsActivity : Activity() {
         when(screenState){
             "LABOR_CONTEXT"->laborHome()
             "RESOURCE_EDITOR","RESOURCE_LIST"->resourceHome()
-            "ACCOUNT_MANAGER"->settingsScreen()
+            "ACCOUNT_MANAGER","APP_DOWNLOAD_QR"->settingsScreen()
             "EMPLOYEE","EMPLOYEE_LOADING","EMPLOYEE_LOOKUP_ERROR"->employeeScan()
             "SHIFT_STAFF_LIST"->employeeScan()
             "SCAN","LABOR_HOME","RESOURCE_HOME","REPORT","LISTS","PDA_EXCHANGE","DROP_RECEIVE","MEAL_ATTENDANCE"->businessHome()
