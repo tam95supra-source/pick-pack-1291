@@ -534,34 +534,73 @@ object DocumentManagementFeature {
             if(::modeSpinner.isInitialized)modeSpinner.isEnabled=false
             uploadButton.isEnabled=false;uploadButton.alpha=.4f
         }
-        private fun refreshDocuments        private fun refreshDocuments(){
+        private fun refreshDocuments        private fun selectedFilterId():String=if(::filterSpinner.isInitialized)filterCategoryIds.getOrNull(filterSpinner.selectedItemPosition).orEmpty() else ""
+        private fun refreshDocuments(){
+            val category=selectedFilterId()
+            val path=if(category.isBlank())"/v1/documents?limit=100" else "/v1/documents?limit=100&category_id="+java.net.URLEncoder.encode(category,"UTF-8")
             executor.execute{
-                val result=client.get("/v1/documents?limit=60")
+                val result=client.get(path)
                 postUi{
-                    recordsHost.removeAllViews()
-                    if(!result.ok){emptyText.visibility=View.VISIBLE;emptyText.text="Không tải được danh sách: ${messageFor(result.error)}";return@postUi}
+                    recordsHost.removeAllViews();selectedDocumentIds.clear();updateDeleteSelection()
+                    if(!result.ok){emptyText.visibility=View.VISIBLE;emptyText.text=messageFor(result.error);return@postUi}
                     val arr=result.json?.optJSONArray("items")?:JSONArray()
-                    if(arr.length()==0){emptyText.visibility=View.VISIBLE;emptyText.text="Chưa có biên bản nào.";return@postUi}
+                    if(arr.length()==0){emptyText.visibility=View.VISIBLE;emptyText.text="Chưa có biên bản.";return@postUi}
                     emptyText.visibility=View.GONE
-                    for(i in 0 until arr.length())recordsHost.addView(recordCard(arr.optJSONObject(i)?:continue),LinearLayout.LayoutParams(-1,-2).apply{bottomMargin=dp(7)})
+                    for(i in 0 until arr.length()){val item=arr.optJSONObject(i)?:continue;recordsHost.addView(recordCard(item),LinearLayout.LayoutParams(-1,-2).apply{bottomMargin=dp(5)})}
                 }
             }
         }
         private fun recordCard(o:JSONObject):View{
-            val card=column().apply{background=bg();setPadding(dp(10),dp(8),dp(10),dp(8))}
-            val top=row()
-            top.addView(text(o.optString("category_name","Biên bản"),10.8f,navy,true),LinearLayout.LayoutParams(0,-2,1f))
-            val view=button("Xem ảnh",teal)
-            top.addView(view,LinearLayout.LayoutParams(dp(84),dp(36)))
-            card.addView(top)
-            card.addView(gap(3))
-            val who=o.optString("uploader_name").ifBlank{o.optString("uploader_id")}
-            card.addView(text("$who • ${formatTime(o.optString("completed_at").ifBlank{o.optString("created_at")})}",9.3f,ink))
-            card.addView(text("${o.optInt("width")}×${o.optInt("height")} • ${formatBytes(o.optLong("byte_size"))}",8.8f,muted))
-            view.setOnClickListener{viewDocument(o.optString("document_id"))}
+            val card=column().apply{background=bg();setPadding(dp(7),dp(6),dp(7),dp(6))}
+            val top=row();val id=o.optString("document_id")
+            val check=CheckBox(activity).apply{
+                isChecked=id in selectedDocumentIds
+                setOnCheckedChangeListener{_,on->if(on)selectedDocumentIds.add(id)else selectedDocumentIds.remove(id);updateDeleteSelection()}
+            }
+            top.addView(check,LinearLayout.LayoutParams(dp(40),dp(40)))
+            val detail=column()
+            detail.addView(text(o.optString("category_name").takeUnless{it.isBlank()||it.equals("null",true)}?:"-",10.5f,navy,true))
+            val pages=o.optInt("page_count",1).coerceAtLeast(1);val page=o.optInt("page_index",1).coerceAtLeast(1)
+            val pageLabel=if(pages>1)"Trang $page/$pages" else "1 trang"
+            val who=o.optString("uploader_name").ifBlank{o.optString("uploader_id")}.takeUnless{it.equals("null",true)}?:"-"
+            detail.addView(text("$pageLabel • $who • ${formatTime(o.optString("completed_at").ifBlank{o.optString("created_at")})}",8.9f,ink))
+            detail.addView(text("${o.optInt("width")}×${o.optInt("height")} • ${formatBytes(o.optLong("byte_size"))}",8.5f,muted))
+            top.addView(detail,LinearLayout.LayoutParams(0,-2,1f))
+            val view=button("Xem",teal);top.addView(view,LinearLayout.LayoutParams(dp(64),dp(36)))
+            card.addView(top);view.setOnClickListener{viewDocument(id)}
             return card
         }
-        private fun viewDocument(documentId:String){
+        private fun updateDeleteSelection(){
+            if(!::selectedDeleteText.isInitialized)return
+            selectedDeleteText.text="Đã chọn ${selectedDocumentIds.size} ảnh"
+            deleteSelectedButton.isEnabled=selectedDocumentIds.isNotEmpty()&&!busy
+            deleteSelectedButton.alpha=if(deleteSelectedButton.isEnabled)1f else .4f
+        }
+        private fun deleteSelectedRecords(){
+            val ids=selectedDocumentIds.toList();if(ids.isEmpty()||busy)return
+            confirmAction("xóa ${ids.size} ảnh biên bản"){startDeleteRecords(ids)}
+        }
+        private fun startDeleteRecords(ids:List<String>){
+            if(busy)return;busy=true;postUi{deleteSelectedButton.isEnabled=false}
+            executor.execute{
+                var result=client.post("/v1/documents/delete",JSONObject().put("operation","START").put("document_ids",JSONArray(ids)).put("idempotency_key",UUID.randomUUID().toString()))
+                var mutation=result.json?.optJSONObject("mutation");var loops=0
+                while(result.ok&&mutation?.optString("state")=="RUNNING"&&loops<100&&!disposed){
+                    Thread.sleep(300L);val mutationId=mutation.optString("mutation_id");if(mutationId.isBlank())break
+                    result=client.post("/v1/documents/delete",JSONObject().put("operation","PROCESS").put("mutation_id",mutationId));mutation=result.json?.optJSONObject("mutation");loops++
+                }
+                busy=false
+                postUi{
+                    when{
+                        result.ok&&mutation?.optString("state")=="DONE"->{ids.forEach{mediaCache.clear(it)};success("Đã xóa ${mutation.optInt("processed_items",ids.size)} ảnh.")}
+                        result.ok&&mutation?.optString("state")=="RUNNING"->warning("Đang tiếp tục xóa.")
+                        else->error(messageFor(result.error?:mutation?.optString("last_error")))
+                    }
+                    selectedDocumentIds.clear();updateDeleteSelection();refreshDocuments()
+                }
+            }
+        }
+        private fun viewDocument        private fun viewDocument(documentId:String){
             if(busy)return
             val id=documentId.trim()
             if(id.isBlank())return
