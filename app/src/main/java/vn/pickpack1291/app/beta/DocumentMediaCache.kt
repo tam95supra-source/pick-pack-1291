@@ -15,7 +15,7 @@ class DocumentMediaCache(context:Context) {
     }
     fun put(documentId:String,bytes:ByteArray)=synchronized(lock){
         if(bytes.isEmpty()||bytes.size>MAX_SINGLE_BYTES)return
-        val f=file(documentId),tmp=File(dir,safe(documentId)+".jpg.tmp")
+        val f=file(documentId)\n        val tmp=File(dir,safe(documentId)+".jpg.tmp")
         tmp.outputStream().use{it.write(bytes)}
         if(!tmp.renameTo(f)){tmp.delete();return}
         f.setLastModified(System.currentTimeMillis())
