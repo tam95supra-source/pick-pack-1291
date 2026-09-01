@@ -14,7 +14,7 @@ import { enqueueInvalidation } from "./push";
 import { claimMaintenance, d1CapacitySnapshot, recordVerifiedBackup, runD1Retention } from "./d1_maintenance";
 import { apiError, json, nowIso } from "./util";
 import { lanReplayBatch } from "./lan_recovery";
-import { documentCategories, documentCategoryMutate, documentComplete, documentList, documentMedia, documentUploadSession, processDocumentCategoryMutations } from "./document_management";
+import { documentCategories, documentCategoryMutate, documentComplete, documentDeleteMutate, documentList, documentMedia, documentUploadSession, flushDocumentAuditHistory, processDocumentCategoryMutations, processDocumentDeleteMutations } from "./document_management";
 
 export { RealtimeHub };
 
@@ -83,6 +83,7 @@ export default {
     if(u.pathname==="/v1/documents"&&method==="GET")return documentList(request,env);
     if(u.pathname==="/v1/documents/upload-session"&&method==="POST")return documentUploadSession(request,env);
     if(u.pathname==="/v1/documents/complete"&&method==="POST")return documentComplete(request,env);
+    if(u.pathname==="/v1/documents/delete"&&method==="POST")return documentDeleteMutate(request,env);
     const documentMediaParts=u.pathname.split("/");
     if(method==="GET"&&documentMediaParts.length===5&&documentMediaParts[1]==="v1"&&documentMediaParts[2]==="documents"&&documentMediaParts[4]==="media"&&documentMediaParts[3]){
       return documentMedia(request,env,decodeURIComponent(documentMediaParts[3]));
@@ -106,7 +107,9 @@ export default {
     await flushSessionSpecialProjections(env);
     try{
       const docMut=await processDocumentCategoryMutations(env);
-      if(docMut.processed>0)console.log(JSON.stringify({level:"info",kind:"document_category_mutations",...docMut}));
+      const docDelete=await processDocumentDeleteMutations(env);
+      const docHistory=await flushDocumentAuditHistory(env);
+      if(docMut.processed>0||docDelete.processed>0||docHistory>0)console.log(JSON.stringify({level:"info",kind:"document_maintenance",category:docMut,delete:docDelete,history:docHistory}));
     }catch(e){console.log(JSON.stringify({level:"error",kind:"document_category_mutations_failed",error:String(e).slice(0,500)}));}
     try{const outbound=await replicateOutboundPending(env);console.log(JSON.stringify({level:"info",kind:"beta78_outbound_replication",...outbound}));}
     catch(e){console.log(JSON.stringify({level:"error",kind:"beta78_outbound_replication_failed",error:String(e).slice(0,500)}));}

@@ -53,11 +53,18 @@ object DocumentManagementFeature {
         private val muted=Color.rgb(100,116,139)
         private val red=Color.rgb(218,45,53)
         private val green=Color.rgb(36,153,85)
-        private var selected:Selected?=null
+        private val selected=mutableListOf<Selected>()
+        private val selectedDocumentIds=linkedSetOf<String>()
         private var categoryIds=listOf<String>()
         private var categoryNames=listOf<String>()
         private lateinit var categorySpinner:Spinner
-        private lateinit var preview:ImageView
+        private lateinit var modeSpinner:Spinner
+        private lateinit var filterSpinner:Spinner
+        private lateinit var deleteSelectedButton:Button
+        private lateinit var selectedDeleteText:TextView
+        private var filterCategoryIds=listOf<String>("")
+        private var suppressFilter=false
+        private lateinit var selectedHost:LinearLayout
         private lateinit var previewMeta:TextView
         private lateinit var uploadButton:Button
         private lateinit var pendingText:TextView
@@ -92,10 +99,6 @@ object DocumentManagementFeature {
             scroll.addView(body,ViewGroup.LayoutParams(-1,-2))
             root.addView(scroll,LinearLayout.LayoutParams(-1,0,1f))
 
-            body.addView(text("Ảnh được nén trên máy rồi tải thẳng lên Google Drive. Service chỉ lưu thông tin biên bản và dấu vân tay chống trùng.",9.6f,muted))
-            body.addView(gap(3))
-            body.addView(text("Người tải: ${displayName.ifBlank{login}}",9.2f,ink,true))
-            body.addView(gap(9))
 
             val categoryBox=column().apply{background=bg();setPadding(dp(10),dp(9),dp(10),dp(10))}
             categoryBox.addView(text("Loại biên bản",10f,muted,true))
@@ -111,30 +114,33 @@ object DocumentManagementFeature {
             categoryActions.addView(edit,LinearLayout.LayoutParams(0,dp(42),1f).apply{marginStart=dp(3);marginEnd=dp(3)})
             categoryActions.addView(remove,LinearLayout.LayoutParams(0,dp(42),1f).apply{marginStart=dp(3)})
             categoryBox.addView(categoryActions,LinearLayout.LayoutParams(-1,-2))
-            categoryBox.addView(gap(5))
-            categoryBox.addView(text("Sửa: đổi tên toàn bộ biên bản và file Drive thuộc loại. Xóa: xóa hẳn ảnh + dữ liệu. Cả hai đều yêu cầu mã xác nhận.",8.8f,muted))
             body.addView(categoryBox,LinearLayout.LayoutParams(-1,-2))
             body.addView(gap(10))
 
             val imageBox=column().apply{background=bg();setPadding(dp(10),dp(9),dp(10),dp(10))}
             imageBox.addView(text("Ảnh biên bản",10f,muted,true))
-            imageBox.addView(gap(6))
+            imageBox.addView(gap(5))
+            modeSpinner=Spinner(activity).apply{
+                adapter=ArrayAdapter(activity,android.R.layout.simple_spinner_dropdown_item,listOf("Một biên bản nhiều trang","Nhiều biên bản"))
+                minimumHeight=dp(42);setPadding(dp(8),0,dp(8),0);background=bg();isEnabled=false
+            }
+            imageBox.addView(modeSpinner,LinearLayout.LayoutParams(-1,dp(42)))
+            imageBox.addView(gap(5))
             val sourceActions=row()
             val camera=button("Chụp ảnh",teal)
-            val gallery=button("Chọn từ máy",navy)
+            val gallery=button("Chọn nhiều ảnh",navy)
             sourceActions.addView(camera,LinearLayout.LayoutParams(0,dp(44),1f).apply{marginEnd=dp(4)})
             sourceActions.addView(gallery,LinearLayout.LayoutParams(0,dp(44),1f).apply{marginStart=dp(4)})
             imageBox.addView(sourceActions,LinearLayout.LayoutParams(-1,-2))
             imageBox.addView(gap(8))
-            preview=ImageView(activity).apply{
-                adjustViewBounds=true;scaleType=ImageView.ScaleType.FIT_CENTER;setBackgroundColor(Color.rgb(248,250,252))
-                contentDescription="Ảnh biên bản đã chọn";visibility=View.GONE
-            }
-            imageBox.addView(preview,LinearLayout.LayoutParams(-1,dp(190)))
-            previewMeta=text("Chưa chọn ảnh.",9.4f,muted)
+            val selectedScroll=HorizontalScrollView(activity).apply{isHorizontalScrollBarEnabled=false}
+            selectedHost=row().apply{setPadding(dp(3),dp(3),dp(3),dp(3))}
+            selectedScroll.addView(selectedHost,ViewGroup.LayoutParams(-2,dp(92)))
+            imageBox.addView(selectedScroll,LinearLayout.LayoutParams(-1,dp(92)))
+            previewMeta=text("0 ảnh",9.4f,muted)
             imageBox.addView(previewMeta)
             imageBox.addView(gap(8))
-            uploadButton=button("Tải biên bản lên",green).apply{isEnabled=false;alpha=.4f}
+            uploadButton=button("Tải lên",green).apply{isEnabled=false;alpha=.4f}
             imageBox.addView(uploadButton,LinearLayout.LayoutParams(-1,dp(46)))
             body.addView(imageBox,LinearLayout.LayoutParams(-1,-2))
             body.addView(gap(10))
@@ -148,8 +154,6 @@ object DocumentManagementFeature {
             pendingBox.addView(gap(4))
             pendingText=text("Đang kiểm tra ảnh chờ...",9.1f,muted)
             pendingBox.addView(pendingText)
-            pendingBox.addView(gap(3))
-            pendingBox.addView(text("Ảnh chỉ giữ tạm trên máy khi chưa được Drive xác nhận; tải xong sẽ tự xóa. Tối đa 60 ảnh / 120 MB.",8.7f,muted))
             body.addView(pendingBox,LinearLayout.LayoutParams(-1,-2))
             body.addView(gap(12))
 
@@ -157,8 +161,18 @@ object DocumentManagementFeature {
             listHead.addView(text("Biên bản đã tải",11.5f,navy,true),LinearLayout.LayoutParams(0,-2,1f))
             val refresh=button("Làm mới",navy)
             listHead.addView(refresh,LinearLayout.LayoutParams(dp(90),dp(38)))
-            body.addView(listHead,LinearLayout.LayoutParams(-1,-2));body.addView(gap(6))
-            emptyText=text("Đang tải danh sách...",9.5f,muted).apply{setPadding(dp(4),dp(8),dp(4),dp(8))}
+            body.addView(listHead,LinearLayout.LayoutParams(-1,-2));body.addView(gap(5))
+            filterSpinner=Spinner(activity).apply{minimumHeight=dp(42);setPadding(dp(8),0,dp(8),0);background=bg()}
+            filterCategoryIds=listOf("")+categoryIds
+            filterSpinner.adapter=ArrayAdapter(activity,android.R.layout.simple_spinner_dropdown_item,listOf("Tất cả loại biên bản")+categoryNames)
+            body.addView(filterSpinner,LinearLayout.LayoutParams(-1,dp(42)));body.addView(gap(5))
+            val selectionRow=row()
+            selectedDeleteText=text("Đã chọn 0 ảnh",9.3f,muted,true)
+            deleteSelectedButton=button("Xóa đã chọn",red).apply{isEnabled=false;alpha=.4f}
+            selectionRow.addView(selectedDeleteText,LinearLayout.LayoutParams(0,-2,1f))
+            selectionRow.addView(deleteSelectedButton,LinearLayout.LayoutParams(dp(112),dp(38)))
+            body.addView(selectionRow);body.addView(gap(5))
+            emptyText=text("Đang tải...",9.5f,muted).apply{setPadding(dp(4),dp(8),dp(4),dp(8))}
             body.addView(emptyText)
             recordsHost=column()
             body.addView(recordsHost,LinearLayout.LayoutParams(-1,-2))
@@ -171,6 +185,11 @@ object DocumentManagementFeature {
             uploadButton.setOnClickListener{uploadSelected()}
             retryPendingButton.setOnClickListener{retryPending()}
             refresh.setOnClickListener{refreshDocuments();refreshPending()}
+            deleteSelectedButton.setOnClickListener{deleteSelectedRecords()}
+            filterSpinner.onItemSelectedListener=object:AdapterView.OnItemSelectedListener{
+                override fun onNothingSelected(parent:AdapterView<*>?)=Unit
+                override fun onItemSelected(parent:AdapterView<*>?,view:View?,position:Int,id:Long){if(!suppressFilter)refreshDocuments()}
+            }
             restoreCachedCategories()
             restoreDraft()
             refreshCategories()
@@ -181,38 +200,67 @@ object DocumentManagementFeature {
         }
 
         fun dispose(){disposed=true;executor.shutdownNow()}
-        fun onImageSelected(uri:Uri,sourceKind:String){
+        fun onImageSelected(uri:Uri,sourceKind:String)=onImagesSelected(listOf(uri),sourceKind)
+
+        fun onImagesSelected(uris:List<Uri>,sourceKind:String){
             if(disposed||busy)return
+            val input=uris.distinctBy{it.toString()}.take((60-selected.size).coerceAtLeast(0))
+            if(input.isEmpty()){warning("Đã đạt tối đa 60 ảnh đang chọn.");return}
             busy=true
-            postUi{previewMeta.text="Đang tối ưu ảnh...";uploadButton.isEnabled=false;uploadButton.alpha=.4f}
+            postUi{previewMeta.text="Đang xử lý ${input.size} ảnh...";uploadButton.isEnabled=false;uploadButton.alpha=.4f}
             executor.execute{
-                try{
-                    val image=DocumentImageProcessor.process(activity,uri)
-                    val capturedAt=Instant.now().toString()
-                    val idempotencyKey=UUID.randomUUID().toString()
-                    draftStore.save(login,sourceKind,capturedAt,idempotencyKey,image)
-                    selected=Selected(image,sourceKind,capturedAt,idempotencyKey)
-                    postUi{
-                        val bmp=BitmapFactory.decodeByteArray(image.bytes,0,image.bytes.size)
-                        preview.setImageBitmap(bmp);preview.visibility=View.VISIBLE
-                        previewMeta.text="${image.width} × ${image.height} • ${formatBytes(image.bytes.size.toLong())} • đã tạo dấu vân tay chống trùng"
-                        uploadButton.isEnabled=categoryIds.isNotEmpty();uploadButton.alpha=if(uploadButton.isEnabled)1f else .4f
-                    }
-                }catch(t:Throwable){
-                    postUi{error("Không đọc được ảnh: ${t.message?:"IMAGE_READ_FAILED"}");previewMeta.text="Chưa chọn ảnh."}
-                }finally{
-                    if(sourceKind=="CAMERA")runCatching{activity.contentResolver.delete(uri,null,null)}
-                    busy=false
+                var added=0;var firstError:String?=null
+                for(uri in input){
+                    try{
+                        val image=DocumentImageProcessor.process(activity,uri)
+                        val capturedAt=Instant.now().toString();val idempotencyKey=UUID.randomUUID().toString()
+                        draftStore.append(login,sourceKind,capturedAt,idempotencyKey,image)
+                        selected.add(Selected(image,sourceKind,capturedAt,idempotencyKey));added++
+                    }catch(t:Throwable){if(firstError==null)firstError=t.message?:"IMAGE_READ_FAILED"}
+                    finally{if(sourceKind=="CAMERA")runCatching{activity.contentResolver.delete(uri,null,null)}}
+                }
+                busy=false
+                postUi{
+                    renderSelectedPreview()
+                    if(firstError!=null)warning("Có ảnh không đọc được: $firstError")
+                    if(added==0&&firstError!=null)error("Không thêm được ảnh.")
                 }
             }
         }
 
-        private fun applyCategoryEntries(entries:List<DocumentCategoryCache.Entry>){
-            categoryIds=entries.map{it.id}
-            categoryNames=entries.map{it.name}
-            categorySpinner.adapter=ArrayAdapter(activity,android.R.layout.simple_spinner_dropdown_item,if(categoryNames.isEmpty())listOf("Chưa có loại biên bản") else categoryNames)
-            uploadButton.isEnabled=selected!=null&&categoryIds.isNotEmpty()
+        private fun renderSelectedPreview(){
+            selectedHost.removeAllViews()
+            selected.take(12).forEachIndexed{index,item->
+                val box=column().apply{setPadding(dp(2),dp(2),dp(2),dp(2));background=bg(Color.rgb(248,250,252),8)}
+                val opts=BitmapFactory.Options().apply{inSampleSize=8;inPreferredConfig=android.graphics.Bitmap.Config.RGB_565}
+                val bmp=BitmapFactory.decodeByteArray(item.image.bytes,0,item.image.bytes.size,opts)
+                val thumb=ImageView(activity).apply{setImageBitmap(bmp);scaleType=ImageView.ScaleType.CENTER_CROP;contentDescription="Ảnh ${index+1}"}
+                box.addView(thumb,LinearLayout.LayoutParams(dp(66),dp(64)))
+                box.addView(text("${index+1}",8.5f,navy,true).apply{gravity=Gravity.CENTER},LinearLayout.LayoutParams(dp(66),dp(18)))
+                selectedHost.addView(box,LinearLayout.LayoutParams(dp(70),dp(86)).apply{marginEnd=dp(3)})
+            }
+            if(selected.size>12)selectedHost.addView(text("+${selected.size-12}",12f,navy,true).apply{gravity=Gravity.CENTER},LinearLayout.LayoutParams(dp(54),dp(86)))
+            val total=selected.sumOf{it.image.bytes.size.toLong()}
+            previewMeta.text=if(selected.isEmpty())"0 ảnh" else "${selected.size} ảnh • ${formatBytes(total)}"
+            if(::modeSpinner.isInitialized)modeSpinner.isEnabled=selected.size>1
+            uploadButton.isEnabled=selected.isNotEmpty()&&categoryIds.isNotEmpty()&&!busy
             uploadButton.alpha=if(uploadButton.isEnabled)1f else .4f
+        }
+        private fun applyCategoryEntries(entries:List<DocumentCategoryCache.Entry>){
+            val previousCategory=selectedCategory()?.first
+            val previousFilter=if(::filterSpinner.isInitialized)filterCategoryIds.getOrNull(filterSpinner.selectedItemPosition).orEmpty() else ""
+            categoryIds=entries.map{it.id};categoryNames=entries.map{it.name}
+            categorySpinner.adapter=ArrayAdapter(activity,android.R.layout.simple_spinner_dropdown_item,if(categoryNames.isEmpty())listOf("Chưa có loại biên bản") else categoryNames)
+            val categoryIndex=previousCategory?.let{categoryIds.indexOf(it)}?.takeIf{it>=0}?:0
+            if(categoryIds.isNotEmpty())categorySpinner.setSelection(categoryIndex)
+            if(::filterSpinner.isInitialized){
+                filterCategoryIds=listOf("")+categoryIds
+                suppressFilter=true
+                filterSpinner.adapter=ArrayAdapter(activity,android.R.layout.simple_spinner_dropdown_item,listOf("Tất cả loại biên bản")+categoryNames)
+                filterSpinner.setSelection(filterCategoryIds.indexOf(previousFilter).takeIf{it>=0}?:0)
+                suppressFilter=false
+            }
+            renderSelectedPreview()
         }
         private fun restoreCachedCategories(){
             val cached=categoryCache.load(login)
@@ -221,15 +269,10 @@ object DocumentManagementFeature {
         }
         private fun restoreDraft(){
             executor.execute{
-                val draft=draftStore.load(login)?:return@execute
-                selected=Selected(draft.image,draft.sourceKind,draft.capturedAt,draft.idempotencyKey)
-                postUi{
-                    val bmp=BitmapFactory.decodeByteArray(draft.image.bytes,0,draft.image.bytes.size)
-                    if(bmp==null){draftStore.remove(login);selected=null;return@postUi}
-                    preview.setImageBitmap(bmp);preview.visibility=View.VISIBLE
-                    previewMeta.text="${draft.image.width} × ${draft.image.height} • ${formatBytes(draft.image.bytes.size.toLong())} • đã khôi phục ảnh đang chọn"
-                    uploadButton.isEnabled=categoryIds.isNotEmpty();uploadButton.alpha=if(uploadButton.isEnabled)1f else .4f
-                }
+                val drafts=draftStore.loadAll(login)
+                if(drafts.isEmpty())return@execute
+                selected.clear();selected.addAll(drafts.map{Selected(it.image,it.sourceKind,it.capturedAt,it.idempotencyKey)})
+                postUi{renderSelectedPreview()}
             }
         }
         private fun refreshCategories(){
@@ -369,38 +412,53 @@ object DocumentManagementFeature {
             }
         }
         private fun uploadSelected(){
-            val selectedItem=selected?:return
-            val index=categorySpinner.selectedItemPosition
-            val categoryId=categoryIds.getOrNull(index)?:run{warning("Hãy thêm/chọn loại biên bản.");return}
+            val batch=selected.toList();if(batch.isEmpty())return
+            val categoryId=categoryIds.getOrNull(categorySpinner.selectedItemPosition)?:run{warning("Chọn loại biên bản.");return}
             if(busy)return
-            busy=true
-            postUi{uploadButton.isEnabled=false;uploadButton.text="Đang lưu ảnh chờ..."}
+            busy=true;postUi{uploadButton.isEnabled=false;uploadButton.text="Đang lưu..."}
             executor.execute{
-                val pending=try{
-                    pendingStore.enqueue(login,categoryId,selectedItem.sourceKind,selectedItem.capturedAt,selectedItem.idempotencyKey,selectedItem.image)
-                }catch(t:Throwable){
-                    busy=false
-                    postUi{
-                        uploadButton.isEnabled=true;uploadButton.text="Tải biên bản lên"
-                        error(messageFor(t.message))
-                        refreshPending()
+                val mode=when{batch.size<=1->"SINGLE";modeSpinner.selectedItemPosition==0->"MULTI_PAGE";else->"MULTI_DOCUMENT"}
+                val sharedGroup="batch-"+batch.first().idempotencyKey
+                val queued=mutableListOf<DocumentPendingStore.Item>();var enqueueError:String?=null
+                batch.forEachIndexed{index,item->
+                    if(enqueueError==null){
+                        val groupId=if(mode=="MULTI_PAGE")sharedGroup else "doc-"+item.idempotencyKey
+                        try{
+                            val pageIndex=if(mode=="MULTI_PAGE")index+1 else 1
+                            val pageCount=if(mode=="MULTI_PAGE")batch.size else 1
+                            queued+=pendingStore.enqueue(login,categoryId,item.sourceKind,item.capturedAt,item.idempotencyKey,item.image,groupId,mode,pageIndex,pageCount)
+                        }catch(t:Throwable){enqueueError=t.message?:"DOCUMENT_PENDING_SAVE_FAILED"}
                     }
-                    return@execute
                 }
-                draftStore.remove(login)
-                selected=null
-                postUi{clearSelected();refreshPending();uploadButton.text="Đang tải thẳng lên Drive..."}
-                val outcome=uploadEngine.runOne(pending)
+                if(enqueueError!=null){
+                    busy=false;postUi{uploadButton.text="Tải lên";error(messageFor(enqueueError));refreshPending();renderSelectedPreview()};return@execute
+                }
+                draftStore.remove(login);selected.clear()
+                var completed=0;var exact=0;var retry=false;var blocked=0;var reviewId:String?=null
+                for(item in queued){
+                    val outcome=uploadEngine.runOne(item)
+                    when(outcome.status){
+                        DocumentUploadEngine.Status.SUCCESS->completed++
+                        DocumentUploadEngine.Status.EXACT_DUPLICATE_RESOLVED->exact++
+                        DocumentUploadEngine.Status.SIMILAR_REVIEW_REQUIRED->if(reviewId==null)reviewId=item.pendingId
+                        DocumentUploadEngine.Status.RETRY->{retry=true;DocumentUploadWorker.schedule(activity,true)}
+                        else->blocked++
+                    }
+                }
                 busy=false
                 postUi{
-                    uploadButton.text="Tải biên bản lên"
-                    handleUploadOutcome(pending.pendingId,outcome)
-                    refreshPending()
-                    refreshDocuments()
+                    uploadButton.text="Tải lên";clearSelected();refreshPending();refreshDocuments()
+                    when{
+                        reviewId!=null->showSimilarConfirm(reviewId!!)
+                        completed>0&&retry->warning("Đã tải $completed ảnh; còn ảnh chờ tải.")
+                        completed>0->success("Đã tải $completed ảnh.")
+                        exact>0&&blocked==0&&!retry->warning("Ảnh trùng đã được chặn.")
+                        retry->warning("Ảnh đang chờ tải.")
+                        blocked>0->error("Có ảnh chưa thể xử lý.")
+                    }
                 }
             }
         }
-
         private fun handleUploadOutcome(pendingId:String,outcome:DocumentUploadEngine.Outcome){
             when(outcome.status){
                 DocumentUploadEngine.Status.SUCCESS->success("Đã tải biên bản lên Google Drive.")
@@ -478,36 +536,93 @@ object DocumentManagementFeature {
             retryPendingButton.alpha=if(retryPendingButton.isEnabled)1f else .45f
         }
         private fun clearSelected(){
-            preview.setImageDrawable(null);preview.visibility=View.GONE;previewMeta.text="Chưa chọn ảnh."
+            selectedHost.removeAllViews();previewMeta.text="0 ảnh"
+            if(::modeSpinner.isInitialized)modeSpinner.isEnabled=false
             uploadButton.isEnabled=false;uploadButton.alpha=.4f
         }
-
+        private fun selectedFilterId():String=if(::filterSpinner.isInitialized)filterCategoryIds.getOrNull(filterSpinner.selectedItemPosition).orEmpty() else ""
         private fun refreshDocuments(){
+            val category=selectedFilterId()
+            val path=if(category.isBlank())"/v1/documents?limit=100" else "/v1/documents?limit=100&category_id="+java.net.URLEncoder.encode(category,"UTF-8")
             executor.execute{
-                val result=client.get("/v1/documents?limit=60")
+                val result=client.get(path)
                 postUi{
-                    recordsHost.removeAllViews()
-                    if(!result.ok){emptyText.visibility=View.VISIBLE;emptyText.text="Không tải được danh sách: ${messageFor(result.error)}";return@postUi}
+                    recordsHost.removeAllViews();selectedDocumentIds.clear();updateDeleteSelection()
+                    if(!result.ok){emptyText.visibility=View.VISIBLE;emptyText.text=messageFor(result.error);return@postUi}
                     val arr=result.json?.optJSONArray("items")?:JSONArray()
-                    if(arr.length()==0){emptyText.visibility=View.VISIBLE;emptyText.text="Chưa có biên bản nào.";return@postUi}
+                    if(arr.length()==0){emptyText.visibility=View.VISIBLE;emptyText.text="Chưa có biên bản.";return@postUi}
                     emptyText.visibility=View.GONE
-                    for(i in 0 until arr.length())recordsHost.addView(recordCard(arr.optJSONObject(i)?:continue),LinearLayout.LayoutParams(-1,-2).apply{bottomMargin=dp(7)})
+                    val groups=linkedMapOf<String,MutableList<JSONObject>>()
+                    for(i in 0 until arr.length()){
+                        val item=arr.optJSONObject(i)?:continue
+                        val key=item.optString("group_id").takeIf{it.isNotBlank()}?:item.optString("document_id")
+                        groups.getOrPut(key){mutableListOf()}.add(item)
+                    }
+                    groups.values.forEach{items->
+                        recordsHost.addView(recordGroupCard(items.sortedBy{it.optInt("page_index",1)}),LinearLayout.LayoutParams(-1,-2).apply{bottomMargin=dp(5)})
+                    }
                 }
             }
         }
-        private fun recordCard(o:JSONObject):View{
-            val card=column().apply{background=bg();setPadding(dp(10),dp(8),dp(10),dp(8))}
-            val top=row()
-            top.addView(text(o.optString("category_name","Biên bản"),10.8f,navy,true),LinearLayout.LayoutParams(0,-2,1f))
-            val view=button("Xem ảnh",teal)
-            top.addView(view,LinearLayout.LayoutParams(dp(84),dp(36)))
-            card.addView(top)
-            card.addView(gap(3))
-            val who=o.optString("uploader_name").ifBlank{o.optString("uploader_id")}
-            card.addView(text("$who • ${formatTime(o.optString("completed_at").ifBlank{o.optString("created_at")})}",9.3f,ink))
-            card.addView(text("${o.optInt("width")}×${o.optInt("height")} • ${formatBytes(o.optLong("byte_size"))}",8.8f,muted))
-            view.setOnClickListener{viewDocument(o.optString("document_id"))}
+        private fun recordGroupCard(items:List<JSONObject>):View{
+            val first=items.firstOrNull()?:return Space(activity)
+            val card=column().apply{background=bg();setPadding(dp(8),dp(7),dp(8),dp(7))}
+            val category=first.optString("category_name").takeUnless{it.isBlank()||it.equals("null",true)}?:"-"
+            val who=first.optString("uploader_name").ifBlank{first.optString("uploader_id")}.takeUnless{it.equals("null",true)}?:"-"
+            val head=row()
+            head.addView(text(category,10.5f,navy,true),LinearLayout.LayoutParams(0,-2,1f))
+            head.addView(text(if(items.size>1)"${items.size} trang" else "1 ảnh",8.8f,muted,true))
+            card.addView(head)
+            card.addView(text("$who • ${formatTime(first.optString("completed_at").ifBlank{first.optString("created_at")})}",8.8f,muted))
+            card.addView(gap(4))
+            items.forEach{item->
+                val id=item.optString("document_id")
+                val pages=item.optInt("page_count",1).coerceAtLeast(1)
+                val page=item.optInt("page_index",1).coerceAtLeast(1)
+                val line=row().apply{setBackgroundColor(Color.rgb(248,250,252));setPadding(dp(2),dp(2),dp(2),dp(2))}
+                val check=CheckBox(activity).apply{
+                    isChecked=id in selectedDocumentIds
+                    setOnCheckedChangeListener{_,on->if(on)selectedDocumentIds.add(id)else selectedDocumentIds.remove(id);updateDeleteSelection()}
+                }
+                line.addView(check,LinearLayout.LayoutParams(dp(38),dp(38)))
+                val label=if(pages>1)"Trang $page/$pages" else "Ảnh"
+                line.addView(text("$label • ${item.optInt("width")}×${item.optInt("height")} • ${formatBytes(item.optLong("byte_size"))}",8.9f,ink,true),LinearLayout.LayoutParams(0,-2,1f))
+                val view=button("Xem",teal)
+                line.addView(view,LinearLayout.LayoutParams(dp(60),dp(34)))
+                view.setOnClickListener{viewDocument(id)}
+                card.addView(line);card.addView(gap(3))
+            }
             return card
+        }
+        private fun updateDeleteSelection(){
+            if(!::selectedDeleteText.isInitialized)return
+            selectedDeleteText.text="Đã chọn ${selectedDocumentIds.size} ảnh"
+            deleteSelectedButton.isEnabled=selectedDocumentIds.isNotEmpty()&&!busy
+            deleteSelectedButton.alpha=if(deleteSelectedButton.isEnabled)1f else .4f
+        }
+        private fun deleteSelectedRecords(){
+            val ids=selectedDocumentIds.toList();if(ids.isEmpty()||busy)return
+            confirmAction("xóa ${ids.size} ảnh biên bản"){startDeleteRecords(ids)}
+        }
+        private fun startDeleteRecords(ids:List<String>){
+            if(busy)return;busy=true;postUi{deleteSelectedButton.isEnabled=false}
+            executor.execute{
+                var result=client.post("/v1/documents/delete",JSONObject().put("operation","START").put("document_ids",JSONArray(ids)).put("idempotency_key",UUID.randomUUID().toString()))
+                var mutation=result.json?.optJSONObject("mutation");var loops=0
+                while(result.ok&&mutation?.optString("state")=="RUNNING"&&loops<100&&!disposed){
+                    Thread.sleep(300L);val mutationId=mutation.optString("mutation_id");if(mutationId.isBlank())break
+                    result=client.post("/v1/documents/delete",JSONObject().put("operation","PROCESS").put("mutation_id",mutationId));mutation=result.json?.optJSONObject("mutation");loops++
+                }
+                busy=false
+                postUi{
+                    when{
+                        result.ok&&mutation?.optString("state")=="DONE"->{ids.forEach{mediaCache.clear(it)};success("Đã xóa ${mutation.optInt("processed_items",ids.size)} ảnh.")}
+                        result.ok&&mutation?.optString("state")=="RUNNING"->warning("Đang tiếp tục xóa.")
+                        else->error(messageFor(result.error?:mutation?.optString("last_error")))
+                    }
+                    selectedDocumentIds.clear();updateDeleteSelection();refreshDocuments()
+                }
+            }
         }
         private fun viewDocument(documentId:String){
             if(busy)return
@@ -545,20 +660,21 @@ object DocumentManagementFeature {
             else->"$bytes B"
         }
         private fun messageFor(code:String?):String=when(code){
-            "DOCUMENT_DRIVE_OAUTH_REQUIRED"->"Tài khoản Google của Service chưa được cấp quyền Drive. Cần OWNER cấp quyền một lần rồi tiếp tục."
-            "DOCUMENT_DRIVE_UNAVAILABLE","DOCUMENT_DRIVE_VERIFY_UNAVAILABLE"->"Google Drive đang không sẵn sàng. Ảnh vẫn còn trên máy, có thể thử tải lại."
-            "DOCUMENT_CATEGORY_EXISTS"->"Loại biên bản này đã tồn tại."
-            "DOCUMENT_CATEGORY_NOT_FOUND"->"Loại biên bản không còn khả dụng. Hãy làm mới danh mục."
-            "SERVICE_DISCOVERY_UNAVAILABLE","SERVICE_SESSION_UNAVAILABLE"->"Chưa kết nối được Service."
-            "DRIVE_UPLOAD_NETWORK"->"Mạng bị gián đoạn khi tải ảnh lên Google Drive. Ảnh sẽ được giữ trong hàng chờ."
-            "DOCUMENT_PENDING_ITEM_LIMIT"->"Hàng chờ đã đủ 60 ảnh. Hãy tải các ảnh đang chờ trước."
-            "DOCUMENT_PENDING_STORAGE_LIMIT"->"Hàng chờ đã đạt 120 MB. Hãy tải các ảnh đang chờ trước."
-            "DOCUMENT_PENDING_ACCOUNT_MISMATCH"->"Ảnh chờ thuộc tài khoản khác."
-            "DOCUMENT_SIMILAR_IMAGE"->"Ảnh có thể trùng và cần xác nhận trước khi tải."
-            "DOCUMENT_CATEGORY_MUTATION_IN_PROGRESS"->"Loại biên bản đang được sửa/xóa. Hãy chờ thao tác hiện tại hoàn tất."
-            "DOCUMENT_CATEGORY_PENDING_UPLOADS"->"Loại biên bản còn ảnh chưa hoàn tất tải lên. Hãy xử lý ảnh chờ trước."
-            "DOCUMENT_CATEGORY_MUTATION_NOT_FOUND"->"Không tìm thấy tiến trình sửa/xóa danh mục."
-            null,""->"Có lỗi chưa xác định."
+            "DOCUMENT_DRIVE_OAUTH_REQUIRED"->"Drive chưa được cấp quyền."
+            "DOCUMENT_DRIVE_UNAVAILABLE","DOCUMENT_DRIVE_VERIFY_UNAVAILABLE"->"Drive chưa sẵn sàng."
+            "DOCUMENT_CATEGORY_EXISTS"->"Loại biên bản đã tồn tại."
+            "DOCUMENT_CATEGORY_NOT_FOUND"->"Loại biên bản không tồn tại."
+            "SERVICE_DISCOVERY_UNAVAILABLE","SERVICE_SESSION_UNAVAILABLE"->"Service ngoại tuyến."
+            "DRIVE_UPLOAD_NETWORK"->"Mạng gián đoạn. Ảnh đã được giữ."
+            "DOCUMENT_PENDING_ITEM_LIMIT","DOCUMENT_DRAFT_ITEM_LIMIT"->"Đã đạt giới hạn 60 ảnh."
+            "DOCUMENT_PENDING_STORAGE_LIMIT","DOCUMENT_DRAFT_STORAGE_LIMIT"->"Đã đạt giới hạn 120 MB."
+            "DOCUMENT_PENDING_ACCOUNT_MISMATCH"->"Ảnh thuộc tài khoản khác."
+            "DOCUMENT_SIMILAR_IMAGE"->"Ảnh gần giống cần xác nhận."
+            "DOCUMENT_CATEGORY_MUTATION_IN_PROGRESS"->"Loại biên bản đang được xử lý."
+            "DOCUMENT_CATEGORY_PENDING_UPLOADS"->"Còn ảnh đang chờ tải."
+            "DOCUMENT_CATEGORY_MUTATION_NOT_FOUND"->"Không tìm thấy tiến trình."
+            "DOCUMENT_DELETE_MUTATION_NOT_FOUND"->"Không tìm thấy tiến trình xóa."
+            null,""->"Không thực hiện được."
             else->code.replace('_',' ')
         }
     }

@@ -101,10 +101,11 @@ object PostMealAttendanceFeature {
         fun gap(v:Int)=Space(activity).apply{layoutParams=ViewGroup.LayoutParams(1,dp(v))}
         fun button(label:String,color:Int)=Button(activity).apply{text=label;textSize=10f;setTextColor(Color.WHITE);typeface=Typeface.DEFAULT_BOLD;isAllCaps=false;minHeight=0;minimumHeight=0;background=GradientDrawable().apply{setColor(color);cornerRadius=dp(9).toFloat()}}
         fun input(hintText:String)=EditText(activity).apply{hint=hintText;textSize=13f;setTextColor(ink);setHintTextColor(Color.rgb(148,163,184));setPadding(dp(10),dp(7),dp(10),dp(7));background=drawable();setSingleLine(true);imeOptions=EditorInfo.IME_ACTION_DONE}
-        fun fmtDate(v:String)=runCatching{LocalDate.parse(v).format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}.getOrDefault(v)
+        fun safe(v:String)=v.trim().takeUnless{it.isBlank()||it.equals("null",true)}?:"-"
+        fun fmtDate(v:String)=runCatching{LocalDate.parse(v).format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}.getOrDefault(safe(v))
         fun fmtTime(v:String):String{
-            if(v.isBlank())return "—"
-            return runCatching{Instant.parse(v).atZone(ZoneId.of(TZ)).format(DateTimeFormatter.ofPattern("HH:mm"))}.getOrElse{Regex("""\b\d{2}:\d{2}\b""").find(v)?.value?:"—"}
+            val clean=safe(v);if(clean=="-")return "-"
+            return runCatching{Instant.parse(clean).atZone(ZoneId.of(TZ)).format(DateTimeFormatter.ofPattern("HH:mm"))}.getOrElse{Regex("""\b\d{2}:\d{2}\b""").find(clean)?.value?:"-"}
         }
         fun nowIso()=Instant.now().toString()
         fun today()=LocalDate.now(ZoneId.of(TZ))
@@ -135,8 +136,7 @@ object PostMealAttendanceFeature {
         store.prune()
         val root=column()
         val header=column().apply{setPadding(dp(12),dp(9),dp(12),dp(8));background=GradientDrawable(GradientDrawable.Orientation.TL_BR,intArrayOf(navy,ThemeManager.accent(activity))).apply{cornerRadius=0f}}
-        header.addView(text("ĐIỂM DANH SAU GIỜ ĂN",15f,Color.WHITE,true))
-        header.addView(text("Ngày hiện tại có thể cập nhật • lịch sử 14 ngày chỉ xem",9f,Color.WHITE,false))
+        header.addView(text("ĐIỂM DANH",15f,Color.WHITE,true))
         root.addView(header,LinearLayout.LayoutParams(-1,-2))
 
         val controls=column().apply{setPadding(dp(10),dp(8),dp(10),dp(6))}
@@ -145,8 +145,7 @@ object PostMealAttendanceFeature {
         controls.addView(gap(7))
         val scanBox=column()
         val scan=input("Scan / Nhập mã nhân viên")
-        scanBox.addView(text("Quét MNV điểm danh trở lại",9.7f,muted,true))
-        scanBox.addView(gap(3));scanBox.addView(scan,LinearLayout.LayoutParams(-1,dp(46)))
+        scanBox.addView(scan,LinearLayout.LayoutParams(-1,dp(44)))
         controls.addView(scanBox,LinearLayout.LayoutParams(-1,-2))
         root.addView(controls,LinearLayout.LayoutParams(-1,-2))
 
@@ -206,17 +205,18 @@ object PostMealAttendanceFeature {
                 rows.forEach{item->
                     val card=column().apply{setPadding(dp(10),dp(8),dp(10),dp(8));background=drawable()}
                     val titleRow=row()
-                    titleRow.addView(text("${item.optString("supplier_snapshot").ifBlank{"—"}} • ${item.optString("mnv")} • ${item.optString("full_name_snapshot").ifBlank{"—"}}",10.5f,ink,true),LinearLayout.LayoutParams(0,-2,1f))
+                    titleRow.addView(text("${safe(item.optString("supplier_snapshot"))} • ${safe(item.optString("mnv"))} • ${safe(item.optString("full_name_snapshot"))}",10.5f,ink,true),LinearLayout.LayoutParams(0,-2,1f))
                     titleRow.addView(text(statusLabel(item),9.5f,statusColor(item),true),LinearLayout.LayoutParams(-2,-2))
                     card.addView(titleRow)
                     val actual=fmtTime(item.optString("actual_return_at").ifBlank{item.optString("checked_at")})
                     val reason=item.optString("reason_code")
                     val details=mutableListOf<String>()
-                    if(actual!="—")details+="Thực tế $actual"
-                    if(reason.isNotBlank())details+="Lý do: $reason"
-                    item.optString("reason_note").takeIf{it.isNotBlank()}?.let{details+="Ghi chú: $it"}
-                    item.optString("expected_return_at").takeIf{it.isNotBlank()}?.let{details+="Dự kiến ${fmtTime(it)}"}
-                    if(details.isNotEmpty()){card.addView(gap(3));card.addView(text(details.joinToString(" • "),9.4f,muted,false))}
+                    if(actual!="-")details+="Thực tế $actual"
+                    safe(reason).takeIf{it!="-" }?.let{details+="Lý do: $it"}
+                    safe(item.optString("reason_note")).takeIf{it!="-" }?.let{details+="Ghi chú: $it"}
+                    safe(item.optString("expected_return_at")).takeIf{it!="-" }?.let{details+="Dự kiến ${fmtTime(it)}"}
+                    card.addView(gap(3))
+                    card.addView(text("Ca ${safe(item.optString("shift"))} • ${if(details.isEmpty())"-" else details.joinToString(" • ")}",9.2f,muted,false))
                     if(selected==today()&&item.optString("status")!="CHECKED_IN"){
                         card.addView(gap(6))
                         val act=button(if(item.optString("status")=="LATE_EXPECTED")"CẬP NHẬT / SỬA GIỜ" else "XỬ LÝ",teal)

@@ -246,6 +246,7 @@ class OperationsActivity : Activity() {
                 dynamic.removeAllViews()
                 dynamic.addView(OldSessionWarningFeature.build(this,api){raw->openHistoricalSession(raw)},matchWrap())
                 dynamic.addView(PostMealAttendanceFeature.buildHomeWarning(this,api){postMealAttendanceScreen()},matchWrap())
+                if(isAdmin())dynamic.addView(laborOpenWarning(),matchWrap())
                 addBusinessShiftReconciliation(dynamic)
             } finally { dynamic.suppressLayout(false) }
         }
@@ -275,6 +276,18 @@ class OperationsActivity : Activity() {
     }
 
 
+    private fun laborOpenWarning():View{
+        val host=column(bg).apply{visibility=View.GONE;setPadding(0,0,0,dp(6))}
+        val open=smallButton("",red).apply{visibility=View.GONE;setOnClickListener{laborHome()}}
+        host.addView(open,matchWrap())
+        api.call("list_labor"){r->runOnUiThread{
+            if(!r.ok)return@runOnUiThread
+            val items=r.json?.optJSONArray("items")?:JSONArray();var count=0
+            for(i in 0 until items.length())if(items.optJSONObject(i)?.optString("state")?.equals("OPEN",true)==true)count++
+            if(count>0){open.text="CẢNH BÁO: $count CÔNG NHẬT CHƯA HOÀN THÀNH";open.visibility=View.VISIBLE;host.visibility=View.VISIBLE}
+        }}
+        return host
+    }
     private fun postMealAttendanceScreen(){
         module="BUSINESS"
         screenState="MEAL_ATTENDANCE"
@@ -333,6 +346,7 @@ class OperationsActivity : Activity() {
         val intent=Intent(Intent.ACTION_OPEN_DOCUMENT).apply{
             addCategory(Intent.CATEGORY_OPENABLE)
             type="image/*"
+            putExtra(Intent.EXTRA_ALLOW_MULTIPLE,true)
         }
         @Suppress("DEPRECATION")
         startActivityForResult(intent,documentGalleryRequestCode)
@@ -348,7 +362,12 @@ class OperationsActivity : Activity() {
                 if(uri!=null)documentController?.onImageSelected(uri,"CAMERA")
                 documentCameraUri=null;documentCameraFile=null
             }
-            documentGalleryRequestCode->data?.data?.let{documentController?.onImageSelected(it,"GALLERY")}
+            documentGalleryRequestCode->{
+                val uris=mutableListOf<Uri>()
+                data?.clipData?.let{clip->for(i in 0 until clip.itemCount)clip.getItemAt(i).uri?.let{uris.add(it)}}
+                data?.data?.let{if(it !in uris)uris.add(it)}
+                if(uris.isNotEmpty())documentController?.onImagesSelected(uris,"GALLERY")
+            }
         }
     }
 
@@ -1423,22 +1442,19 @@ class OperationsActivity : Activity() {
     }
     private fun laborHome(){
         screenState="LABOR_HOME"
-        if(!isAdmin()){simpleMessage("CÔNG NHẬT","Chức năng Công nhật dành cho ADMIN/SUPERADMIN theo phân quyền hiện tại.");return}
+        if(!isAdmin()){simpleMessage("CÔNG NHẬT","Không có quyền truy cập.");return}
         val root=baseRoot("CÔNG NHẬT");val body=body()
-        val mnv=mnvInput("Scan / Nhập mã nhân viên").apply{setText(initialMnv)};body.addView(labelled("Mã nhân viên",mnv));body.addView(gap(5))
+        val openBox=column(bg)
+        body.addView(section("Đang thực hiện"));body.addView(openBox,matchWrap());body.addView(gap(8))
+        val mnv=mnvInput("Scan / Nhập mã nhân viên").apply{setText(initialMnv)}
+        body.addView(labelled("Mã nhân viên",mnv));body.addView(gap(5))
         var busy=false
         fun submit(){
             val v=mnv.text.toString().trim();if(v.isBlank()){TopNotice.show(this,"Nhập Mã nhân viên.",TopNotice.Kind.WARNING);return};if(busy)return
             val local=PdaLocalProjection.employeeContext(this,v)
             if(local!=null){
-                if(!local.optBoolean("session_known",true)){
-                    renderCachedEmployee(local.optJSONObject("employee")?:JSONObject())
-                    TopNotice.show(this,"Đã đọc nhân sự từ PDA • đang đối chiếu phiên/công nhật nền",TopNotice.Kind.INFO)
-                    foregroundSync.requestSync();return
-                }
-                showLaborContext(local,MasterDataCache.snapshot(this)?:JSONObject())
-                foregroundSync.requestSync()
-                return
+                if(!local.optBoolean("session_known",true)){renderCachedEmployee(local.optJSONObject("employee")?:JSONObject());foregroundSync.requestSync();return}
+                showLaborContext(local,MasterDataCache.snapshot(this)?:JSONObject());foregroundSync.requestSync();return
             }
             busy=true
             api.call("employee_context",JSONObject().put("mnv",v).put("include_labor",true).put("include_options",false)){r->runOnUiThread{
@@ -1447,21 +1463,100 @@ class OperationsActivity : Activity() {
                 showLaborContext(r.json?:JSONObject(),MasterDataCache.snapshot(this@OperationsActivity)?:JSONObject())
             }}
         }
-        bindScannerEnter(mnv){submit()};if(initialMnv.isNotBlank())mnv.post{submit()};attach(root,body);mnv.requestFocus()
-    }
-
-    private fun showLaborContext(ctx:JSONObject, masters:JSONObject){
-        screenState = "LABOR_CONTEXT"
-        val e=ctx.optJSONObject("employee")?:JSONObject();val state=ctx.optString("state");val active=ctx.optJSONObject("active_labor");val root=baseRoot("CÔNG NHẬT");val body=body();body.addView(employeeCard(e));body.addView(gap(10))
-        if(state!="ACTIVE"){body.addView(status(if(state=="ENDED")"Mã nhân viên ĐÃ HẾT PHIÊN" else "Mã nhân viên CHƯA VÀO CA",red,Color.rgb(255,238,239)));body.addView(gap(9));body.addView(primary("Mã nhân viên KHÁC",navy){initialMnv="";laborHome()},matchWrap());attach(root,body);return}
-        val s=ctx.optJSONObject("session")?:JSONObject();body.addView(details(listOf("Ca" to s.optString("shift"),"Vị trí" to workText(s.optString("work_choice")),"Vào lúc" to formatIso(s.optString("enter_at")))));body.addView(gap(10))
-        if(active!=null){body.addView(status("ĐANG LÀM CÔNG NHẬT",green,Color.rgb(235,248,239)));body.addView(gap(8));body.addView(details(listOf("Nội dung" to active.optString("labor_type"),"Bắt đầu" to formatIso(active.optString("start_at")),"Mốc thời gian" to active.optString("time_marker"),"Ghi chú" to dash(active.optString("note")))));body.addView(gap(9));val note=input("Ghi chú khi kết thúc (tùy chọn)",false);body.addView(note,matchWrap());body.addView(gap(9));val finish=primary("HOÀN THÀNH CÔNG NHẬT",red){};finish.setOnClickListener{finish.isEnabled=false;finish.text="ĐANG GHI...";api.call("labor_finish",JSONObject().put("event_id",UUID.randomUUID().toString()).put("mnv",e.optString("mnv")).put("note",note.text.toString())){r->runOnUiThread{finish.isEnabled=true;finish.text="HOÀN THÀNH CÔNG NHẬT";if(handleAuth(r))return@runOnUiThread;if(!r.ok)showError(r.error?:"Không kết thúc được công nhật")else{initialMnv=e.optString("mnv");laborHome()}}}};body.addView(finish,matchWrap())
-        }else{
-            body.addView(status("CHƯA CÓ CÔNG NHẬT ĐANG LÀM",blue,Color.rgb(237,244,255)));body.addView(gap(9));val types=catalogValues("CÔNG NHẬT_Thông tin công nhật",jsonStrings(masters.optJSONArray("labor_types")));val markers=catalogValues("CÔNG NHẬT_Mốc thời gian",jsonStrings(masters.optJSONArray("time_markers")));val typeSpinner=spinner((if(types.isEmpty())listOf("Khác")else types).toTypedArray());val markerSpinner=spinner((if(markers.isEmpty())listOf("Trong ngày")else markers).toTypedArray());val note=input("Ghi chú (tùy chọn)",false);body.addView(labelled("Thông tin công nhật",typeSpinner));body.addView(gap(8));body.addView(labelled("Mốc thời gian",markerSpinner));body.addView(gap(8));val fixedMain=foldLocal(e.optString("main_position")).let{it.contains("KEO HANG")||it.contains("TO TRUONG")};val deduct=CheckBox(this).apply{text="Khấu trừ nhân sự";isChecked=false;setTextColor(ink);textSize=11f};fun updateDeduct(){val fixedLabor=foldLocal(typeSpinner.selectedItem?.toString().orEmpty()).let{it.contains("KEO HANG")||it.contains("TO TRUONG")};val blocked=fixedMain||fixedLabor;deduct.isEnabled=!blocked;if(blocked)deduct.isChecked=false;deduct.setTextColor(if(blocked)muted else ink)};typeSpinner.onItemSelectedListener=object:android.widget.AdapterView.OnItemSelectedListener{override fun onItemSelected(p:android.widget.AdapterView<*>?,v:View?,pos:Int,id:Long){updateDeduct()};override fun onNothingSelected(p:android.widget.AdapterView<*>?)=Unit};updateDeduct();body.addView(deduct,matchWrap());body.addView(gap(6));body.addView(note,matchWrap());body.addView(gap(9));val start=primary("BẮT ĐẦU CÔNG NHẬT",green){};start.setOnClickListener{start.isEnabled=false;start.text="ĐANG GHI...";api.call("labor_start",JSONObject().put("event_id",UUID.randomUUID().toString()).put("mnv",e.optString("mnv")).put("shift",s.optString("shift"))/* S21_LABOR_SHIFT_APPLIED */.put("labor_type",typeSpinner.selectedItem.toString()).put("time_marker",markerSpinner.selectedItem.toString()).put("deduct_staff",deduct.isChecked&&deduct.isEnabled).put("note",note.text.toString())){r->runOnUiThread{start.isEnabled=true;start.text="BẮT ĐẦU CÔNG NHẬT";if(handleAuth(r))return@runOnUiThread;if(!r.ok)showError(r.error?:"Không bắt đầu được công nhật")else{initialMnv=e.optString("mnv");laborHome()}}}};body.addView(start,matchWrap())
+        fun loadOpen(){
+            openBox.removeAllViews();openBox.addView(txt("Đang tải...",9.5f,muted,false))
+            api.call("list_labor"){r->runOnUiThread{
+                if(screenState!="LABOR_HOME")return@runOnUiThread
+                openBox.removeAllViews();if(handleAuth(r))return@runOnUiThread
+                if(!r.ok){openBox.addView(txt("-",10f,muted,false));return@runOnUiThread}
+                val a=r.json?.optJSONArray("items")?:JSONArray();val rows=mutableListOf<JSONObject>()
+                for(i in 0 until a.length()){val x=a.optJSONObject(i)?:continue;if(x.optString("state").equals("OPEN",true))rows.add(x)}
+                if(rows.isEmpty()){openBox.addView(txt("Không có công nhật đang thực hiện.",9.8f,muted,false));return@runOnUiThread}
+                rows.sortedBy{it.optString("start_at")}.forEach{x->
+                    val id=x.optString("mnv");val emp=x.optJSONObject("employee_snapshot")?:MasterDataCache.employee(this,id)?:JSONObject()
+                    val name=dash(emp.optString("full_name"));val supplier=dash(emp.optString("supplier"))
+                    val card=column(surface).apply{
+                        setPadding(dp(9),dp(7),dp(9),dp(7));background=outlineBg(surface,12)
+                        addView(txt("$id • $name",10.5f,navy,true))
+                        addView(txt("$supplier • ${dash(x.optString("labor_type"))} • ${compactAttendanceTime(x.optString("start_at"))} → -",9.2f,muted,false))
+                        setOnClickListener{mnv.setText(id);submit()}
+                    }
+                    openBox.addView(card,matchWrap());openBox.addView(gap(5))
+                }
+            }}
         }
-        body.addView(gap(9));body.addView(primary("Mã nhân viên KHÁC",navy){initialMnv="";laborHome()},matchWrap());attach(root,body)
+        bindScannerEnter(mnv){submit()};loadOpen()
+        if(initialMnv.isNotBlank())mnv.post{submit()}
+        attach(root,body);mnv.requestFocus()
     }
-
+    private fun showLaborContext(ctx:JSONObject, masters:JSONObject){
+        screenState="LABOR_CONTEXT"
+        val e=ctx.optJSONObject("employee")?:JSONObject();val state=ctx.optString("state");val active=ctx.optJSONObject("active_labor")
+        val root=baseRoot("CÔNG NHẬT");val body=body();body.addView(employeeCard(e));body.addView(gap(7))
+        if(state!="ACTIVE"){
+            body.addView(status(if(state=="ENDED")"ĐÃ HẾT PHIÊN" else "CHƯA VÀO CA",red,Color.rgb(255,238,239)))
+            body.addView(gap(7));body.addView(primary("Mã nhân viên KHÁC",navy){initialMnv="";laborHome()},matchWrap());attach(root,body);return
+        }
+        val ses=ctx.optJSONObject("session")?:JSONObject()
+        body.addView(details(listOf("Ca" to dash(ses.optString("shift")),"Vị trí" to dash(workText(ses.optString("work_choice"))),"Vào lúc" to formatIso(ses.optString("enter_at")))));body.addView(gap(7))
+        val tz=ZoneId.of("Asia/Ho_Chi_Minh")
+        fun pickClock(currentIso:String,onPick:(String)->Unit){
+            val z=runCatching{Instant.parse(currentIso).atZone(tz)}.getOrDefault(java.time.ZonedDateTime.now(tz))
+            android.app.TimePickerDialog(this,{_,hour,minute->
+                val picked=z.toLocalDate().atTime(hour,minute).atZone(tz).toInstant()
+                if(picked.isAfter(Instant.now().plusSeconds(60)))TopNotice.show(this,"Thời gian không được ở tương lai.",TopNotice.Kind.WARNING)
+                else onPick(picked.toString())
+            },z.hour,z.minute,true).show()
+        }
+        fun timeButton(iso:String):Button=Button(this).apply{
+            text=compactAttendanceTime(iso);textSize=12f;isAllCaps=false;setTextColor(navy);background=outlineBg(surface,11);minHeight=0;minimumHeight=0
+        }
+        if(active!=null){
+            body.addView(status("ĐANG LÀM CÔNG NHẬT",green,Color.rgb(235,248,239)));body.addView(gap(6))
+            body.addView(details(listOf("Nội dung" to dash(active.optString("labor_type")),"Bắt đầu" to formatIso(active.optString("start_at")),"Ghi chú" to dash(active.optString("note")))));body.addView(gap(7))
+            var endIso=Instant.now().toString()
+            val endRow=row(bg);endRow.addView(txt("Kết thúc",10.2f,ink,true),LinearLayout.LayoutParams(0,-2,1f))
+            val endTime=timeButton(endIso);endRow.addView(endTime,LinearLayout.LayoutParams(dp(112),dp(42)));body.addView(endRow,matchWrap());body.addView(gap(6))
+            endTime.setOnClickListener{pickClock(endIso){picked->endIso=picked;endTime.text=compactAttendanceTime(endIso)}}
+            val note=input("Ghi chú",false);body.addView(note,matchWrap());body.addView(gap(7))
+            val finish=primary("HOÀN THÀNH",red){}
+            finish.setOnClickListener{
+                val startMs=runCatching{Instant.parse(active.optString("start_at")).toEpochMilli()}.getOrDefault(0L)
+                val endMs=runCatching{Instant.parse(endIso).toEpochMilli()}.getOrDefault(0L)
+                if(startMs>0&&endMs<startMs){TopNotice.show(this,"Giờ kết thúc phải sau giờ bắt đầu.",TopNotice.Kind.WARNING);return@setOnClickListener}
+                finish.isEnabled=false;finish.text="ĐANG GHI..."
+                api.call("labor_finish",JSONObject().put("event_id",UUID.randomUUID().toString()).put("mnv",e.optString("mnv")).put("end_at",endIso).put("note",note.text.toString())){r->runOnUiThread{
+                    finish.isEnabled=true;finish.text="HOÀN THÀNH";if(handleAuth(r))return@runOnUiThread
+                    if(!r.ok)showError(r.error?:"Không kết thúc được công nhật")else{initialMnv=e.optString("mnv");laborHome()}
+                }}
+            }
+            body.addView(finish,matchWrap())
+        }else{
+            val types=catalogValues("CÔNG NHẬT_Thông tin công nhật",jsonStrings(masters.optJSONArray("labor_types")))
+            val typeSpinner=spinner((if(types.isEmpty())listOf("Khác")else types).toTypedArray())
+            body.addView(labelled("Thông tin công nhật",typeSpinner));body.addView(gap(7))
+            var startIso=Instant.now().toString()
+            val startRow=row(bg);startRow.addView(txt("Bắt đầu",10.2f,ink,true),LinearLayout.LayoutParams(0,-2,1f))
+            val startTime=timeButton(startIso);startRow.addView(startTime,LinearLayout.LayoutParams(dp(112),dp(42)));body.addView(startRow,matchWrap());body.addView(gap(6))
+            startTime.setOnClickListener{pickClock(startIso){picked->startIso=picked;startTime.text=compactAttendanceTime(startIso)}}
+            val fixedMain=foldLocal(e.optString("main_position")).let{it.contains("KEO HANG")||it.contains("TO TRUONG")}
+            val deduct=CheckBox(this).apply{text="Khấu trừ nhân sự";isChecked=false;setTextColor(ink);textSize=11f}
+            fun updateDeduct(){val fixedLabor=foldLocal(typeSpinner.selectedItem?.toString().orEmpty()).let{it.contains("KEO HANG")||it.contains("TO TRUONG")};val blocked=fixedMain||fixedLabor;deduct.isEnabled=!blocked;if(blocked)deduct.isChecked=false;deduct.setTextColor(if(blocked)muted else ink)}
+            typeSpinner.onItemSelectedListener=object:android.widget.AdapterView.OnItemSelectedListener{override fun onItemSelected(p:android.widget.AdapterView<*>?,v:View?,pos:Int,id:Long){updateDeduct()};override fun onNothingSelected(p:android.widget.AdapterView<*>?)=Unit};updateDeduct()
+            body.addView(deduct,matchWrap());body.addView(gap(5))
+            val note=input("Ghi chú",false);body.addView(note,matchWrap());body.addView(gap(7))
+            val start=primary("BẮT ĐẦU",green){}
+            start.setOnClickListener{
+                start.isEnabled=false;start.text="ĐANG GHI..."
+                api.call("labor_start",JSONObject().put("event_id",UUID.randomUUID().toString()).put("mnv",e.optString("mnv")).put("shift",ses.optString("shift")).put("labor_type",typeSpinner.selectedItem.toString()).put("start_at",startIso).put("deduct_staff",deduct.isChecked&&deduct.isEnabled).put("note",note.text.toString())){r->runOnUiThread{
+                    start.isEnabled=true;start.text="BẮT ĐẦU";if(handleAuth(r))return@runOnUiThread
+                    if(!r.ok)showError(r.error?:"Không bắt đầu được công nhật")else{initialMnv=e.optString("mnv");laborHome()}
+                }}
+            }
+            body.addView(start,matchWrap())
+        }
+        body.addView(gap(7));body.addView(primary("Mã nhân viên KHÁC",navy){initialMnv="";laborHome()},matchWrap());attach(root,body)
+    }
     private fun resourceHome(){
         screenState="RESOURCE_HOME"
         val root=baseRoot("TÀI NGUYÊN");val body=body()
@@ -1821,7 +1916,7 @@ class OperationsActivity : Activity() {
             body.addView(selectionBox,matchWrap())
         }
         val box=column(bg);body.addView(box,matchWrap())
-        fun friendly(type:String,label:String):String=when(type.uppercase()){ "ATTENDANCE_ENTER","ENTER"->"Vào ca";"ATTENDANCE_EXIT","EXIT"->"Ra ca";"RESOURCE_CHANGE"->"Đổi tài nguyên";"LABOR_START"->"Bắt đầu công nhật";"LABOR_FINISH"->"Hoàn thành công nhật";"ADMIN_AUDIT"->"Thao tác quản trị";"MASTER_STAFF_UPSERT"->"Cập nhật nhân sự";"MASTER_STAFF_DELETE"->"Xóa nhân sự";"ACCOUNT_UPSERT"->"Tạo / sửa tài khoản";"ACCOUNT_STATUS"->"Đổi trạng thái tài khoản";"ACCOUNT_EMAIL"->"Đổi email tài khoản";"ACCOUNT_PASSWORD"->"Đổi mật khẩu";else->label.ifBlank{type.ifBlank{"Thao tác"}} }
+        fun friendly(type:String,label:String):String=when(type.uppercase()){ "ATTENDANCE_ENTER","ENTER"->"Vào ca";"ATTENDANCE_EXIT","EXIT"->"Ra ca";"RESOURCE_CHANGE"->"Đổi tài nguyên";"LABOR_START"->"Bắt đầu công nhật";"LABOR_FINISH"->"Hoàn thành công nhật";"DOCUMENT_UPLOAD"->"Tải biên bản";"DOCUMENT_DELETE"->"Xóa biên bản";"DOCUMENT_CATEGORY_CREATE"->"Thêm loại biên bản";"DOCUMENT_CATEGORY_UPDATE"->"Sửa loại biên bản";"DOCUMENT_CATEGORY_DELETE"->"Xóa loại biên bản";"ADMIN_AUDIT"->"Thao tác quản trị";"MASTER_STAFF_UPSERT"->"Cập nhật nhân sự";"MASTER_STAFF_DELETE"->"Xóa nhân sự";"ACCOUNT_UPSERT"->"Tạo / sửa tài khoản";"ACCOUNT_STATUS"->"Đổi trạng thái tài khoản";"ACCOUNT_EMAIL"->"Đổi email tài khoản";"ACCOUNT_PASSWORD"->"Đổi mật khẩu";else->label.ifBlank{type.ifBlank{"Thao tác"}} }
         fun statusOf(e:JSONObject):String{val s=e.optString("local_status").uppercase();return when{s in setOf("REJECTED","REVIEW_REQUIRED","CONFLICT","FAILED","ERROR")->"FAILED";s in setOf("LOCAL_PENDING","PENDING","RETRY","OFFLINE_PROVISIONAL")->"PENDING";else->"SYNCED"}}
         fun eventDate(e:JSONObject,fallback:String):String=e.optString("business_date").ifBlank{e.optString("cache_business_date")}.ifBlank{runCatching{java.time.Instant.parse(e.optString("at_iso").ifBlank{e.optString("at")}).atZone(ZoneId.of("Asia/Ho_Chi_Minh")).toLocalDate().toString()}.getOrDefault(fallback)}
         fun scanDate(date:String,needle:String,remaining:Int,out:MutableList<JSONObject>){
@@ -1854,7 +1949,7 @@ class OperationsActivity : Activity() {
             box.removeAllViews();currentPageDeleteIds.clear();pageChecks.clear();val rows=loadRows();val groups=rows.groupBy{e->e.optString("event_id").ifBlank{"${e.optString("mnv")}|${e.optString("at_iso")}|${e.optString("event_type")}"}}.entries.sortedByDescending{entry->entry.value.maxOfOrNull{e->e.optLong("local_queued_at",0L).takeIf{it>0}?:runCatching{java.time.Instant.parse(e.optString("at_iso")).toEpochMilli()}.getOrDefault(0L)}?:0L};val states=groups.map{g->if(g.value.any{statusOf(it)=="FAILED"})"FAILED" else if(g.value.any{statusOf(it)=="PENDING"})"PENDING" else "SYNCED"};val metricRows=if(query.isBlank())rows else run{val savedQuery=query;query="";val allRows=loadRows();query=savedQuery;allRows};val pending=metricRows.count{statusOf(it)=="PENDING"};val failed=metricRows.count{statusOf(it)=="FAILED"}
             fun updateMetric(v:View,title:String,n:Int){if(v is TextView)v.text="$title: $n"};updateMetric(allBtn,"Tổng",metricRows.size);updateMetric(pendingBtn,"Chờ",pending);updateMetric(failBtn,"Cần xử lí",failed)
             val filtered=groups.filterIndexed{idx,_->filter=="ALL"||states[idx]==filter};if(pageStart>=filtered.size&&pageStart>0)pageStart=((filtered.size-1).coerceAtLeast(0)/pageSize)*pageSize;val visible=filtered.drop(pageStart).take(pageSize)
-            if(query.isNotBlank())box.addView(info("Tìm trên toàn bộ lịch sử đang giữ trên PDA • tối đa 300 kết quả trước khi nhóm."))
+
             for(g in visible){
                 val items=g.value;val first=items.first();val state=if(items.any{statusOf(it)=="FAILED"})"FAILED" else if(items.any{statusOf(it)=="PENDING"})"PENDING" else "SYNCED";val label=when(state){"FAILED"->"Lỗi đồng bộ";"PENDING"->"Chưa đồng bộ";else->"Đã đồng bộ"};val tint=when(state){"FAILED"->Color.rgb(254,242,242);"PENDING"->Color.rgb(255,251,235);else->Color.rgb(240,253,250)};val mnv=first.optString("mnv");val full=first.optString("full_name");val last=items.first()
                 val deletable=items.filter{it.optString("event_type").uppercase()!="HISTORY_DELETE"}.map{it.optString("event_id")}.filter{it.isNotBlank()}.distinct();currentPageDeleteIds.addAll(deletable)
@@ -1867,7 +1962,7 @@ class OperationsActivity : Activity() {
                 };box.addView(card,matchWrap());box.addView(gap(6))
             }
             updateSelectedCount()
-            if(visible.isEmpty())box.addView(info("Không có lịch sử phù hợp."));if(filtered.isNotEmpty()){val from=pageStart+1;val to=(pageStart+visible.size).coerceAtMost(filtered.size);box.addView(info("Đang hiển thị $from–$to / ${filtered.size} • tối đa 100 bản ghi mỗi trang."));val nav=row(bg);if(pageStart>0)nav.addView(smallButton("‹ 100 TRƯỚC",navy).apply{setOnClickListener{pageStart=(pageStart-pageSize).coerceAtLeast(0);render()}},LinearLayout.LayoutParams(0,dp(46),1f).apply{marginEnd=dp(3)});if(pageStart+pageSize<filtered.size)nav.addView(smallButton("100 TIẾP ›",teal).apply{setOnClickListener{pageStart+=pageSize;render()}},LinearLayout.LayoutParams(0,dp(46),1f).apply{marginStart=dp(3)});if(nav.childCount>0)box.addView(nav,matchWrap())}
+            if(visible.isEmpty())box.addView(info("Không có lịch sử phù hợp."));if(filtered.isNotEmpty()){val from=pageStart+1;val to=(pageStart+visible.size).coerceAtMost(filtered.size);box.addView(txt("$from–$to / ${filtered.size}",9f,muted,false));val nav=row(bg);if(pageStart>0)nav.addView(smallButton("‹ 100 TRƯỚC",navy).apply{setOnClickListener{pageStart=(pageStart-pageSize).coerceAtLeast(0);render()}},LinearLayout.LayoutParams(0,dp(46),1f).apply{marginEnd=dp(3)});if(pageStart+pageSize<filtered.size)nav.addView(smallButton("100 TIẾP ›",teal).apply{setOnClickListener{pageStart+=pageSize;render()}},LinearLayout.LayoutParams(0,dp(46),1f).apply{marginStart=dp(3)});if(nav.childCount>0)box.addView(nav,matchWrap())}
         }
         allBtn.setOnClickListener{filter="ALL";pageStart=0;render()};pendingBtn.setOnClickListener{filter="PENDING";pageStart=0;render()};failBtn.setOnClickListener{filter="FAILED";pageStart=0;render()}
         q.addTextChangedListener(object:TextWatcher{override fun beforeTextChanged(v:CharSequence?,st:Int,c:Int,a:Int)=Unit;override fun onTextChanged(v:CharSequence?,st:Int,b:Int,c:Int){query=v?.toString().orEmpty();pageStart=0;render()};override fun afterTextChanged(v:Editable?)=Unit})
@@ -1928,6 +2023,11 @@ class OperationsActivity : Activity() {
         "WORK_SESSION_DELETE"->"Xóa công việc trong ca"
         "LABOR_START"->"Bắt đầu công nhật"
         "LABOR_FINISH"->"Kết thúc công nhật"
+        "DOCUMENT_UPLOAD"->"Tải biên bản"
+        "DOCUMENT_DELETE"->"Xóa biên bản"
+        "DOCUMENT_CATEGORY_CREATE"->"Thêm loại biên bản"
+        "DOCUMENT_CATEGORY_UPDATE"->"Sửa loại biên bản"
+        "DOCUMENT_CATEGORY_DELETE"->"Xóa loại biên bản"
         "MASTER_STAFF_UPSERT"->"Thêm / sửa nhân sự"
         "MASTER_STAFF_DELETE"->"Xóa nhân sự"
         "ACCOUNT_UPSERT"->"Tạo / sửa tài khoản"

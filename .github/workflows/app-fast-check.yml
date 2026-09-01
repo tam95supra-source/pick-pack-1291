@@ -88,6 +88,10 @@ jobs:
           RUN_REF: ${{ github.ref_name }}
         run: |
           set -euo pipefail
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            echo "FAST_CHECK_MARKER_SKIPPED_PR_READ_ONLY"
+            exit 0
+          fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           NONCE=$(jq -r '.execution_nonce // ""' ops/beta-release-request.json)
@@ -288,6 +292,7 @@ jobs:
           git diff --check HEAD^ HEAD
           python3 tools/service_discovery_cache_regression.py
           python3 tools/document_management_contract.py
+          python3 tools/beta110_owner_scope_contract.py
           grep -q 'versionCode = 1' app/build.gradle.kts
           grep -q 'versionName = "0.1.0-stable"' app/build.gradle.kts
           gradle --no-daemon --build-cache --parallel :app:testBetaDebugUnitTest :app:assembleBetaDebug :app:assembleStableDebug
