@@ -63,6 +63,7 @@ for forbidden in [
     "Sửa: đổi tên toàn bộ biên bản và file Drive thuộc loại",
     "Ảnh chỉ giữ tạm trên máy khi chưa được Drive xác nhận",
     "Tìm trên toàn bộ lịch sử đang giữ trên PDA",
+    "Cần OWNER",
 ]:
     assert forbidden not in document+activity, forbidden
 
