@@ -1,8 +1,8 @@
 {
-  "run_id": 33554031286,
-  "run_sha": "1faebbf996836d442ec6e99ffba2a589bf3fcbd2",
+  "run_id": 33554265077,
+  "run_sha": "e2bc60a87b9b0df6e8d1528ceeacb69b654febba",
   "ref": "release/beta110-document-labor-attendance",
   "execution_nonce": "beta109-publish-exact-20260901-08",
   "stage": "pass_live",
-  "observed_at": "2026-09-01T20:13:29Z"
+  "observed_at": "2026-09-01T20:15:49Z"
 }
