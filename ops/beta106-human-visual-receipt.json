@@ -1,0 +1,23 @@
+{
+  "status": "PASS",
+  "gate": "HUMAN_VISUAL_INSPECTION",
+  "version_name": "0.4.2-beta.106",
+  "version_code": 112,
+  "package": "vn.pickpack1291.app.beta.publicbeta",
+  "source_sha": "57e02d45b436c6bcb64bc5731671044af7c7c86d",
+  "candidate_run_id": 33473965249,
+  "candidate_artifact_id": 9787581956,
+  "visual_artifact_id": 9787692571,
+  "apk_sha256": "ea5bdf9696d9dae77f02fab815df6435a8317a66178bdb4c36bc051aa5bcd000",
+  "apk_size": 14068725,
+  "screenshot_count": 36,
+  "viewports": ["320x568", "360x640", "480x800"],
+  "checks": {
+    "no_visible_null": "PASS",
+    "missing_ncc_fallback": "PASS",
+    "clipping_overlap": "PASS",
+    "cross_viewport_consistency": "PASS",
+    "download_qr_layout": "PASS"
+  },
+  "decision": "FRESH_PASS_EXACT_ARTIFACT_9787692571"
+}
