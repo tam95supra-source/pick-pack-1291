@@ -82,8 +82,10 @@ export default {
     if(u.pathname==="/v1/documents"&&method==="GET")return documentList(request,env);
     if(u.pathname==="/v1/documents/upload-session"&&method==="POST")return documentUploadSession(request,env);
     if(u.pathname==="/v1/documents/complete"&&method==="POST")return documentComplete(request,env);
-    const documentMediaMatch=method==="GET"?u.pathname.match(/^\\/v1\\/documents\\/([^/]+)\\/media$/):null;
-    if(documentMediaMatch?.[1])return documentMedia(request,env,decodeURIComponent(documentMediaMatch[1]));
+    const documentMediaParts=u.pathname.split("/");
+    if(method==="GET"&&documentMediaParts.length===5&&documentMediaParts[1]==="v1"&&documentMediaParts[2]==="documents"&&documentMediaParts[4]==="media"&&documentMediaParts[3]){
+      return documentMedia(request,env,decodeURIComponent(documentMediaParts[3]));
+    }
     if(u.pathname==="/v1/admin/accounts/delete"&&method==="POST")return superadminDeleteAccounts(request,env);
     if(u.pathname==="/v1/admin/resources"&&method==="GET")return resourceAdminList(request,env);
     if(u.pathname==="/v1/admin/resources"&&method==="POST")return resourceAdminMutate(request,env);
