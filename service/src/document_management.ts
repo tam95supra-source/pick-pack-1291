@@ -255,7 +255,8 @@ async function processDocumentCategoryMutation(env:Env,mutationId:string):Promis
           env.DB.prepare("DELETE FROM document_audit WHERE target_type='DOCUMENT' AND target_id IN (SELECT document_id FROM document_category_mutation_items WHERE mutation_id=?1)").bind(job.mutation_id),
           env.DB.prepare("DELETE FROM document_audit WHERE target_type='DOCUMENT_CATEGORY' AND target_id=?1").bind(job.category_id),
           env.DB.prepare("DELETE FROM document_categories WHERE category_id=?1 AND mutation_id=?2").bind(job.category_id,job.mutation_id),
-          env.DB.prepare("UPDATE document_category_mutations SET state='DONE',processed_items=total_items,updated_at=?1,completed_at=?1,last_error=NULL WHERE mutation_id=?2").bind(at,job.mutation_id)
+          env.DB.prepare("DELETE FROM document_category_mutation_items WHERE mutation_id=?1").bind(job.mutation_id),
+          env.DB.prepare("UPDATE document_category_mutations SET state='DONE',processed_items=total_items,old_display_name='',new_display_name=NULL,new_normalized_name=NULL,updated_at=?1,completed_at=?1,last_error=NULL WHERE mutation_id=?2").bind(at,job.mutation_id)
         ]);
       }
     }
@@ -386,9 +387,10 @@ export async function documentUploadSession(request:Request,env:Env):Promise<Res
   if(sourceKind!=="CAMERA"&&sourceKind!=="GALLERY")return apiError("DOCUMENT_IMAGE_SOURCE_INVALID","VALIDATION",400,false);
   if(idempotency.length<8||idempotency.length>120)return apiError("DOCUMENT_IDEMPOTENCY_INVALID","VALIDATION",400,false);
 
-  const category=await env.DB.prepare("SELECT category_id,display_name,normalized_name,status,created_at,created_by,updated_at,updated_by FROM document_categories WHERE category_id=?1 AND status='ACTIVE'")
+  const category=await env.DB.prepare("SELECT category_id,display_name,normalized_name,status,created_at,created_by,updated_at,updated_by,mutation_state,mutation_id FROM document_categories WHERE category_id=?1 AND status='ACTIVE'")
     .bind(categoryId).first<DocCategoryRow>();
   if(!category)return apiError("DOCUMENT_CATEGORY_NOT_FOUND","VALIDATION",404,false);
+  if(category.mutation_state!=="NONE")return apiError("DOCUMENT_CATEGORY_MUTATION_IN_PROGRESS","CONFLICT",409,true);
 
   const prior=await env.DB.prepare("SELECT * FROM document_records WHERE idempotency_key=?1").bind(idempotency).first<DocRow>();
   if(prior){
