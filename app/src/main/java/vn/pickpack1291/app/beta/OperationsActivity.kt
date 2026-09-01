@@ -1916,7 +1916,7 @@ class OperationsActivity : Activity() {
             body.addView(selectionBox,matchWrap())
         }
         val box=column(bg);body.addView(box,matchWrap())
-        fun friendly(type:String,label:String):String=when(type.uppercase()){ "ATTENDANCE_ENTER","ENTER"->"Vào ca";"ATTENDANCE_EXIT","EXIT"->"Ra ca";"RESOURCE_CHANGE"->"Đổi tài nguyên";"LABOR_START"->"Bắt đầu công nhật";"LABOR_FINISH"->"Hoàn thành công nhật";"ADMIN_AUDIT"->"Thao tác quản trị";"MASTER_STAFF_UPSERT"->"Cập nhật nhân sự";"MASTER_STAFF_DELETE"->"Xóa nhân sự";"ACCOUNT_UPSERT"->"Tạo / sửa tài khoản";"ACCOUNT_STATUS"->"Đổi trạng thái tài khoản";"ACCOUNT_EMAIL"->"Đổi email tài khoản";"ACCOUNT_PASSWORD"->"Đổi mật khẩu";else->label.ifBlank{type.ifBlank{"Thao tác"}} }
+        fun friendly(type:String,label:String):String=when(type.uppercase()){ "ATTENDANCE_ENTER","ENTER"->"Vào ca";"ATTENDANCE_EXIT","EXIT"->"Ra ca";"RESOURCE_CHANGE"->"Đổi tài nguyên";"LABOR_START"->"Bắt đầu công nhật";"LABOR_FINISH"->"Hoàn thành công nhật";"DOCUMENT_UPLOAD"->"Tải biên bản";"DOCUMENT_DELETE"->"Xóa biên bản";"DOCUMENT_CATEGORY_CREATE"->"Thêm loại biên bản";"DOCUMENT_CATEGORY_UPDATE"->"Sửa loại biên bản";"DOCUMENT_CATEGORY_DELETE"->"Xóa loại biên bản";"ADMIN_AUDIT"->"Thao tác quản trị";"MASTER_STAFF_UPSERT"->"Cập nhật nhân sự";"MASTER_STAFF_DELETE"->"Xóa nhân sự";"ACCOUNT_UPSERT"->"Tạo / sửa tài khoản";"ACCOUNT_STATUS"->"Đổi trạng thái tài khoản";"ACCOUNT_EMAIL"->"Đổi email tài khoản";"ACCOUNT_PASSWORD"->"Đổi mật khẩu";else->label.ifBlank{type.ifBlank{"Thao tác"}} }
         fun statusOf(e:JSONObject):String{val s=e.optString("local_status").uppercase();return when{s in setOf("REJECTED","REVIEW_REQUIRED","CONFLICT","FAILED","ERROR")->"FAILED";s in setOf("LOCAL_PENDING","PENDING","RETRY","OFFLINE_PROVISIONAL")->"PENDING";else->"SYNCED"}}
         fun eventDate(e:JSONObject,fallback:String):String=e.optString("business_date").ifBlank{e.optString("cache_business_date")}.ifBlank{runCatching{java.time.Instant.parse(e.optString("at_iso").ifBlank{e.optString("at")}).atZone(ZoneId.of("Asia/Ho_Chi_Minh")).toLocalDate().toString()}.getOrDefault(fallback)}
         fun scanDate(date:String,needle:String,remaining:Int,out:MutableList<JSONObject>){
@@ -1949,7 +1949,7 @@ class OperationsActivity : Activity() {
             box.removeAllViews();currentPageDeleteIds.clear();pageChecks.clear();val rows=loadRows();val groups=rows.groupBy{e->e.optString("event_id").ifBlank{"${e.optString("mnv")}|${e.optString("at_iso")}|${e.optString("event_type")}"}}.entries.sortedByDescending{entry->entry.value.maxOfOrNull{e->e.optLong("local_queued_at",0L).takeIf{it>0}?:runCatching{java.time.Instant.parse(e.optString("at_iso")).toEpochMilli()}.getOrDefault(0L)}?:0L};val states=groups.map{g->if(g.value.any{statusOf(it)=="FAILED"})"FAILED" else if(g.value.any{statusOf(it)=="PENDING"})"PENDING" else "SYNCED"};val metricRows=if(query.isBlank())rows else run{val savedQuery=query;query="";val allRows=loadRows();query=savedQuery;allRows};val pending=metricRows.count{statusOf(it)=="PENDING"};val failed=metricRows.count{statusOf(it)=="FAILED"}
             fun updateMetric(v:View,title:String,n:Int){if(v is TextView)v.text="$title: $n"};updateMetric(allBtn,"Tổng",metricRows.size);updateMetric(pendingBtn,"Chờ",pending);updateMetric(failBtn,"Cần xử lí",failed)
             val filtered=groups.filterIndexed{idx,_->filter=="ALL"||states[idx]==filter};if(pageStart>=filtered.size&&pageStart>0)pageStart=((filtered.size-1).coerceAtLeast(0)/pageSize)*pageSize;val visible=filtered.drop(pageStart).take(pageSize)
-            if(query.isNotBlank())box.addView(info("Tìm trên toàn bộ lịch sử đang giữ trên PDA • tối đa 300 kết quả trước khi nhóm."))
+
             for(g in visible){
                 val items=g.value;val first=items.first();val state=if(items.any{statusOf(it)=="FAILED"})"FAILED" else if(items.any{statusOf(it)=="PENDING"})"PENDING" else "SYNCED";val label=when(state){"FAILED"->"Lỗi đồng bộ";"PENDING"->"Chưa đồng bộ";else->"Đã đồng bộ"};val tint=when(state){"FAILED"->Color.rgb(254,242,242);"PENDING"->Color.rgb(255,251,235);else->Color.rgb(240,253,250)};val mnv=first.optString("mnv");val full=first.optString("full_name");val last=items.first()
                 val deletable=items.filter{it.optString("event_type").uppercase()!="HISTORY_DELETE"}.map{it.optString("event_id")}.filter{it.isNotBlank()}.distinct();currentPageDeleteIds.addAll(deletable)
@@ -1962,7 +1962,7 @@ class OperationsActivity : Activity() {
                 };box.addView(card,matchWrap());box.addView(gap(6))
             }
             updateSelectedCount()
-            if(visible.isEmpty())box.addView(info("Không có lịch sử phù hợp."));if(filtered.isNotEmpty()){val from=pageStart+1;val to=(pageStart+visible.size).coerceAtMost(filtered.size);box.addView(info("Đang hiển thị $from–$to / ${filtered.size} • tối đa 100 bản ghi mỗi trang."));val nav=row(bg);if(pageStart>0)nav.addView(smallButton("‹ 100 TRƯỚC",navy).apply{setOnClickListener{pageStart=(pageStart-pageSize).coerceAtLeast(0);render()}},LinearLayout.LayoutParams(0,dp(46),1f).apply{marginEnd=dp(3)});if(pageStart+pageSize<filtered.size)nav.addView(smallButton("100 TIẾP ›",teal).apply{setOnClickListener{pageStart+=pageSize;render()}},LinearLayout.LayoutParams(0,dp(46),1f).apply{marginStart=dp(3)});if(nav.childCount>0)box.addView(nav,matchWrap())}
+            if(visible.isEmpty())box.addView(info("Không có lịch sử phù hợp."));if(filtered.isNotEmpty()){val from=pageStart+1;val to=(pageStart+visible.size).coerceAtMost(filtered.size);box.addView(txt("$from–$to / ${filtered.size}",9f,muted,false));val nav=row(bg);if(pageStart>0)nav.addView(smallButton("‹ 100 TRƯỚC",navy).apply{setOnClickListener{pageStart=(pageStart-pageSize).coerceAtLeast(0);render()}},LinearLayout.LayoutParams(0,dp(46),1f).apply{marginEnd=dp(3)});if(pageStart+pageSize<filtered.size)nav.addView(smallButton("100 TIẾP ›",teal).apply{setOnClickListener{pageStart+=pageSize;render()}},LinearLayout.LayoutParams(0,dp(46),1f).apply{marginStart=dp(3)});if(nav.childCount>0)box.addView(nav,matchWrap())}
         }
         allBtn.setOnClickListener{filter="ALL";pageStart=0;render()};pendingBtn.setOnClickListener{filter="PENDING";pageStart=0;render()};failBtn.setOnClickListener{filter="FAILED";pageStart=0;render()}
         q.addTextChangedListener(object:TextWatcher{override fun beforeTextChanged(v:CharSequence?,st:Int,c:Int,a:Int)=Unit;override fun onTextChanged(v:CharSequence?,st:Int,b:Int,c:Int){query=v?.toString().orEmpty();pageStart=0;render()};override fun afterTextChanged(v:Editable?)=Unit})
@@ -2023,6 +2023,11 @@ class OperationsActivity : Activity() {
         "WORK_SESSION_DELETE"->"Xóa công việc trong ca"
         "LABOR_START"->"Bắt đầu công nhật"
         "LABOR_FINISH"->"Kết thúc công nhật"
+        "DOCUMENT_UPLOAD"->"Tải biên bản"
+        "DOCUMENT_DELETE"->"Xóa biên bản"
+        "DOCUMENT_CATEGORY_CREATE"->"Thêm loại biên bản"
+        "DOCUMENT_CATEGORY_UPDATE"->"Sửa loại biên bản"
+        "DOCUMENT_CATEGORY_DELETE"->"Xóa loại biên bản"
         "MASTER_STAFF_UPSERT"->"Thêm / sửa nhân sự"
         "MASTER_STAFF_DELETE"->"Xóa nhân sự"
         "ACCOUNT_UPSERT"->"Tạo / sửa tài khoản"
