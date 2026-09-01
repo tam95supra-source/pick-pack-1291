@@ -157,7 +157,9 @@ jobs:
           assert "SERVICE_DISCOVERY_ONLY)" in w and "service_discovery_only:" in w
           assert "service-discovery-preserved" in h and "seed-stale-discovery" in h
           assert "seed-stale-discovery" in o and "service-discovery-preserved" in o
-          assert "stale_discovery_preserved_across_ota:true" in o
+          assert "ALREADY_REWRITTEN_BY_APP" in h and "STALE_PRESERVED" in h
+          assert "stale_discovery_preserved_across_ota:$stale_preserved" in o
+          assert "stale_discovery_safe_after_ota:true" in o
           assert "cache_rewritten_in_process=PASS" in o
           assert '.device_regression_status=="PASS"' in w
           print("service_discovery_device_ota_contract=PASS")
