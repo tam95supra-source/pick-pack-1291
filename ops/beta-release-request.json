@@ -1,6 +1,6 @@
 {
-  "stage": "PUBLISH",
-  "mode": "BETA108_PUBLISH_EXACT_AFTER_ALL_PRE_OTA_GATES_PASS",
+  "stage": "ROLLBACK_ONLY",
+  "mode": "BETA108_POST_PUBLISH_FINALIZE_FAIL_ROLLBACK",
   "version_name": "0.4.2-beta.108",
   "version_code": 114,
   "base_version": "0.4.2-beta.106",
@@ -38,8 +38,8 @@
   "apk_transport": "GITHUB_RELEASE_ONLY",
   "google_drive_apk": "FORBIDDEN",
   "regression_case": "DOCUMENT-MANAGEMENT-001",
-  "execution_nonce": "beta108-publish-exact-20260901-01",
-  "next_action": "PUBLISH_EXACT_BETA108_AND_VERIFY_OTA_READBACK",
+  "execution_nonce": "beta108-rollback-after-finalize-fail-20260901-01",
+  "next_action": "ROLLBACK_BETA106_MANIFEST_THEN_REPAIR_FINALIZE",
   "candidate_source_sha": "378f1c294641c774cee361ae2bd2cc9fc868ee23",
   "candidate_run_id": 33491085275,
   "candidate_artifact_id": 9793922815,
@@ -83,5 +83,7 @@
   "beta_gas_repair_artifact_id": 9752024220,
   "beta_gas_repair_deployment_version": 213,
   "beta_gas_readback_run_id": 33376476824,
-  "inherited_gate_note": "Beta106 auth/domain/GAS gates inherited because their exact source/config inputs are unchanged. Beta108 service-live, visual/PDA/API36, Fast Check, device regression, runtime DoD and human visual are fresh PASS."
+  "inherited_gate_note": "Beta106 auth/domain/GAS gates inherited because their exact source/config inputs are unchanged. Beta108 service-live, visual/PDA/API36, Fast Check, device regression, runtime DoD and human visual are fresh PASS.",
+  "rollback_publish_run_id": 33498900078,
+  "rollback_publish_artifact_name": "beta-publish-33498900078"
 }
