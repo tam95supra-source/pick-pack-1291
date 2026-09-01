@@ -81,6 +81,7 @@ assert "DOCUMENT_DRAFT_BYTES_COMMIT_FAILED" in draft and "DOCUMENT_DRAFT_MANIFES
 assert "loadAll(ownerLogin:String)" in draft and "append(ownerLogin:String" in draft
 assert 'if(owner!=ownerLogin.trim())return@runCatching null' in draft and 'digest("SHA-256",bytes)' in draft
 assert "dhash64Variants=variants.distinct().take(4)" in draft
+assert "const val MAX_ITEMS=60" in draft and "const val MAX_BYTES=120L*1024L*1024L" in draft
 
 assert 'pp1291_document_category_cache_v1' in category_cache
 assert 'BuildConfig.ENVIRONMENT_ID+"|"+ownerLogin.trim().lowercase()' in category_cache
