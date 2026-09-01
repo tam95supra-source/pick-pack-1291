@@ -13,7 +13,7 @@ on:
       - google-apps-script/**
       - config/mutation_fallback_policy.json
       - config/provider_free_limits.json
-      - tools/resilience_static_gate.mjs
+      - tools/resilience_static_gate.mjs\n      - tools/document_management_contract.py
       - tools/beta_stable_isolation_contract.mjs
       - tools/portable_backup_verify.sh
       - tools/d1_generation_autopilot.sh
@@ -46,7 +46,7 @@ on:
       - services/**
       - google-apps-script/**
       - config/mutation_fallback_policy.json
-      - tools/resilience_static_gate.mjs
+      - tools/resilience_static_gate.mjs\n      - tools/document_management_contract.py
       - qa/**
       - .github/workflows/app-fast-check.yml
   workflow_dispatch:
@@ -245,7 +245,7 @@ jobs:
         run: |
           set -euo pipefail
           git diff --check HEAD^ HEAD
-          python3 tools/service_discovery_cache_regression.py
+          python3 tools/service_discovery_cache_regression.py\n          python3 tools/document_management_contract.py
           grep -q 'versionCode = 1' app/build.gradle.kts
           grep -q 'versionName = "0.1.0-stable"' app/build.gradle.kts
           gradle --no-daemon --build-cache --parallel :app:testBetaDebugUnitTest :app:assembleBetaDebug :app:assembleStableDebug
