@@ -944,14 +944,14 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     showTextOnScreen("QR TẢI ỨNG DỤNG",12000L);
     waitText("MỞ QR TẢI ỨNG DỤNG",true,true,10000L);
     clickText("MỞ QR TẢI ỨNG DỤNG",true,10000L);
-    waitText("QR TẢI ỨNG DỤNG",true,false,10000L);
+    // Titleless persistent status header: verify the download screen by its release-card content instead of an app-bar title.
     waitText("Quét QR để tải trực tiếp APK mới nhất",false,false,25000L);
     waitText("Stable chưa có bản phát hành công khai",false,false,25000L);
     mark("settings_download_qr_beta105");
     shot(tag+"-16-beta105-download-qr");
     try{ui.executeShellCommand("input keyevent 4").close();}catch(Exception ignored){}
     SystemClock.sleep(450L);
-    waitText("CÀI ĐẶT",true,false,10000L);
+    waitText("THÔNG TIN ỨNG DỤNG",true,false,10000L);
 
     showTextOnScreen("TRUNG TÂM KIỂM THỬ RESILIENCE",12000L);
     waitText("Phạm vi",true,false,10000L);
