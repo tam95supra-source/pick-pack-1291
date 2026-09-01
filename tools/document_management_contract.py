@@ -41,6 +41,9 @@ assert "/v1/documents/upload-session" in entry and "documentMedia" in entry
 assert "/v1/documents/delete" in entry and "documentDeleteMutate" in entry
 assert all(x in batch_migration for x in ["group_id TEXT","group_mode TEXT","page_index INTEGER","page_count INTEGER","document_delete_mutations","document_delete_items"])
 assert all(x in service for x in ["group_id","MULTI_PAGE","MULTI_DOCUMENT","processDocumentDeleteMutations","DOCUMENT_DELETE_SELECTED","flushDocumentAuditHistory"])
+assert 'category_name:job.old_display_name' not in service, "hard delete receipt must not retain deleted category name"
+assert 'DELETE FROM document_delete_items WHERE mutation_id=?1' in service, "bulk delete checkpoints must be purged after completion"
+assert 'VALUES(?1,?2,?3,NULL,NULL,NULL' in service, "bulk delete checkpoint must not persist names"
 
 assert 'businessCard(R.drawable.ic_pp_document,"Quản lý biên bản","",isAdmin()){documentManagementScreen()}' in activity
 assert "ACTION_IMAGE_CAPTURE" in activity and "ACTION_OPEN_DOCUMENT" in activity
