@@ -74,7 +74,7 @@ invariants:
     regression_case: "SHIFT-STAFF-DOWNLOAD-QR-NULL-001 / qa/beta106_shift_staff_null_regression.md"
     owner_acceptance: "ACTIVE_PASS_OWNER_ACCEPTED_2026-09-01_BETA106_SCOPE / ops/beta106-owner-acceptance.json"
   - id: DOCUMENT-MANAGEMENT-001
-    status: TECHNICAL_PASS_AWAITING_OWNER
+    status: ACTIVE_PASS
     scope: document-management
     rule: "Ảnh biên bản upload trực tiếp Google Drive; Service/D1 chỉ lưu metadata/hash/audit; exact duplicate bị chặn, near-duplicate phải cảnh báo; Sửa loại = rename toàn bộ metadata + tên file Drive; Xóa loại = hard delete ảnh Drive + dữ liệu nghiệp vụ; Sửa/Xóa đều qua mã xác nhận canonical HHmm ±2 phút của app."
     technical_candidate: "a72d8e20eaebe60235338fd1b9aaebde42507825 / 0.4.2-beta.109 LIVE"
@@ -83,12 +83,11 @@ invariants:
     owner_decision: "OWNER 2026-09-01: Sửa = rename lại toàn bộ dữ liệu + file Drive; Xóa = xóa hẳn ảnh + dữ liệu; cả hai dùng mã xác nhận theo logic thời gian hiện tại của app. Hard delete chỉ giữ receipt kỹ thuật tối thiểu để audit."
     regression_case: "DOCUMENT-MANAGEMENT-001 / qa/beta109_document_management_regression.md + tools/document_management_contract.py + tools/beta89_service_live_gate.sh + tools/Beta83UiChecksInstrumentation.java"
     technical_receipt: "ops/beta109-technical-pass.json"
-    owner_acceptance: "PARTIAL_LOCKED_ITEMS_1_2_5_6_7_8_OK; RETEST_ONLY_NEAR_SIMILAR_AND_OFFLINE_DRAFT"
-    accepted_subitems: [1,2,5,6,7,8]
-    owner_retest_required: [near_similar_rotation_aware_warning, offline_category_cache_and_durable_selected_draft_retry]
+    owner_acceptance: "ACTIVE_PASS_OWNER_ALL_ITEMS_OK_2026-09-01T22:04+07:00 / ops/beta109-owner-acceptance.json"
+    accepted_subitems: [1,2,3,4,5,6,7,8]
     partial_acceptance_receipt: "ops/beta108-owner-acceptance-partial.json"
-    active_pass: false
-    last_verified: "0.4.2-beta.109 LIVE / terminal run 33515483109 / TECHNICAL_PASS_AWAITING_OWNER"
+    active_pass: true
+    last_verified: "0.4.2-beta.109 LIVE / terminal run 33515483109 / OWNER acceptance complete 2026-09-01T22:04+07:00"
 
   - id: INFRA-RESILIENCE-001
     status: TECHNICAL_PASS_AWAITING_OWNER
