@@ -246,6 +246,7 @@ class OperationsActivity : Activity() {
                 dynamic.removeAllViews()
                 dynamic.addView(OldSessionWarningFeature.build(this,api){raw->openHistoricalSession(raw)},matchWrap())
                 dynamic.addView(PostMealAttendanceFeature.buildHomeWarning(this,api){postMealAttendanceScreen()},matchWrap())
+                if(isAdmin())dynamic.addView(laborOpenWarning(),matchWrap())
                 addBusinessShiftReconciliation(dynamic)
             } finally { dynamic.suppressLayout(false) }
         }
@@ -275,6 +276,18 @@ class OperationsActivity : Activity() {
     }
 
 
+    private fun laborOpenWarning():View{
+        val host=column(bg).apply{visibility=View.GONE;setPadding(0,0,0,dp(6))}
+        val open=smallButton("",red).apply{visibility=View.GONE;setOnClickListener{laborHome()}}
+        host.addView(open,matchWrap())
+        api.call("list_labor"){r->runOnUiThread{
+            if(!r.ok)return@runOnUiThread
+            val items=r.json?.optJSONArray("items")?:JSONArray();var count=0
+            for(i in 0 until items.length())if(items.optJSONObject(i)?.optString("state")?.equals("OPEN",true)==true)count++
+            if(count>0){open.text="CẢNH BÁO: $count CÔNG NHẬT CHƯA HOÀN THÀNH";open.visibility=View.VISIBLE;host.visibility=View.VISIBLE}
+        }}
+        return host
+    }
     private fun postMealAttendanceScreen(){
         module="BUSINESS"
         screenState="MEAL_ATTENDANCE"
