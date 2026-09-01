@@ -28,7 +28,11 @@ class DocumentPendingStore(context:Context) {
         val driveFileId:String?,
         val allowSimilar:Boolean,
         val lastError:String?,
-        val retryCount:Int
+        val retryCount:Int,
+        val groupId:String,
+        val groupMode:String,
+        val pageIndex:Int,
+        val pageCount:Int
     )
     class CapacityException(message:String):IllegalStateException(message)
 
@@ -40,7 +44,11 @@ class DocumentPendingStore(context:Context) {
         sourceKind:String,
         capturedAt:String,
         idempotencyKey:String,
-        image:DocumentImageProcessor.ProcessedImage
+        image:DocumentImageProcessor.ProcessedImage,
+        groupId:String=idempotencyKey,
+        groupMode:String="SINGLE",
+        pageIndex:Int=1,
+        pageCount:Int=1
     ):Item=synchronized(lock){
         listUnlocked().firstOrNull{it.idempotencyKey==idempotencyKey}?.let{return it}
         val current=listUnlocked()
@@ -58,7 +66,9 @@ class DocumentPendingStore(context:Context) {
             capturedAt=capturedAt,idempotencyKey=idempotencyKey,sha256=image.sha256,md5=image.md5,
             dhash64=image.dhash64,dhash64Variants=image.dhash64Variants,width=image.width,height=image.height,mimeType=image.mimeType,
             byteSize=image.bytes.size,createdAt=now,updatedAt=now,documentId=null,driveFileId=null,
-            allowSimilar=false,lastError=null,retryCount=0
+            allowSimilar=false,lastError=null,retryCount=0,
+            groupId=groupId.trim().ifBlank{idempotencyKey},groupMode=groupMode.trim().uppercase().ifBlank{"SINGLE"},
+            pageIndex=pageIndex.coerceAtLeast(1),pageCount=pageCount.coerceAtLeast(1)
         )
         try{writeMeta(item)}catch(t:Throwable){bytesFile.delete();throw t}
         item
@@ -134,7 +144,11 @@ class DocumentPendingStore(context:Context) {
             documentId=j.optString("document_id").takeIf{it.isNotBlank()},
             driveFileId=j.optString("drive_file_id").takeIf{it.isNotBlank()},
             allowSimilar=j.optBoolean("allow_similar",false),lastError=j.optString("last_error").takeIf{it.isNotBlank()},
-            retryCount=j.optInt("retry_count",0)
+            retryCount=j.optInt("retry_count",0),
+            groupId=j.optString("group_id").ifBlank{j.getString("idempotency_key")},
+            groupMode=j.optString("group_mode","SINGLE").ifBlank{"SINGLE"},
+            pageIndex=j.optInt("page_index",1).coerceAtLeast(1),
+            pageCount=j.optInt("page_count",1).coerceAtLeast(1)
         )
     }.getOrNull()
     private fun toJson(i:Item)=JSONObject()
@@ -144,6 +158,7 @@ class DocumentPendingStore(context:Context) {
         .put("mime_type",i.mimeType).put("byte_size",i.byteSize).put("created_at",i.createdAt).put("updated_at",i.updatedAt)
         .put("document_id",i.documentId?:"").put("drive_file_id",i.driveFileId?:"").put("allow_similar",i.allowSimilar)
         .put("last_error",i.lastError?:"").put("retry_count",i.retryCount)
+        .put("group_id",i.groupId).put("group_mode",i.groupMode).put("page_index",i.pageIndex).put("page_count",i.pageCount)
     private fun cleanupTemps(){
         val cutoff=System.currentTimeMillis()-24*60*60*1000L
         dir.listFiles()?.filter{it.name.endsWith(".tmp")&&it.lastModified()<cutoff}?.forEach{it.delete()}
