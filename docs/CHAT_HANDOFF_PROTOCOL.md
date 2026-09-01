@@ -5,6 +5,14 @@ Schema: `pick-pack-handover/v2`
 
 Mục tiêu: mỗi lần OWNER chuyển chat, repo có một snapshot bàn giao đủ để phiên mới tiếp tục ngay; đồng thời giữ tối đa 5 bản archive gần nhất để phục hồi mà không làm phình context.
 
+## 0. Branch authority
+
+- Canonical Beta/continuity branch: `beta/current`.
+- `main` chỉ dành cho Stable/protected flow và không được dùng làm Beta current-state authority.
+- Mọi feature/release branch mới phải base từ `beta/current`.
+- Sau checkpoint/handoff canonical PASS, fast-forward `beta/current` tới checkpoint nếu lịch sử là hậu duệ hợp lệ; cấm force khi diverge.
+- Nếu repository default branch vẫn là `main`, phiên mới phải explicit đọc ref `beta/current`.
+
 ## 1. Trigger bắt buộc
 
 Áp dụng ngay khi OWNER nói chuyển phiên, đổi chat, sang chat mới, tạo/chốt bàn giao, handoff hoặc kết thúc phiên để làm tiếp ở phiên khác. Đây là lệnh tạo artifact trong repo, không phải chỉ tóm tắt bằng chat.
@@ -32,7 +40,7 @@ Quy tắc retention:
 4. Nếu LIVE thay đổi, cập nhật `CURRENT_STATE.md` trước handoff.
 5. Xác định `working_head_sha` là commit cuối chứa thay đổi công việc/cấu hình trước commit handoff.
 6. Tạo archive timestamp mới, cập nhật canonical bằng đúng cùng nội dung, rồi áp retention 5 archive.
-7. Commit/push vào đúng active branch; không ghi `main` nếu OWNER chưa cho phép.
+7. Commit/push vào đúng active branch; không ghi `main` nếu OWNER chưa cho phép. Nếu checkpoint trở thành continuity canonical và active branch là hậu duệ của `beta/current`, fast-forward `beta/current` sau khi PASS.
 8. Readback canonical và archive mới; xác minh cùng nội dung, `status: READY`, đủ trường và không có secret.
 9. Chỉ final sau khi file đọc được; đưa link canonical và đúng một câu resume.
 
@@ -103,7 +111,7 @@ Mục không áp dụng phải ghi `NONE — lý do`, không được xóa. `wor
 
 Áp dụng ở **mọi phiên mới**, kể cả khi OWNER chưa ghi yêu cầu cụ thể:
 
-1. Đọc `docs/handovers/HANDOVER_CURRENT.md` trước.
+1. Explicit dùng ref `beta/current`, rồi đọc `docs/handovers/HANDOVER_CURRENT.md` trước. Không dùng default `main` để suy ra Beta state.
 2. Đọc `docs/REGRESSION_GUARD_POLICY.md` và `docs/STABLE_INVARIANTS.md`; nạp toàn bộ invariant ACTIVE làm baseline không được phá.
 3. Nếu canonical thiếu, không đọc được, `status != READY`, thiếu `NEXT_ACTION`, hoặc `archive_file` không hợp lệ: liệt kê các archive timestamp, chọn tên có timestamp lớn nhất và dùng bản `status: READY` mới nhất. Không hỏi OWNER chọn file và không crawl repo.
 4. Lệnh OWNER mới nhất luôn có ưu tiên cao nhất. Nếu có yêu cầu mới, nạp handoff để lấy trạng thái rồi thực thi yêu cầu mới theo `AGENTS.md`.

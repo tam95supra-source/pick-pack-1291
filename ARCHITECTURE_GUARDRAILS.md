@@ -1,124 +1,59 @@
-# PICK PACK 1291 — Architecture Guardrails
+# ARCHITECTURE GUARDRAILS — APK PICK PACK 1291
 
-## 0. OWNER-approved supersession — 2026-08-18
+Status: ACTIVE / current architecture policy
 
-The previous GAS-only architecture lock is **legacy/pre-migration**. The OWNER has explicitly approved the Service-first architecture in `HANDOVER_ARCH_SERVICE_REALTIME_DR_2026-08-18.md` and the two-session migration plan dated 2026-08-18.
+## 1. Authority
 
-This file therefore supersedes conflicting GAS-only architecture language in older handovers and in the architecture paragraphs of `AGENTS.md`. All non-conflicting business, auth, UI, release, OTA and signing rules remain in force.
+Current dynamic state phải đọc từ `CURRENT_STATE.md`, `config/environment_contracts.json` và live readback. File này chỉ chứa guardrail ổn định, không chứa version/run/provider endpoint động.
 
-## 1. Approved target architecture
-
-Target production architecture after the OWNER-approved migration is:
+## 2. Mô hình bắt buộc
 
 `Android / Web-PWA ↔ Service Core ↔ D1`
 
-with:
+Kèm:
+- Durable Objects/WebSocket cho realtime khi cần;
+- Google Sheets/GAS cho replica, compatibility, fallback, DR và update discovery theo contract;
+- Android local projection/outbox/offline;
+- provider-neutral adapters ở business core.
 
-- Cloudflare Worker = API/runtime;
-- Cloudflare D1 = normal-mode operational primary datastore;
-- Durable Objects + WebSocket/Hibernation = realtime coordination/fanout;
-- Google Sheets = operational replica/report/fallback/DR source according to authority state;
-- GAS = fallback/bootstrap/discovery compatibility layer where required by the architecture;
-- canonical immutable event ledger + current projections = logical source of truth;
-- provider-neutral Business Core with `StorageAdapter`, `RealtimeAdapter`, `SheetAdapter`, `AuthAdapter`, `RecoveryAdapter` boundaries.
+Không Supabase. Firebase chỉ FCM wake/invalidation, không Auth/DB/Storage.
 
-Baseline does **not** add Queue, KV, R2, Firebase, Supabase or Neon. Adding paid or new infrastructure requires a new OWNER command.
+## 3. Beta / Stable
 
-## 2. Current production state during M1 shadow — hard safety boundary
+- `beta/current` là canonical development branch.
+- `main` là Stable/protected branch; không đại diện Beta hiện tại.
+- BETA và STABLE phải tách package, environment/audience, account/session, D1, Sheet/GAS, OTA/manifest, LAN/NSD và mutable state.
+- Cross-environment write/fallback/auth/session/manifest/data copy bị cấm.
+- Stable giữ `READY_NOT_LIVE` cho tới lệnh promotion OWNER.
+- Promotion dùng exact accepted Beta source; chỉ cho phép environment-specific diff.
 
-Until M2 cutover is explicitly completed:
+## 4. Data / writer
 
-- Android production/Beta18 continues on the existing GAS/Google production path;
-- production authority is unchanged;
-- the production workbook `DỮ LIỆU THEO NGÀY` is bootstrap/read source only for M1;
-- M1 Service/D1 runs only with scope `STAGING_SHADOW`;
-- M1 Google replication may write only to a separate staging/copy workbook or an explicitly safe staging area;
-- production GAS is not disabled, replaced or redeployed merely to make M1 work;
-- Stable is not published without an explicit OWNER command;
-- Android signer/signing identity is never changed;
-- the rollback point `PICK_PACK_1291_PRE_SERVICE_MIGRATION_BACKUP_2026-08-18_2318` must remain intact and accessible.
+- Một official writer tại một thời điểm.
+- Mutation phải có canonical event/idempotency/fencing/audit.
+- Timeout không chứng minh writer chưa commit.
+- Legacy/cache/fallback không được tự quyết business rule.
+- D1 + outbox phải hội tụ deterministic; reconcile không được tạo duplicate.
 
-M1 must not be described as a production migration/cutover.
+## 5. Backup / DR
 
-## 3. Canonical mutation and authority rules
+- Replica/fallback/retention không tự được coi là backup.
+- Backup chỉ PASS sau restore thử + compare/checksum.
+- DR credentials/state phải environment-scoped.
+- Cross-token/cross-restore phải fail closed.
+- Provider/account-wide outage có thể vẫn là common-mode availability risk; không được tuyên bố cô lập tuyệt đối nếu provider không hỗ trợ hard isolation.
+- Free-first, không tự phát sinh chi phí; quota/circuit-breaker/kill-switch phải theo canonical config.
 
-Every mutation uses one canonical versioned contract carrying at least:
+## 6. Release
 
-- immutable `event_id`;
-- `event_type`, `entity_type`, `entity_id`;
-- `business_date`;
-- `authority_epoch`, `authority_seq`, `service_generation`;
-- `base_version`, `new_version`;
-- actor/account, role, `device_id`;
-- occurred/committed timestamps;
-- payload;
-- `idempotency_key`;
-- schema version/checksum;
-- deterministic mutation/conflict/error result.
+- Beta APK: GitHub Release exact bytes only; Google Drive APK forbidden.
+- Candidate lock gồm source SHA, run/artifact, version/code/package, SHA256, size, signer.
+- Visual thật: 320×568, 360×640, 480×800 + human inspection.
+- PDA functional dùng exact candidate trực tiếp trước OTA.
+- Sau lock cấm rebuild/resign.
+- Stable publish/main/signer/authority chỉ đổi khi OWNER authorization rõ ràng.
+- Post-publish Stable failure rollback Stable riêng; không tác động Beta.
 
-Rules:
+## 7. Secrets
 
-1. ACK authoritative success only after the current authority has durably committed.
-2. D1 mutation and `sheet_replication_outbox` insertion are one transaction.
-3. Google is not on the normal Service mutation critical path.
-4. Same `event_id`/idempotency key is exactly-once at logical commit level.
-5. Stale base version is a conflict, not last-write-wins.
-6. Exclusive resource ownership must be race-safe.
-7. Canonical committed events are not physically edited/deleted in normal operation; corrections use new events.
-8. At most one write authority is official at any point. Authority epoch/generation protect split brain.
-
-## 4. Existing business/auth invariants preserved
-
-- MNV is the business key; attendance session is `MNV + business_date`.
-- Attendance state remains `NOT_ENTERED → ACTIVE → ENDED`; normal re-enter after ENDED is not silently introduced.
-- PICK requires PDA; User Pick remains optional where currently allowed.
-- PACK keeps the existing Bàn Pack/User Pack mapping and exclusivity rules.
-- Daily User Pick/User Pack consumption semantics remain enforced.
-- OPEN Công nhật blocks EXIT.
-- Công nhật lifecycle and resource `GIỮ/TRẢ` semantics remain compatible with current rules.
-- Roles remain `SUPERADMIN / ADMIN / USER`; backend enforces permissions.
-- `n/n-1` means the two newest **business session sequence** values. USER/ADMIN are restricted to those; SUPERADMIN may bypass only the time window, never integrity/audit/resource rules.
-- Authentication remains compatible with PBKDF2-HMAC-SHA256 challenge/proof and `SINGLE_ACTIVE_DEVICE_V1`.
-- Normal account creation must not create another SUPERADMIN without OWNER approval.
-
-## 5. Retention semantics
-
-- Client operational cache/window may remain 45 business days under current product rules.
-- Service keeps rebuild-capable event/history data; 45 days is **not** a hard Service ledger deletion rule.
-- Do not physically discard canonical events merely because they are older than the current client window.
-
-## 6. Google Sheet integrity
-
-- Existing production Sheet/tab/header/select values are not renamed/reset/regenerated by migration bootstrap.
-- Bootstrap/import must preserve exact source values, detect duplicates/schema drift, and produce count/checksum reconciliation.
-- Direct operational Sheet editing is not the official normal-mode workflow after Service cutover.
-- Divergence does not silently overwrite Service state; default policy is Service/Event Ledger wins unless SUPERADMIN accepts a correction as an official event.
-- Severe schema drift pauses replication rather than writing by ambiguous column positions.
-
-## 7. Realtime/sync/networking
-
-- WebSocket sends small delta/event notifications, not full datasets.
-- Revision/authority sequence delta catch-up is the correctness path after missed socket data or reconnect.
-- Android foreground uses event-driven connectivity and one shared sync engine; no continuous health-poll loop.
-- Background does not force a permanent WebSocket; pending work uses platform scheduling/backoff.
-- Dynamic Service discovery is mandatory so a Service URL/generation can change without a new APK solely for that change.
-
-## 8. Drive/release/security guardrails retained
-
-- Pick Pack files/backups/releases remain inside the official `PICK PACK 1291 - CHÍNH THỨC` Drive tree unless OWNER explicitly changes this.
-- Never commit plaintext password, verifier, OAuth credential, private token, signing material or secret value to the public repository/handover.
-- Hidden Sheet/tab is not a security boundary.
-- Beta remains full-function for real acceptance testing.
-- Stable requires explicit OWNER promotion.
-- Existing OTA/signing identity invariants remain unchanged until an OWNER-approved M2 cutover step says otherwise.
-- The OWNER is not asked to run local CLI; CI/assistant-controlled tooling performs command-line deployment/build work.
-
-## 9. M1 completion gate
-
-M1 is complete only if all of the following are evidenced in staging/shadow:
-
-`Test Client → Service API → D1 → Realtime → Google staging replica`
-
-plus real-source bootstrap reconciliation, auth, idempotency, stale-version handling, exclusive-resource race handling, retry/checkpoint behavior, reconnect/catch-up, empty D1 migration, re-bootstrap safety, retention boundaries and `n/n-1` authorization.
-
-If any gate fails, do not call M1 complete and do not cut production over.
+Secret/token/password/signer chỉ ở secret store phù hợp. Không plaintext trong repo, Sheet, log, backup hoặc handoff.

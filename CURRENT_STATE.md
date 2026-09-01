@@ -5,7 +5,10 @@
 - technical_dod_status: PASS_BETA_STABLE_AUDIT
 - audit_verdict: TECHNICAL_PASS_AWAITING_OWNER
 - owner_acceptance: BETA104_CHECKLIST_1_TO_6_COMPLETE / BETA_STABLE_CHECKLIST_1_TO_18_DEFERRED_BY_OWNER_UNTIL_FIRST_STABLE_RELEASE
-- continuity_branch: release/audit-beta104-stable-private-20260831
+- continuity_branch: beta/current
+- canonical_beta_branch: beta/current
+- stable_branch: main
+- repository_default_branch: main (legacy default; not Beta authority until OWNER changes setting)
 - source_sha: c31bb1b7ad68e6fd114727d8f08508796013bcef
 - beta_live: 0.4.2-beta.104 (versionCode 110)
 - package: vn.pickpack1291.app.beta.publicbeta

@@ -1,83 +1,68 @@
-# AI EXECUTION STANDARD — lỗi đã biết và đường PASS
+# AI EXECUTION STANDARD — APK PICK PACK 1291
 
-Status: ACTIVE. Mục tiêu: không tiêu tốn runtime vào retry mù hoặc lặp lại cách đã biết sai.
+Status: ACTIVE
 
-## Phân loại trước khi hành động
+## 1. Phân loại lỗi
 
-1. Deterministic: cùng input luôn lỗi → sửa root cause, thêm regression, không retry.
-2. Transient: timeout/transport/rate limit → tối đa 2 retry có backoff, giữ nguyên bytes.
-3. Harness: APK đúng nhưng fixture/parser/emulator sai → sửa harness, không rebuild/resign APK.
-4. Authority/permission: fresh-read exact target; chỉ hỏi OWNER nếu thật sự thiếu quyền/MFA/approval.
+1. Deterministic: cùng input luôn fail → sửa root cause trước khi rerun.
+2. Transient: timeout/transport/rate-limit → retry có giới hạn, giữ exact artifact/bytes.
+3. Harness: fixture/parser/emulator/workflow sai → sửa harness, không rebuild APK đúng.
+4. Authority/permission: fresh-read exact target; chỉ hỏi OWNER khi thiếu quyền/MFA/protected approval.
 
-## Fingerprint → root cause → đường PASS
+## 2. Đường PASS chuẩn
 
-### Workflow run failure và jobs=[]
+### Workflow parse / jobs rỗng
+- Sửa YAML/harness gốc.
+- Không tạo observer/per-version workflow để né lỗi.
 
-- Root cause thường gặp: YAML không hợp lệ hoặc workflow cũ hỏng được GitHub parse trên mọi push.
-- PASS: xóa workflow lỗi khỏi active branch bằng một Git tree commit; giữ allowlist workflow cố định; validate YAML trước push.
-- Cấm: tạo thêm observer/diagnostic/finalizer để quan sát cùng lỗi.
+### Compile cascade
+- Sửa lỗi compiler/root cause đầu tiên.
+- Không chồng patch v2/v3/v4 trên sai baseline.
 
-### Hàng loạt workflow failure sau một commit
+### Candidate đã khóa
+- Không rebuild/re-sign để sửa verifier, visual harness, transport hoặc receipt.
+- Mọi verify/publish phải tải lại exact candidate.
 
-- Root cause: hàng trăm workflow lịch sử có trigger rộng hoặc YAML hỏng.
-- PASS: nhánh release sạch chỉ giữ `app-fast-check.yml` và `beta-release.yml`.
-- Cấm: retry từng workflow hoặc thêm marker cho từng bản.
+### Visual fail nhưng APK đúng
+- Sửa fixture/parser/UIAutomator/emulator.
+- Giữ candidate bytes.
+- Human inspect đủ viewport bắt buộc.
 
-### Workflow mới không dispatch được / 404 / 422
+### OTA transport
+- APK Beta chỉ GitHub Release exact bytes.
+- Retry exact upload/download khi transient.
+- Google Drive APK path là legacy/forbidden; không phục hồi.
 
-- Root cause: file chưa được GitHub đăng ký hoặc sai ref.
-- PASS: dùng workflow cố định và trigger request file; không tạo workflow per release.
+### OTA schema
+- Fresh-read live update contract.
+- Tách response update-available và no-update.
+- Không rebuild chỉ vì verifier dùng schema cũ.
 
-### Kotlin patch anchor missing / compile cascade
+### Provider/DR
+- Fresh-read quota/config trước write.
+- Free-only; paid action phải fail closed.
+- Restore + checksum/compare mới được gọi backup PASS.
+- Cross-environment credential/restore phải reject.
 
-- Root cause: replacement một dòng phụ thuộc whitespace hoặc patch nối tiếp trên source không đúng baseline.
-- PASS: dùng exact Beta68 chain một lần, marker duy nhất, fail ngay anchor đầu; sửa lỗi compiler đầu tiên; materialize source canonical.
-- Cấm: sửa lần lượt lỗi cascade hoặc chồng thêm script v2/v3/v4 không hợp nhất.
+### Beta/Stable
+- Header/environment/audience mismatch phải fail closed.
+- Không copy Beta mutable state sang Stable.
+- Stable public activation chỉ khi OWNER promotion authorization.
+- Stable failure rollback Stable riêng.
 
-### Build lại nhiều lần cho cùng release
+### Branch authority
+- Không dùng `main` để suy ra Beta hiện tại.
+- Current Beta authority là `beta/current`.
+- Feature/release branch mới phải base từ `beta/current`.
+- Không force `beta/current` qua lịch sử diverge; resolve có evidence.
+- `main` chỉ đổi trong Stable promotion.
 
-- Root cause: build, visual, upload tách thành workflow tự rebuild.
-- PASS: build/sign candidate đúng một lần; visual và publish tải lại exact artifact theo run/artifact/SHA/size/signer.
-- Cấm: rebuild/resign sau candidate lock.
+## 3. Ngưỡng dừng
 
-### Visual matrix lỗi nhưng APK launch được
+Chỉ dừng khi:
+- Technical DoD PASS đang chờ OWNER;
+- OWNER acceptance hoàn tất;
+- blocker OWNER thật;
+- safety/protected action.
 
-- Root cause đã gặp: shell/parser/UIAutomator/idle animation/fixture.
-- PASS: kiểm tra candidate identity trước; sửa harness; dùng exact candidate; human inspect ảnh 320x568, 360x640, 480x800.
-- Cấm: đổi APK để làm harness PASS.
-
-### Sai version do hardcode cũ
-
-- PASS: request chứa target; source, APK badging và metadata phải khớp; versionCode tăng đơn điệu. Beta71 = code 77.
-- Cấm: lấy tên workflow làm version truth.
-
-### Missing gradlew / SDK download lặp
-
-- PASS: `gradle/actions/setup-gradle` + `gradle`; ưu tiên SDK 36/build-tools 36.0.0 có sẵn, pinned bootstrap chỉ khi thiếu.
-
-### Push race / receipt conflict
-
-- PASS: concurrency một release; không observer commit; receipt cuối không nằm trên critical path; materialization commit chỉ một lần.
-- Cấm: nhiều job cùng ghi `ops/*` hoặc pull/rebase vòng lặp.
-
-### OTA transport lỗi
-
-- PASS: giữ exact locked artifact; retry transport giới hạn; xác minh Drive/public SHA; không build/sign lại.
-- GAS helper tạm phải nonce-gated, exact folder/SHA/size, và luôn restore source/deployment bằng trap.
-
-### OTA response schema lệch
-
-- PASS: fresh-read live `update_check` và tách hai contract:
-  - máy cũ, `available=true`: bắt buộc `source/channel/version_name/apk_url/sha256/size` khớp exact bytes;
-  - máy đang ở target, `available=false`: chỉ yêu cầu `source/channel/version_name/size`; feed có thể cố ý bỏ `sha256`, `apk_url` và `version_code`.
-- Danh tính APK được khóa bằng candidate metadata + phản hồi `available=true` + SHA của bytes tải thật; không ép trường không tồn tại vào phản hồi no-update.
-- Cấm: kết luận APK lỗi, rebuild hoặc re-sign từ verifier schema cũ.
-
-### Stable/main bị động chạm
-
-- PASS: fresh-read trước và sau; Stable snapshot và main SHA phải y nguyên.
-- Cấm: promote Stable hoặc merge main khi OWNER chưa explicit.
-
-## Ngưỡng dừng
-
-Chỉ dừng khi PASS toàn DoD hoặc OWNER blocker thật. CI pending, artifact có rồi, đã chẩn đoán, đã commit hay “đang đợi” không phải điểm dừng.
+Pending/commit/artifact/diagnosis không phải điểm dừng.

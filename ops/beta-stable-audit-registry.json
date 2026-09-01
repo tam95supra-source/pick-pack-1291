@@ -420,5 +420,12 @@
     "time": "2026-09-01T07:14:00+07:00",
     "decision": "DEFER_BETA_STABLE_CHECKLIST_1_TO_18",
     "condition": "After a new Beta is developed and OWNER-approved, execute the first Stable release, then OWNER answers checklist 1–18."
+  },
+  "canonical_beta_branch": "beta/current",
+  "stable_branch": "main",
+  "branch_authority": {
+    "beta_current": "CANONICAL_DEVELOPMENT_AND_CONTINUITY",
+    "main": "STABLE_PROTECTED_NOT_BETA_AUTHORITY",
+    "default_branch_caveat": "GitHub default branch remains main until OWNER changes repository setting."
   }
 }

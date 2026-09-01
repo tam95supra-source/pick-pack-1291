@@ -4,11 +4,16 @@
 - status: READY
 - time_utc: 2026-09-01T00:14:00Z
 - owner: Nguyễn Văn Tâm
-- branch: release/audit-beta104-stable-private-20260831
+- branch: beta/current
 - archive_file: docs/handovers/HANDOVER_20260901-0714_beta-stable-owner-pending-first-stable.md
 - technical_dod_status: PASS
 - verdict: TECHNICAL_PASS_AWAITING_OWNER
 - owner_acceptance: BETA104_COMPLETE / BETA_STABLE_1_TO_18_DEFERRED_BY_OWNER_UNTIL_FIRST_STABLE_RELEASE
+
+## BRANCH AUTHORITY
+- Canonical Beta/continuity: `beta/current`.
+- `main` is Stable/protected and is not Beta current-state authority.
+- Repository default branch may still be `main` until OWNER changes the GitHub setting; sessions must explicitly read `beta/current`.
 
 ## LIVE / SAFETY
 - Beta LIVE: 0.4.2-beta.104 / versionCode 110 / vn.pickpack1291.app.beta.publicbeta.
