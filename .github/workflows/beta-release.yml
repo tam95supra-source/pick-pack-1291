@@ -270,7 +270,7 @@ jobs:
           name: beta-candidate-${{ github.run_id }}
           path: /tmp/beta-candidate
       - uses: actions/download-artifact@v4
-        if: ${{ needs.route.outputs.stage == 'VERIFY_ONLY' }}
+        if: ${{ needs.route.outputs.stage == 'VERIFY_ONLY' || needs.route.outputs.stage == 'VISUAL_ONLY' }}
         with:
           name: ${{ needs.route.outputs.candidate_artifact_name }}
           path: /tmp/beta-candidate
