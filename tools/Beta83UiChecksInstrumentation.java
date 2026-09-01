@@ -722,13 +722,13 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
   private void verifyDocumentLocalDurability()throws Exception{
     ClassLoader cl=target.getClassLoader();
     Class<?> imageClass=cl.loadClass("vn.pickpack1291.app.beta.DocumentImageProcessor$ProcessedImage");
-    java.lang.reflect.Constructor<?> imageCtor=imageClass.getDeclaredConstructor(byte[].class,String.class,String.class,String.class,int.class,int.class,String.class);
+    java.lang.reflect.Constructor<?> imageCtor=imageClass.getDeclaredConstructor(byte[].class,String.class,String.class,String.class,java.util.List.class,int.class,int.class,String.class);
     imageCtor.setAccessible(true);
     byte[] fixture=new byte[]{11,22,33,44,55,66};
     Object image=imageCtor.newInstance(fixture,
       "0000000000000000000000000000000000000000000000000000000000000108",
       "00000000000000000000000000000108",
-      "0000000000000108",2,3,"image/jpeg");
+      "0000000000000108",java.util.Collections.singletonList("0000000000000108"),2,3,"image/jpeg");
     Class<?> storeClass=cl.loadClass("vn.pickpack1291.app.beta.DocumentPendingStore");
     Object store1=storeClass.getConstructor(Context.class).newInstance(target);
     String idem="b108-local-"+System.nanoTime();
