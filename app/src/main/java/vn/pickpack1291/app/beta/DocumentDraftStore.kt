@@ -6,6 +6,8 @@ import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
 import java.security.MessageDigest
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 import java.util.UUID
 
 class DocumentDraftStore(context:Context){
@@ -41,12 +43,16 @@ class DocumentDraftStore(context:Context){
         val account=accountDir(ownerLogin)?:throw IllegalStateException("DOCUMENT_DRAFT_DIR_UNAVAILABLE")
         cleanupTemps(account)
         val existingIds=manifestIds(account).toMutableList()
-        if(existingIds.size>=60)throw IllegalStateException("DOCUMENT_DRAFT_ITEM_LIMIT")
+        if(existingIds.size>=MAX_ITEMS)throw IllegalStateException("DOCUMENT_DRAFT_ITEM_LIMIT")
+        val existingBytes=existingIds.sumOf{generation->
+            runCatching{JSONObject(File(account,"$generation.json").readText(Charsets.UTF_8)).optLong("byte_size",0L)}.getOrDefault(0L)
+        }
+        if(existingBytes+image.bytes.size>MAX_BYTES)throw IllegalStateException("DOCUMENT_DRAFT_STORAGE_LIMIT")
         val generation=UUID.randomUUID().toString()
         val bytesTmp=File(account,"$generation.jpg.tmp")
         val bytesFile=File(account,"$generation.jpg")
         bytesTmp.outputStream().use{out->out.write(image.bytes);runCatching{out.fd.sync()}}
-        if(!bytesTmp.renameTo(bytesFile)){bytesTmp.delete();throw IllegalStateException("DOCUMENT_DRAFT_BYTES_COMMIT_FAILED")}
+        try{atomicReplace(bytesTmp,bytesFile)}catch(t:Throwable){bytesTmp.delete();throw IllegalStateException("DOCUMENT_DRAFT_BYTES_COMMIT_FAILED",t)}
         val now=System.currentTimeMillis()
         val meta=JSONObject()
             .put("owner_login",ownerLogin.trim()).put("source_kind",sourceKind).put("captured_at",capturedAt)
@@ -57,7 +63,7 @@ class DocumentDraftStore(context:Context){
         val metaTmp=File(account,"$generation.json.tmp")
         val metaFile=File(account,"$generation.json")
         metaTmp.writeText(meta.toString(),Charsets.UTF_8)
-        if(!metaTmp.renameTo(metaFile)){bytesFile.delete();metaTmp.delete();throw IllegalStateException("DOCUMENT_DRAFT_META_COMMIT_FAILED")}
+        try{atomicReplace(metaTmp,metaFile)}catch(t:Throwable){bytesFile.delete();metaTmp.delete();throw IllegalStateException("DOCUMENT_DRAFT_META_COMMIT_FAILED",t)}
         try{
             existingIds.add(generation)
             writeManifest(account,existingIds)
@@ -124,10 +130,16 @@ class DocumentDraftStore(context:Context){
         val target=File(account,"manifest.json")
         tmp.writeText(JSONObject().put("generations",JSONArray(ids)).toString(),Charsets.UTF_8)
         runCatching{FileOutputStream(tmp,true).use{it.fd.sync()}}
-        if(target.exists())target.delete()
-        if(!tmp.renameTo(target)){tmp.delete();throw IllegalStateException("DOCUMENT_DRAFT_MANIFEST_COMMIT_FAILED")}
+        try{atomicReplace(tmp,target)}catch(t:Throwable){tmp.delete();throw IllegalStateException("DOCUMENT_DRAFT_MANIFEST_COMMIT_FAILED",t)}
     }
 
+    private fun atomicReplace(source:File,target:File){
+        try{
+            Files.move(source.toPath(),target.toPath(),StandardCopyOption.REPLACE_EXISTING,StandardCopyOption.ATOMIC_MOVE)
+        }catch(_:Throwable){
+            Files.move(source.toPath(),target.toPath(),StandardCopyOption.REPLACE_EXISTING)
+        }
+    }
     private fun accountDir(ownerLogin:String,create:Boolean=true):File?{
         val key=digest("SHA-256",ownerLogin.trim().lowercase().toByteArray(Charsets.UTF_8)).take(24)
         val dir=File(root,key);if(create)dir.mkdirs();return dir.takeIf{it.isDirectory}
