@@ -436,13 +436,26 @@ class BetaApiClient(context: Context) {
     }
 
     /**
-     * Read-only public release lookup used by the Settings download-QR screen.
-     * This never mutates environment data and only returns a published GitHub Release APK.
+     * Read-only release lookup used by the Settings download-QR screen.
+     * Beta resolves the latest public GitHub prerelease directly.
+     * Stable is fail-closed behind the channel update gate so a historical/rolled-back
+     * GitHub asset can never become an install QR by itself.
      */
     fun latestGithubRelease(channel: String, callback: (Result) -> Unit) {
         executor.execute {
             try {
-                callback(githubUpdate(channel, "0.0.0"))
+                if (channel.equals("STABLE", true)) {
+                    val gated = post(JSONObject().apply {
+                        put("action", "update_check")
+                        put("channel", "STABLE")
+                        put("current_version", "0.0.0")
+                    }, authenticated = false)
+                    val g = gated.json
+                    val allowed = gated.ok && g?.optBoolean("available", false) == true && g.optString("apk_url").isNotBlank()
+                    callback(if (allowed) gated else Result(true, 200, JSONObject().put("ok", true).put("channel", "STABLE").put("available", false).put("reason", "STABLE_NOT_PUBLIC"), null))
+                } else {
+                    callback(githubUpdate("BETA", "0.0.0"))
+                }
             } catch (t: Throwable) {
                 callback(failure(t))
             }
