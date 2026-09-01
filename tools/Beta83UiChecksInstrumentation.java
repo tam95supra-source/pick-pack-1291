@@ -801,11 +801,18 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     shot(tag+"-04-incomplete-dialog");
 
     clickText("HIỂN THỊ CHI TIẾT NHÂN SỰ",true,10000L);
+    waitText("DANH SÁCH NHÂN SỰ THEO CA",true,false,10000L);
+    waitText("Tất cả (",false,true,10000L);
+    waitText("Trong ca (",false,true,10000L);
+    waitText("Đã ra ca (",false,true,10000L);
+    waitText("TEST",true,false,10000L);
+    waitText("Chưa xác định NCC",true,false,10000L);
     waitText(mnv,false,true,10000L);
     waitText(mnv2,false,true,10000L);
-    waitText("Ca 1",false,false,10000L);waitText("Ca HC",false,false,10000L);waitText("Ca 2",false,false,10000L);
     mark("detail_reconciliation_visible");
-    shot(tag+"-05-staff-list");
+    mark("shift_staff_grouped_ncc_beta105");
+    mark("shift_staff_filter_counts_beta105");
+    shot(tag+"-05-staff-list-beta105");
     clickText(mnv2,false,10000L);
     waitText("THÔNG TIN CA",true,false,12000L);
     waitText("Ca 2",false,false,12000L);
@@ -929,10 +936,22 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     waitText("THAY ĐỔI BẢN MỚI",false,false,10000L);
     waitText("Sửa lỗi tài nguyên bản mới",false,false,10000L);
     waitText("THAY ĐỔI BẢN HIỆN TẠI",false,false,10000L);
-    waitText("Bổ sung bo viền từng kịch bản resilience",false,false,10000L);
+    waitText("Danh sách chi tiết nhân sự theo ca được nhóm theo NCC",false,false,10000L);
     require(findText("SHA256",false,false)==null,"TECHNICAL_RELEASE_METADATA_VISIBLE_IN_CHANGELOG");
     mark("dual_changelog");
     shot(tag+"-07-settings-top");
+
+    showTextOnScreen("QR TẢI ỨNG DỤNG",12000L);
+    waitText("MỞ QR TẢI ỨNG DỤNG",true,true,10000L);
+    clickText("MỞ QR TẢI ỨNG DỤNG",true,10000L);
+    waitText("QR TẢI ỨNG DỤNG",true,false,10000L);
+    waitText("Quét QR để tải trực tiếp APK mới nhất",false,false,25000L);
+    waitText("Stable chưa có bản phát hành công khai",false,false,25000L);
+    mark("settings_download_qr_beta105");
+    shot(tag+"-16-beta105-download-qr");
+    try{ui.executeShellCommand("input keyevent 4").close();}catch(Exception ignored){}
+    SystemClock.sleep(450L);
+    waitText("CÀI ĐẶT",true,false,10000L);
 
     showTextOnScreen("TRUNG TÂM KIỂM THỬ RESILIENCE",12000L);
     waitText("Phạm vi",true,false,10000L);
