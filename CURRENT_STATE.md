@@ -1,48 +1,29 @@
 # CURRENT STATE — PICK PACK 1291
 
-- updated_at: 2026-09-01T00:14:00Z
-- status: BETA104_LIVE_OWNER_ACCEPTED_STABLE_READY_NOT_LIVE
-- technical_dod_status: PASS_BETA_STABLE_AUDIT
-- audit_verdict: TECHNICAL_PASS_AWAITING_OWNER
-- owner_acceptance: BETA104_CHECKLIST_1_TO_6_COMPLETE / BETA_STABLE_CHECKLIST_1_TO_18_DEFERRED_BY_OWNER_UNTIL_FIRST_STABLE_RELEASE
-- continuity_branch: beta/current
-- canonical_beta_branch: beta/current
-- stable_branch: main
-- repository_default_branch: main (legacy default; not Beta authority until OWNER changes setting)
-- source_sha: c31bb1b7ad68e6fd114727d8f08508796013bcef
-- beta_live: 0.4.2-beta.104 (versionCode 110)
+- updated_at: 2026-09-01T06:08:59Z
+- status: BETA106_PASS_LIVE
+- continuity_branch: release/beta106-ncc-null-sanitize
+- source_sha: 57e02d45b436c6bcb64bc5731671044af7c7c86d
+- beta_live: 0.4.2-beta.106 (versionCode 112)
 - package: vn.pickpack1291.app.beta.publicbeta
-- candidate_run: 33384004708
-- candidate_artifact: 9754938692
-- visual_artifact: 9755057622
-- release_lock: ops/beta104-release-lock.json
-- apk_sha256: 523b7ca4fe3463acdec8281d6232f36cd15e8df13a5f25585ca4ff4b82f2d6f1
-- apk_size: 13593589
+- candidate_run: 33473965249
+- candidate_artifact: 9787581956
+- verify_run: 33473965249
+- verify_artifact: 9787692571
+- apk_sha256: ea5bdf9696d9dae77f02fab815df6435a8317a66178bdb4c36bc051aa5bcd000
+- apk_size: 14068725
 - signer_sha256: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
-- beta_terminal_run: 33391700817 PASS / final artifact 9757837384
-- stable_private_apk: PASS run 33401278044 / artifact 9761451846 / package vn.pickpack1291.app.stable / side-by-side PASS / non-release debug signer
-- stable_environment_contract: READY_NOT_LIVE / worker pickpack1291-stable-private / D1 pick-pack-1291-service-stable / separate Stable primary Sheet / publish=false
-- stable: READY_NOT_LIVE / private / public=false / manifest=false / OTA=false / promotion_authorized=false
-- stable_root_cutover: false
-- beta_state_copied_to_stable: false
-- promotion_dry_run: PASS run 33419578736 / artifact 9768397541
-- promotion_result: cross_write PASS / cross_token PASS / cross_discovery PASS / cross_manifest PASS / cross_data PASS / backup_restore PASS
-- final_ci: PASS run 33419578501
-- final_impacted_regression: PASS run 33420663673 / artifact 9768750476 / digest sha256:af9e82f38e51574e97f1d8ac4d5f8ff0b8c2089a0838f132d84a146b8b7ea02c
-- final_registry_ci: PASS run 33420845501
-- turso_dr: PASS_AFTER_FIX run 33413666617 / artifact 9766154727
-- deno_dr: PASS_AFTER_FIX run 33416165785 / artifact 9767094401
-- render_dr: PASS_AFTER_FIX run 33417320129 / artifact 9767567227 / both targets suspended after verify
-- quota: PASS_CANONICAL config/provider_free_limits.json / final CI provider preflight PASS
-- audit_registry: ops/beta-stable-audit-registry.json
-- invariant_pending_owner: BETA-STABLE-AUDIT-001
-- existing_active_invariants_semantics_changed: false
-- INFRA-RESILIENCE-001: TECHNICAL_PASS_AWAITING_OWNER / prior OWNER deferred scope remains unchanged
-- common_mode_note: free provider/account-wide outage can remain a shared availability risk; environment data/write credentials/state are fenced and Beta capacity is bounded; no claim of absolute provider-wide outage isolation
+- terminal_run: 33476108449
+- fast_check: PASS
+- service_gate: PASS_INHERITED_BETA104_SERVICE_SOURCE_UNCHANGED
+- visual_matrix: PASS 320x568 / 360x640 / 480x800
+- human_visual: PASS
+- pda_functional_pre_ota: PASS
+- beta_ota: exact 0.4.2-beta.106 PASS via GitHub Release
+- beta_ota_url: https://github.com/tam95supra-source/pick-pack-1291/releases/download/v0.4.2-beta.106-publicbeta/pick-pack-1291-public-beta-0.4.2-beta.106.apk
 - apk_transport: GITHUB_RELEASE_ONLY
 - google_drive_apk: FORBIDDEN
-- main_sha: 021dac5c6932b3ac5c60ce8fdba562ddf3d9688f / unchanged
-- authority: SERVICE_PRIMARY / PRODUCTION / epoch 9 / generation m2-prod-reset-20260823-001 / unchanged
-- protected_stable_main_signer_authority_changed: false
-- rollback: Beta104 release rollback available; future Stable rollback is Stable-only and requires promotion authorization
-- next_action: WAIT_FOR_OWNER_FIRST_STABLE_RELEASE_SCOPE
+- stable: unchanged
+- main_sha: 021dac5c6932b3ac5c60ce8fdba562ddf3d9688f
+- authority: SERVICE_PRIMARY / PRODUCTION / epoch 9 / generation m2-prod-reset-20260823-001
+- next_action: WAIT_FOR_OWNER_NEW_SCOPE

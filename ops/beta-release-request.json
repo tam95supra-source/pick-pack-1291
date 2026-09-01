@@ -1,6 +1,6 @@
 {
-  "stage": "PUBLISH",
-  "mode": "BETA106_REPUBLISH_EXACT_AFTER_POST_OTA_HARNESS_FIX_AND_ROLLBACK",
+  "stage": "pass_live",
+  "mode": "PASS_LIVE_EXACT_BYTES_GITHUB_RELEASE_ONLY",
   "version_name": "0.4.2-beta.106",
   "version_code": 112,
   "base_version": "0.4.2-beta.104",
@@ -18,7 +18,7 @@
   "resign": false,
   "scope": "beta106-beta105-roster-download-qr-plus-null-sanitize",
   "owner": "Nguyen Van Tam",
-  "live": false,
+  "live": true,
   "release_notes": [
     "Danh sách chi tiết nhân sự theo ca nhóm theo NCC; Tất cả/Trong ca/Đã ra ca hiển thị số lượng ngay trên bộ lọc.",
     "Dòng nhân sự giữ họ tên, MNV, vị trí, giờ vào/ra; chạm dòng mở trực tiếp luồng QR Vào/Ra hiện có.",
@@ -38,7 +38,7 @@
   "google_drive_apk": "FORBIDDEN",
   "regression_case": "SHIFT-STAFF-DOWNLOAD-QR-NULL-001",
   "execution_nonce": "beta106-publish-exact-20260901-02",
-  "next_action": "REPUBLISH_EXACT_BETA106_AND_VERIFY_OTA_WITH_FIXED_HARNESS",
+  "next_action": "WAIT_FOR_OWNER_NEW_SCOPE",
   "candidate_source_sha": "57e02d45b436c6bcb64bc5731671044af7c7c86d",
   "candidate_run_id": 33473965249,
   "candidate_artifact_id": 9787581956,
@@ -89,5 +89,6 @@
   "rollback_run_id": 33475493287,
   "rollback_artifact_id": 9788091781,
   "rollback_status": "PASS_BETA104_RESTORED",
-  "post_publish_failure_root_cause": "HARNESS_EXPECTED_STALE_CACHE_TO_REMAIN_UNTIL_EXPLICIT_CHECK_BUT_APP_SAFELY_REWROTE_BETA_DISCOVERY_DURING_STARTUP"
+  "post_publish_failure_root_cause": "HARNESS_EXPECTED_STALE_CACHE_TO_REMAIN_UNTIL_EXPLICIT_CHECK_BUT_APP_SAFELY_REWROTE_BETA_DISCOVERY_DURING_STARTUP",
+  "publish_run_id": "33476108449"
 }
