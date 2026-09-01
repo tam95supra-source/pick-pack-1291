@@ -301,9 +301,10 @@ class OperationsActivity : Activity() {
         val mnv=ses.optString("mnv").trim()
         val emp=MasterDataCache.employee(this,mnv)
         val snap=ses.optJSONObject("employee_snapshot")
-        val supplier=emp?.optString("supplier").orEmpty().ifBlank{snap?.optString("supplier").orEmpty()}.trim()
-        val fullName=emp?.optString("full_name").orEmpty().ifBlank{snap?.optString("full_name").orEmpty()}.trim()
-        val position=emp?.optString("main_position").orEmpty().ifBlank{snap?.optString("main_position").orEmpty()}.trim()
+        fun cleanMasterText(v:String)=v.trim().takeUnless{it.equals("null",true)}.orEmpty()
+        val supplier=cleanMasterText(emp?.optString("supplier").orEmpty()).ifBlank{cleanMasterText(snap?.optString("supplier").orEmpty())}
+        val fullName=cleanMasterText(emp?.optString("full_name").orEmpty()).ifBlank{cleanMasterText(snap?.optString("full_name").orEmpty())}
+        val position=cleanMasterText(emp?.optString("main_position").orEmpty()).ifBlank{cleanMasterText(snap?.optString("main_position").orEmpty())}
         return ShiftStaffIdentity(supplier,mnv,fullName,position)
     }
     private fun shiftStaffEnded(ses:JSONObject)=ses.optString("state").equals("ENDED",true)&&dash(ses.optString("exit_at"))!="-"
