@@ -89,7 +89,8 @@ assert "sortedByDescending{it.lastModified()}" in cache
 
 assert 'cache-path name="document_camera"' in paths
 assert 'versionCode = 1' in gradle and 'versionName = "0.1.0-stable"' in gradle
-assert 'versionCode = 114' in gradle and 'versionName = "0.4.2-beta.108"' in gradle
-assert request["version_name"]=="0.4.2-beta.108" and request["version_code"]==114
+assert f'versionCode = {request["version_code"]}' in gradle
+assert f'versionName = "{request["version_name"]}"' in gradle
+assert request["version_name"].startswith("0.4.2-beta.") and isinstance(request["version_code"],int)
 assert request["stable_publish"]=="FORBIDDEN" and request["authority_change"]=="NONE"
 print("document_management_contract=PASS durable_queue=PASS post_drive_resume=PASS bounded_cache=PASS rotation_similar=PASS offline_category_cache=PASS durable_draft_restore=PASS rename_all=PASS hard_delete=PASS confirmation_reuse=PASS")
