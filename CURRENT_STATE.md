@@ -1,8 +1,8 @@
 # CURRENT STATE — PICK PACK 1291
 
-- updated_at: 2026-09-01T13:50:37Z
-- status: BETA109_LIVE_TECHNICAL_PASS_AWAITING_OWNER_DOCUMENT_ACCEPTANCE
-- continuity_branch: release/beta108-document-management
+- updated_at: 2026-09-01T15:04:00Z
+- status: BETA109_LIVE_OWNER_ACCEPTED_ACTIVE_PASS
+- continuity_branch: beta/current
 - source_sha: a72d8e20eaebe60235338fd1b9aaebde42507825
 - beta_live: 0.4.2-beta.109 (versionCode 115)
 - package: vn.pickpack1291.app.beta.publicbeta
@@ -29,12 +29,12 @@
 - beta_ota_url: https://github.com/tam95supra-source/pick-pack-1291/releases/download/v0.4.2-beta.109-publicbeta/pick-pack-1291-public-beta-0.4.2-beta.109.apk
 - apk_transport: GITHUB_RELEASE_ONLY
 - google_drive_apk: FORBIDDEN
-- document_management_invariant: DOCUMENT-MANAGEMENT-001 = TECHNICAL_PASS_AWAITING_OWNER
+- document_management_invariant: DOCUMENT-MANAGEMENT-001 = ACTIVE_PASS
 - technical_receipt: ops/beta109-technical-pass.json
+- owner_acceptance_receipt: ops/beta109-owner-acceptance.json
 - regression_case: qa/beta109_document_management_regression.md
-- owner_accepted_subitems: 1,2,5,6,7,8
-- owner_retest_required: near-similar warning; offline categories + durable selected draft + queued auto retry
+- owner_accepted_subitems: 1,2,3,4,5,6,7,8
 - stable: unchanged
 - main_sha: 021dac5c6932b3ac5c60ce8fdba562ddf3d9688f
 - authority: SERVICE_PRIMARY / PRODUCTION / epoch 9 / generation m2-prod-reset-20260823-001
-- next_action: WAIT_OWNER_RETEST_ONLY_2_DOCUMENT_ITEMS
+- next_action: WAIT_FOR_OWNER_NEW_SCOPE
