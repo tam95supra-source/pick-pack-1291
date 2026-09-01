@@ -64,7 +64,7 @@ object DocumentManagementFeature {
         private lateinit var selectedDeleteText:TextView
         private var filterCategoryIds=listOf<String>("")
         private var suppressFilter=false
-        private lateinit var preview:ImageView
+        private lateinit var selectedHost:LinearLayout
         private lateinit var previewMeta:TextView
         private lateinit var uploadButton:Button
         private lateinit var pendingText:TextView
@@ -133,11 +133,10 @@ object DocumentManagementFeature {
             sourceActions.addView(gallery,LinearLayout.LayoutParams(0,dp(44),1f).apply{marginStart=dp(4)})
             imageBox.addView(sourceActions,LinearLayout.LayoutParams(-1,-2))
             imageBox.addView(gap(8))
-            preview=ImageView(activity).apply{
-                adjustViewBounds=true;scaleType=ImageView.ScaleType.FIT_CENTER;setBackgroundColor(Color.rgb(248,250,252))
-                contentDescription="Ảnh biên bản đã chọn";visibility=View.GONE
-            }
-            imageBox.addView(preview,LinearLayout.LayoutParams(-1,dp(190)))
+            val selectedScroll=HorizontalScrollView(activity).apply{isHorizontalScrollBarEnabled=false}
+            selectedHost=row().apply{setPadding(dp(3),dp(3),dp(3),dp(3))}
+            selectedScroll.addView(selectedHost,ViewGroup.LayoutParams(-2,dp(92)))
+            imageBox.addView(selectedScroll,LinearLayout.LayoutParams(-1,dp(92)))
             previewMeta=text("0 ảnh",9.4f,muted)
             imageBox.addView(previewMeta)
             imageBox.addView(gap(8))
@@ -230,14 +229,19 @@ object DocumentManagementFeature {
         }
 
         private fun renderSelectedPreview(){
-            if(selected.isEmpty()){
-                preview.setImageDrawable(null);preview.visibility=View.GONE;previewMeta.text="0 ảnh"
-            }else{
-                val last=selected.last();val bmp=BitmapFactory.decodeByteArray(last.image.bytes,0,last.image.bytes.size)
-                preview.setImageBitmap(bmp);preview.visibility=View.VISIBLE
-                val total=selected.sumOf{it.image.bytes.size.toLong()}
-                previewMeta.text="${selected.size} ảnh • ${formatBytes(total)}"
+            selectedHost.removeAllViews()
+            selected.take(12).forEachIndexed{index,item->
+                val box=column().apply{setPadding(dp(2),dp(2),dp(2),dp(2));background=bg(Color.rgb(248,250,252),8)}
+                val opts=BitmapFactory.Options().apply{inSampleSize=8;inPreferredConfig=android.graphics.Bitmap.Config.RGB_565}
+                val bmp=BitmapFactory.decodeByteArray(item.image.bytes,0,item.image.bytes.size,opts)
+                val thumb=ImageView(activity).apply{setImageBitmap(bmp);scaleType=ImageView.ScaleType.CENTER_CROP;contentDescription="Ảnh ${index+1}"}
+                box.addView(thumb,LinearLayout.LayoutParams(dp(66),dp(64)))
+                box.addView(text("${index+1}",8.5f,navy,true).apply{gravity=Gravity.CENTER},LinearLayout.LayoutParams(dp(66),dp(18)))
+                selectedHost.addView(box,LinearLayout.LayoutParams(dp(70),dp(86)).apply{marginEnd=dp(3)})
             }
+            if(selected.size>12)selectedHost.addView(text("+${selected.size-12}",12f,navy,true).apply{gravity=Gravity.CENTER},LinearLayout.LayoutParams(dp(54),dp(86)))
+            val total=selected.sumOf{it.image.bytes.size.toLong()}
+            previewMeta.text=if(selected.isEmpty())"0 ảnh" else "${selected.size} ảnh • ${formatBytes(total)}"
             if(::modeSpinner.isInitialized)modeSpinner.isEnabled=selected.size>1
             uploadButton.isEnabled=selected.isNotEmpty()&&categoryIds.isNotEmpty()&&!busy
             uploadButton.alpha=if(uploadButton.isEnabled)1f else .4f
@@ -532,7 +536,7 @@ object DocumentManagementFeature {
             retryPendingButton.alpha=if(retryPendingButton.isEnabled)1f else .45f
         }
         private fun clearSelected(){
-            preview.setImageDrawable(null);preview.visibility=View.GONE;previewMeta.text="0 ảnh"
+            selectedHost.removeAllViews();previewMeta.text="0 ảnh"
             if(::modeSpinner.isInitialized)modeSpinner.isEnabled=false
             uploadButton.isEnabled=false;uploadButton.alpha=.4f
         }
