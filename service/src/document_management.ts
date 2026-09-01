@@ -79,12 +79,23 @@ function canonicalDocumentAction(action:string):string|null{
   if(action==="CATEGORY_DELETE_ALL")return "document_category_delete";
   return null;
 }
+function documentHistoryDetail(action:string,detail:Record<string,unknown>):Record<string,unknown>{
+  if(action==="DOCUMENT_UPLOAD_COMPLETE")return{
+    byte_size:Number(detail.byte_size||0),group_id:String(detail.group_id||""),page_index:Number(detail.page_index||1),page_count:Number(detail.page_count||1)
+  };
+  if(action==="DOCUMENT_DELETE_SELECTED")return{deleted_count:Number(detail.deleted_count||0),mutation_id:String(detail.mutation_id||"")};
+  if(action==="CATEGORY_CREATE")return{};
+  if(action==="CATEGORY_RENAME_ALL")return{category_id:String(detail.category_id||""),total_items:Number(detail.total_items||0),mutation_id:String(detail.mutation_id||"")};
+  if(action==="CATEGORY_DELETE_ALL")return{category_id:String(detail.category_id||""),total_items:Number(detail.total_items||0),mutation_id:String(detail.mutation_id||"")};
+  return{};
+}
 async function emitDocumentHistory(env:Env,auth:AuthContext,auditId:string,action:string,targetType:string,targetId:string,detail:Record<string,unknown>){
   const canonical=canonicalDocumentAction(action);if(!canonical)return;
+  const safeDetail=documentHistoryDetail(action,detail);
+  const targetLabel=targetType==="DOCUMENT_CATEGORY"?"Loại biên bản":targetType==="DOCUMENT"?"Biên bản":"Thao tác biên bản";
   await commitAdminAudit(env.DB,auth,{
     action:canonical,event_id:`doc-audit-${auditId}`,target_type:targetType,target_id:targetId,
-    target_label:String(detail.category_name||detail.file_name||detail.display_name||"").slice(0,240),
-    detail:JSON.stringify(detail).slice(0,500),device_id:auth.device_id
+    target_label:targetLabel,detail:JSON.stringify(safeDetail).slice(0,500),device_id:auth.device_id
   });
 }
 async function audit(env:Env,auth:AuthContext,action:string,targetType:string,targetId:string,detail:Record<string,unknown>={}){
