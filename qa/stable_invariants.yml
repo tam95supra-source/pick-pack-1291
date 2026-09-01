@@ -36,8 +36,8 @@ invariants:
     status: ACTIVE_PASS
     scope: beta-release
     rule: "Beta APK GitHub Release only; Google Drive APK forbidden; exact bytes/signature/readback."
-    last_verified: "0.4.2-beta.104 / terminal run 33391700817"
-    technical_evidence: "publish artifact 9757752307; OTA preserved-data artifact 9757829287; final artifact 9757837384; GitHub Release asset 537953189 SHA256 523b7ca4fe3463acdec8281d6232f36cd15e8df13a5f25585ca4ff4b82f2d6f1 size 13593589; OTA 0.4.2-beta.102 -> 0.4.2-beta.104 exact install/open/readback; Stable/main/authority unchanged"
+    last_verified: "0.4.2-beta.106 / terminal run 33476108449"
+    technical_evidence: "Beta106 terminal 33476108449 PASS; publish 9788246064; OTA/install/readback 9788292824; final 9788296923; exact candidate 33473965249/9787581956 SHA256 ea5bdf9696d9dae77f02fab815df6435a8317a66178bdb4c36bc051aa5bcd000 size 14068725; Stable/main/authority unchanged"
     publish_verifier_regression: "Fast Check 33388933459 PASS; receipt-driven visual/human gate enforced"
   - id: PDA-EXIT-001
     status: ACTIVE_PASS
@@ -60,10 +60,19 @@ invariants:
     scope: android-service-discovery
     rule: "BETA live Service routes must use environment-scoped dynamic discovery; stale endpoint/environment cache must never drive Service session/read/sync/outbox after OTA or isolation cutover."
     failure_evidence: "Beta102 manual log: UnknownHost pickpack1291.cc.cd / SESSION_EXCHANGE_FAILED."
-    technical_candidate: "c31bb1b7ad68e6fd114727d8f08508796013bcef / 0.4.2-beta.104 LIVE"
-    technical_evidence: "exact-device 33388577027/9756583802 PASS; OTA preserved-data terminal 33391700817/9757829287 PASS; stale cache pickpack1291.cc.cd preserved then invalidated without clear; environment=BETA; audience=PICK_PACK_1291_BETA; service_url=https://pickpack.1291.workers.dev; stable_root_reused=false; final 9757837384"
+    technical_candidate: "57e02d45b436c6bcb64bc5731671044af7c7c86d / 0.4.2-beta.106 LIVE"
+    technical_evidence: "Beta106 exact-device 33474768649/9787794484 PASS; terminal OTA 33476108449/9788292824 PASS. Safe post-OTA states: stale preserved then rewritten OR app eagerly rewrites during startup; final environment=BETA, audience=PICK_PACK_1291_BETA, canonical Beta Service, stable_root_reused=false. First publish harness-only failure 33475493287 rolled back Beta104 via 9788091781; fixed harness and republished same exact bytes."
     regression_minimum: [environment_cache_fence, audience_cache_fence, stale_cache_invalidation, ttl_force_refresh, service_session_refresh, direct_read_refresh, sync_refresh, outbox_refresh, no_endpoint_hardcode]
     owner_acceptance: "ACTIVE_PASS_OWNER_BETA104_CHECKLIST_1_TO_6_OK_2026-08-31T20:22+07:00"
+  - id: SHIFT-STAFF-DOWNLOAD-QR-001
+    status: TECHNICAL_PASS_AWAITING_OWNER
+    scope: shift-staff-download-qr
+    rule: "Shift staff list groups by NCC with Tất cả/Trong ca/Đã ra ca counts; compact employee rows open existing QR enter/exit flow; missing or JSON-null supplier renders Chưa xác định NCC, never literal null; Settings download QR uses latest Beta GitHub Release while Stable remains fail-closed."
+    technical_candidate: "57e02d45b436c6bcb64bc5731671044af7c7c86d / 0.4.2-beta.106 LIVE"
+    technical_evidence: "candidate 33473965249/9787581956; visual 9787692571 human PASS 36 screenshots 320x568 360x640 480x800; Fast Check 33476011598; device 33474768649/9787794484; runtime 33475078900/9787884925; terminal 33476108449; PDA 9788292824; final 9788296923; SHA256 ea5bdf9696d9dae77f02fab815df6435a8317a66178bdb4c36bc051aa5bcd000 size 14068725"
+    regression_minimum: [group_by_ncc, filter_counts, null_supplier_fallback, no_visible_null, employee_to_qr, beta_download_qr, stable_download_fail_closed]
+    regression_case: "SHIFT-STAFF-DOWNLOAD-QR-NULL-001 / qa/beta106_shift_staff_null_regression.md"
+    owner_acceptance: "PENDING_TECHNICAL_PASS_AWAITING_OWNER"
   - id: INFRA-RESILIENCE-001
     status: TECHNICAL_PASS_AWAITING_OWNER
     scope: infra-dr
@@ -84,7 +93,7 @@ invariants:
     common_mode_note: "Free-provider/account-wide outage risk remains an availability common mode; no claim of absolute provider outage isolation."
 
 impact_map:
-  "app/**": [UI-STATUS-001, QR-LOCAL-001, MEAL-DATE-001, MEAL-WARN-001, ROLE-HISTORY-001, OTA-BETA-001, PDA-EXIT-001, ENV-ISOLATION-001, SERVICE-DISCOVERY-001, INFRA-RESILIENCE-001]
+  "app/**": [UI-STATUS-001, QR-LOCAL-001, MEAL-DATE-001, MEAL-WARN-001, ROLE-HISTORY-001, OTA-BETA-001, PDA-EXIT-001, ENV-ISOLATION-001, SERVICE-DISCOVERY-001, SHIFT-STAFF-DOWNLOAD-QR-001, INFRA-RESILIENCE-001]
   "service/**": [QR-LOCAL-001, MEAL-DATE-001, PDA-EXIT-001, ENV-ISOLATION-001, INFRA-RESILIENCE-001]
   "services/**": [ENV-ISOLATION-001, INFRA-RESILIENCE-001, BETA-STABLE-AUDIT-001]
   "google-apps-script/**": [ENV-ISOLATION-001, INFRA-RESILIENCE-001, OTA-BETA-001]
