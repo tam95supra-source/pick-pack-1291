@@ -725,9 +725,11 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     java.lang.reflect.Constructor<?> imageCtor=imageClass.getDeclaredConstructor(byte[].class,String.class,String.class,String.class,java.util.List.class,int.class,int.class,String.class);
     imageCtor.setAccessible(true);
     byte[] fixture=new byte[]{11,22,33,44,55,66};
+    String fixtureSha=String.format("%064x",new java.math.BigInteger(1,java.security.MessageDigest.getInstance("SHA-256").digest(fixture)));
+    String fixtureMd5=String.format("%032x",new java.math.BigInteger(1,java.security.MessageDigest.getInstance("MD5").digest(fixture)));
     Object image=imageCtor.newInstance(fixture,
-      "0000000000000000000000000000000000000000000000000000000000000108",
-      "00000000000000000000000000000108",
+      fixtureSha,
+      fixtureMd5,
       "0000000000000108",java.util.Collections.singletonList("0000000000000108"),2,3,"image/jpeg");
     Class<?> storeClass=cl.loadClass("vn.pickpack1291.app.beta.DocumentPendingStore");
     Object store1=storeClass.getConstructor(Context.class).newInstance(target);
