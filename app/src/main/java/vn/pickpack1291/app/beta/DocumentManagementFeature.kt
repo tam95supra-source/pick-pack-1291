@@ -38,6 +38,9 @@ object DocumentManagementFeature {
         private val onGallery:()->Unit
     ){
         private val client=DocumentServiceClient(activity){api.token}
+        private val pendingStore=DocumentPendingStore(activity)
+        private val uploadEngine=DocumentUploadEngine(activity,api)
+        private val mediaCache=DocumentMediaCache(activity)
         private val executor=Executors.newSingleThreadExecutor()
         private val density=activity.resources.displayMetrics.density
         private val teal get()=ThemeManager.primary(activity)
@@ -53,6 +56,8 @@ object DocumentManagementFeature {
         private lateinit var preview:ImageView
         private lateinit var previewMeta:TextView
         private lateinit var uploadButton:Button
+        private lateinit var pendingText:TextView
+        private lateinit var retryPendingButton:Button
         private lateinit var recordsHost:LinearLayout
         private lateinit var emptyText:TextView
         @Volatile private var disposed=false
@@ -128,6 +133,20 @@ object DocumentManagementFeature {
             uploadButton=button("Tải biên bản lên",green).apply{isEnabled=false;alpha=.4f}
             imageBox.addView(uploadButton,LinearLayout.LayoutParams(-1,dp(46)))
             body.addView(imageBox,LinearLayout.LayoutParams(-1,-2))
+            body.addView(gap(10))
+
+            val pendingBox=column().apply{background=bg();setPadding(dp(10),dp(9),dp(10),dp(10))}
+            val pendingHead=row()
+            pendingHead.addView(text("Ảnh chờ tải",10.5f,navy,true),LinearLayout.LayoutParams(0,-2,1f))
+            retryPendingButton=button("Tải lại",navy)
+            pendingHead.addView(retryPendingButton,LinearLayout.LayoutParams(dp(86),dp(38)))
+            pendingBox.addView(pendingHead)
+            pendingBox.addView(gap(4))
+            pendingText=text("Đang kiểm tra ảnh chờ...",9.1f,muted)
+            pendingBox.addView(pendingText)
+            pendingBox.addView(gap(3))
+            pendingBox.addView(text("Ảnh chỉ giữ tạm trên máy khi chưa được Drive xác nhận; tải xong sẽ tự xóa. Tối đa 60 ảnh / 120 MB.",8.7f,muted))
+            body.addView(pendingBox,LinearLayout.LayoutParams(-1,-2))
             body.addView(gap(12))
 
             val listHead=row()
@@ -145,9 +164,12 @@ object DocumentManagementFeature {
             remove.setOnClickListener{warning("Xóa loại biên bản đang chờ OWNER chốt theo phương án ẩn/ngừng sử dụng, không xóa ảnh cũ.")}
             camera.setOnClickListener{if(!busy)onCamera()}
             gallery.setOnClickListener{if(!busy)onGallery()}
-            uploadButton.setOnClickListener{uploadSelected(false)}
-            refresh.setOnClickListener{refreshDocuments()}
+            uploadButton.setOnClickListener{uploadSelected()}
+            retryPendingButton.setOnClickListener{retryPending()}
+            refresh.setOnClickListener{refreshDocuments();refreshPending()}
             refreshCategories()
+            refreshPending()
+            DocumentUploadWorker.schedule(activity)
             refreshDocuments()
             return root
         }
@@ -207,66 +229,113 @@ object DocumentManagementFeature {
             }.show()
         }
 
-        private fun uploadSelected(allowSimilar:Boolean){
-            val item=selected?:return
+        private fun uploadSelected(){
+            val selectedItem=selected?:return
             val index=categorySpinner.selectedItemPosition
             val categoryId=categoryIds.getOrNull(index)?:run{warning("Hãy thêm/chọn loại biên bản.");return}
             if(busy)return
             busy=true
-            postUi{uploadButton.isEnabled=false;uploadButton.text="Đang kiểm tra ảnh..."}
+            postUi{uploadButton.isEnabled=false;uploadButton.text="Đang lưu ảnh chờ..."}
             executor.execute{
-                val payload=JSONObject()
-                    .put("category_id",categoryId).put("mime_type",item.image.mimeType).put("byte_size",item.image.bytes.size)
-                    .put("sha256",item.image.sha256).put("md5",item.image.md5).put("dhash64",item.image.dhash64)
-                    .put("width",item.image.width).put("height",item.image.height).put("source_kind",item.sourceKind)
-                    .put("captured_at",item.capturedAt).put("idempotency_key",item.idempotencyKey).put("allow_similar",allowSimilar)
-                val session=client.post("/v1/documents/upload-session",payload)
-                if(!session.ok){
+                val pending=try{
+                    pendingStore.enqueue(login,categoryId,selectedItem.sourceKind,selectedItem.capturedAt,selectedItem.idempotencyKey,selectedItem.image)
+                }catch(t:Throwable){
                     busy=false
                     postUi{
                         uploadButton.isEnabled=true;uploadButton.text="Tải biên bản lên"
-                        when(session.error){
-                            "DOCUMENT_EXACT_DUPLICATE"->warning("Ảnh này đã tồn tại trong Quản lý biên bản. Hệ thống đã chặn tải trùng.")
-                            "DOCUMENT_SIMILAR_IMAGE"->showSimilarConfirm()
-                            else->error(messageFor(session.error))
-                        }
+                        error(messageFor(t.message))
+                        refreshPending()
                     }
                     return@execute
                 }
-                if(session.json?.optBoolean("already_complete",false)==true){
-                    selected=null;busy=false
-                    postUi{clearSelected();success("Biên bản đã được ghi nhận trước đó.");refreshDocuments()}
-                    return@execute
-                }
-                val document=session.json?.optJSONObject("document")
-                val documentId=document?.optString("document_id").orEmpty()
-                val uploadUrl=session.json?.optString("upload_url").orEmpty()
-                if(documentId.isBlank()||uploadUrl.isBlank()){
-                    busy=false;postUi{uploadButton.isEnabled=true;uploadButton.text="Tải biên bản lên";error("Service không cấp được phiên tải Drive.")};return@execute
-                }
-                postUi{uploadButton.text="Đang tải thẳng lên Drive..."}
-                val drive=client.uploadToDrive(uploadUrl,item.image.bytes,item.image.mimeType)
-                val driveId=drive.json?.optString("id").orEmpty()
-                if(!drive.ok||driveId.isBlank()){
-                    busy=false;postUi{uploadButton.isEnabled=true;uploadButton.text="Thử tải lại";error(messageFor(drive.error))};return@execute
-                }
-                postUi{uploadButton.text="Đang xác nhận..."}
-                val complete=client.post("/v1/documents/complete",JSONObject().put("document_id",documentId).put("drive_file_id",driveId))
+                selected=null
+                postUi{clearSelected();refreshPending();uploadButton.text="Đang tải thẳng lên Drive..."}
+                val outcome=uploadEngine.runOne(pending)
                 busy=false
                 postUi{
                     uploadButton.text="Tải biên bản lên"
-                    if(!complete.ok){uploadButton.isEnabled=true;error(messageFor(complete.error));return@postUi}
-                    selected=null;clearSelected();success("Đã tải biên bản lên Google Drive.");refreshDocuments()
+                    handleUploadOutcome(pending.pendingId,outcome)
+                    refreshPending()
+                    refreshDocuments()
                 }
             }
         }
-        private fun showSimilarConfirm(){
+
+        private fun handleUploadOutcome(pendingId:String,outcome:DocumentUploadEngine.Outcome){
+            when(outcome.status){
+                DocumentUploadEngine.Status.SUCCESS->success("Đã tải biên bản lên Google Drive.")
+                DocumentUploadEngine.Status.EXACT_DUPLICATE_RESOLVED->warning("Ảnh này đã tồn tại. Hệ thống đã chặn tải trùng và xóa bản chờ.")
+                DocumentUploadEngine.Status.SIMILAR_REVIEW_REQUIRED->showSimilarConfirm(pendingId)
+                DocumentUploadEngine.Status.RETRY->{
+                    DocumentUploadWorker.schedule(activity,true)
+                    warning("Đã lưu ảnh vào hàng chờ. Hệ thống sẽ tự tải lại khi mạng/Drive sẵn sàng.")
+                }
+                DocumentUploadEngine.Status.BLOCKED->error("Ảnh vẫn được giữ trong hàng chờ: "+messageFor(outcome.code))
+                DocumentUploadEngine.Status.ACCOUNT_MISMATCH->error("Ảnh chờ thuộc tài khoản khác nên không tự tải.")
+            }
+        }
+
+        private fun showSimilarConfirm(pendingId:String){
             AlertDialog.Builder(activity)
                 .setTitle("Phát hiện ảnh có thể trùng")
-                .setMessage("Dấu vân tay ảnh gần giống một biên bản đã có. Anh/chị vẫn muốn tải ảnh này lên?")
-                .setNegativeButton("Hủy",null)
-                .setPositiveButton("Vẫn tải lên"){_,_->uploadSelected(true)}
+                .setMessage("Ảnh gần giống một biên bản đã có. Vẫn tải ảnh này lên hay giữ lại để xem xét?")
+                .setNegativeButton("Giữ lại",null)
+                .setPositiveButton("Vẫn tải lên"){_,_->retrySimilar(pendingId)}
                 .show()
+        }
+
+        private fun retrySimilar(pendingId:String){
+            if(busy)return
+            busy=true
+            executor.execute{
+                val outcome=uploadEngine.allowSimilarAndRetry(pendingId)
+                busy=false
+                postUi{
+                    handleUploadOutcome(pendingId,outcome)
+                    refreshPending();refreshDocuments()
+                }
+            }
+        }
+
+        private fun retryPending(){
+            if(busy)return
+            val items=pendingStore.list().filter{it.ownerLogin==login}
+            if(items.isEmpty()){success("Không có ảnh chờ tải.");refreshPending();return}
+            busy=true
+            retryPendingButton.isEnabled=false
+            executor.execute{
+                var retryNeeded=false
+                var reviewId:String?=null
+                var completed=0
+                for(item in items.take(10)){
+                    val outcome=uploadEngine.runOne(item)
+                    when(outcome.status){
+                        DocumentUploadEngine.Status.SUCCESS,DocumentUploadEngine.Status.EXACT_DUPLICATE_RESOLVED->completed++
+                        DocumentUploadEngine.Status.SIMILAR_REVIEW_REQUIRED->{reviewId=item.pendingId;break}
+                        DocumentUploadEngine.Status.RETRY->retryNeeded=true
+                        else->{}
+                    }
+                }
+                if(retryNeeded)DocumentUploadWorker.schedule(activity,true)
+                busy=false
+                postUi{
+                    retryPendingButton.isEnabled=true
+                    refreshPending();refreshDocuments()
+                    if(reviewId!=null)showSimilarConfirm(reviewId!!)
+                    else if(completed>0)success("Đã xử lý "+completed+" ảnh chờ.")
+                    else if(retryNeeded)warning("Một số ảnh vẫn đang chờ mạng/Drive.")
+                }
+            }
+        }
+
+        private fun refreshPending(){
+            if(!::pendingText.isInitialized)return
+            val items=pendingStore.list().filter{it.ownerLogin==login}
+            val bytes=items.sumOf{it.byteSize.toLong()}
+            val review=items.count{it.lastError=="DOCUMENT_SIMILAR_IMAGE"}
+            pendingText.text=if(items.isEmpty())"Không có ảnh chờ tải." else "Đang chờ: "+items.size+" ảnh • "+formatBytes(bytes)+(if(review>0)" • "+review+" ảnh cần xác nhận trùng" else "")
+            retryPendingButton.isEnabled=items.isNotEmpty()&&!busy
+            retryPendingButton.alpha=if(retryPendingButton.isEnabled)1f else .45f
         }
         private fun clearSelected(){
             preview.setImageDrawable(null);preview.visibility=View.GONE;previewMeta.text="Chưa chọn ảnh."
@@ -302,14 +371,25 @@ object DocumentManagementFeature {
         }
         private fun viewDocument(documentId:String){
             if(busy)return
+            val id=documentId.trim()
+            if(id.isBlank())return
             busy=true
             executor.execute{
-                val result=client.getMedia(documentId)
+                val cached=mediaCache.get(id)
+                val bytes=if(cached!=null)cached else{
+                    val result=client.getMedia(id)
+                    if(!result.ok||result.bytes==null){
+                        busy=false
+                        postUi{error(messageFor(result.error))}
+                        return@execute
+                    }
+                    mediaCache.put(id,result.bytes)
+                    result.bytes
+                }
                 busy=false
                 postUi{
-                    if(!result.ok||result.bytes==null){error(messageFor(result.error));return@postUi}
-                    val bmp=BitmapFactory.decodeByteArray(result.bytes,0,result.bytes.size)
-                    if(bmp==null){error("Không hiển thị được ảnh.");return@postUi}
+                    val bmp=BitmapFactory.decodeByteArray(bytes,0,bytes.size)
+                    if(bmp==null){mediaCache.clear(id);error("Không hiển thị được ảnh.");return@postUi}
                     val image=ImageView(activity).apply{setImageBitmap(bmp);adjustViewBounds=true;scaleType=ImageView.ScaleType.FIT_CENTER;setPadding(dp(4),dp(4),dp(4),dp(4))}
                     val scroll=ScrollView(activity).apply{addView(image,ViewGroup.LayoutParams(-1,-2))}
                     AlertDialog.Builder(activity).setTitle("Ảnh biên bản").setView(scroll).setPositiveButton("Đóng",null).show()
@@ -330,7 +410,11 @@ object DocumentManagementFeature {
             "DOCUMENT_CATEGORY_EXISTS"->"Loại biên bản này đã tồn tại."
             "DOCUMENT_CATEGORY_NOT_FOUND"->"Loại biên bản không còn khả dụng. Hãy làm mới danh mục."
             "SERVICE_DISCOVERY_UNAVAILABLE","SERVICE_SESSION_UNAVAILABLE"->"Chưa kết nối được Service."
-            "DRIVE_UPLOAD_NETWORK"->"Mạng bị gián đoạn khi tải ảnh lên Google Drive. Có thể thử lại."
+            "DRIVE_UPLOAD_NETWORK"->"Mạng bị gián đoạn khi tải ảnh lên Google Drive. Ảnh sẽ được giữ trong hàng chờ."
+            "DOCUMENT_PENDING_ITEM_LIMIT"->"Hàng chờ đã đủ 60 ảnh. Hãy tải các ảnh đang chờ trước."
+            "DOCUMENT_PENDING_STORAGE_LIMIT"->"Hàng chờ đã đạt 120 MB. Hãy tải các ảnh đang chờ trước."
+            "DOCUMENT_PENDING_ACCOUNT_MISMATCH"->"Ảnh chờ thuộc tài khoản khác."
+            "DOCUMENT_SIMILAR_IMAGE"->"Ảnh có thể trùng và cần xác nhận trước khi tải."
             null,""->"Có lỗi chưa xác định."
             else->code.replace('_',' ')
         }
