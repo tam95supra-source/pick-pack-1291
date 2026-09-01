@@ -5,6 +5,14 @@ import { apiError, json, nowIso, readJsonBody } from "./util";
 type DocCategoryRow={
   category_id:string;display_name:string;normalized_name:string;status:string;
   created_at:string;created_by:string;updated_at:string;updated_by:string;
+  mutation_state:string;mutation_id:string|null;
+};
+type DocMutationRow={
+  mutation_id:string;idempotency_key:string;category_id:string;operation:"UPDATE"|"DELETE";
+  old_display_name:string;new_display_name:string|null;new_normalized_name:string|null;
+  state:"RUNNING"|"DONE"|"FAILED";total_items:number;processed_items:number;
+  actor_id:string;actor_role:"ADMIN"|"SUPERADMIN";created_at:string;updated_at:string;
+  completed_at:string|null;last_error:string|null;
 };
 type DocRow={
   document_id:string;idempotency_key:string;category_id:string;category_name_snapshot:string;
@@ -17,6 +25,7 @@ type DocRow={
 const MAX_IMAGE_BYTES=10*1024*1024;
 const SIMILAR_DHASH_DISTANCE=6;
 const RECENT_DHASH_SCAN_LIMIT=300;
+const CATEGORY_MUTATION_BATCH=5;
 
 async function requireAdmin(request:Request,env:Env):Promise<AuthContext|Response>{
   const auth=await authenticate(env.DB,env,request);
@@ -43,7 +52,8 @@ function hammingHex64(a:string,b:string):number{
   return count;
 }
 function escapeDriveQuery(v:string):string{return v.replace(/\\/g,"\\\\").replace(/'/g,"\\'");}
-function categoryPublic(r:DocCategoryRow){return{category_id:r.category_id,display_name:r.display_name,status:r.status};}
+function categoryPublic(r:DocCategoryRow){return{category_id:r.category_id,display_name:r.display_name,status:r.status,mutation_state:r.mutation_state||"NONE",mutation_id:r.mutation_id||null};}
+function mutationPublic(r:DocMutationRow){return{mutation_id:r.mutation_id,category_id:r.category_id,operation:r.operation,state:r.state,total_items:Number(r.total_items||0),processed_items:Number(r.processed_items||0),last_error:r.last_error||null};}
 function documentPublic(r:DocRow){return{
   document_id:r.document_id,category_id:r.category_id,category_name:r.category_name_snapshot,
   uploader_id:r.uploader_id,uploader_name:r.uploader_name_snapshot,captured_at:r.captured_at,
@@ -156,30 +166,193 @@ async function createUploadSession(env:Env,token:string,row:DocRow,folderId:stri
   return location;
 }
 
+function renamedDocumentFileName(row:DocRow,newCategoryName:string):string{
+  const p=localParts(row.created_at);
+  return `${safeName(newCategoryName)}_${safeName(row.uploader_name_snapshot)}_${p.year}${p.month}${p.day}_${p.hour}${p.minute}${p.second}_${row.document_id.slice(0,8)}.jpg`;
+}
+async function renameDriveFile(token:string,driveFileId:string,newName:string):Promise<void>{
+  const {json:j}=await driveJson<{id?:string;name?:string;trashed?:boolean}>(
+    token,`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(driveFileId)}?fields=id,name,trashed`,{
+      method:"PATCH",headers:{"content-type":"application/json"},body:JSON.stringify({name:newName})
+    }
+  );
+  if(j.id!==driveFileId||j.name!==newName||j.trashed)throw new Error("DRIVE_RENAME_VERIFY_FAILED");
+}
+async function deleteDriveFile(token:string,driveFileId:string):Promise<void>{
+  const r=await fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(driveFileId)}`,{
+    method:"DELETE",headers:{authorization:`Bearer ${token}`}
+  });
+  if(r.status===404)return;
+  if(!r.ok)throw new Error(`DRIVE_DELETE_${r.status}:${(await r.text()).slice(0,200)}`);
+}
+function mutationAuth(job:DocMutationRow):AuthContext{
+  return{login_id:job.actor_id,role:job.actor_role,display_name:job.actor_id,device_id:"document-category-mutation",session_id:job.mutation_id,verifier_hash:"internal"};
+}
+async function mutationById(env:Env,id:string):Promise<DocMutationRow|null>{
+  return env.DB.prepare("SELECT * FROM document_category_mutations WHERE mutation_id=?1").bind(id).first<DocMutationRow>();
+}
+async function processDocumentCategoryMutation(env:Env,mutationId:string):Promise<DocMutationRow|null>{
+  let job=await mutationById(env,mutationId);
+  if(!job||job.state!=="RUNNING")return job;
+  const category=await env.DB.prepare("SELECT * FROM document_categories WHERE category_id=?1").bind(job.category_id).first<DocCategoryRow>();
+  if(!category){
+    await env.DB.prepare("UPDATE document_category_mutations SET state='FAILED',updated_at=?1,last_error='DOCUMENT_CATEGORY_NOT_FOUND' WHERE mutation_id=?2").bind(nowIso(),mutationId).run();
+    return mutationById(env,mutationId);
+  }
+  try{
+    const token=await googleToken(env);
+    if(job.operation==="UPDATE"){
+      const rows=await env.DB.prepare(`SELECT * FROM document_records d
+        WHERE d.category_id=?1 AND d.status='COMPLETE'
+        AND NOT EXISTS(SELECT 1 FROM document_category_mutation_items i WHERE i.mutation_id=?2 AND i.document_id=d.document_id AND i.state='DONE')
+        ORDER BY d.created_at ASC LIMIT ?3`).bind(job.category_id,job.mutation_id,CATEGORY_MUTATION_BATCH).all<DocRow>();
+      for(const row of rows.results||[]){
+        if(!row.drive_file_id)throw new Error("DOCUMENT_DRIVE_ID_MISSING");
+        const newName=renamedDocumentFileName(row,job.new_display_name||category.display_name);
+        await renameDriveFile(token,row.drive_file_id,newName);
+        const at=nowIso();
+        await env.DB.batch([
+          env.DB.prepare("INSERT OR REPLACE INTO document_category_mutation_items(mutation_id,document_id,drive_file_id,old_file_name,new_file_name,state,last_error,updated_at) VALUES(?1,?2,?3,?4,?5,'DONE',NULL,?6)")
+            .bind(job.mutation_id,row.document_id,row.drive_file_id,row.file_name,newName,at),
+          env.DB.prepare("UPDATE document_records SET file_name=?1,updated_at=?2 WHERE document_id=?3").bind(newName,at,row.document_id)
+        ]);
+      }
+      const left=await env.DB.prepare(`SELECT COUNT(*) AS n FROM document_records d WHERE d.category_id=?1 AND d.status='COMPLETE'
+        AND NOT EXISTS(SELECT 1 FROM document_category_mutation_items i WHERE i.mutation_id=?2 AND i.document_id=d.document_id AND i.state='DONE')`)
+        .bind(job.category_id,job.mutation_id).first<{n:number}>();
+      const done=await env.DB.prepare("SELECT COUNT(*) AS n FROM document_category_mutation_items WHERE mutation_id=?1 AND state='DONE'").bind(job.mutation_id).first<{n:number}>();
+      await env.DB.prepare("UPDATE document_category_mutations SET processed_items=?1,updated_at=?2,last_error=NULL WHERE mutation_id=?3")
+        .bind(Number(done?.n||0),nowIso(),job.mutation_id).run();
+      if(Number(left?.n||0)===0){
+        const at=nowIso(),newName=job.new_display_name||category.display_name,newNorm=job.new_normalized_name||normalizeName(newName);
+        await env.DB.batch([
+          env.DB.prepare("UPDATE document_records SET category_name_snapshot=?1,updated_at=?2 WHERE category_id=?3").bind(newName,at,job.category_id),
+          env.DB.prepare("UPDATE document_categories SET display_name=?1,normalized_name=?2,mutation_state='NONE',mutation_id=NULL,updated_at=?3,updated_by=?4 WHERE category_id=?5 AND mutation_id=?6")
+            .bind(newName,newNorm,at,job.actor_id,job.category_id,job.mutation_id),
+          env.DB.prepare("UPDATE document_category_mutations SET state='DONE',processed_items=total_items,updated_at=?1,completed_at=?1,last_error=NULL WHERE mutation_id=?2").bind(at,job.mutation_id)
+        ]);
+        await audit(env,mutationAuth(job),"CATEGORY_RENAME_ALL","DOCUMENT_CATEGORY",job.category_id,{from:job.old_display_name,to:newName,total_items:Number(job.total_items||0),mutation_id:job.mutation_id});
+      }
+    }else{
+      const rows=await env.DB.prepare("SELECT * FROM document_records WHERE category_id=?1 ORDER BY created_at ASC LIMIT ?2")
+        .bind(job.category_id,CATEGORY_MUTATION_BATCH).all<DocRow>();
+      for(const row of rows.results||[]){
+        if(row.drive_file_id)await deleteDriveFile(token,row.drive_file_id);
+        const at=nowIso();
+        await env.DB.batch([
+          env.DB.prepare("INSERT OR REPLACE INTO document_category_mutation_items(mutation_id,document_id,drive_file_id,old_file_name,new_file_name,state,last_error,updated_at) VALUES(?1,?2,?3,?4,NULL,'DONE',NULL,?5)")
+            .bind(job.mutation_id,row.document_id,row.drive_file_id,row.file_name,at),
+          env.DB.prepare("DELETE FROM document_records WHERE document_id=?1").bind(row.document_id)
+        ]);
+      }
+      const left=await env.DB.prepare("SELECT COUNT(*) AS n FROM document_records WHERE category_id=?1").bind(job.category_id).first<{n:number}>();
+      const done=await env.DB.prepare("SELECT COUNT(*) AS n FROM document_category_mutation_items WHERE mutation_id=?1 AND state='DONE'").bind(job.mutation_id).first<{n:number}>();
+      await env.DB.prepare("UPDATE document_category_mutations SET processed_items=?1,updated_at=?2,last_error=NULL WHERE mutation_id=?3")
+        .bind(Number(done?.n||0),nowIso(),job.mutation_id).run();
+      if(Number(left?.n||0)===0){
+        const at=nowIso();
+        await env.DB.batch([
+          env.DB.prepare("DELETE FROM document_audit WHERE target_type='DOCUMENT' AND target_id IN (SELECT document_id FROM document_category_mutation_items WHERE mutation_id=?1)").bind(job.mutation_id),
+          env.DB.prepare("DELETE FROM document_audit WHERE target_type='DOCUMENT_CATEGORY' AND target_id=?1").bind(job.category_id),
+          env.DB.prepare("DELETE FROM document_categories WHERE category_id=?1 AND mutation_id=?2").bind(job.category_id,job.mutation_id),
+          env.DB.prepare("UPDATE document_category_mutations SET state='DONE',processed_items=total_items,updated_at=?1,completed_at=?1,last_error=NULL WHERE mutation_id=?2").bind(at,job.mutation_id)
+        ]);
+      }
+    }
+  }catch(e){
+    await env.DB.prepare("UPDATE document_category_mutations SET updated_at=?1,last_error=?2 WHERE mutation_id=?3")
+      .bind(nowIso(),String(e).slice(0,500),job.mutation_id).run();
+  }
+  return mutationById(env,mutationId);
+}
+export async function processDocumentCategoryMutations(env:Env):Promise<{processed:number;active:number}>{
+  const jobs=await env.DB.prepare("SELECT mutation_id FROM document_category_mutations WHERE state='RUNNING' ORDER BY updated_at ASC LIMIT 3").all<{mutation_id:string}>();
+  let processed=0;
+  for(const j of jobs.results||[]){await processDocumentCategoryMutation(env,j.mutation_id);processed++;}
+  const active=await env.DB.prepare("SELECT COUNT(*) AS n FROM document_category_mutations WHERE state='RUNNING'").first<{n:number}>();
+  return{processed,active:Number(active?.n||0)};
+}
+
 export async function documentCategories(request:Request,env:Env):Promise<Response>{
   const auth=await requireAdmin(request,env);if(isResponse(auth))return auth;
-  const r=await env.DB.prepare("SELECT category_id,display_name,normalized_name,status,created_at,created_by,updated_at,updated_by FROM document_categories WHERE status='ACTIVE' ORDER BY display_name COLLATE NOCASE").all<DocCategoryRow>();
-  return json({ok:true,items:(r.results||[]).map(categoryPublic),category_edit_delete_policy:"OWNER_DECISION_REQUIRED"});
+  const r=await env.DB.prepare("SELECT category_id,display_name,normalized_name,status,created_at,created_by,updated_at,updated_by,mutation_state,mutation_id FROM document_categories WHERE status='ACTIVE' ORDER BY display_name COLLATE NOCASE").all<DocCategoryRow>();
+  return json({ok:true,items:(r.results||[]).map(categoryPublic),category_edit_delete_policy:"RENAME_ALL_OR_HARD_DELETE_WITH_CONFIRMATION"});
 }
 export async function documentCategoryMutate(request:Request,env:Env):Promise<Response>{
   const auth=await requireAdmin(request,env);if(isResponse(auth))return auth;
   const body=await readJsonBody<Record<string,unknown>>(request);
   const operation=String(body.operation||"CREATE").toUpperCase();
-  if(operation!=="CREATE"){
-    return apiError("DOCUMENT_CATEGORY_EDIT_DELETE_OWNER_DECISION_REQUIRED","PERMISSION",409,false);
-  }
   const name=String(body.display_name||"").trim().replace(/\s+/g," ");
-  if(name.length<2||name.length>80)return apiError("DOCUMENT_CATEGORY_NAME_INVALID","VALIDATION",400,false);
-  const normalized=normalizeName(name),id=crypto.randomUUID(),at=nowIso();
+  if(operation==="CREATE"){
+    if(name.length<2||name.length>80)return apiError("DOCUMENT_CATEGORY_NAME_INVALID","VALIDATION",400,false);
+    const normalized=normalizeName(name),id=crypto.randomUUID(),at=nowIso();
+    const reserved=await env.DB.prepare("SELECT mutation_id FROM document_category_mutations WHERE state='RUNNING' AND new_normalized_name=?1 LIMIT 1").bind(normalized).first<{mutation_id:string}>();
+    if(reserved)return apiError("DOCUMENT_CATEGORY_EXISTS","CONFLICT",409,false);
+    try{
+      await env.DB.prepare("INSERT INTO document_categories(category_id,display_name,normalized_name,status,created_at,created_by,updated_at,updated_by,mutation_state,mutation_id) VALUES(?1,?2,?3,'ACTIVE',?4,?5,?4,?5,'NONE',NULL)")
+        .bind(id,name,normalized,at,auth.login_id).run();
+    }catch(e){
+      if(String(e).toLowerCase().includes("unique"))return apiError("DOCUMENT_CATEGORY_EXISTS","CONFLICT",409,false);
+      throw e;
+    }
+    await audit(env,auth,"CATEGORY_CREATE","DOCUMENT_CATEGORY",id,{display_name:name});
+    return json({ok:true,item:{category_id:id,display_name:name,status:"ACTIVE",mutation_state:"NONE"}},201);
+  }
+  if(operation==="PROCESS"){
+    const mutationId=String(body.mutation_id||"").trim();
+    if(!mutationId)return apiError("DOCUMENT_CATEGORY_MUTATION_ID_REQUIRED","VALIDATION",400,false);
+    const before=await mutationById(env,mutationId);
+    if(!before)return apiError("DOCUMENT_CATEGORY_MUTATION_NOT_FOUND","VALIDATION",404,false);
+    if(before.actor_id!==auth.login_id&&auth.role!=="SUPERADMIN")return apiError("DOCUMENT_CATEGORY_MUTATION_OWNER_REQUIRED","PERMISSION",403,false);
+    const job=await processDocumentCategoryMutation(env,mutationId);
+    return json({ok:true,mutation:job?mutationPublic(job):null});
+  }
+  if(operation!=="UPDATE"&&operation!=="DELETE")return apiError("DOCUMENT_CATEGORY_OPERATION_INVALID","VALIDATION",400,false);
+  const categoryId=String(body.category_id||"").trim(),idem=String(body.idempotency_key||"").trim();
+  if(!categoryId)return apiError("DOCUMENT_CATEGORY_ID_REQUIRED","VALIDATION",400,false);
+  if(idem.length<8||idem.length>120)return apiError("DOCUMENT_IDEMPOTENCY_INVALID","VALIDATION",400,false);
+  const prior=await env.DB.prepare("SELECT * FROM document_category_mutations WHERE idempotency_key=?1").bind(idem).first<DocMutationRow>();
+  if(prior){
+    const job=prior.state==="RUNNING"?await processDocumentCategoryMutation(env,prior.mutation_id):prior;
+    return json({ok:true,idempotent:true,mutation:job?mutationPublic(job):null});
+  }
+  const category=await env.DB.prepare("SELECT category_id,display_name,normalized_name,status,created_at,created_by,updated_at,updated_by,mutation_state,mutation_id FROM document_categories WHERE category_id=?1 AND status='ACTIVE'")
+    .bind(categoryId).first<DocCategoryRow>();
+  if(!category)return apiError("DOCUMENT_CATEGORY_NOT_FOUND","VALIDATION",404,false);
+  if(category.mutation_state!=="NONE")return apiError("DOCUMENT_CATEGORY_MUTATION_IN_PROGRESS","CONFLICT",409,true);
+  let newNorm:string|null=null;
+  if(operation==="UPDATE"){
+    if(name.length<2||name.length>80)return apiError("DOCUMENT_CATEGORY_NAME_INVALID","VALIDATION",400,false);
+    newNorm=normalizeName(name);
+    if(newNorm===category.normalized_name&&name===category.display_name)return json({ok:true,no_change:true,item:categoryPublic(category)});
+    const duplicate=await env.DB.prepare("SELECT category_id FROM document_categories WHERE normalized_name=?1 AND category_id<>?2 LIMIT 1").bind(newNorm,categoryId).first<{category_id:string}>();
+    const reserved=await env.DB.prepare("SELECT mutation_id FROM document_category_mutations WHERE state='RUNNING' AND new_normalized_name=?1 LIMIT 1").bind(newNorm).first<{mutation_id:string}>();
+    if(duplicate||reserved)return apiError("DOCUMENT_CATEGORY_EXISTS","CONFLICT",409,false);
+  }
+  const lockState=operation==="UPDATE"?"RENAMING":"DELETING",mutationId=crypto.randomUUID(),at=nowIso();
+  const locked=await env.DB.prepare("UPDATE document_categories SET mutation_state=?1,mutation_id=?2,updated_at=?3,updated_by=?4 WHERE category_id=?5 AND mutation_state='NONE'")
+    .bind(lockState,mutationId,at,auth.login_id,categoryId).run();
+  if(Number(locked.meta?.changes||0)!==1)return apiError("DOCUMENT_CATEGORY_MUTATION_IN_PROGRESS","CONFLICT",409,true);
   try{
-    await env.DB.prepare("INSERT INTO document_categories(category_id,display_name,normalized_name,status,created_at,created_by,updated_at,updated_by) VALUES(?1,?2,?3,'ACTIVE',?4,?5,?4,?5)")
-      .bind(id,name,normalized,at,auth.login_id).run();
+    const pending=await env.DB.prepare("SELECT COUNT(*) AS n FROM document_records WHERE category_id=?1 AND status<>'COMPLETE'").bind(categoryId).first<{n:number}>();
+    if(Number(pending?.n||0)>0){
+      await env.DB.prepare("UPDATE document_categories SET mutation_state='NONE',mutation_id=NULL,updated_at=?1,updated_by=?2 WHERE category_id=?3 AND mutation_id=?4")
+        .bind(nowIso(),auth.login_id,categoryId,mutationId).run();
+      return apiError("DOCUMENT_CATEGORY_PENDING_UPLOADS","CONFLICT",409,true);
+    }
+    const total=await env.DB.prepare("SELECT COUNT(*) AS n FROM document_records WHERE category_id=?1").bind(categoryId).first<{n:number}>();
+    await env.DB.prepare(`INSERT INTO document_category_mutations(
+      mutation_id,idempotency_key,category_id,operation,old_display_name,new_display_name,new_normalized_name,state,total_items,processed_items,
+      actor_id,actor_role,created_at,updated_at,completed_at,last_error
+    ) VALUES(?1,?2,?3,?4,?5,?6,?7,'RUNNING',?8,0,?9,?10,?11,?11,NULL,NULL)`)
+      .bind(mutationId,idem,categoryId,operation,category.display_name,operation==="UPDATE"?name:null,newNorm,Number(total?.n||0),auth.login_id,auth.role,at).run();
+    const job=await processDocumentCategoryMutation(env,mutationId);
+    return json({ok:true,mutation:job?mutationPublic(job):null},202);
   }catch(e){
-    if(String(e).toLowerCase().includes("unique"))return apiError("DOCUMENT_CATEGORY_EXISTS","CONFLICT",409,false);
+    await env.DB.prepare("UPDATE document_categories SET mutation_state='NONE',mutation_id=NULL,updated_at=?1,updated_by=?2 WHERE category_id=?3 AND mutation_id=?4")
+      .bind(nowIso(),auth.login_id,categoryId,mutationId).run();
     throw e;
   }
-  await audit(env,auth,"CATEGORY_CREATE","DOCUMENT_CATEGORY",id,{display_name:name});
-  return json({ok:true,item:{category_id:id,display_name:name,status:"ACTIVE"}},201);
 }
 export async function documentList(request:Request,env:Env):Promise<Response>{
   const auth=await requireAdmin(request,env);if(isResponse(auth))return auth;
