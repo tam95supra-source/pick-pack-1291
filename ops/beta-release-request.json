@@ -1,6 +1,6 @@
 {
-  "stage": "SERVICE_DISCOVERY_ONLY",
-  "mode": "BETA106_EXACT_DEVICE_REGRESSION_AFTER_VISUAL_PASS",
+  "stage": "RUNTIME_DOD_VERIFY",
+  "mode": "BETA106_RUNTIME_DOD_AFTER_DEVICE_PASS",
   "version_name": "0.4.2-beta.106",
   "version_code": 112,
   "base_version": "0.4.2-beta.104",
@@ -37,8 +37,8 @@
   "apk_transport": "GITHUB_RELEASE_ONLY",
   "google_drive_apk": "FORBIDDEN",
   "regression_case": "SHIFT-STAFF-DOWNLOAD-QR-NULL-001",
-  "execution_nonce": "beta106-service-discovery-only-20260901-01",
-  "next_action": "SERVICE_DISCOVERY_ONLY_EXACT_BETA106",
+  "execution_nonce": "beta106-runtime-dod-20260901-01",
+  "next_action": "RUNTIME_DOD_VERIFY_EXACT_BETA106",
   "candidate_source_sha": "57e02d45b436c6bcb64bc5731671044af7c7c86d",
   "candidate_run_id": 33473965249,
   "candidate_artifact_id": 9787581956,
@@ -62,5 +62,9 @@
   "verify_artifact_name": "beta-verify-33473965249",
   "fast_check": "PASS",
   "fast_check_run_id": 33474362890,
-  "device_regression_status": "PENDING"
+  "device_regression_status": "PASS",
+  "device_regression_run_id": 33474768649,
+  "device_regression_artifact_id": 9787794484,
+  "device_regression_artifact_name": "beta-service-discovery-33474768649",
+  "runtime_dod_status": "PENDING"
 }
