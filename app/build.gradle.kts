@@ -32,8 +32,8 @@ android {
         create("beta") {
             dimension = "channel"
             applicationId = "vn.pickpack1291.app.beta.publicbeta"
-            versionCode = 110
-            versionName = "0.4.2-beta.104"
+            versionCode = 111
+            versionName = "0.4.2-beta.105"
             manifestPlaceholders["appLabel"] = "Pick Pack 1291 Beta"
             buildConfigField("String", "CHANNEL", "\"BETA\"")
             buildConfigField("String", "ENVIRONMENT_ID", "\"BETA\"")
@@ -82,6 +82,7 @@ dependencies {
     implementation("androidx.work:work-runtime:2.11.2")
     implementation("com.squareup.okhttp3:okhttp:5.3.0")
     implementation("org.java-websocket:Java-WebSocket:1.6.0")
+    implementation("com.google.zxing:core:3.5.3")
     implementation(platform("com.google.firebase:firebase-bom:34.16.0"))
     implementation("com.google.firebase:firebase-messaging")
     testImplementation("junit:junit:4.13.2")
@@ -92,6 +93,7 @@ dependencies {
 // Firebase client identifiers are injected at build time and default blank so source never contains project config.
 // GSHEET_API_URL remains public discovery/fallback configuration and manual update lookup path; no Service URL is compiled into APK.
 // Signing material remains outside this repository and the Android signer is owner-locked.
+// Beta105: NCC-grouped shift staff roster, direct employee QR context, and dynamic GitHub Release download QR. Stable remains READY_NOT_LIVE until OWNER release.
 // Beta104: ensure TTL cache branch also passes environment/audience validation before reuse; Beta103 pre-OTA superseded. Stable remains READY_NOT_LIVE.
 // Beta103 pre-OTA superseded: invalidate cross-environment stale discovery cache and refresh dynamic BETA Service discovery before live Service session/read/sync/outbox routes. Stable remains READY_NOT_LIVE.
 // Beta102: environment/audience fencing across HTTP + GAS fallback and env-scoped LAN/NSD for Beta/Stable isolation. Stable remains READY_NOT_LIVE.
