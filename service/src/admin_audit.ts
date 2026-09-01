@@ -16,9 +16,9 @@ export interface AdminAuditInput {
   occurred_at?:string;
 }
 
-const ALLOWED=new Set(["staff_upsert","staff_delete","account_upsert","account_status","account_delete","change_email","change_password","staff_import","account_login","account_logout","settings_change","resilience_probe"]);
+const ALLOWED=new Set(["staff_upsert","staff_delete","account_upsert","account_status","account_delete","change_email","change_password","staff_import","account_login","account_logout","settings_change","resilience_probe","document_upload","document_delete","document_category_create","document_category_update","document_category_delete"]);
 const TYPE:Record<string,string>={
-  staff_upsert:"MASTER_STAFF_UPSERT",staff_delete:"MASTER_STAFF_DELETE",account_upsert:"ACCOUNT_UPSERT",account_status:"ACCOUNT_STATUS",account_delete:"ACCOUNT_DELETE",change_email:"ACCOUNT_EMAIL",change_password:"ACCOUNT_PASSWORD",staff_import:"MASTER_STAFF_IMPORT",account_login:"ACCOUNT_LOGIN",account_logout:"ACCOUNT_LOGOUT",settings_change:"SETTINGS_CHANGE",resilience_probe:"TECHNICAL_RESILIENCE_PROBE"
+  staff_upsert:"MASTER_STAFF_UPSERT",staff_delete:"MASTER_STAFF_DELETE",account_upsert:"ACCOUNT_UPSERT",account_status:"ACCOUNT_STATUS",account_delete:"ACCOUNT_DELETE",change_email:"ACCOUNT_EMAIL",change_password:"ACCOUNT_PASSWORD",staff_import:"MASTER_STAFF_IMPORT",account_login:"ACCOUNT_LOGIN",account_logout:"ACCOUNT_LOGOUT",settings_change:"SETTINGS_CHANGE",resilience_probe:"TECHNICAL_RESILIENCE_PROBE",document_upload:"DOCUMENT_UPLOAD",document_delete:"DOCUMENT_DELETE",document_category_create:"DOCUMENT_CATEGORY_CREATE",document_category_update:"DOCUMENT_CATEGORY_UPDATE",document_category_delete:"DOCUMENT_CATEGORY_DELETE"
 };
 function text(v:unknown,max=240):string{return String(v??"").trim().slice(0,max);}
 
