@@ -109,7 +109,7 @@ object DocumentManagementFeature {
             categoryActions.addView(remove,LinearLayout.LayoutParams(0,dp(42),1f).apply{marginStart=dp(3)})
             categoryBox.addView(categoryActions,LinearLayout.LayoutParams(-1,-2))
             categoryBox.addView(gap(5))
-            categoryBox.addView(text("Sửa/Xóa đang khóa chờ OWNER chốt quy tắc cho dữ liệu cũ. File đã tải lên không tự đổi tên.",8.8f,muted))
+            categoryBox.addView(text("Sửa: đổi tên toàn bộ biên bản và file Drive thuộc loại. Xóa: xóa hẳn ảnh + dữ liệu. Cả hai đều yêu cầu mã xác nhận.",8.8f,muted))
             body.addView(categoryBox,LinearLayout.LayoutParams(-1,-2))
             body.addView(gap(10))
 
