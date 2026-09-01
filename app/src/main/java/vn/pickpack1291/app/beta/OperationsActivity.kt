@@ -1504,8 +1504,8 @@ class OperationsActivity : Activity() {
             val z=runCatching{Instant.parse(currentIso).atZone(tz)}.getOrDefault(java.time.ZonedDateTime.now(tz))
             android.app.TimePickerDialog(this,{_,hour,minute->
                 val picked=z.toLocalDate().atTime(hour,minute).atZone(tz).toInstant()
-                if(picked.isAfter(Instant.now().plusSeconds(60))){TopNotice.show(this,"Thời gian không được ở tương lai.",TopNotice.Kind.WARNING);return@TimePickerDialog}
-                onPick(picked.toString())
+                if(picked.isAfter(Instant.now().plusSeconds(60)))TopNotice.show(this,"Thời gian không được ở tương lai.",TopNotice.Kind.WARNING)
+                else onPick(picked.toString())
             },z.hour,z.minute,true).show()
         }
         fun timeButton(iso:String):Button=Button(this).apply{
@@ -1557,7 +1557,7 @@ class OperationsActivity : Activity() {
         }
         body.addView(gap(7));body.addView(primary("Mã nhân viên KHÁC",navy){initialMnv="";laborHome()},matchWrap());attach(root,body)
     }
-    private fun resourceHome    private fun resourceHome(){
+    private fun resourceHome(){
         screenState="RESOURCE_HOME"
         val root=baseRoot("TÀI NGUYÊN");val body=body()
         val cards=listOf(
