@@ -1,6 +1,7 @@
 package vn.pickpack1291.app.beta
 
 import android.content.Context
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.util.UUID
@@ -16,6 +17,7 @@ class DocumentPendingStore(context:Context) {
         val sha256:String,
         val md5:String,
         val dhash64:String,
+        val dhash64Variants:List<String>,
         val width:Int,
         val height:Int,
         val mimeType:String,
@@ -54,7 +56,7 @@ class DocumentPendingStore(context:Context) {
         val item=Item(
             pendingId=id,ownerLogin=ownerLogin.trim(),categoryId=categoryId,sourceKind=sourceKind,
             capturedAt=capturedAt,idempotencyKey=idempotencyKey,sha256=image.sha256,md5=image.md5,
-            dhash64=image.dhash64,width=image.width,height=image.height,mimeType=image.mimeType,
+            dhash64=image.dhash64,dhash64Variants=image.dhash64Variants,width=image.width,height=image.height,mimeType=image.mimeType,
             byteSize=image.bytes.size,createdAt=now,updatedAt=now,documentId=null,driveFileId=null,
             allowSimilar=false,lastError=null,retryCount=0
         )
@@ -120,6 +122,13 @@ class DocumentPendingStore(context:Context) {
             categoryId=j.getString("category_id"),sourceKind=j.getString("source_kind"),
             capturedAt=j.getString("captured_at"),idempotencyKey=j.getString("idempotency_key"),
             sha256=j.getString("sha256"),md5=j.getString("md5"),dhash64=j.optString("dhash64"),
+            dhash64Variants=run{
+                val a=j.optJSONArray("dhash64_variants")
+                val out=mutableListOf<String>()
+                if(a!=null)for(k in 0 until a.length())a.optString(k).takeIf{it.matches(Regex("[0-9a-fA-F]{16}"))}?.lowercase()?.let(out::add)
+                if(out.isEmpty()&&j.optString("dhash64").isNotBlank())out.add(j.optString("dhash64").lowercase())
+                out.distinct().take(4)
+            },
             width=j.getInt("width"),height=j.getInt("height"),mimeType=j.getString("mime_type"),
             byteSize=j.getInt("byte_size"),createdAt=j.getLong("created_at"),updatedAt=j.getLong("updated_at"),
             documentId=j.optString("document_id").takeIf{it.isNotBlank()},
@@ -131,7 +140,7 @@ class DocumentPendingStore(context:Context) {
     private fun toJson(i:Item)=JSONObject()
         .put("pending_id",i.pendingId).put("owner_login",i.ownerLogin).put("category_id",i.categoryId)
         .put("source_kind",i.sourceKind).put("captured_at",i.capturedAt).put("idempotency_key",i.idempotencyKey)
-        .put("sha256",i.sha256).put("md5",i.md5).put("dhash64",i.dhash64).put("width",i.width).put("height",i.height)
+        .put("sha256",i.sha256).put("md5",i.md5).put("dhash64",i.dhash64).put("dhash64_variants",JSONArray(i.dhash64Variants)).put("width",i.width).put("height",i.height)
         .put("mime_type",i.mimeType).put("byte_size",i.byteSize).put("created_at",i.createdAt).put("updated_at",i.updatedAt)
         .put("document_id",i.documentId?:"").put("drive_file_id",i.driveFileId?:"").put("allow_similar",i.allowSimilar)
         .put("last_error",i.lastError?:"").put("retry_count",i.retryCount)
