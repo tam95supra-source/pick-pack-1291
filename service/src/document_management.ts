@@ -1,4 +1,5 @@
 import { authenticate } from "./auth";
+import { commitAdminAudit } from "./admin_audit";
 import type { AuthContext } from "./domain";
 import { apiError, json, nowIso, readJsonBody } from "./util";
 
@@ -20,6 +21,11 @@ type DocRow={
   completed_at:string|null;status:string;file_name:string;mime_type:string;byte_size:number;sha256:string;md5:string;
   dhash64:string|null;width:number|null;height:number|null;source_kind:string;drive_file_id:string|null;
   duplicate_of_document_id:string|null;last_error:string|null;
+  group_id:string|null;group_mode:string|null;page_index:number|null;page_count:number|null;
+};
+type DocDeleteMutationRow={
+  mutation_id:string;idempotency_key:string;state:"RUNNING"|"DONE"|"FAILED";total_items:number;processed_items:number;
+  actor_id:string;actor_role:"ADMIN"|"SUPERADMIN";created_at:string;updated_at:string;completed_at:string|null;last_error:string|null;
 };
 
 const MAX_IMAGE_BYTES=10*1024*1024;
@@ -27,6 +33,7 @@ const SIMILAR_DHASH_DISTANCE=16;
 const MAX_DHASH_VARIANTS=4;
 const RECENT_DHASH_SCAN_LIMIT=300;
 const CATEGORY_MUTATION_BATCH=5;
+const DOCUMENT_DELETE_BATCH=8;
 // Beta108 owner-locked category mutation: rename-all/hard-delete durable job.
 
 async function requireAdmin(request:Request,env:Env):Promise<AuthContext|Response>{
@@ -61,11 +68,45 @@ function documentPublic(r:DocRow){return{
   uploader_id:r.uploader_id,uploader_name:r.uploader_name_snapshot,captured_at:r.captured_at,
   created_at:r.created_at,completed_at:r.completed_at,status:r.status,file_name:r.file_name,
   mime_type:r.mime_type,byte_size:Number(r.byte_size||0),width:r.width,height:r.height,source_kind:r.source_kind,
-  duplicate_of_document_id:r.duplicate_of_document_id
+  duplicate_of_document_id:r.duplicate_of_document_id,group_id:r.group_id||r.document_id,group_mode:r.group_mode||"SINGLE",
+  page_index:Number(r.page_index||1),page_count:Number(r.page_count||1)
 };}
+function canonicalDocumentAction(action:string):string|null{
+  if(action==="DOCUMENT_UPLOAD_COMPLETE")return "document_upload";
+  if(action==="DOCUMENT_DELETE_SELECTED")return "document_delete";
+  if(action==="CATEGORY_CREATE")return "document_category_create";
+  if(action==="CATEGORY_RENAME_ALL")return "document_category_update";
+  if(action==="CATEGORY_DELETE_ALL")return "document_category_delete";
+  return null;
+}
+async function emitDocumentHistory(env:Env,auth:AuthContext,auditId:string,action:string,targetType:string,targetId:string,detail:Record<string,unknown>){
+  const canonical=canonicalDocumentAction(action);if(!canonical)return;
+  await commitAdminAudit(env.DB,auth,{
+    action:canonical,event_id:`doc-audit-${auditId}`,target_type:targetType,target_id:targetId,
+    target_label:String(detail.category_name||detail.file_name||detail.display_name||"").slice(0,240),
+    detail:JSON.stringify(detail).slice(0,500),device_id:auth.device_id
+  });
+}
 async function audit(env:Env,auth:AuthContext,action:string,targetType:string,targetId:string,detail:Record<string,unknown>={}){
+  const auditId=crypto.randomUUID(),at=nowIso();
   await env.DB.prepare("INSERT INTO document_audit(audit_id,action,target_type,target_id,actor_id,actor_role,detail_json,created_at) VALUES(?1,?2,?3,?4,?5,?6,?7,?8)")
-    .bind(crypto.randomUUID(),action,targetType,targetId,auth.login_id,auth.role,JSON.stringify(detail),nowIso()).run();
+    .bind(auditId,action,targetType,targetId,auth.login_id,auth.role,JSON.stringify(detail),at).run();
+  try{await emitDocumentHistory(env,auth,auditId,action,targetType,targetId,detail);}catch{}
+  return auditId;
+}
+export async function flushDocumentAuditHistory(env:Env):Promise<number>{
+  const rows=await env.DB.prepare(`SELECT audit_id,action,target_type,target_id,actor_id,actor_role,detail_json,created_at FROM document_audit
+    WHERE action IN ('DOCUMENT_UPLOAD_COMPLETE','DOCUMENT_DELETE_SELECTED','CATEGORY_CREATE','CATEGORY_RENAME_ALL','CATEGORY_DELETE_ALL')
+    ORDER BY created_at DESC LIMIT 200`).all<{audit_id:string;action:string;target_type:string;target_id:string;actor_id:string;actor_role:"ADMIN"|"SUPERADMIN";detail_json:string;created_at:string}>();
+  let emitted=0;
+  for(const row of (rows.results||[]).reverse()){
+    const eventId=`doc-audit-${row.audit_id}`;
+    const exists=await env.DB.prepare("SELECT 1 AS ok FROM events WHERE event_id=?1").bind(eventId).first<{ok:number}>();if(exists?.ok)continue;
+    const auth:AuthContext={login_id:row.actor_id,role:row.actor_role,display_name:row.actor_id,device_id:"document-audit-replay",session_id:eventId,verifier_hash:"internal"};
+    const detail=(()=>{try{return JSON.parse(row.detail_json) as Record<string,unknown>}catch{return{}}})();
+    try{await emitDocumentHistory(env,auth,row.audit_id,row.action,row.target_type,row.target_id,detail);emitted++;}catch{}
+  }
+  return emitted;
 }
 async function googleToken(env:Env):Promise<string>{
   const body=new URLSearchParams({
@@ -149,7 +190,10 @@ async function createUploadSession(env:Env,token:string,row:DocRow,folderId:stri
       pp1291_document_id:row.document_id,
       pp1291_environment:String(env.ENVIRONMENT_ID||"BETA").toUpperCase(),
       pp1291_category_id:row.category_id,
-      pp1291_expected_md5:row.md5
+      pp1291_expected_md5:row.md5,
+      pp1291_group_id:row.group_id||row.document_id,
+      pp1291_page_index:String(row.page_index||1),
+      pp1291_page_count:String(row.page_count||1)
     }
   };
   const r=await fetch(u.toString(),{
@@ -261,6 +305,7 @@ async function processDocumentCategoryMutation(env:Env,mutationId:string):Promis
           env.DB.prepare("UPDATE document_category_mutations SET old_display_name='',new_display_name=NULL,new_normalized_name=NULL WHERE category_id=?1").bind(job.category_id),
           env.DB.prepare("UPDATE document_category_mutations SET state='DONE',processed_items=total_items,updated_at=?1,completed_at=?1,last_error=NULL WHERE mutation_id=?2").bind(at,job.mutation_id)
         ]);
+        await audit(env,mutationAuth(job),"CATEGORY_DELETE_ALL","DOCUMENT_DELETE_RECEIPT",job.mutation_id,{category_id:job.category_id,category_name:job.old_display_name,total_items:Number(job.total_items||0),mutation_id:job.mutation_id});
       }
     }
   }catch(e){
@@ -384,6 +429,9 @@ export async function documentUploadSession(request:Request,env:Env):Promise<Res
   const sourceKind=String(body.source_kind||"").toUpperCase();
   const capturedAt=String(body.captured_at||"").trim()||null;
   const idempotency=String(body.idempotency_key||"").trim();
+  const groupId=String(body.group_id||idempotency).trim().slice(0,120);
+  const groupMode=String(body.group_mode||"SINGLE").trim().toUpperCase();
+  const pageIndex=Number(body.page_index||1),pageCount=Number(body.page_count||1);
   const allowSimilar=body.allow_similar===true;
   if(mimeType!=="image/jpeg")return apiError("DOCUMENT_IMAGE_MIME_INVALID","VALIDATION",400,false);
   if(!Number.isInteger(size)||size<=0||size>MAX_IMAGE_BYTES)return apiError("DOCUMENT_IMAGE_SIZE_INVALID","VALIDATION",400,false);
@@ -393,6 +441,8 @@ export async function documentUploadSession(request:Request,env:Env):Promise<Res
   if(!Number.isInteger(width)||width<1||!Number.isInteger(height)||height<1)return apiError("DOCUMENT_IMAGE_DIMENSIONS_INVALID","VALIDATION",400,false);
   if(sourceKind!=="CAMERA"&&sourceKind!=="GALLERY")return apiError("DOCUMENT_IMAGE_SOURCE_INVALID","VALIDATION",400,false);
   if(idempotency.length<8||idempotency.length>120)return apiError("DOCUMENT_IDEMPOTENCY_INVALID","VALIDATION",400,false);
+  if(groupId.length<8||!["SINGLE","MULTI_PAGE","MULTI_DOCUMENT"].includes(groupMode))return apiError("DOCUMENT_GROUP_INVALID","VALIDATION",400,false);
+  if(!Number.isInteger(pageIndex)||!Number.isInteger(pageCount)||pageIndex<1||pageCount<1||pageIndex>pageCount||pageCount>60)return apiError("DOCUMENT_PAGE_INVALID","VALIDATION",400,false);
 
   const category=await env.DB.prepare("SELECT category_id,display_name,normalized_name,status,created_at,created_by,updated_at,updated_by,mutation_state,mutation_id FROM document_categories WHERE category_id=?1 AND status='ACTIVE'")
     .bind(categoryId).first<DocCategoryRow>();
@@ -431,9 +481,10 @@ export async function documentUploadSession(request:Request,env:Env):Promise<Res
   if(!row){
     await env.DB.prepare(`INSERT INTO document_records(
       document_id,idempotency_key,category_id,category_name_snapshot,uploader_id,uploader_name_snapshot,captured_at,created_at,updated_at,status,
-      file_name,mime_type,byte_size,sha256,md5,dhash64,width,height,source_kind,drive_file_id,duplicate_of_document_id,last_error
-    ) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?8,'PENDING',?9,?10,?11,?12,?13,?14,?15,?16,?17,NULL,NULL,NULL)`)
-      .bind(documentId,idempotency,category.category_id,category.display_name,auth.login_id,uploaderName,capturedAt,at,fileName,mimeType,size,sha256,md5,dhash64||null,width,height,sourceKind).run();
+      file_name,mime_type,byte_size,sha256,md5,dhash64,width,height,source_kind,drive_file_id,duplicate_of_document_id,last_error,
+      group_id,group_mode,page_index,page_count
+    ) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?8,'PENDING',?9,?10,?11,?12,?13,?14,?15,?16,?17,NULL,NULL,NULL,?18,?19,?20,?21)`)
+      .bind(documentId,idempotency,category.category_id,category.display_name,auth.login_id,uploaderName,capturedAt,at,fileName,mimeType,size,sha256,md5,dhash64||null,width,height,sourceKind,groupId,groupMode,pageIndex,pageCount).run();
     row=await env.DB.prepare("SELECT * FROM document_records WHERE document_id=?1").bind(documentId).first<DocRow>()||null;
   }
   if(!row)return apiError("DOCUMENT_PENDING_CREATE_FAILED","INTERNAL",500,true);
@@ -478,13 +529,83 @@ export async function documentComplete(request:Request,env:Env):Promise<Response
     await env.DB.prepare("UPDATE document_records SET status='COMPLETE',drive_file_id=?1,completed_at=?2,updated_at=?2,last_error=NULL WHERE document_id=?3")
       .bind(driveFileId,at,row.document_id).run();
     const complete=await env.DB.prepare("SELECT * FROM document_records WHERE document_id=?1").bind(row.document_id).first<DocRow>();
-    await audit(env,auth,"DOCUMENT_UPLOAD_COMPLETE","DOCUMENT",row.document_id,{file_name:row.file_name,byte_size:row.byte_size,sha256:row.sha256});
+    await audit(env,auth,"DOCUMENT_UPLOAD_COMPLETE","DOCUMENT",row.document_id,{file_name:row.file_name,category_name:row.category_name_snapshot,byte_size:row.byte_size,sha256:row.sha256,group_id:row.group_id||row.document_id,page_index:Number(row.page_index||1),page_count:Number(row.page_count||1)});
     return json({ok:true,document:complete?documentPublic(complete):documentPublic({...row,status:"COMPLETE",drive_file_id:driveFileId,completed_at:at,updated_at:at})});
   }catch(e){
     await env.DB.prepare("UPDATE document_records SET updated_at=?1,last_error=?2 WHERE document_id=?3").bind(nowIso(),String(e).slice(0,500),row.document_id).run();
     return apiError("DOCUMENT_DRIVE_VERIFY_UNAVAILABLE","RESOURCE",503,true);
   }
 }
+
+function deleteMutationPublic(r:DocDeleteMutationRow){return{mutation_id:r.mutation_id,state:r.state,total_items:Number(r.total_items||0),processed_items:Number(r.processed_items||0),last_error:r.last_error||null};}
+function deleteMutationAuth(job:DocDeleteMutationRow):AuthContext{return{login_id:job.actor_id,role:job.actor_role,display_name:job.actor_id,device_id:"document-delete-mutation",session_id:job.mutation_id,verifier_hash:"internal"};}
+async function deleteMutationById(env:Env,id:string):Promise<DocDeleteMutationRow|null>{return env.DB.prepare("SELECT * FROM document_delete_mutations WHERE mutation_id=?1").bind(id).first<DocDeleteMutationRow>();}
+async function processDocumentDeleteMutation(env:Env,mutationId:string):Promise<DocDeleteMutationRow|null>{
+  let job=await deleteMutationById(env,mutationId);if(!job||job.state!=="RUNNING")return job;
+  try{
+    const token=await googleToken(env);
+    const rows=await env.DB.prepare("SELECT mutation_id,document_id,drive_file_id,category_id,category_name_snapshot,file_name,state FROM document_delete_items WHERE mutation_id=?1 AND state='PENDING' ORDER BY document_id LIMIT ?2")
+      .bind(mutationId,DOCUMENT_DELETE_BATCH).all<{mutation_id:string;document_id:string;drive_file_id:string|null;category_id:string|null;category_name_snapshot:string|null;file_name:string|null;state:string}>();
+    for(const row of rows.results||[]){
+      if(row.drive_file_id)await deleteDriveFile(token,row.drive_file_id);
+      const at=nowIso();
+      await env.DB.batch([
+        env.DB.prepare("DELETE FROM document_records WHERE document_id=?1").bind(row.document_id),
+        env.DB.prepare("UPDATE document_delete_items SET state='DONE',last_error=NULL,updated_at=?1 WHERE mutation_id=?2 AND document_id=?3").bind(at,mutationId,row.document_id)
+      ]);
+    }
+    const done=await env.DB.prepare("SELECT COUNT(*) AS n FROM document_delete_items WHERE mutation_id=?1 AND state='DONE'").bind(mutationId).first<{n:number}>();
+    const pending=await env.DB.prepare("SELECT COUNT(*) AS n FROM document_delete_items WHERE mutation_id=?1 AND state='PENDING'").bind(mutationId).first<{n:number}>();
+    const at=nowIso();
+    if(Number(pending?.n||0)===0){
+      await env.DB.prepare("UPDATE document_delete_mutations SET state='DONE',processed_items=?1,updated_at=?2,completed_at=?2,last_error=NULL WHERE mutation_id=?3").bind(Number(done?.n||0),at,mutationId).run();
+      job=await deleteMutationById(env,mutationId);
+      if(job)await audit(env,deleteMutationAuth(job),"DOCUMENT_DELETE_SELECTED","DOCUMENT_DELETE_RECEIPT",mutationId,{deleted_count:Number(done?.n||0),mutation_id:mutationId});
+    }else{
+      await env.DB.prepare("UPDATE document_delete_mutations SET processed_items=?1,updated_at=?2,last_error=NULL WHERE mutation_id=?3").bind(Number(done?.n||0),at,mutationId).run();
+    }
+  }catch(e){
+    await env.DB.prepare("UPDATE document_delete_mutations SET updated_at=?1,last_error=?2 WHERE mutation_id=?3").bind(nowIso(),String(e).slice(0,500),mutationId).run();
+  }
+  return deleteMutationById(env,mutationId);
+}
+export async function processDocumentDeleteMutations(env:Env):Promise<{processed:number;active:number}>{
+  const jobs=await env.DB.prepare("SELECT mutation_id FROM document_delete_mutations WHERE state='RUNNING' ORDER BY updated_at ASC LIMIT 3").all<{mutation_id:string}>();
+  let processed=0;for(const j of jobs.results||[]){await processDocumentDeleteMutation(env,j.mutation_id);processed++;}
+  const active=await env.DB.prepare("SELECT COUNT(*) AS n FROM document_delete_mutations WHERE state='RUNNING'").first<{n:number}>();
+  return{processed,active:Number(active?.n||0)};
+}
+export async function documentDeleteMutate(request:Request,env:Env):Promise<Response>{
+  const auth=await requireAdmin(request,env);if(isResponse(auth))return auth;
+  const body=await readJsonBody<Record<string,unknown>>(request),operation=String(body.operation||"START").toUpperCase();
+  if(operation==="PROCESS"){
+    const mutationId=String(body.mutation_id||"").trim();if(!mutationId)return apiError("DOCUMENT_DELETE_MUTATION_ID_REQUIRED","VALIDATION",400,false);
+    const prior=await deleteMutationById(env,mutationId);if(!prior)return apiError("DOCUMENT_DELETE_MUTATION_NOT_FOUND","VALIDATION",404,false);
+    if(prior.actor_id!==auth.login_id&&auth.role!=="SUPERADMIN")return apiError("DOCUMENT_DELETE_MUTATION_OWNER_REQUIRED","PERMISSION",403,false);
+    const job=prior.state==="RUNNING"?await processDocumentDeleteMutation(env,mutationId):prior;
+    return json({ok:true,mutation:job?deleteMutationPublic(job):null});
+  }
+  if(operation!=="START")return apiError("DOCUMENT_DELETE_OPERATION_INVALID","VALIDATION",400,false);
+  const idem=String(body.idempotency_key||"").trim();if(idem.length<8||idem.length>120)return apiError("DOCUMENT_IDEMPOTENCY_INVALID","VALIDATION",400,false);
+  const prior=await env.DB.prepare("SELECT * FROM document_delete_mutations WHERE idempotency_key=?1").bind(idem).first<DocDeleteMutationRow>();
+  if(prior){const job=prior.state==="RUNNING"?await processDocumentDeleteMutation(env,prior.mutation_id):prior;return json({ok:true,idempotent:true,mutation:job?deleteMutationPublic(job):null});}
+  const raw=Array.isArray(body.document_ids)?body.document_ids:[],ids=[...new Set(raw.map(x=>String(x||"").trim()).filter(Boolean))].slice(0,100);
+  if(ids.length===0)return apiError("DOCUMENT_DELETE_IDS_REQUIRED","VALIDATION",400,false);
+  const placeholders=ids.map((_,i)=>`?${i+1}`).join(",");
+  const found=await env.DB.prepare(`SELECT * FROM document_records WHERE status='COMPLETE' AND document_id IN (${placeholders})`).bind(...ids).all<DocRow>();
+  const rows=found.results||[];if(rows.length===0)return apiError("DOCUMENT_NOT_FOUND","VALIDATION",404,false);
+  const mutationId=crypto.randomUUID(),at=nowIso();
+  const stmts:D1PreparedStatement[]=[
+    env.DB.prepare("INSERT INTO document_delete_mutations(mutation_id,idempotency_key,state,total_items,processed_items,actor_id,actor_role,created_at,updated_at) VALUES(?1,?2,'RUNNING',?3,0,?4,?5,?6,?6)")
+      .bind(mutationId,idem,rows.length,auth.login_id,auth.role,at)
+  ];
+  for(const row of rows)stmts.push(env.DB.prepare("INSERT INTO document_delete_items(mutation_id,document_id,drive_file_id,category_id,category_name_snapshot,file_name,state,last_error,updated_at) VALUES(?1,?2,?3,?4,?5,?6,'PENDING',NULL,?7)")
+    .bind(mutationId,row.document_id,row.drive_file_id,row.category_id,row.category_name_snapshot,row.file_name,at));
+  await env.DB.batch(stmts);
+  const job=await processDocumentDeleteMutation(env,mutationId);
+  return json({ok:true,mutation:job?deleteMutationPublic(job):null,requested_count:ids.length,matched_count:rows.length},202);
+}
+
 export async function documentMedia(request:Request,env:Env,documentId:string):Promise<Response>{
   const auth=await requireAdmin(request,env);if(isResponse(auth))return auth;
   const row=await env.DB.prepare("SELECT * FROM document_records WHERE document_id=?1 AND status='COMPLETE'").bind(documentId).first<DocRow>();
