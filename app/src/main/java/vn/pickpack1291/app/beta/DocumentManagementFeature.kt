@@ -84,6 +84,8 @@ object DocumentManagementFeature {
             root.addView(scroll,LinearLayout.LayoutParams(-1,0,1f))
 
             body.addView(text("Ảnh được nén trên máy rồi tải thẳng lên Google Drive. Service chỉ lưu thông tin biên bản và dấu vân tay chống trùng.",9.6f,muted))
+            body.addView(gap(3))
+            body.addView(text("Người tải: ${displayName.ifBlank{login}}",9.2f,ink,true))
             body.addView(gap(9))
 
             val categoryBox=column().apply{background=bg();setPadding(dp(10),dp(9),dp(10),dp(10))}
