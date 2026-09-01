@@ -37,8 +37,8 @@
   "apk_transport": "GITHUB_RELEASE_ONLY",
   "google_drive_apk": "FORBIDDEN",
   "regression_case": "DOCUMENT-BATCH-001,LABOR-TIME-RANGE-001,MEAL-UI-NULL-001,UI-COPY-DENSITY-001",
-  "execution_nonce": "beta110-visual-pda-20260902-03",
-  "next_action": "PASS_VISUAL_PDA_API36_AND_HUMAN_INSPECTION",
+  "execution_nonce": "beta110-visual-pda-20260902-04",
+  "next_action": "RETRY_VISUAL_PDA_AFTER_SCREENSHOT_COUNT_HARNESS_FIX",
   "candidate_source_sha": "1faebbf996836d442ec6e99ffba2a589bf3fcbd2",
   "candidate_run_id": 33554345340,
   "candidate_artifact_id": 9818862858,
@@ -49,7 +49,7 @@
   "service_gate_artifact_id": 9824237674,
   "fast_check": "PASS",
   "fast_check_run_id": 33568608617,
-  "visual_matrix": "PENDING",
+  "visual_matrix": "PENDING_RETRY_HARNESS_COUNT",
   "pda_functional_pre_ota": "PENDING",
   "back_api36": "PENDING"
 }
