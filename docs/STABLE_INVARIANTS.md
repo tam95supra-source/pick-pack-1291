@@ -122,6 +122,16 @@ Mỗi invariant tối thiểu có:
 - Last verified: 0.4.2-beta.106.
 
 
+### DOCUMENT-MANAGEMENT-001
+- Status: LOCKED_REQUIREMENT_PENDING_FIX
+- Scope: Quản lý biên bản / Google Drive / D1 / xác nhận thao tác
+- OWNER rule 2026-09-01: Sửa loại biên bản = đổi tên toàn bộ dữ liệu lịch sử thuộc loại đó và đổi tên toàn bộ file tương ứng trên Google Drive. Xóa loại biên bản = xóa hẳn file Drive + bản ghi biên bản + danh mục; chỉ giữ receipt kỹ thuật tối thiểu (ai, khi nào, số lượng, mã job), không giữ nội dung/ảnh/tên file cũ.
+- Xác nhận: cả Sửa và Xóa phải dùng đúng canonical confirmation hiện tại của app: HHmm giờ Việt Nam, inclusive ±2 phút; SUPERADMIN giữ đường re-auth mật khẩu tài khoản như logic hiện hành.
+- Consistency: mutation phải chạy dạng durable job/checkpoint; upload mới bị fence trong lúc mutation; retry/crash không được tạo trạng thái nửa chừng.
+- Regression tối thiểu: rename all D1 metadata; rename all Drive names; hard delete Drive + records; pending-upload fence; idempotent mutation; scheduled resume; exact confirmation callback; Beta/Stable isolation.
+- Technical candidate: 0.4.2-beta.108.
+- OWNER acceptance: chưa nghiệm thu; chỉ chuyển ACTIVE_PASS sau Technical PASS + OWNER OK.
+
 ### INFRA-RESILIENCE-001
 - Status: TECHNICAL_PASS_AWAITING_OWNER
 - Scope: infra / DR / durable event path
