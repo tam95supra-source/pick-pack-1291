@@ -1,0 +1,31 @@
+{
+  "project": "APK PICK PACK 1291",
+  "owner": "Nguyen Van Tam",
+  "accepted_at_local": "2026-09-01T13:24:46+07:00",
+  "release": "0.4.2-beta.106",
+  "status": "OWNER_ACCEPTED",
+  "checklist": {
+    "1": "OK",
+    "2": "OK",
+    "3": "OK",
+    "4": "OK",
+    "5": "OK",
+    "6": "OK"
+  },
+  "accepted_scope": [
+    "Shift staff detail layout/function is acceptable as released in Beta106",
+    "Grouped NCC list and Tất cả/Trong ca/Đã ra ca counts are acceptable",
+    "Tap employee opens the existing QR Vào/Ra flow",
+    "Missing/JSON-null supplier no longer renders literal null and falls back to Chưa xác định NCC",
+    "Settings download QR behavior is acceptable for current Beta/Stable state",
+    "No blocking regression observed during OWNER acceptance"
+  ],
+  "owner_note": "Một số chi tiết layout chưa ưng hoàn toàn nhưng sẽ chỉnh ở scope sau; chốt OK cho Beta106 hiện tại.",
+  "activate_invariants": [
+    "SHIFT-STAFF-DOWNLOAD-QR-001"
+  ],
+  "unchanged_deferred": [
+    "INFRA-RESILIENCE-001",
+    "BETA-STABLE-AUDIT-001"
+  ]
+}
