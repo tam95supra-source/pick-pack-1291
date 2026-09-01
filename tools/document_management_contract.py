@@ -6,6 +6,7 @@ root=Path(__file__).resolve().parents[1]
 read=lambda p:(root/p).read_text(encoding="utf-8")
 
 migration=read("service/migrations/0010_document_management.sql")
+mutation_migration=read("service/migrations/0011_document_category_full_mutation.sql")
 service=read("service/src/document_management.ts")
 entry=read("service/src/entry_product.ts")
 activity=read("app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt")
@@ -25,8 +26,12 @@ assert "sha256 TEXT NOT NULL" in migration and "dhash64 TEXT" in migration and "
 assert 'set("uploadType","resumable")' in service
 assert "DOCUMENT_EXACT_DUPLICATE" in service and "DOCUMENT_SIMILAR_IMAGE" in service
 assert "SIMILAR_DHASH_DISTANCE" in service and "hammingHex64" in service
-assert 'operation!=="CREATE"' in service and "DOCUMENT_CATEGORY_EDIT_DELETE_OWNER_DECISION_REQUIRED" in service
+assert "CATEGORY_MUTATION_BATCH=5" in service
+assert "CATEGORY_RENAME_ALL" in service and "renameDriveFile" in service
+assert "deleteDriveFile" in service and "processDocumentCategoryMutations" in service
+assert "DOCUMENT_CATEGORY_PENDING_UPLOADS" in service and "DOCUMENT_CATEGORY_MUTATION_IN_PROGRESS" in service
 assert "category_name_snapshot" in service and "fileName=prior?.file_name" in service
+assert "mutation_state" in mutation_migration and "document_category_mutations" in mutation_migration and "document_category_mutation_items" in mutation_migration
 assert "md5Checksum" in service and "DOCUMENT_DRIVE_VERIFY_FAILED" in service
 assert "/v1/documents/upload-session" in entry and "documentMedia" in entry
 
@@ -34,6 +39,9 @@ assert 'businessCard(R.drawable.ic_pp_document,"Quản lý biên bản","",isAdm
 assert "ACTION_IMAGE_CAPTURE" in activity and "ACTION_OPEN_DOCUMENT" in activity
 assert "DocumentImageProcessor.process" in feature
 assert "DocumentPendingStore(activity)" in feature and "DocumentUploadEngine(activity,api)" in feature
+assert 'confirmAction("sửa loại biên bản")' in feature and 'confirmAction("xóa loại biên bản")' in feature
+assert 'startCategoryMutation("UPDATE"' in feature and 'startCategoryMutation("DELETE"' in feature
+assert "localPending>0" in feature and "mediaCache.clearAll()" in feature
 assert "DocumentMediaCache(activity)" in feature and "DocumentUploadWorker.schedule(activity" in feature
 assert "pendingStore.enqueue" in feature and "uploadEngine.runOne" in feature
 assert "mediaCache.get" in feature and "mediaCache.put" in feature
@@ -66,4 +74,4 @@ assert 'versionCode = 1' in gradle and 'versionName = "0.1.0-stable"' in gradle
 assert 'versionCode = 114' in gradle and 'versionName = "0.4.2-beta.108"' in gradle
 assert request["version_name"]=="0.4.2-beta.108" and request["version_code"]==114
 assert request["stable_publish"]=="FORBIDDEN" and request["authority_change"]=="NONE"
-print("document_management_contract=PASS durable_queue=PASS post_drive_resume=PASS bounded_cache=PASS category_mutation_fail_closed=PASS")
+print("document_management_contract=PASS durable_queue=PASS post_drive_resume=PASS bounded_cache=PASS rename_all=PASS hard_delete=PASS confirmation_reuse=PASS")
