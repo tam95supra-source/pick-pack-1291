@@ -325,7 +325,14 @@ DOC_SESSION_BODY=$(jq -nc --arg category "$DOC_CATEGORY_ID" --arg sha "$DOC_SHA"
   width:2,height:2,source_kind:"CAMERA",captured_at:$at,idempotency_key:$idem
 }')
 DOC_SESSION_HTTP=$(curl -sS --connect-timeout 10 --max-time 30 -o "$D/b107-upload-session.json" -w '%{http_code}' -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' --data-binary "$DOC_SESSION_BODY" "$SERVICE_URL/v1/documents/upload-session")
-[[ "$DOC_SESSION_HTTP" =~ ^2 ]] || { echo "B107_UPLOAD_SESSION_FAILED:http=$DOC_SESSION_HTTP" >&2; cat "$D/b107-upload-session.json" >&2; exit 23; }
+[[ "$DOC_SESSION_HTTP" =~ ^2 ]] || {
+  echo "B107_UPLOAD_SESSION_FAILED:http=$DOC_SESSION_HTTP" >&2
+  cat "$D/b107-upload-session.json" >&2
+  DOC_DIAG=$(sql "SELECT document_id,status,last_error FROM document_records WHERE category_id='$DOC_CATEGORY_ID' ORDER BY created_at DESC LIMIT 1;")
+  printf '%s' "$DOC_DIAG" > "$D/b107-upload-session-d1-diagnostic.json"
+  node -e 'const j=JSON.parse(process.argv[1]),r=j?.[0]?.results?.[0];if(r?.last_error)process.stderr.write("B107_DRIVE_DIAGNOSTIC:"+String(r.last_error).replace(/[\r\n]+/g," ").slice(0,500)+"\n")' "$DOC_DIAG"
+  exit 23
+}
 jq -e '.ok==true and .upload_method=="PUT" and (.upload_url|startswith("https://")) and .document.status=="PENDING"' "$D/b107-upload-session.json" >/dev/null
 DOC_ID=$(jq -r '.document.document_id' "$D/b107-upload-session.json")
 DOC_UPLOAD_URL=$(jq -r '.upload_url' "$D/b107-upload-session.json")
