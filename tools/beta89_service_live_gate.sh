@@ -316,7 +316,7 @@ DOC_MD5=$(md5sum "$DOC_BYTES" | awk '{print $1}')
 [[ "$DOC_SHA" =~ ^[0-9a-f]{64}$ && "$DOC_MD5" =~ ^[0-9a-f]{32}$ ]]
 
 owner_api /v1/documents/categories b107-category-create "{\"operation\":\"CREATE\",\"display_name\":\"$DOC_CATEGORY_NAME\"}"
-jq -e '.ok==true and .item.category_id|type=="string"' "$D/b107-category-create.json" >/dev/null
+jq -e '.ok==true and (.item.category_id|type=="string")' "$D/b107-category-create.json" >/dev/null
 DOC_CATEGORY_ID=$(jq -r '.item.category_id' "$D/b107-category-create.json")
 test -n "$DOC_CATEGORY_ID" -a "$DOC_CATEGORY_ID" != null
 
