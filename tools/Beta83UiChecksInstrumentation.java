@@ -802,12 +802,12 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     waitText("Ảnh chờ tải",true,false,10000L);
     waitText("Không có ảnh chờ tải.",true,false,10000L);
     waitText("Tối đa 60 ảnh / 120 MB",false,false,10000L);
-    waitText("Sửa/Xóa đang khóa chờ OWNER",false,false,10000L);
+    waitText("Sửa: đổi tên toàn bộ biên bản và file Drive",false,false,10000L);
     waitText("Mạng",true,false,10000L);waitText("Đồng bộ",true,false,10000L);waitText("Dịch vụ",true,false,10000L);
     mark("document_management_card_beta107");
     mark("document_management_controls_beta107");
     mark("document_pending_ui_beta108");
-    mark("document_category_mutation_fail_closed_beta107");
+    mark("document_category_rename_delete_owner_rule_beta108");
     shot(tag+"-00b-beta107-documents");
     open("BUSINESS");
 
