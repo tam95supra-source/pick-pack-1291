@@ -242,7 +242,7 @@ object DocumentManagementFeature {
             uploadButton.isEnabled=selected.isNotEmpty()&&categoryIds.isNotEmpty()&&!busy
             uploadButton.alpha=if(uploadButton.isEnabled)1f else .4f
         }
-        private fun applyCategoryEntries        private fun applyCategoryEntries(entries:List<DocumentCategoryCache.Entry>){
+        private fun applyCategoryEntries(entries:List<DocumentCategoryCache.Entry>){
             val previousCategory=selectedCategory()?.first
             val previousFilter=if(::filterSpinner.isInitialized)filterCategoryIds.getOrNull(filterSpinner.selectedItemPosition).orEmpty() else ""
             categoryIds=entries.map{it.id};categoryNames=entries.map{it.name}
@@ -258,7 +258,7 @@ object DocumentManagementFeature {
             }
             renderSelectedPreview()
         }
-        private fun restoreCachedCategories        private fun restoreCachedCategories(){
+        private fun restoreCachedCategories(){
             val cached=categoryCache.load(login)
             if(cached.isNotEmpty())applyCategoryEntries(cached)
             else categorySpinner.adapter=ArrayAdapter(activity,android.R.layout.simple_spinner_dropdown_item,listOf("Đang tải loại biên bản..."))
@@ -271,7 +271,7 @@ object DocumentManagementFeature {
                 postUi{renderSelectedPreview()}
             }
         }
-        private fun refreshCategories        private fun refreshCategories(){
+        private fun refreshCategories(){
             executor.execute{
                 val result=client.get("/v1/documents/categories")
                 postUi{
@@ -453,7 +453,7 @@ object DocumentManagementFeature {
                 }
             }
         }
-        private fun handleUploadOutcome        private fun handleUploadOutcome(pendingId:String,outcome:DocumentUploadEngine.Outcome){
+        private fun handleUploadOutcome(pendingId:String,outcome:DocumentUploadEngine.Outcome){
             when(outcome.status){
                 DocumentUploadEngine.Status.SUCCESS->success("Đã tải biên bản lên Google Drive.")
                 DocumentUploadEngine.Status.EXACT_DUPLICATE_RESOLVED->warning("Ảnh này đã tồn tại. Hệ thống đã chặn tải trùng và xóa bản chờ.")
@@ -534,7 +534,7 @@ object DocumentManagementFeature {
             if(::modeSpinner.isInitialized)modeSpinner.isEnabled=false
             uploadButton.isEnabled=false;uploadButton.alpha=.4f
         }
-        private fun refreshDocuments        private fun selectedFilterId():String=if(::filterSpinner.isInitialized)filterCategoryIds.getOrNull(filterSpinner.selectedItemPosition).orEmpty() else ""
+        private fun selectedFilterId():String=if(::filterSpinner.isInitialized)filterCategoryIds.getOrNull(filterSpinner.selectedItemPosition).orEmpty() else ""
         private fun refreshDocuments(){
             val category=selectedFilterId()
             val path=if(category.isBlank())"/v1/documents?limit=100" else "/v1/documents?limit=100&category_id="+java.net.URLEncoder.encode(category,"UTF-8")
@@ -600,7 +600,7 @@ object DocumentManagementFeature {
                 }
             }
         }
-        private fun viewDocument        private fun viewDocument(documentId:String){
+        private fun viewDocument(documentId:String){
             if(busy)return
             val id=documentId.trim()
             if(id.isBlank())return
