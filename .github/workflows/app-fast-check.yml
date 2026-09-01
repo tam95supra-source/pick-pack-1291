@@ -23,6 +23,7 @@ on:
       - tools/beta83_verify_matrix.sh
       - tools/Beta83UiChecksInstrumentation.java
       - tools/beta89_back_api36.sh
+      - tools/beta89_service_live_gate.sh
       - tools/stable_private_apk_verify.sh
       - tools/ci_release_fencing_contract.py
       - tools/beta_stable_runtime_verify.py
@@ -208,6 +209,7 @@ jobs:
           python3 tools/ci_release_fencing_contract.py
           python3 -m py_compile tools/verify_promotion_lock.py
           python3 tools/verify_promotion_lock.py
+          bash -n tools/beta89_service_live_gate.sh
           bash -n tools/beta83_publish_ota.sh
           bash -n tools/stable_private_apk_verify.sh
           bash -n tools/service_discovery_device_gate.sh
