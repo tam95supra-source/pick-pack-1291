@@ -1,6 +1,6 @@
 {
   "stage": "VISUAL_ONLY",
-  "mode": "VISUAL_ONLY_BETA108_HARNESS_FLAGS_FIXED",
+  "mode": "VISUAL_ONLY_BETA108_CANDIDATE_DOWNLOAD_FIXED",
   "version_name": "0.4.2-beta.108",
   "version_code": 114,
   "base_version": "0.4.2-beta.106",
@@ -38,7 +38,7 @@
   "apk_transport": "GITHUB_RELEASE_ONLY",
   "google_drive_apk": "FORBIDDEN",
   "regression_case": "DOCUMENT-MANAGEMENT-001",
-  "execution_nonce": "beta108-visual-only-20260901-06",
+  "execution_nonce": "beta108-visual-only-20260901-07",
   "next_action": "VISUAL_PDA_API36_EXACT_CANDIDATE",
   "candidate_source_sha": "378f1c294641c774cee361ae2bd2cc9fc868ee23",
   "candidate_run_id": 33491085275,
