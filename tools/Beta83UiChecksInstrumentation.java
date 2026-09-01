@@ -807,6 +807,12 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     mark("document_management_card_beta107");
     mark("document_management_controls_beta107");
     mark("document_pending_ui_beta108");
+    try{
+      require(Class.forName("vn.pickpack1291.app.beta.DocumentPendingStore")!=null,"DOCUMENT_PENDING_STORE_CLASS_MISSING");
+      mark("document_pending_durable_beta108");
+      require(Class.forName("vn.pickpack1291.app.beta.DocumentMediaCache")!=null,"DOCUMENT_MEDIA_CACHE_CLASS_MISSING");
+      mark("document_media_cache_beta108");
+    }catch(ClassNotFoundException e){throw new RuntimeException(e);}
     mark("document_category_rename_delete_owner_rule_beta108");
     shot(tag+"-00b-beta107-documents");
     open("BUSINESS");
