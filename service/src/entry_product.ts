@@ -13,7 +13,8 @@ import { replicateOutboundPending } from "./outbound_beta78";
 import { enqueueInvalidation } from "./push";
 import { claimMaintenance, d1CapacitySnapshot, recordVerifiedBackup, runD1Retention } from "./d1_maintenance";
 import { apiError, json, nowIso } from "./util";
-import { lanReplayBatch } from "./lan_recovery";\nimport { documentCategories, documentCategoryMutate, documentComplete, documentList, documentMedia, documentUploadSession } from "./document_management";
+import { lanReplayBatch } from "./lan_recovery";
+import { documentCategories, documentCategoryMutate, documentComplete, documentList, documentMedia, documentUploadSession } from "./document_management";
 
 export { RealtimeHub };
 
