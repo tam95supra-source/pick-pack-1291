@@ -579,7 +579,7 @@ object DocumentManagementFeature {
                 val id=item.optString("document_id")
                 val pages=item.optInt("page_count",1).coerceAtLeast(1)
                 val page=item.optInt("page_index",1).coerceAtLeast(1)
-                val line=row(Color.rgb(248,250,252)).apply{setPadding(dp(2),dp(2),dp(2),dp(2))}
+                val line=row().apply{setBackgroundColor(Color.rgb(248,250,252));setPadding(dp(2),dp(2),dp(2),dp(2))}
                 val check=CheckBox(activity).apply{
                     isChecked=id in selectedDocumentIds
                     setOnCheckedChangeListener{_,on->if(on)selectedDocumentIds.add(id)else selectedDocumentIds.remove(id);updateDeleteSelection()}
