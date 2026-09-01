@@ -333,6 +333,7 @@ class OperationsActivity : Activity() {
         val intent=Intent(Intent.ACTION_OPEN_DOCUMENT).apply{
             addCategory(Intent.CATEGORY_OPENABLE)
             type="image/*"
+            putExtra(Intent.EXTRA_ALLOW_MULTIPLE,true)
         }
         @Suppress("DEPRECATION")
         startActivityForResult(intent,documentGalleryRequestCode)
@@ -348,7 +349,12 @@ class OperationsActivity : Activity() {
                 if(uri!=null)documentController?.onImageSelected(uri,"CAMERA")
                 documentCameraUri=null;documentCameraFile=null
             }
-            documentGalleryRequestCode->data?.data?.let{documentController?.onImageSelected(it,"GALLERY")}
+            documentGalleryRequestCode->{
+                val uris=mutableListOf<Uri>()
+                data?.clipData?.let{clip->for(i in 0 until clip.itemCount)clip.getItemAt(i).uri?.let{uris.add(it)}}
+                data?.data?.let{if(it !in uris)uris.add(it)}
+                if(uris.isNotEmpty())documentController?.onImagesSelected(uris,"GALLERY")
+            }
         }
     }
 
