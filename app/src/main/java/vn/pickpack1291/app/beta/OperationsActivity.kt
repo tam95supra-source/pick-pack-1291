@@ -6,12 +6,12 @@ package vn.pickpack1291.app.beta
 
 import android.app.Activity
 import android.app.AlertDialog
-import android.content.res.ColorStateList
+import android.content.res.ColorStateList\nimport android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
-import android.graphics.drawable.ColorDrawable
+import android.graphics.drawable.ColorDrawable\nimport android.net.Uri\nimport android.provider.MediaStore
 import android.os.Build
 import android.os.Bundle
 import android.text.InputType
@@ -29,7 +29,7 @@ import com.google.zxing.BarcodeFormat
 import com.google.zxing.qrcode.QRCodeWriter
 import org.json.JSONArray
 import org.json.JSONObject
-import java.time.Instant
+import java.io.File\nimport java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.UUID
@@ -130,6 +130,11 @@ class OperationsActivity : Activity() {
     private val navRefs=mutableMapOf<String,NavRefs>()
     private val tabHistory=java.util.ArrayDeque<String>()
     private var liveEmployeeMnv=""
+    private var documentController:DocumentManagementFeature.Controller?=null
+    private var documentCameraUri:Uri?=null
+    private var documentCameraFile:File?=null
+    private val documentCameraRequestCode=7101
+    private val documentGalleryRequestCode=7102
     private var employeeLookupGeneration=0L // S39_EMPLOYEE_SESSION_HISTORY
     private val exitInFlightMnvs=mutableSetOf<String>() // Beta93: one exit flow per employee across rerenders/resolution.
     private var lastEmployeeRenderSignature="" // Beta74: suppress identical employee full-tree rebuilds.
@@ -226,6 +231,7 @@ class OperationsActivity : Activity() {
     private fun isActualSuper() = role == "SUPERADMIN"
 
     private fun businessHome(){
+        documentController?.dispose();documentController=null
         PostMealAttendanceFeature.leave()
         module="BUSINESS";screenState="BUSINESS"
         val root=baseRoot("NGHIỆP VỤ");val body=body().apply{setPadding(dp(8),dp(6),dp(8),dp(76))}
@@ -254,7 +260,7 @@ class OperationsActivity : Activity() {
             businessCard(R.drawable.ic_pp_task,"Công nhật","",isAdmin()){laborHome()},
             businessCard(R.drawable.ic_pp_resource,"Tài nguyên","",isAdmin()){resourceHome()},
             businessCard(R.drawable.ic_pp_ccdc,"Quản lý CCDC","",isAdmin()){TopNotice.show(this,"Quản lý CCDC đang được chuẩn bị.",TopNotice.Kind.INFO)},
-            businessCard(R.drawable.ic_pp_document,"Quản lý biên bản","",isAdmin()){TopNotice.show(this,"Quản lý biên bản đang chờ xây dựng.",TopNotice.Kind.INFO)}
+            businessCard(R.drawable.ic_pp_document,"Quản lý biên bản","",isAdmin()){documentManagementScreen()}
         )
         body.addView(businessRow(cards[0],cards[1]));body.addView(gap(4))
         body.addView(businessRow(cards[2],cards[3]));body.addView(gap(4))
@@ -279,6 +285,66 @@ class OperationsActivity : Activity() {
         val root=baseRoot("NHẬN HÀNG RỚT")
         root.addView(DropReceiveFeature.build(this,api,login,name,role){businessHome()},LinearLayout.LayoutParams(-1,0,1f))
         setScreen(root)
+    }
+
+    private fun documentManagementScreen(){
+        module="BUSINESS"
+        screenState="DOCUMENT_MANAGEMENT"
+        documentController?.dispose()
+        val root=baseRoot("QUẢN LÝ BIÊN BẢN")
+        documentController=DocumentManagementFeature.Controller(
+            activity=this,
+            api=api,
+            login=login,
+            displayName=name,
+            actualRole=role,
+            onCamera={launchDocumentCamera()},
+            onGallery={launchDocumentGallery()}
+        )
+        root.addView(documentController!!.build(),LinearLayout.LayoutParams(-1,0,1f))
+        setScreen(root)
+    }
+
+    private fun launchDocumentCamera(){
+        if(screenState!="DOCUMENT_MANAGEMENT")return
+        val dir=File(cacheDir,"document-capture").apply{mkdirs()}
+        dir.listFiles()?.filter{System.currentTimeMillis()-it.lastModified()>24*60*60*1000L}?.forEach{runCatching{it.delete()}}
+        val file=File(dir,"capture_${UUID.randomUUID()}.jpg")
+        val uri=runCatching{androidx.core.content.FileProvider.getUriForFile(this,"${packageName}.fileprovider",file)}.getOrElse{
+            showError("Không chuẩn bị được camera: ${it.message}");return
+        }
+        val intent=Intent(MediaStore.ACTION_IMAGE_CAPTURE).apply{
+            putExtra(MediaStore.EXTRA_OUTPUT,uri)
+            addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION or Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        if(intent.resolveActivity(packageManager)==null){showError("Thiết bị không có ứng dụng camera phù hợp.");return}
+        documentCameraUri=uri;documentCameraFile=file
+        @Suppress("DEPRECATION")
+        startActivityForResult(intent,documentCameraRequestCode)
+    }
+
+    private fun launchDocumentGallery(){
+        if(screenState!="DOCUMENT_MANAGEMENT")return
+        val intent=Intent(Intent.ACTION_OPEN_DOCUMENT).apply{
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type="image/*"
+        }
+        @Suppress("DEPRECATION")
+        startActivityForResult(intent,documentGalleryRequestCode)
+    }
+
+    @Deprecated("Deprecated in Android framework; retained for API29-compatible document picker/camera flow.")
+    override fun onActivityResult(requestCode:Int,resultCode:Int,data:Intent?){
+        super.onActivityResult(requestCode,resultCode,data)
+        if(resultCode!=Activity.RESULT_OK)return
+        when(requestCode){
+            documentCameraRequestCode->{
+                val uri=documentCameraUri
+                if(uri!=null)documentController?.onImageSelected(uri,"CAMERA")
+                documentCameraUri=null;documentCameraFile=null
+            }
+            documentGalleryRequestCode->data?.data?.let{documentController?.onImageSelected(it,"GALLERY")}
+        }
     }
 
     // Current-day reconciliation: counts and list are always scoped to the real Asia/Ho_Chi_Minh calendar date.
