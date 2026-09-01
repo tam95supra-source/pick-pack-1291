@@ -161,11 +161,16 @@ cleanup_document_drive(){
   fi
   set -e
 }
-cleanup_d1(){
+cleanup_document_d1(){
   set +e
   if [[ -n "${DOC_CATEGORY_ID:-}" ]]; then
     sql "DELETE FROM document_audit WHERE target_id IN (SELECT document_id FROM document_records WHERE category_id='$DOC_CATEGORY_ID') OR target_id='$DOC_CATEGORY_ID'; DELETE FROM document_records WHERE category_id='$DOC_CATEGORY_ID'; DELETE FROM document_category_mutation_items WHERE mutation_id IN (SELECT mutation_id FROM document_category_mutations WHERE category_id='$DOC_CATEGORY_ID'); DELETE FROM document_category_mutations WHERE category_id='$DOC_CATEGORY_ID'; DELETE FROM document_categories WHERE category_id='$DOC_CATEGORY_ID';" >/dev/null 2>&1 || true
   fi
+  set -e
+}
+cleanup_d1(){
+  cleanup_document_d1
+  set +e
   sql "DELETE FROM outbound_replication_outbox WHERE event_id IN (SELECT event_id FROM events WHERE actor_id='$LOGIN'); DELETE FROM sheet_replication_outbox WHERE event_id IN (SELECT event_id FROM events WHERE actor_id='$LOGIN'); DELETE FROM outbound_drop_records WHERE record_id='$DROP_ID'; DELETE FROM outbound_locations WHERE location_key LIKE '__B78%'; DELETE FROM resource_daily_consumption WHERE mnv='$B80_MNV'; DELETE FROM resource_leases WHERE mnv='$B80_MNV'; DELETE FROM post_meal_attendance_audit WHERE mnv='$B80_MNV'; DELETE FROM post_meal_attendance WHERE mnv='$B80_MNV'; DELETE FROM attendance_sessions WHERE mnv='$B80_MNV'; DELETE FROM events WHERE actor_id='$LOGIN'; DELETE FROM resource_pack_map WHERE pack_table IN ('$B91_TABLE','$B91_BLOCKED_TABLE','$B92_USED_TABLE','$B92_BLOCKED_TABLE') OR user_pack IN ('$B91_PACK','$B91_BLOCKED_PACK','$B92_USED_PACK','$B92_BLOCKED_PACK'); DELETE FROM resources WHERE resource_id IN ('$B80_PDA','$B89_PDA2','$B89_PICK','$B89_BLOCKED_PICK','$B91_TABLE','$B91_PACK','$B91_BLOCKED_TABLE','$B91_BLOCKED_PACK','$B92_USED_PICK','$B92_USED_TABLE','$B92_USED_PACK','$B92_BLOCKED_TABLE','$B92_BLOCKED_PACK'); DELETE FROM employees WHERE mnv='$B80_MNV'; DELETE FROM auth_sessions WHERE login_id='$LOGIN'; DELETE FROM accounts WHERE login_id='$LOGIN';" >/dev/null 2>&1
   set -e
 }
@@ -405,8 +410,10 @@ printf '%s' "$DOC_DELETE_DB" > "$D/b108-category-delete-db.json"
 node -e 'const j=JSON.parse(process.argv[1]),r=j?.[0]?.results?.[0];if(Number(r.documents)!==0||Number(r.categories)!==0||Number(r.business_audit)!==0||Number(r.mutation_items)!==0||Number(r.retained_names)!==0||Number(r.receipts)<2)throw new Error("B108_HARD_DELETE_MISMATCH:"+JSON.stringify(r))' "$DOC_DELETE_DB"
 DOC_DRIVE_ID=""
 
-cleanup_d1
-echo 'beta108_document_management=PASS worker_google_secret_sync=PASS drive_scope=PASS resumable_direct=PASS exact_readback=PASS duplicate_guard=PASS category_rename_all=PASS category_hard_delete=PASS mutation_receipt_minimal=PASS cleanup=PASS'
+cleanup_document_d1
+AUTH_FIXTURE=$(sql "SELECT (SELECT COUNT(*) FROM accounts WHERE login_id='$LOGIN') AS account_rows,(SELECT COUNT(*) FROM auth_sessions WHERE login_id='$LOGIN' AND session_id='$AUTH_SESSION') AS session_rows;")
+node -e 'const j=JSON.parse(process.argv[1]),r=j?.[0]?.results?.[0];if(Number(r?.account_rows)!==1||Number(r?.session_rows)!==1)throw new Error("B108_SHARED_AUTH_CLEANUP_REGRESSION:"+JSON.stringify(r))' "$AUTH_FIXTURE"
+echo 'beta108_document_management=PASS worker_google_secret_sync=PASS drive_scope=PASS resumable_direct=PASS exact_readback=PASS duplicate_guard=PASS category_rename_all=PASS category_hard_delete=PASS mutation_receipt_minimal=PASS document_cleanup_only=PASS shared_auth_retained=PASS'
 
 META=$(curl -fsS -H "Authorization: Bearer $GOOGLE_TOKEN" "https://sheets.googleapis.com/v4/spreadsheets/$OUTBOUND_SHEET_ID?fields=sheets.properties(sheetId,title)")
 DROP_SHEET_ID=$(printf '%s' "$META" | jq -r '.sheets[]|select(.properties.title=="Nhận hàng rớt")|.properties.sheetId')
