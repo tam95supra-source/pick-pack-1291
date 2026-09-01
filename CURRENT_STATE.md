@@ -1,40 +1,29 @@
 # CURRENT STATE — PICK PACK 1291
 
-- updated_at: 2026-09-01T18:15:00+07:00
-- status: BETA108_LIVE_OWNER_PARTIAL_ACCEPTANCE_FIX_REQUIRED
+- updated_at: 2026-09-01T13:50:37Z
+- status: BETA109_PASS_LIVE
 - continuity_branch: release/beta108-document-management
-- source_sha: 378f1c294641c774cee361ae2bd2cc9fc868ee23
-- beta_live: 0.4.2-beta.108 (versionCode 114)
+- source_sha: a72d8e20eaebe60235338fd1b9aaebde42507825
+- beta_live: 0.4.2-beta.109 (versionCode 115)
 - package: vn.pickpack1291.app.beta.publicbeta
-- candidate_run: 33491085275
-- candidate_artifact: 9793922815
-- verify_run: 33497121749
-- verify_artifact: 9796518681
-- apk_sha256: bd82ca39ca702a771b435ef67ab626cbc36e9771478981912fa20e588bb9bc6e
-- apk_size: 14150645
+- candidate_run: 33506205883
+- candidate_artifact: 9799840161
+- verify_run: 33511409449
+- verify_artifact: 9801982052
+- apk_sha256: 1c01a58eefe5d0501eccbfe0359a2d5c0b3ec159f5ef37889d757f0984bbc7c8
+- apk_size: 14167029
 - signer_sha256: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
-- service_live: 33497121749 / 9796321745 PASS
-- fast_check: 33498475427 PASS
-- device_regression: 33498411807 / 9796733630 PASS
-- runtime_dod: 33498657720 / 9796803109 PASS
-- terminal_run: 33499528769 PASS
-- publish_artifact: 9797165484
-- pda_ota_artifact: 9797234412
-- final_artifact: 9797240852
+- terminal_run: 33515483109
+- fast_check: PASS
+- service_gate: PASS_FRESH_RUN_33509679186_ATTEMPT_2
 - visual_matrix: PASS 320x568 / 360x640 / 480x800
 - human_visual: PASS
 - pda_functional_pre_ota: PASS
-- beta_ota: exact 0.4.2-beta.106 -> 0.4.2-beta.108 PASS via GitHub Release
-- beta_ota_url: https://github.com/tam95supra-source/pick-pack-1291/releases/download/v0.4.2-beta.108-publicbeta/pick-pack-1291-public-beta-0.4.2-beta.108.apk
+- beta_ota: exact 0.4.2-beta.109 PASS via GitHub Release
+- beta_ota_url: https://github.com/tam95supra-source/pick-pack-1291/releases/download/v0.4.2-beta.109-publicbeta/pick-pack-1291-public-beta-0.4.2-beta.109.apk
 - apk_transport: GITHUB_RELEASE_ONLY
 - google_drive_apk: FORBIDDEN
-- document_management_invariant: DOCUMENT-MANAGEMENT-001 = LOCKED_REQUIREMENT_PENDING_FIX
-- technical_receipt: ops/beta108-technical-pass.json
-- regression_case: qa/beta108_document_management_regression.md
 - stable: unchanged
 - main_sha: 021dac5c6932b3ac5c60ce8fdba562ddf3d9688f
 - authority: SERVICE_PRIMARY / PRODUCTION / epoch 9 / generation m2-prod-reset-20260823-001
-- owner_accepted_subitems: 1,2,5,6,7,8
-- owner_failed_subitems: 3-near-similar, 4-offline-draft
-- latest_manual_log: manual-20260901-183159-fd9d9ebb-b421-4152-a745-fe3b4b4f7d96.json
-- next_action: FIX_NEAR_SIMILAR_AND_OFFLINE_DRAFT_ONLY
+- next_action: WAIT_FOR_OWNER_NEW_SCOPE

@@ -1,6 +1,6 @@
 {
-  "stage": "PUBLISH",
-  "mode": "BETA109_PUBLISH_EXACT_AFTER_ALL_PRE_OTA_GATES_PASS",
+  "stage": "pass_live",
+  "mode": "PASS_LIVE_EXACT_BYTES_GITHUB_RELEASE_ONLY",
   "version_name": "0.4.2-beta.109",
   "version_code": 115,
   "base_version": "0.4.2-beta.108",
@@ -18,7 +18,7 @@
   "resign": false,
   "scope": "beta109-document-near-similar-rotation-offline-category-durable-selected-draft",
   "owner": "Nguyen Van Tam",
-  "live": false,
+  "live": true,
   "release_notes": [
     "Giữ nguyên toàn bộ semantics Quản lý biên bản đã OWNER chốt OK trên Beta108.",
     "Ảnh gần giống: so dHash theo bốn hướng xoay và cảnh báo ở ngưỡng Hamming 16; exact duplicate vẫn bị chặn như trước.",
@@ -38,7 +38,7 @@
   "google_drive_apk": "FORBIDDEN",
   "regression_case": "DOCUMENT-MANAGEMENT-001",
   "execution_nonce": "beta109-publish-exact-20260901-08",
-  "next_action": "PUBLISH_EXACT_BETA109_AND_VERIFY_OTA_READBACK",
+  "next_action": "WAIT_FOR_OWNER_NEW_SCOPE",
   "candidate_source_sha": "a72d8e20eaebe60235338fd1b9aaebde42507825",
   "candidate_run_id": 33506205883,
   "candidate_artifact_id": 9799840161,
@@ -82,5 +82,6 @@
   "beta_gas_repair_artifact_id": 9752024220,
   "beta_gas_repair_deployment_version": 213,
   "beta_gas_readback_run_id": 33376476824,
-  "inherited_gate_note": "Auth/domain/GAS inputs unchanged; Beta109 service-live, visual/PDA/API36, Fast Check, device regression, runtime DoD and human visual are fresh PASS."
+  "inherited_gate_note": "Auth/domain/GAS inputs unchanged; Beta109 service-live, visual/PDA/API36, Fast Check, device regression, runtime DoD and human visual are fresh PASS.",
+  "publish_run_id": "33515483109"
 }
