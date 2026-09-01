@@ -408,39 +408,52 @@ object DocumentManagementFeature {
             }
         }
         private fun uploadSelected(){
-            val selectedItem=selected?:return
-            val index=categorySpinner.selectedItemPosition
-            val categoryId=categoryIds.getOrNull(index)?:run{warning("Hãy thêm/chọn loại biên bản.");return}
+            val batch=selected.toList();if(batch.isEmpty())return
+            val categoryId=categoryIds.getOrNull(categorySpinner.selectedItemPosition)?:run{warning("Chọn loại biên bản.");return}
             if(busy)return
-            busy=true
-            postUi{uploadButton.isEnabled=false;uploadButton.text="Đang lưu ảnh chờ..."}
+            busy=true;postUi{uploadButton.isEnabled=false;uploadButton.text="Đang lưu..."}
             executor.execute{
-                val pending=try{
-                    pendingStore.enqueue(login,categoryId,selectedItem.sourceKind,selectedItem.capturedAt,selectedItem.idempotencyKey,selectedItem.image)
-                }catch(t:Throwable){
-                    busy=false
-                    postUi{
-                        uploadButton.isEnabled=true;uploadButton.text="Tải biên bản lên"
-                        error(messageFor(t.message))
-                        refreshPending()
+                val mode=when{batch.size<=1->"SINGLE";modeSpinner.selectedItemPosition==0->"MULTI_PAGE";else->"MULTI_DOCUMENT"}
+                val sharedGroup="batch-"+batch.first().idempotencyKey
+                val queued=mutableListOf<DocumentPendingStore.Item>();var enqueueError:String?=null
+                batch.forEachIndexed{index,item->
+                    if(enqueueError==null){
+                        val groupId=if(mode=="MULTI_PAGE")sharedGroup else "doc-"+item.idempotencyKey
+                        try{
+                            queued+=pendingStore.enqueue(login,categoryId,item.sourceKind,item.capturedAt,item.idempotencyKey,item.image,groupId,mode,index+1,if(mode=="MULTI_PAGE")batch.size else 1)
+                        }catch(t:Throwable){enqueueError=t.message?:"DOCUMENT_PENDING_SAVE_FAILED"}
                     }
-                    return@execute
                 }
-                draftStore.remove(login)
-                selected=null
-                postUi{clearSelected();refreshPending();uploadButton.text="Đang tải thẳng lên Drive..."}
-                val outcome=uploadEngine.runOne(pending)
+                if(enqueueError!=null){
+                    busy=false;postUi{uploadButton.text="Tải lên";error(messageFor(enqueueError));refreshPending();renderSelectedPreview()};return@execute
+                }
+                draftStore.remove(login);selected.clear()
+                var completed=0;var exact=0;var retry=false;var blocked=0;var reviewId:String?=null
+                for(item in queued){
+                    val outcome=uploadEngine.runOne(item)
+                    when(outcome.status){
+                        DocumentUploadEngine.Status.SUCCESS->completed++
+                        DocumentUploadEngine.Status.EXACT_DUPLICATE_RESOLVED->exact++
+                        DocumentUploadEngine.Status.SIMILAR_REVIEW_REQUIRED->if(reviewId==null)reviewId=item.pendingId
+                        DocumentUploadEngine.Status.RETRY->{retry=true;DocumentUploadWorker.schedule(activity,true)}
+                        else->blocked++
+                    }
+                }
                 busy=false
                 postUi{
-                    uploadButton.text="Tải biên bản lên"
-                    handleUploadOutcome(pending.pendingId,outcome)
-                    refreshPending()
-                    refreshDocuments()
+                    uploadButton.text="Tải lên";clearSelected();refreshPending();refreshDocuments()
+                    when{
+                        reviewId!=null->showSimilarConfirm(reviewId!!)
+                        completed>0&&retry->warning("Đã tải $completed ảnh; còn ảnh chờ tải.")
+                        completed>0->success("Đã tải $completed ảnh.")
+                        exact>0&&blocked==0&&!retry->warning("Ảnh trùng đã được chặn.")
+                        retry->warning("Ảnh đang chờ tải.")
+                        blocked>0->error("Có ảnh chưa thể xử lý.")
+                    }
                 }
             }
         }
-
-        private fun handleUploadOutcome(pendingId:String,outcome:DocumentUploadEngine.Outcome){
+        private fun handleUploadOutcome        private fun handleUploadOutcome(pendingId:String,outcome:DocumentUploadEngine.Outcome){
             when(outcome.status){
                 DocumentUploadEngine.Status.SUCCESS->success("Đã tải biên bản lên Google Drive.")
                 DocumentUploadEngine.Status.EXACT_DUPLICATE_RESOLVED->warning("Ảnh này đã tồn tại. Hệ thống đã chặn tải trùng và xóa bản chờ.")
@@ -517,11 +530,11 @@ object DocumentManagementFeature {
             retryPendingButton.alpha=if(retryPendingButton.isEnabled)1f else .45f
         }
         private fun clearSelected(){
-            preview.setImageDrawable(null);preview.visibility=View.GONE;previewMeta.text="Chưa chọn ảnh."
+            preview.setImageDrawable(null);preview.visibility=View.GONE;previewMeta.text="0 ảnh"
+            if(::modeSpinner.isInitialized)modeSpinner.isEnabled=false
             uploadButton.isEnabled=false;uploadButton.alpha=.4f
         }
-
-        private fun refreshDocuments(){
+        private fun refreshDocuments        private fun refreshDocuments(){
             executor.execute{
                 val result=client.get("/v1/documents?limit=60")
                 postUi{
