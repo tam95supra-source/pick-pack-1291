@@ -151,5 +151,9 @@ class DocumentDraftStore(context:Context){
     private fun digest(algorithm:String,bytes:ByteArray)=MessageDigest.getInstance(algorithm).digest(bytes)
         .joinToString(""){(it.toInt() and 0xff).toString(16).padStart(2,'0')}
 
-    companion object{private val lock=Any()}
+    companion object{
+        private val lock=Any()
+        const val MAX_ITEMS=60
+        const val MAX_BYTES=120L*1024L*1024L
+    }
 }
