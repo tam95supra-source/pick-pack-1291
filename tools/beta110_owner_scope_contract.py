@@ -44,7 +44,7 @@ assert "laborOpenWarning()" in activity and 'api.call("list_labor")' in activity
 assert "Đang thực hiện" in activity and "CẢNH BÁO:" in activity
 for token in ["selectedStart","LABOR_START_TIME_INVALID","selectedEnd","LABOR_END_TIME_INVALID","LABOR_END_BEFORE_START"]:
     assert token in core, token
-assert "state='OPEN'" in session and "LABOR_OPEN" in session, "OPEN labor must block exit"
+assert "state='OPEN'" in session and "OPEN_LABOR_BLOCKS_EXIT" in session, "OPEN labor must block exit"
 
 # Attendance: compact UI, no literal null, active warning/date semantics preserved.
 assert 'fun safe(v:String)=v.trim().takeUnless{it.isBlank()||it.equals("null",true)}?:"-"' in meal
