@@ -7,6 +7,7 @@ read=lambda p:(root/p).read_text(encoding="utf-8")
 
 migration=read("service/migrations/0010_document_management.sql")
 mutation_migration=read("service/migrations/0011_document_category_full_mutation.sql")
+batch_migration=read("service/migrations/0012_document_batch_bulk_delete.sql")
 service=read("service/src/document_management.ts")
 entry=read("service/src/entry_product.ts")
 activity=read("app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt")
@@ -37,20 +38,25 @@ assert "category_name_snapshot" in service and "fileName=prior?.file_name" in se
 assert "mutation_state" in mutation_migration and "document_category_mutations" in mutation_migration and "document_category_mutation_items" in mutation_migration
 assert "md5Checksum" in service and "DOCUMENT_DRIVE_VERIFY_FAILED" in service
 assert "/v1/documents/upload-session" in entry and "documentMedia" in entry
+assert "/v1/documents/delete" in entry and "documentDeleteMutate" in entry
+assert all(x in batch_migration for x in ["group_id TEXT","group_mode TEXT","page_index INTEGER","page_count INTEGER","document_delete_mutations","document_delete_items"])
+assert all(x in service for x in ["group_id","MULTI_PAGE","MULTI_DOCUMENT","processDocumentDeleteMutations","DOCUMENT_DELETE_SELECTED","flushDocumentAuditHistory"])
 
 assert 'businessCard(R.drawable.ic_pp_document,"Quản lý biên bản","",isAdmin()){documentManagementScreen()}' in activity
 assert "ACTION_IMAGE_CAPTURE" in activity and "ACTION_OPEN_DOCUMENT" in activity
+assert "Intent.EXTRA_ALLOW_MULTIPLE" in activity and "onImagesSelected(uris" in activity
 assert "DocumentImageProcessor.process" in feature
 assert "DocumentPendingStore(activity)" in feature and "DocumentUploadEngine(activity,api)" in feature
 assert "DocumentDraftStore(activity)" in feature and "DocumentCategoryCache(activity)" in feature
 assert "restoreCachedCategories()" in feature and "restoreDraft()" in feature
-assert "draftStore.save(login" in feature and "draftStore.remove(login)" in feature
+assert "draftStore.append(login" in feature and "draftStore.remove(login)" in feature
 assert "Đang dùng danh mục đã lưu trên máy" in feature
 assert 'confirmAction("sửa loại biên bản")' in feature and 'confirmAction("xóa loại biên bản")' in feature
 assert 'startCategoryMutation("UPDATE"' in feature and 'startCategoryMutation("DELETE"' in feature
 assert "localPending>0" in feature and "mediaCache.clearAll()" in feature
 assert "DocumentMediaCache(activity)" in feature and "DocumentUploadWorker.schedule(activity" in feature
 assert "pendingStore.enqueue" in feature and "uploadEngine.runOne" in feature
+assert all(x in feature for x in ["Một biên bản nhiều trang","Nhiều biên bản","filterSpinner","selectedDocumentIds","deleteSelectedRecords","/v1/documents/delete"])
 assert "mediaCache.get" in feature and "mediaCache.put" in feature
 
 assert "MAX_EDGE=2400" in image and 'digest("SHA-256"' in image and "dhash64Variants" in image
@@ -64,9 +70,10 @@ assert "DOCUMENT_PENDING_BYTES_MISSING" in pending
 assert "listUnlocked().firstOrNull{it.idempotencyKey==idempotencyKey}" in pending
 
 assert 'File(context.filesDir,"document-draft-v1")' in draft
-assert '"current.tmp"' in draft and '"current"' in draft
-assert "DOCUMENT_DRAFT_BYTES_COMMIT_FAILED" in draft and "DOCUMENT_DRAFT_POINTER_COMMIT_FAILED" in draft
-assert 'if(owner!=ownerLogin.trim())return null' in draft and 'digest("SHA-256",bytes)' in draft
+assert '"manifest.json.tmp"' in draft and '"manifest.json"' in draft
+assert "DOCUMENT_DRAFT_BYTES_COMMIT_FAILED" in draft and "DOCUMENT_DRAFT_MANIFEST_COMMIT_FAILED" in draft
+assert "loadAll(ownerLogin:String)" in draft and "append(ownerLogin:String" in draft
+assert 'if(owner!=ownerLogin.trim())return@runCatching null' in draft and 'digest("SHA-256",bytes)' in draft
 assert "dhash64Variants=variants.distinct().take(4)" in draft
 
 assert 'pp1291_document_category_cache_v1' in category_cache
@@ -93,4 +100,4 @@ assert f'versionCode = {request["version_code"]}' in gradle
 assert f'versionName = "{request["version_name"]}"' in gradle
 assert request["version_name"].startswith("0.4.2-beta.") and isinstance(request["version_code"],int)
 assert request["stable_publish"]=="FORBIDDEN" and request["authority_change"]=="NONE"
-print("document_management_contract=PASS durable_queue=PASS post_drive_resume=PASS bounded_cache=PASS rotation_similar=PASS offline_category_cache=PASS durable_draft_restore=PASS rename_all=PASS hard_delete=PASS confirmation_reuse=PASS")
+print("document_management_contract=PASS durable_queue=PASS multi_select_draft=PASS multipage_group=PASS multi_document_group=PASS bulk_delete_resume=PASS canonical_history=PASS post_drive_resume=PASS bounded_cache=PASS rotation_similar=PASS offline_category_cache=PASS rename_all=PASS hard_delete=PASS confirmation_reuse=PASS")
