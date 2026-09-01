@@ -4,7 +4,7 @@ import android.content.Context
 import org.json.JSONObject
 
 class DocumentUploadEngine(context:Context, private val api:BetaApiClient) {
-    // Beta108 release gate marker: durable queue bytes and persisted Drive completion state are part of the APK source.
+    // Beta108 final Android gate marker: durable queue bytes, account-scoped retry and persisted Drive completion state are APK source.
     enum class Status{SUCCESS,EXACT_DUPLICATE_RESOLVED,SIMILAR_REVIEW_REQUIRED,RETRY,BLOCKED,ACCOUNT_MISMATCH}
     data class Outcome(val status:Status,val code:String?,val documentId:String?)
 
