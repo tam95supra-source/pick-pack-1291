@@ -1,8 +1,8 @@
 {
-  "run_id": 33509679186,
-  "run_sha": "8e1e0fc009d8123f98f9a766d310b497802eb499",
+  "run_id": 33510203895,
+  "run_sha": "441e22608c8c6c0455f9cecf2c71c95d6f4a84d4",
   "ref": "release/beta108-document-management",
-  "execution_nonce": "beta109-service-near-similar-20260901-03",
-  "stage": "SERVICE_ONLY",
-  "observed_at": "2026-09-01T12:48:15Z"
+  "execution_nonce": "beta109-verify-draft-cache-20260901-04",
+  "stage": "VERIFY_ONLY",
+  "observed_at": "2026-09-01T12:58:17Z"
 }
