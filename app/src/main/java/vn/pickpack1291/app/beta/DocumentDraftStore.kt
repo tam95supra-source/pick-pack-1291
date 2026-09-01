@@ -4,6 +4,7 @@ import android.content.Context
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
+import java.io.FileOutputStream
 import java.security.MessageDigest
 import java.util.UUID
 
@@ -39,7 +40,7 @@ class DocumentDraftStore(context:Context){
         if(!metaTmp.renameTo(metaFile)){bytesFile.delete();metaTmp.delete();throw IllegalStateException("DOCUMENT_DRAFT_META_COMMIT_FAILED")}
         val pointerTmp=File(account,"current.tmp")
         pointerTmp.writeText(generation,Charsets.UTF_8)
-        runCatching{pointerTmp.outputStream().use{it.fd.sync()}}
+        runCatching{FileOutputStream(pointerTmp,true).use{it.fd.sync()}}
         val pointer=File(account,"current")
         val previous=pointer.takeIf{it.isFile}?.readText(Charsets.UTF_8)?.trim().orEmpty()
         if(pointer.exists())pointer.delete()
