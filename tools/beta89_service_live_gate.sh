@@ -340,7 +340,18 @@ printf '%s' "$B110_LABOR_DONE_DB" > "$D/b110-labor-complete-db.json"
 node -e 'const j=JSON.parse(process.argv[1]),r=j?.[0]?.results?.[0];if(!r||r.state!=="COMPLETED"||r.start_at!==process.argv[2]||r.end_at!==process.argv[3])throw new Error("B110_LABOR_COMPLETE_MISMATCH:"+JSON.stringify(r))' "$B110_LABOR_DONE_DB" "$B110_LABOR_START_AT" "$B110_LABOR_END_AT"
 echo 'beta110_labor_time_range=PASS open_exit_block=PASS completed_range=PASS'
 
-owner_api /v1/session/exit-v2 b80-exit "{\"session_id\":\"$B80_SID\",\"mnv\":\"$B80_MNV\",\"pda_exit_status\":\"Tốt\",\"idempotency_key\":\"$B80_EXIT\"}"
+B80_EXIT_BODY="{\"session_id\":\"$B80_SID\",\"mnv\":\"$B80_MNV\",\"pda_exit_status\":\"Tốt\",\"idempotency_key\":\"$B80_EXIT\"}"
+for attempt in 1 2 3 4; do
+  B80_EXIT_HTTP=$(curl -sS --connect-timeout 10 --max-time 20 -o "$D/b80-exit.json" -w '%{http_code}' -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' --data-binary "$B80_EXIT_BODY" "$SERVICE_URL/v1/session/exit-v2" || printf 000)
+  if [[ "$B80_EXIT_HTTP" =~ ^2 ]]; then break; fi
+  if [[ "$B80_EXIT_HTTP" == 409 ]] && jq -e '.error.code=="SESSION_EXIT_CONFLICT" and .error.retryable==true' "$D/b80-exit.json" >/dev/null 2>&1; then
+    sleep "$attempt"
+    continue
+  fi
+  echo "B80_EXIT_FAILED:http=$B80_EXIT_HTTP code=$(jq -r '.error.code // "UNKNOWN"' "$D/b80-exit.json" 2>/dev/null || echo UNKNOWN)" >&2
+  exit 31
+done
+[[ "$B80_EXIT_HTTP" =~ ^2 ]] || { echo "B80_EXIT_CAS_RETRY_EXHAUSTED" >&2; exit 32; }
 jq -e --arg sid "$B80_SID" '.ok==true and .session.session_id==$sid and .session.state=="ENDED"' "$D/b80-exit.json" >/dev/null
 
 owner_api /v1/session/resources/snapshot b80-ended-snapshot "{\"session_id\":\"$B80_SID\",\"mnv\":\"$B80_MNV\"}"
