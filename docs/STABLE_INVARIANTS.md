@@ -76,8 +76,8 @@ Mỗi invariant tối thiểu có:
 - Authority: GitHub Actions exact candidate → GitHub Release exact bytes → Beta manifest/update API → OTA exact readback.
 - Regression: exact SHA256/size/version/package/signer, Stable/main/authority unchanged.
 - Publish-verifier regression: receipt-driven screenshot evidence; actual-count mismatch / missing viewport / summary mismatch / human gate false phải FAIL; Beta104 Fast Check run 33388933459 PASS.
-- Evidence: Beta108 terminal run 33499528769 PASS; publish artifact 9797165484; OTA/install/readback artifact 9797234412; final artifact 9797240852; exact candidate run 33491085275 / artifact 9793922815; SHA256 bd82ca39ca702a771b435ef67ab626cbc36e9771478981912fa20e588bb9bc6e / size 14150645 / signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; OTA 0.4.2-beta.106 → 0.4.2-beta.108 exact SHA/size/version/package/signer + install/open PASS; Stable/main/authority unchanged. Finalizer non-fast-forward harness failure được rollback Beta106 trước, sửa fencing/rebase rồi republish cùng exact Beta108 bytes; terminal PASS.
-- Last verified: 0.4.2-beta.108.
+- Evidence: Beta109 terminal run 33515483109 PASS; publish artifact 9803429207; OTA/install/readback artifact 9803518172; final artifact 9803526992; exact candidate run 33506205883 / artifact 9799840161; SHA256 1c01a58eefe5d0501eccbfe0359a2d5c0b3ec159f5ef37889d757f0984bbc7c8 / size 14167029 / signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; GitHub Release asset 539613285 exact; OTA 0.4.2-beta.108 → 0.4.2-beta.109 exact SHA/size/version/package/signer + install/open PASS; Stable/main/authority unchanged.
+- Last verified: 0.4.2-beta.109.
 
 ## 4. LOCKED_REQUIREMENT_PENDING_FIX / AWAITING OWNER / DEFERRED
 
@@ -108,8 +108,8 @@ Mỗi invariant tối thiểu có:
 - OWNER rule: BETA phải kết nối Service qua environment-scoped dynamic discovery; stale cache từ endpoint/environment cũ không được điều khiển Service session/read/sync/outbox sau OTA hoặc isolation cutover.
 - Failure evidence: manual-20260831-172725-4aaccadf-0df6-4d6d-9eca-589b274b1659.json — Beta102/adminbeta; session_http=-1; UnknownHostException tới pickpack1291.cc.cd; runtime_error=SESSION_EXCHANGE_FAILED trong khi canonical BETA discovery trỏ BETA Worker riêng.
 - Regression required: cache phải match exact BuildConfig environment/audience; stale/missing-env cache bị invalidate; discoverySnapshot honor TTL/force; live session/direct-read/sync/outbox/resilience path refresh discovery; Android không hardcode Stable root hoặc provider URL.
-- Technical evidence: Beta108 exact-device run 33498411807 / artifact 9796733630 PASS; terminal OTA 33499528769 / artifact 9797234412 PASS on exact candidate bd82ca39ca702a771b435ef67ab626cbc36e9771478981912fa20e588bb9bc6e. Post-OTA readback recorded stale_cache_state_before_post_ota_check=ALREADY_REWRITTEN_BY_APP, stale_discovery_invalidated_without_clear=true, stale_discovery_safe_after_ota=true; final environment/audience/canonical Beta discovery remained safe. Prior Beta106 harness history retained as regression history.
-- Technical candidate: 0.4.2-beta.108 LIVE.
+- Technical evidence: Beta109 exact-device run 33514582110 / artifact 9803110874 PASS; terminal OTA 33515483109 / artifact 9803518172 PASS on exact candidate 1c01a58eefe5d0501eccbfe0359a2d5c0b3ec159f5ef37889d757f0984bbc7c8. Post-OTA readback: stale_cache_state_before_post_ota_check=ALREADY_REWRITTEN_BY_APP, stale_discovery_preserved_across_ota=false, stale_discovery_safe_after_ota=true; canonical Beta discovery remained safe.
+- Technical candidate: 0.4.2-beta.109 LIVE.
 - OWNER acceptance: PASS — Beta104 checklist 1–6 OK, 2026-08-31 20:22 +07:00. Locked ACTIVE_PASS.
 
 ### SHIFT-STAFF-DOWNLOAD-QR-001
