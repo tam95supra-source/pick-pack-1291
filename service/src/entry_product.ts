@@ -13,7 +13,7 @@ import { replicateOutboundPending } from "./outbound_beta78";
 import { enqueueInvalidation } from "./push";
 import { claimMaintenance, d1CapacitySnapshot, recordVerifiedBackup, runD1Retention } from "./d1_maintenance";
 import { apiError, json, nowIso } from "./util";
-import { lanReplayBatch } from "./lan_recovery";
+import { lanReplayBatch } from "./lan_recovery";\nimport { documentCategories, documentCategoryMutate, documentComplete, documentList, documentMedia, documentUploadSession } from "./document_management";
 
 export { RealtimeHub };
 
@@ -77,6 +77,13 @@ export default {
     if(u.pathname==="/v1/admin/infra/backup-verification"&&method==="POST")return infraBackupVerified(request,env);
     if(u.pathname==="/v1/service/connections"&&method==="GET")return serviceConnectionsV47(request,env);
     if(u.pathname==="/v1/lan-replay/batch"&&method==="POST")return lanReplayBatch(request,env);
+    if(u.pathname==="/v1/documents/categories"&&method==="GET")return documentCategories(request,env);
+    if(u.pathname==="/v1/documents/categories"&&method==="POST")return documentCategoryMutate(request,env);
+    if(u.pathname==="/v1/documents"&&method==="GET")return documentList(request,env);
+    if(u.pathname==="/v1/documents/upload-session"&&method==="POST")return documentUploadSession(request,env);
+    if(u.pathname==="/v1/documents/complete"&&method==="POST")return documentComplete(request,env);
+    const documentMediaMatch=method==="GET"?u.pathname.match(/^\\/v1\\/documents\\/([^/]+)\\/media$/):null;
+    if(documentMediaMatch?.[1])return documentMedia(request,env,decodeURIComponent(documentMediaMatch[1]));
     if(u.pathname==="/v1/admin/accounts/delete"&&method==="POST")return superadminDeleteAccounts(request,env);
     if(u.pathname==="/v1/admin/resources"&&method==="GET")return resourceAdminList(request,env);
     if(u.pathname==="/v1/admin/resources"&&method==="POST")return resourceAdminMutate(request,env);
