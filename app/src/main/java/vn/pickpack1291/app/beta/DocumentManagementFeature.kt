@@ -35,7 +35,8 @@ object DocumentManagementFeature {
         private val displayName:String,
         private val actualRole:String,
         private val onCamera:()->Unit,
-        private val onGallery:()->Unit
+        private val onGallery:()->Unit,
+        private val confirmAction:(String,()->Unit)->Unit
     ){
         private val client=DocumentServiceClient(activity){api.token}
         private val pendingStore=DocumentPendingStore(activity)
@@ -160,8 +161,8 @@ object DocumentManagementFeature {
             body.addView(recordsHost,LinearLayout.LayoutParams(-1,-2))
 
             add.setOnClickListener{showAddCategory()}
-            edit.setOnClickListener{warning("Sửa loại biên bản đang chờ OWNER chốt: tên hiển thị đổi nhưng file cũ không đổi tên.")}
-            remove.setOnClickListener{warning("Xóa loại biên bản đang chờ OWNER chốt theo phương án ẩn/ngừng sử dụng, không xóa ảnh cũ.")}
+            edit.setOnClickListener{showRenameCategory()}
+            remove.setOnClickListener{showDeleteCategory()}
             camera.setOnClickListener{if(!busy)onCamera()}
             gallery.setOnClickListener{if(!busy)onGallery()}
             uploadButton.setOnClickListener{uploadSelected()}
@@ -229,6 +230,103 @@ object DocumentManagementFeature {
             }.show()
         }
 
+        private fun selectedCategory():Pair<String,String>?{
+            val index=categorySpinner.selectedItemPosition
+            val id=categoryIds.getOrNull(index)?:return null
+            val name=categoryNames.getOrNull(index)?:return null
+            return id to name
+        }
+
+        private fun showRenameCategory(){
+            if(busy)return
+            val selectedCategory=selectedCategory()?:run{warning("Chưa có loại biên bản để sửa.");return}
+            val input=EditText(activity).apply{
+                setText(selectedCategory.second);selectAll();hint="Tên loại biên bản mới";setSingleLine(true)
+                setPadding(dp(12),dp(8),dp(12),dp(8));background=bg()
+            }
+            val wrap=column().apply{setPadding(dp(16),dp(6),dp(16),0);addView(input,LinearLayout.LayoutParams(-1,dp(48)))}
+            val dialog=AlertDialog.Builder(activity)
+                .setTitle("Sửa loại biên bản")
+                .setMessage("Toàn bộ biên bản cũ thuộc loại này sẽ đổi tên hiển thị và đổi tên file trên Google Drive.")
+                .setView(wrap).setNegativeButton("Hủy",null).setPositiveButton("Tiếp tục",null).create()
+            dialog.setOnShowListener{
+                dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener{
+                    val newName=input.text.toString().trim().replace(Regex("\\s+")," ")
+                    if(newName.length !in 2..80){warning("Tên loại biên bản phải từ 2 đến 80 ký tự.");return@setOnClickListener}
+                    if(newName==selectedCategory.second){warning("Tên mới không thay đổi.");return@setOnClickListener}
+                    dialog.dismiss()
+                    confirmAction("sửa loại biên bản"){
+                        startCategoryMutation("UPDATE",selectedCategory.first,newName)
+                    }
+                }
+            }
+            dialog.show();input.requestFocus()
+        }
+
+        private fun showDeleteCategory(){
+            if(busy)return
+            val selectedCategory=selectedCategory()?:run{warning("Chưa có loại biên bản để xóa.");return}
+            val localPending=pendingStore.list().count{it.ownerLogin==login&&it.categoryId==selectedCategory.first}
+            if(localPending>0){
+                warning("Loại này còn "+localPending+" ảnh đang chờ tải trên máy. Hãy xử lý ảnh chờ trước khi xóa.")
+                return
+            }
+            AlertDialog.Builder(activity)
+                .setTitle("Xóa hẳn loại biên bản?")
+                .setMessage("Sẽ xóa vĩnh viễn loại “"+selectedCategory.second+"”, toàn bộ ảnh trên Google Drive và toàn bộ bản ghi biên bản thuộc loại này. Không thể khôi phục.")
+                .setNegativeButton("Hủy",null)
+                .setPositiveButton("Tiếp tục"){_,_->
+                    confirmAction("xóa loại biên bản"){
+                        startCategoryMutation("DELETE",selectedCategory.first,null)
+                    }
+                }.show()
+        }
+
+        private fun startCategoryMutation(operation:String,categoryId:String,newName:String?){
+            if(busy)return
+            busy=true
+            postUi{
+                categorySpinner.isEnabled=false
+                retryPendingButton.isEnabled=false
+                uploadButton.isEnabled=false
+                success(if(operation=="UPDATE")"Đang đổi tên toàn bộ biên bản..." else "Đang xóa toàn bộ biên bản...")
+            }
+            executor.execute{
+                val idem=UUID.randomUUID().toString()
+                val body=JSONObject().put("operation",operation).put("category_id",categoryId).put("idempotency_key",idem)
+                if(operation=="UPDATE")body.put("display_name",newName?:"")
+                var result=client.post("/v1/documents/categories",body)
+                var mutation=result.json?.optJSONObject("mutation")
+                var loops=0
+                while(result.ok&&mutation?.optString("state")=="RUNNING"&&loops<80&&!disposed){
+                    Thread.sleep(350L)
+                    val mutationId=mutation.optString("mutation_id")
+                    if(mutationId.isBlank())break
+                    result=client.post("/v1/documents/categories",JSONObject().put("operation","PROCESS").put("mutation_id",mutationId))
+                    mutation=result.json?.optJSONObject("mutation")
+                    loops++
+                }
+                busy=false
+                postUi{
+                    categorySpinner.isEnabled=true
+                    refreshPending()
+                    if(!result.ok){
+                        error(messageFor(result.error))
+                        refreshCategories();refreshDocuments()
+                        return@postUi
+                    }
+                    val state=mutation?.optString("state").orEmpty()
+                    when{
+                        result.json?.optBoolean("no_change",false)==true->warning("Tên loại biên bản không thay đổi.")
+                        state=="DONE"&&operation=="UPDATE"->success("Đã đổi tên toàn bộ biên bản và file trên Google Drive.")
+                        state=="DONE"&&operation=="DELETE"->{mediaCache.clearAll();success("Đã xóa hẳn loại biên bản và toàn bộ ảnh liên quan.")}
+                        state=="RUNNING"->warning("Hệ thống đang tiếp tục xử lý nền. Có thể rời màn hình; Service sẽ tự hoàn tất.")
+                        else->error("Không hoàn tất được thao tác danh mục.")
+                    }
+                    refreshCategories();refreshDocuments()
+                }
+            }
+        }
         private fun uploadSelected(){
             val selectedItem=selected?:return
             val index=categorySpinner.selectedItemPosition
@@ -415,6 +513,9 @@ object DocumentManagementFeature {
             "DOCUMENT_PENDING_STORAGE_LIMIT"->"Hàng chờ đã đạt 120 MB. Hãy tải các ảnh đang chờ trước."
             "DOCUMENT_PENDING_ACCOUNT_MISMATCH"->"Ảnh chờ thuộc tài khoản khác."
             "DOCUMENT_SIMILAR_IMAGE"->"Ảnh có thể trùng và cần xác nhận trước khi tải."
+            "DOCUMENT_CATEGORY_MUTATION_IN_PROGRESS"->"Loại biên bản đang được sửa/xóa. Hãy chờ thao tác hiện tại hoàn tất."
+            "DOCUMENT_CATEGORY_PENDING_UPLOADS"->"Loại biên bản còn ảnh chưa hoàn tất tải lên. Hãy xử lý ảnh chờ trước."
+            "DOCUMENT_CATEGORY_MUTATION_NOT_FOUND"->"Không tìm thấy tiến trình sửa/xóa danh mục."
             null,""->"Có lỗi chưa xác định."
             else->code.replace('_',' ')
         }
