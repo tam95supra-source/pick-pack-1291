@@ -55,6 +55,7 @@ class BetaApiClient(context: Context) {
         }
         M2ConnectivityMonitor.start(appContext)
         M2WorkScheduler.schedule(appContext)
+        DocumentUploadWorker.schedule(appContext)
     }
 
     val token: String?
@@ -107,6 +108,7 @@ class BetaApiClient(context: Context) {
             e.putString(KEY_EMAIL, account.optString("email", ""))
         }
         e.apply()
+        DocumentUploadWorker.schedule(appContext,true)
     }
 
     private fun sha256Text(value: String): String = MessageDigest.getInstance("SHA-256")
