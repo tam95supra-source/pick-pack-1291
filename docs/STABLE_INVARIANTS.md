@@ -113,12 +113,12 @@ Mỗi invariant tối thiểu có:
 - OWNER acceptance: PASS — Beta104 checklist 1–6 OK, 2026-08-31 20:22 +07:00. Locked ACTIVE_PASS.
 
 ### SHIFT-STAFF-DOWNLOAD-QR-001
-- Status: TECHNICAL_PASS_AWAITING_OWNER
+- Status: ACTIVE_PASS
 - Scope: Rà soát ca / danh sách nhân sự / Cài đặt QR tải ứng dụng
 - Rule: danh sách chi tiết nhân sự theo ca nhóm theo NCC; các bộ lọc Tất cả / Trong ca / Đã ra ca hiển thị số lượng ngay trên tiêu đề; dòng nhân sự giữ họ tên, MNV, vị trí và giờ vào/ra; chạm nhân sự mở trực tiếp luồng QR Vào/Ra hiện có. NCC rỗng hoặc JSON null phải hiển thị `Chưa xác định NCC`, tuyệt đối không hiển thị literal `null`. Cài đặt có QR tải ứng dụng; Beta trỏ GitHub Release mới nhất, Stable vẫn fail-closed cho tới khi OWNER phát hành Stable.
 - Regression: SHIFT-STAFF-DOWNLOAD-QR-NULL-001 / qa/beta106_shift_staff_null_regression.md; kiểm tra grouped NCC + filter counts + no visible null + tap employee → QR + download QR + Stable unavailable.
 - Technical evidence: source 57e02d45b436c6bcb64bc5731671044af7c7c86d; candidate run 33473965249 / artifact 9787581956; visual artifact 9787692571 / 36 screenshots / human PASS 320x568, 360x640, 480x800; Fast Check 33476011598 PASS; exact-device 33474768649 / 9787794484 PASS; runtime DoD 33475078900 / 9787884925 PASS; terminal publish/OTA/install/readback/finalize 33476108449 PASS; PDA artifact 9788292824; final artifact 9788296923; exact APK SHA256 ea5bdf9696d9dae77f02fab815df6435a8317a66178bdb4c36bc051aa5bcd000 / size 14068725 / signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e.
-- OWNER acceptance: PENDING — Technical PASS không tự chuyển ACTIVE_PASS.
+- OWNER acceptance: PASS — OWNER xác nhận toàn bộ scope Beta106 về cơ bản OK ngày 2026-09-01; các tinh chỉnh layout sau này là scope mới và không phủ nhận acceptance hiện tại.
 - Last verified: 0.4.2-beta.106.
 
 
