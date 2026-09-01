@@ -65,14 +65,14 @@ invariants:
     regression_minimum: [environment_cache_fence, audience_cache_fence, stale_cache_invalidation, ttl_force_refresh, service_session_refresh, direct_read_refresh, sync_refresh, outbox_refresh, no_endpoint_hardcode]
     owner_acceptance: "ACTIVE_PASS_OWNER_BETA104_CHECKLIST_1_TO_6_OK_2026-08-31T20:22+07:00"
   - id: SHIFT-STAFF-DOWNLOAD-QR-001
-    status: TECHNICAL_PASS_AWAITING_OWNER
+    status: ACTIVE_PASS
     scope: shift-staff-download-qr
     rule: "Shift staff list groups by NCC with Tất cả/Trong ca/Đã ra ca counts; compact employee rows open existing QR enter/exit flow; missing or JSON-null supplier renders Chưa xác định NCC, never literal null; Settings download QR uses latest Beta GitHub Release while Stable remains fail-closed."
     technical_candidate: "57e02d45b436c6bcb64bc5731671044af7c7c86d / 0.4.2-beta.106 LIVE"
     technical_evidence: "candidate 33473965249/9787581956; visual 9787692571 human PASS 36 screenshots 320x568 360x640 480x800; Fast Check 33476011598; device 33474768649/9787794484; runtime 33475078900/9787884925; terminal 33476108449; PDA 9788292824; final 9788296923; SHA256 ea5bdf9696d9dae77f02fab815df6435a8317a66178bdb4c36bc051aa5bcd000 size 14068725"
     regression_minimum: [group_by_ncc, filter_counts, null_supplier_fallback, no_visible_null, employee_to_qr, beta_download_qr, stable_download_fail_closed]
     regression_case: "SHIFT-STAFF-DOWNLOAD-QR-NULL-001 / qa/beta106_shift_staff_null_regression.md"
-    owner_acceptance: "PENDING_TECHNICAL_PASS_AWAITING_OWNER"
+    owner_acceptance: "ACTIVE_PASS_OWNER_ACCEPTED_2026-09-01_BETA106_SCOPE"
   - id: INFRA-RESILIENCE-001
     status: TECHNICAL_PASS_AWAITING_OWNER
     scope: infra-dr
