@@ -1,7 +1,7 @@
 # CURRENT STATE — PICK PACK 1291
 
 - updated_at: 2026-09-01T18:15:00+07:00
-- status: BETA108_LIVE_TECHNICAL_PASS_AWAITING_OWNER
+- status: BETA108_LIVE_OWNER_PARTIAL_ACCEPTANCE_FIX_REQUIRED
 - continuity_branch: release/beta108-document-management
 - source_sha: 378f1c294641c774cee361ae2bd2cc9fc868ee23
 - beta_live: 0.4.2-beta.108 (versionCode 114)
@@ -28,10 +28,13 @@
 - beta_ota_url: https://github.com/tam95supra-source/pick-pack-1291/releases/download/v0.4.2-beta.108-publicbeta/pick-pack-1291-public-beta-0.4.2-beta.108.apk
 - apk_transport: GITHUB_RELEASE_ONLY
 - google_drive_apk: FORBIDDEN
-- document_management_invariant: DOCUMENT-MANAGEMENT-001 = TECHNICAL_PASS_AWAITING_OWNER
+- document_management_invariant: DOCUMENT-MANAGEMENT-001 = LOCKED_REQUIREMENT_PENDING_FIX
 - technical_receipt: ops/beta108-technical-pass.json
 - regression_case: qa/beta108_document_management_regression.md
 - stable: unchanged
 - main_sha: 021dac5c6932b3ac5c60ce8fdba562ddf3d9688f
 - authority: SERVICE_PRIMARY / PRODUCTION / epoch 9 / generation m2-prod-reset-20260823-001
-- next_action: OWNER_ACCEPTANCE_DOCUMENT_MANAGEMENT_001
+- owner_accepted_subitems: 1,2,5,6,7,8
+- owner_failed_subitems: 3-near-similar, 4-offline-draft
+- latest_manual_log: manual-20260901-183159-fd9d9ebb-b421-4152-a745-fe3b4b4f7d96.json
+- next_action: FIX_NEAR_SIMILAR_AND_OFFLINE_DRAFT_ONLY
