@@ -123,7 +123,7 @@ Mỗi invariant tối thiểu có:
 
 
 ### DOCUMENT-MANAGEMENT-001
-- Status: TECHNICAL_PASS_AWAITING_OWNER
+- Status: ACTIVE_PASS
 - Scope: Quản lý biên bản / Google Drive / D1 / xác nhận thao tác
 - OWNER rule 2026-09-01: Sửa loại biên bản = đổi tên toàn bộ dữ liệu lịch sử thuộc loại đó và đổi tên toàn bộ file tương ứng trên Google Drive. Xóa loại biên bản = xóa hẳn file Drive + bản ghi biên bản + danh mục; chỉ giữ receipt kỹ thuật tối thiểu (ai, khi nào, số lượng, mã job), không giữ nội dung/ảnh/tên file cũ.
 - Xác nhận: cả Sửa và Xóa phải dùng đúng canonical confirmation hiện tại của app: HHmm giờ Việt Nam, inclusive ±2 phút; SUPERADMIN giữ đường re-auth mật khẩu tài khoản như logic hiện hành.
@@ -139,12 +139,10 @@ Mỗi invariant tối thiểu có:
 - Regression case: qa/beta109_document_management_regression.md + tools/document_management_contract.py + tools/beta89_service_live_gate.sh + tools/Beta83UiChecksInstrumentation.java.
 - Technical receipt: ops/beta109-technical-pass.json.
 - Technical candidate: 0.4.2-beta.109 LIVE.
-- OWNER acceptance đã khóa từ Beta108: mục 1,2,5,6,7,8 OK.
-- OWNER cần nghiệm thu lại duy nhất: (1) near-similar có cảnh báo đúng trong khi exact duplicate giữ nguyên; (2) mất mạng vẫn giữ danh mục + hàng chờ, restart không mất ảnh đang chọn và có mạng tự retry.
-- Historical failure evidence: manual-20260901-183159-fd9d9ebb-b421-4152-a745-fe3b4b4f7d96.json; Beta108 từng fail near-similar và offline draft/category.
-- Partial acceptance receipt: ops/beta108-owner-acceptance-partial.json.
-- ACTIVE_PASS: chưa được phép cho tới khi OWNER xác nhận cả 2 mục còn lại OK.
-- Last verified: 0.4.2-beta.109 LIVE / terminal run 33515483109 / Technical DoD PASS awaiting OWNER.
+- OWNER acceptance: PASS — Beta108 đã khóa các mục 1,2,5,6,7,8; OWNER xác nhận thêm 2 mục còn lại OK ngày 2026-09-01 22:04 +07:00.
+- OWNER final acceptance receipt: ops/beta109-owner-acceptance.json.
+- ACTIVE_PASS: khóa toàn bộ semantics DOCUMENT-MANAGEMENT-001 trên Beta109; mọi thay đổi semantics sau này cần OWNER SUPERSEDE.
+- Last verified: 0.4.2-beta.109 LIVE / terminal run 33515483109 / OWNER acceptance complete 2026-09-01 22:04 +07:00.
 
 ### INFRA-RESILIENCE-001
 - Status: TECHNICAL_PASS_AWAITING_OWNER
