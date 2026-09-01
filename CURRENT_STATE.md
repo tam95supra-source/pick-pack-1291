@@ -1,9 +1,10 @@
 # CURRENT STATE — PICK PACK 1291
 
-- updated_at: 2026-09-01T06:08:59Z
+- updated_at: 2026-09-01T06:24:46Z
 - status: BETA106_PASS_LIVE
 - technical_dod_status: PASS_BETA106_OWNER_ACCEPTED
 - owner_acceptance: BETA106_SCOPE_ACCEPTED
+- owner_acceptance_receipt: ops/beta106-owner-acceptance.json
 - invariant_active: SHIFT-STAFF-DOWNLOAD-QR-001
 - continuity_branch: beta/current
 - source_sha: 57e02d45b436c6bcb64bc5731671044af7c7c86d
