@@ -3,10 +3,10 @@
 - schema_version: 2
 - status: READY
 - task_state: TECHNICAL_PASS_AWAITING_OWNER
-- time_utc: 2026-09-02T04:30:30Z
+- time_utc: 2026-09-02T04:48:39Z
 - owner: Nguyễn Văn Tâm
 - branch: release/beta111-owner-ui-labor-nav
-- archive_file: docs/handovers/HANDOVER_20260902-043030_beta111-technical-pass-await-owner.md
+- archive_file: docs/handovers/HANDOVER_20260902-044839_beta111-final-technical-pass-await-owner.md
 
 ## LIVE
 - Beta111 LIVE: 0.4.2-beta.111 / versionCode 117 / package vn.pickpack1291.app.beta.publicbeta.
@@ -16,13 +16,15 @@
 - Stable/main/signer/authority unchanged.
 
 ## Technical DoD
-- Fast Check 33588839641 PASS, gồm Android/debug.
+- Fast Check product/regression 33588839641 PASS.
 - Service 33588851239 / 9831120144 PASS.
 - Visual/PDA/API36 33589199933 / 9831243286 PASS; 41 screenshots + human visual PASS 320x568 / 360x640 / 480x800.
-- Device Service discovery 33590310367 / 9831531954 PASS.
+- Device discovery 33590310367 / 9831531954 PASS.
 - Runtime DoD 33590505522 attempt 2 / 9831607439 PASS; attempt 1 chỉ gặp Google Sheet 503 transient.
-- Release lock: ops/beta111-release-lock.json.
-- Receipt: ops/beta111-technical-pass.json.
+- Terminal release 33590747613 PASS; exact GitHub Release OTA/install/readback/finalize PASS.
+- Post-release CI harness: Fast Check 33591900310 PASS; pass_live route verify 33591932637 PASS; final readback 33592181385 PASS.
+- Run 33591410014 = SUPERSEDED harness-only route failure trước fix; không publish/rebuild/rollback và không còn là failure hiện hành.
+- Receipt: ops/beta111-technical-pass.json + ops/beta111-ci-harness-final-pass.json.
 
 ## Invariants chờ OWNER
 - NAV-HISTORY-BACK-001: TECHNICAL_PASS_AWAITING_OWNER
