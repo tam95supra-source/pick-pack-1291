@@ -297,7 +297,7 @@ invariants:
     status: LOCKED_REQUIREMENT_PENDING_FIX
     scope: data-display-date-picker
     rule: "Display-only date pickers enable only dates with real data and dim/disable empty dates; edit/change date-time pickers remain unrestricted."
-    regression_minimum: [report_data_dates, history_data_dates, labor_data_dates, empty_dim_disabled, edit_date_exempt]
+    regression_minimum: [report_data_dates, history_data_dates, labor_data_dates, meal_data_dates, all_display_only_dates, empty_dim_disabled, edit_date_exempt]
     regression_case: "qa/beta113_owner_scope_regression.md + tools/beta113_owner_scope_contract.py"
     owner_acceptance: "PENDING_BETA113"
     active_pass: false
