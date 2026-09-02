@@ -1,12 +1,16 @@
 package vn.pickpack1291.app.beta
 
 object ReleaseNotes {
+    const val VERSION_NAME = "0.4.2-beta.113"
+
     private val current = listOf(
-        "Quản lý biên bản: chụp ảnh hoặc chọn ảnh từ máy, chọn loại và tải lên ngay trong thẻ hiện có.",
-        "Ảnh được tối ưu rồi tải thẳng Google Drive; Service/D1 chỉ lưu metadata/hash/audit, không lưu file ảnh.",
-        "Nếu mạng hoặc Drive gián đoạn, ảnh được giữ an toàn trong hàng chờ trên máy và tự tải lại sau khi kết nối phục hồi.",
-        "Hệ thống chặn ảnh trùng tuyệt đối, cảnh báo ảnh gần giống; ảnh xem lại được cache giới hạn để không tăng dung lượng vô hạn.",
-        "Sửa loại biên bản sẽ đổi tên toàn bộ dữ liệu và file Drive; Xóa sẽ xóa hẳn ảnh + dữ liệu; cả hai dùng mã xác nhận thời gian hiện tại của app."
+        "Thông tin thay đổi được khóa theo đúng phiên bản ứng dụng; không còn hiển thị changelog của bản cũ sau khi nâng Beta.",
+        "Sửa ghi nhận lịch sử đổi mật khẩu: thao tác đổi mật khẩu và bản ghi kiểm toán dùng đúng luồng đồng bộ.",
+        "Quản trị cao nhất có thể xóa lịch sử Service và lịch sử lỗi cục bộ bằng xác nhận bảo mật hiện hành; thao tác nghiệp vụ đang chờ gửi không bị hủy ngầm.",
+        "Ô quét Mã nhân viên nổi bật hơn; các ô chọn phân tách rõ tiêu đề và giá trị; rà soát ca chỉ hiển thị nhanh vào/ra và danh sách chưa ra.",
+        "Công nhật đặt ô quét phía trên danh sách, hỗ trợ nhiều khoảng công nhật trong một phiên nhưng chỉ một khoảng được mở tại một thời điểm.",
+        "Lịch dùng để xem dữ liệu chỉ cho chọn ngày thực sự có dữ liệu; ngày trống được làm mờ. Lịch sửa thời gian/ngày nghiệp vụ không bị giới hạn theo quy tắc này.",
+        "Chuẩn hóa bán kính, viền và kích thước nhóm điều khiển chính để giao diện nhất quán hơn."
     )
 
     fun currentItems():List<String> = current.toList()
