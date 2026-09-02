@@ -1,8 +1,8 @@
 {
-  "run_id": 33597157250,
-  "run_sha": "e2b6d945cf844a4da6a48ea07d6942c363e0659e",
+  "run_id": 33611415963,
+  "run_sha": "06525e9a50a033a2675f7c3a2dc095b480101d64",
   "ref": "release/beta112-unified-review-warning",
-  "execution_nonce": "beta112-visual-rerun-20260902-02",
-  "stage": "VISUAL_ONLY",
-  "observed_at": "2026-09-02T06:02:52Z"
+  "execution_nonce": "beta112-service-discovery-20260902-03",
+  "stage": "SERVICE_DISCOVERY_ONLY",
+  "observed_at": "2026-09-02T08:56:45Z"
 }
