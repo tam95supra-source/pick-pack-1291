@@ -1010,7 +1010,8 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     clickText("Ca 2 –",false,10000L);
     waitText("RA CA",true,true,10000L);
     require(findText("HIỂN THỊ CHI TIẾT NHÂN SỰ",true,false)==null,"BETA113_RECONCILIATION_MUST_NOT_SHOW_DETAIL_BUTTON");
-    waitText(mnv2,false,false,10000L);
+    waitText(mnv,false,false,10000L);
+    require(findText(mnv2,false,false)==null,"ENDED_STAFF_MUST_NOT_APPEAR_IN_PENDING_EXIT_DIALOG");
     mark("shift_quick_exit_dialog_beta113");
     shot(tag+"-04-beta113-quick-exit-dialog");
     pressSystemBack();
