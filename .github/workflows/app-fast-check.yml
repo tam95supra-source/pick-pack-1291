@@ -37,6 +37,7 @@ on:
       - tools/beta83_publish_ota.sh
       - tools/verify_beta_visual_receipt.py
       - qa/**
+      - ops/beta-release-request.json
       - ops/promotion-lock-dry-run.json
       - ops/promotion-lock.schema.json
       - tools/verify_promotion_lock.py
@@ -308,6 +309,7 @@ jobs:
           python3 tools/beta111_owner_scope_contract.py
           python3 tools/beta112_review_warning_contract.py
           python3 tools/beta112_auth_parity_repair_contract.py
+          python3 tools/beta113_owner_scope_contract.py
           grep -q 'versionCode = 1' app/build.gradle.kts
           grep -q 'versionName = "0.1.0-stable"' app/build.gradle.kts
           gradle --no-daemon --build-cache --parallel :app:testBetaDebugUnitTest :app:assembleBetaDebug :app:assembleStableDebug
