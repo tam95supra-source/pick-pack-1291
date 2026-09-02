@@ -1,29 +1,39 @@
 # CURRENT STATE — PICK PACK 1291
 
-- updated_at: 2026-09-02T04:29:48Z
-- status: BETA111_PASS_LIVE
+- updated_at: 2026-09-02T04:30:30Z
+- status: BETA111_LIVE_TECHNICAL_PASS_AWAITING_OWNER
 - continuity_branch: release/beta111-owner-ui-labor-nav
 - source_sha: 03b37e5aa2726c273cc1e7c4a2161763bd3c4d2d
 - beta_live: 0.4.2-beta.111 (versionCode 117)
 - package: vn.pickpack1291.app.beta.publicbeta
 - candidate_run: 33586428789
 - candidate_artifact: 9830403339
-- verify_run: 33589199933
-- verify_artifact: 9831243286
 - apk_sha256: f67049067e600f4d8439d0ae088889f7b35df8b215e5432a2fcdd54f05f04a4f
 - apk_size: 14216181
 - signer_sha256: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
-- terminal_run: 33590747613
-- fast_check: PASS
-- service_gate: PASS_FRESH_RUN_33588851239
-- visual_matrix: PASS 320x568 / 360x640 / 480x800
-- human_visual: PASS
-- pda_functional_pre_ota: PASS
-- beta_ota: exact 0.4.2-beta.111 PASS via GitHub Release
-- beta_ota_url: https://github.com/tam95supra-source/pick-pack-1291/releases/download/v0.4.2-beta.111-publicbeta/pick-pack-1291-public-beta-0.4.2-beta.111.apk
+- fast_check: 33588839641 PASS
+- service_live: 33588851239 / 9831120144 PASS
+- visual_pda_api36: 33589199933 / 9831243286 PASS
+- human_visual: PASS / 41 screenshots / 320x568, 360x640, 480x800
+- device_regression: 33590310367 / 9831531954 PASS
+- runtime_dod: 33590505522 attempt2 / 9831607439 PASS
+- terminal_run: 33590747613 PASS
+- publish_artifact: 9831669563
+- pda_ota_artifact: 9831721383
+- final_artifact: 9831726759
+- beta_ota: exact Beta110 -> Beta111 PASS via GitHub Release
 - apk_transport: GITHUB_RELEASE_ONLY
 - google_drive_apk: FORBIDDEN
-- stable: unchanged
+- technical_receipt: ops/beta111-technical-pass.json
+- release_lock: ops/beta111-release-lock.json
+- NAV-HISTORY-BACK-001: TECHNICAL_PASS_AWAITING_OWNER
+- UI-REVIEW-WARNING-001: TECHNICAL_PASS_AWAITING_OWNER
+- LABOR-EXACT-SESSION-002: TECHNICAL_PASS_AWAITING_OWNER
+- HISTORY-DELETE-CANONICAL-001: TECHNICAL_PASS_AWAITING_OWNER
+- DOCUMENT-BATCH-MODE-TICK-002: TECHNICAL_PASS_AWAITING_OWNER
+- existing_active_pass_semantics: unchanged
+- stable: unchanged / not public
 - main_sha: 021dac5c6932b3ac5c60ce8fdba562ddf3d9688f
 - authority: SERVICE_PRIMARY / PRODUCTION / epoch 9 / generation m2-prod-reset-20260823-001
-- next_action: WAIT_FOR_OWNER_NEW_SCOPE
+- owner_acceptance: PENDING
+- next_action: OWNER_ACCEPTANCE_BETA111_CHECKLIST_1_TO_7

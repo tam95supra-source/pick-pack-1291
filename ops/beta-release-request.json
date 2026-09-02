@@ -40,7 +40,7 @@
   "google_drive_apk": "FORBIDDEN",
   "regression_case": "NAV-HISTORY-BACK-001,UI-REVIEW-WARNING-001,LABOR-EXACT-SESSION-002,HISTORY-DELETE-CANONICAL-001,DOCUMENT-BATCH-MODE-TICK-002,DOCUMENT-BATCH-001,LABOR-TIME-RANGE-001",
   "execution_nonce": "beta111-publish-20260902-09",
-  "next_action": "WAIT_FOR_OWNER_NEW_SCOPE",
+  "next_action": "OWNER_ACCEPTANCE_BETA111_CHECKLIST_1_TO_7",
   "candidate_source_sha": "03b37e5aa2726c273cc1e7c4a2161763bd3c4d2d",
   "candidate_run_id": 33586428789,
   "candidate_artifact_id": 9830403339,
@@ -83,5 +83,15 @@
   "runtime_dod_artifact_id": 9831607439,
   "runtime_dod_artifact_name": "beta-stable-runtime-33590505522",
   "release_lock": "ops/beta111-release-lock.json",
-  "publish_run_id": "33590747613"
+  "publish_run_id": "33590747613",
+  "technical_pass_status": "PASS",
+  "technical_receipt": "ops/beta111-technical-pass.json",
+  "owner_acceptance": "PENDING",
+  "invariants_awaiting_owner": [
+    "NAV-HISTORY-BACK-001",
+    "UI-REVIEW-WARNING-001",
+    "LABOR-EXACT-SESSION-002",
+    "HISTORY-DELETE-CANONICAL-001",
+    "DOCUMENT-BATCH-MODE-TICK-002"
+  ]
 }
