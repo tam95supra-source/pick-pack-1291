@@ -284,9 +284,9 @@ class OperationsActivity : Activity() {
 
     private fun laborOpenWarning():View{
         val host=column(bg).apply{visibility=View.GONE;setPadding(0,0,0,dp(6))}
-        val open=smallButton("",red).apply{visibility=View.GONE;setOnClickListener{laborHome()}}
-        host.addView(open,matchWrap())
-        api.call("list_labor"){r->runOnUiThread{
+        val open=reconciliationButton("",false).apply{visibility=View.GONE;setOnClickListener{laborHome()}}
+        host.addView(open,LinearLayout.LayoutParams(-1,dp(42)))
+        api.call("labor_list",JSONObject().put("business_date",operationalStore.businessDate())){r->runOnUiThread{
             if(!r.ok)return@runOnUiThread
             val items=r.json?.optJSONArray("items")?:JSONArray();var count=0
             for(i in 0 until items.length())if(items.optJSONObject(i)?.optString("state")?.equals("OPEN",true)==true)count++
@@ -570,9 +570,9 @@ class OperationsActivity : Activity() {
         val sessionDate=s.optString("business_date").trim()
         val currentDate=operationalStore.businessDate()
         if(!ctx.optString("state").equals("ACTIVE",true)||sessionDate.isBlank()||sessionDate>=currentDate)return
-        val warning=status(OldSessionWarningFeature.WARNING_TEXT,red,Color.rgb(255,238,239))
+        val warning=reconciliationButton(OldSessionWarningFeature.WARNING_TEXT,false)
         warning.startAnimation(android.view.animation.AlphaAnimation(1f,0.35f).apply{duration=650L;repeatMode=android.view.animation.Animation.REVERSE;repeatCount=android.view.animation.Animation.INFINITE})
-        body.addView(warning,matchWrap());body.addView(gap(5))
+        body.addView(warning,LinearLayout.LayoutParams(-1,dp(42)));body.addView(gap(5))
     }
 
     private fun employeeScan() {
