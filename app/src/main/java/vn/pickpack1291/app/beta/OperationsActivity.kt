@@ -1543,6 +1543,7 @@ class OperationsActivity : Activity() {
             body.addView(gap(7));body.addView(primary("Mã nhân viên KHÁC",navy){initialMnv="";laborHome()},matchWrap());attach(root,body);return
         }
         val ses=ctx.optJSONObject("session")?:JSONObject()
+        val laborMnv=e.optString("mnv");val laborSessionId=ses.optString("session_id");val laborBusinessDate=ses.optString("business_date").ifBlank{ctx.optString("business_date")}
         body.addView(details(listOf("Ca" to dash(ses.optString("shift")),"Vị trí" to dash(workText(ses.optString("work_choice"))),"Vào lúc" to formatIso(ses.optString("enter_at")))));body.addView(gap(7))
         fun pickClock(currentIso:String,onPick:(String)->Unit)=laborWheelPick(currentIso,onPick)
         fun timeButton(iso:String):Button=Button(this).apply{
@@ -1550,21 +1551,26 @@ class OperationsActivity : Activity() {
         }
         if(active!=null){
             body.addView(status("ĐANG LÀM CÔNG NHẬT",green,Color.rgb(235,248,239)));body.addView(gap(6))
-            body.addView(details(listOf("Nội dung" to dash(active.optString("labor_type")),"Bắt đầu" to formatIso(active.optString("start_at")),"Ghi chú" to dash(active.optString("note")))));body.addView(gap(7))
-            var endIso=Instant.now().toString()
+            body.addView(details(listOf("Nội dung" to dash(active.optString("labor_type")),"Ghi chú" to dash(active.optString("note")))));body.addView(gap(7))
+            var startIso=active.optString("start_at");var endIso:String?=null
+            val startRow=row(bg);startRow.addView(txt("Bắt đầu",10.2f,ink,true),LinearLayout.LayoutParams(0,-2,1f));val startTime=timeButton(startIso);startRow.addView(startTime,LinearLayout.LayoutParams(dp(112),dp(42)));body.addView(startRow,matchWrap());body.addView(gap(5))
             val endRow=row(bg);endRow.addView(txt("Kết thúc",10.2f,ink,true),LinearLayout.LayoutParams(0,-2,1f))
-            val endTime=timeButton(endIso);endRow.addView(endTime,LinearLayout.LayoutParams(dp(112),dp(42)));body.addView(endRow,matchWrap());body.addView(gap(6))
-            endTime.setOnClickListener{pickClock(endIso){picked->endIso=picked;endTime.text=compactAttendanceTime(endIso)}}
-            val note=input("Ghi chú",false);body.addView(note,matchWrap());body.addView(gap(7))
+            val endTime=Button(this).apply{text="Chưa chọn";textSize=12f;isAllCaps=false;setTextColor(navy);background=outlineBg(surface,11)};endRow.addView(endTime,LinearLayout.LayoutParams(dp(112),dp(42)));body.addView(endRow,matchWrap());body.addView(gap(6))
+            startTime.setOnClickListener{pickClock(startIso){picked->startIso=picked;startTime.text=compactAttendanceTime(picked)}}
+            endTime.setOnClickListener{pickClock(endIso?:Instant.now().toString()){picked->endIso=picked;endTime.text=compactAttendanceTime(picked)}}
+            val note=input("Ghi chú",false).apply{setText(active.optString("note"))};body.addView(note,matchWrap());body.addView(gap(7))
             val finish=primary("HOÀN THÀNH",red){}
             finish.setOnClickListener{
-                val startMs=runCatching{Instant.parse(active.optString("start_at")).toEpochMilli()}.getOrDefault(0L)
-                val endMs=runCatching{Instant.parse(endIso).toEpochMilli()}.getOrDefault(0L)
-                if(startMs>0&&endMs<startMs){TopNotice.show(this,"Giờ kết thúc phải sau giờ bắt đầu.",TopNotice.Kind.WARNING);return@setOnClickListener}
+                val end=endIso;if(end.isNullOrBlank()){TopNotice.show(this,"Chọn giờ kết thúc.",TopNotice.Kind.WARNING);return@setOnClickListener}
+                val startMs=runCatching{Instant.parse(startIso).toEpochMilli()}.getOrDefault(0L);val endMs=runCatching{Instant.parse(end).toEpochMilli()}.getOrDefault(0L)
+                if(startMs<=0||endMs<startMs){TopNotice.show(this,"Giờ kết thúc phải sau giờ bắt đầu.",TopNotice.Kind.WARNING);return@setOnClickListener}
                 finish.isEnabled=false;finish.text="ĐANG GHI..."
-                api.call("labor_finish",JSONObject().put("event_id",UUID.randomUUID().toString()).put("mnv",e.optString("mnv")).put("end_at",endIso).put("note",note.text.toString())){r->runOnUiThread{
-                    finish.isEnabled=true;finish.text="HOÀN THÀNH";if(handleAuth(r))return@runOnUiThread
-                    if(!r.ok)showError(r.error?:"Không kết thúc được công nhật")else{initialMnv=e.optString("mnv");laborHome()}
+                api.call("employee_context",JSONObject().put("mnv",laborMnv).put("session_id",laborSessionId).put("include_labor",true).put("include_options",false)){fresh->runOnUiThread{
+                    if(handleAuth(fresh)){finish.isEnabled=true;return@runOnUiThread};val freshLabor=fresh.json?.optJSONObject("active_labor")
+                    if(!fresh.ok||freshLabor?.optString("labor_id")!=active.optString("labor_id")){finish.isEnabled=true;showError("Công nhật trên Service vừa thay đổi. Mở lại dữ liệu mới nhất.");fresh.json?.let{showLaborContext(it,masters)};return@runOnUiThread}
+                    api.call("labor_finish",JSONObject().put("event_id",UUID.randomUUID().toString()).put("mnv",laborMnv).put("business_date",laborBusinessDate).put("session_id",laborSessionId).put("labor_id",active.optString("labor_id")).put("start_at",startIso).put("end_at",end).put("note",note.text.toString())){r->runOnUiThread{
+                        finish.isEnabled=true;finish.text="HOÀN THÀNH";if(handleAuth(r))return@runOnUiThread;if(!r.ok)showError(r.error?:"Không kết thúc được công nhật")else{TopNotice.show(this,"Đã ghi nhận hoàn thành công nhật.",TopNotice.Kind.SUCCESS);foregroundSync.requestSync();initialMnv="";laborHome()}
+                    }}
                 }}
             }
             body.addView(finish,matchWrap())
@@ -1572,22 +1578,34 @@ class OperationsActivity : Activity() {
             val types=catalogValues("CÔNG NHẬT_Thông tin công nhật",jsonStrings(masters.optJSONArray("labor_types")))
             val typeSpinner=spinner((if(types.isEmpty())listOf("Khác")else types).toTypedArray())
             body.addView(labelled("Thông tin công nhật",typeSpinner));body.addView(gap(7))
-            var startIso=Instant.now().toString()
+            var startIso=Instant.now().toString();var endIso:String?=null
             val startRow=row(bg);startRow.addView(txt("Bắt đầu",10.2f,ink,true),LinearLayout.LayoutParams(0,-2,1f))
-            val startTime=timeButton(startIso);startRow.addView(startTime,LinearLayout.LayoutParams(dp(112),dp(42)));body.addView(startRow,matchWrap());body.addView(gap(6))
-            startTime.setOnClickListener{pickClock(startIso){picked->startIso=picked;startTime.text=compactAttendanceTime(startIso)}}
+            val startTime=timeButton(startIso);startRow.addView(startTime,LinearLayout.LayoutParams(dp(112),dp(42)));body.addView(startRow,matchWrap());body.addView(gap(5))
+            val endRow=row(bg);endRow.addView(txt("Kết thúc (không bắt buộc)",10.2f,ink,true),LinearLayout.LayoutParams(0,-2,1f));val endTime=Button(this).apply{text="Chưa chọn";textSize=11.5f;isAllCaps=false;setTextColor(navy);background=outlineBg(surface,11)};endRow.addView(endTime,LinearLayout.LayoutParams(dp(112),dp(42)));body.addView(endRow,matchWrap());body.addView(gap(5))
+            val clearEnd=smallButton("BỎ KT",muted).apply{visibility=View.GONE};body.addView(clearEnd,LinearLayout.LayoutParams(dp(86),dp(36)).apply{gravity=Gravity.END})
+            startTime.setOnClickListener{pickClock(startIso){picked->startIso=picked;startTime.text=compactAttendanceTime(picked)}}
+            endTime.setOnClickListener{pickClock(endIso?:Instant.now().toString()){picked->endIso=picked;endTime.text=compactAttendanceTime(picked);clearEnd.visibility=View.VISIBLE}};clearEnd.setOnClickListener{endIso=null;endTime.text="Chưa chọn";clearEnd.visibility=View.GONE}
             val fixedMain=foldLocal(e.optString("main_position")).let{it.contains("KEO HANG")||it.contains("TO TRUONG")}
             val deduct=CheckBox(this).apply{text="Khấu trừ nhân sự";isChecked=false;setTextColor(ink);textSize=11f}
             fun updateDeduct(){val fixedLabor=foldLocal(typeSpinner.selectedItem?.toString().orEmpty()).let{it.contains("KEO HANG")||it.contains("TO TRUONG")};val blocked=fixedMain||fixedLabor;deduct.isEnabled=!blocked;if(blocked)deduct.isChecked=false;deduct.setTextColor(if(blocked)muted else ink)}
             typeSpinner.onItemSelectedListener=object:android.widget.AdapterView.OnItemSelectedListener{override fun onItemSelected(p:android.widget.AdapterView<*>?,v:View?,pos:Int,id:Long){updateDeduct()};override fun onNothingSelected(p:android.widget.AdapterView<*>?)=Unit};updateDeduct()
             body.addView(deduct,matchWrap());body.addView(gap(5))
             val note=input("Ghi chú",false);body.addView(note,matchWrap());body.addView(gap(7))
-            val start=primary("BẮT ĐẦU",green){}
+            val start=primary("LƯU CÔNG NHẬT",green){}
             start.setOnClickListener{
+                val selectedEnd=endIso;if(selectedEnd!=null&&runCatching{Instant.parse(selectedEnd).isBefore(Instant.parse(startIso))}.getOrDefault(true)){TopNotice.show(this,"Giờ kết thúc phải sau giờ bắt đầu.",TopNotice.Kind.WARNING);return@setOnClickListener}
                 start.isEnabled=false;start.text="ĐANG GHI..."
-                api.call("labor_start",JSONObject().put("event_id",UUID.randomUUID().toString()).put("mnv",e.optString("mnv")).put("shift",ses.optString("shift")).put("labor_type",typeSpinner.selectedItem.toString()).put("start_at",startIso).put("deduct_staff",deduct.isChecked&&deduct.isEnabled).put("note",note.text.toString())){r->runOnUiThread{
-                    start.isEnabled=true;start.text="BẮT ĐẦU";if(handleAuth(r))return@runOnUiThread
-                    if(!r.ok)showError(r.error?:"Không bắt đầu được công nhật")else{initialMnv=e.optString("mnv");laborHome()}
+                api.call("employee_context",JSONObject().put("mnv",laborMnv).put("session_id",laborSessionId).put("include_labor",true).put("include_options",false)){fresh->runOnUiThread{
+                    if(handleAuth(fresh)){start.isEnabled=true;return@runOnUiThread};if(!fresh.ok||fresh.json?.optString("state")!="ACTIVE"||fresh.json?.optJSONObject("active_labor")!=null){start.isEnabled=true;showError(if(fresh.json?.optJSONObject("active_labor")!=null)"Nhân sự đã có công nhật đang mở." else "Phiên nhân sự không còn hoạt động.");fresh.json?.let{showLaborContext(it,masters)};return@runOnUiThread}
+                    val laborId=UUID.randomUUID().toString();val startEvent=UUID.randomUUID().toString()
+                    val payload=JSONObject().put("event_id",startEvent).put("labor_id",laborId).put("mnv",laborMnv).put("business_date",laborBusinessDate).put("session_id",laborSessionId).put("shift",ses.optString("shift")).put("labor_type",typeSpinner.selectedItem.toString()).put("start_at",startIso).put("deduct_staff",deduct.isChecked&&deduct.isEnabled).put("note",note.text.toString())
+                    api.call("labor_start",payload){r->runOnUiThread{
+                        if(!r.ok){start.isEnabled=true;start.text="LƯU CÔNG NHẬT";showError(r.error?:"Không bắt đầu được công nhật");return@runOnUiThread}
+                        if(selectedEnd==null){start.isEnabled=true;TopNotice.show(this,"Đã ghi nhận bắt đầu công nhật.",TopNotice.Kind.SUCCESS);foregroundSync.requestSync();initialMnv="";laborHome();return@runOnUiThread}
+                        api.call("labor_finish",JSONObject().put("event_id",UUID.randomUUID().toString()).put("depends_on_event_id",startEvent).put("labor_id",laborId).put("mnv",laborMnv).put("business_date",laborBusinessDate).put("session_id",laborSessionId).put("start_at",startIso).put("end_at",selectedEnd).put("note",note.text.toString())){done->runOnUiThread{
+                            start.isEnabled=true;start.text="LƯU CÔNG NHẬT";if(!done.ok)showError(done.error?:"Không ghi được giờ kết thúc công nhật")else{TopNotice.show(this,"Đã ghi nhận đủ thời gian công nhật.",TopNotice.Kind.SUCCESS);foregroundSync.requestSync();initialMnv="";laborHome()}
+                        }}
+                    }}
                 }}
             }
             body.addView(start,matchWrap())
