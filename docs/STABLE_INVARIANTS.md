@@ -210,6 +210,38 @@ Mỗi invariant tối thiểu có:
 - UI follow-up: một số điểm chưa ưng chỉ mang tính giao diện, sẽ là scope chỉnh sửa mới; không phủ nhận acceptance hiện tại.
 - Last verified: 0.4.2-beta.110 LIVE / terminal run 33574078129 / OWNER acceptance complete.
 
+### NAV-HISTORY-BACK-001
+- Status: LOCKED_REQUIREMENT_PENDING_FIX
+- Scope: Điều hướng / system Back / edge swipe
+- Rule: Back quay về đúng màn hình thực tế ngay trước đó trong navigation history. Ví dụ 1→2→3 thì Back 3→2→1; 5→3 thì Back 3→5. Không dùng parent cố định theo screenState.
+- Regression: actual stack / same-screen rerender không tạo frame giả / root không bị swipe thoát.
+
+### UI-REVIEW-WARNING-001
+- Status: LOCKED_REQUIREMENT_PENDING_FIX
+- Scope: Rà soát vào-ra / cảnh báo
+- Rule: các ô rà soát và cảnh báo liên quan đồng nhất chiều cao, typography, radius/stroke và ngôn ngữ màu theo mức độ.
+- Regression: shift reconciliation / old-session / meal / labor warning.
+
+### LABOR-EXACT-SESSION-002
+- Status: LOCKED_REQUIREMENT_PENDING_FIX
+- Scope: Công nhật / Ra ca
+- Parent: LABOR-TIME-RANGE-001 ACTIVE_PASS giữ nguyên.
+- Rule: Service exact session/business_date/labor_id là authority; cache local không quyết định start/finish/exit. Bộ chọn giờ-phút là wheel dọc không wrap. Cho phép chọn BĐ+KT cùng lần hoặc chỉ BĐ rồi KT sau; giờ có thể sửa theo đường xác nhận. Ra ca gặp labor OPEN mở thẳng đúng labor của đúng session. Danh sách theo ngày có cả pending/done.
+- Regression: exact current/old active session / stale local / start-only / start+end / edit OPEN / correction COMPLETED / exit redirect / daily list / LABOR_NOT_OPEN + ATTENDANCE_NOT_ACTIVE stale regression.
+
+### HISTORY-DELETE-CANONICAL-001
+- Status: LOCKED_REQUIREMENT_PENDING_FIX
+- Scope: Lịch sử
+- Rule: chỉ event canonical Service được gửi xóa; local-only không gửi; target-not-found của deferred delete là terminal cleanup để không lặp 404.
+- Regression: canonical delete / local-only fence / terminal 404 / no retry loop.
+
+### DOCUMENT-BATCH-MODE-TICK-002
+- Status: LOCKED_REQUIREMENT_PENDING_FIX
+- Scope: Quản lý biên bản
+- Parent: DOCUMENT-BATCH-001 ACTIVE_PASS giữ nguyên semantics grouping.
+- Rule: `Một biên bản nhiều trang` và `Nhiều biên bản` dùng lựa chọn dạng tích loại trừ nhau, không Spinner/select.
+- Regression: default multipage / multi-document / exclusive tick / single image disabled / grouping unchanged.
+
 ### INFRA-RESILIENCE-001
 - Status: TECHNICAL_PASS_AWAITING_OWNER
 - Scope: infra / DR / durable event path
