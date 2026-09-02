@@ -363,7 +363,7 @@ B111_BAD_START_BODY=$(jq -nc --arg ev "$B111_BAD_START" --arg dev "$DEVICE" --ar
   events:[{action:"labor_start",event_id:$ev,device_id:$dev,business_date:$date,payload:{labor_id:("__BAD_LABOR_"+$ev),session_id:"__MISSING_SESSION__",mnv:$mnv,shift:"Ca 2",labor_type:"Beta111 stale session",start_at:$at,deduct_staff:false,note:""}}]
 }')
 mutation_api b111-bad-session-start "$B111_BAD_START_BODY"
-jq -e '.ok==true and .results[0].status=="REJECTED" and .results[0].error_code=="ATTENDANCE_NOT_ACTIVE"' "$D/b111-bad-session-start.json" >/dev/null
+jq -e '.ok==true and .results[0].status=="REVIEW_REQUIRED" and .results[0].error_code=="ATTENDANCE_NOT_ACTIVE"' "$D/b111-bad-session-start.json" >/dev/null
 
 B111_END_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 B111_FINISH_BODY=$(jq -nc --arg ev "$B111_LABOR_FINISH" --arg labor "$B111_LABOR_ID" --arg dev "$DEVICE" --arg date "$B80_DATE" --arg sid "$B80_SID" --arg mnv "$B80_MNV" --arg start "$B111_START_AT" --arg end "$B111_END_AT" '{
@@ -391,7 +391,7 @@ B111_BAD_FINISH_BODY=$(jq -nc --arg ev "$B111_BAD_FINISH" --arg dev "$DEVICE" --
   events:[{action:"labor_finish",event_id:$ev,device_id:$dev,business_date:$date,payload:{labor_id:("__MISSING_LABOR_"+$ev),session_id:$sid,mnv:$mnv,end_at:$end,note:"stale"}}]
 }')
 mutation_api b111-bad-labor-finish "$B111_BAD_FINISH_BODY"
-jq -e '.ok==true and .results[0].status=="REJECTED" and .results[0].error_code=="LABOR_NOT_OPEN"' "$D/b111-bad-labor-finish.json" >/dev/null
+jq -e '.ok==true and .results[0].status=="REVIEW_REQUIRED" and .results[0].error_code=="LABOR_NOT_OPEN"' "$D/b111-bad-labor-finish.json" >/dev/null
 
 owner_api /v1/history/delete b111-history-delete "$(jq -nc --arg ev "$B99_PROBE" --arg idem "$B111_HISTORY_DELETE" '{event_ids:[$ev],idempotency_key:$idem,reason:"Beta111 canonical delete regression"}')"
 jq -e --arg ev "$B99_PROBE" '.ok==true and .deleted_count==1 and (.target_event_ids|index($ev))!=null' "$D/b111-history-delete.json" >/dev/null
