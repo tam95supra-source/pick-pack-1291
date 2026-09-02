@@ -412,6 +412,37 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     mark("session_exit_identity_guard");
   }
 
+  private void verifyActualNavigationHistory(Activity a)throws Exception{
+    Field state=a.getClass().getDeclaredField("screenState");state.setAccessible(true);
+    Field module=a.getClass().getDeclaredField("module");module.setAccessible(true);
+    Field displayedState=a.getClass().getDeclaredField("displayedScreenState");displayedState.setAccessible(true);
+    Field displayedModule=a.getClass().getDeclaredField("displayedModule");displayedModule.setAccessible(true);
+    Field stackField=a.getClass().getDeclaredField("screenBackStack");stackField.setAccessible(true);
+    Method setScreen=a.getClass().getDeclaredMethod("setScreen",android.view.View.class);setScreen.setAccessible(true);
+    Method navigateBack=a.getClass().getDeclaredMethod("navigateBack");navigateBack.setAccessible(true);
+    @SuppressWarnings("unchecked") ArrayDeque<Object> stack=(ArrayDeque<Object>)stackField.get(a);
+    final Throwable[] failure=new Throwable[1];
+    runOnMainSync(new Runnable(){@Override public void run(){
+      try{
+        stack.clear();displayedState.set(a,"");displayedModule.set(a,"");module.set(a,"BUSINESS");
+        state.set(a,"B111_1");setScreen.invoke(a,new android.widget.TextView(a));
+        setScreen.invoke(a,new android.widget.TextView(a));
+        require(stack.isEmpty(),"NAV_SAME_SCREEN_CREATED_FAKE_FRAME");
+        state.set(a,"B111_2");setScreen.invoke(a,new android.widget.TextView(a));
+        state.set(a,"B111_3");setScreen.invoke(a,new android.widget.TextView(a));
+        navigateBack.invoke(a);require("B111_2".equals(String.valueOf(state.get(a))),"NAV_1_2_3_BACK_NOT_2:"+state.get(a));
+        navigateBack.invoke(a);require("B111_1".equals(String.valueOf(state.get(a))),"NAV_1_2_3_BACK_NOT_1:"+state.get(a));
+
+        stack.clear();displayedState.set(a,"");displayedModule.set(a,"");module.set(a,"BUSINESS");
+        state.set(a,"B111_5");setScreen.invoke(a,new android.widget.TextView(a));
+        state.set(a,"B111_3");setScreen.invoke(a,new android.widget.TextView(a));
+        navigateBack.invoke(a);require("B111_5".equals(String.valueOf(state.get(a))),"NAV_5_3_BACK_NOT_5:"+state.get(a));
+      }catch(Throwable t){failure[0]=t;}
+    }});
+    if(failure[0]!=null)throw new IllegalStateException("NAV_HISTORY_BETA111_FAILED",failure[0]);
+    mark("navigation_history_beta111");
+  }
+
   private android.widget.TableLayout firstTable(android.view.View v){
     if(v instanceof android.widget.TableLayout)return (android.widget.TableLayout)v;
     if(v instanceof android.view.ViewGroup){
@@ -614,7 +645,7 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     SystemClock.sleep(300L);
     waitText("Quét QR nhân sự",true,true,10000L);
     clickTextScrolling("Công nhật",10000L);
-    waitText("Đang thực hiện",true,false,10000L);
+    waitText("Chi tiết công nhật theo ngày",true,false,10000L);
     waitText("Scan / Nhập mã nhân viên",true,false,10000L);
     shot(tag+"-01c-beta110-labor");
     try{ui.executeShellCommand("input keyevent 4").close();}catch(Exception ignored){}
@@ -821,6 +852,8 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
 
     Activity business=open("BUSINESS");
     verifySessionExitGuard(business);
+    verifyActualNavigationHistory(business);
+    business=open("BUSINESS");
     verifyBeta94OwnerScope(business);
     waitText("Ca 1",false,false,12000L);
     waitText("Ca HC",false,false,12000L);
@@ -898,7 +931,7 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     SystemClock.sleep(300L);
     waitText("Điểm danh nhân sự",true,true,10000L);
     clickTextScrolling("Công nhật",10000L);
-    waitText("Đang thực hiện",true,false,10000L);
+    waitText("Chi tiết công nhật theo ngày",true,false,10000L);
     waitText("Scan / Nhập mã nhân viên",true,false,10000L);
     mark("labor_open_list_beta110");
     try{ui.executeShellCommand("input keyevent 4").close();}catch(Exception ignored){}
