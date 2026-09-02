@@ -641,10 +641,16 @@ DROP_ROW=$(node - <<'NODE' "$D/gsheet-drop-readback.json" "$DROP_ID" "$LOC2" "DO
 const fs=require('fs'),j=JSON.parse(fs.readFileSync(process.argv[2],'utf8')),id=process.argv[3],loc=process.argv[4],doNo=process.argv[5];const rows=j.values||[];const i=rows.findIndex(r=>String(r[7]||'')===id);if(i<0)throw new Error('DROP_GSHEET_MISSING');const r=rows[i];if(String(r[0])!==loc||String(r[3])!==doNo||String(r[4])!=='7')throw new Error('DROP_GSHEET_MISMATCH:'+JSON.stringify(r));process.stdout.write(String(i+2));
 NODE
 )
-curl -fsS -H "Authorization: Bearer $GOOGLE_TOKEN" "https://sheets.googleapis.com/v4/spreadsheets/$OUTBOUND_SHEET_ID/values/'V%E1%BB%8B%20tr%C3%AD'!A2:A" > "$D/gsheet-location-readback.json"
-node - <<'NODE' "$D/gsheet-location-readback.json" "$LOC1" "$LOC2"
-const fs=require('fs'),j=JSON.parse(fs.readFileSync(process.argv[2],'utf8')),a=(j.values||[]).flat().map(String);if(a.includes(process.argv[3])||a.includes(process.argv[4]))throw new Error('TEST_LOCATION_REMAINS_IN_GSHEET');
+GSHEET_LOCATION_CLEAN=0
+for _ in $(seq 1 10); do
+  curl -fsS -H "Authorization: Bearer $GOOGLE_TOKEN" "https://sheets.googleapis.com/v4/spreadsheets/$OUTBOUND_SHEET_ID/values/'V%E1%BB%8B%20tr%C3%AD'!A2:A" > "$D/gsheet-location-readback.json"
+  if node - <<'NODE' "$D/gsheet-location-readback.json" "$LOC1" "$LOC2"
+const fs=require('fs'),j=JSON.parse(fs.readFileSync(process.argv[2],'utf8')),a=(j.values||[]).flat().map(String);process.exit(a.includes(process.argv[3])||a.includes(process.argv[4])?1:0);
 NODE
+  then GSHEET_LOCATION_CLEAN=1; break; fi
+  sleep 3
+done
+[[ "$GSHEET_LOCATION_CLEAN" == 1 ]] || { echo TEST_LOCATION_REMAINS_IN_GSHEET >&2; exit 9; }
 # Delete only test drop row after readback.
 curl -fsS -X POST -H "Authorization: Bearer $GOOGLE_TOKEN" -H 'Content-Type: application/json' --data "{\"requests\":[{\"deleteDimension\":{\"range\":{\"sheetId\":$DROP_SHEET_ID,\"dimension\":\"ROWS\",\"startIndex\":$((DROP_ROW-1)),\"endIndex\":$DROP_ROW}}}]}" "https://sheets.googleapis.com/v4/spreadsheets/$OUTBOUND_SHEET_ID:batchUpdate" >/dev/null
 
