@@ -55,6 +55,26 @@
       "publish_artifact_id": 9831669563,
       "ota_artifact_id": 9831721383,
       "final_artifact_id": 9831726759
+    },
+    "ci_harness_pass_live": {
+      "status": "PASS",
+      "root_cause": "finalizer stage pass_live was unsupported by beta-release route",
+      "fix_commits": [
+        "655dcc2dc97ef0696abdd4624a2cec2ca52a22b2",
+        "d36ff119f4cabc925dacc95ae506b04277e65698"
+      ],
+      "regression_fast_check_run_id": 33591900310,
+      "regression_fast_check_status": "PASS",
+      "route_verify_run_id": 33591932637,
+      "route_verify_status": "PASS",
+      "final_readback_run_id": 33592181385,
+      "final_readback_status": "PASS",
+      "old_route_only_failure_run_id": 33591410014,
+      "old_failure_status": "SUPERSEDED_HARNESS_ONLY",
+      "publish_reexecuted": false,
+      "rebuild": false,
+      "resign": false,
+      "operational_jobs_skipped": true
     }
   },
   "release_lock": "ops/beta111-release-lock.json",
@@ -82,5 +102,6 @@
     "Lịch sử: xóa mục canonical hoạt động; mục local-only/deferred missing không lặp 404/retry."
   ],
   "next_action": "OWNER_ACCEPTANCE_BETA111_CHECKLIST_1_TO_7",
-  "recorded_at": "2026-09-02T04:30:30Z"
+  "recorded_at": "2026-09-02T04:30:30Z",
+  "technical_pass_finalized_at": "2026-09-02T04:48:39Z"
 }
