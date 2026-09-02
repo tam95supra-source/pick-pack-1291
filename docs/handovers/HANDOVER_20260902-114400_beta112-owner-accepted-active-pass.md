@@ -3,7 +3,7 @@
 - schema_version: 2
 - status: READY
 - task_state: OWNER_ACCEPTANCE_COMPLETE
-- time_utc: 2026-09-02T11:44:00Z
+- time_utc: 2026-09-02T11:54:30Z
 - owner: Nguyễn Văn Tâm
 - branch: release/beta112-unified-review-warning
 - archive_file: docs/handovers/HANDOVER_20260902-114400_beta112-owner-accepted-active-pass.md
@@ -20,6 +20,13 @@
 - UI-REVIEW-WARNING-001: ACTIVE_PASS.
 - Beta111 items 2–7 remain ACTIVE_PASS.
 - Receipt: ops/beta112-owner-acceptance.json.
+
+## Final lifecycle validation
+- Fast Check 33626609464 PASS incl Android/debug.
+- OWNER-complete pass_live 33627016906 PASS; only route executed.
+- candidate/publish/OTA/finalize/rollback/handoff-finalizer all SKIPPED.
+- 33626482589 is SUPERSEDED_HARNESS_ONLY; root cause was pass_live accepting only PENDING before lifecycle fix.
+- No APK rebuild/resign/re-publish occurred.
 
 ## Locked behavior
 - Rà soát vào/ra và cảnh báo dùng chung visual contract: 42dp / 10.5sp / radius 10dp / stroke 2dp.

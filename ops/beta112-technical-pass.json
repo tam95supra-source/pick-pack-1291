@@ -1,6 +1,6 @@
 {
-  "status": "TECHNICAL_PASS_AWAITING_OWNER",
-  "task_state": "TECHNICAL_PASS_AWAITING_OWNER",
+  "status": "OWNER_ACCEPTANCE_COMPLETE",
+  "task_state": "OWNER_ACCEPTANCE_COMPLETE",
   "channel": "BETA",
   "live": true,
   "version_name": "0.4.2-beta.112",
@@ -97,5 +97,29 @@
   "recorded_at": "2026-09-02T09:18:37Z",
   "owner_acceptance_receipt": "ops/beta112-owner-acceptance.json",
   "owner_feedback": "1 OK",
-  "owner_accepted_at": "2026-09-02T18:44:00+07:00"
+  "owner_accepted_at": "2026-09-02T18:44:00+07:00",
+  "owner_lifecycle_validation": {
+    "fast_check": {
+      "run_id": 33626609464,
+      "status": "PASS",
+      "android_debug": "PASS"
+    },
+    "pass_live_owner_complete": {
+      "run_id": 33627016906,
+      "status": "PASS",
+      "route": "PASS",
+      "candidate": "SKIPPED",
+      "publish": "SKIPPED",
+      "ota": "SKIPPED",
+      "finalize": "SKIPPED",
+      "rollback": "SKIPPED",
+      "handoff_finalizer": "SKIPPED"
+    },
+    "superseded_failure": {
+      "run_id": 33626482589,
+      "status": "SUPERSEDED_HARNESS_ONLY",
+      "reason": "pass_live route previously accepted only owner_acceptance=PENDING"
+    },
+    "fix": "pass_live accepts PENDING or COMPLETE while remaining verified no-op"
+  }
 }

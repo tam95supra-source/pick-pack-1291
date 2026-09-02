@@ -21,5 +21,30 @@
   ],
   "all_beta112_scope_active_pass": true,
   "accepted_at": "2026-09-02T18:44:00+07:00",
-  "next_action": "WAIT_FOR_OWNER_NEW_SCOPE"
+  "next_action": "WAIT_FOR_OWNER_NEW_SCOPE",
+  "lifecycle_validation": {
+    "fast_check": {
+      "run_id": 33626609464,
+      "status": "PASS",
+      "android_debug": "PASS"
+    },
+    "pass_live_owner_complete": {
+      "run_id": 33627016906,
+      "status": "PASS",
+      "route": "PASS",
+      "candidate": "SKIPPED",
+      "publish": "SKIPPED",
+      "ota": "SKIPPED",
+      "finalize": "SKIPPED",
+      "rollback": "SKIPPED",
+      "handoff_finalizer": "SKIPPED"
+    },
+    "superseded_failure": {
+      "run_id": 33626482589,
+      "status": "SUPERSEDED_HARNESS_ONLY",
+      "reason": "pass_live route previously accepted only owner_acceptance=PENDING"
+    },
+    "fix": "pass_live accepts PENDING or COMPLETE while remaining verified no-op"
+  },
+  "final_state_readback": "PASS"
 }
