@@ -312,7 +312,7 @@ Mỗi invariant tối thiểu có:
 - Status: LOCKED_REQUIREMENT_PENDING_FIX
 - Scope: lịch chọn ngày để xem dữ liệu
 - Rule: lịch dùng để hiển thị dữ liệu chỉ cho chọn ngày thực sự có dữ liệu; ngày trống vẫn thấy nhưng mờ và disabled. Lịch dùng để sửa/thay đổi ngày giờ nghiệp vụ không áp dụng giới hạn này.
-- Regression: Report/History/Labor data-only dates + edit-date exemption.
+- Regression: Report/History/Labor/Điểm danh và mọi display-only date selector chỉ bật ngày có dữ liệu thật + edit-date exemption.
 - Regression case: `qa/beta113_owner_scope_regression.md` + `tools/beta113_owner_scope_contract.py`.
 - OWNER acceptance: PENDING Beta113.
 
