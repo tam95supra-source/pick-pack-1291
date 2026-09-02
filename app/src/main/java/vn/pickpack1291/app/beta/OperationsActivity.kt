@@ -1613,6 +1613,28 @@ class OperationsActivity : Activity() {
         val ses=ctx.optJSONObject("session")?:JSONObject()
         val laborMnv=e.optString("mnv");val laborSessionId=ses.optString("session_id");val laborBusinessDate=ses.optString("business_date").ifBlank{ctx.optString("business_date")}
         body.addView(details(listOf("Ca" to dash(ses.optString("shift")),"Vị trí" to dash(workText(ses.optString("work_choice"))),"Vào lúc" to formatIso(ses.optString("enter_at")))));body.addView(gap(7))
+        val intervals=ctx.optJSONArray("labor_intervals")?:JSONArray()
+        if(intervals.length()>0){
+            body.addView(section("Các khoảng công nhật trong phiên"))
+            for(i in 0 until intervals.length()){
+                val x=intervals.optJSONObject(i)?:continue
+                val open=x.optString("state").equals("OPEN",true)
+                val fill=if(open)Color.rgb(255,247,237) else Color.rgb(240,253,250)
+                val item=JSONObject(x.toString()).put("attendance_session_id",laborSessionId).put("full_name",e.optString("full_name")).put("supplier",e.optString("supplier"))
+                val card=column(fill).apply{
+                    setPadding(dp(10),dp(7),dp(10),dp(7));background=outlineBg(fill,12)
+                    val top=row(fill).apply{gravity=Gravity.CENTER_VERTICAL}
+                    top.addView(txt("Khoảng ${i+1} • ${dash(x.optString("labor_type"))}",10.4f,navy,true),LinearLayout.LayoutParams(0,-2,1f))
+                    top.addView(txt(if(open)"ĐANG LÀM" else "HOÀN THÀNH",8.5f,if(open)Color.rgb(194,65,12) else green,true))
+                    addView(top,matchWrap())
+                    addView(txt("${compactAttendanceTime(x.optString("start_at"))} → ${if(open)"-" else compactAttendanceTime(x.optString("end_at"))}",9.3f,ink,false))
+                    val noteText=x.optString("note").trim();if(noteText.isNotBlank())addView(txt("Ghi chú: $noteText",9f,muted,false))
+                    if(!open)setOnClickListener{showCompletedLaborEditor(item)}
+                }
+                body.addView(card,matchWrap());body.addView(gap(5))
+            }
+            body.addView(gap(3))
+        }
         fun pickClock(currentIso:String,onPick:(String)->Unit)=laborWheelPick(currentIso,onPick)
         fun timeButton(iso:String):Button=Button(this).apply{
             text=compactAttendanceTime(iso);textSize=12f;isAllCaps=false;setTextColor(navy);background=outlineBg(surface,11);minHeight=0;minimumHeight=0
