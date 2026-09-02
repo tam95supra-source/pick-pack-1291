@@ -18,6 +18,7 @@ gradle=read("app/build.gradle.kts")
 service=read("service/src/index.ts")
 core=read("service/src/core.ts")
 mobile=read("service/src/mobile_hotfix.ts")
+outbound=read("service/src/outbound_beta78.ts")
 
 # 1) Changelog is version-fenced and current Beta metadata is exact.
 assert 'versionCode = 119' in gradle
@@ -71,6 +72,16 @@ assert "availableDatesWithData" in meal_store
 assert "export async function mealAttendanceDates" in meal_service
 assert '"meal_attendance_dates"' in bridge and 'action==="meal_attendance_dates"' in mobile
 
+# 8b) Outbound Sheet replication is single-writer fenced so CREATE/UPDATE/DELETE cannot race out of order.
+for token in [
+    "outbound-replication-lock",
+    "claimOutboundReplicationLease",
+    "releaseOutboundReplicationLease",
+    "service_maintenance.checkpoint='' OR service_maintenance.updated_at<=?3",
+    "finally{",
+]:
+    assert token in outbound, token
+
 # 9) Shift review tile no longer navigates to full roster; roster is inline below scan/session.
 recon=ops[ops.index("private fun addBusinessShiftReconciliation"):ops.index("private fun addInlineCurrentShiftStaff")]
 assert 'HIỂN THỊ CHI TIẾT NHÂN SỰ' not in recon
@@ -80,4 +91,4 @@ assert scan.index('body.addView(mnv') < scan.index('addInlineCurrentShiftStaff(b
 render=ops[ops.index("private fun renderEmployee(ctx"):ops.index("private fun sameEmployeeContext")]
 assert render.index('when(state)') < render.index('addInlineCurrentShiftStaff(body)')
 
-print("beta113_owner_scope_contract=PASS changelog=PASS audit=PASS history_delete=PASS scan_select_ui=PASS labor_multi_interval=PASS all_view_data_dates=PASS inline_roster=PASS")
+print("beta113_owner_scope_contract=PASS changelog=PASS audit=PASS history_delete=PASS scan_select_ui=PASS labor_multi_interval=PASS all_view_data_dates=PASS outbound_replication_fence=PASS inline_roster=PASS")
