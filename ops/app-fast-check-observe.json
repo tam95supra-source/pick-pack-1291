@@ -1,8 +1,8 @@
 {
-  "run_id": 33585845286,
-  "run_sha": "49cbe15060bac129eaddac18d034c7de397bbd00",
+  "run_id": 33585989912,
+  "run_sha": "5f08334f2688d14a34b3333ffcbcd847193622e1",
   "ref": "release/beta111-owner-ui-labor-nav",
   "execution_nonce": "beta109-publish-exact-20260901-08",
   "stage": "pass_live",
-  "observed_at": "2026-09-02T03:07:51Z"
+  "observed_at": "2026-09-02T03:10:11Z"
 }
