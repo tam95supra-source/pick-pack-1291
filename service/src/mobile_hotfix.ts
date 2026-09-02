@@ -3,7 +3,7 @@ import { currentAuthority } from "./core";
 import { bangkokToday, ensureCurrentBangkokBusinessDate } from "./business_date";
 import { historicalSessionDetail } from "./historical_beta78";
 import { outboundAction } from "./outbound_beta78";
-import { mealAttendanceList } from "./meal_attendance";
+import { mealAttendanceDates, mealAttendanceList } from "./meal_attendance";
 import { apiError, b64u, b64uDecode, hmacB64u, json, nowIso, readJsonBody } from "./util";
 
 type GasTokenPayload = { l?:string; r?:string; v?:string; s?:string; d?:string };
@@ -172,6 +172,7 @@ export async function mobileRead(request:Request,env:Env):Promise<Response>{
   if(action==="old_active_sessions")return oldActiveSessions(env);
   if(action==="historical_session_detail")return historicalSessionDetail(env,body);
   if(action==="meal_attendance_list")return mealAttendanceList(env,{business_date:String(body.business_date||"")});
+  if(action==="meal_attendance_dates")return mealAttendanceDates(env);
   if(action==="labor_list")return laborList(env,body);
   if(action==="labor_dates")return laborDates(env);
   if(action.startsWith("outbound_"))return outboundAction(env,auth,action,body);
