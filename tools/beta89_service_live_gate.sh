@@ -187,6 +187,7 @@ cleanup_d1
 sql "INSERT INTO accounts(login_id,verifier,verifier_hash,role,display_name,position,email,status,source_row,source_checksum,is_shadow_test) VALUES('$LOGIN','b78-test','$VH','SUPERADMIN','Beta78 Test','TEST','tam95.supra@gmail.com','ACTIVE',-78,'b78-test',1); INSERT INTO auth_sessions(login_id,session_id,device_id,issued_at) VALUES('$LOGIN','$AUTH_SESSION','$DEVICE','$NOW'); INSERT INTO employees(mnv,full_name,main_position,source_row,source_checksum) VALUES('$B80_MNV','Beta80 Session Fixture','Pick',-80,'b80-fixture'); INSERT INTO resources(resource_type,resource_id,status_label,available,metadata_json,source_row,source_checksum) VALUES('PDA','$B80_PDA','Tốt',1,'{}',-80,'b80-fixture'),('PDA','$B89_PDA2','Tốt',1,'{}',-89,'b89-fixture'),('USER_PICK','$B89_PICK','Hoạt động',1,'{}',-89,'b89-fixture'),('USER_PICK','$B89_BLOCKED_PICK','Không khả dụng',0,'{}',-89,'b89-fixture'),('PACK_TABLE','$B91_TABLE','Khả dụng',1,'{}',-91,'b91-fixture'),('USER_PACK','$B91_PACK','Khả dụng',1,'{}',-91,'b91-fixture'),('PACK_TABLE','$B91_BLOCKED_TABLE','Không khả dụng',0,'{}',-91,'b91-fixture'),('USER_PACK','$B91_BLOCKED_PACK','Khả dụng',1,'{}',-91,'b91-fixture'),('USER_PICK','$B92_USED_PICK','Hoạt động',1,'{}',-92,'b92-fixture'),('PACK_TABLE','$B92_USED_TABLE','Khả dụng',1,'{}',-92,'b92-fixture'),('USER_PACK','$B92_USED_PACK','Khả dụng',1,'{}',-92,'b92-fixture'),('PACK_TABLE','$B92_BLOCKED_TABLE','Khả dụng',1,'{}',-92,'b92-fixture'),('USER_PACK','$B92_BLOCKED_PACK','Không khả dụng',0,'{}',-92,'b92-fixture'); INSERT INTO resource_pack_map(pack_table,shift,user_pack,label,available,source_row,source_checksum) VALUES('$B91_TABLE','Ca 2','$B91_PACK','Ca 2-91',1,-91,'b91-fixture'),('$B91_BLOCKED_TABLE','Ca 2','$B91_BLOCKED_PACK','Ca 2-92',1,-91,'b91-fixture'),('$B92_USED_TABLE','Ca 2','$B92_USED_PACK','Ca 2-93',1,-92,'b92-fixture'),('$B92_BLOCKED_TABLE','Ca 2','$B92_BLOCKED_PACK','Ca 2-94',1,-92,'b92-fixture');" >/dev/null
 
 owner_api(){ local path=$1 name=$2 body=$3; curl -fsS --connect-timeout 10 --max-time 20 -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' --data-binary "$body" "$SERVICE_URL$path" > "$D/$name.json"; }
+owner_api_slow(){ local path=$1 name=$2 body=$3; curl -fsS --connect-timeout 10 --max-time 60 -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' --data-binary "$body" "$SERVICE_URL$path" > "$D/$name.json"; }
 
 # Beta99 resilience acceptance probe: canonical Service confirmation with no business projection.
 PROBE_BODY="{\"events\":[{\"action\":\"resilience_probe\",\"event_id\":\"$B99_PROBE\",\"device_id\":\"$DEVICE\",\"payload\":{\"scenario\":\"CI_SERVICE_DIRECT\",\"occurred_at\":\"$NOW\",\"technical_probe\":true}}]}"
@@ -557,7 +558,7 @@ node -e 'const j=JSON.parse(process.argv[1]),r=j?.[0]?.results?.[0];if(!r||Numbe
 DOC2_DRIVE_ID=""
 echo 'beta110_document_batch=PASS multipage_group=PASS selected_delete=PASS reindex=PASS history=PASS'
 
-owner_api /v1/documents/categories b108-category-rename "{\"operation\":\"UPDATE\",\"category_id\":\"$DOC_CATEGORY_ID\",\"display_name\":\"$DOC_CATEGORY_RENAMED\",\"idempotency_key\":\"$DOC_RENAME_IDEMPOTENCY\"}"
+owner_api_slow /v1/documents/categories b108-category-rename "{\"operation\":\"UPDATE\",\"category_id\":\"$DOC_CATEGORY_ID\",\"display_name\":\"$DOC_CATEGORY_RENAMED\",\"idempotency_key\":\"$DOC_RENAME_IDEMPOTENCY\"}"
 jq -e '.ok==true and .mutation.operation=="UPDATE" and .mutation.state=="DONE" and .mutation.processed_items==1' "$D/b108-category-rename.json" >/dev/null
 DOC_RENAME_DB=$(sql "SELECT c.display_name,c.mutation_state,d.category_name_snapshot,d.file_name FROM document_categories c JOIN document_records d ON d.category_id=c.category_id WHERE c.category_id='$DOC_CATEGORY_ID' AND d.document_id='$DOC_ID';")
 printf '%s' "$DOC_RENAME_DB" > "$D/b108-category-rename-db.json"
@@ -569,7 +570,7 @@ jq -e --arg id "$DOC_DRIVE_ID" --arg name "$RENAMED_FILE" '.id==$id and .name==$
 curl -fsS --connect-timeout 10 --max-time 20 -H "Authorization: Bearer $TOKEN" "$SERVICE_URL/v1/documents?limit=10" > "$D/b108-list-renamed.json"
 jq -e --arg id "$DOC_ID" --arg name "$DOC_CATEGORY_RENAMED" '[.items[]|select(.document_id==$id and .status=="COMPLETE" and .category_name==$name)]|length==1' "$D/b108-list-renamed.json" >/dev/null
 
-owner_api /v1/documents/categories b108-category-delete "{\"operation\":\"DELETE\",\"category_id\":\"$DOC_CATEGORY_ID\",\"idempotency_key\":\"$DOC_DELETE_IDEMPOTENCY\"}"
+owner_api_slow /v1/documents/categories b108-category-delete "{\"operation\":\"DELETE\",\"category_id\":\"$DOC_CATEGORY_ID\",\"idempotency_key\":\"$DOC_DELETE_IDEMPOTENCY\"}"
 jq -e '.ok==true and .mutation.operation=="DELETE" and .mutation.state=="DONE" and .mutation.processed_items==1' "$D/b108-category-delete.json" >/dev/null
 DOC_DRIVE_DELETE_HTTP=$(curl -sS --connect-timeout 10 --max-time 20 -o "$D/b108-drive-deleted.json" -w '%{http_code}' -H "Authorization: Bearer $GOOGLE_TOKEN" "https://www.googleapis.com/drive/v3/files/$DOC_DRIVE_ID?fields=id,name,trashed")
 [[ "$DOC_DRIVE_DELETE_HTTP" == 404 ]]
