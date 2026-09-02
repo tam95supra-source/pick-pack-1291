@@ -16,8 +16,6 @@ val stableFirebaseProjectId = quotedConfig(configValue("STABLE_FIREBASE_PROJECT_
 val stableFirebaseAppId = quotedConfig(configValue("STABLE_FIREBASE_GOOGLE_APP_ID"))
 val stableFirebaseApiKey = quotedConfig(configValue("STABLE_FIREBASE_API_KEY"))
 val stableFirebaseSenderId = quotedConfig(configValue("STABLE_FIREBASE_GCM_SENDER_ID"))
-val betaVersionCode = 119
-val betaVersionName = "0.4.2-beta.113"
 
 android {
     namespace = "vn.pickpack1291.app.beta"
@@ -34,8 +32,8 @@ android {
         create("beta") {
             dimension = "channel"
             applicationId = "vn.pickpack1291.app.beta.publicbeta"
-            versionCode = betaVersionCode
-            versionName = betaVersionName
+            versionCode = 119
+            versionName = "0.4.2-beta.113"
             manifestPlaceholders["appLabel"] = "Pick Pack 1291 Beta"
             buildConfigField("String", "CHANNEL", "\"BETA\"")
             buildConfigField("String", "ENVIRONMENT_ID", "\"BETA\"")
@@ -84,10 +82,11 @@ tasks.register("verifyBetaReleaseNotes") {
     group = "verification"
     description = "Fail when Beta version is bumped without updating the in-app changelog."
     doLast {
+        val expected = android.productFlavors.getByName("beta").versionName.orEmpty()
         val notes = file("src/main/java/vn/pickpack1291/app/beta/ReleaseNotes.kt").readText()
-        val marker = "const val VERSION_NAME = \"$betaVersionName\""
-        check(notes.contains(marker)) {
-            "ReleaseNotes.VERSION_NAME must match beta versionName $betaVersionName"
+        val marker = "const val VERSION_NAME = \"$expected\""
+        check(expected.isNotBlank() && notes.contains(marker)) {
+            "ReleaseNotes.VERSION_NAME must match beta versionName $expected"
         }
     }
 }
