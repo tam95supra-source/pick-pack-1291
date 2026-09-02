@@ -24,3 +24,11 @@ Baseline: Beta111 LIVE. OWNER accepted checklist items 2–7; only UI-REVIEW-WAR
 - review_warning_shared_style_beta112 runtime flag
 - 320x568 / 360x640 / 480x800 visual matrix + human inspection
 - Beta111 owner scope contracts remain PASS
+
+## Exact candidate
+- source: b3009ca701670af487ee8dce3538fe9c3cde4ae5
+- candidate: 33596529877 / 9833670469
+- APK SHA256: d5de4fea496a1be4926f3acc49f82fb60eb9065de694e075251ca493ce298e76
+- size: 14216181
+- visual/PDA/API36: 33597157250 / 9833913262 PASS
+- screenshots: 42; human visual inspection PASS
