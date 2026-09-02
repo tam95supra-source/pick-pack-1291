@@ -1,0 +1,50 @@
+{
+  "status": "OWNER_ACCEPTANCE_COMPLETE",
+  "task_state": "OWNER_ACCEPTANCE_COMPLETE",
+  "owner": "Nguyễn Văn Tâm",
+  "channel": "BETA",
+  "version_name": "0.4.2-beta.112",
+  "version_code": 118,
+  "package": "vn.pickpack1291.app.beta.publicbeta",
+  "source_sha": "b3009ca701670af487ee8dce3538fe9c3cde4ae5",
+  "apk_sha256": "d5de4fea496a1be4926f3acc49f82fb60eb9065de694e075251ca493ce298e76",
+  "terminal_run_id": 33612994423,
+  "owner_feedback": "1 OK",
+  "accepted_invariants": [
+    "UI-REVIEW-WARNING-001"
+  ],
+  "preserved_active_pass": [
+    "NAV-HISTORY-BACK-001",
+    "LABOR-EXACT-SESSION-002",
+    "HISTORY-DELETE-CANONICAL-001",
+    "DOCUMENT-BATCH-MODE-TICK-002"
+  ],
+  "all_beta112_scope_active_pass": true,
+  "accepted_at": "2026-09-02T18:44:00+07:00",
+  "next_action": "WAIT_FOR_OWNER_NEW_SCOPE",
+  "lifecycle_validation": {
+    "fast_check": {
+      "run_id": 33626609464,
+      "status": "PASS",
+      "android_debug": "PASS"
+    },
+    "pass_live_owner_complete": {
+      "run_id": 33627016906,
+      "status": "PASS",
+      "route": "PASS",
+      "candidate": "SKIPPED",
+      "publish": "SKIPPED",
+      "ota": "SKIPPED",
+      "finalize": "SKIPPED",
+      "rollback": "SKIPPED",
+      "handoff_finalizer": "SKIPPED"
+    },
+    "superseded_failure": {
+      "run_id": 33626482589,
+      "status": "SUPERSEDED_HARNESS_ONLY",
+      "reason": "pass_live route previously accepted only owner_acceptance=PENDING"
+    },
+    "fix": "pass_live accepts PENDING or COMPLETE while remaining verified no-op"
+  },
+  "final_state_readback": "PASS"
+}

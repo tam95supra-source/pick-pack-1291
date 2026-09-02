@@ -1,6 +1,6 @@
 {
-  "status": "TECHNICAL_PASS_AWAITING_OWNER",
-  "task_state": "TECHNICAL_PASS_AWAITING_OWNER",
+  "status": "OWNER_ACCEPTANCE_COMPLETE",
+  "task_state": "OWNER_ACCEPTANCE_COMPLETE",
   "channel": "BETA",
   "live": true,
   "version_name": "0.4.2-beta.112",
@@ -82,10 +82,8 @@
   "stable": "UNCHANGED_NOT_PUBLIC",
   "main_sha": "021dac5c6932b3ac5c60ce8fdba562ddf3d9688f",
   "authority_change": "NONE",
-  "owner_acceptance": "PENDING",
-  "awaiting_owner_invariants": [
-    "UI-REVIEW-WARNING-001"
-  ],
+  "owner_acceptance": "COMPLETE",
+  "awaiting_owner_invariants": [],
   "preserved_active_pass": [
     "NAV-HISTORY-BACK-001",
     "LABOR-EXACT-SESSION-002",
@@ -95,6 +93,33 @@
   "owner_checklist": [
     "Rà soát vào/ra và các cảnh báo liên quan có cùng chiều cao, cỡ chữ, bo góc, viền và bố cục; cảnh báo dùng cùng đỏ canonical, rà soát đủ dùng xanh canonical."
   ],
-  "next_action": "OWNER_ACCEPTANCE_BETA112_ITEM_1_ONLY",
-  "recorded_at": "2026-09-02T09:18:37Z"
+  "next_action": "WAIT_FOR_OWNER_NEW_SCOPE",
+  "recorded_at": "2026-09-02T09:18:37Z",
+  "owner_acceptance_receipt": "ops/beta112-owner-acceptance.json",
+  "owner_feedback": "1 OK",
+  "owner_accepted_at": "2026-09-02T18:44:00+07:00",
+  "owner_lifecycle_validation": {
+    "fast_check": {
+      "run_id": 33626609464,
+      "status": "PASS",
+      "android_debug": "PASS"
+    },
+    "pass_live_owner_complete": {
+      "run_id": 33627016906,
+      "status": "PASS",
+      "route": "PASS",
+      "candidate": "SKIPPED",
+      "publish": "SKIPPED",
+      "ota": "SKIPPED",
+      "finalize": "SKIPPED",
+      "rollback": "SKIPPED",
+      "handoff_finalizer": "SKIPPED"
+    },
+    "superseded_failure": {
+      "run_id": 33626482589,
+      "status": "SUPERSEDED_HARNESS_ONLY",
+      "reason": "pass_live route previously accepted only owner_acceptance=PENDING"
+    },
+    "fix": "pass_live accepts PENDING or COMPLETE while remaining verified no-op"
+  }
 }

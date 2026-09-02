@@ -176,7 +176,7 @@ invariants:
     last_verified: "0.4.2-beta.111 LIVE / OWNER accepted checklist scope 2026-09-02T12:44+07:00"
 
   - id: UI-REVIEW-WARNING-001
-    status: TECHNICAL_PASS_AWAITING_OWNER
+    status: ACTIVE_PASS
     scope: reconciliation-warning-ui
     rule: "Rà soát vào/ra và các cảnh báo liên quan dùng cùng kích thước, typography, radius/stroke và severity visual language; không tạo bố cục lệch giữa các mục."
     regression_minimum: [shift_reconciliation_geometry, old_session_warning_geometry, meal_warning_geometry, labor_warning_geometry, severity_preserved]
@@ -185,9 +185,11 @@ invariants:
     technical_candidate: "0.4.2-beta.112 LIVE / source b3009ca701670af487ee8dce3538fe9c3cde4ae5"
     technical_evidence: "Beta112 LIVE / candidate 33596529877/9833670469 / Fast Check 33612134466 PASS incl Android-debug / visual+PDA+API36 33597157250/9833913262 PASS + 42 screenshots + human visual PASS 320x568,360x640,480x800 / device 33611415963/9839191113 PASS / auth parity recovery 33612548361/9839580952 PASS no password rotation no D1/session mutation / runtime 33612695867/9839670809 PASS / terminal 33612994423 PASS / publish 9839800512 / OTA-install-readback 9839879502 / final 9839890706 / GitHub Release asset 540918700 / SHA256 d5de4fea496a1be4926f3acc49f82fb60eb9065de694e075251ca493ce298e76 / size 14216181 / signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged"
     technical_receipt: "ops/beta112-technical-pass.json"
-    owner_acceptance: "PENDING_BETA112_ITEM_1_ONLY"
+    owner_acceptance: "ACTIVE_PASS_OWNER_BETA112_ITEM_1_OK_2026-09-02T18:44+07:00 / ops/beta112-owner-acceptance.json"
     previous_owner_feedback: "Beta111 item 1 chưa OK: vẫn chưa đồng nhất; superseded by Beta112 technical fix."
-    last_verified: "0.4.2-beta.112 LIVE / terminal 33612994423 / TECHNICAL_PASS_AWAITING_OWNER"
+    last_verified: "0.4.2-beta.112 LIVE / terminal 33612994423 / OWNER acceptance complete 2026-09-02T18:44+07:00"
+    active_pass: true
+    owner_final_feedback: "1 OK"
 
   - id: LABOR-EXACT-SESSION-002
     status: ACTIVE_PASS
