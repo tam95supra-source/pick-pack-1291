@@ -232,9 +232,11 @@ async function commitLaborStart(db:D1Database, auth:AuthContext, req:CanonicalMu
   const checks=await db.batch([
     db.prepare("SELECT labor_id,mnv,business_date,state,version FROM labor_sessions WHERE labor_id=?1").bind(req.entity_id),
     db.prepare("SELECT state,enter_at,exit_at FROM attendance_sessions WHERE mnv=?1 AND business_date=?2 AND (?3='' OR session_id=?3)").bind(mnv,req.business_date,sessionId),
+    db.prepare("SELECT labor_id FROM labor_sessions WHERE mnv=?1 AND business_date=?2 AND state='OPEN' AND labor_id<>?3 LIMIT 1").bind(mnv,req.business_date,req.entity_id),
   ]);
   const current=(checks[0]?.results?.[0]??null) as LaborRow|null,v=current?.version??0;
   if(v!==req.base_version)throw new CoreError("STALE_BASE_VERSION","CONFLICT",409,false,{current_version:v});if(current?.state==="OPEN")throw new CoreError("LABOR_ALREADY_OPEN","CONFLICT",409);
+  if((checks[2]?.results?.length??0)>0)throw new CoreError("LABOR_OTHER_INTERVAL_OPEN","CONFLICT",409,false,{open_labor_id:String((checks[2]?.results?.[0] as {labor_id?:string})?.labor_id||"")});
   const attendance=(checks[1]?.results?.[0]??null) as {state?:string;enter_at?:string|null;exit_at?:string|null}|null;if(attendance?.state!=="ACTIVE")throw new CoreError("ATTENDANCE_NOT_ACTIVE","CONFLICT",409);
   if(attendance.enter_at&&!Number.isNaN(Date.parse(attendance.enter_at))&&Date.parse(selectedStart)<Date.parse(attendance.enter_at))throw new CoreError("LABOR_START_BEFORE_ATTENDANCE","VALIDATION",400);
   const event=await buildEvent(req,auth,a,v+1),stmts=eventStatements(db,event,a.authority_seq);
