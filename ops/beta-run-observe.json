@@ -1,8 +1,8 @@
 {
-  "run_id": 33515483109,
-  "run_sha": "d69f13cd80003e13def3cac0efc7ce38d7975dd6",
-  "ref": "release/beta108-document-management",
-  "execution_nonce": "beta109-publish-exact-20260901-08",
+  "run_id": 33574078129,
+  "run_sha": "0a1c34b29f6bfa30a47e5b94161dd283cab7b0e7",
+  "ref": "release/beta110-document-labor-attendance",
+  "execution_nonce": "beta110-publish-20260902-07",
   "stage": "PUBLISH",
-  "observed_at": "2026-09-01T13:47:16Z"
+  "observed_at": "2026-09-02T00:08:43Z"
 }
