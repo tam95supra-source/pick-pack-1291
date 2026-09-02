@@ -2007,7 +2007,7 @@ class OperationsActivity : Activity() {
 
             for(g in visible){
                 val items=g.value;val first=items.first();val state=if(items.any{statusOf(it)=="FAILED"})"FAILED" else if(items.any{statusOf(it)=="PENDING"})"PENDING" else "SYNCED";val label=when(state){"FAILED"->"Lỗi đồng bộ";"PENDING"->"Chưa đồng bộ";else->"Đã đồng bộ"};val tint=when(state){"FAILED"->Color.rgb(254,242,242);"PENDING"->Color.rgb(255,251,235);else->Color.rgb(240,253,250)};val mnv=first.optString("mnv");val full=first.optString("full_name");val last=items.first()
-                val deletable=items.filter{it.optString("event_type").uppercase()!="HISTORY_DELETE"}.map{it.optString("event_id")}.filter{it.isNotBlank()}.distinct();currentPageDeleteIds.addAll(deletable)
+                val deletable=items.filter{it.optString("event_type").uppercase()!="HISTORY_DELETE"&&it.optString("history_source")=="SERVICE_CANONICAL"}.map{it.optString("event_id")}.filter{it.isNotBlank()}.distinct();currentPageDeleteIds.addAll(deletable)
                 val card=column(tint).apply{
                     setPadding(dp(13),dp(11),dp(13),dp(11));background=outlineBg(tint,17)
                     val top=row(tint).apply{gravity=Gravity.CENTER_VERTICAL
@@ -2044,7 +2044,7 @@ class OperationsActivity : Activity() {
             if(i>=queue.size)return
             val id=queue[i]
             api.call("history_delete",JSONObject().put("event_ids",JSONArray(listOf(id))).put("idempotency_key","beta47-history-delete-$id").put("reason","SUPERADMIN xóa lịch sử từ PDA")){r->
-                if(r.ok){val left=(prefs.getStringSet("deferred_ids",emptySet())?:emptySet()).toMutableSet();left.remove(id);prefs.edit().putStringSet("deferred_ids",left).apply()}
+                if(r.ok||r.error?.contains("HISTORY_DELETE_TARGET_NOT_FOUND")==true){val left=(prefs.getStringSet("deferred_ids",emptySet())?:emptySet()).toMutableSet();left.remove(id);prefs.edit().putStringSet("deferred_ids",left).apply()}
                 next(i+1)
             }
         }
