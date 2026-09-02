@@ -176,7 +176,7 @@ invariants:
     last_verified: "0.4.2-beta.111 LIVE / OWNER accepted checklist scope 2026-09-02T12:44+07:00"
 
   - id: UI-REVIEW-WARNING-001
-    status: TECHNICAL_PASS_AWAITING_OWNER
+    status: LOCKED_REQUIREMENT_PENDING_FIX
     scope: reconciliation-warning-ui
     rule: "Rà soát vào/ra và các cảnh báo liên quan dùng cùng kích thước, typography, radius/stroke và severity visual language; không tạo bố cục lệch giữa các mục."
     regression_minimum: [shift_reconciliation_geometry, old_session_warning_geometry, meal_warning_geometry, labor_warning_geometry, severity_preserved]
@@ -185,7 +185,10 @@ invariants:
     technical_candidate: "0.4.2-beta.111 LIVE / source 03b37e5aa2726c273cc1e7c4a2161763bd3c4d2d"
     technical_evidence: "0.4.2-beta.111 LIVE / source 03b37e5aa2726c273cc1e7c4a2161763bd3c4d2d / candidate 33586428789/9830403339 / Fast Check 33588839641 / Service 33588851239/9831120144 / visual+PDA+API36 33589199933/9831243286 + human PASS 41 screenshots / device 33590310367/9831531954 / runtime 33590505522 attempt2/9831607439 / terminal 33590747613 / publish 9831669563 / OTA-install-readback 9831721383 / final 9831726759 / SHA256 f67049067e600f4d8439d0ae088889f7b35df8b215e5432a2fcdd54f05f04a4f / size 14216181 / signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged"
     technical_receipt: "ops/beta111-technical-pass.json"
-    owner_acceptance: "PENDING_OWNER_BETA111_CHECKLIST_1_TO_7"
+    owner_acceptance: "OWNER_ITEM_1_NOT_OK_2026-09-02T12:44+07:00"
+    owner_feedback: "Vẫn chưa đồng nhất layout/kích thước/màu giữa rà soát vào-ra và cảnh báo."
+    next_candidate: "0.4.2-beta.112"
+
   - id: LABOR-EXACT-SESSION-002
     status: ACTIVE_PASS
     scope: labor-session
