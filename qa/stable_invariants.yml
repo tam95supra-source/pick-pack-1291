@@ -111,7 +111,7 @@ invariants:
     latest_reverification: "0.4.2-beta.110 LIVE / source 1faebbf996836d442ec6e99ffba2a589bf3fcbd2 / candidate 33554345340/9818862858 / service 33568634524/9824237674 / visual+PDA+API36 33569543281/9824551840 / Fast Check 33569530461 / device 33570127113/9824662041 / runtime 33573848594/9825920815 / terminal 33574078129 / publish 9826016343 / OTA 9826069523 / final 9826075161"
 
   - id: DOCUMENT-BATCH-001
-    status: TECHNICAL_PASS_AWAITING_OWNER
+    status: ACTIVE_PASS
     scope: document-management-ui
     rule: "Quản lý biên bản hỗ trợ chọn nhiều ảnh; upload theo Một biên bản nhiều trang hoặc Nhiều biên bản; lọc theo loại; chọn một/nhiều ảnh đã tải để hard-delete qua mutation bền vững; thao tác xuất hiện trong Lịch sử."
     regression_minimum: [multi_gallery_select, durable_multi_draft, multipage_group, multiple_document_group, category_filter, bulk_selected_delete, delete_resume, document_history]
@@ -119,37 +119,45 @@ invariants:
     technical_candidate: "0.4.2-beta.110 LIVE / source 1faebbf996836d442ec6e99ffba2a589bf3fcbd2"
     technical_evidence: "0.4.2-beta.110 LIVE / source 1faebbf996836d442ec6e99ffba2a589bf3fcbd2 / candidate 33554345340/9818862858 / service 33568634524/9824237674 / visual+PDA+API36 33569543281/9824551840 / Fast Check 33569530461 / device 33570127113/9824662041 / runtime 33573848594/9825920815 / terminal 33574078129 / publish 9826016343 / OTA 9826069523 / final 9826075161"
     technical_receipt: "ops/beta110-technical-pass.json"
-    owner_acceptance: "PENDING_OWNER_BETA110_ACCEPTANCE"
+    owner_acceptance: "ACTIVE_PASS_OWNER_BETA110_ALL_OK_2026-09-02T07:43:15+07:00 / ops/beta110-owner-acceptance.json"
+    active_pass: true
+    last_verified: "0.4.2-beta.110 LIVE / terminal run 33574078129 / OWNER acceptance complete 2026-09-02T07:43:15+07:00"
 
   - id: LABOR-TIME-RANGE-001
-    status: TECHNICAL_PASS_AWAITING_OWNER
+    status: ACTIVE_PASS
     scope: labor
     rule: "Công nhật dùng giờ-phút được chọn bằng bộ chọn thay cho mốc thời gian; cho phép ghi bắt đầu trước và kết thúc sau; công nhật OPEN chặn Ra ca; màn Công nhật và trang Nghiệp vụ hiển thị/cảnh báo người còn công nhật OPEN."
     regression_minimum: [time_picker_only, explicit_start_at, explicit_end_at, start_without_end, end_after_start, open_labor_exit_block, open_labor_list, open_labor_warning]
     technical_candidate: "0.4.2-beta.110 LIVE / source 1faebbf996836d442ec6e99ffba2a589bf3fcbd2"
     technical_evidence: "0.4.2-beta.110 LIVE / source 1faebbf996836d442ec6e99ffba2a589bf3fcbd2 / candidate 33554345340/9818862858 / service 33568634524/9824237674 / visual+PDA+API36 33569543281/9824551840 / Fast Check 33569530461 / device 33570127113/9824662041 / runtime 33573848594/9825920815 / terminal 33574078129 / publish 9826016343 / OTA 9826069523 / final 9826075161"
     technical_receipt: "ops/beta110-technical-pass.json"
-    owner_acceptance: "PENDING_OWNER_BETA110_ACCEPTANCE"
+    owner_acceptance: "ACTIVE_PASS_OWNER_BETA110_ALL_OK_2026-09-02T07:43:15+07:00 / ops/beta110-owner-acceptance.json"
+    active_pass: true
+    last_verified: "0.4.2-beta.110 LIVE / terminal run 33574078129 / OWNER acceptance complete 2026-09-02T07:43:15+07:00"
 
   - id: MEAL-UI-NULL-001
-    status: TECHNICAL_PASS_AWAITING_OWNER
+    status: ACTIVE_PASS
     scope: attendance-ui
     rule: "Điểm danh dùng layout gọn, đủ thông tin; mọi giá trị thiếu/JSON null hiển thị dấu -; không thay đổi MEAL-DATE-001 và MEAL-WARN-001."
     regression_minimum: [compact_layout, no_visible_null, dash_for_missing, current_day_write_only, warning_preserved]
     technical_candidate: "0.4.2-beta.110 LIVE / source 1faebbf996836d442ec6e99ffba2a589bf3fcbd2"
     technical_evidence: "0.4.2-beta.110 LIVE / source 1faebbf996836d442ec6e99ffba2a589bf3fcbd2 / candidate 33554345340/9818862858 / service 33568634524/9824237674 / visual+PDA+API36 33569543281/9824551840 / Fast Check 33569530461 / device 33570127113/9824662041 / runtime 33573848594/9825920815 / terminal 33574078129 / publish 9826016343 / OTA 9826069523 / final 9826075161"
     technical_receipt: "ops/beta110-technical-pass.json"
-    owner_acceptance: "PENDING_OWNER_BETA110_ACCEPTANCE"
+    owner_acceptance: "ACTIVE_PASS_OWNER_BETA110_ALL_OK_2026-09-02T07:43:15+07:00 / ops/beta110-owner-acceptance.json"
+    active_pass: true
+    last_verified: "0.4.2-beta.110 LIVE / terminal run 33574078129 / OWNER acceptance complete 2026-09-02T07:43:15+07:00"
 
   - id: UI-COPY-DENSITY-001
-    status: TECHNICAL_PASS_AWAITING_OWNER
+    status: ACTIVE_PASS
     scope: ui-copy
     rule: "Màn nghiệp vụ không hiển thị text giải thích kiểu AI/OWNER hoặc hướng dẫn kỹ thuật thừa; ưu tiên nội dung nghiệp vụ và diện tích hiển thị."
     regression_minimum: [no_owner_ai_helper_copy, compact_document_copy, compact_labor_copy, compact_attendance_copy]
     technical_candidate: "0.4.2-beta.110 LIVE / source 1faebbf996836d442ec6e99ffba2a589bf3fcbd2"
     technical_evidence: "0.4.2-beta.110 LIVE / source 1faebbf996836d442ec6e99ffba2a589bf3fcbd2 / candidate 33554345340/9818862858 / service 33568634524/9824237674 / visual+PDA+API36 33569543281/9824551840 / Fast Check 33569530461 / device 33570127113/9824662041 / runtime 33573848594/9825920815 / terminal 33574078129 / publish 9826016343 / OTA 9826069523 / final 9826075161"
     technical_receipt: "ops/beta110-technical-pass.json"
-    owner_acceptance: "PENDING_OWNER_BETA110_ACCEPTANCE"
+    owner_acceptance: "ACTIVE_PASS_OWNER_BETA110_ALL_OK_2026-09-02T07:43:15+07:00 / ops/beta110-owner-acceptance.json"
+    active_pass: true
+    last_verified: "0.4.2-beta.110 LIVE / terminal run 33574078129 / OWNER acceptance complete 2026-09-02T07:43:15+07:00"
 
   - id: INFRA-RESILIENCE-001
     status: TECHNICAL_PASS_AWAITING_OWNER
