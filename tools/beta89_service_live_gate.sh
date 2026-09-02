@@ -359,11 +359,6 @@ B111_EXIT_BLOCK_HTTP=$(curl -sS --connect-timeout 10 --max-time 20 -o "$D/b111-e
 [[ "$B111_EXIT_BLOCK_HTTP" == 409 ]]
 jq -e '.error.code=="OPEN_LABOR_BLOCKS_EXIT"' "$D/b111-exit-blocked.json" >/dev/null
 
-B111_BAD_START_BODY=$(jq -nc --arg ev "$B111_BAD_START" --arg dev "$DEVICE" --arg date "$B80_DATE" --arg mnv "$B80_MNV" --arg at "$B111_START_AT" '{
-  events:[{action:"labor_start",event_id:$ev,device_id:$dev,business_date:$date,payload:{labor_id:("__BAD_LABOR_"+$ev),session_id:"__MISSING_SESSION__",mnv:$mnv,shift:"Ca 2",labor_type:"Beta111 stale session",start_at:$at,deduct_staff:false,note:""}}]
-}')
-mutation_api b111-bad-session-start "$B111_BAD_START_BODY"
-jq -e '.ok==true and .results[0].status=="REVIEW_REQUIRED" and .results[0].error_code=="ATTENDANCE_NOT_ACTIVE"' "$D/b111-bad-session-start.json" >/dev/null
 
 sleep 2
 B111_END_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)
@@ -372,6 +367,14 @@ B111_FINISH_BODY=$(jq -nc --arg ev "$B111_LABOR_FINISH" --arg labor "$B111_LABOR
 }')
 mutation_api b111-labor-finish "$B111_FINISH_BODY"
 jq -e --arg e "$B111_LABOR_FINISH" '.ok==true and .results[0].local_event_id==$e and .results[0].status=="CONFIRMED"' "$D/b111-labor-finish.json" >/dev/null
+
+# Stale-session rejection is tested after closing the current interval so Beta113 max-one-OPEN does not mask the intended invariant.
+B111_BAD_START_BODY=$(jq -nc --arg ev "$B111_BAD_START" --arg dev "$DEVICE" --arg date "$B80_DATE" --arg mnv "$B80_MNV" --arg at "$B111_START_AT" '{
+  events:[{action:"labor_start",event_id:$ev,device_id:$dev,business_date:$date,payload:{labor_id:("__BAD_LABOR_"+$ev),session_id:"__MISSING_SESSION__",mnv:$mnv,shift:"Ca 2",labor_type:"Beta111 stale session",start_at:$at,deduct_staff:false,note:""}}]
+}')
+mutation_api b111-bad-session-start "$B111_BAD_START_BODY"
+jq -e '.ok==true and .results[0].status=="REVIEW_REQUIRED" and .results[0].error_code=="ATTENDANCE_NOT_ACTIVE"' "$D/b111-bad-session-start.json" >/dev/null
+
 
 read_api b111-context-done "$(jq -nc --arg mnv "$B80_MNV" --arg sid "$B80_SID" '{action:"employee_context",mnv:$mnv,session_id:$sid,include_labor:true,include_options:false}')"
 jq -e --arg sid "$B80_SID" '.ok==true and .session.session_id==$sid and .state=="ACTIVE" and .active_labor==null' "$D/b111-context-done.json" >/dev/null
