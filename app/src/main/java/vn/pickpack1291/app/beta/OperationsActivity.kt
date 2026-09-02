@@ -3346,7 +3346,13 @@ raw.contains("PDA_STATUS_MISMATCH_NOTIFY_SPECIALIST")->"Tình trạng PDA hiện
             if(serial.isNotBlank()&&last5.isNotBlank())labels.add("$last5 • $serial • Tình trạng: ${status.ifBlank{"—"}}")
         }
         val field=AutoCompleteTextView(this);var selectedLast5="";var internal=false
-        field.hint="Gõ 5 số cuối Seri PDA";field.threshold=1;field.textSize=13f;field.setTextColor(ink);field.setHintTextColor(Color.rgb(153,163,176));field.inputType=InputType.TYPE_CLASS_TEXT;field.setPadding(dp(13),dp(10),dp(13),dp(10));field.minHeight=dp(50);field.background=outline();field.setAdapter(ArrayAdapter(this,android.R.layout.simple_dropdown_item_1line,labels))
+        field.hint="Gõ 5 số cuối Seri PDA";field.threshold=1;field.textSize=13f;field.setTextColor(navy);field.typeface=Typeface.DEFAULT_BOLD;field.setHintTextColor(Color.rgb(100,116,139));field.inputType=InputType.TYPE_CLASS_TEXT;field.setPadding(dp(13),dp(10),dp(13),dp(10));field.minHeight=dp(50);field.background=outline()
+        field.setAdapter(object:ArrayAdapter<String>(this,android.R.layout.simple_dropdown_item_1line,labels){
+            override fun getView(position:Int,convertView:View?,parent:ViewGroup):View{
+                val v=super.getView(position,convertView,parent) as TextView
+                v.textSize=12.5f;v.setTextColor(ink);v.typeface=Typeface.DEFAULT;v.minHeight=dp(46);v.setPadding(dp(14),dp(7),dp(14),dp(7));return v
+            }
+        })
         field.setOnItemClickListener{parent,_,pos,_->val label=parent.getItemAtPosition(pos).toString();val p=resolvePdaObject(pdas,label);if(p!=null){selectedLast5=p.optString("last5").trim().ifBlank{p.optString("serial").takeLast(5)};internal=true;field.setText(selectedLast5,false);field.setSelection(field.text.length);field.tag=JSONObject(p.toString());internal=false;onSelected(JSONObject(p.toString()))}}
         field.addTextChangedListener(object:TextWatcher{override fun beforeTextChanged(s:CharSequence?,st:Int,c:Int,a:Int)=Unit;override fun onTextChanged(s:CharSequence?,st:Int,b:Int,c:Int)=Unit;override fun afterTextChanged(e:Editable?){if(!internal&&selectedLast5.isNotBlank()&&e?.toString()?.trim()!=selectedLast5){selectedLast5="";field.tag=null;onSelected(null)}}})
         field.setOnClickListener{field.showDropDown()}
