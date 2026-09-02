@@ -1,6 +1,6 @@
 # CURRENT STATE — PICK PACK 1291
 
-- updated_at: 2026-09-02T04:30:30Z
+- updated_at: 2026-09-02T04:48:39Z
 - status: BETA111_LIVE_TECHNICAL_PASS_AWAITING_OWNER
 - continuity_branch: release/beta111-owner-ui-labor-nav
 - source_sha: 03b37e5aa2726c273cc1e7c4a2161763bd3c4d2d
@@ -21,10 +21,15 @@
 - publish_artifact: 9831669563
 - pda_ota_artifact: 9831721383
 - final_artifact: 9831726759
+- post_harness_fast_check: 33591900310 PASS
+- pass_live_route_verify: 33591932637 PASS
+- final_pass_live_readback: 33592181385 PASS
+- superseded_route_only_failure: 33591410014
 - beta_ota: exact Beta110 -> Beta111 PASS via GitHub Release
 - apk_transport: GITHUB_RELEASE_ONLY
 - google_drive_apk: FORBIDDEN
 - technical_receipt: ops/beta111-technical-pass.json
+- ci_harness_receipt: ops/beta111-ci-harness-final-pass.json
 - release_lock: ops/beta111-release-lock.json
 - NAV-HISTORY-BACK-001: TECHNICAL_PASS_AWAITING_OWNER
 - UI-REVIEW-WARNING-001: TECHNICAL_PASS_AWAITING_OWNER
