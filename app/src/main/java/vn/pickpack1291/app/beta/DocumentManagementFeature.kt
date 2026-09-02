@@ -58,7 +58,8 @@ object DocumentManagementFeature {
         private var categoryIds=listOf<String>()
         private var categoryNames=listOf<String>()
         private lateinit var categorySpinner:Spinner
-        private lateinit var modeSpinner:Spinner
+        private lateinit var multiPageCheck:CheckBox
+        private lateinit var multiDocumentCheck:CheckBox
         private lateinit var filterSpinner:Spinner
         private lateinit var deleteSelectedButton:Button
         private lateinit var selectedDeleteText:TextView
@@ -120,11 +121,29 @@ object DocumentManagementFeature {
             val imageBox=column().apply{background=bg();setPadding(dp(10),dp(9),dp(10),dp(10))}
             imageBox.addView(text("Ảnh biên bản",10f,muted,true))
             imageBox.addView(gap(5))
-            modeSpinner=Spinner(activity).apply{
-                adapter=ArrayAdapter(activity,android.R.layout.simple_spinner_dropdown_item,listOf("Một biên bản nhiều trang","Nhiều biên bản"))
-                minimumHeight=dp(42);setPadding(dp(8),0,dp(8),0);background=bg();isEnabled=false
+            val modeRow=row()
+            var modeSync=false
+            multiPageCheck=CheckBox(activity).apply{
+                text="Một biên bản nhiều trang";textSize=10.2f;setTextColor(ink);isChecked=true;isEnabled=false
             }
-            imageBox.addView(modeSpinner,LinearLayout.LayoutParams(-1,dp(42)))
+            multiDocumentCheck=CheckBox(activity).apply{
+                text="Nhiều biên bản";textSize=10.2f;setTextColor(ink);isEnabled=false
+            }
+            multiPageCheck.setOnCheckedChangeListener{_,checked->
+                if(modeSync)return@setOnCheckedChangeListener
+                modeSync=true
+                if(checked)multiDocumentCheck.isChecked=false else if(!multiDocumentCheck.isChecked)multiPageCheck.isChecked=true
+                modeSync=false
+            }
+            multiDocumentCheck.setOnCheckedChangeListener{_,checked->
+                if(modeSync)return@setOnCheckedChangeListener
+                modeSync=true
+                if(checked)multiPageCheck.isChecked=false else if(!multiPageCheck.isChecked)multiDocumentCheck.isChecked=true
+                modeSync=false
+            }
+            modeRow.addView(multiPageCheck,LinearLayout.LayoutParams(0,dp(42),1.15f))
+            modeRow.addView(multiDocumentCheck,LinearLayout.LayoutParams(0,dp(42),.85f))
+            imageBox.addView(modeRow,LinearLayout.LayoutParams(-1,dp(42)))
             imageBox.addView(gap(5))
             val sourceActions=row()
             val camera=button("Chụp ảnh",teal)
@@ -242,7 +261,12 @@ object DocumentManagementFeature {
             if(selected.size>12)selectedHost.addView(text("+${selected.size-12}",12f,navy,true).apply{gravity=Gravity.CENTER},LinearLayout.LayoutParams(dp(54),dp(86)))
             val total=selected.sumOf{it.image.bytes.size.toLong()}
             previewMeta.text=if(selected.isEmpty())"0 ảnh" else "${selected.size} ảnh • ${formatBytes(total)}"
-            if(::modeSpinner.isInitialized)modeSpinner.isEnabled=selected.size>1
+            if(::multiPageCheck.isInitialized){
+                val enabled=selected.size>1
+                multiPageCheck.isEnabled=enabled
+                multiDocumentCheck.isEnabled=enabled
+                if(!enabled){multiPageCheck.isChecked=true;multiDocumentCheck.isChecked=false}
+            }
             uploadButton.isEnabled=selected.isNotEmpty()&&categoryIds.isNotEmpty()&&!busy
             uploadButton.alpha=if(uploadButton.isEnabled)1f else .4f
         }
@@ -417,7 +441,7 @@ object DocumentManagementFeature {
             if(busy)return
             busy=true;postUi{uploadButton.isEnabled=false;uploadButton.text="Đang lưu..."}
             executor.execute{
-                val mode=when{batch.size<=1->"SINGLE";modeSpinner.selectedItemPosition==0->"MULTI_PAGE";else->"MULTI_DOCUMENT"}
+                val mode=when{batch.size<=1->"SINGLE";multiDocumentCheck.isChecked->"MULTI_DOCUMENT";else->"MULTI_PAGE"}
                 val sharedGroup="batch-"+batch.first().idempotencyKey
                 val queued=mutableListOf<DocumentPendingStore.Item>();var enqueueError:String?=null
                 batch.forEachIndexed{index,item->
@@ -537,7 +561,10 @@ object DocumentManagementFeature {
         }
         private fun clearSelected(){
             selectedHost.removeAllViews();previewMeta.text="0 ảnh"
-            if(::modeSpinner.isInitialized)modeSpinner.isEnabled=false
+            if(::multiPageCheck.isInitialized){
+                multiPageCheck.isEnabled=false;multiDocumentCheck.isEnabled=false
+                multiPageCheck.isChecked=true;multiDocumentCheck.isChecked=false
+            }
             uploadButton.isEnabled=false;uploadButton.alpha=.4f
         }
         private fun selectedFilterId():String=if(::filterSpinner.isInitialized)filterCategoryIds.getOrNull(filterSpinner.selectedItemPosition).orEmpty() else ""
