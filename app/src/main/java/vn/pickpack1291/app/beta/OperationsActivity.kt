@@ -1939,10 +1939,9 @@ class OperationsActivity : Activity() {
         dateButton.setOnClickListener{
             val dates=availableReportDates()
             if(dates.isEmpty()){TopNotice.show(this,"Chưa có ngày nào có dữ liệu báo cáo trên PDA.",TopNotice.Kind.INFO);return@setOnClickListener}
-            val labels=dates.map{reportDateLabel(it)}
-            AlertDialog.Builder(this).setTitle("Chọn ngày có dữ liệu").setItems(labels.toTypedArray()){_,i->
-                selectedDate=dates[i];dateButton.text=labels[i];loadDate()
-            }.setNegativeButton("Hủy",null).show()
+            DataDatePickerUi.show(this,dates,selectedDate){chosen->
+                selectedDate=chosen;dateButton.text=reportDateLabel(chosen);loadDate()
+            }
         }
         period.onItemSelectedListener=object:android.widget.AdapterView.OnItemSelectedListener{override fun onItemSelected(p:android.widget.AdapterView<*>?,v:View?,pos:Int,id:Long){if(cachedDate==selectedDate)renderCached()};override fun onNothingSelected(p:android.widget.AdapterView<*>?)=Unit}
         reportRealtimeRefresh={dates->if(screenState=="REPORT"&&(dates.isEmpty()||selectedDate in dates))loadDate()}
@@ -2042,7 +2041,13 @@ class OperationsActivity : Activity() {
         module="HISTORY";screenState="HISTORY";historyDetailMnv="";historyDetailName=""
         // S52_BETA46_SUPERADMIN_HISTORY_DELETE: SUPERADMIN bulk logical delete with immutable tombstone audit.
         if(isSuper())android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({flushDeferredHistoryDeletes()},500L)
-        val root=baseRoot("LỊCH SỬ");val body=body();var selectedDate=operationalStore.businessDate();var filter="ALL";val pageSize=100;var pageStart=0;var query=""
+        val root=baseRoot("LỊCH SỬ");val body=body()
+        fun canonicalHistoryDates():List<String> = operationalStore.availableDates().filter{date->
+            val events=operationalStore.loadDay(date)?.optJSONArray("events")
+            events!=null&&events.length()>0
+        }
+        val initialHistoryDates=canonicalHistoryDates()
+        var selectedDate=initialHistoryDates.firstOrNull()?:operationalStore.businessDate();var filter="ALL";val pageSize=100;var pageStart=0;var query=""
         val hiddenHistoryIds=(getSharedPreferences("pp_history_delete_ui",MODE_PRIVATE).getStringSet("hidden_ids",emptySet())?:emptySet()).toMutableSet()
         val selectedHistoryIds=linkedSetOf<String>();val currentPageDeleteIds=linkedSetOf<String>();val pageChecks=mutableListOf<CheckBox>()
         val q=input("Tìm MNV, họ tên, nghiệp vụ, người xử lý",false).apply{setSingleLine(true)};val dateButton=Button(this).apply{text=runCatching{java.time.LocalDate.parse(selectedDate).format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}.getOrDefault(selectedDate);textSize=11f;isAllCaps=false;background=outlineBg(surface,14);setTextColor(ink)}
@@ -2111,7 +2116,20 @@ class OperationsActivity : Activity() {
         }
         allBtn.setOnClickListener{filter="ALL";pageStart=0;render()};pendingBtn.setOnClickListener{filter="PENDING";pageStart=0;render()};failBtn.setOnClickListener{filter="FAILED";pageStart=0;render()}
         q.addTextChangedListener(object:TextWatcher{override fun beforeTextChanged(v:CharSequence?,st:Int,c:Int,a:Int)=Unit;override fun onTextChanged(v:CharSequence?,st:Int,b:Int,c:Int){query=v?.toString().orEmpty();pageStart=0;render()};override fun afterTextChanged(v:Editable?)=Unit})
-        dateButton.setOnClickListener{val d=runCatching{java.time.LocalDate.parse(selectedDate)}.getOrDefault(java.time.LocalDate.now(ZoneId.of("Asia/Ho_Chi_Minh")));android.app.DatePickerDialog(this,{_,y,m,day->selectedDate=java.time.LocalDate.of(y,m+1,day).toString();dateButton.text=java.time.LocalDate.parse(selectedDate).format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));query="";q.setText("");pageStart=0;render()},d.year,d.monthValue-1,d.dayOfMonth).show()}
+        dateButton.setOnClickListener{
+            val localDates=operationalStore.localHistoryAll().mapNotNull{local->
+                val bodyJ=local.optJSONObject("body")?:return@mapNotNull null
+                val payload=bodyJ.optJSONObject("payload")?:bodyJ
+                payload.optString("business_date").ifBlank{bodyJ.optString("business_date")}.ifBlank{
+                    runCatching{java.time.Instant.ofEpochMilli(local.optLong("queued_at")).atZone(ZoneId.of("Asia/Ho_Chi_Minh")).toLocalDate().toString()}.getOrDefault("")
+                }.takeIf{it.matches(Regex("\\d{4}-\\d{2}-\\d{2}"))}
+            }
+            val dates=(canonicalHistoryDates()+localDates).distinct().sortedDescending()
+            if(dates.isEmpty()){TopNotice.show(this,"Chưa có ngày nào có dữ liệu lịch sử.",TopNotice.Kind.INFO);return@setOnClickListener}
+            DataDatePickerUi.show(this,dates,selectedDate){chosen->
+                selectedDate=chosen;dateButton.text=java.time.LocalDate.parse(chosen).format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));query="";q.setText("");pageStart=0;render()
+            }
+        }
         historyRealtimeRefresh={dates->if(screenState=="HISTORY"&&(dates.isEmpty()||query.isNotBlank()||selectedDate in dates))render()}
         attach(root,body);render();refreshHistoryCanonical()
     }
