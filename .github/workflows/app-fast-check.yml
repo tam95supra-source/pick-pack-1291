@@ -306,6 +306,7 @@ jobs:
           python3 tools/beta110_owner_scope_contract.py
           python3 tools/beta111_owner_scope_contract.py
           python3 tools/beta112_review_warning_contract.py
+          python3 tools/beta112_auth_parity_repair_contract.py
           grep -q 'versionCode = 1' app/build.gradle.kts
           grep -q 'versionName = "0.1.0-stable"' app/build.gradle.kts
           gradle --no-daemon --build-cache --parallel :app:testBetaDebugUnitTest :app:assembleBetaDebug :app:assembleStableDebug
