@@ -150,7 +150,9 @@ async function legacyMutationBatch(request:Request,env:Env):Promise<Response>{
       results.push({local_event_id:localEventId,status:pr.duplicate?"DUPLICATE":"CONFIRMED",canonical_event_id:pe.event_id,authority_epoch:pe.authority_epoch,authority_seq:pe.authority_seq,new_version:0,error_code:null,conflict:null,realtime_delivered:delivered});continue;
     }
     if(String((input as unknown as {action?:string}).action||"")==="admin_audit"){
-      const ai=input as unknown as AdminAuditInput,ar=await commitAdminAudit(env.DB,auth,ai),ae=ar.event,delivered=await broadcastEvent(env,ae);
+      const raw=input as unknown as AdminAuditInput&{audit_action?:string};
+      const ai={...raw,action:String(raw.audit_action||"").trim()} as AdminAuditInput;
+      const ar=await commitAdminAudit(env.DB,auth,ai),ae=ar.event,delivered=await broadcastEvent(env,ae);
       results.push({local_event_id:localEventId,status:ar.duplicate?"DUPLICATE":"CONFIRMED",canonical_event_id:ae.event_id,authority_epoch:ae.authority_epoch,authority_seq:ae.authority_seq,new_version:0,error_code:null,conflict:null,realtime_delivered:delivered});continue;
     }
     const result=await commitLegacyMutation(env.DB,env,auth,input),e=result.event as {event_id:string;event_type:string;entity_type:string;entity_id:string;business_date:string;authority_epoch:number;authority_seq:number;service_generation:string;new_version:number},delivered=await broadcastEvent(env,e);
