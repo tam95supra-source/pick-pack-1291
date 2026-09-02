@@ -41,8 +41,8 @@ object PostMealAttendanceFeature {
         val orange=Color.rgb(217,119,6);val red=Color.rgb(139,0,0)
         val root=LinearLayout(activity).apply{orientation=LinearLayout.VERTICAL;visibility=View.GONE;setPadding(0,0,0,dp(6))}
         val button=Button(activity).apply{
-            textSize=10.2f;setTextColor(Color.WHITE);typeface=Typeface.DEFAULT_BOLD;isAllCaps=false;gravity=Gravity.CENTER
-            minHeight=dp(46);setPadding(dp(8),dp(5),dp(8),dp(5))
+            textSize=10.5f;typeface=Typeface.DEFAULT_BOLD;isAllCaps=false;gravity=Gravity.CENTER
+            minHeight=dp(42);setPadding(dp(8),0,dp(8),0)
         }
         root.addView(button,LinearLayout.LayoutParams(-1,-2))
         val store=MealAttendanceLocalStore(activity)
