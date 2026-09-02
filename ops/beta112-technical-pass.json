@@ -82,10 +82,8 @@
   "stable": "UNCHANGED_NOT_PUBLIC",
   "main_sha": "021dac5c6932b3ac5c60ce8fdba562ddf3d9688f",
   "authority_change": "NONE",
-  "owner_acceptance": "PENDING",
-  "awaiting_owner_invariants": [
-    "UI-REVIEW-WARNING-001"
-  ],
+  "owner_acceptance": "COMPLETE",
+  "awaiting_owner_invariants": [],
   "preserved_active_pass": [
     "NAV-HISTORY-BACK-001",
     "LABOR-EXACT-SESSION-002",
@@ -95,6 +93,9 @@
   "owner_checklist": [
     "Rà soát vào/ra và các cảnh báo liên quan có cùng chiều cao, cỡ chữ, bo góc, viền và bố cục; cảnh báo dùng cùng đỏ canonical, rà soát đủ dùng xanh canonical."
   ],
-  "next_action": "OWNER_ACCEPTANCE_BETA112_ITEM_1_ONLY",
-  "recorded_at": "2026-09-02T09:18:37Z"
+  "next_action": "WAIT_FOR_OWNER_NEW_SCOPE",
+  "recorded_at": "2026-09-02T09:18:37Z",
+  "owner_acceptance_receipt": "ops/beta112-owner-acceptance.json",
+  "owner_feedback": "1 OK",
+  "owner_accepted_at": "2026-09-02T18:44:00+07:00"
 }

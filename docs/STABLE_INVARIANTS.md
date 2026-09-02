@@ -230,7 +230,7 @@ Mỗi invariant tối thiểu có:
 - OWNER acceptance Beta111: OWNER_ITEM_2_OK_2026-09-02T12:44+07:00; receipt `ops/beta111-owner-acceptance-partial.json`.
 
 ### UI-REVIEW-WARNING-001
-- Status: TECHNICAL_PASS_AWAITING_OWNER
+- Status: ACTIVE_PASS
 - Scope: Rà soát vào-ra / cảnh báo
 - Rule: các ô rà soát và cảnh báo liên quan đồng nhất chiều cao, typography, radius/stroke và ngôn ngữ màu theo mức độ.
 - Implementation Beta112: dùng chung `ReviewAlertUi`; fixed 42dp / 10.5sp / radius 10dp / stroke 2dp; cảnh báo cùng đỏ canonical, rà soát đủ xanh canonical; loại bỏ min-size/font-padding/state animator mặc định gây lệch Android Button.
@@ -238,8 +238,8 @@ Mỗi invariant tối thiểu có:
 - Technical evidence Beta112: candidate 33596529877/9833670469; SHA256 d5de4fea496a1be4926f3acc49f82fb60eb9065de694e075251ca493ce298e76; Fast Check 33612134466 PASS; visual/PDA/API36 33597157250/9833913262 PASS, 42 screenshots + human PASS 320x568/360x640/480x800; device 33611415963/9839191113 PASS; runtime 33612695867/9839670809 PASS; terminal publish/OTA/install/readback/finalize 33612994423 PASS; GitHub Release asset 540918700 exact bytes; Stable/main/signer/authority unchanged.
 - Auth parity recovery during pre-OTA: 33612548361/9839580952 PASS; no password rotation, no D1 mutation, no session revocation; prior runtime failure 33611682634 superseded.
 - Technical receipt: `ops/beta112-technical-pass.json`.
-- Previous OWNER feedback: Beta111 item 1 chưa OK vì vẫn chưa đồng nhất; Beta112 là technical fix mới.
-- OWNER acceptance: PENDING — chỉ chờ nghiệm thu mục 1 Beta112.
+- OWNER acceptance: PASS — OWNER xác nhận `1 OK` ngày 2026-09-02 18:44 +07:00; receipt `ops/beta112-owner-acceptance.json`.
+- Last verified: 0.4.2-beta.112 LIVE / OWNER acceptance complete.
 
 ### LABOR-EXACT-SESSION-002
 - Status: ACTIVE_PASS

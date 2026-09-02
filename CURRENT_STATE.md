@@ -1,7 +1,7 @@
 # CURRENT STATE — PICK PACK 1291
 
-- updated_at: 2026-09-02T09:18:37Z
-- status: BETA112_LIVE_TECHNICAL_PASS_AWAITING_OWNER
+- updated_at: 2026-09-02T11:44:00Z
+- status: BETA112_LIVE_OWNER_ACCEPTANCE_COMPLETE
 - continuity_branch: release/beta112-unified-review-warning
 - source_sha: b3009ca701670af487ee8dce3538fe9c3cde4ae5
 - beta_live: 0.4.2-beta.112 (versionCode 118)
@@ -18,7 +18,6 @@
 - device_regression: 33611415963 / 9839191113 PASS
 - beta_auth_parity_repair: 33612548361 / 9839580952 PASS / no password rotation / no D1 mutation / no session revocation
 - runtime_dod: 33612695867 / 9839670809 PASS
-- superseded_runtime_failure: 33611682634 / BETA_SHEET_AUTH_TARGET_FAILED
 - terminal_run: 33612994423 PASS
 - publish_artifact: 9839800512
 - ota_install_readback_artifact: 9839879502
@@ -28,16 +27,15 @@
 - beta_ota: exact 0.4.2-beta.112 PASS via GitHub Release
 - apk_transport: GITHUB_RELEASE_ONLY
 - google_drive_apk: FORBIDDEN
-- technical_receipt: ops/beta112-technical-pass.json
-- release_lock: ops/beta112-release-lock.json
-- UI-REVIEW-WARNING-001: TECHNICAL_PASS_AWAITING_OWNER
+- UI-REVIEW-WARNING-001: ACTIVE_PASS
 - NAV-HISTORY-BACK-001: ACTIVE_PASS
 - LABOR-EXACT-SESSION-002: ACTIVE_PASS
 - HISTORY-DELETE-CANONICAL-001: ACTIVE_PASS
 - DOCUMENT-BATCH-MODE-TICK-002: ACTIVE_PASS
-- existing_active_pass_semantics: unchanged
+- technical_receipt: ops/beta112-technical-pass.json
+- owner_acceptance_receipt: ops/beta112-owner-acceptance.json
 - stable: unchanged / not public
 - main_sha: 021dac5c6932b3ac5c60ce8fdba562ddf3d9688f
 - authority: SERVICE_PRIMARY / PRODUCTION / epoch 9 / generation m2-prod-reset-20260823-001
-- owner_acceptance: PENDING_ITEM_1_ONLY
-- next_action: OWNER_ACCEPTANCE_BETA112_ITEM_1_ONLY
+- owner_acceptance: COMPLETE
+- next_action: WAIT_FOR_OWNER_NEW_SCOPE
