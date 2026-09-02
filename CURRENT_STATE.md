@@ -1,44 +1,29 @@
 # CURRENT STATE — PICK PACK 1291
 
-- updated_at: 2026-09-02T04:48:39Z
-- status: BETA111_LIVE_TECHNICAL_PASS_AWAITING_OWNER
-- continuity_branch: release/beta111-owner-ui-labor-nav
-- source_sha: 03b37e5aa2726c273cc1e7c4a2161763bd3c4d2d
-- beta_live: 0.4.2-beta.111 (versionCode 117)
+- updated_at: 2026-09-02T09:18:19Z
+- status: BETA112_PASS_LIVE
+- continuity_branch: release/beta112-unified-review-warning
+- source_sha: b3009ca701670af487ee8dce3538fe9c3cde4ae5
+- beta_live: 0.4.2-beta.112 (versionCode 118)
 - package: vn.pickpack1291.app.beta.publicbeta
-- candidate_run: 33586428789
-- candidate_artifact: 9830403339
-- apk_sha256: f67049067e600f4d8439d0ae088889f7b35df8b215e5432a2fcdd54f05f04a4f
+- candidate_run: 33596529877
+- candidate_artifact: 9833670469
+- verify_run: 33597157250
+- verify_artifact: 9833913262
+- apk_sha256: d5de4fea496a1be4926f3acc49f82fb60eb9065de694e075251ca493ce298e76
 - apk_size: 14216181
 - signer_sha256: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
-- fast_check: 33588839641 PASS
-- service_live: 33588851239 / 9831120144 PASS
-- visual_pda_api36: 33589199933 / 9831243286 PASS
-- human_visual: PASS / 41 screenshots / 320x568, 360x640, 480x800
-- device_regression: 33590310367 / 9831531954 PASS
-- runtime_dod: 33590505522 attempt2 / 9831607439 PASS
-- terminal_run: 33590747613 PASS
-- publish_artifact: 9831669563
-- pda_ota_artifact: 9831721383
-- final_artifact: 9831726759
-- post_harness_fast_check: 33591900310 PASS
-- pass_live_route_verify: 33591932637 PASS
-- final_pass_live_readback: 33592181385 PASS
-- superseded_route_only_failure: 33591410014
-- beta_ota: exact Beta110 -> Beta111 PASS via GitHub Release
+- terminal_run: 33612994423
+- fast_check: PASS
+- service_gate: INHERITED_PASS_RUN_33588851239_SERVICE_SOURCE_UNCHANGED
+- visual_matrix: PASS 320x568 / 360x640 / 480x800
+- human_visual: PASS
+- pda_functional_pre_ota: PASS
+- beta_ota: exact 0.4.2-beta.112 PASS via GitHub Release
+- beta_ota_url: https://github.com/tam95supra-source/pick-pack-1291/releases/download/v0.4.2-beta.112-publicbeta/pick-pack-1291-public-beta-0.4.2-beta.112.apk
 - apk_transport: GITHUB_RELEASE_ONLY
 - google_drive_apk: FORBIDDEN
-- technical_receipt: ops/beta111-technical-pass.json
-- ci_harness_receipt: ops/beta111-ci-harness-final-pass.json
-- release_lock: ops/beta111-release-lock.json
-- NAV-HISTORY-BACK-001: TECHNICAL_PASS_AWAITING_OWNER
-- UI-REVIEW-WARNING-001: TECHNICAL_PASS_AWAITING_OWNER
-- LABOR-EXACT-SESSION-002: TECHNICAL_PASS_AWAITING_OWNER
-- HISTORY-DELETE-CANONICAL-001: TECHNICAL_PASS_AWAITING_OWNER
-- DOCUMENT-BATCH-MODE-TICK-002: TECHNICAL_PASS_AWAITING_OWNER
-- existing_active_pass_semantics: unchanged
-- stable: unchanged / not public
+- stable: unchanged
 - main_sha: 021dac5c6932b3ac5c60ce8fdba562ddf3d9688f
 - authority: SERVICE_PRIMARY / PRODUCTION / epoch 9 / generation m2-prod-reset-20260823-001
-- owner_acceptance: PENDING
-- next_action: OWNER_ACCEPTANCE_BETA111_CHECKLIST_1_TO_7
+- next_action: WAIT_FOR_OWNER_NEW_SCOPE

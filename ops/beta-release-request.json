@@ -1,6 +1,6 @@
 {
-  "stage": "PUBLISH",
-  "mode": "PUBLISH_BETA112_EXACT_BYTES_GITHUB_RELEASE_ONLY",
+  "stage": "pass_live",
+  "mode": "PASS_LIVE_EXACT_BYTES_GITHUB_RELEASE_ONLY",
   "version_name": "0.4.2-beta.112",
   "version_code": 118,
   "base_version": "0.4.2-beta.111",
@@ -18,7 +18,7 @@
   "candidate_locked": true,
   "rebuild": false,
   "resign": false,
-  "live": false,
+  "live": true,
   "scope": "beta112-unified-review-warning-only",
   "owner": "Nguyen Van Tam",
   "owner_acceptance_baseline": "BETA111_ITEMS_2_TO_7_ACTIVE_PASS_ITEM_1_PENDING_FIX",
@@ -49,7 +49,7 @@
   "runtime_dod_status": "PASS",
   "regression_case": "UI-REVIEW-WARNING-001 + tools/beta112_review_warning_contract.py + review_warning_shared_style_beta112; preserve ACTIVE_PASS NAV-HISTORY-BACK-001, LABOR-EXACT-SESSION-002, DOCUMENT-BATCH-MODE-TICK-002, HISTORY-DELETE-CANONICAL-001",
   "execution_nonce": "beta112-publish-20260902-07",
-  "next_action": "PUBLISH_EXACT_BYTES_THEN_OTA_INSTALL_READBACK_AND_FINALIZE",
+  "next_action": "WAIT_FOR_OWNER_NEW_SCOPE",
   "candidate_source_sha": "b3009ca701670af487ee8dce3538fe9c3cde4ae5",
   "candidate_run_id": 33596529877,
   "candidate_artifact_id": 9833670469,
@@ -92,5 +92,6 @@
   "runtime_dod_artifact_name": "beta-stable-runtime-33612695867",
   "release_lock": "ops/beta112-release-lock.json",
   "owner_acceptance": "PENDING",
-  "technical_pass_status": "PENDING_PUBLISH"
+  "technical_pass_status": "PENDING_PUBLISH",
+  "publish_run_id": "33612994423"
 }
