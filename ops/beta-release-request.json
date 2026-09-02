@@ -6,10 +6,10 @@
   "base_version": "0.4.2-beta.110",
   "base_version_code": 116,
   "base_source_sha": "1faebbf996836d442ec6e99ffba2a589bf3fcbd2",
-  "source_sha": "ec15b09c05cacba4aa7e03add0ef9073bd1859a3",
+  "source_sha": "03b37e5aa2726c273cc1e7c4a2161763bd3c4d2d",
   "package": "vn.pickpack1291.app.beta.publicbeta",
   "service_gate_required": true,
-  "service_gate": "PENDING_FRESH_BETA111_EXACT_SESSION_LABOR",
+  "service_gate": "PENDING_FRESH_BETA111_EXACT_SESSION_LABOR_AFTER_TS_FIX",
   "human_visual_pass": false,
   "stable_publish": "FORBIDDEN",
   "authority_change": "NONE",
@@ -39,6 +39,6 @@
   "apk_transport": "GITHUB_RELEASE_ONLY",
   "google_drive_apk": "FORBIDDEN",
   "regression_case": "NAV-HISTORY-BACK-001,UI-REVIEW-WARNING-001,LABOR-EXACT-SESSION-002,HISTORY-DELETE-CANONICAL-001,DOCUMENT-BATCH-MODE-TICK-002,DOCUMENT-BATCH-001,LABOR-TIME-RANGE-001",
-  "execution_nonce": "beta111-build-verify-20260902-01",
+  "execution_nonce": "beta111-build-verify-20260902-02",
   "next_action": "BUILD_SIGN_SERVICE_VISUAL_PDA_PRE_OTA"
 }
