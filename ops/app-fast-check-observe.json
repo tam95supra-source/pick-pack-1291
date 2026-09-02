@@ -1,8 +1,8 @@
 {
-  "run_id": 33588247386,
-  "run_sha": "57a0953adb63009c01ef41b31230b54a6945cd0a",
+  "run_id": 33588361698,
+  "run_sha": "ea73612633cb1c26a459f3323606533eba78acac",
   "ref": "release/beta111-owner-ui-labor-nav",
-  "execution_nonce": "beta111-build-verify-20260902-02",
-  "stage": "BUILD_VERIFY",
-  "observed_at": "2026-09-02T03:45:40Z"
+  "execution_nonce": "beta111-service-only-20260902-03",
+  "stage": "SERVICE_ONLY",
+  "observed_at": "2026-09-02T03:47:29Z"
 }
