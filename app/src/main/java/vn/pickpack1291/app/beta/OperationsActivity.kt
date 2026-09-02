@@ -581,6 +581,8 @@ class OperationsActivity : Activity() {
             val ended=group.count{shiftStaffEnded(it)}
             val head=row(surface).apply{
                 gravity=Gravity.CENTER_VERTICAL;setPadding(dp(9),dp(7),dp(9),dp(7));background=outlineBg(surface,12)
+                isClickable=true;isFocusable=true;contentDescription="Mở danh sách nhân sự $shift"
+                setOnClickListener{showCurrentDayShiftStaff(currentDate,shift,group)}
                 addView(txt(shift,10.8f,navy,true),LinearLayout.LayoutParams(0,-2,1f))
                 addView(txt("Trong ca ${group.size-ended} • Đã ra $ended",9.2f,muted,true))
             }
@@ -591,6 +593,8 @@ class OperationsActivity : Activity() {
                     val id=shiftStaffIdentity(s);val endedRow=shiftStaffEnded(s)
                     val line=row(bg).apply{
                         gravity=Gravity.CENTER_VERTICAL;setPadding(dp(5),dp(4),dp(5),dp(4))
+                        isClickable=true;isFocusable=true;contentDescription="Mở quét QR vào ra ${dash(id.fullName)}"
+                        setOnClickListener{if(id.mnv.isNotBlank())loadEmployee(id.mnv)}
                         addView(txt("${dash(id.mnv)} • ${dash(id.fullName)}",10.1f,ink,true),LinearLayout.LayoutParams(0,-2,1f))
                         addView(txt(if(endedRow)"ĐÃ RA" else "TRONG CA",8.5f,if(endedRow)muted else green,true))
                     }
