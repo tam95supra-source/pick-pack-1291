@@ -21,9 +21,9 @@ mobile=read("service/src/mobile_hotfix.ts")
 outbound=read("service/src/outbound_beta78.ts")
 
 # 1) Changelog is version-fenced and current Beta metadata is exact.
-assert 'versionCode = 119' in gradle
-assert 'versionName = "0.4.2-beta.113"' in gradle
-assert 'const val VERSION_NAME = "0.4.2-beta.113"' in notes
+assert 'versionCode = 120' in gradle
+assert 'versionName = "0.4.2-beta.114"' in gradle
+assert 'const val VERSION_NAME = "0.4.2-beta.114"' in notes
 assert 'verifyBetaReleaseNotes' in gradle and 'dependsOn("verifyBetaReleaseNotes")' in gradle
 
 # 2) Admin audit durable routing keeps transport action and business audit action separate.
@@ -86,5 +86,8 @@ scan=ops[ops.index("private fun employeeScan()"):ops.index("private fun employee
 assert scan.index('body.addView(mnv') < scan.index('addInlineCurrentShiftStaff(body)')
 render=ops[ops.index("private fun renderEmployee(ctx"):ops.index("private fun sameEmployeeContext")]
 assert render.index('when(state)') < render.index('addInlineCurrentShiftStaff(body)')
+inline=ops[ops.index("private fun addInlineCurrentShiftStaff"):ops.index("private fun addScannedOldSessionWarning")]
+for token in ['setOnClickListener{showCurrentDayShiftStaff(currentDate,shift,group)}','setOnClickListener{if(id.mnv.isNotBlank())loadEmployee(id.mnv)}','contentDescription="Mở quét QR vào ra']:
+    assert token in inline, token
 
-print("beta113_owner_scope_contract=PASS changelog=PASS audit=PASS history_delete=PASS scan_select_ui=PASS labor_multi_interval=PASS all_view_data_dates=PASS outbound_sheet_row_index=PASS inline_roster=PASS")
+print("beta114_owner_scope_contract=PASS changelog=PASS audit=PASS history_delete=PASS scan_select_ui=PASS labor_multi_interval=PASS all_view_data_dates=PASS outbound_sheet_row_index=PASS inline_roster=PASS")
