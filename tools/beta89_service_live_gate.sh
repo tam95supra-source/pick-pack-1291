@@ -132,6 +132,7 @@ B92_USED_PICK="__B92_USED_PICK_${SUFFIX}"; B92_USED_TABLE="__B92_USED_TABLE_${SU
 B92_BLOCKED_TABLE="__B92_BLOCKED_TABLE_${SUFFIX}"; B92_BLOCKED_PACK="__B92_BLOCKED_PACK_${SUFFIX}"; B92_BLOCKED="__B92_BLOCKED_${SUFFIX}"
 B99_PROBE="__B99_RESILIENCE_PROBE_${SUFFIX}"
 B110_LABOR_START="__B110_LABOR_START_${SUFFIX}"; B110_LABOR_FINISH="__B110_LABOR_FINISH_${SUFFIX}"
+B111_LABOR_ID="__B111_LABOR_${SUFFIX}"; B111_LABOR_START="__B111_LABOR_START_${SUFFIX}"; B111_LABOR_FINISH="__B111_LABOR_FINISH_${SUFFIX}"; B111_LABOR_CORRECT="__B111_LABOR_CORRECT_${SUFFIX}"; B111_BAD_START="__B111_BAD_START_${SUFFIX}"; B111_BAD_FINISH="__B111_BAD_FINISH_${SUFFIX}"; B111_HISTORY_DELETE="__B111_HISTORY_DELETE_${SUFFIX}"
 DOC_CATEGORY_ID=""
 DOC_CATEGORY_NAME="__B107_BIEN_BAN_${SUFFIX}"
 DOC_CATEGORY_RENAMED="__B108_RENAMED_${SUFFIX}"
@@ -339,6 +340,66 @@ B110_LABOR_DONE_DB=$(sql "SELECT state,start_at,end_at FROM labor_sessions WHERE
 printf '%s' "$B110_LABOR_DONE_DB" > "$D/b110-labor-complete-db.json"
 node -e 'const j=JSON.parse(process.argv[1]),r=j?.[0]?.results?.[0];if(!r||r.state!=="COMPLETED"||r.start_at!==process.argv[2]||r.end_at!==process.argv[3])throw new Error("B110_LABOR_COMPLETE_MISMATCH:"+JSON.stringify(r))' "$B110_LABOR_DONE_DB" "$B110_LABOR_START_AT" "$B110_LABOR_END_AT"
 echo 'beta110_labor_time_range=PASS open_exit_block=PASS completed_range=PASS'
+
+# Beta111: exact session/business_date/labor_id authority, daily OPEN+COMPLETED list, correction, stale-context rejection.
+B111_START_AT="$B110_LABOR_START_AT"
+B111_START_BODY=$(jq -nc --arg ev "$B111_LABOR_START" --arg labor "$B111_LABOR_ID" --arg dev "$DEVICE" --arg date "$B80_DATE" --arg sid "$B80_SID" --arg mnv "$B80_MNV" --arg at "$B111_START_AT" '{
+  events:[{action:"labor_start",event_id:$ev,device_id:$dev,business_date:$date,payload:{labor_id:$labor,session_id:$sid,mnv:$mnv,shift:"Ca 2",labor_type:"Beta111 exact session CI",start_at:$at,deduct_staff:false,note:""}}]
+}')
+mutation_api b111-labor-start "$B111_START_BODY"
+jq -e --arg e "$B111_LABOR_START" '.ok==true and .results[0].local_event_id==$e and .results[0].status=="CONFIRMED"' "$D/b111-labor-start.json" >/dev/null
+
+read_api b111-context-open "$(jq -nc --arg mnv "$B80_MNV" --arg sid "$B80_SID" '{action:"employee_context",mnv:$mnv,session_id:$sid,include_labor:true,include_options:false}')"
+jq -e --arg sid "$B80_SID" --arg labor "$B111_LABOR_ID" --arg date "$B80_DATE" '.ok==true and .source=="SERVICE_D1" and .business_date==$date and .session.session_id==$sid and .state=="ACTIVE" and .active_labor.labor_id==$labor and .active_labor.state=="OPEN"' "$D/b111-context-open.json" >/dev/null
+
+read_api b111-labor-list-open "$(jq -nc --arg date "$B80_DATE" '{action:"labor_list",business_date:$date}')"
+jq -e --arg labor "$B111_LABOR_ID" '([.items[]|select(.labor_id==$labor and .state=="OPEN")]|length)==1 and .open_count>=1' "$D/b111-labor-list-open.json" >/dev/null
+
+B111_EXIT_BLOCK_HTTP=$(curl -sS --connect-timeout 10 --max-time 20 -o "$D/b111-exit-blocked.json" -w '%{http_code}' -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' --data-binary "$(jq -nc --arg sid "$B80_SID" --arg mnv "$B80_MNV" --arg idem "__B111_EXIT_BLOCK_$SUFFIX" '{session_id:$sid,mnv:$mnv,pda_exit_status:"Tốt",idempotency_key:$idem}')" "$SERVICE_URL/v1/session/exit-v2")
+[[ "$B111_EXIT_BLOCK_HTTP" == 409 ]]
+jq -e '.error.code=="OPEN_LABOR_BLOCKS_EXIT"' "$D/b111-exit-blocked.json" >/dev/null
+
+B111_BAD_START_BODY=$(jq -nc --arg ev "$B111_BAD_START" --arg dev "$DEVICE" --arg date "$B80_DATE" --arg mnv "$B80_MNV" --arg at "$B111_START_AT" '{
+  events:[{action:"labor_start",event_id:$ev,device_id:$dev,business_date:$date,payload:{labor_id:("__BAD_LABOR_"+$ev),session_id:"__MISSING_SESSION__",mnv:$mnv,shift:"Ca 2",labor_type:"Beta111 stale session",start_at:$at,deduct_staff:false,note:""}}]
+}')
+mutation_api b111-bad-session-start "$B111_BAD_START_BODY"
+jq -e '.ok==true and .results[0].status=="REJECTED" and .results[0].error_code=="ATTENDANCE_NOT_ACTIVE"' "$D/b111-bad-session-start.json" >/dev/null
+
+B111_END_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+B111_FINISH_BODY=$(jq -nc --arg ev "$B111_LABOR_FINISH" --arg labor "$B111_LABOR_ID" --arg dev "$DEVICE" --arg date "$B80_DATE" --arg sid "$B80_SID" --arg mnv "$B80_MNV" --arg start "$B111_START_AT" --arg end "$B111_END_AT" '{
+  events:[{action:"labor_finish",event_id:$ev,device_id:$dev,business_date:$date,payload:{labor_id:$labor,session_id:$sid,mnv:$mnv,start_at:$start,end_at:$end,note:"Beta111 done"}}]
+}')
+mutation_api b111-labor-finish "$B111_FINISH_BODY"
+jq -e --arg e "$B111_LABOR_FINISH" '.ok==true and .results[0].local_event_id==$e and .results[0].status=="CONFIRMED"' "$D/b111-labor-finish.json" >/dev/null
+
+read_api b111-context-done "$(jq -nc --arg mnv "$B80_MNV" --arg sid "$B80_SID" '{action:"employee_context",mnv:$mnv,session_id:$sid,include_labor:true,include_options:false}')"
+jq -e --arg sid "$B80_SID" '.ok==true and .session.session_id==$sid and .state=="ACTIVE" and .active_labor==null' "$D/b111-context-done.json" >/dev/null
+read_api b111-labor-list-done "$(jq -nc --arg date "$B80_DATE" '{action:"labor_list",business_date:$date}')"
+jq -e --arg labor "$B111_LABOR_ID" '([.items[]|select(.labor_id==$labor and .state=="COMPLETED")]|length)==1 and .completed_count>=1' "$D/b111-labor-list-done.json" >/dev/null
+
+B111_CORRECT_START=$(date -u -d "$B111_START_AT + 1 minute" +%Y-%m-%dT%H:%M:%SZ)
+B111_CORRECT_BODY=$(jq -nc --arg ev "$B111_LABOR_CORRECT" --arg labor "$B111_LABOR_ID" --arg dev "$DEVICE" --arg date "$B80_DATE" --arg sid "$B80_SID" --arg mnv "$B80_MNV" --arg start "$B111_CORRECT_START" --arg end "$B111_END_AT" '{
+  events:[{action:"labor_finish",event_id:$ev,device_id:$dev,business_date:$date,payload:{labor_id:$labor,session_id:$sid,mnv:$mnv,start_at:$start,end_at:$end,correction:true,note:"Beta111 corrected"}}]
+}')
+mutation_api b111-labor-correct "$B111_CORRECT_BODY"
+jq -e --arg e "$B111_LABOR_CORRECT" '.ok==true and .results[0].local_event_id==$e and .results[0].status=="CONFIRMED"' "$D/b111-labor-correct.json" >/dev/null
+B111_CORRECT_DB=$(sql "SELECT state,start_at,end_at,note,version FROM labor_sessions WHERE labor_id='$B111_LABOR_ID';")
+printf '%s' "$B111_CORRECT_DB" > "$D/b111-labor-correct-db.json"
+node -e 'const j=JSON.parse(process.argv[1]),r=j?.[0]?.results?.[0];if(!r||r.state!=="COMPLETED"||r.start_at!==process.argv[2]||r.end_at!==process.argv[3]||r.note!=="Beta111 corrected"||Number(r.version)<3)throw new Error("B111_LABOR_CORRECTION_MISMATCH:"+JSON.stringify(r))' "$B111_CORRECT_DB" "$B111_CORRECT_START" "$B111_END_AT"
+
+B111_BAD_FINISH_BODY=$(jq -nc --arg ev "$B111_BAD_FINISH" --arg dev "$DEVICE" --arg date "$B80_DATE" --arg sid "$B80_SID" --arg mnv "$B80_MNV" --arg end "$B111_END_AT" '{
+  events:[{action:"labor_finish",event_id:$ev,device_id:$dev,business_date:$date,payload:{labor_id:("__MISSING_LABOR_"+$ev),session_id:$sid,mnv:$mnv,end_at:$end,note:"stale"}}]
+}')
+mutation_api b111-bad-labor-finish "$B111_BAD_FINISH_BODY"
+jq -e '.ok==true and .results[0].status=="REJECTED" and .results[0].error_code=="LABOR_NOT_OPEN"' "$D/b111-bad-labor-finish.json" >/dev/null
+
+owner_api /v1/history/delete b111-history-delete "$(jq -nc --arg ev "$B99_PROBE" --arg idem "$B111_HISTORY_DELETE" '{event_ids:[$ev],idempotency_key:$idem,reason:"Beta111 canonical delete regression"}')"
+jq -e --arg ev "$B99_PROBE" '.ok==true and .deleted_count==1 and (.target_event_ids|index($ev))!=null' "$D/b111-history-delete.json" >/dev/null
+B111_HISTORY_MISSING_HTTP=$(curl -sS --connect-timeout 10 --max-time 20 -o "$D/b111-history-delete-missing.json" -w '%{http_code}' -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' --data-binary "$(jq -nc --arg idem "__B111_HISTORY_MISSING_$SUFFIX" '{event_ids:["__LOCAL_ONLY_NONCANONICAL__"],idempotency_key:$idem,reason:"missing"}')" "$SERVICE_URL/v1/history/delete")
+[[ "$B111_HISTORY_MISSING_HTTP" == 404 ]]
+jq -e '.error.code=="HISTORY_DELETE_TARGET_NOT_FOUND"' "$D/b111-history-delete-missing.json" >/dev/null
+
+echo 'beta111_labor_exact_session=PASS exact_context=PASS daily_open_done=PASS open_exit_redirect_contract=PASS stale_session_reject=PASS stale_labor_reject=PASS completed_correction=PASS history_delete_canonical=PASS history_missing_404=PASS'
 
 B80_EXIT_BODY="{\"session_id\":\"$B80_SID\",\"mnv\":\"$B80_MNV\",\"pda_exit_status\":\"Tốt\",\"idempotency_key\":\"$B80_EXIT\"}"
 for attempt in 1 2 3 4; do
@@ -594,6 +655,6 @@ NODE
 BACKUP_ID=$(jq -r .backup_id "$D/portable-backup/manifest.json")
 AUTOPILOT_STATE=$(jq -r .state "$D/d1-autopilot/receipt.json")
 ROLLOVER_STATUS=$(jq -r .status "$D/d1-rollover-rehearsal/receipt.json")
-jq -n --arg source_sha "${SERVICE_SOURCE_SHA:-$GITHUB_SHA}" --arg service_url "$SERVICE_URL" --arg worker "$WORKER_NAME" --arg generation "$GEN" --arg backup_id "$BACKUP_ID" --arg autopilot "$AUTOPILOT_STATE" --arg rollover "$ROLLOVER_STATUS" --argjson baseline_ms "$BASELINE_MS" --argjson service_ack_ms "$SERVICE_ACK_MS" --argjson replication_ms "$REPLICATION_MS" --argjson d1_bytes "$DB_BYTES" --argjson d1_limit "$DB_LIMIT" '{status:"PASS",source_sha:$source_sha,worker:$worker,service_url:$service_url,generation:$generation,d1:{bytes:$d1_bytes,limit_bytes:$d1_limit,usage_ratio:($d1_bytes/$d1_limit),retention_config_range_days:"45..365",portable_backup:"VERIFIED",backup_id:$backup_id,capacity_autopilot:$autopilot,rollover_rehearsal_2x:$rollover,heavy_repair_interval_minutes:30},beta99:{resilience_probe_service_direct:"PASS",resilience_probe_duplicate:"PASS",business_projection:"NONE"},historical_sessions:["07323dde-0456-45f8-a1d6-942e9f2e602e","03b1337f-08fd-46a1-ab94-8b0700763df3","d94d968a-0cf6-4086-8352-85154a5ec62e"],historical_result:"3/3_SERVICE_D1_EXACT",outbound:{location_crud:"PASS",duplicate:"PASS",gsheet_readback:"PASS",baseline_google_append_readback_ms:$baseline_ms,service_d1_ack_ms:$service_ack_ms,background_replication_ms:$replication_ms,dual_write:false},authority_change:"NONE",beta89:{pda_return:"PASS",pda_exchange:"PASS",same_session_user_pick:"PASS",unavailable_new_assignment:"PASS",duplicate_leases:"PASS",audit_storage_before_after:"PASS",legacy_sync_payload_projection:"PASS"},beta95:{meal_attendance:"PASS",idempotency:"PASS",late_audit:"PASS",history_14d:"PASS",d1_retention:"CONFIG_45_365_BACKUP_GUARDED",repair_scan_interval:"30M"},beta107:{document_management:"PASS",drive_scope:"PASS",resumable_direct_upload:"PASS",exact_byte_readback:"PASS",exact_duplicate_guard:"PASS",category_edit_delete:"OWNER_DECISION_FAIL_CLOSED",cleanup:"PASS"},test_cleanup:"PASS"}' > "$D/receipt.json"
+jq -n --arg source_sha "${SERVICE_SOURCE_SHA:-$GITHUB_SHA}" --arg service_url "$SERVICE_URL" --arg worker "$WORKER_NAME" --arg generation "$GEN" --arg backup_id "$BACKUP_ID" --arg autopilot "$AUTOPILOT_STATE" --arg rollover "$ROLLOVER_STATUS" --argjson baseline_ms "$BASELINE_MS" --argjson service_ack_ms "$SERVICE_ACK_MS" --argjson replication_ms "$REPLICATION_MS" --argjson d1_bytes "$DB_BYTES" --argjson d1_limit "$DB_LIMIT" '{status:"PASS",source_sha:$source_sha,worker:$worker,service_url:$service_url,generation:$generation,d1:{bytes:$d1_bytes,limit_bytes:$d1_limit,usage_ratio:($d1_bytes/$d1_limit),retention_config_range_days:"45..365",portable_backup:"VERIFIED",backup_id:$backup_id,capacity_autopilot:$autopilot,rollover_rehearsal_2x:$rollover,heavy_repair_interval_minutes:30},beta99:{resilience_probe_service_direct:"PASS",resilience_probe_duplicate:"PASS",business_projection:"NONE"},historical_sessions:["07323dde-0456-45f8-a1d6-942e9f2e602e","03b1337f-08fd-46a1-ab94-8b0700763df3","d94d968a-0cf6-4086-8352-85154a5ec62e"],historical_result:"3/3_SERVICE_D1_EXACT",outbound:{location_crud:"PASS",duplicate:"PASS",gsheet_readback:"PASS",baseline_google_append_readback_ms:$baseline_ms,service_d1_ack_ms:$service_ack_ms,background_replication_ms:$replication_ms,dual_write:false},authority_change:"NONE",beta89:{pda_return:"PASS",pda_exchange:"PASS",same_session_user_pick:"PASS",unavailable_new_assignment:"PASS",duplicate_leases:"PASS",audit_storage_before_after:"PASS",legacy_sync_payload_projection:"PASS"},beta95:{meal_attendance:"PASS",idempotency:"PASS",late_audit:"PASS",history_14d:"PASS",d1_retention:"CONFIG_45_365_BACKUP_GUARDED",repair_scan_interval:"30M"},beta107:{document_management:"PASS",drive_scope:"PASS",resumable_direct_upload:"PASS",exact_byte_readback:"PASS",exact_duplicate_guard:"PASS",category_edit_delete:"OWNER_DECISION_FAIL_CLOSED",cleanup:"PASS"},beta110:{labor_time_range:"PASS",open_exit_block:"PASS",document_batch:"PASS"},beta111:{labor_exact_session:"PASS",daily_open_completed:"PASS",open_exit_block:"PASS",stale_session_reject:"PASS",stale_labor_reject:"PASS",completed_correction:"PASS",history_delete_canonical:"PASS",history_missing_404:"PASS"},test_cleanup:"PASS"}' > "$D/receipt.json"
 jq -e '.status=="PASS" and .historical_result=="3/3_SERVICE_D1_EXACT" and .outbound.duplicate=="PASS" and .outbound.gsheet_readback=="PASS"' "$D/receipt.json" >/dev/null
 cat "$D/receipt.json"
