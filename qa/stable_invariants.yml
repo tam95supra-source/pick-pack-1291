@@ -254,10 +254,77 @@ invariants:
     owner_acceptance: "DEFERRED_BY_OWNER_UNTIL_FIRST_STABLE_RELEASE_2026-09-01T07:14+07:00"
     common_mode_note: "Free-provider/account-wide outage risk remains an availability common mode; no claim of absolute provider outage isolation."
 
+
+  - id: CHANGELOG-CURRENT-VERSION-001
+    status: LOCKED_REQUIREMENT_PENDING_FIX
+    scope: changelog-current-version
+    rule: "In-app changelog must exactly match running versionName; Beta version bump without matching ReleaseNotes must fail build."
+    regression_minimum: [version_name_match, release_notes_match, prebuild_gate]
+    regression_case: "qa/beta113_owner_scope_regression.md + tools/beta113_owner_scope_contract.py"
+    owner_acceptance: "PENDING_BETA113"
+    active_pass: false
+
+  - id: ADMIN-AUDIT-PASSWORD-001
+    status: LOCKED_REQUIREMENT_PENDING_FIX
+    scope: password-admin-audit
+    rule: "Successful password change must record canonical change_password audit; admin_audit is routing only and audit payload must not contain password/proof/verifier."
+    regression_minimum: [password_success, canonical_audit_action, durable_route, no_sensitive_audit_payload, no_false_sync_failure]
+    regression_case: "qa/beta113_owner_scope_regression.md + tools/beta113_owner_scope_contract.py"
+    owner_acceptance: "PENDING_BETA113"
+    active_pass: false
+
+  - id: HISTORY-SUPERADMIN-CLEANUP-002
+    status: LOCKED_REQUIREMENT_PENDING_FIX
+    scope: superadmin-history-cleanup
+    parent_invariant: HISTORY-DELETE-CANONICAL-001
+    rule: "SUPERADMIN may delete any History card after existing security verification; canonical Service records use tombstones, terminal local unsyncable records delete locally, pending business mutations are not silently cancelled."
+    regression_minimum: [canonical_tombstone, local_terminal_cleanup, pending_outbox_preserved, privileged_verification]
+    regression_case: "qa/beta113_owner_scope_regression.md + tools/beta113_owner_scope_contract.py"
+    owner_acceptance: "PENDING_BETA113"
+    active_pass: false
+
+  - id: LABOR-MULTI-INTERVAL-003
+    status: LOCKED_REQUIREMENT_PENDING_FIX
+    scope: labor-multi-interval
+    parent_invariant: LABOR-EXACT-SESSION-002
+    rule: "One attendance session may have multiple labor intervals with unique labor_id; at most one OPEN, no overlap or auto-merge, exact labor edit/finish, attendance-bound and non-future times, all intervals visible."
+    regression_minimum: [multiple_intervals, one_open, no_overlap, no_auto_merge, exact_labor_id, attendance_bounds, no_future, all_visible]
+    regression_case: "qa/beta113_owner_scope_regression.md + tools/beta113_owner_scope_contract.py"
+    owner_acceptance: "PENDING_BETA113"
+    active_pass: false
+
+  - id: UI-DATA-DATE-SELECT-001
+    status: LOCKED_REQUIREMENT_PENDING_FIX
+    scope: data-display-date-picker
+    rule: "Display-only date pickers enable only dates with real data and dim/disable empty dates; edit/change date-time pickers remain unrestricted."
+    regression_minimum: [report_data_dates, history_data_dates, labor_data_dates, empty_dim_disabled, edit_date_exempt]
+    regression_case: "qa/beta113_owner_scope_regression.md + tools/beta113_owner_scope_contract.py"
+    owner_acceptance: "PENDING_BETA113"
+    active_pass: false
+
+  - id: UI-EMPLOYEE-SCAN-ROSTER-001
+    status: LOCKED_REQUIREMENT_PENDING_FIX
+    scope: employee-scan-inline-roster
+    rule: "Employee scan stays same height but visually emphasized; current-day roster is inline below scan; scanned employee/session renders before roster; reconciliation tiles only show quick in/out and pending-to-exit list with Exit."
+    regression_minimum: [scan_emphasis, inline_roster, scanned_session_first, reconciliation_pending_only]
+    regression_case: "qa/beta113_owner_scope_regression.md + tools/beta113_owner_scope_contract.py"
+    owner_acceptance: "PENDING_BETA113"
+    active_pass: false
+
+  - id: UI-FORM-CONSISTENCY-002
+    status: LOCKED_REQUIREMENT_PENDING_FIX
+    scope: form-select-ui-consistency
+    parent_invariant: UI-REVIEW-WARNING-001
+    rule: "Common form controls use consistent title/value hierarchy, radius/stroke/size; MNV scan intentionally uses 2dp emphasis; locked Beta112 ReviewAlertUi geometry and severity semantics remain unchanged."
+    regression_minimum: [common_outline, spinner_hierarchy, pda_select_hierarchy, review_alert_unchanged, visual_matrix]
+    regression_case: "qa/beta113_owner_scope_regression.md + tools/beta113_owner_scope_contract.py"
+    owner_acceptance: "PENDING_BETA113"
+    active_pass: false
+
 impact_map:
-  "app/**": [UI-STATUS-001, QR-LOCAL-001, MEAL-DATE-001, MEAL-WARN-001, ROLE-HISTORY-001, OTA-BETA-001, PDA-EXIT-001, ENV-ISOLATION-001, SERVICE-DISCOVERY-001, SHIFT-STAFF-DOWNLOAD-QR-001, DOCUMENT-MANAGEMENT-001, DOCUMENT-BATCH-001, LABOR-TIME-RANGE-001, MEAL-UI-NULL-001, UI-COPY-DENSITY-001, NAV-HISTORY-BACK-001, UI-REVIEW-WARNING-001, LABOR-EXACT-SESSION-002, HISTORY-DELETE-CANONICAL-001, DOCUMENT-BATCH-MODE-TICK-002, INFRA-RESILIENCE-001]
-  "service/**": [QR-LOCAL-001, MEAL-DATE-001, PDA-EXIT-001, ENV-ISOLATION-001, DOCUMENT-MANAGEMENT-001, DOCUMENT-BATCH-001, LABOR-TIME-RANGE-001, LABOR-EXACT-SESSION-002, INFRA-RESILIENCE-001]
+  "app/**": [UI-STATUS-001, QR-LOCAL-001, MEAL-DATE-001, MEAL-WARN-001, ROLE-HISTORY-001, OTA-BETA-001, PDA-EXIT-001, ENV-ISOLATION-001, SERVICE-DISCOVERY-001, SHIFT-STAFF-DOWNLOAD-QR-001, DOCUMENT-MANAGEMENT-001, DOCUMENT-BATCH-001, LABOR-TIME-RANGE-001, MEAL-UI-NULL-001, UI-COPY-DENSITY-001, NAV-HISTORY-BACK-001, UI-REVIEW-WARNING-001, LABOR-EXACT-SESSION-002, HISTORY-DELETE-CANONICAL-001, DOCUMENT-BATCH-MODE-TICK-002, INFRA-RESILIENCE-001, CHANGELOG-CURRENT-VERSION-001, ADMIN-AUDIT-PASSWORD-001, HISTORY-SUPERADMIN-CLEANUP-002, LABOR-MULTI-INTERVAL-003, UI-DATA-DATE-SELECT-001, UI-EMPLOYEE-SCAN-ROSTER-001, UI-FORM-CONSISTENCY-002]
+  "service/**": [QR-LOCAL-001, MEAL-DATE-001, PDA-EXIT-001, ENV-ISOLATION-001, DOCUMENT-MANAGEMENT-001, DOCUMENT-BATCH-001, LABOR-TIME-RANGE-001, LABOR-EXACT-SESSION-002, INFRA-RESILIENCE-001, ADMIN-AUDIT-PASSWORD-001, LABOR-MULTI-INTERVAL-003, UI-DATA-DATE-SELECT-001]
   "services/**": [ENV-ISOLATION-001, INFRA-RESILIENCE-001, BETA-STABLE-AUDIT-001]
   "google-apps-script/**": [ENV-ISOLATION-001, INFRA-RESILIENCE-001, OTA-BETA-001]
-  ".github/workflows/**": [OTA-BETA-001, ENV-ISOLATION-001, INFRA-RESILIENCE-001, BETA-STABLE-AUDIT-001]
+  ".github/workflows/**": [OTA-BETA-001, ENV-ISOLATION-001, INFRA-RESILIENCE-001, BETA-STABLE-AUDIT-001, CHANGELOG-CURRENT-VERSION-001]
   "config/environment_contracts.json": [ENV-ISOLATION-001, BETA-STABLE-AUDIT-001]
