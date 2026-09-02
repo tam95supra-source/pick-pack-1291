@@ -3,31 +3,31 @@
 - schema_version: 2
 - status: READY
 - task_state: OWNER_ACCEPTANCE_COMPLETE
-- time_utc: 2026-09-01T15:04:00Z
+- time_utc: 2026-09-02T00:43:15Z
 - owner: Nguyễn Văn Tâm
 - branch: beta/current
-- archive_file: docs/handovers/HANDOVER_20260901-150400_beta109-owner-accepted-active-pass.md
+- archive_file: docs/handovers/HANDOVER_20260902-004315_beta110-owner-accepted-active-pass.md
 
 ## LIVE
-- Beta109 LIVE: 0.4.2-beta.109 / versionCode 115 / package vn.pickpack1291.app.beta.publicbeta.
-- Exact candidate: source a72d8e20eaebe60235338fd1b9aaebde42507825; run 33506205883; artifact 9799840161.
-- SHA256 1c01a58eefe5d0501eccbfe0359a2d5c0b3ec159f5ef37889d757f0984bbc7c8; size 14167029; signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e.
-- Terminal release 33515483109 PASS; publish 9803429207; OTA/install/readback 9803518172; final 9803526992.
-- GitHub Release asset 539613285 exact bytes.
+- Beta110 LIVE: 0.4.2-beta.110 / versionCode 116 / package vn.pickpack1291.app.beta.publicbeta.
+- Exact candidate: source 1faebbf996836d442ec6e99ffba2a589bf3fcbd2; run 33554345340; artifact 9818862858.
+- SHA256 ae83831ac6f0412e2d314418f64ef8f4e28e67fbcf2c3b06d7a83810bda93f84; size 14199797; signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e.
+- Terminal release 33574078129 PASS; publish 9826016343; OTA/install/readback 9826069523; final 9826075161; GitHub Release asset 540340119 exact bytes.
 - Stable/main/signer/authority unchanged.
 
 ## OWNER acceptance complete
-- Beta108 đã xác nhận các mục 1,2,5,6,7,8 OK.
-- 2026-09-01 22:04 +07:00 OWNER xác nhận:
-  1. Near-similar warning OK; exact duplicate giữ nguyên.
-  2. Offline category + hàng chờ + durable selected draft qua restart + auto retry khi có mạng OK.
-- DOCUMENT-MANAGEMENT-001 = ACTIVE_PASS.
-- Receipt: ops/beta109-owner-acceptance.json.
+- 2026-09-02 07:43 +07:00 OWNER xác nhận toàn bộ checklist Beta110: 1 OK, 2 OK, 3 OK, 4 OK.
+- DOCUMENT-BATCH-001 = ACTIVE_PASS.
+- LABOR-TIME-RANGE-001 = ACTIVE_PASS.
+- MEAL-UI-NULL-001 = ACTIVE_PASS.
+- UI-COPY-DENSITY-001 = ACTIVE_PASS.
+- Receipt: ops/beta110-owner-acceptance.json.
+- Một số điểm chưa ưng mang tính giao diện sẽ chỉnh ở scope/phiên khác; không phủ nhận acceptance hiện tại.
 
-## Invariant lock
-- Toàn bộ semantics DOCUMENT-MANAGEMENT-001 đã được OWNER nghiệm thu.
-- Mọi thay đổi semantics sau này phải cảnh báo OWNER và chỉ đổi qua SUPERSEDED/new invariant theo policy.
-- Regression canonical: qa/beta109_document_management_regression.md + qa/stable_invariants.yml + docs/STABLE_INVARIANTS.md.
+## Regression lock
+- Các semantics Beta110 đã OWNER nghiệm thu phải được bảo vệ trong mọi change liên quan.
+- DOCUMENT-MANAGEMENT-001 và các ACTIVE_PASS cũ tiếp tục giữ nguyên.
+- Fast Check hậu registry trước acceptance: 33574631295 PASS.
 
 ## Blocker
 Không có.
