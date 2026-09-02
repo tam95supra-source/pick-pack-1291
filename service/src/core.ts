@@ -233,12 +233,16 @@ async function commitLaborStart(db:D1Database, auth:AuthContext, req:CanonicalMu
     db.prepare("SELECT labor_id,mnv,business_date,state,version FROM labor_sessions WHERE labor_id=?1").bind(req.entity_id),
     db.prepare("SELECT state,enter_at,exit_at FROM attendance_sessions WHERE mnv=?1 AND business_date=?2 AND (?3='' OR session_id=?3)").bind(mnv,req.business_date,sessionId),
     db.prepare("SELECT labor_id FROM labor_sessions WHERE mnv=?1 AND business_date=?2 AND state='OPEN' AND labor_id<>?3 LIMIT 1").bind(mnv,req.business_date,req.entity_id),
+    db.prepare("SELECT MAX(end_at) last_end FROM labor_sessions WHERE mnv=?1 AND business_date=?2 AND state='COMPLETED' AND labor_id<>?3").bind(mnv,req.business_date,req.entity_id),
   ]);
   const current=(checks[0]?.results?.[0]??null) as LaborRow|null,v=current?.version??0;
   if(v!==req.base_version)throw new CoreError("STALE_BASE_VERSION","CONFLICT",409,false,{current_version:v});if(current?.state==="OPEN")throw new CoreError("LABOR_ALREADY_OPEN","CONFLICT",409);
   if((checks[2]?.results?.length??0)>0)throw new CoreError("LABOR_OTHER_INTERVAL_OPEN","CONFLICT",409,false,{open_labor_id:String((checks[2]?.results?.[0] as {labor_id?:string})?.labor_id||"")});
   const attendance=(checks[1]?.results?.[0]??null) as {state?:string;enter_at?:string|null;exit_at?:string|null}|null;if(attendance?.state!=="ACTIVE")throw new CoreError("ATTENDANCE_NOT_ACTIVE","CONFLICT",409);
+  if(Date.parse(selectedStart)>Date.now()+60_000)throw new CoreError("LABOR_START_IN_FUTURE","VALIDATION",400);
   if(attendance.enter_at&&!Number.isNaN(Date.parse(attendance.enter_at))&&Date.parse(selectedStart)<Date.parse(attendance.enter_at))throw new CoreError("LABOR_START_BEFORE_ATTENDANCE","VALIDATION",400);
+  const lastEnd=String((checks[3]?.results?.[0] as {last_end?:string|null}|undefined)?.last_end||"");
+  if(lastEnd&&!Number.isNaN(Date.parse(lastEnd))&&Date.parse(selectedStart)<Date.parse(lastEnd))throw new CoreError("LABOR_INTERVAL_OVERLAP","CONFLICT",409,false,{last_end:lastEnd});
   const event=await buildEvent(req,auth,a,v+1),stmts=eventStatements(db,event,a.authority_seq);
   stmts.push(db.prepare(`INSERT INTO labor_sessions(labor_id,mnv,business_date,shift,labor_type,time_marker,state,start_at,note,deduct_staff,start_event_id,version,updated_at)
     VALUES(?1,?2,?3,?4,?5,?6,'OPEN',?7,?8,?9,?10,?11,?12)`)
@@ -252,10 +256,20 @@ async function commitLaborFinish(db:D1Database, auth:AuthContext, req:CanonicalM
   const correction=req.payload.correction===true;
   if(!current||(!correction&&current.state!=="OPEN")||(correction&&!["OPEN","COMPLETED"].includes(current.state)))throw new CoreError("LABOR_NOT_OPEN","CONFLICT",409);
   if(current.version!==req.base_version)throw new CoreError("STALE_BASE_VERSION","CONFLICT",409,false,{current_version:current.version});
-  const selectedStart=text(req.payload,"start_at",80)||current.start_at,selectedEnd=text(req.payload,"end_at",80)||req.timestamp;
+  const selectedStart=text(req.payload,"start_at",80)||current.start_at,selectedEnd=text(req.payload,"end_at",80)||req.timestamp,sessionId=text(req.payload,"session_id",220);
   if(!selectedStart||Number.isNaN(Date.parse(selectedStart)))throw new CoreError("LABOR_START_TIME_INVALID","VALIDATION",400);
   if(!selectedEnd||Number.isNaN(Date.parse(selectedEnd)))throw new CoreError("LABOR_END_TIME_INVALID","VALIDATION",400);
   if(Date.parse(selectedEnd)<Date.parse(selectedStart))throw new CoreError("LABOR_END_BEFORE_START","VALIDATION",400);
+  if(Date.parse(selectedEnd)>Date.now()+60_000)throw new CoreError("LABOR_END_IN_FUTURE","VALIDATION",400);
+  const checks=await db.batch([
+    db.prepare("SELECT state,enter_at,exit_at FROM attendance_sessions WHERE mnv=?1 AND business_date=?2 AND (?3='' OR session_id=?3)").bind(current.mnv,current.business_date,sessionId),
+    db.prepare("SELECT labor_id FROM labor_sessions WHERE mnv=?1 AND business_date=?2 AND labor_id<>?3 AND state='COMPLETED' AND start_at<?4 AND end_at>?5 LIMIT 1").bind(current.mnv,current.business_date,current.labor_id,selectedEnd,selectedStart),
+  ]);
+  const attendance=(checks[0]?.results?.[0]??null) as {state?:string;enter_at?:string|null;exit_at?:string|null}|null;
+  if(!attendance)throw new CoreError("ATTENDANCE_SESSION_NOT_FOUND","CONFLICT",409);
+  if(attendance.enter_at&&!Number.isNaN(Date.parse(attendance.enter_at))&&Date.parse(selectedStart)<Date.parse(attendance.enter_at))throw new CoreError("LABOR_START_BEFORE_ATTENDANCE","VALIDATION",400);
+  if(attendance.exit_at&&!Number.isNaN(Date.parse(attendance.exit_at))&&Date.parse(selectedEnd)>Date.parse(attendance.exit_at))throw new CoreError("LABOR_END_AFTER_ATTENDANCE","VALIDATION",400);
+  if((checks[1]?.results?.length??0)>0)throw new CoreError("LABOR_INTERVAL_OVERLAP","CONFLICT",409,false,{conflict_labor_id:String((checks[1]?.results?.[0] as {labor_id?:string})?.labor_id||"")});
   const event=await buildEvent(req,auth,a,current.version+1),stmts=eventStatements(db,event,a.authority_seq);
   stmts.push(db.prepare("UPDATE labor_sessions SET state='COMPLETED',start_at=?1,end_at=?2,finish_event_id=?3,note=CASE WHEN ?4<>'' THEN ?4 ELSE note END,version=?5,updated_at=?6 WHERE labor_id=?7 AND version=?8 AND state IN ('OPEN','COMPLETED')").bind(selectedStart,selectedEnd,event.event_id,text(req.payload,"note",500),event.new_version,event.committed_at,current.labor_id,current.version));
   await db.batch(stmts);return event;
