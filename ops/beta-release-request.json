@@ -39,7 +39,7 @@
   "apk_transport": "GITHUB_RELEASE_ONLY",
   "google_drive_apk": "FORBIDDEN",
   "regression_case": "NAV-HISTORY-BACK-001,UI-REVIEW-WARNING-001,LABOR-EXACT-SESSION-002,HISTORY-DELETE-CANONICAL-001,DOCUMENT-BATCH-MODE-TICK-002,DOCUMENT-BATCH-001,LABOR-TIME-RANGE-001",
-  "execution_nonce": "beta111-publish-20260902-09",
+  "execution_nonce": "beta111-pass-live-verify-20260902-10",
   "next_action": "OWNER_ACCEPTANCE_BETA111_CHECKLIST_1_TO_7",
   "candidate_source_sha": "03b37e5aa2726c273cc1e7c4a2161763bd3c4d2d",
   "candidate_run_id": 33586428789,
@@ -93,5 +93,6 @@
     "LABOR-EXACT-SESSION-002",
     "HISTORY-DELETE-CANONICAL-001",
     "DOCUMENT-BATCH-MODE-TICK-002"
-  ]
+  ],
+  "pass_live_validation": "PENDING_CI_ROUTE_VERIFY"
 }
