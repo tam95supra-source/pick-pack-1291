@@ -283,9 +283,9 @@ class OperationsActivity : Activity() {
 
 
     private fun laborOpenWarning():View{
-        val host=column(bg).apply{visibility=View.GONE;setPadding(0,0,0,dp(6))}
+        val host=ReviewAlertUi.warningContainer(this)
         val open=reconciliationButton("",false).apply{visibility=View.GONE;setOnClickListener{laborHome()}}
-        host.addView(open,LinearLayout.LayoutParams(-1,dp(42)))
+        host.addView(open,ReviewAlertUi.fixedHeightParams(this))
         api.call("labor_list",JSONObject().put("business_date",operationalStore.businessDate())){r->runOnUiThread{
             if(!r.ok)return@runOnUiThread
             val items=r.json?.optJSONArray("items")?:JSONArray();var count=0
@@ -572,7 +572,7 @@ class OperationsActivity : Activity() {
         if(!ctx.optString("state").equals("ACTIVE",true)||sessionDate.isBlank()||sessionDate>=currentDate)return
         val warning=reconciliationButton(OldSessionWarningFeature.WARNING_TEXT,false)
         warning.startAnimation(android.view.animation.AlphaAnimation(1f,0.35f).apply{duration=650L;repeatMode=android.view.animation.Animation.REVERSE;repeatCount=android.view.animation.Animation.INFINITE})
-        body.addView(warning,LinearLayout.LayoutParams(-1,dp(42)));body.addView(gap(5))
+        body.addView(warning,ReviewAlertUi.fixedHeightParams(this));body.addView(gap(4))
     }
 
     private fun employeeScan() {
@@ -3231,13 +3231,11 @@ raw.contains("PDA_STATUS_MISMATCH_NOTIFY_SPECIALIST")->"Tình trạng PDA hiện
     private fun spinner(items:Array<String>)=Spinner(this).apply{adapter=ArrayAdapter(this@OperationsActivity,android.R.layout.simple_spinner_dropdown_item,items);setPadding(dp(9),dp(3),dp(9),dp(3));minimumHeight=dp(44);background=outline();elevation=0f}
     private fun primary(t:String,c:Int,click:()->Unit)=Button(this).apply{text=t;textSize=11.5f;setTextColor(Color.WHITE);typeface=Typeface.DEFAULT_BOLD;isAllCaps=false;minHeight=dp(46);background=gradient(c,darken(c),12);elevation=0f;setOnClickListener{click()}}
     private fun smallButton(t:String,c:Int)=Button(this).apply{text=t;textSize=9.5f;setTextColor(Color.WHITE);typeface=Typeface.DEFAULT_BOLD;isAllCaps=false;background=round(c,10);setPadding(dp(4),0,dp(4),0)}
-    private fun reconciliationButton(t:String,balanced:Boolean)=Button(this).apply{
-        text=t;textSize=10.5f;typeface=Typeface.DEFAULT_BOLD;isAllCaps=false;setSingleLine(true);setPadding(dp(3),0,dp(3),0)
-        val fg=if(balanced)Color.rgb(16,112,66) else Color.rgb(176,0,32)
-        val fill=if(balanced)Color.rgb(226,248,235) else Color.rgb(255,226,232)
-        setTextColor(fg)
-        background=GradientDrawable().apply{setColor(fill);cornerRadius=dp(10).toFloat();setStroke(dp(2),Color.argb(220,Color.red(fg),Color.green(fg),Color.blue(fg)))}
-    }
+    private fun reconciliationButton(t:String,balanced:Boolean)=ReviewAlertUi.button(
+        this,
+        t,
+        if(balanced)ReviewAlertUi.Tone.OK else ReviewAlertUi.Tone.WARNING
+    )
     private fun host(content:View):View{
         val root=EdgeSwipeBackLayout(this){handleBackNavigation()}.apply{setBackgroundColor(bg)}
         val contentFrame=FrameLayout(this).apply{addView(content,FrameLayout.LayoutParams(-1,-1))}
