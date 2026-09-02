@@ -249,7 +249,6 @@ async function commitLaborFinish(db:D1Database, auth:AuthContext, req:CanonicalM
   const current=await db.prepare("SELECT labor_id,mnv,business_date,state,start_at,version FROM labor_sessions WHERE labor_id=?1").bind(req.entity_id).first<LaborRow&{start_at:string}>();
   const correction=req.payload.correction===true;
   if(!current||(!correction&&current.state!=="OPEN")||(correction&&!["OPEN","COMPLETED"].includes(current.state)))throw new CoreError("LABOR_NOT_OPEN","CONFLICT",409);
-  if(correction&&auth.role==="USER")throw new CoreError("LABOR_ADMIN_REQUIRED","PERMISSION",403);
   if(current.version!==req.base_version)throw new CoreError("STALE_BASE_VERSION","CONFLICT",409,false,{current_version:current.version});
   const selectedStart=text(req.payload,"start_at",80)||current.start_at,selectedEnd=text(req.payload,"end_at",80)||req.timestamp;
   if(!selectedStart||Number.isNaN(Date.parse(selectedStart)))throw new CoreError("LABOR_START_TIME_INVALID","VALIDATION",400);
