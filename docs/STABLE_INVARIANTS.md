@@ -166,41 +166,49 @@ Mỗi invariant tối thiểu có:
 - Latest Beta110 re-verification: exact source 1faebbf996836d442ec6e99ffba2a589bf3fcbd2; candidate 33554345340/9818862858; Service 33568634524/9824237674; visual/PDA/API36 33569543281/9824551840; Fast Check 33569530461; device 33570127113/9824662041; runtime 33573848594/9825920815; terminal 33574078129; publish 9826016343; OTA/install/readback 9826069523; final 9826075161. Stable/main/signer/authority unchanged.
 
 ### DOCUMENT-BATCH-001
-- Status: TECHNICAL_PASS_AWAITING_OWNER
+- Status: ACTIVE_PASS
 - Scope: Quản lý biên bản / batch UI + durable mutation
 - Rule: hỗ trợ chọn nhiều ảnh; upload theo `Một biên bản nhiều trang` hoặc `Nhiều biên bản`; lọc theo loại; chọn một/nhiều ảnh đã tải để hard-delete qua mutation bền vững; thao tác phải xuất hiện trong Lịch sử.
 - Parent invariant: DOCUMENT-MANAGEMENT-001 vẫn ACTIVE_PASS, semantics rename/hard-delete/Drive/direct-upload không đổi.
 - Regression: multi gallery select / durable multi draft / multipage group / multiple-document group / category filter / bulk selected delete / delete resume / document history.
 - Technical evidence Beta110: service run 33568634524 artifact 9824237674 PASS (multipage_group, selected_delete, reindex, history); visual/PDA/API36 run 33569543281 artifact 9824551840 PASS; Fast Check 33569530461 PASS; terminal release 33574078129 PASS; OTA/install/readback artifact 9826069523 exact bytes.
 - Technical receipt: `ops/beta110-technical-pass.json`.
-- OWNER acceptance: PENDING — chưa được chuyển ACTIVE_PASS.
+- OWNER acceptance: PASS — OWNER xác nhận toàn bộ Beta110 OK ngày 2026-09-02 07:43 +07:00; receipt `ops/beta110-owner-acceptance.json`.
+- UI follow-up: một số điểm chưa ưng chỉ mang tính giao diện, sẽ là scope chỉnh sửa mới; không phủ nhận acceptance hiện tại.
+- Last verified: 0.4.2-beta.110 LIVE / terminal run 33574078129 / OWNER acceptance complete.
 
 ### LABOR-TIME-RANGE-001
-- Status: TECHNICAL_PASS_AWAITING_OWNER
+- Status: ACTIVE_PASS
 - Scope: Công nhật / Ra ca / Nghiệp vụ
 - Rule: dùng bộ chọn giờ-phút; cho phép ghi bắt đầu trước và kết thúc sau; labor OPEN chặn Ra ca; màn Công nhật và Nghiệp vụ phải hiển thị/cảnh báo người còn labor OPEN.
 - Regression: time picker only / explicit start / explicit end / start without end / end after start / OPEN labor exit block / OPEN labor list / OPEN labor warning.
 - Technical evidence Beta110: service run 33568634524 artifact 9824237674 PASS (`beta110_labor_time_range=PASS open_exit_block=PASS completed_range=PASS`); visual/PDA/API36 33569543281/9824551840 PASS; terminal 33574078129 + OTA/install/readback 9826069523 PASS.
 - Technical receipt: `ops/beta110-technical-pass.json`.
-- OWNER acceptance: PENDING — chưa được chuyển ACTIVE_PASS.
+- OWNER acceptance: PASS — OWNER xác nhận toàn bộ Beta110 OK ngày 2026-09-02 07:43 +07:00; receipt `ops/beta110-owner-acceptance.json`.
+- UI follow-up: một số điểm chưa ưng chỉ mang tính giao diện, sẽ là scope chỉnh sửa mới; không phủ nhận acceptance hiện tại.
+- Last verified: 0.4.2-beta.110 LIVE / terminal run 33574078129 / OWNER acceptance complete.
 
 ### MEAL-UI-NULL-001
-- Status: TECHNICAL_PASS_AWAITING_OWNER
+- Status: ACTIVE_PASS
 - Scope: Điểm danh / UI null-safe
 - Rule: layout gọn, đủ thông tin; mọi dữ liệu thiếu hoặc JSON null hiển thị `-`; không thay đổi MEAL-DATE-001 và MEAL-WARN-001.
 - Regression: compact layout / no visible null / dash for missing / current-day write only / warning preserved.
 - Technical evidence Beta110: visual/PDA/API36 33569543281/9824551840 + human visual 41 screenshots 320x568/360x640/480x800 PASS; Fast Check 33569530461; service meal regression trong 33568634524 PASS; terminal 33574078129 PASS.
 - Technical receipt: `ops/beta110-technical-pass.json`.
-- OWNER acceptance: PENDING — chưa được chuyển ACTIVE_PASS.
+- OWNER acceptance: PASS — OWNER xác nhận toàn bộ Beta110 OK ngày 2026-09-02 07:43 +07:00; receipt `ops/beta110-owner-acceptance.json`.
+- UI follow-up: một số điểm chưa ưng chỉ mang tính giao diện, sẽ là scope chỉnh sửa mới; không phủ nhận acceptance hiện tại.
+- Last verified: 0.4.2-beta.110 LIVE / terminal run 33574078129 / OWNER acceptance complete.
 
 ### UI-COPY-DENSITY-001
-- Status: TECHNICAL_PASS_AWAITING_OWNER
+- Status: ACTIVE_PASS
 - Scope: nội dung chữ / mật độ màn nghiệp vụ
 - Rule: không hiển thị text giải thích kiểu AI/OWNER hoặc hướng dẫn kỹ thuật thừa; ưu tiên nội dung nghiệp vụ và diện tích hiển thị.
 - Regression: no owner/AI helper copy / compact document copy / compact labor copy / compact attendance copy.
 - Technical evidence Beta110: Fast Check 33569530461 PASS; visual/PDA/API36 33569543281/9824551840 + human visual PASS; terminal 33574078129 PASS.
 - Technical receipt: `ops/beta110-technical-pass.json`.
-- OWNER acceptance: PENDING — chưa được chuyển ACTIVE_PASS.
+- OWNER acceptance: PASS — OWNER xác nhận toàn bộ Beta110 OK ngày 2026-09-02 07:43 +07:00; receipt `ops/beta110-owner-acceptance.json`.
+- UI follow-up: một số điểm chưa ưng chỉ mang tính giao diện, sẽ là scope chỉnh sửa mới; không phủ nhận acceptance hiện tại.
+- Last verified: 0.4.2-beta.110 LIVE / terminal run 33574078129 / OWNER acceptance complete.
 
 ### INFRA-RESILIENCE-001
 - Status: TECHNICAL_PASS_AWAITING_OWNER
