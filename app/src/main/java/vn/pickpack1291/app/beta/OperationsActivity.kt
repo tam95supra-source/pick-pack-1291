@@ -1369,19 +1369,19 @@ class OperationsActivity : Activity() {
             val gen=employeeLookupGeneration
             api.call("session_exit_v2",JSONObject().put("session_id",resolved.optString("session_id")).put("mnv",mnv).put("expected_version",resolved.optInt("version")).put("pda_exit_status",status).put("idempotency_key",UUID.randomUUID().toString())){r->runOnUiThread{
                 releaseExitGuard()
-                if(!r.ok){if(r.error=="SESSION_CHANGED"||r.error=="SESSION_EXIT_CONFLICT")loadEmployee(mnv,forceRefresh=true)else showError(r.error?:"RA_CA_FAILED");return@runOnUiThread}
+                if(!r.ok){if(r.error?.contains("OPEN_LABOR_BLOCKS_EXIT")==true)openLaborExact(mnv,resolved.optString("session_id")) else if(r.error=="SESSION_CHANGED"||r.error=="SESSION_EXIT_CONFLICT")loadEmployee(mnv,forceRefresh=true)else showError(r.error?:"RA_CA_FAILED");return@runOnUiThread}
                 TopNotice.show(this,"Đã ghi nhận ra ca.",TopNotice.Kind.SUCCESS);foregroundSync.requestSync()
                 if(gen==employeeLookupGeneration&&liveEmployeeMnv==mnv)scheduleAttendanceAutoReset(mnv,gen)
             }}
         }
         exit.setOnClickListener{
             if(mnv.isBlank()){showError("MNV_REQUIRED");return@setOnClickListener}
-            if(ctx.optJSONObject("active_labor")!=null){showError("Còn công nhật đang làm. Hoàn thành công nhật trước khi ra ca.");return@setOnClickListener}
+            if(ctx.optJSONObject("active_labor")!=null){openLaborExact(mnv,s.optString("session_id"));return@setOnClickListener}
             if(!exitInFlightMnvs.add(mnv))return@setOnClickListener
             exit.isEnabled=false
             resolveActiveSessionForExit(mnv,s){resolved,remoteLabor,error->
                 if(error!=null||resolved==null){releaseExitGuard();if(error!="SESSION_EXIT_CONTEXT_STALE"&&error!="UNAUTHORIZED")showError(error?:"SESSION_EXIT_RESOLVE_FAILED");return@resolveActiveSessionForExit}
-                if(remoteLabor!=null){releaseExitGuard();showError("Còn công nhật đang làm. Hoàn thành công nhật trước khi ra ca.");return@resolveActiveSessionForExit}
+                if(remoteLabor!=null){releaseExitGuard();openLaborExact(mnv,resolved.optString("session_id"));return@resolveActiveSessionForExit}
                 val pdaId=exitPdaId(resolved)
                 if(pdaId.isBlank()){doExit(resolved,"");return@resolveActiveSessionForExit}
                 val expected=resolved.optString("pda_enter_status");val arr=MasterDataCache.resourceOptions(this).optJSONArray("pda_statuses")?:JSONArray();val statuses=mutableListOf<String>()
