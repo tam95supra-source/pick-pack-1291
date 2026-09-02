@@ -1,0 +1,26 @@
+{
+  "status": "PARTIAL_OWNER_ACCEPTANCE",
+  "beta_live": "0.4.2-beta.111",
+  "owner": "Nguyễn Văn Tâm",
+  "accepted_items": [
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+  ],
+  "not_accepted_items": [
+    1
+  ],
+  "accepted_invariants": [
+    "NAV-HISTORY-BACK-001",
+    "LABOR-EXACT-SESSION-002",
+    "DOCUMENT-BATCH-MODE-TICK-002",
+    "HISTORY-DELETE-CANONICAL-001"
+  ],
+  "pending_invariant": "UI-REVIEW-WARNING-001",
+  "owner_feedback": "1 chưa OK, vẫn chưa đồng nhất. Còn lại toàn bộ OK.",
+  "next_action": "FIX_UI_REVIEW_WARNING_ONLY_AND_RELEASE_BETA112",
+  "recorded_at": "2026-09-02T12:44:00+07:00"
+}
