@@ -18,6 +18,14 @@ async function materialize(env:Env,date:string):Promise<void>{
 
 function rank(status:string):number{return status==="OVERDUE_LATE"?0:status==="PENDING"?1:status==="LATE_EXPECTED"?2:status==="NO_RETURN"?3:4;}
 
+export async function mealAttendanceDates(env:Env):Promise<Response>{
+  const current=bangkokToday();await ensureCurrentBangkokBusinessDate(env.DB,current);
+  await materialize(env,current);
+  const floor=addDays(current,-13);
+  const rows=(await env.DB.prepare("SELECT DISTINCT business_date FROM post_meal_attendance WHERE business_date>=?1 AND business_date<=?2 ORDER BY business_date DESC").bind(floor,current).all<{business_date:string}>()).results??[];
+  return json({ok:true,source:"SERVICE_D1",retention_days:14,dates:rows.map(r=>String(r.business_date)).filter(safeDate)});
+}
+
 export async function mealAttendanceList(env:Env,body:{business_date?:string}):Promise<Response>{
   const current=bangkokToday();await ensureCurrentBangkokBusinessDate(env.DB,current);
   const date=String(body.business_date||current).slice(0,10);
