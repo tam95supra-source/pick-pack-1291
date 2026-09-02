@@ -131,16 +131,18 @@ B91_ADD="__B91_ADD_${SUFFIX}"; B91_RETAIN="__B91_RETAIN_${SUFFIX}"; B91_BLOCKED=
 B92_USED_PICK="__B92_USED_PICK_${SUFFIX}"; B92_USED_TABLE="__B92_USED_TABLE_${SUFFIX}"; B92_USED_PACK="__B92_USED_PACK_${SUFFIX}"
 B92_BLOCKED_TABLE="__B92_BLOCKED_TABLE_${SUFFIX}"; B92_BLOCKED_PACK="__B92_BLOCKED_PACK_${SUFFIX}"; B92_BLOCKED="__B92_BLOCKED_${SUFFIX}"
 B99_PROBE="__B99_RESILIENCE_PROBE_${SUFFIX}"
+B110_LABOR_START="__B110_LABOR_START_${SUFFIX}"; B110_LABOR_FINISH="__B110_LABOR_FINISH_${SUFFIX}"
 DOC_CATEGORY_ID=""
 DOC_CATEGORY_NAME="__B107_BIEN_BAN_${SUFFIX}"
 DOC_CATEGORY_RENAMED="__B108_RENAMED_${SUFFIX}"
 DOC_IDEMPOTENCY="__B107_DOC_${SUFFIX}"
 DOC_DUP_IDEMPOTENCY="__B107_DOC_DUP_${SUFFIX}"
 DOC_SIMILAR_IDEMPOTENCY="__B109_DOC_SIMILAR_${SUFFIX}"
+DOC_GROUP_ID="__B110_DOC_GROUP_${SUFFIX}"; DOC2_IDEMPOTENCY="__B110_DOC2_${SUFFIX}"; DOC_BULK_DELETE_IDEMPOTENCY="__B110_DOC_DELETE_${SUFFIX}"
 DOC_RENAME_IDEMPOTENCY="__B108_RENAME_${SUFFIX}"
 DOC_DELETE_IDEMPOTENCY="__B108_DELETE_${SUFFIX}"
-DOC_DRIVE_ID=""
-DOC_BYTES="$D/b107-document.jpg"
+DOC_DRIVE_ID=""; DOC2_DRIVE_ID=""
+DOC_BYTES="$D/b107-document.jpg"; DOC2_BYTES="$D/b110-document-page2.jpg"
 NOW=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 for v in "$LOGIN" "$DEVICE" "$AUTH_SESSION" "$LOC1" "$LOC2" "$DROP_ID" "$BASE_ID" "$B80_MNV" "$B80_PDA" "$B89_PDA2" "$B89_PICK" "$B89_BLOCKED_PICK" "$B91_TABLE" "$B91_PACK" "$B91_BLOCKED_TABLE" "$B91_BLOCKED_PACK" "$B92_USED_PICK" "$B92_USED_TABLE" "$B92_USED_PACK" "$B92_BLOCKED_TABLE" "$B92_BLOCKED_PACK"; do echo "::add-mask::$v"; done
 SERVICE_TOKEN_SECRET=$(printf '%s' "$CLOUDFLARE_ACCOUNT_ID|$GOOGLE_OAUTH_CLIENT_SECRET|pick-pack-1291-m2-service-token-v1" | sha256sum | awk '{print $1}')
@@ -160,19 +162,23 @@ cleanup_document_drive(){
     curl -sS -o /dev/null -X DELETE -H "Authorization: Bearer $GOOGLE_TOKEN" "https://www.googleapis.com/drive/v3/files/$DOC_DRIVE_ID" || true
     DOC_DRIVE_ID=""
   fi
+  if [[ -n "${DOC2_DRIVE_ID:-}" && -n "${GOOGLE_TOKEN:-}" ]]; then
+    curl -sS -o /dev/null -X DELETE -H "Authorization: Bearer $GOOGLE_TOKEN" "https://www.googleapis.com/drive/v3/files/$DOC2_DRIVE_ID" || true
+    DOC2_DRIVE_ID=""
+  fi
   set -e
 }
 cleanup_document_d1(){
   set +e
   if [[ -n "${DOC_CATEGORY_ID:-}" ]]; then
-    sql "DELETE FROM document_audit WHERE target_id IN (SELECT document_id FROM document_records WHERE category_id='$DOC_CATEGORY_ID') OR target_id='$DOC_CATEGORY_ID'; DELETE FROM document_records WHERE category_id='$DOC_CATEGORY_ID'; DELETE FROM document_category_mutation_items WHERE mutation_id IN (SELECT mutation_id FROM document_category_mutations WHERE category_id='$DOC_CATEGORY_ID'); DELETE FROM document_category_mutations WHERE category_id='$DOC_CATEGORY_ID'; DELETE FROM document_categories WHERE category_id='$DOC_CATEGORY_ID';" >/dev/null 2>&1 || true
+    sql "DELETE FROM document_delete_items WHERE mutation_id IN (SELECT mutation_id FROM document_delete_mutations WHERE actor_id='$LOGIN'); DELETE FROM document_delete_mutations WHERE actor_id='$LOGIN'; DELETE FROM document_audit WHERE actor_id='$LOGIN' OR target_id IN (SELECT document_id FROM document_records WHERE category_id='$DOC_CATEGORY_ID') OR target_id='$DOC_CATEGORY_ID'; DELETE FROM document_records WHERE category_id='$DOC_CATEGORY_ID'; DELETE FROM document_category_mutation_items WHERE mutation_id IN (SELECT mutation_id FROM document_category_mutations WHERE category_id='$DOC_CATEGORY_ID'); DELETE FROM document_category_mutations WHERE category_id='$DOC_CATEGORY_ID'; DELETE FROM document_categories WHERE category_id='$DOC_CATEGORY_ID';" >/dev/null 2>&1 || true
   fi
   set -e
 }
 cleanup_d1(){
   cleanup_document_d1
   set +e
-  sql "DELETE FROM outbound_replication_outbox WHERE event_id IN (SELECT event_id FROM events WHERE actor_id='$LOGIN'); DELETE FROM sheet_replication_outbox WHERE event_id IN (SELECT event_id FROM events WHERE actor_id='$LOGIN'); DELETE FROM outbound_drop_records WHERE record_id='$DROP_ID'; DELETE FROM outbound_locations WHERE location_key LIKE '__B78%'; DELETE FROM resource_daily_consumption WHERE mnv='$B80_MNV'; DELETE FROM resource_leases WHERE mnv='$B80_MNV'; DELETE FROM post_meal_attendance_audit WHERE mnv='$B80_MNV'; DELETE FROM post_meal_attendance WHERE mnv='$B80_MNV'; DELETE FROM attendance_sessions WHERE mnv='$B80_MNV'; DELETE FROM events WHERE actor_id='$LOGIN'; DELETE FROM resource_pack_map WHERE pack_table IN ('$B91_TABLE','$B91_BLOCKED_TABLE','$B92_USED_TABLE','$B92_BLOCKED_TABLE') OR user_pack IN ('$B91_PACK','$B91_BLOCKED_PACK','$B92_USED_PACK','$B92_BLOCKED_PACK'); DELETE FROM resources WHERE resource_id IN ('$B80_PDA','$B89_PDA2','$B89_PICK','$B89_BLOCKED_PICK','$B91_TABLE','$B91_PACK','$B91_BLOCKED_TABLE','$B91_BLOCKED_PACK','$B92_USED_PICK','$B92_USED_TABLE','$B92_USED_PACK','$B92_BLOCKED_TABLE','$B92_BLOCKED_PACK'); DELETE FROM employees WHERE mnv='$B80_MNV'; DELETE FROM auth_sessions WHERE login_id='$LOGIN'; DELETE FROM accounts WHERE login_id='$LOGIN';" >/dev/null 2>&1
+  sql "DELETE FROM outbound_replication_outbox WHERE event_id IN (SELECT event_id FROM events WHERE actor_id='$LOGIN'); DELETE FROM sheet_replication_outbox WHERE event_id IN (SELECT event_id FROM events WHERE actor_id='$LOGIN'); DELETE FROM outbound_drop_records WHERE record_id='$DROP_ID'; DELETE FROM outbound_locations WHERE location_key LIKE '__B78%'; DELETE FROM resource_daily_consumption WHERE mnv='$B80_MNV'; DELETE FROM resource_leases WHERE mnv='$B80_MNV'; DELETE FROM post_meal_attendance_audit WHERE mnv='$B80_MNV'; DELETE FROM post_meal_attendance WHERE mnv='$B80_MNV'; DELETE FROM labor_sessions WHERE mnv='$B80_MNV'; DELETE FROM attendance_sessions WHERE mnv='$B80_MNV'; DELETE FROM events WHERE actor_id='$LOGIN'; DELETE FROM resource_pack_map WHERE pack_table IN ('$B91_TABLE','$B91_BLOCKED_TABLE','$B92_USED_TABLE','$B92_BLOCKED_TABLE') OR user_pack IN ('$B91_PACK','$B91_BLOCKED_PACK','$B92_USED_PACK','$B92_BLOCKED_PACK'); DELETE FROM resources WHERE resource_id IN ('$B80_PDA','$B89_PDA2','$B89_PICK','$B89_BLOCKED_PICK','$B91_TABLE','$B91_PACK','$B91_BLOCKED_TABLE','$B91_BLOCKED_PACK','$B92_USED_PICK','$B92_USED_TABLE','$B92_USED_PACK','$B92_BLOCKED_TABLE','$B92_BLOCKED_PACK'); DELETE FROM employees WHERE mnv='$B80_MNV'; DELETE FROM auth_sessions WHERE login_id='$LOGIN'; DELETE FROM accounts WHERE login_id='$LOGIN';" >/dev/null 2>&1
   set -e
 }
 trap 'rc=$?; cleanup_document_drive; cleanup_d1; exit $rc' EXIT
@@ -307,7 +313,45 @@ B95_OLD_HTTP=$(curl -sS --connect-timeout 10 --max-time 20 -o "$D/b95-too-old.js
 [[ "$B95_OLD_HTTP" == 403 ]]; jq -e '.error.code=="MEAL_DATE_OUTSIDE_14_DAY_WINDOW"' "$D/b95-too-old.json" >/dev/null
 echo 'beta95_meal_attendance=PASS current_write=PASS reasons=PASS idempotency=PASS late_edit_audit=PASS history_14d=PASS'
 
-owner_api /v1/session/exit-v2 b80-exit "{\"session_id\":\"$B80_SID\",\"mnv\":\"$B80_MNV\",\"pda_exit_status\":\"Tốt\",\"idempotency_key\":\"$B80_EXIT\"}"
+# Beta110: explicit labor time range + OPEN labor blocks exit until completed.
+B110_LABOR_START_AT=$(jq -r '.session.enter_at' "$D/b80-enter.json")
+test -n "$B110_LABOR_START_AT" -a "$B110_LABOR_START_AT" != null
+B110_START_BODY=$(jq -nc --arg ev "$B110_LABOR_START" --arg dev "$DEVICE" --arg date "$B80_DATE" --arg mnv "$B80_MNV" --arg at "$B110_LABOR_START_AT" '{
+  events:[{action:"labor_start",event_id:$ev,device_id:$dev,business_date:$date,payload:{mnv:$mnv,shift:"Ca 2",labor_type:"Beta110 CI",start_at:$at,deduct_staff:false,note:""}}]
+}')
+mutation_api b110-labor-start "$B110_START_BODY"
+jq -e --arg e "$B110_LABOR_START" '.ok==true and .results[0].local_event_id==$e and .results[0].status=="CONFIRMED"' "$D/b110-labor-start.json" >/dev/null
+B110_LABOR_DB=$(sql "SELECT labor_id,state,start_at,end_at FROM labor_sessions WHERE labor_id='$B110_LABOR_START';")
+printf '%s' "$B110_LABOR_DB" > "$D/b110-labor-open-db.json"
+node -e 'const j=JSON.parse(process.argv[1]),r=j?.[0]?.results?.[0];if(!r||r.state!=="OPEN"||r.start_at!==process.argv[2]||r.end_at!=null)throw new Error("B110_LABOR_OPEN_MISMATCH:"+JSON.stringify(r))' "$B110_LABOR_DB" "$B110_LABOR_START_AT"
+
+B110_EXIT_BLOCK_HTTP=$(curl -sS --connect-timeout 10 --max-time 20 -o "$D/b110-exit-blocked.json" -w '%{http_code}' -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' --data-binary "{\"session_id\":\"$B80_SID\",\"mnv\":\"$B80_MNV\",\"pda_exit_status\":\"Tốt\",\"idempotency_key\":\"__B110_EXIT_BLOCK_$SUFFIX\"}" "$SERVICE_URL/v1/session/exit-v2")
+[[ "$B110_EXIT_BLOCK_HTTP" == 409 ]]
+jq -e '.error.code=="OPEN_LABOR_BLOCKS_EXIT"' "$D/b110-exit-blocked.json" >/dev/null
+
+B110_LABOR_END_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+B110_FINISH_BODY=$(jq -nc --arg ev "$B110_LABOR_FINISH" --arg dev "$DEVICE" --arg date "$B80_DATE" --arg mnv "$B80_MNV" --arg at "$B110_LABOR_END_AT" '{
+  events:[{action:"labor_finish",event_id:$ev,device_id:$dev,business_date:$date,payload:{mnv:$mnv,end_at:$at,note:""}}]
+}')
+mutation_api b110-labor-finish "$B110_FINISH_BODY"
+jq -e --arg e "$B110_LABOR_FINISH" '.ok==true and .results[0].local_event_id==$e and .results[0].status=="CONFIRMED"' "$D/b110-labor-finish.json" >/dev/null
+B110_LABOR_DONE_DB=$(sql "SELECT state,start_at,end_at FROM labor_sessions WHERE labor_id='$B110_LABOR_START';")
+printf '%s' "$B110_LABOR_DONE_DB" > "$D/b110-labor-complete-db.json"
+node -e 'const j=JSON.parse(process.argv[1]),r=j?.[0]?.results?.[0];if(!r||r.state!=="COMPLETED"||r.start_at!==process.argv[2]||r.end_at!==process.argv[3])throw new Error("B110_LABOR_COMPLETE_MISMATCH:"+JSON.stringify(r))' "$B110_LABOR_DONE_DB" "$B110_LABOR_START_AT" "$B110_LABOR_END_AT"
+echo 'beta110_labor_time_range=PASS open_exit_block=PASS completed_range=PASS'
+
+B80_EXIT_BODY="{\"session_id\":\"$B80_SID\",\"mnv\":\"$B80_MNV\",\"pda_exit_status\":\"Tốt\",\"idempotency_key\":\"$B80_EXIT\"}"
+for attempt in 1 2 3 4; do
+  B80_EXIT_HTTP=$(curl -sS --connect-timeout 10 --max-time 20 -o "$D/b80-exit.json" -w '%{http_code}' -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' --data-binary "$B80_EXIT_BODY" "$SERVICE_URL/v1/session/exit-v2" || printf 000)
+  if [[ "$B80_EXIT_HTTP" =~ ^2 ]]; then break; fi
+  if [[ "$B80_EXIT_HTTP" == 409 ]] && jq -e '.error.code=="SESSION_EXIT_CONFLICT" and .error.retryable==true' "$D/b80-exit.json" >/dev/null 2>&1; then
+    sleep "$attempt"
+    continue
+  fi
+  echo "B80_EXIT_FAILED:http=$B80_EXIT_HTTP code=$(jq -r '.error.code // "UNKNOWN"' "$D/b80-exit.json" 2>/dev/null || echo UNKNOWN)" >&2
+  exit 31
+done
+[[ "$B80_EXIT_HTTP" =~ ^2 ]] || { echo "B80_EXIT_CAS_RETRY_EXHAUSTED" >&2; exit 32; }
 jq -e --arg sid "$B80_SID" '.ok==true and .session.session_id==$sid and .session.state=="ENDED"' "$D/b80-exit.json" >/dev/null
 
 owner_api /v1/session/resources/snapshot b80-ended-snapshot "{\"session_id\":\"$B80_SID\",\"mnv\":\"$B80_MNV\"}"
@@ -352,9 +396,10 @@ jq -e '.ok==true and (.item.category_id|type=="string")' "$D/b107-category-creat
 DOC_CATEGORY_ID=$(jq -r '.item.category_id' "$D/b107-category-create.json")
 test -n "$DOC_CATEGORY_ID" -a "$DOC_CATEGORY_ID" != null
 
-DOC_SESSION_BODY=$(jq -nc --arg category "$DOC_CATEGORY_ID" --arg sha "$DOC_SHA" --arg md5 "$DOC_MD5" --arg idem "$DOC_IDEMPOTENCY" --arg at "$NOW" --argjson size "$DOC_SIZE" '{
+DOC_SESSION_BODY=$(jq -nc --arg category "$DOC_CATEGORY_ID" --arg sha "$DOC_SHA" --arg md5 "$DOC_MD5" --arg idem "$DOC_IDEMPOTENCY" --arg at "$NOW" --arg group "$DOC_GROUP_ID" --argjson size "$DOC_SIZE" '{
   category_id:$category,mime_type:"image/jpeg",byte_size:$size,sha256:$sha,md5:$md5,
-  width:2,height:2,source_kind:"CAMERA",captured_at:$at,idempotency_key:$idem
+  width:2,height:2,source_kind:"CAMERA",captured_at:$at,idempotency_key:$idem,
+  group_id:$group,group_mode:"MULTI_PAGE",page_index:1,page_count:2
 }')
 DOC_SESSION_HTTP=$(curl -sS --connect-timeout 10 --max-time 30 -o "$D/b107-upload-session.json" -w '%{http_code}' -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' --data-binary "$DOC_SESSION_BODY" "$SERVICE_URL/v1/documents/upload-session")
 [[ "$DOC_SESSION_HTTP" =~ ^2 ]] || {
@@ -405,6 +450,48 @@ jq -e --arg id "$DOC_ID" '.error.code=="DOCUMENT_SIMILAR_IMAGE"
 curl -fsS --connect-timeout 10 --max-time 30 -H "Authorization: Bearer $TOKEN" "$SERVICE_URL/v1/documents/$DOC_ID/media" > "$D/b107-media.jpg"
 [[ "$(sha256sum "$D/b107-media.jpg" | awk '{print $1}')" == "$DOC_SHA" ]]
 
+# Beta110: upload second page in the same group, then delete only page 2 and verify reindex 1/1.
+cp "$DOC_BYTES" "$DOC2_BYTES"; printf 'B110-PAGE2-%s' "$SUFFIX" >> "$DOC2_BYTES"
+DOC2_SIZE=$(wc -c < "$DOC2_BYTES" | tr -d ' '); DOC2_SHA=$(sha256sum "$DOC2_BYTES" | awk '{print $1}'); DOC2_MD5=$(md5sum "$DOC2_BYTES" | awk '{print $1}')
+DOC2_SESSION_BODY=$(jq -nc --arg category "$DOC_CATEGORY_ID" --arg sha "$DOC2_SHA" --arg md5 "$DOC2_MD5" --arg idem "$DOC2_IDEMPOTENCY" --arg at "$NOW" --arg group "$DOC_GROUP_ID" --argjson size "$DOC2_SIZE" '{
+  category_id:$category,mime_type:"image/jpeg",byte_size:$size,sha256:$sha,md5:$md5,
+  width:2,height:2,source_kind:"GALLERY",captured_at:$at,idempotency_key:$idem,
+  group_id:$group,group_mode:"MULTI_PAGE",page_index:2,page_count:2,allow_similar:true
+}')
+owner_api /v1/documents/upload-session b110-page2-session "$DOC2_SESSION_BODY"
+jq -e '.ok==true and .document.status=="PENDING" and .document.group_mode=="MULTI_PAGE" and .document.page_index==2 and .document.page_count==2' "$D/b110-page2-session.json" >/dev/null
+DOC2_ID=$(jq -r '.document.document_id' "$D/b110-page2-session.json"); DOC2_UPLOAD_URL=$(jq -r '.upload_url' "$D/b110-page2-session.json")
+DOC2_UPLOAD_HTTP=$(curl -sS --connect-timeout 10 --max-time 60 -o "$D/b110-page2-drive-upload.json" -w '%{http_code}' -X PUT -H 'Content-Type: image/jpeg' --data-binary @"$DOC2_BYTES" "$DOC2_UPLOAD_URL")
+[[ "$DOC2_UPLOAD_HTTP" =~ ^2 ]]
+DOC2_DRIVE_ID=$(jq -r '.id // empty' "$D/b110-page2-drive-upload.json"); test -n "$DOC2_DRIVE_ID"
+owner_api /v1/documents/complete b110-page2-complete "{\"document_id\":\"$DOC2_ID\",\"drive_file_id\":\"$DOC2_DRIVE_ID\"}"
+jq -e '.ok==true and .document.status=="COMPLETE" and .document.page_index==2 and .document.page_count==2' "$D/b110-page2-complete.json" >/dev/null
+
+curl -fsS -H "Authorization: Bearer $TOKEN" "$SERVICE_URL/v1/documents?limit=20&category_id=$DOC_CATEGORY_ID" > "$D/b110-multipage-list.json"
+jq -e --arg g "$DOC_GROUP_ID" --arg a "$DOC_ID" --arg b "$DOC2_ID" '
+  [.items[]|select(.group_id==$g)] as $x |
+  ($x|length)==2 and
+  ([$x[]|select(.document_id==$a and .page_index==1 and .page_count==2)]|length)==1 and
+  ([$x[]|select(.document_id==$b and .page_index==2 and .page_count==2)]|length)==1
+' "$D/b110-multipage-list.json" >/dev/null
+
+owner_api /v1/documents/delete b110-delete-page2 "$(jq -nc --arg id "$DOC2_ID" --arg idem "$DOC_BULK_DELETE_IDEMPOTENCY" '{operation:"START",document_ids:[$id],idempotency_key:$idem}')"
+B110_DELETE_MUTATION=$(jq -r '.mutation.mutation_id' "$D/b110-delete-page2.json"); test -n "$B110_DELETE_MUTATION" -a "$B110_DELETE_MUTATION" != null
+for _ in $(seq 1 20); do
+  state=$(jq -r '.mutation.state' "$D/b110-delete-page2.json")
+  [[ "$state" == DONE ]] && break
+  owner_api /v1/documents/delete b110-delete-page2 "$(jq -nc --arg id "$B110_DELETE_MUTATION" '{operation:"PROCESS",mutation_id:$id}')"
+  sleep 0.2
+done
+jq -e '.ok==true and .mutation.state=="DONE" and .mutation.processed_items==1' "$D/b110-delete-page2.json" >/dev/null
+DOC2_DRIVE_DELETE_HTTP=$(curl -sS --connect-timeout 10 --max-time 20 -o "$D/b110-page2-drive-deleted.json" -w '%{http_code}' -H "Authorization: Bearer $GOOGLE_TOKEN" "https://www.googleapis.com/drive/v3/files/$DOC2_DRIVE_ID?fields=id")
+[[ "$DOC2_DRIVE_DELETE_HTTP" == 404 ]]
+B110_REINDEX_DB=$(sql "SELECT (SELECT COUNT(*) FROM document_records WHERE document_id='$DOC2_ID') AS deleted_rows,(SELECT page_index FROM document_records WHERE document_id='$DOC_ID') AS page_index,(SELECT page_count FROM document_records WHERE document_id='$DOC_ID') AS page_count,(SELECT COUNT(*) FROM document_delete_items WHERE mutation_id='$B110_DELETE_MUTATION') AS checkpoint_rows,(SELECT COUNT(*) FROM events WHERE event_type='DOCUMENT_DELETE' AND actor_id='$LOGIN') AS history_rows;")
+printf '%s' "$B110_REINDEX_DB" > "$D/b110-delete-reindex-db.json"
+node -e 'const j=JSON.parse(process.argv[1]),r=j?.[0]?.results?.[0];if(!r||Number(r.deleted_rows)!==0||Number(r.page_index)!==1||Number(r.page_count)!==1||Number(r.checkpoint_rows)!==0||Number(r.history_rows)<1)throw new Error("B110_DELETE_REINDEX_MISMATCH:"+JSON.stringify(r))' "$B110_REINDEX_DB"
+DOC2_DRIVE_ID=""
+echo 'beta110_document_batch=PASS multipage_group=PASS selected_delete=PASS reindex=PASS history=PASS'
+
 owner_api /v1/documents/categories b108-category-rename "{\"operation\":\"UPDATE\",\"category_id\":\"$DOC_CATEGORY_ID\",\"display_name\":\"$DOC_CATEGORY_RENAMED\",\"idempotency_key\":\"$DOC_RENAME_IDEMPOTENCY\"}"
 jq -e '.ok==true and .mutation.operation=="UPDATE" and .mutation.state=="DONE" and .mutation.processed_items==1' "$D/b108-category-rename.json" >/dev/null
 DOC_RENAME_DB=$(sql "SELECT c.display_name,c.mutation_state,d.category_name_snapshot,d.file_name FROM document_categories c JOIN document_records d ON d.category_id=c.category_id WHERE c.category_id='$DOC_CATEGORY_ID' AND d.document_id='$DOC_ID';")
@@ -435,7 +522,7 @@ DOC_DRIVE_ID=""
 cleanup_document_d1
 AUTH_FIXTURE=$(sql "SELECT (SELECT COUNT(*) FROM accounts WHERE login_id='$LOGIN') AS account_rows,(SELECT COUNT(*) FROM auth_sessions WHERE login_id='$LOGIN' AND session_id='$AUTH_SESSION') AS session_rows;")
 node -e 'const j=JSON.parse(process.argv[1]),r=j?.[0]?.results?.[0];if(Number(r?.account_rows)!==1||Number(r?.session_rows)!==1)throw new Error("B108_SHARED_AUTH_CLEANUP_REGRESSION:"+JSON.stringify(r))' "$AUTH_FIXTURE"
-echo 'beta109_document_management=PASS worker_google_secret_sync=PASS drive_scope=PASS resumable_direct=PASS exact_readback=PASS exact_duplicate_guard=PASS rotation_aware_near_similar=PASS category_rename_all=PASS category_hard_delete=PASS mutation_receipt_minimal=PASS document_cleanup_only=PASS shared_auth_retained=PASS'
+echo 'beta110_document_management=PASS worker_google_secret_sync=PASS drive_scope=PASS resumable_direct=PASS exact_readback=PASS exact_duplicate_guard=PASS rotation_aware_near_similar=PASS multipage_group=PASS selected_delete_reindex=PASS document_history=PASS category_rename_all=PASS category_hard_delete=PASS mutation_receipt_minimal=PASS document_cleanup_only=PASS shared_auth_retained=PASS'
 
 META=$(curl -fsS -H "Authorization: Bearer $GOOGLE_TOKEN" "https://sheets.googleapis.com/v4/spreadsheets/$OUTBOUND_SHEET_ID?fields=sheets.properties(sheetId,title)")
 DROP_SHEET_ID=$(printf '%s' "$META" | jq -r '.sheets[]|select(.properties.title=="Nhận hàng rớt")|.properties.sheetId')
