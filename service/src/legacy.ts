@@ -85,9 +85,10 @@ export async function legacyCanonical(db:D1Database,input:LegacyMutationInput,au
     const open=requestedLaborId
       ?await db.prepare("SELECT labor_id,mnv,business_date,state,version FROM labor_sessions WHERE labor_id=?1").bind(requestedLaborId).first<LaborVersionRow&{mnv:string;business_date:string}>()
       :await activeLabor(db,mnv,businessDate);
-    if(!open||open.state!=="OPEN"||("mnv" in open&&String(open.mnv)!==mnv)||("business_date" in open&&String(open.business_date)!==businessDate))throw new CoreError("LABOR_NOT_OPEN","CONFLICT",409);
+    const correction=payload.correction===true;
+    if(!open||(!correction&&open.state!=="OPEN")||(correction&&!["OPEN","COMPLETED"].includes(open.state))||("mnv" in open&&String(open.mnv)!==mnv)||("business_date" in open&&String(open.business_date)!==businessDate))throw new CoreError("LABOR_NOT_OPEN","CONFLICT",409);
     eventType="LABOR_FINISH";entityType="LABOR_SESSION";entityId=open.labor_id;baseVersion=open.version;
-    canonicalPayload={mnv,session_id:text(payload.session_id,220),start_at:text(payload.start_at,80),end_at:text(payload.end_at,80),note:text(payload.note,500)};
+    canonicalPayload={mnv,session_id:text(payload.session_id,220),start_at:text(payload.start_at,80),end_at:text(payload.end_at,80),note:text(payload.note,500),correction};
   }
 
   return {event_id:eventId,event_type:eventType,entity_type:entityType,entity_id:entityId,business_date:businessDate,authority_epoch:a.authority_epoch,service_generation:a.service_generation,base_version:baseVersion,timestamp:text(payload.timestamp,80)||nowIso(),payload:canonicalPayload,idempotency_key:`legacy:${device}:${eventId}`,device_id:device,schema_version:1};
