@@ -38,13 +38,9 @@ object PostMealAttendanceFeature {
         val density=activity.resources.displayMetrics.density
         fun dp(v:Int)=(v*density).toInt()
         fun round(color:Int,r:Int)=GradientDrawable().apply{setColor(color);cornerRadius=dp(r).toFloat()}
-        val orange=Color.rgb(217,119,6);val red=Color.rgb(139,0,0)
-        val root=LinearLayout(activity).apply{orientation=LinearLayout.VERTICAL;visibility=View.GONE;setPadding(0,0,0,dp(6))}
-        val button=Button(activity).apply{
-            textSize=10.5f;typeface=Typeface.DEFAULT_BOLD;isAllCaps=false;gravity=Gravity.CENTER
-            minHeight=dp(42);setPadding(dp(8),0,dp(8),0)
-        }
-        root.addView(button,LinearLayout.LayoutParams(-1,-2))
+        val root=ReviewAlertUi.warningContainer(activity)
+        val button=ReviewAlertUi.button(activity,"",ReviewAlertUi.Tone.WARNING)
+        root.addView(button,ReviewAlertUi.fixedHeightParams(activity))
         val store=MealAttendanceLocalStore(activity)
         val today=LocalDate.now(ZoneId.of(TZ)).toString()
         fun unresolved(source:JSONObject?):Pair<Int,Boolean>{
@@ -73,9 +69,6 @@ object PostMealAttendanceFeature {
             if(count<=0){root.visibility=View.GONE;return}
             root.visibility=View.VISIBLE
             button.text="CẢNH BÁO: CÒN $count NHÂN SỰ CHƯA ĐIỂM DANH"
-            val fg=if(severe)Color.rgb(176,0,32) else Color.rgb(180,83,9)
-            val fill=if(severe)Color.rgb(255,226,232) else Color.rgb(255,247,237)
-            button.setTextColor(fg);button.background=GradientDrawable().apply{setColor(fill);cornerRadius=dp(10).toFloat();setStroke(dp(2),fg)}
             if(severe)button.startAnimation(android.view.animation.AlphaAnimation(1f,.55f).apply{
                 duration=760;repeatMode=android.view.animation.Animation.REVERSE;repeatCount=android.view.animation.Animation.INFINITE
             })
