@@ -32,8 +32,8 @@ android {
         create("beta") {
             dimension = "channel"
             applicationId = "vn.pickpack1291.app.beta.publicbeta"
-            versionCode = 116
-            versionName = "0.4.2-beta.110"
+            versionCode = 117
+            versionName = "0.4.2-beta.111"
             manifestPlaceholders["appLabel"] = "Pick Pack 1291 Beta"
             buildConfigField("String", "CHANNEL", "\"BETA\"")
             buildConfigField("String", "ENVIRONMENT_ID", "\"BETA\"")
@@ -93,7 +93,7 @@ dependencies {
 // Firebase client identifiers are injected at build time and default blank so source never contains project config.
 // GSHEET_API_URL remains public discovery/fallback configuration and manual update lookup path; no Service URL is compiled into APK.
 // Signing material remains outside this repository and the Android signer is owner-locked.
-// Beta108: durable document pending queue + post-Drive completion resume + bounded 64MB media cache; inherits Beta107 Drive metadata/duplicate design. Category edit/archive remains OWNER-decision fail-closed. Stable unchanged.
+// Beta111: owner UI/labor/navigation corrections: actual back stack, exact-session labor authority, non-wrapping wheel time, daily labor list/correction, unified warnings, document tick modes, canonical history-delete cleanup. Stable unchanged.\n// Beta108: durable document pending queue + post-Drive completion resume + bounded 64MB media cache; inherits Beta107 Drive metadata/duplicate design. Category edit/archive remains OWNER-decision fail-closed. Stable unchanged.
 // Beta107: Quản lý biên bản stores metadata in Service/D1 while image bytes upload direct to Google Drive; exact + perceptual duplicate detection. Category edit/archive remains OWNER-decision fail-closed. Stable unchanged.
 // Beta106: sanitize JSONObject.NULL/\"null\" master fields in NCC roster; preserve Beta105 roster/download-QR scope. Stable remains READY_NOT_LIVE until OWNER release.
 // Beta105: NCC-grouped shift staff roster, direct employee QR context, and dynamic GitHub Release download QR. Stable remains READY_NOT_LIVE until OWNER release.
