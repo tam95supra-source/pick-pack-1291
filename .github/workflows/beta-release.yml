@@ -123,7 +123,7 @@ jobs:
               jq -e '.live==true and .candidate_locked==true and .human_visual_pass==true and .visual_matrix=="PASS" and
                      .pda_functional_pre_ota=="PASS" and .back_api36=="PASS" and .fast_check=="PASS" and
                      .runtime_dod_status=="PASS" and .device_regression_status=="PASS" and
-                     .technical_pass_status=="PASS" and .owner_acceptance=="PENDING" and
+                     .technical_pass_status=="PASS" and (.owner_acceptance=="PENDING" or .owner_acceptance=="COMPLETE") and
                      .rebuild==false and .resign==false and .apk_transport=="GITHUB_RELEASE_ONLY" and .google_drive_apk=="FORBIDDEN" and
                      (.candidate_source_sha|type=="string" and length==40) and (.apk_sha256|type=="string" and length==64) and (.apk_size|type=="number") and
                      (.publish_run_id|type=="string" and test("^[0-9]+$"))' "$R" >/dev/null
