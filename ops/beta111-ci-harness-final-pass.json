@@ -1,0 +1,52 @@
+{
+  "status": "PASS",
+  "scope": "BETA111_POST_RELEASE_CI_HARNESS",
+  "root_cause": "beta-release finalizer wrote stage=pass_live but route had no pass_live case",
+  "fixed_by": [
+    {
+      "commit": "655dcc2dc97ef0696abdd4624a2cec2ca52a22b2",
+      "change": "verified pass_live no-op route + skip handoff-finalizer"
+    },
+    {
+      "commit": "d36ff119f4cabc925dacc95ae506b04277e65698",
+      "change": "Fast Check regression guard for pass_live"
+    }
+  ],
+  "evidence": {
+    "post_harness_fast_check": {
+      "run_id": 33591900310,
+      "status": "PASS",
+      "android_debug": "PASS",
+      "pass_live_verified_noop_route": "PASS"
+    },
+    "pass_live_route_verify": {
+      "run_id": 33591932637,
+      "status": "PASS",
+      "route": "PASS",
+      "publish": "SKIPPED",
+      "candidate": "SKIPPED",
+      "pda": "SKIPPED",
+      "finalize": "SKIPPED",
+      "handoff_finalizer": "SKIPPED"
+    },
+    "final_pass_live_readback": {
+      "run_id": 33592181385,
+      "status": "PASS",
+      "route": "PASS",
+      "publish": "SKIPPED",
+      "candidate": "SKIPPED",
+      "pda": "SKIPPED",
+      "finalize": "SKIPPED",
+      "handoff_finalizer": "SKIPPED"
+    }
+  },
+  "supersedes": {
+    "run_id": 33591410014,
+    "reason": "unsupported pass_live route; route-only failure; no LIVE write"
+  },
+  "live_impact": "NONE",
+  "beta_live": "0.4.2-beta.111",
+  "apk_sha256": "f67049067e600f4d8439d0ae088889f7b35df8b215e5432a2fcdd54f05f04a4f",
+  "stable": "UNCHANGED_NOT_PUBLIC",
+  "recorded_at": "2026-09-02T04:48:39Z"
+}
