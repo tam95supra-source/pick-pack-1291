@@ -2006,7 +2006,7 @@ class OperationsActivity : Activity() {
 
             for(g in visible){
                 val items=g.value;val first=items.first();val state=if(items.any{statusOf(it)=="FAILED"})"FAILED" else if(items.any{statusOf(it)=="PENDING"})"PENDING" else "SYNCED";val label=when(state){"FAILED"->"Lỗi đồng bộ";"PENDING"->"Chưa đồng bộ";else->"Đã đồng bộ"};val tint=when(state){"FAILED"->Color.rgb(254,242,242);"PENDING"->Color.rgb(255,251,235);else->Color.rgb(240,253,250)};val mnv=first.optString("mnv");val full=first.optString("full_name");val last=items.first()
-                val deletable=items.filter{it.optString("event_type").uppercase()!="HISTORY_DELETE"&&it.optString("history_source")=="SERVICE_CANONICAL"}.map{it.optString("event_id")}.filter{it.isNotBlank()}.distinct();currentPageDeleteIds.addAll(deletable)
+                val deletable=items.filter{it.optString("event_type").uppercase()!="HISTORY_DELETE"}.map{it.optString("event_id")}.filter{it.isNotBlank()}.distinct();currentPageDeleteIds.addAll(deletable)
                 val card=column(tint).apply{
                     setPadding(dp(13),dp(11),dp(13),dp(11));background=outlineBg(tint,17)
                     val top=row(tint).apply{gravity=Gravity.CENTER_VERTICAL
@@ -2053,15 +2053,26 @@ class OperationsActivity : Activity() {
     private fun deleteHistoryBulk(ids:List<String>){
         if(!isSuper()){showError("Chỉ Quản trị cao nhất được xóa lịch sử.");return}
         val clean=ids.filter{it.isNotBlank()}.distinct();if(clean.isEmpty()){showError("Chọn ít nhất một lịch sử cần xóa.");return}
-        AlertDialog.Builder(this).setTitle("Xóa ${clean.size} lịch sử?").setMessage("Xóa các mục lịch sử đã chọn?").setNegativeButton("Hủy",null).setPositiveButton("TIẾP TỤC"){_,_->
-            verifyDeletePassword("xóa ${clean.size} lịch sử"){
+        AlertDialog.Builder(this).setTitle("Xóa ${clean.size} lịch sử?").setMessage("Lịch sử Service sẽ được xóa bằng dấu vết kiểm toán. Lịch sử lỗi chỉ có trên PDA sẽ được xóa cục bộ; thao tác đang chờ đồng bộ không bị hủy ngầm.").setNegativeButton("Hủy",null).setPositiveButton("Tiếp tục"){_,_->
+            verifyDeletePassword("xóa lịch sử"){
+                val wanted=clean.toSet();val canonical=linkedSetOf<String>()
+                for(date in operationalStore.availableDates()){
+                    val events=operationalStore.loadDay(date)?.optJSONArray("events")?:continue
+                    for(i in 0 until events.length()){
+                        val e=events.optJSONObject(i)?:continue
+                        val id=e.optString("event_id")
+                        if(id in wanted&&e.optString("event_type").uppercase()!="HISTORY_DELETE")canonical.add(id)
+                    }
+                    if(canonical.size==wanted.size)break
+                }
+                operationalStore.deleteLocalHistory(clean)
                 val prefs=getSharedPreferences("pp_history_delete_ui",MODE_PRIVATE)
-                val hidden=(prefs.getStringSet("hidden_ids",emptySet())?:emptySet()).toMutableSet();hidden.addAll(clean)
-                val deferred=(prefs.getStringSet("deferred_ids",emptySet())?:emptySet()).toMutableSet();deferred.addAll(clean)
+                val hidden=(prefs.getStringSet("hidden_ids",emptySet())?:emptySet()).toMutableSet().apply{addAll(clean)}
+                val deferred=(prefs.getStringSet("deferred_ids",emptySet())?:emptySet()).toMutableSet().apply{addAll(canonical)}
                 prefs.edit().putStringSet("hidden_ids",hidden).putStringSet("deferred_ids",deferred).apply()
-                TopNotice.show(this,"Đã ghi nhận xóa ${clean.size} lịch sử.",TopNotice.Kind.SUCCESS)
-                foregroundSync.requestSync();historyScreen()
-                android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({flushDeferredHistoryDeletes()},1400L)
+                TopNotice.show(this,"Đã xóa ${clean.size} lịch sử khỏi màn hình.",TopNotice.Kind.SUCCESS)
+                if(canonical.isNotEmpty())flushDeferredHistoryDeletes()
+                historyScreen()
             }
         }.show()
     }
