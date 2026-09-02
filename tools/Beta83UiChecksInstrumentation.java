@@ -1008,26 +1008,36 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     shot(tag+"-03-employee");
 
     clickText("Ca 2",false,10000L);
-    waitText("HIỂN THỊ CHI TIẾT NHÂN SỰ",true,true,10000L);
     waitText("RA CA",true,true,10000L);
-    mark("incomplete_detail_button");
-    shot(tag+"-04-incomplete-dialog");
+    require(findText("HIỂN THỊ CHI TIẾT NHÂN SỰ",true,false)==null,"BETA113_RECONCILIATION_MUST_NOT_SHOW_DETAIL_BUTTON");
+    waitText(mnv2,false,false,10000L);
+    mark("shift_quick_exit_dialog_beta113");
+    shot(tag+"-04-beta113-quick-exit-dialog");
+    pressSystemBack();
+    waitText("THÔNG TIN CA",true,false,10000L);
 
-    clickText("HIỂN THỊ CHI TIẾT NHÂN SỰ",true,10000L);
-    // App bar intentionally renders only the persistent Network/Sync/Service header; identify the roster by its filter/NCC content.
+    showTextOnScreen("Chi tiết nhân sự hôm nay",10000L);
+    waitText("TEST (",false,false,10000L);
+    waitText("Chưa xác định NCC (",false,false,10000L);
+    require(findText("null",true,false)==null,"INLINE_SHIFT_STAFF_VISIBLE_NULL_FOUND");
+    waitText(mnv,false,true,10000L);
+    waitText(mnv2,false,true,10000L);
+    mark("inline_shift_staff_beta113");
+    mark("shift_staff_grouped_ncc_beta105");
+    mark("shift_staff_null_sanitized_beta106");
+    shot(tag+"-05-beta114-inline-staff");
+
+    clickText("Ca 2",true,10000L);
     waitText("Tất cả (",false,true,10000L);
     waitText("Trong ca (",false,true,10000L);
     waitText("Đã ra ca (",false,true,10000L);
     waitText("TEST",true,false,10000L);
     waitText("Chưa xác định NCC",true,false,10000L);
-    require(findText("null",true,false)==null,"SHIFT_STAFF_VISIBLE_NULL_FOUND");
     waitText(mnv,false,true,10000L);
     waitText(mnv2,false,true,10000L);
     mark("detail_reconciliation_visible");
-    mark("shift_staff_grouped_ncc_beta105");
     mark("shift_staff_filter_counts_beta105");
-    mark("shift_staff_null_sanitized_beta106");
-    shot(tag+"-05-staff-list-beta105");
+    shot(tag+"-05b-beta114-shift-detail");
     clickText(mnv2,false,10000L);
     waitText("THÔNG TIN CA",true,false,12000L);
     waitText("Ca 2",false,false,12000L);
@@ -1108,10 +1118,12 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
 
     open("BUSINESS");
     clickText("Ca HC",false,10000L);
-    waitText(mnv3,false,true,10000L);
-    require(findText("HIỂN THỊ CHI TIẾT NHÂN SỰ",true,false)==null,"COMPLETE_SHIFT_SHOULD_OPEN_LIST_DIRECTLY");
-    mark("complete_direct_list");
-    shot(tag+"-06-complete-list");
+    waitText("Không có nhân sự chờ ra ca trong Ca HC.",true,false,10000L);
+    require(findText("RA CA",true,false)==null,"COMPLETE_SHIFT_MUST_NOT_SHOW_EXIT_ACTION");
+    require(findText("HIỂN THỊ CHI TIẾT NHÂN SỰ",true,false)==null,"BETA113_COMPLETE_RECONCILIATION_MUST_STAY_QUICK");
+    mark("complete_quick_summary_beta113");
+    shot(tag+"-06-beta113-complete-summary");
+    pressSystemBack();
 
     open("STAFF");
     waitText("0900000081",false,false,10000L);waitText("Bắt đầu: 01/08/2026",false,false,10000L);
