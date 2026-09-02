@@ -16,6 +16,8 @@ val stableFirebaseProjectId = quotedConfig(configValue("STABLE_FIREBASE_PROJECT_
 val stableFirebaseAppId = quotedConfig(configValue("STABLE_FIREBASE_GOOGLE_APP_ID"))
 val stableFirebaseApiKey = quotedConfig(configValue("STABLE_FIREBASE_API_KEY"))
 val stableFirebaseSenderId = quotedConfig(configValue("STABLE_FIREBASE_GCM_SENDER_ID"))
+val betaVersionCode = 119
+val betaVersionName = "0.4.2-beta.113"
 
 android {
     namespace = "vn.pickpack1291.app.beta"
@@ -32,8 +34,8 @@ android {
         create("beta") {
             dimension = "channel"
             applicationId = "vn.pickpack1291.app.beta.publicbeta"
-            versionCode = 118
-            versionName = "0.4.2-beta.112"
+            versionCode = betaVersionCode
+            versionName = betaVersionName
             manifestPlaceholders["appLabel"] = "Pick Pack 1291 Beta"
             buildConfigField("String", "CHANNEL", "\"BETA\"")
             buildConfigField("String", "ENVIRONMENT_ID", "\"BETA\"")
@@ -78,6 +80,19 @@ android {
     }
 }
 
+tasks.register("verifyBetaReleaseNotes") {
+    group = "verification"
+    description = "Fail when Beta version is bumped without updating the in-app changelog."
+    doLast {
+        val notes = file("src/main/java/vn/pickpack1291/app/beta/ReleaseNotes.kt").readText()
+        val marker = "const val VERSION_NAME = \"$betaVersionName\""
+        check(notes.contains(marker)) {
+            "ReleaseNotes.VERSION_NAME must match beta versionName $betaVersionName"
+        }
+    }
+}
+tasks.named("preBuild").configure { dependsOn("verifyBetaReleaseNotes") }
+
 dependencies {
     implementation("androidx.work:work-runtime:2.11.2")
     implementation("com.squareup.okhttp3:okhttp:5.3.0")
@@ -93,6 +108,7 @@ dependencies {
 // Firebase client identifiers are injected at build time and default blank so source never contains project config.
 // GSHEET_API_URL remains public discovery/fallback configuration and manual update lookup path; no Service URL is compiled into APK.
 // Signing material remains outside this repository and the Android signer is owner-locked.
+// Beta113: current-version changelog gate, audit routing repair, safe history cleanup, multi-interval labor, data-only calendars, inline shift roster, and UI consistency. Stable unchanged.
 // Beta112: unified reconciliation/warning UI component; fixed geometry and canonical colors; Beta111 owner-accepted items 2-7 preserved. Stable unchanged.\n// Beta111: owner UI/labor/navigation corrections: actual back stack, exact-session labor authority, non-wrapping wheel time, daily labor list/correction, unified warnings, document tick modes, canonical history-delete cleanup. Stable unchanged.\n// Beta108: durable document pending queue + post-Drive completion resume + bounded 64MB media cache; inherits Beta107 Drive metadata/duplicate design. Category edit/archive remains OWNER-decision fail-closed. Stable unchanged.
 // Beta107: Quản lý biên bản stores metadata in Service/D1 while image bytes upload direct to Google Drive; exact + perceptual duplicate detection. Category edit/archive remains OWNER-decision fail-closed. Stable unchanged.
 // Beta106: sanitize JSONObject.NULL/\"null\" master fields in NCC roster; preserve Beta105 roster/download-QR scope. Stable remains READY_NOT_LIVE until OWNER release.
