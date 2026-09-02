@@ -73,6 +73,12 @@
     "finalize": {
       "status": "PASS",
       "artifact_id": 9826075161
+    },
+    "post_registry_fast_check": {
+      "status": "PASS",
+      "run_id": 33574631295,
+      "source_change": false,
+      "scope": "qa/stable_invariants.yml state/evidence validation"
     }
   },
   "release": {
@@ -95,5 +101,5 @@
     "Các màn nghiệp vụ trong scope Beta110 đã bỏ text giải thích/hướng dẫn kỹ thuật thừa, không làm mất thông tin nghiệp vụ."
   ],
   "active_pass": false,
-  "next_action": "WAIT_OWNER_BETA110_ACCEPTANCE_CHECKLIST"
+  "next_action": "WAIT_OWNER_BETA110_ACCEPTANCE_CHECKLIST_1_TO_4"
 }
