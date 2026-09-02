@@ -48,7 +48,7 @@
   "device_regression_status": "PENDING",
   "runtime_dod_status": "PENDING",
   "regression_case": "qa/beta113_owner_scope_regression.md + tools/beta113_owner_scope_contract.py; preserve ACTIVE_PASS UI-REVIEW-WARNING-001, NAV-HISTORY-BACK-001, LABOR-EXACT-SESSION-002, HISTORY-DELETE-CANONICAL-001, DOCUMENT-BATCH-MODE-TICK-002 and all existing ACTIVE_PASS invariants",
-  "execution_nonce": "beta113-verify-exact-20260902-05",
+  "execution_nonce": "beta113-verify-exact-20260902-06",
   "next_action": "SERVICE_REGRESSION_THEN_VISUAL_PDA_API36_ON_EXACT_CANDIDATE",
   "candidate_run_id": 33632362597,
   "candidate_artifact_id": 9847473659,
