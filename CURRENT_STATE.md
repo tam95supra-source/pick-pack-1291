@@ -1,7 +1,7 @@
 # CURRENT STATE — PICK PACK 1291
 
 - updated_at: 2026-09-02T00:13:24Z
-- status: BETA110_LIVE_TECHNICAL_PASS_AWAITING_OWNER
+- status: BETA110_LIVE_OWNER_ACCEPTED_ACTIVE_PASS
 - continuity_branch: beta/current
 - release_branch: release/beta110-document-labor-attendance
 - source_sha: 1faebbf996836d442ec6e99ffba2a589bf3fcbd2
@@ -34,12 +34,15 @@
 - google_drive_apk: FORBIDDEN
 - technical_receipt: ops/beta110-technical-pass.json
 - release_lock: ops/beta110-release-lock.json
-- DOCUMENT-BATCH-001: TECHNICAL_PASS_AWAITING_OWNER
-- LABOR-TIME-RANGE-001: TECHNICAL_PASS_AWAITING_OWNER
-- MEAL-UI-NULL-001: TECHNICAL_PASS_AWAITING_OWNER
-- UI-COPY-DENSITY-001: TECHNICAL_PASS_AWAITING_OWNER
+- DOCUMENT-BATCH-001: ACTIVE_PASS
+- LABOR-TIME-RANGE-001: ACTIVE_PASS
+- MEAL-UI-NULL-001: ACTIVE_PASS
+- UI-COPY-DENSITY-001: ACTIVE_PASS
 - DOCUMENT-MANAGEMENT-001: ACTIVE_PASS unchanged
 - stable: unchanged / not public
 - main_sha: 021dac5c6932b3ac5c60ce8fdba562ddf3d9688f
 - authority: SERVICE_PRIMARY / PRODUCTION / epoch 9 / generation m2-prod-reset-20260823-001
-- next_action: WAIT_OWNER_BETA110_ACCEPTANCE_CHECKLIST_1_TO_4
+- owner_acceptance_receipt: ops/beta110-owner-acceptance.json
+- owner_acceptance: COMPLETE 2026-09-02T07:43:15+07:00
+- ui_followup: new scope only; current acceptance remains valid
+- next_action: WAIT_FOR_OWNER_NEW_SCOPE
