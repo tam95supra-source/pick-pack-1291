@@ -1,8 +1,8 @@
 {
-  "run_id": 33516443439,
-  "run_sha": "834863c8cfccdac7111b8f82cdac71a0ff538418",
-  "ref": "release/beta108-document-management",
+  "run_id": 33585407069,
+  "run_sha": "f387fc808c472dbd3bd7357500ad9a4d9078cd8c",
+  "ref": "release/beta111-owner-ui-labor-nav",
   "execution_nonce": "beta109-publish-exact-20260901-08",
   "stage": "pass_live",
-  "observed_at": "2026-09-01T13:56:45Z"
+  "observed_at": "2026-09-02T03:01:20Z"
 }
