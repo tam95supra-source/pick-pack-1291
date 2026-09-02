@@ -12,14 +12,14 @@ invariants:
     scope: ui
     rule: "3 ô Mạng / Đồng bộ / Dịch vụ luôn ghim trên cùng ở mọi màn trong scope."
     last_verified: "0.4.2-beta.101 / terminal run 33310230934"
-    latest_reverification: "0.4.2-beta.110 LIVE / source 1faebbf996836d442ec6e99ffba2a589bf3fcbd2 / candidate 33554345340/9818862858 / service 33568634524/9824237674 / visual+PDA+API36 33569543281/9824551840 / Fast Check 33569530461 / device 33570127113/9824662041 / runtime 33573848594/9825920815 / terminal 33574078129 / publish 9826016343 / OTA 9826069523 / final 9826075161"
+    latest_reverification: "0.4.2-beta.111 LIVE / source 03b37e5aa2726c273cc1e7c4a2161763bd3c4d2d / candidate 33586428789/9830403339 / Fast Check 33588839641 / Service 33588851239/9831120144 / visual+PDA+API36 33589199933/9831243286 + human PASS 41 screenshots / device 33590310367/9831531954 / runtime 33590505522 attempt2/9831607439 / terminal 33590747613 / publish 9831669563 / OTA-install-readback 9831721383 / final 9831726759 / SHA256 f67049067e600f4d8439d0ae088889f7b35df8b215e5432a2fcdd54f05f04a4f / size 14216181 / signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged"
 
   - id: QR-LOCAL-001
     status: ACTIVE_PASS
     scope: qr
     rule: "QR nhân sự giữ local fast-path; Service reconcile nền không reset form đang thao tác."
     last_verified: "0.4.2-beta.101 / terminal run 33310230934"
-    latest_reverification: "0.4.2-beta.110 LIVE / source 1faebbf996836d442ec6e99ffba2a589bf3fcbd2 / candidate 33554345340/9818862858 / service 33568634524/9824237674 / visual+PDA+API36 33569543281/9824551840 / Fast Check 33569530461 / device 33570127113/9824662041 / runtime 33573848594/9825920815 / terminal 33574078129 / publish 9826016343 / OTA 9826069523 / final 9826075161"
+    latest_reverification: "0.4.2-beta.111 LIVE / source 03b37e5aa2726c273cc1e7c4a2161763bd3c4d2d / candidate 33586428789/9830403339 / Fast Check 33588839641 / Service 33588851239/9831120144 / visual+PDA+API36 33589199933/9831243286 + human PASS 41 screenshots / device 33590310367/9831531954 / runtime 33590505522 attempt2/9831607439 / terminal 33590747613 / publish 9831669563 / OTA-install-readback 9831721383 / final 9831726759 / SHA256 f67049067e600f4d8439d0ae088889f7b35df8b215e5432a2fcdd54f05f04a4f / size 14216181 / signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged"
 
   - id: MEAL-DATE-001
     status: ACTIVE_PASS
@@ -49,7 +49,7 @@ invariants:
     last_verified: "0.4.2-beta.109 / terminal run 33515483109"
     technical_evidence: "Beta109 terminal 33515483109 PASS; publish 9803429207; OTA/install/readback 9803518172; final 9803526992; exact candidate 33506205883/9799840161 SHA256 1c01a58eefe5d0501eccbfe0359a2d5c0b3ec159f5ef37889d757f0984bbc7c8 size 14167029 signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; GitHub Release asset 539613285 exact; Stable/main/authority unchanged"
     publish_verifier_regression: "Fast Check 33388933459 PASS; receipt-driven visual/human gate enforced"
-    latest_reverification: "0.4.2-beta.110 LIVE / source 1faebbf996836d442ec6e99ffba2a589bf3fcbd2 / candidate 33554345340/9818862858 / service 33568634524/9824237674 / visual+PDA+API36 33569543281/9824551840 / Fast Check 33569530461 / device 33570127113/9824662041 / runtime 33573848594/9825920815 / terminal 33574078129 / publish 9826016343 / OTA 9826069523 / final 9826075161"
+    latest_reverification: "0.4.2-beta.111 LIVE / source 03b37e5aa2726c273cc1e7c4a2161763bd3c4d2d / candidate 33586428789/9830403339 / Fast Check 33588839641 / Service 33588851239/9831120144 / visual+PDA+API36 33589199933/9831243286 + human PASS 41 screenshots / device 33590310367/9831531954 / runtime 33590505522 attempt2/9831607439 / terminal 33590747613 / publish 9831669563 / OTA-install-readback 9831721383 / final 9831726759 / SHA256 f67049067e600f4d8439d0ae088889f7b35df8b215e5432a2fcdd54f05f04a4f / size 14216181 / signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged"
 
   - id: PDA-EXIT-001
     status: ACTIVE_PASS
@@ -59,7 +59,7 @@ invariants:
     regression_minimum: [active_pda, no_pda, returned_pda, stale_pda_serial, missing_assignment_snapshot, old_session_pda]
     technical_evidence: "OWNER-accepted Beta99 baseline reverified on Beta101 verify 33309271079; terminal publish/OTA/install/readback/finalize 33310230934 PASS"
     owner_acceptance: "ACTIVE_PASS_OWNER_ITEMS_1_AND_2_OK_BETA99_2026-08-30"
-    latest_reverification: "0.4.2-beta.110 LIVE / source 1faebbf996836d442ec6e99ffba2a589bf3fcbd2 / candidate 33554345340/9818862858 / service 33568634524/9824237674 / visual+PDA+API36 33569543281/9824551840 / Fast Check 33569530461 / device 33570127113/9824662041 / runtime 33573848594/9825920815 / terminal 33574078129 / publish 9826016343 / OTA 9826069523 / final 9826075161"
+    latest_reverification: "0.4.2-beta.111 LIVE / source 03b37e5aa2726c273cc1e7c4a2161763bd3c4d2d / candidate 33586428789/9830403339 / Fast Check 33588839641 / Service 33588851239/9831120144 / visual+PDA+API36 33589199933/9831243286 + human PASS 41 screenshots / device 33590310367/9831531954 / runtime 33590505522 attempt2/9831607439 / terminal 33590747613 / publish 9831669563 / OTA-install-readback 9831721383 / final 9831726759 / SHA256 f67049067e600f4d8439d0ae088889f7b35df8b215e5432a2fcdd54f05f04a4f / size 14216181 / signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged"
 
   - id: ENV-ISOLATION-001
     status: ACTIVE_PASS
@@ -69,7 +69,7 @@ invariants:
     technical_evidence: "source c31bb1b7ad68e6fd114727d8f08508796013bcef; candidate 33384004708/9754938692; device 33388577027/9756583802 PASS; Fast Check 33388933459 PASS; runtime 33389060092/9756743967 PASS; terminal 33391700817 PASS; publish 9757752307; OTA preserved-data 9757829287; final 9757837384; exact SHA256 523b7ca4fe3463acdec8281d6232f36cd15e8df13a5f25585ca4ff4b82f2d6f1 size 13593589 signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable available=false; main unchanged"
     regression_minimum: [environment_audience_fence, cross_env_reject, distinct_d1_sheet_gas, lan_nsd_isolation, beta_gas_canonical_discovery, stable_private_no_ota, release_identity]
     owner_acceptance: "ACTIVE_PASS_OWNER_BETA104_CHECKLIST_1_TO_6_OK_2026-08-31T20:22+07:00"
-    latest_reverification: "0.4.2-beta.110 LIVE / source 1faebbf996836d442ec6e99ffba2a589bf3fcbd2 / candidate 33554345340/9818862858 / service 33568634524/9824237674 / visual+PDA+API36 33569543281/9824551840 / Fast Check 33569530461 / device 33570127113/9824662041 / runtime 33573848594/9825920815 / terminal 33574078129 / publish 9826016343 / OTA 9826069523 / final 9826075161"
+    latest_reverification: "0.4.2-beta.111 LIVE / source 03b37e5aa2726c273cc1e7c4a2161763bd3c4d2d / candidate 33586428789/9830403339 / Fast Check 33588839641 / Service 33588851239/9831120144 / visual+PDA+API36 33589199933/9831243286 + human PASS 41 screenshots / device 33590310367/9831531954 / runtime 33590505522 attempt2/9831607439 / terminal 33590747613 / publish 9831669563 / OTA-install-readback 9831721383 / final 9831726759 / SHA256 f67049067e600f4d8439d0ae088889f7b35df8b215e5432a2fcdd54f05f04a4f / size 14216181 / signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged"
 
   - id: SERVICE-DISCOVERY-001
     status: ACTIVE_PASS
@@ -80,7 +80,7 @@ invariants:
     technical_evidence: "Beta109 exact-device 33514582110/9803110874 PASS; terminal OTA 33515483109/9803518172 PASS; stale_cache_state_before_post_ota_check=ALREADY_REWRITTEN_BY_APP, stale_discovery_preserved_across_ota=false, stale_discovery_safe_after_ota=true; canonical Beta discovery remained safe."
     regression_minimum: [environment_cache_fence, audience_cache_fence, stale_cache_invalidation, ttl_force_refresh, service_session_refresh, direct_read_refresh, sync_refresh, outbox_refresh, no_endpoint_hardcode]
     owner_acceptance: "ACTIVE_PASS_OWNER_BETA104_CHECKLIST_1_TO_6_OK_2026-08-31T20:22+07:00"
-    latest_reverification: "0.4.2-beta.110 LIVE / source 1faebbf996836d442ec6e99ffba2a589bf3fcbd2 / candidate 33554345340/9818862858 / service 33568634524/9824237674 / visual+PDA+API36 33569543281/9824551840 / Fast Check 33569530461 / device 33570127113/9824662041 / runtime 33573848594/9825920815 / terminal 33574078129 / publish 9826016343 / OTA 9826069523 / final 9826075161"
+    latest_reverification: "0.4.2-beta.111 LIVE / source 03b37e5aa2726c273cc1e7c4a2161763bd3c4d2d / candidate 33586428789/9830403339 / Fast Check 33588839641 / Service 33588851239/9831120144 / visual+PDA+API36 33589199933/9831243286 + human PASS 41 screenshots / device 33590310367/9831531954 / runtime 33590505522 attempt2/9831607439 / terminal 33590747613 / publish 9831669563 / OTA-install-readback 9831721383 / final 9831726759 / SHA256 f67049067e600f4d8439d0ae088889f7b35df8b215e5432a2fcdd54f05f04a4f / size 14216181 / signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged"
 
   - id: SHIFT-STAFF-DOWNLOAD-QR-001
     status: ACTIVE_PASS
@@ -108,7 +108,7 @@ invariants:
     partial_acceptance_receipt: "ops/beta108-owner-acceptance-partial.json"
     active_pass: true
     last_verified: "0.4.2-beta.109 LIVE / terminal run 33515483109 / OWNER acceptance complete 2026-09-01T22:04+07:00"
-    latest_reverification: "0.4.2-beta.110 LIVE / source 1faebbf996836d442ec6e99ffba2a589bf3fcbd2 / candidate 33554345340/9818862858 / service 33568634524/9824237674 / visual+PDA+API36 33569543281/9824551840 / Fast Check 33569530461 / device 33570127113/9824662041 / runtime 33573848594/9825920815 / terminal 33574078129 / publish 9826016343 / OTA 9826069523 / final 9826075161"
+    latest_reverification: "0.4.2-beta.111 LIVE / source 03b37e5aa2726c273cc1e7c4a2161763bd3c4d2d / candidate 33586428789/9830403339 / Fast Check 33588839641 / Service 33588851239/9831120144 / visual+PDA+API36 33589199933/9831243286 + human PASS 41 screenshots / device 33590310367/9831531954 / runtime 33590505522 attempt2/9831607439 / terminal 33590747613 / publish 9831669563 / OTA-install-readback 9831721383 / final 9831726759 / SHA256 f67049067e600f4d8439d0ae088889f7b35df8b215e5432a2fcdd54f05f04a4f / size 14216181 / signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged"
 
   - id: DOCUMENT-BATCH-001
     status: ACTIVE_PASS
@@ -123,6 +123,7 @@ invariants:
     active_pass: true
     last_verified: "0.4.2-beta.110 LIVE / terminal run 33574078129 / OWNER acceptance complete 2026-09-02T07:43:15+07:00"
 
+    latest_reverification: "0.4.2-beta.111 LIVE / source 03b37e5aa2726c273cc1e7c4a2161763bd3c4d2d / candidate 33586428789/9830403339 / Fast Check 33588839641 / Service 33588851239/9831120144 / visual+PDA+API36 33589199933/9831243286 + human PASS 41 screenshots / device 33590310367/9831531954 / runtime 33590505522 attempt2/9831607439 / terminal 33590747613 / publish 9831669563 / OTA-install-readback 9831721383 / final 9831726759 / SHA256 f67049067e600f4d8439d0ae088889f7b35df8b215e5432a2fcdd54f05f04a4f / size 14216181 / signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged"
   - id: LABOR-TIME-RANGE-001
     status: ACTIVE_PASS
     scope: labor
@@ -135,6 +136,7 @@ invariants:
     active_pass: true
     last_verified: "0.4.2-beta.110 LIVE / terminal run 33574078129 / OWNER acceptance complete 2026-09-02T07:43:15+07:00"
 
+    latest_reverification: "0.4.2-beta.111 LIVE / source 03b37e5aa2726c273cc1e7c4a2161763bd3c4d2d / candidate 33586428789/9830403339 / Fast Check 33588839641 / Service 33588851239/9831120144 / visual+PDA+API36 33589199933/9831243286 + human PASS 41 screenshots / device 33590310367/9831531954 / runtime 33590505522 attempt2/9831607439 / terminal 33590747613 / publish 9831669563 / OTA-install-readback 9831721383 / final 9831726759 / SHA256 f67049067e600f4d8439d0ae088889f7b35df8b215e5432a2fcdd54f05f04a4f / size 14216181 / signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged"
   - id: MEAL-UI-NULL-001
     status: ACTIVE_PASS
     scope: attendance-ui
