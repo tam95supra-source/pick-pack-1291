@@ -1,29 +1,43 @@
 # CURRENT STATE — PICK PACK 1291
 
-- updated_at: 2026-09-02T09:18:19Z
-- status: BETA112_PASS_LIVE
+- updated_at: 2026-09-02T09:18:37Z
+- status: BETA112_LIVE_TECHNICAL_PASS_AWAITING_OWNER
 - continuity_branch: release/beta112-unified-review-warning
 - source_sha: b3009ca701670af487ee8dce3538fe9c3cde4ae5
 - beta_live: 0.4.2-beta.112 (versionCode 118)
 - package: vn.pickpack1291.app.beta.publicbeta
 - candidate_run: 33596529877
 - candidate_artifact: 9833670469
-- verify_run: 33597157250
-- verify_artifact: 9833913262
 - apk_sha256: d5de4fea496a1be4926f3acc49f82fb60eb9065de694e075251ca493ce298e76
 - apk_size: 14216181
 - signer_sha256: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
-- terminal_run: 33612994423
-- fast_check: PASS
-- service_gate: INHERITED_PASS_RUN_33588851239_SERVICE_SOURCE_UNCHANGED
-- visual_matrix: PASS 320x568 / 360x640 / 480x800
-- human_visual: PASS
-- pda_functional_pre_ota: PASS
+- fast_check: 33612134466 PASS
+- service_live: 33588851239 / 9831120144 PASS inherited; service source unchanged
+- visual_pda_api36: 33597157250 / 9833913262 PASS
+- human_visual: PASS / 42 screenshots / 320x568, 360x640, 480x800
+- device_regression: 33611415963 / 9839191113 PASS
+- beta_auth_parity_repair: 33612548361 / 9839580952 PASS / no password rotation / no D1 mutation / no session revocation
+- runtime_dod: 33612695867 / 9839670809 PASS
+- superseded_runtime_failure: 33611682634 / BETA_SHEET_AUTH_TARGET_FAILED
+- terminal_run: 33612994423 PASS
+- publish_artifact: 9839800512
+- ota_install_readback_artifact: 9839879502
+- final_artifact: 9839890706
+- github_release_id: 381116427
+- github_release_asset_id: 540918700
 - beta_ota: exact 0.4.2-beta.112 PASS via GitHub Release
-- beta_ota_url: https://github.com/tam95supra-source/pick-pack-1291/releases/download/v0.4.2-beta.112-publicbeta/pick-pack-1291-public-beta-0.4.2-beta.112.apk
 - apk_transport: GITHUB_RELEASE_ONLY
 - google_drive_apk: FORBIDDEN
-- stable: unchanged
+- technical_receipt: ops/beta112-technical-pass.json
+- release_lock: ops/beta112-release-lock.json
+- UI-REVIEW-WARNING-001: TECHNICAL_PASS_AWAITING_OWNER
+- NAV-HISTORY-BACK-001: ACTIVE_PASS
+- LABOR-EXACT-SESSION-002: ACTIVE_PASS
+- HISTORY-DELETE-CANONICAL-001: ACTIVE_PASS
+- DOCUMENT-BATCH-MODE-TICK-002: ACTIVE_PASS
+- existing_active_pass_semantics: unchanged
+- stable: unchanged / not public
 - main_sha: 021dac5c6932b3ac5c60ce8fdba562ddf3d9688f
 - authority: SERVICE_PRIMARY / PRODUCTION / epoch 9 / generation m2-prod-reset-20260823-001
-- next_action: WAIT_FOR_OWNER_NEW_SCOPE
+- owner_acceptance: PENDING_ITEM_1_ONLY
+- next_action: OWNER_ACCEPTANCE_BETA112_ITEM_1_ONLY
