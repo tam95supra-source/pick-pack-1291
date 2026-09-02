@@ -37,6 +37,8 @@ Mỗi invariant tối thiểu có:
 - Evidence: Beta101 exact-candidate visual/PDA PASS run 33309271079, artifact 9731526178; human visual 35 screenshots at 320x568 / 360x640 / 480x800 PASS; terminal publish/OTA/install/readback/finalize run 33310230934, final artifact 9731780051 PASS.
 - Last verified: 0.4.2-beta.101.
 
+- Latest Beta110 re-verification: exact source 1faebbf996836d442ec6e99ffba2a589bf3fcbd2; candidate 33554345340/9818862858; Service 33568634524/9824237674; visual/PDA/API36 33569543281/9824551840; Fast Check 33569530461; device 33570127113/9824662041; runtime 33573848594/9825920815; terminal 33574078129; publish 9826016343; OTA/install/readback 9826069523; final 9826075161. Stable/main/signer/authority unchanged.
+
 ### QR-LOCAL-001
 - Status: ACTIVE_PASS
 - Scope: QR nhân sự
@@ -44,6 +46,8 @@ Mỗi invariant tối thiểu có:
 - Regression: local fast-path + service reconcile + không reset interactive employee form.
 - Evidence: Beta101 exact-candidate verify PASS run 33309271079; terminal publish/OTA/install/readback/finalize run 33310230934 PASS.
 - Last verified: 0.4.2-beta.101.
+
+- Latest Beta110 re-verification: exact source 1faebbf996836d442ec6e99ffba2a589bf3fcbd2; candidate 33554345340/9818862858; Service 33568634524/9824237674; visual/PDA/API36 33569543281/9824551840; Fast Check 33569530461; device 33570127113/9824662041; runtime 33573848594/9825920815; terminal 33574078129; publish 9826016343; OTA/install/readback 9826069523; final 9826075161. Stable/main/signer/authority unchanged.
 
 ### MEAL-DATE-001
 - Status: ACTIVE_PASS
@@ -53,6 +57,8 @@ Mỗi invariant tối thiểu có:
 - Evidence: Beta101 exact-candidate verify PASS run 33309271079; terminal publish/OTA/install/readback/finalize run 33310230934 PASS.
 - Last verified: 0.4.2-beta.101.
 
+- Latest Beta110 re-verification: exact source 1faebbf996836d442ec6e99ffba2a589bf3fcbd2; candidate 33554345340/9818862858; Service 33568634524/9824237674; visual/PDA/API36 33569543281/9824551840; Fast Check 33569530461; device 33570127113/9824662041; runtime 33573848594/9825920815; terminal 33574078129; publish 9826016343; OTA/install/readback 9826069523; final 9826075161. Stable/main/signer/authority unchanged.
+
 ### MEAL-WARN-001
 - Status: ACTIVE_PASS
 - Scope: Nghiệp vụ / Điểm danh
@@ -61,6 +67,8 @@ Mỗi invariant tối thiểu có:
 - Evidence: Beta101 exact-candidate verify PASS run 33309271079; terminal publish/OTA/install/readback/finalize run 33310230934 PASS.
 - Last verified: 0.4.2-beta.101.
 
+- Latest Beta110 re-verification: exact source 1faebbf996836d442ec6e99ffba2a589bf3fcbd2; candidate 33554345340/9818862858; Service 33568634524/9824237674; visual/PDA/API36 33569543281/9824551840; Fast Check 33569530461; device 33570127113/9824662041; runtime 33573848594/9825920815; terminal 33574078129; publish 9826016343; OTA/install/readback 9826069523; final 9826075161. Stable/main/signer/authority unchanged.
+
 ### ROLE-HISTORY-001
 - Status: ACTIVE_PASS
 - Scope: Role / History
@@ -68,6 +76,8 @@ Mỗi invariant tối thiểu có:
 - Regression: tab hidden + deep-link blocked cho USER.
 - Evidence: Beta101 exact-candidate verify PASS run 33309271079; terminal publish/OTA/install/readback/finalize run 33310230934 PASS.
 - Last verified: 0.4.2-beta.101.
+
+- Latest Beta110 re-verification: exact source 1faebbf996836d442ec6e99ffba2a589bf3fcbd2; candidate 33554345340/9818862858; Service 33568634524/9824237674; visual/PDA/API36 33569543281/9824551840; Fast Check 33569530461; device 33570127113/9824662041; runtime 33573848594/9825920815; terminal 33574078129; publish 9826016343; OTA/install/readback 9826069523; final 9826075161. Stable/main/signer/authority unchanged.
 
 ### OTA-BETA-001
 - Status: ACTIVE_PASS
@@ -81,6 +91,8 @@ Mỗi invariant tối thiểu có:
 
 ## 4. LOCKED_REQUIREMENT_PENDING_FIX / AWAITING OWNER / DEFERRED
 
+- Latest Beta110 re-verification: exact source 1faebbf996836d442ec6e99ffba2a589bf3fcbd2; candidate 33554345340/9818862858; Service 33568634524/9824237674; visual/PDA/API36 33569543281/9824551840; Fast Check 33569530461; device 33570127113/9824662041; runtime 33573848594/9825920815; terminal 33574078129; publish 9826016343; OTA/install/readback 9826069523; final 9826075161. Stable/main/signer/authority unchanged.
+
 ### PDA-EXIT-001
 - Status: ACTIVE_PASS
 - Scope: Ra ca / PDA
@@ -93,6 +105,8 @@ Mỗi invariant tối thiểu có:
 - Technical evidence: OWNER-accepted Beta99 baseline remains ACTIVE_PASS; reverified on Beta101 exact candidate visual/PDA run 33309271079 and terminal publish/OTA/install/readback/finalize run 33310230934 PASS.
 - OWNER acceptance: PASS — item 1 OK và item 2 OK trên Beta99. Latest manual evidence 2026-08-30 13:21 + OWNER confirmation: session_work_update Đổi/Trả PDA hoạt động, không còn USER_PICK_UNAVAILABLE. Khóa ACTIVE_PASS từ Beta99.
 
+- Latest Beta110 re-verification: exact source 1faebbf996836d442ec6e99ffba2a589bf3fcbd2; candidate 33554345340/9818862858; Service 33568634524/9824237674; visual/PDA/API36 33569543281/9824551840; Fast Check 33569530461; device 33570127113/9824662041; runtime 33573848594/9825920815; terminal 33574078129; publish 9826016343; OTA/install/readback 9826069523; final 9826075161. Stable/main/signer/authority unchanged.
+
 ### ENV-ISOLATION-001
 - Status: ACTIVE_PASS
 - Scope: Beta/Stable environment isolation / HTTP / GAS / LAN-NSD / release
@@ -101,6 +115,8 @@ Mỗi invariant tối thiểu có:
 - Technical evidence: Beta104 source c31bb1b7ad68e6fd114727d8f08508796013bcef; candidate 33384004708 / 9754938692; exact-device SERVICE-DISCOVERY-001 33388577027 / 9756583802 PASS; Fast Check 33388933459 PASS; runtime DoD 33389060092 / 9756743967 PASS; terminal publish/OTA/install/readback/finalize 33391700817 PASS; publish 9757752307; OTA preserved-data 9757829287; final 9757837384; exact APK SHA256 523b7ca4fe3463acdec8281d6232f36cd15e8df13a5f25585ca4ff4b82f2d6f1 / size 13593589 / signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; BETA environment/audience/Worker readback PASS; Stable available=false, main unchanged.
 - Prior OWNER failure: Beta102 stale discovery connectivity failure. Technical remediation is PASS on Beta104; OWNER re-acceptance remains required.
 - OWNER acceptance: PASS — Beta104 checklist 1–6 OK, 2026-08-31 20:22 +07:00. Locked ACTIVE_PASS.
+
+- Latest Beta110 re-verification: exact source 1faebbf996836d442ec6e99ffba2a589bf3fcbd2; candidate 33554345340/9818862858; Service 33568634524/9824237674; visual/PDA/API36 33569543281/9824551840; Fast Check 33569530461; device 33570127113/9824662041; runtime 33573848594/9825920815; terminal 33574078129; publish 9826016343; OTA/install/readback 9826069523; final 9826075161. Stable/main/signer/authority unchanged.
 
 ### SERVICE-DISCOVERY-001
 - Status: ACTIVE_PASS
@@ -111,6 +127,8 @@ Mỗi invariant tối thiểu có:
 - Technical evidence: Beta109 exact-device run 33514582110 / artifact 9803110874 PASS; terminal OTA 33515483109 / artifact 9803518172 PASS on exact candidate 1c01a58eefe5d0501eccbfe0359a2d5c0b3ec159f5ef37889d757f0984bbc7c8. Post-OTA readback: stale_cache_state_before_post_ota_check=ALREADY_REWRITTEN_BY_APP, stale_discovery_preserved_across_ota=false, stale_discovery_safe_after_ota=true; canonical Beta discovery remained safe.
 - Technical candidate: 0.4.2-beta.109 LIVE.
 - OWNER acceptance: PASS — Beta104 checklist 1–6 OK, 2026-08-31 20:22 +07:00. Locked ACTIVE_PASS.
+
+- Latest Beta110 re-verification: exact source 1faebbf996836d442ec6e99ffba2a589bf3fcbd2; candidate 33554345340/9818862858; Service 33568634524/9824237674; visual/PDA/API36 33569543281/9824551840; Fast Check 33569530461; device 33570127113/9824662041; runtime 33573848594/9825920815; terminal 33574078129; publish 9826016343; OTA/install/readback 9826069523; final 9826075161. Stable/main/signer/authority unchanged.
 
 ### SHIFT-STAFF-DOWNLOAD-QR-001
 - Status: ACTIVE_PASS
@@ -143,6 +161,54 @@ Mỗi invariant tối thiểu có:
 - OWNER final acceptance receipt: ops/beta109-owner-acceptance.json.
 - ACTIVE_PASS: khóa toàn bộ semantics DOCUMENT-MANAGEMENT-001 trên Beta109; mọi thay đổi semantics sau này cần OWNER SUPERSEDE.
 - Last verified: 0.4.2-beta.109 LIVE / terminal run 33515483109 / OWNER acceptance complete 2026-09-01 22:04 +07:00.
+
+
+- Latest Beta110 re-verification: exact source 1faebbf996836d442ec6e99ffba2a589bf3fcbd2; candidate 33554345340/9818862858; Service 33568634524/9824237674; visual/PDA/API36 33569543281/9824551840; Fast Check 33569530461; device 33570127113/9824662041; runtime 33573848594/9825920815; terminal 33574078129; publish 9826016343; OTA/install/readback 9826069523; final 9826075161. Stable/main/signer/authority unchanged.
+
+### DOCUMENT-BATCH-001
+- Status: ACTIVE_PASS
+- Scope: Quản lý biên bản / batch UI + durable mutation
+- Rule: hỗ trợ chọn nhiều ảnh; upload theo `Một biên bản nhiều trang` hoặc `Nhiều biên bản`; lọc theo loại; chọn một/nhiều ảnh đã tải để hard-delete qua mutation bền vững; thao tác phải xuất hiện trong Lịch sử.
+- Parent invariant: DOCUMENT-MANAGEMENT-001 vẫn ACTIVE_PASS, semantics rename/hard-delete/Drive/direct-upload không đổi.
+- Regression: multi gallery select / durable multi draft / multipage group / multiple-document group / category filter / bulk selected delete / delete resume / document history.
+- Technical evidence Beta110: service run 33568634524 artifact 9824237674 PASS (multipage_group, selected_delete, reindex, history); visual/PDA/API36 run 33569543281 artifact 9824551840 PASS; Fast Check 33569530461 PASS; terminal release 33574078129 PASS; OTA/install/readback artifact 9826069523 exact bytes.
+- Technical receipt: `ops/beta110-technical-pass.json`.
+- OWNER acceptance: PASS — OWNER xác nhận toàn bộ Beta110 OK ngày 2026-09-02 07:43 +07:00; receipt `ops/beta110-owner-acceptance.json`.
+- UI follow-up: một số điểm chưa ưng chỉ mang tính giao diện, sẽ là scope chỉnh sửa mới; không phủ nhận acceptance hiện tại.
+- Last verified: 0.4.2-beta.110 LIVE / terminal run 33574078129 / OWNER acceptance complete.
+
+### LABOR-TIME-RANGE-001
+- Status: ACTIVE_PASS
+- Scope: Công nhật / Ra ca / Nghiệp vụ
+- Rule: dùng bộ chọn giờ-phút; cho phép ghi bắt đầu trước và kết thúc sau; labor OPEN chặn Ra ca; màn Công nhật và Nghiệp vụ phải hiển thị/cảnh báo người còn labor OPEN.
+- Regression: time picker only / explicit start / explicit end / start without end / end after start / OPEN labor exit block / OPEN labor list / OPEN labor warning.
+- Technical evidence Beta110: service run 33568634524 artifact 9824237674 PASS (`beta110_labor_time_range=PASS open_exit_block=PASS completed_range=PASS`); visual/PDA/API36 33569543281/9824551840 PASS; terminal 33574078129 + OTA/install/readback 9826069523 PASS.
+- Technical receipt: `ops/beta110-technical-pass.json`.
+- OWNER acceptance: PASS — OWNER xác nhận toàn bộ Beta110 OK ngày 2026-09-02 07:43 +07:00; receipt `ops/beta110-owner-acceptance.json`.
+- UI follow-up: một số điểm chưa ưng chỉ mang tính giao diện, sẽ là scope chỉnh sửa mới; không phủ nhận acceptance hiện tại.
+- Last verified: 0.4.2-beta.110 LIVE / terminal run 33574078129 / OWNER acceptance complete.
+
+### MEAL-UI-NULL-001
+- Status: ACTIVE_PASS
+- Scope: Điểm danh / UI null-safe
+- Rule: layout gọn, đủ thông tin; mọi dữ liệu thiếu hoặc JSON null hiển thị `-`; không thay đổi MEAL-DATE-001 và MEAL-WARN-001.
+- Regression: compact layout / no visible null / dash for missing / current-day write only / warning preserved.
+- Technical evidence Beta110: visual/PDA/API36 33569543281/9824551840 + human visual 41 screenshots 320x568/360x640/480x800 PASS; Fast Check 33569530461; service meal regression trong 33568634524 PASS; terminal 33574078129 PASS.
+- Technical receipt: `ops/beta110-technical-pass.json`.
+- OWNER acceptance: PASS — OWNER xác nhận toàn bộ Beta110 OK ngày 2026-09-02 07:43 +07:00; receipt `ops/beta110-owner-acceptance.json`.
+- UI follow-up: một số điểm chưa ưng chỉ mang tính giao diện, sẽ là scope chỉnh sửa mới; không phủ nhận acceptance hiện tại.
+- Last verified: 0.4.2-beta.110 LIVE / terminal run 33574078129 / OWNER acceptance complete.
+
+### UI-COPY-DENSITY-001
+- Status: ACTIVE_PASS
+- Scope: nội dung chữ / mật độ màn nghiệp vụ
+- Rule: không hiển thị text giải thích kiểu AI/OWNER hoặc hướng dẫn kỹ thuật thừa; ưu tiên nội dung nghiệp vụ và diện tích hiển thị.
+- Regression: no owner/AI helper copy / compact document copy / compact labor copy / compact attendance copy.
+- Technical evidence Beta110: Fast Check 33569530461 PASS; visual/PDA/API36 33569543281/9824551840 + human visual PASS; terminal 33574078129 PASS.
+- Technical receipt: `ops/beta110-technical-pass.json`.
+- OWNER acceptance: PASS — OWNER xác nhận toàn bộ Beta110 OK ngày 2026-09-02 07:43 +07:00; receipt `ops/beta110-owner-acceptance.json`.
+- UI follow-up: một số điểm chưa ưng chỉ mang tính giao diện, sẽ là scope chỉnh sửa mới; không phủ nhận acceptance hiện tại.
+- Last verified: 0.4.2-beta.110 LIVE / terminal run 33574078129 / OWNER acceptance complete.
 
 ### INFRA-RESILIENCE-001
 - Status: TECHNICAL_PASS_AWAITING_OWNER
