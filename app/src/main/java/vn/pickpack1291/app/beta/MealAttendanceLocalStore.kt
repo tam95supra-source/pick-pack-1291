@@ -21,6 +21,17 @@ class MealAttendanceLocalStore(context: Context) {
         }
     }
 
+    fun availableDatesWithData():List<String>=synchronized(LOCK){
+        val out=mutableListOf<String>()
+        helper.readableDatabase.query("meal_day_cache",arrayOf("business_date","payload_json"),null,null,null,null,"business_date DESC").use{c->
+            while(c.moveToNext()){
+                val payload=runCatching{JSONObject(c.getString(1))}.getOrNull()
+                if((payload?.optJSONArray("items")?.length()?:0)>0)out+=c.getString(0)
+            }
+        }
+        out
+    }
+
     fun save(payload:JSONObject){
         val date=payload.optString("business_date").trim()
         if(date.isBlank())return
