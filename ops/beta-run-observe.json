@@ -1,8 +1,8 @@
 {
-  "run_id": 33592181385,
-  "run_sha": "405bd03970cdc16c9d8d99c5f8f8b15fd3599d9c",
-  "ref": "release/beta111-owner-ui-labor-nav",
-  "execution_nonce": "beta111-pass-live-final-readback-20260902-11",
-  "stage": "pass_live",
-  "observed_at": "2026-09-02T04:48:08Z"
+  "run_id": 33596529877,
+  "run_sha": "f2eb173649dc68348a97aa397892b49a1ed3c076",
+  "ref": "release/beta112-unified-review-warning",
+  "execution_nonce": "beta112-build-verify-20260902-01",
+  "stage": "BUILD_VERIFY",
+  "observed_at": "2026-09-02T05:53:43Z"
 }
