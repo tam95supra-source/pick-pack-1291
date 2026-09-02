@@ -241,6 +241,17 @@ jobs:
           python3 - <<'PY'
           import pathlib,re
           s=pathlib.Path(".github/workflows/beta-release.yml").read_text()
+          m=re.search(r"(?ms)^            pass_live\).*?^              ;;",s)
+          assert m, "pass_live route missing"
+          b=m.group(0)
+          for token in ['.live==true','.technical_pass_status=="PASS"','.owner_acceptance=="PENDING"','.runtime_dod_status=="PASS"','.device_regression_status=="PASS"','ops/beta-ota-current.json','GITHUB_RELEASE']:
+              assert token in b, "pass_live evidence/no-op guard missing: "+token
+          assert "needs.route.outputs.stage != 'pass_live'" in s, "pass_live must not run handoff finalizer"
+          print("pass_live_verified_noop_route=PASS")
+          PY
+          python3 - <<'PY'
+          import pathlib,re
+          s=pathlib.Path(".github/workflows/beta-release.yml").read_text()
           m=re.search(r"(?ms)^            PUBLISH\).*?^              ;;",s)
           assert m, "PUBLISH route missing"
           b=m.group(0)
