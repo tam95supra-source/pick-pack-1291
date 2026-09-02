@@ -30,3 +30,9 @@ Release metadata: Beta111 / versionCode 117 / Stable unchanged.
 - document multipage vs multi-document tick exclusivity
 - canonical history delete + terminal 404 cleanup
 - all Beta110 ACTIVE_PASS impacted regression remains PASS
+
+## Exact candidate under verification
+- Candidate run: 33586428789 / artifact 9830403339.
+- Product source: 03b37e5aa2726c273cc1e7c4a2161763bd3c4d2d.
+- APK SHA256: f67049067e600f4d8439d0ae088889f7b35df8b215e5432a2fcdd54f05f04a4f.
+- Harness-only changes after candidate do not alter APK/service product bytes.
