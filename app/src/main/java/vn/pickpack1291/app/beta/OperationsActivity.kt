@@ -1486,15 +1486,21 @@ class OperationsActivity : Activity() {
     private fun laborHome(){
         screenState="LABOR_HOME"
         if(!isAdmin()){simpleMessage("CÔNG NHẬT","Không có quyền truy cập.");return}
-        val root=baseRoot("CÔNG NHẬT");val body=body();var selectedLaborDate=operationalStore.businessDate()
+        val root=baseRoot("CÔNG NHẬT");val body=body();var selectedLaborDate=operationalStore.businessDate();var laborDates:List<String> = emptyList()
+
+        // Input must stay above the potentially long labor list.
+        body.addView(section("Ghi nhận công nhật"))
+        val mnv=mnvInput("Scan / Nhập mã nhân viên").apply{setText(initialMnv)}
+        body.addView(labelled("Mã nhân viên",mnv));body.addView(gap(10))
+
         val dateRow=row(bg);dateRow.addView(section("Chi tiết công nhật theo ngày"),LinearLayout.LayoutParams(0,-2,1f))
-        val laborDateButton=Button(this).apply{text=businessDateVi(selectedLaborDate);textSize=10.5f;isAllCaps=false;setTextColor(navy);background=outlineBg(surface,11)}
+        val laborDateButton=Button(this).apply{
+            text="Đang tải...";textSize=10.5f;isAllCaps=false;setTextColor(navy);background=outlineBg(surface,12);isEnabled=false
+        }
         dateRow.addView(laborDateButton,LinearLayout.LayoutParams(dp(112),dp(42)));body.addView(dateRow,matchWrap())
         val laborCount=txt("",9.5f,muted,true);body.addView(laborCount);body.addView(gap(4))
         val openBox=column(bg);body.addView(openBox,matchWrap());body.addView(gap(8))
-        body.addView(section("Ghi nhận công nhật"))
-        val mnv=mnvInput("Scan / Nhập mã nhân viên").apply{setText(initialMnv)}
-        body.addView(labelled("Mã nhân viên",mnv));body.addView(gap(5))
+
         var busy=false
         fun submit(){
             val v=mnv.text.toString().trim();if(v.isBlank()){TopNotice.show(this,"Nhập Mã nhân viên.",TopNotice.Kind.WARNING);return};if(busy)return
@@ -1506,7 +1512,13 @@ class OperationsActivity : Activity() {
             }}
         }
         fun loadOpen(){
-            openBox.removeAllViews();openBox.addView(txt("Đang tải...",9.5f,muted,false))
+            openBox.removeAllViews()
+            if(laborDates.isEmpty()){
+                laborCount.text="Chưa có ngày có dữ liệu công nhật."
+                laborDateButton.text="—";laborDateButton.isEnabled=false
+                openBox.addView(txt("Chưa có dữ liệu công nhật.",9.8f,muted,false));return
+            }
+            openBox.addView(txt("Đang tải...",9.5f,muted,false))
             api.call("labor_list",JSONObject().put("business_date",selectedLaborDate)){r->runOnUiThread{
                 if(screenState!="LABOR_HOME")return@runOnUiThread
                 openBox.removeAllViews();if(handleAuth(r))return@runOnUiThread
@@ -1530,14 +1542,33 @@ class OperationsActivity : Activity() {
                 }
             }}
         }
-        laborDateButton.setOnClickListener{
-            val d=runCatching{java.time.LocalDate.parse(selectedLaborDate)}.getOrDefault(java.time.LocalDate.now(ZoneId.of("Asia/Ho_Chi_Minh")))
-            android.app.DatePickerDialog(this,{_,y,m,day->selectedLaborDate=java.time.LocalDate.of(y,m+1,day).toString();laborDateButton.text=businessDateVi(selectedLaborDate);loadOpen()},d.year,d.monthValue-1,d.dayOfMonth).show()
+        fun localLaborDates():List<String> = operationalStore.availableDates().filter{date->
+            val events=operationalStore.loadDay(date)?.optJSONArray("events")?:return@filter false
+            (0 until events.length()).any{i->events.optJSONObject(i)?.optString("event_type")?.uppercase() in setOf("LABOR_START","LABOR_FINISH")}
         }
-        bindScannerEnter(mnv){submit()};loadOpen()
+        fun loadLaborDates(){
+            api.call("labor_dates"){r->runOnUiThread{
+                if(screenState!="LABOR_HOME")return@runOnUiThread
+                val remote=if(r.ok)jsonStrings(r.json?.optJSONArray("dates")) else emptyList()
+                laborDates=(remote+localLaborDates()).distinct().sortedDescending()
+                if(laborDates.isNotEmpty()){
+                    selectedLaborDate=selectedLaborDate.takeIf{it in laborDates}?:laborDates.first()
+                    laborDateButton.text=businessDateVi(selectedLaborDate);laborDateButton.isEnabled=true
+                }
+                loadOpen()
+            }}
+        }
+        laborDateButton.setOnClickListener{
+            if(laborDates.isEmpty()){TopNotice.show(this,"Chưa có ngày có dữ liệu công nhật.",TopNotice.Kind.INFO);return@setOnClickListener}
+            DataDatePickerUi.show(this,laborDates,selectedLaborDate){chosen->
+                selectedLaborDate=chosen;laborDateButton.text=businessDateVi(chosen);loadOpen()
+            }
+        }
+        bindScannerEnter(mnv){submit()};loadLaborDates()
         if(initialMnv.isNotBlank())mnv.post{submit()}
         attach(root,body);mnv.requestFocus()
     }
+
     private fun laborWheelPick(currentIso:String,onPick:(String)->Unit){
         val tz=ZoneId.of("Asia/Ho_Chi_Minh");val z=runCatching{Instant.parse(currentIso).atZone(tz)}.getOrDefault(java.time.ZonedDateTime.now(tz))
         val hour=NumberPicker(this).apply{minValue=0;maxValue=23;value=z.hour;wrapSelectorWheel=false;setFormatter{String.format(java.util.Locale.US,"%02d",it)}}
