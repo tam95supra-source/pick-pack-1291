@@ -377,7 +377,7 @@ jq -e --arg sid "$B80_SID" '.ok==true and .session.session_id==$sid and .state==
 read_api b111-labor-list-done "$(jq -nc --arg date "$B80_DATE" '{action:"labor_list",business_date:$date}')"
 jq -e --arg labor "$B111_LABOR_ID" '([.items[]|select(.labor_id==$labor and .state=="COMPLETED")]|length)==1 and .completed_count>=1' "$D/b111-labor-list-done.json" >/dev/null
 
-B111_CORRECT_START=$(date -u -d "$B111_START_AT + 1 minute" +%Y-%m-%dT%H:%M:%SZ)
+B111_CORRECT_START=$(date -u -d "$B111_START_AT + 1 second" +%Y-%m-%dT%H:%M:%SZ)
 B111_CORRECT_BODY=$(jq -nc --arg ev "$B111_LABOR_CORRECT" --arg labor "$B111_LABOR_ID" --arg dev "$DEVICE" --arg date "$B80_DATE" --arg sid "$B80_SID" --arg mnv "$B80_MNV" --arg start "$B111_CORRECT_START" --arg end "$B111_END_AT" '{
   events:[{action:"labor_finish",event_id:$ev,device_id:$dev,business_date:$date,payload:{labor_id:$labor,session_id:$sid,mnv:$mnv,start_at:$start,end_at:$end,correction:true,note:"Beta111 corrected"}}]
 }')
