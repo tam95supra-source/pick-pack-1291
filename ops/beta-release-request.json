@@ -103,5 +103,8 @@
   "final_artifact_id": 9839890706,
   "github_release_id": 381116427,
   "github_release_asset_id": 540918700,
-  "pass_live_validation": "PENDING_FINAL_STATE_READBACK"
+  "pass_live_validation": "PASS",
+  "pass_live_validation_run_id": 33614916996,
+  "post_state_fast_check": "PASS",
+  "post_state_fast_check_run_id": 33614837960
 }
