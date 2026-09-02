@@ -1449,19 +1449,18 @@ class OperationsActivity : Activity() {
     private fun laborHome(){
         screenState="LABOR_HOME"
         if(!isAdmin()){simpleMessage("CÔNG NHẬT","Không có quyền truy cập.");return}
-        val root=baseRoot("CÔNG NHẬT");val body=body()
-        val openBox=column(bg)
-        body.addView(section("Đang thực hiện"));body.addView(openBox,matchWrap());body.addView(gap(8))
+        val root=baseRoot("CÔNG NHẬT");val body=body();var selectedLaborDate=operationalStore.businessDate()
+        val dateRow=row(bg);dateRow.addView(section("Chi tiết công nhật theo ngày"),LinearLayout.LayoutParams(0,-2,1f))
+        val laborDateButton=Button(this).apply{text=businessDateVi(selectedLaborDate);textSize=10.5f;isAllCaps=false;setTextColor(navy);background=outlineBg(surface,11)}
+        dateRow.addView(laborDateButton,LinearLayout.LayoutParams(dp(112),dp(42)));body.addView(dateRow,matchWrap())
+        val laborCount=txt("",9.5f,muted,true);body.addView(laborCount);body.addView(gap(4))
+        val openBox=column(bg);body.addView(openBox,matchWrap());body.addView(gap(8))
+        body.addView(section("Ghi nhận công nhật"))
         val mnv=mnvInput("Scan / Nhập mã nhân viên").apply{setText(initialMnv)}
         body.addView(labelled("Mã nhân viên",mnv));body.addView(gap(5))
         var busy=false
         fun submit(){
             val v=mnv.text.toString().trim();if(v.isBlank()){TopNotice.show(this,"Nhập Mã nhân viên.",TopNotice.Kind.WARNING);return};if(busy)return
-            val local=PdaLocalProjection.employeeContext(this,v)
-            if(local!=null){
-                if(!local.optBoolean("session_known",true)){renderCachedEmployee(local.optJSONObject("employee")?:JSONObject());foregroundSync.requestSync();return}
-                showLaborContext(local,MasterDataCache.snapshot(this)?:JSONObject());foregroundSync.requestSync();return
-            }
             busy=true
             api.call("employee_context",JSONObject().put("mnv",v).put("include_labor",true).put("include_options",false)){r->runOnUiThread{
                 busy=false;if(handleAuth(r))return@runOnUiThread
@@ -1471,25 +1470,32 @@ class OperationsActivity : Activity() {
         }
         fun loadOpen(){
             openBox.removeAllViews();openBox.addView(txt("Đang tải...",9.5f,muted,false))
-            api.call("list_labor"){r->runOnUiThread{
+            api.call("labor_list",JSONObject().put("business_date",selectedLaborDate)){r->runOnUiThread{
                 if(screenState!="LABOR_HOME")return@runOnUiThread
                 openBox.removeAllViews();if(handleAuth(r))return@runOnUiThread
                 if(!r.ok){openBox.addView(txt("-",10f,muted,false));return@runOnUiThread}
                 val a=r.json?.optJSONArray("items")?:JSONArray();val rows=mutableListOf<JSONObject>()
-                for(i in 0 until a.length()){val x=a.optJSONObject(i)?:continue;if(x.optString("state").equals("OPEN",true))rows.add(x)}
-                if(rows.isEmpty()){openBox.addView(txt("Không có công nhật đang thực hiện.",9.8f,muted,false));return@runOnUiThread}
-                rows.sortedBy{it.optString("start_at")}.forEach{x->
-                    val id=x.optString("mnv");val emp=x.optJSONObject("employee_snapshot")?:MasterDataCache.employee(this,id)?:JSONObject()
-                    val name=dash(emp.optString("full_name"));val supplier=dash(emp.optString("supplier"))
-                    val card=column(surface).apply{
-                        setPadding(dp(9),dp(7),dp(9),dp(7));background=outlineBg(surface,12)
-                        addView(txt("$id • $name",10.5f,navy,true))
-                        addView(txt("$supplier • ${dash(x.optString("labor_type"))} • ${compactAttendanceTime(x.optString("start_at"))} → -",9.2f,muted,false))
-                        setOnClickListener{mnv.setText(id);submit()}
+                for(i in 0 until a.length())a.optJSONObject(i)?.let{rows.add(it)}
+                val pending=rows.count{it.optString("state").equals("OPEN",true)};val done=rows.count{it.optString("state").equals("COMPLETED",true)}
+                laborCount.text="Đang làm: $pending  •  Hoàn thành: $done  •  Tổng: ${rows.size}"
+                if(rows.isEmpty()){openBox.addView(txt("Chưa có công nhật trong ngày.",9.8f,muted,false));return@runOnUiThread}
+                rows.forEach{x->
+                    val id=x.optString("mnv");val open=x.optString("state").equals("OPEN",true);val fill=if(open)Color.rgb(255,247,237) else Color.rgb(240,253,250)
+                    val name=dash(x.optString("full_name"));val supplier=dash(x.optString("supplier"));val sid=x.optString("attendance_session_id")
+                    val card=column(fill).apply{
+                        setPadding(dp(9),dp(7),dp(9),dp(7));background=outlineBg(fill,12)
+                        val top=row(fill);top.addView(txt("$id • $name",10.5f,navy,true),LinearLayout.LayoutParams(0,-2,1f));top.addView(txt(if(open)"ĐANG LÀM" else "HOÀN THÀNH",8.8f,if(open)Color.rgb(194,65,12) else green,true));addView(top)
+                        addView(txt("$supplier • ${dash(x.optString("labor_type"))}",9.2f,ink,false))
+                        addView(txt("${compactAttendanceTime(x.optString("start_at"))} → ${if(open)"-" else compactAttendanceTime(x.optString("end_at"))}",9.2f,muted,false))
+                        setOnClickListener{if(open)openLaborExact(id,sid)else showCompletedLaborEditor(JSONObject(x.toString()))}
                     }
                     openBox.addView(card,matchWrap());openBox.addView(gap(5))
                 }
             }}
+        }
+        laborDateButton.setOnClickListener{
+            val d=runCatching{java.time.LocalDate.parse(selectedLaborDate)}.getOrDefault(java.time.LocalDate.now(ZoneId.of("Asia/Ho_Chi_Minh")))
+            android.app.DatePickerDialog(this,{_,y,m,day->selectedLaborDate=java.time.LocalDate.of(y,m+1,day).toString();laborDateButton.text=businessDateVi(selectedLaborDate);loadOpen()},d.year,d.monthValue-1,d.dayOfMonth).show()
         }
         bindScannerEnter(mnv){submit()};loadOpen()
         if(initialMnv.isNotBlank())mnv.post{submit()}
