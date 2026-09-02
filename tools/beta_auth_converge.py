@@ -183,6 +183,64 @@ def sanitized_sheet(tok,sid):
         clean.append({"row":i,"login_id":login,"role":(str(r[2]).upper() if len(r)>2 else "USER"),"status":(str(r[8]).upper() if len(r)>8 and str(r[8]).strip() else "ACTIVE"),"verifier_hash":hashlib.sha256(verifier.encode()).hexdigest() if verifier else ""})
     return clean,hashlib.sha256(json.dumps(clean,sort_keys=True,separators=(",",":")).encode()).hexdigest()
 
+def repair_sheet_parity_from_d1(tok,beta,stable):
+    target_roles=dict(TARGETS);target_ids=set(target_roles)
+    beta_d1_before,beta_d1_hash_before=sanitized_d1(beta["db"])
+    beta_sheet_before,beta_sheet_hash_before=sanitized_sheet(tok,beta["sheet"])
+    stable_d1_before,stable_d1_hash_before=sanitized_d1(stable["db"])
+    stable_sheet_before,stable_sheet_hash_before=sanitized_sheet(tok,stable["sheet"])
+    raw=d1_query(beta["db"],"SELECT login_id,role,status,verifier,display_name,position,email,source_row FROM accounts ORDER BY login_id")
+    by_login={str(x.get("login_id") or ""):x for x in raw}
+    active=sorted((str(x.get("login_id") or ""),str(x.get("role") or "")) for x in raw if str(x.get("status") or "").upper()=="ACTIVE")
+    want=sorted(TARGETS)
+    if active!=want:raise RuntimeError("BETA_D1_AUTH_TARGET_FAILED:"+json.dumps(active))
+    current_rows={x["login_id"]:x["row"] for x in beta_sheet_before}
+    occupied={x["row"]:x["login_id"] for x in beta_sheet_before}
+    next_row=max([x["row"] for x in beta_sheet_before] or [1])+1
+    repaired=[]
+    now=time.strftime("%Y-%m-%dT%H:%M:%SZ",time.gmtime())
+    for login,role in TARGETS:
+        src=by_login.get(login) or {}
+        verifier=str(src.get("verifier") or "")
+        if not verifier:raise RuntimeError("BETA_D1_VERIFIER_MISSING:"+login)
+        row=current_rows.get(login)
+        if not row:
+            preferred=int(src.get("source_row") or 0)
+            if preferred>=2 and (preferred not in occupied or occupied.get(preferred)==login):
+                row=preferred
+            else:
+                while next_row in occupied:next_row+=1
+                row=next_row;next_row+=1
+            repaired.append(login)
+        occupied[row]=login
+        display=str(src.get("display_name") or login)
+        position=str(src.get("position") or role.lower())
+        email=str(src.get("email") or OWNER_EMAIL)
+        sheet_put(tok,beta["sheet"],f"'Danh sách Admin'!A{row}:K{row}",[[login,verifier,role.lower(),display,position,email,"","","ACTIVE","AUTH_PARITY_REPAIR",now]])
+    beta_sheet_after,beta_sheet_hash_after=sanitized_sheet(tok,beta["sheet"])
+    active_sheet=sorted((x["login_id"],x["role"]) for x in beta_sheet_after if x["status"]=="ACTIVE")
+    if active_sheet!=want:raise RuntimeError("BETA_SHEET_AUTH_TARGET_FAILED:"+json.dumps(active_sheet))
+    d1_verifier_hash={login:hashlib.sha256(str((by_login.get(login) or {}).get("verifier") or "").encode()).hexdigest() for login in target_ids}
+    sheet_verifier_hash={x["login_id"]:x["verifier_hash"] for x in beta_sheet_after if x["login_id"] in target_ids}
+    if d1_verifier_hash!=sheet_verifier_hash:raise RuntimeError("BETA_SHEET_VERIFIER_PARITY_FAILED")
+    beta_d1_after,beta_d1_hash_after=sanitized_d1(beta["db"])
+    stable_d1_after,stable_d1_hash_after=sanitized_d1(stable["db"])
+    stable_sheet_after,stable_sheet_hash_after=sanitized_sheet(tok,stable["sheet"])
+    if beta_d1_hash_after!=beta_d1_hash_before:raise RuntimeError("BETA_D1_CHANGED_DURING_SHEET_PARITY_REPAIR")
+    if stable_d1_hash_after!=stable_d1_hash_before or stable_sheet_hash_after!=stable_sheet_hash_before:raise RuntimeError("STABLE_AUTH_CHANGED_DURING_BETA_SHEET_PARITY_REPAIR")
+    receipt={
+      "status":"PASS","environment":"BETA","mode":"REPAIR_BETA_AUTH_SHEET_PARITY",
+      "target_active_accounts":[x[0] for x in want],"repaired_sheet_accounts":sorted(repaired),
+      "passwords_rotated":False,"d1_mutated":False,"sessions_revoked":False,
+      "verifier_parity":"PASS","beta_d1_unchanged":True,"stable_unchanged":True,
+      "before":{"beta_d1_hash":beta_d1_hash_before,"beta_sheet_hash":beta_sheet_hash_before,"stable_d1_hash":stable_d1_hash_before,"stable_sheet_hash":stable_sheet_hash_before},
+      "after":{"beta_d1_hash":beta_d1_hash_after,"beta_sheet_hash":beta_sheet_hash_after,"stable_d1_hash":stable_d1_hash_after,"stable_sheet_hash":stable_sheet_hash_after},
+      "password_plaintext_in_receipt":False,"credentials_logged":False
+    }
+    pathlib.Path("/tmp/beta-auth-converge-receipt.json").write_text(json.dumps(receipt,indent=2,ensure_ascii=False)+"\n")
+    print(json.dumps({"status":"PASS","mode":"REPAIR_BETA_AUTH_SHEET_PARITY","repaired":sorted(repaired),"passwords_rotated":False,"d1_mutated":False,"stable_unchanged":True}))
+
+
 def stable_reject(stable,service_token):
     headers={"X-Pick-Pack-Environment":"STABLE","X-Pick-Pack-Audience":"PICK_PACK_1291_STABLE","Authorization":"Bearer "+service_token}
     code,_=worker_json("GET",stable["url"]+"/v1/sync/status",headers=headers)
@@ -197,6 +255,10 @@ def main():
         print("::add-mask::"+need(n))
     tok=google_token();print("::add-mask::"+tok)
     beta,stable=discover()
+    release=json.loads((ROOT/"ops/beta-release-request.json").read_text())
+    if release.get("mode")=="REPAIR_BETA_AUTH_SHEET_PARITY":
+        repair_sheet_parity_from_d1(tok,beta,stable)
+        return
     beta_before,beta_d1_hash_before=sanitized_d1(beta["db"]); beta_sheet_before,beta_sheet_hash_before=sanitized_sheet(tok,beta["sheet"])
     stable_before,stable_d1_hash_before=sanitized_d1(stable["db"]); stable_sheet_before,stable_sheet_hash_before=sanitized_sheet(tok,stable["sheet"])
     if len([x for x in beta_before if x["status"]=="ACTIVE"])<1:raise RuntimeError("BETA_NO_ACTIVE_ACCOUNT_PRECHECK")
