@@ -1,8 +1,8 @@
 {
-  "run_id": 33632338079,
-  "run_sha": "ebbe8c41dd2092a8532f4eea6f3e849c40a34e55",
+  "run_id": 33638192582,
+  "run_sha": "e90662e95c1abe90e030bf892ff4b3249a5fc1b7",
   "ref": "release/beta113-owner-scope-20260902",
-  "execution_nonce": "beta113-build-verify-20260902-02",
-  "stage": "BUILD_VERIFY",
-  "observed_at": "2026-09-02T12:52:05Z"
+  "execution_nonce": "beta113-verify-exact-20260902-04",
+  "stage": "VERIFY_ONLY",
+  "observed_at": "2026-09-02T13:50:29Z"
 }
