@@ -133,6 +133,12 @@ class OperationsActivity : Activity() {
     private data class NavRefs(val cell:LinearLayout,val icon:ImageView,val label:TextView)
     private val navRefs=mutableMapOf<String,NavRefs>()
     private val tabHistory=java.util.ArrayDeque<String>()
+    private data class ScreenSnapshot(val view:View,val module:String,val screenState:String,val initialMnv:String,val liveEmployeeMnv:String)
+    private val screenBackStack=java.util.ArrayDeque<ScreenSnapshot>()
+    private var displayedScreenState=""
+    private var displayedModule=""
+    private var displayedInitialMnv=""
+    private var displayedLiveEmployeeMnv=""
     private var liveEmployeeMnv=""
     private var documentController:DocumentManagementFeature.Controller?=null
     private var documentCameraUri:Uri?=null
@@ -2690,32 +2696,23 @@ class OperationsActivity : Activity() {
 
     private fun refreshMasterCache(){cacheApi.call("master_snapshot"){r->if(r.ok&&r.json!=null)MasterDataCache.save(applicationContext,r.json)}}
     private fun installSystemBackHandler(){
-        if(Build.VERSION.SDK_INT>=33){
-            onBackInvokedDispatcher.registerOnBackInvokedCallback(android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT){handleBackNavigation()}
-        }
+        if(Build.VERSION.SDK_INT>=33)onBackInvokedDispatcher.registerOnBackInvokedCallback(android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT){handleBackNavigation()}
     }
-    private fun handleBackNavigation(){if(!isRootScreen())navigateBack()}
+    private fun handleBackNavigation(){if(screenBackStack.isNotEmpty())navigateBack()}
     @Suppress("DEPRECATION")
     override fun onBackPressed(){handleBackNavigation()}
 
     private fun navigateBack(){
-        when(screenState){
-            "LABOR_CONTEXT"->laborHome()
-            "RESOURCE_EDITOR","RESOURCE_LIST"->resourceHome()
-            "ACCOUNT_MANAGER","APP_DOWNLOAD_QR"->settingsScreen()
-            "EMPLOYEE","EMPLOYEE_LOADING","EMPLOYEE_LOOKUP_ERROR"->employeeScan()
-            "SHIFT_STAFF_LIST"->employeeScan()
-            "SCAN","LABOR_HOME","RESOURCE_HOME","REPORT","LISTS","PDA_EXCHANGE","DROP_RECEIVE","MEAL_ATTENDANCE"->businessHome()
-            "HISTORY_DETAIL"->historyScreen()
-            else->{
-                if(isRootScreen()&&tabHistory.isNotEmpty()){
-                    val previous=tabHistory.removeLast()
-                    navigateTab(previous,false)
-                }else if(module!="BUSINESS"){
-                    module="BUSINESS";businessHome()
-                }else Unit
-            }
-        }
+        if(screenBackStack.isEmpty())return
+        val snapshot=screenBackStack.removeLast()
+        if(screenState=="DOCUMENT_MANAGEMENT"){documentController?.dispose();documentController=null}
+        if(screenState=="MEAL_ATTENDANCE")PostMealAttendanceFeature.leave()
+        module=snapshot.module;screenState=snapshot.screenState;initialMnv=snapshot.initialMnv;liveEmployeeMnv=snapshot.liveEmployeeMnv
+        val frame=contentHost?:return
+        frame.suppressLayout(true)
+        try{(snapshot.view.parent as? ViewGroup)?.removeView(snapshot.view);frame.removeAllViews();frame.addView(snapshot.view,FrameLayout.LayoutParams(-1,-1))}finally{frame.suppressLayout(false)}
+        displayedModule=module;displayedScreenState=screenState;displayedInitialMnv=initialMnv;displayedLiveEmployeeMnv=liveEmployeeMnv
+        refreshBottomNav();frame.requestLayout();frame.invalidate()
     }
 
     private fun simpleMessage(title:String,message:String){val root=baseRoot(title);val body=body();body.addView(info("ⓘ $message"));attach(root,body)}
@@ -2727,12 +2724,15 @@ class OperationsActivity : Activity() {
     }
     private fun setScreen(content:View){
         val frame=contentHost
-        if(frame==null){setContentView(host(content));return}
+        if(frame==null){setContentView(host(content));displayedModule=module;displayedScreenState=screenState;displayedInitialMnv=initialMnv;displayedLiveEmployeeMnv=liveEmployeeMnv;return}
+        val current=frame.getChildAt(0)
+        if(current!=null&&displayedScreenState.isNotBlank()&&(displayedScreenState!=screenState||displayedModule!=module)){
+            screenBackStack.addLast(ScreenSnapshot(current,displayedModule,displayedScreenState,displayedInitialMnv,displayedLiveEmployeeMnv))
+            while(screenBackStack.size>40)screenBackStack.removeFirst()
+        }
         frame.suppressLayout(true)
-        try {
-            frame.removeAllViews()
-            frame.addView(content,FrameLayout.LayoutParams(-1,-1))
-        } finally { frame.suppressLayout(false) }
+        try{frame.removeAllViews();frame.addView(content,FrameLayout.LayoutParams(-1,-1))}finally{frame.suppressLayout(false)}
+        displayedModule=module;displayedScreenState=screenState;displayedInitialMnv=initialMnv;displayedLiveEmployeeMnv=liveEmployeeMnv
         refreshBottomNav()
     }
     private fun isRootScreen()=screenState=="BUSINESS"||screenState=="STAFF"||screenState=="HISTORY"||screenState=="SYNC"||screenState=="SETTINGS"||screenState=="ROLE_MODE"
