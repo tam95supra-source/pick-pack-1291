@@ -54,7 +54,8 @@ class M2ServiceTransport(context: Context) {
     fun operational(action: String, payload: JSONObject): TransportResult {
         if (action !in OPERATIONAL && action !in TECHNICAL) return TransportResult(false, false, 0, null, null)
         val eventId = payload.optString("event_id").ifBlank { java.util.UUID.randomUUID().toString() }
-        val businessDate=store.businessDate()
+        val requestedDate=payload.optString("business_date").trim()
+        val businessDate=if(action=="labor_start"||action=="labor_finish")requestedDate.takeIf{it.matches(Regex("\\d{4}-\\d{2}-\\d{2}"))}?:store.businessDate() else store.businessDate()
         payload.put("event_id",eventId).put("business_date",businessDate)
         val cleanPayload=sanitizeBusinessPayload(JSONObject(payload.toString()))
         val envelope=canonicalEnvelope(action,eventId,businessDate,cleanPayload)
