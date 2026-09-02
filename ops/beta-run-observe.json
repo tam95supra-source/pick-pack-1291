@@ -1,8 +1,8 @@
 {
-  "run_id": 33611682634,
-  "run_sha": "591dd234304a4cde6852a557fc7a6854f3f43b16",
+  "run_id": 33612548361,
+  "run_sha": "1786ec3b8858b2dc47861f2ba648884b0cd564bd",
   "ref": "release/beta112-unified-review-warning",
-  "execution_nonce": "beta112-runtime-dod-20260902-04",
-  "stage": "RUNTIME_DOD_VERIFY",
-  "observed_at": "2026-09-02T08:59:52Z"
+  "execution_nonce": "beta112-auth-parity-repair-20260902-05",
+  "stage": "BETA_AUTH_MIGRATE",
+  "observed_at": "2026-09-02T09:09:20Z"
 }
