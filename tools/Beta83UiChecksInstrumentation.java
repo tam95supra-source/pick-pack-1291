@@ -1164,7 +1164,7 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     waitText("THAY ĐỔI BẢN MỚI",false,false,10000L);
     waitText("Sửa lỗi tài nguyên bản mới",false,false,10000L);
     waitText("THAY ĐỔI BẢN HIỆN TẠI",false,false,10000L);
-    waitText("Quản lý biên bản: chụp ảnh hoặc chọn ảnh từ máy",false,false,10000L);
+    waitText("Thông tin thay đổi được khóa theo đúng phiên bản ứng dụng",false,false,10000L);
     require(findText("SHA256",false,false)==null,"TECHNICAL_RELEASE_METADATA_VISIBLE_IN_CHANGELOG");
     mark("dual_changelog");
     shot(tag+"-07-settings-top");
