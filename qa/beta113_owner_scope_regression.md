@@ -11,7 +11,7 @@ Status: LOCKED_REQUIREMENT_PENDING_FIX until technical gates pass; then TECHNICA
 5. **Labor layout** — scan/input is above all daily labor list content regardless of list size.
 6. **Multi-interval labor** — multiple intervals per employee/business session are allowed; each has its own `labor_id`; max one OPEN; intervals cannot overlap; start/end cannot be future; start cannot precede attendance entry; completed correction cannot exceed attendance exit; edit/finish targets exact labor ID; prior intervals remain visible.
 7. **Select hierarchy** — form label is visually distinct from selected value; selected value is stronger than option list text; PDA searchable select follows the same hierarchy.
-8. **Data-date calendar** — Report, History, Labor only enable dates containing real data. Empty dates are visible but dim/disabled. Staff start-date/time correction editors remain unrestricted.
+8. **Data-date calendar** — every date selector used only to view data enables only dates containing real data. This includes Report, History, Labor and Point Attendance; empty dates stay visible but dim/disabled. Date/time selectors used to edit or correct business data remain unrestricted.
 9. **Shift reconciliation** — tiles only show quick entered/exited status. Tap shows only pending-to-exit staff with RA CA action. Full current-day staff roster renders inline below scan; after scanning an employee, that employee/session detail renders before the inline roster.
 10. **UI consistency** — common form controls use canonical 12dp radius/1dp outline; MNV scan uses intentional 2dp emphasis. `ReviewAlertUi` Beta112 locked 42dp/10.5sp/radius10/stroke2 severity semantics must remain unchanged.
 
