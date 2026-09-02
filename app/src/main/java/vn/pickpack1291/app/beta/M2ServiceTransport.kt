@@ -381,6 +381,9 @@ class M2ServiceTransport(context: Context) {
         }
         val body=JSONObject()
             .put("action","admin_audit")
+            // Durable outbox routing type is admin_audit; audit_action is the canonical business audit type.
+            // Never put passwords/proofs/verifiers in this body.
+            .put("audit_action",action)
             .put("event_id",eventId)
             .put("target_type",if(action.startsWith("staff_"))"STAFF" else "ACCOUNT")
             .put("target_id",targetId.take(180))
