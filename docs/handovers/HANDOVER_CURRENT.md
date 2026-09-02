@@ -2,48 +2,44 @@
 
 - schema_version: 2
 - status: READY
-- time_utc: 2026-09-02T09:18:19Z
+- task_state: TECHNICAL_PASS_AWAITING_OWNER
+- time_utc: 2026-09-02T09:18:37Z
 - owner: Nguyễn Văn Tâm
 - branch: release/beta112-unified-review-warning
-- release_trigger_sha: f8d1d0a1865ce284b709181304c84bab13c54670
-- archive_file: docs/handovers/HANDOVER_20260902-091819_beta112-pass-live.md
+- archive_file: docs/handovers/HANDOVER_20260902-091837_beta112-technical-pass-await-owner.md
 
-## Mục tiêu + DoD
-Release 0.4.2-beta.112 hoàn tất scope beta112-unified-review-warning-only; toàn bộ pre-OTA + GitHub Release exact bytes + OTA install/readback + finalizer PASS.
+## LIVE
+- Beta112 LIVE: 0.4.2-beta.112 / versionCode 118 / package vn.pickpack1291.app.beta.publicbeta.
+- Exact candidate: source b3009ca701670af487ee8dce3538fe9c3cde4ae5; run 33596529877; artifact 9833670469.
+- SHA256 d5de4fea496a1be4926f3acc49f82fb60eb9065de694e075251ca493ce298e76; size 14216181; signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e.
+- GitHub Release: release 381116427 / asset 540918700 / exact size 14216181.
+- Stable/main/signer/authority unchanged.
 
-## LIVE / TARGET / CANDIDATE
-- LIVE BETA: 0.4.2-beta.112 / versionCode 118 / package vn.pickpack1291.app.beta.publicbeta.
-- TARGET: PASS/LIVE.
-- CANDIDATE LOCKED: run 33596529877; artifact 9833670469; source b3009ca701670af487ee8dce3538fe9c3cde4ae5; SHA256 d5de4fea496a1be4926f3acc49f82fb60eb9065de694e075251ca493ce298e76; size 14216181; signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e.
-- Fast Check: PASS run 33612134466.
-- Service: INHERITED_PASS_RUN_33588851239_SERVICE_SOURCE_UNCHANGED.
-- Visual/PDA pre-OTA: PASS run 33597157250, artifact 9833913262.
-- Human visual 320x568 / 360x640 / 480x800: PASS.
-- Stable/main/signer/authority: unchanged.
+## Technical DoD
+- Fast Check 33612134466 PASS incl Android/debug.
+- Service 33588851239 / 9831120144 PASS inherited because service source unchanged.
+- Visual/PDA/API36 33597157250 / 9833913262 PASS; 42 screenshots; human visual PASS 320x568 / 360x640 / 480x800.
+- Device discovery 33611415963 / 9839191113 PASS.
+- Beta auth Sheet parity recovery 33612548361 / 9839580952 PASS; no password rotation, no D1 mutation, no session revocation, Stable unchanged.
+- Runtime DoD 33612695867 / 9839670809 PASS; prior 33611682634 BETA_SHEET_AUTH_TARGET_FAILED is SUPERSEDED by parity repair + fresh runtime PASS.
+- Terminal 33612994423 PASS; publish 9839800512; OTA/install/readback 9839879502; final 9839890706.
+- Technical receipt: ops/beta112-technical-pass.json.
+- Release lock: ops/beta112-release-lock.json.
 
-## Evidence
-- 3 ô Mạng / Đồng bộ / Dịch vụ ghim trên cùng ở mọi màn scope: PASS.
-- QR nhân sự local fast-path giữ nguyên; functional + service regression PASS.
-- Điểm danh chỉ chấp nhận ACTIVE session đúng business_date hiện tại; ACTIVE phiên cũ bị chặn: PASS.
-- Cảnh báo chưa điểm danh ở trên cùng Nghiệp vụ; USER không thấy/deep-link được Lịch sử: PASS.
-- GitHub Release asset exact bytes khớp candidate SHA256/size; OTA tải trực tiếp từ GitHub Release: PASS.
-- OTA 0.4.2-beta.111 → 0.4.2-beta.112: download/install exact SHA/size/version/package/signer và mở app: PASS.
-- Google Drive APK: FORBIDDEN từ Beta97; không backup/staging/mirror/upload/download/rollback/phân phối APK qua Drive.
+## Scope result
+- UI-REVIEW-WARNING-001: TECHNICAL_PASS_AWAITING_OWNER.
+- Beta112 uses one shared ReviewAlertUi component for reconciliation + old-session + meal + labor warnings.
+- Fixed visual contract: 42dp height / 10.5sp / radius 10dp / stroke 2dp; canonical warning red; canonical OK green; Android default min-size/font-padding/state animator variance removed.
+- Beta111 OWNER-accepted items 2–7 remain ACTIVE_PASS; no semantics changed.
 
-## Lỗi/root cause/PASS path
-- VERIFY_ONLY harness cũ đếm text guard HISTORY cứng; sửa verifier semantics và exact candidate PASS.
-- Publish cũ có luồng Drive APK song song và DriveApp/public APK bị Google chặn; loại bỏ toàn bộ Drive dependency khỏi Beta APK pipeline.
-- Canonical Beta APK path: GitHub Actions exact candidate → GitHub Release exact asset → GAS manifest GitHub URL → OTA install/readback → finalizer.
-- Rollback canonical: exact LIVE baseline GitHub Actions/GitHub Release → atomic Beta manifest restore; không dùng Drive APK.
-- Candidate được build/sign đúng một lần; mọi recovery dùng exact locked bytes, không rebuild/resign.
+## OWNER acceptance
+Only one item remains:
+1. Rà soát vào/ra và các cảnh báo liên quan phải nhìn đồng nhất về chiều cao, cỡ chữ, bo góc, viền và bố cục; mọi cảnh báo cùng đỏ canonical, rà soát đủ dùng xanh canonical.
+
+Expected reply: `1 OK` or `1 chưa OK: ...`.
 
 ## Blocker
 Không có.
 
-## Invariants
-- Stable/main/signer/authority không đổi.
-- APK Beta release/OTA/rollback = GITHUB_RELEASE_ONLY.
-- Google Drive không được dùng cho APK; GSheet/GAS nghiệp vụ không bị xóa/thay authority.
-
 ## NEXT_ACTION
-WAIT_FOR_OWNER_NEW_SCOPE
+OWNER_ACCEPTANCE_BETA112_ITEM_1_ONLY
