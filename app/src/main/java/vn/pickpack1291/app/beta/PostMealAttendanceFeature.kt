@@ -73,7 +73,9 @@ object PostMealAttendanceFeature {
             if(count<=0){root.visibility=View.GONE;return}
             root.visibility=View.VISIBLE
             button.text="CẢNH BÁO: CÒN $count NHÂN SỰ CHƯA ĐIỂM DANH"
-            button.background=round(if(severe)red else orange,11)
+            val fg=if(severe)Color.rgb(176,0,32) else Color.rgb(180,83,9)
+            val fill=if(severe)Color.rgb(255,226,232) else Color.rgb(255,247,237)
+            button.setTextColor(fg);button.background=GradientDrawable().apply{setColor(fill);cornerRadius=dp(10).toFloat();setStroke(dp(2),fg)}
             if(severe)button.startAnimation(android.view.animation.AlphaAnimation(1f,.55f).apply{
                 duration=760;repeatMode=android.view.animation.Animation.REVERSE;repeatCount=android.view.animation.Animation.INFINITE
             })
