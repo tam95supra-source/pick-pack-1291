@@ -1,6 +1,6 @@
 {
-  "stage": "SERVICE_DISCOVERY_ONLY",
-  "mode": "SERVICE_DISCOVERY_DEVICE_REGRESSION_BETA112_EXACT_CANDIDATE",
+  "stage": "RUNTIME_DOD_VERIFY",
+  "mode": "PRE_OTA_RUNTIME_DOD_BETA112_EXACT_CANDIDATE",
   "version_name": "0.4.2-beta.112",
   "version_code": 118,
   "base_version": "0.4.2-beta.111",
@@ -45,11 +45,11 @@
   "visual_matrix": "PASS",
   "pda_functional_pre_ota": "PASS",
   "back_api36": "PASS",
-  "device_regression_status": "PENDING",
+  "device_regression_status": "PASS",
   "runtime_dod_status": "PENDING",
   "regression_case": "UI-REVIEW-WARNING-001 + tools/beta112_review_warning_contract.py + review_warning_shared_style_beta112; preserve ACTIVE_PASS NAV-HISTORY-BACK-001, LABOR-EXACT-SESSION-002, DOCUMENT-BATCH-MODE-TICK-002, HISTORY-DELETE-CANONICAL-001",
-  "execution_nonce": "beta112-service-discovery-20260902-03",
-  "next_action": "PASS_DEVICE_DISCOVERY_THEN_RUNTIME_DOD_EXACT_CANDIDATE",
+  "execution_nonce": "beta112-runtime-dod-20260902-04",
+  "next_action": "PASS_RUNTIME_DOD_THEN_RELEASE_LOCK_AND_PUBLISH_EXACT_BYTES",
   "candidate_source_sha": "b3009ca701670af487ee8dce3538fe9c3cde4ae5",
   "candidate_run_id": 33596529877,
   "candidate_artifact_id": 9833670469,
@@ -69,5 +69,8 @@
   "verify_artifact_name": "beta-verify-33597157250",
   "visual_matrix_evidence": "RUN_33597157250_EXACT_BETA112_VISUAL_PASS_42_SCREENSHOTS",
   "pda_functional_pre_ota_evidence": "RUN_33597157250_EXACT_BETA112_DIRECT_PDA_PASS",
-  "back_api36_evidence": "RUN_33597157250_EXACT_BETA112_API36_PASS"
+  "back_api36_evidence": "RUN_33597157250_EXACT_BETA112_API36_PASS",
+  "device_regression_run_id": 33611415963,
+  "device_regression_artifact_id": 9839191113,
+  "device_regression_artifact_name": "beta-service-discovery-33611415963"
 }
