@@ -161,6 +161,63 @@ invariants:
     active_pass: true
     last_verified: "0.4.2-beta.110 LIVE / terminal run 33574078129 / OWNER acceptance complete 2026-09-02T07:43:15+07:00"
 
+  - id: NAV-HISTORY-BACK-001
+    status: TECHNICAL_PASS_AWAITING_OWNER
+    scope: navigation
+    rule: "System Back và edge-swipe Back phải quay về đúng màn hình thực tế ngay trước đó trong navigation history; không dùng parent cố định theo screenState."
+    regression_minimum: [one_two_three_back_two_back_one, five_to_three_back_five, same_screen_rerender_no_fake_frame, root_no_exit_by_swipe]
+    regression_case: "qa/beta111_owner_ui_labor_navigation_regression.md + tools/beta111_owner_scope_contract.py"
+
+    technical_candidate: "0.4.2-beta.111 LIVE / source 03b37e5aa2726c273cc1e7c4a2161763bd3c4d2d"
+    technical_evidence: "0.4.2-beta.111 LIVE / source 03b37e5aa2726c273cc1e7c4a2161763bd3c4d2d / candidate 33586428789/9830403339 / Fast Check 33588839641 / Service 33588851239/9831120144 / visual+PDA+API36 33589199933/9831243286 + human PASS 41 screenshots / device 33590310367/9831531954 / runtime 33590505522 attempt2/9831607439 / terminal 33590747613 / publish 9831669563 / OTA-install-readback 9831721383 / final 9831726759 / SHA256 f67049067e600f4d8439d0ae088889f7b35df8b215e5432a2fcdd54f05f04a4f / size 14216181 / signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged"
+    technical_receipt: "ops/beta111-technical-pass.json"
+    owner_acceptance: "PENDING_OWNER_BETA111_CHECKLIST_1_TO_7"
+  - id: UI-REVIEW-WARNING-001
+    status: TECHNICAL_PASS_AWAITING_OWNER
+    scope: reconciliation-warning-ui
+    rule: "Rà soát vào/ra và các cảnh báo liên quan dùng cùng kích thước, typography, radius/stroke và severity visual language; không tạo bố cục lệch giữa các mục."
+    regression_minimum: [shift_reconciliation_geometry, old_session_warning_geometry, meal_warning_geometry, labor_warning_geometry, severity_preserved]
+    regression_case: "qa/beta111_owner_ui_labor_navigation_regression.md + tools/beta111_owner_scope_contract.py"
+
+    technical_candidate: "0.4.2-beta.111 LIVE / source 03b37e5aa2726c273cc1e7c4a2161763bd3c4d2d"
+    technical_evidence: "0.4.2-beta.111 LIVE / source 03b37e5aa2726c273cc1e7c4a2161763bd3c4d2d / candidate 33586428789/9830403339 / Fast Check 33588839641 / Service 33588851239/9831120144 / visual+PDA+API36 33589199933/9831243286 + human PASS 41 screenshots / device 33590310367/9831531954 / runtime 33590505522 attempt2/9831607439 / terminal 33590747613 / publish 9831669563 / OTA-install-readback 9831721383 / final 9831726759 / SHA256 f67049067e600f4d8439d0ae088889f7b35df8b215e5432a2fcdd54f05f04a4f / size 14216181 / signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged"
+    technical_receipt: "ops/beta111-technical-pass.json"
+    owner_acceptance: "PENDING_OWNER_BETA111_CHECKLIST_1_TO_7"
+  - id: LABOR-EXACT-SESSION-002
+    status: TECHNICAL_PASS_AWAITING_OWNER
+    scope: labor-session
+    rule: "Công nhật quyết định theo Service exact session/business_date/labor_id; chọn giờ-phút bằng wheel không wrap; cho phép start-only hoặc start+end, sửa giờ khi cần; Ra ca gặp labor OPEN phải mở đúng labor của đúng session; danh sách theo ngày hiển thị OPEN và COMPLETED."
+    parent_invariant: LABOR-TIME-RANGE-001
+    regression_minimum: [exact_session_current_day, exact_session_old_active, stale_local_not_authority, non_wrapping_wheel, start_only, start_and_end, open_start_edit, completed_correction, exit_redirect_exact_labor, daily_open_completed_list, labor_not_open_stale_regression, attendance_not_active_stale_regression]
+    regression_case: "qa/beta111_owner_ui_labor_navigation_regression.md + tools/beta111_owner_scope_contract.py"
+
+    technical_candidate: "0.4.2-beta.111 LIVE / source 03b37e5aa2726c273cc1e7c4a2161763bd3c4d2d"
+    technical_evidence: "0.4.2-beta.111 LIVE / source 03b37e5aa2726c273cc1e7c4a2161763bd3c4d2d / candidate 33586428789/9830403339 / Fast Check 33588839641 / Service 33588851239/9831120144 / visual+PDA+API36 33589199933/9831243286 + human PASS 41 screenshots / device 33590310367/9831531954 / runtime 33590505522 attempt2/9831607439 / terminal 33590747613 / publish 9831669563 / OTA-install-readback 9831721383 / final 9831726759 / SHA256 f67049067e600f4d8439d0ae088889f7b35df8b215e5432a2fcdd54f05f04a4f / size 14216181 / signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged"
+    technical_receipt: "ops/beta111-technical-pass.json"
+    owner_acceptance: "PENDING_OWNER_BETA111_CHECKLIST_1_TO_7"
+  - id: HISTORY-DELETE-CANONICAL-001
+    status: TECHNICAL_PASS_AWAITING_OWNER
+    scope: history-delete
+    rule: "Chỉ event canonical tồn tại trên Service được gửi history_delete; local-only/noncanonical event không gửi; HISTORY_DELETE_TARGET_NOT_FOUND của deferred delete là terminal cleanup, không retry vô hạn."
+    regression_minimum: [canonical_delete, local_only_not_sent, target_not_found_terminal, no_repeat_404_loop]
+    regression_case: "qa/beta111_owner_ui_labor_navigation_regression.md + tools/beta111_owner_scope_contract.py"
+
+    technical_candidate: "0.4.2-beta.111 LIVE / source 03b37e5aa2726c273cc1e7c4a2161763bd3c4d2d"
+    technical_evidence: "0.4.2-beta.111 LIVE / source 03b37e5aa2726c273cc1e7c4a2161763bd3c4d2d / candidate 33586428789/9830403339 / Fast Check 33588839641 / Service 33588851239/9831120144 / visual+PDA+API36 33589199933/9831243286 + human PASS 41 screenshots / device 33590310367/9831531954 / runtime 33590505522 attempt2/9831607439 / terminal 33590747613 / publish 9831669563 / OTA-install-readback 9831721383 / final 9831726759 / SHA256 f67049067e600f4d8439d0ae088889f7b35df8b215e5432a2fcdd54f05f04a4f / size 14216181 / signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged"
+    technical_receipt: "ops/beta111-technical-pass.json"
+    owner_acceptance: "PENDING_OWNER_BETA111_CHECKLIST_1_TO_7"
+  - id: DOCUMENT-BATCH-MODE-TICK-002
+    status: TECHNICAL_PASS_AWAITING_OWNER
+    scope: document-management-ui
+    rule: "Một biên bản nhiều trang và Nhiều biên bản dùng lựa chọn dạng tích loại trừ nhau, không dùng Spinner/select; semantics grouping DOCUMENT-BATCH-001 giữ nguyên."
+    parent_invariant: DOCUMENT-BATCH-001
+    regression_minimum: [multipage_tick_default, multi_document_tick, exclusive_tick, single_image_disabled, grouping_semantics_unchanged]
+    regression_case: "qa/beta111_owner_ui_labor_navigation_regression.md + tools/beta111_owner_scope_contract.py"
+
+    technical_candidate: "0.4.2-beta.111 LIVE / source 03b37e5aa2726c273cc1e7c4a2161763bd3c4d2d"
+    technical_evidence: "0.4.2-beta.111 LIVE / source 03b37e5aa2726c273cc1e7c4a2161763bd3c4d2d / candidate 33586428789/9830403339 / Fast Check 33588839641 / Service 33588851239/9831120144 / visual+PDA+API36 33589199933/9831243286 + human PASS 41 screenshots / device 33590310367/9831531954 / runtime 33590505522 attempt2/9831607439 / terminal 33590747613 / publish 9831669563 / OTA-install-readback 9831721383 / final 9831726759 / SHA256 f67049067e600f4d8439d0ae088889f7b35df8b215e5432a2fcdd54f05f04a4f / size 14216181 / signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged"
+    technical_receipt: "ops/beta111-technical-pass.json"
+    owner_acceptance: "PENDING_OWNER_BETA111_CHECKLIST_1_TO_7"
   - id: INFRA-RESILIENCE-001
     status: TECHNICAL_PASS_AWAITING_OWNER
     scope: infra-dr
@@ -181,8 +238,8 @@ invariants:
     common_mode_note: "Free-provider/account-wide outage risk remains an availability common mode; no claim of absolute provider outage isolation."
 
 impact_map:
-  "app/**": [UI-STATUS-001, QR-LOCAL-001, MEAL-DATE-001, MEAL-WARN-001, ROLE-HISTORY-001, OTA-BETA-001, PDA-EXIT-001, ENV-ISOLATION-001, SERVICE-DISCOVERY-001, SHIFT-STAFF-DOWNLOAD-QR-001, DOCUMENT-MANAGEMENT-001, DOCUMENT-BATCH-001, LABOR-TIME-RANGE-001, MEAL-UI-NULL-001, UI-COPY-DENSITY-001, INFRA-RESILIENCE-001]
-  "service/**": [QR-LOCAL-001, MEAL-DATE-001, PDA-EXIT-001, ENV-ISOLATION-001, DOCUMENT-MANAGEMENT-001, DOCUMENT-BATCH-001, LABOR-TIME-RANGE-001, INFRA-RESILIENCE-001]
+  "app/**": [UI-STATUS-001, QR-LOCAL-001, MEAL-DATE-001, MEAL-WARN-001, ROLE-HISTORY-001, OTA-BETA-001, PDA-EXIT-001, ENV-ISOLATION-001, SERVICE-DISCOVERY-001, SHIFT-STAFF-DOWNLOAD-QR-001, DOCUMENT-MANAGEMENT-001, DOCUMENT-BATCH-001, LABOR-TIME-RANGE-001, MEAL-UI-NULL-001, UI-COPY-DENSITY-001, NAV-HISTORY-BACK-001, UI-REVIEW-WARNING-001, LABOR-EXACT-SESSION-002, HISTORY-DELETE-CANONICAL-001, DOCUMENT-BATCH-MODE-TICK-002, INFRA-RESILIENCE-001]
+  "service/**": [QR-LOCAL-001, MEAL-DATE-001, PDA-EXIT-001, ENV-ISOLATION-001, DOCUMENT-MANAGEMENT-001, DOCUMENT-BATCH-001, LABOR-TIME-RANGE-001, LABOR-EXACT-SESSION-002, INFRA-RESILIENCE-001]
   "services/**": [ENV-ISOLATION-001, INFRA-RESILIENCE-001, BETA-STABLE-AUDIT-001]
   "google-apps-script/**": [ENV-ISOLATION-001, INFRA-RESILIENCE-001, OTA-BETA-001]
   ".github/workflows/**": [OTA-BETA-001, ENV-ISOLATION-001, INFRA-RESILIENCE-001, BETA-STABLE-AUDIT-001]
