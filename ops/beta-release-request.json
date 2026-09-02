@@ -1,6 +1,6 @@
 {
-  "stage": "PUBLISH",
-  "mode": "PUBLISH_BETA110_EXACT_LOCKED_BYTES",
+  "stage": "pass_live",
+  "mode": "PASS_LIVE_EXACT_BYTES_GITHUB_RELEASE_ONLY",
   "version_name": "0.4.2-beta.110",
   "version_code": 116,
   "base_version": "0.4.2-beta.109",
@@ -18,7 +18,7 @@
   "resign": false,
   "scope": "beta110-document-batch-labor-time-range-attendance-null-ui",
   "owner": "Nguyen Van Tam",
-  "live": false,
+  "live": true,
   "release_notes": [
     "Quản lý biên bản: chọn nhiều ảnh; một biên bản nhiều trang hoặc nhiều biên bản; lọc theo loại; chọn một/nhiều ảnh để xóa; thao tác được ghi vào Lịch sử.",
     "Công nhật: chọn giờ/phút bắt đầu-kết thúc; có thể ghi bắt đầu trước; công nhật OPEN chặn Ra ca; hiển thị danh sách và cảnh báo công nhật chưa hoàn thành.",
@@ -38,7 +38,7 @@
   "google_drive_apk": "FORBIDDEN",
   "regression_case": "DOCUMENT-BATCH-001,LABOR-TIME-RANGE-001,MEAL-UI-NULL-001,UI-COPY-DENSITY-001",
   "execution_nonce": "beta110-publish-20260902-07",
-  "next_action": "PUBLISH_EXACT_BYTES_THEN_OTA_INSTALL_READBACK_FINALIZE",
+  "next_action": "WAIT_FOR_OWNER_NEW_SCOPE",
   "candidate_source_sha": "1faebbf996836d442ec6e99ffba2a589bf3fcbd2",
   "candidate_run_id": 33554345340,
   "candidate_artifact_id": 9818862858,
@@ -80,5 +80,6 @@
   "runtime_dod_run_id": 33573848594,
   "runtime_dod_artifact_id": 9825920815,
   "runtime_dod_artifact_name": "beta-stable-runtime-33573848594",
-  "release_lock": "ops/beta110-release-lock.json"
+  "release_lock": "ops/beta110-release-lock.json",
+  "publish_run_id": "33574078129"
 }
