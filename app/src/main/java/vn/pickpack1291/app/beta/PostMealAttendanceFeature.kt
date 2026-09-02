@@ -2,7 +2,6 @@ package vn.pickpack1291.app.beta
 
 import android.app.Activity
 import android.app.AlertDialog
-import android.app.DatePickerDialog
 import android.app.TimePickerDialog
 import android.graphics.Color
 import android.graphics.Typeface
@@ -152,7 +151,25 @@ object PostMealAttendanceFeature {
         var selected=today()
         var payload:JSONObject?=null
         var loadGeneration=0L
+        var availableDates=store.availableDatesWithData()
         lateinit var showReasonDialog:(JSONObject)->Unit
+
+        fun applyAvailableDates(remote:List<String> = emptyList()){
+            availableDates=(remote+store.availableDatesWithData())
+                .filter{it.matches(Regex("\\d{4}-\\d{2}-\\d{2}"))}
+                .distinct().sortedDescending()
+            dateBtn.isEnabled=availableDates.isNotEmpty()
+            dateBtn.alpha=if(dateBtn.isEnabled)1f else .45f
+        }
+        fun refreshAvailableDates(){
+            api.call("meal_attendance_dates"){r->activity.runOnUiThread{
+                if(!r.ok||r.json==null){applyAvailableDates();return@runOnUiThread}
+                val a=r.json.optJSONArray("dates")?:JSONArray()
+                val remote=mutableListOf<String>()
+                for(i in 0 until a.length())a.optString(i).takeIf{it.isNotBlank()}?.let{remote+=it}
+                applyAvailableDates(remote)
+            }}
+        }
 
         fun itemList(source:JSONObject?):MutableList<JSONObject>{
             val a=source?.optJSONArray("items")?:JSONArray();val out=mutableListOf<JSONObject>()
@@ -227,7 +244,7 @@ object PostMealAttendanceFeature {
             val date=selected.toString();val generation=++loadGeneration
             api.call("meal_attendance_list",JSONObject().put("business_date",date)){r->activity.runOnUiThread{
                 if(generation!=loadGeneration||selected.toString()!=date)return@runOnUiThread
-                if(r.ok&&r.json!=null){payload=JSONObject(r.json.toString());store.save(payload!!);render()}
+                if(r.ok&&r.json!=null){payload=JSONObject(r.json.toString());store.save(payload!!);applyAvailableDates(availableDates);render()}
                 else if(payload==null){payload=store.load(date);render();TopNotice.show(activity,r.error?:"Chưa tải được dữ liệu điểm danh.",TopNotice.Kind.WARNING)}
             }}
         }
@@ -321,11 +338,13 @@ object PostMealAttendanceFeature {
         }
 
         dateBtn.setOnClickListener{
-            val d=selected
-            val picker=DatePickerDialog(activity,{_,y,m,day->load(LocalDate.of(y,m+1,day))},d.year,d.monthValue-1,d.dayOfMonth)
-            val t=today();picker.datePicker.maxDate=t.atStartOfDay(ZoneId.of(TZ)).toInstant().toEpochMilli()
-            picker.datePicker.minDate=t.minusDays(13).atStartOfDay(ZoneId.of(TZ)).toInstant().toEpochMilli()
-            picker.show()
+            if(availableDates.isEmpty()){
+                TopNotice.show(activity,"Chưa có ngày nào có dữ liệu điểm danh.",TopNotice.Kind.INFO)
+                return@setOnClickListener
+            }
+            DataDatePickerUi.show(activity,availableDates,selected.toString()){chosen->
+                runCatching{LocalDate.parse(chosen)}.getOrNull()?.let{load(it)}
+            }
         }
         fun submit(){val v=scan.text.toString().trim();if(v.isBlank()){TopNotice.show(activity,"Nhập hoặc quét mã nhân viên.",TopNotice.Kind.WARNING);return};optimisticCheckin(v)}
         scan.setOnEditorActionListener{_,id,_->if(id==EditorInfo.IME_ACTION_DONE||id==EditorInfo.IME_ACTION_GO||id==EditorInfo.IME_ACTION_SEARCH){submit();true}else false}
@@ -351,7 +370,7 @@ object PostMealAttendanceFeature {
         }
 
         activeRefresh={activity.runOnUiThread{if(activeDate==selected.toString())remoteLoad()}}
-        load(selected);scheduleBoundary()
+        applyAvailableDates();load(selected);refreshAvailableDates();scheduleBoundary()
         root.addOnAttachStateChangeListener(object:View.OnAttachStateChangeListener{
             override fun onViewAttachedToWindow(v:View)=Unit
             override fun onViewDetachedFromWindow(v:View){main.removeCallbacksAndMessages(null);if(activeDate==selected.toString())leave()}
