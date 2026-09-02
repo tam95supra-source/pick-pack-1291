@@ -72,8 +72,11 @@ assert "ReviewAlertUi.button" in oldwarn
 for token in ["HEIGHT_DP=42","RADIUS_DP=10","STROKE_DP=2","TEXT_SP=10.5f","stateListAnimator=null"]:
     assert token in reviewui, token
 
-# History delete only for canonical events and target-not-found is terminal cleanup.
-assert 'history_source")=="SERVICE_CANONICAL"' in activity
+# History delete keeps canonical Service events distinct from local-only rows; target-not-found is terminal cleanup.
+assert '.put("history_source","SERVICE_CANONICAL")' in activity
+delete_block=activity[activity.index("private fun deleteHistoryBulk"):activity.index("private fun historyActionVi")]
+for token in ['canonical.add(id)','operationalStore.deleteLocalHistory(clean)','addAll(canonical)','flushDeferredHistoryDeletes()']:
+    assert token in delete_block, token
 assert "HISTORY_DELETE_TARGET_NOT_FOUND" in activity
 
 print("beta111_owner_scope_contract=PASS nav_history=PASS labor_exact=PASS labor_wheel=PASS labor_day_list=PASS labor_correction=PASS exit_redirect=PASS document_tick=PASS warning_ui=PASS history_delete=PASS")
