@@ -8,6 +8,9 @@ read=lambda p:(root/p).read_text(encoding="utf-8")
 ops=read("app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt")
 transport=read("app/src/main/java/vn/pickpack1291/app/beta/M2ServiceTransport.kt")
 store=read("app/src/main/java/vn/pickpack1291/app/beta/OperationalDataStore.kt")
+meal_store=read("app/src/main/java/vn/pickpack1291/app/beta/MealAttendanceLocalStore.kt")
+postmeal=read("app/src/main/java/vn/pickpack1291/app/beta/PostMealAttendanceFeature.kt")
+meal_service=read("service/src/meal_attendance.ts")
 bridge=read("app/src/main/java/vn/pickpack1291/app/beta/M2RuntimeBridge.kt")
 calendar=read("app/src/main/java/vn/pickpack1291/app/beta/DataDatePickerUi.kt")
 notes=read("app/src/main/java/vn/pickpack1291/app/beta/ReleaseNotes.kt")
@@ -61,6 +64,12 @@ for token in ['isEnabled=enabled','alpha=if(enabled)1f else .30f','if(enabled)se
     assert token in calendar, token
 assert ops.count("DatePickerDialog") == 1, "Only staff start-date editor may keep unrestricted DatePickerDialog"
 assert ops.count("DataDatePickerUi.show(") >= 3, "Report, History and Labor must use data-only calendar"
+assert "DatePickerDialog" not in postmeal, "Point Attendance display history must not use unrestricted DatePickerDialog"
+assert "DataDatePickerUi.show(activity,availableDates,selected.toString())" in postmeal
+assert 'api.call("meal_attendance_dates")' in postmeal
+assert "availableDatesWithData" in meal_store
+assert "export async function mealAttendanceDates" in meal_service
+assert '"meal_attendance_dates"' in bridge and 'action==="meal_attendance_dates"' in mobile
 
 # 9) Shift review tile no longer navigates to full roster; roster is inline below scan/session.
 recon=ops[ops.index("private fun addBusinessShiftReconciliation"):ops.index("private fun addInlineCurrentShiftStaff")]
@@ -71,4 +80,4 @@ assert scan.index('body.addView(mnv') < scan.index('addInlineCurrentShiftStaff(b
 render=ops[ops.index("private fun renderEmployee(ctx"):ops.index("private fun sameEmployeeContext")]
 assert render.index('when(state)') < render.index('addInlineCurrentShiftStaff(body)')
 
-print("beta113_owner_scope_contract=PASS changelog=PASS audit=PASS history_delete=PASS scan_select_ui=PASS labor_multi_interval=PASS data_dates=PASS inline_roster=PASS")
+print("beta113_owner_scope_contract=PASS changelog=PASS audit=PASS history_delete=PASS scan_select_ui=PASS labor_multi_interval=PASS all_view_data_dates=PASS inline_roster=PASS")
