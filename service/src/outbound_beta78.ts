@@ -190,3 +190,4 @@ export async function replicateOutboundPending(env:Env,limit=25):Promise<{ok:boo
     await env.DB.batch(rows.map(r=>env.DB.prepare("UPDATE outbound_replication_outbox SET status='RETRY',claimed_at=NULL,next_attempt_at=?1,last_error=?2 WHERE outbox_id=?3 AND status='INFLIGHT'").bind(next,msg,r.outbox_id)));
     const p=await env.DB.prepare("SELECT COUNT(*) n FROM outbound_replication_outbox WHERE status IN ('PENDING','RETRY','INFLIGHT')").first<{n:number}>();return{ok:false,processed:0,pending:Number(p?.n||0),error:msg};
   }
+}
