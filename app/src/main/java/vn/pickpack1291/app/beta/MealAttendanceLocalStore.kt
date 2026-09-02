@@ -21,7 +21,7 @@ class MealAttendanceLocalStore(context: Context) {
         }
     }
 
-    fun availableDatesWithData():List<String>=synchronized(LOCK){
+    fun availableDatesWithData():List<String> = synchronized(LOCK){
         val out=mutableListOf<String>()
         helper.readableDatabase.query("meal_day_cache",arrayOf("business_date","payload_json"),null,null,null,null,"business_date DESC").use{c->
             while(c.moveToNext()){
