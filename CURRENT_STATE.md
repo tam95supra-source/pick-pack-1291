@@ -16,6 +16,7 @@
 - signer_sha256: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
 - service_live: 33568634524 / 9824237674 PASS
 - fast_check: 33569530461 PASS
+- post_registry_fast_check: 33574631295 PASS
 - device_regression: 33570127113 / 9824662041 PASS
 - runtime_dod: 33573848594 / 9825920815 PASS
 - terminal_run: 33574078129 PASS
