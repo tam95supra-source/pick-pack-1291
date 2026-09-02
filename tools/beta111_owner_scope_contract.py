@@ -7,7 +7,7 @@ read=lambda p:(root/p).read_text(encoding="utf-8")
 activity=read("app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt")
 document=read("app/src/main/java/vn/pickpack1291/app/beta/DocumentManagementFeature.kt")
 meal=read("app/src/main/java/vn/pickpack1291/app/beta/PostMealAttendanceFeature.kt")
-oldwarn=read("app/src/main/java/vn/pickpack1291/app/beta/OldSessionWarningFeature.kt")
+oldwarn=read("app/src/main/java/vn/pickpack1291/app/beta/OldSessionWarningFeature.kt")\nreviewui=read("app/src/main/java/vn/pickpack1291/app/beta/ReviewAlertUi.kt")
 transport=read("app/src/main/java/vn/pickpack1291/app/beta/M2ServiceTransport.kt")
 runtime=read("app/src/main/java/vn/pickpack1291/app/beta/M2RuntimeBridge.kt")
 mobile=read("service/src/mobile_hotfix.ts")
@@ -65,10 +65,11 @@ assert "modeSpinner" not in document
 # Warning/reconciliation shared geometry/treatment.
 assert 'reconciliationButton("",false)' in activity
 assert 'reconciliationButton(OldSessionWarningFeature.WARNING_TEXT,false)' in activity
-for src in [meal,oldwarn]:
-    assert "minHeight=dp(42)" in src
-    assert "cornerRadius=dp(10).toFloat()" in src
-    assert "setStroke(dp(2)" in src
+assert "ReviewAlertUi.button" in activity
+assert "ReviewAlertUi.button" in meal
+assert "ReviewAlertUi.button" in oldwarn
+for token in ["HEIGHT_DP=42","RADIUS_DP=10","STROKE_DP=2","TEXT_SP=10.5f","stateListAnimator=null"]:
+    assert token in reviewui, token
 
 # History delete only for canonical events and target-not-found is terminal cleanup.
 assert 'history_source")=="SERVICE_CANONICAL"' in activity
