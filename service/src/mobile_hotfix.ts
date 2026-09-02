@@ -119,9 +119,15 @@ async function employeeContext(env:Env,body:Record<string,unknown>):Promise<Resp
   const state=!session?"NOT_ENTERED":String(session.state)==="ACTIVE"?"ACTIVE":"ENDED";
   const sessionOut:Record<string,unknown>|null=session?{...session,work_choice:visibleWork(String(session.work_choice||""))}:null;
   const laborDate=String(session?.business_date||date);
-  const activeLabor=body.include_labor===true?await env.DB.prepare("SELECT labor_id,mnv,business_date,shift,labor_type,time_marker,state,start_at,end_at,note,deduct_staff,start_event_id,finish_event_id,version FROM labor_sessions WHERE business_date=?1 AND mnv=?2 AND state='OPEN' ORDER BY start_at DESC LIMIT 1").bind(laborDate,mnv).first<Record<string,unknown>>():null;
+  const laborRows=body.include_labor===true?(await env.DB.prepare("SELECT labor_id,mnv,business_date,shift,labor_type,time_marker,state,start_at,end_at,note,deduct_staff,start_event_id,finish_event_id,version FROM labor_sessions WHERE business_date=?1 AND mnv=?2 ORDER BY start_at ASC,labor_id ASC").bind(laborDate,mnv).all<Record<string,unknown>>()).results??[]:[];
+  const activeLabor=laborRows.find(x=>String(x.state)==="OPEN")??null;
   const options=body.include_options===true?await resourceOptions(env.DB,laborDate,mnv):null;
-  return json({ok:true,source:"SERVICE_D1",business_date:laborDate,employee:employeeJson(employee),state,session:sessionOut,active_labor:activeLabor,options});
+  return json({ok:true,source:"SERVICE_D1",business_date:laborDate,employee:employeeJson(employee),state,session:sessionOut,active_labor:activeLabor,labor_intervals:laborRows,options});
+}
+
+async function laborDates(env:Env):Promise<Response>{
+  const rows=(await env.DB.prepare("SELECT business_date,COUNT(*) item_count FROM labor_sessions GROUP BY business_date HAVING COUNT(*)>0 ORDER BY business_date DESC").all<{business_date:string;item_count:number}>()).results??[];
+  return json({ok:true,source:"SERVICE_D1",dates:rows.map(x=>x.business_date),counts:Object.fromEntries(rows.map(x=>[x.business_date,Number(x.item_count||0)]))});
 }
 
 async function laborList(env:Env,body:Record<string,unknown>):Promise<Response>{
@@ -167,6 +173,7 @@ export async function mobileRead(request:Request,env:Env):Promise<Response>{
   if(action==="historical_session_detail")return historicalSessionDetail(env,body);
   if(action==="meal_attendance_list")return mealAttendanceList(env,{business_date:String(body.business_date||"")});
   if(action==="labor_list")return laborList(env,body);
+  if(action==="labor_dates")return laborDates(env);
   if(action.startsWith("outbound_"))return outboundAction(env,auth,action,body);
   if(action==="runtime_status")return json({ok:true,source:"SERVICE_D1",authority:await currentAuthority(env.DB),service_generation:env.SERVICE_GENERATION});
   return apiError("MOBILE_READ_ACTION_UNSUPPORTED","VALIDATION",400);
