@@ -342,7 +342,7 @@ node -e 'const j=JSON.parse(process.argv[1]),r=j?.[0]?.results?.[0];if(!r||r.sta
 echo 'beta110_labor_time_range=PASS open_exit_block=PASS completed_range=PASS'
 
 # Beta111: exact session/business_date/labor_id authority, daily OPEN+COMPLETED list, correction, stale-context rejection.
-B111_START_AT="$B110_LABOR_START_AT"
+B111_START_AT="$B110_LABOR_END_AT"
 B111_START_BODY=$(jq -nc --arg ev "$B111_LABOR_START" --arg labor "$B111_LABOR_ID" --arg dev "$DEVICE" --arg date "$B80_DATE" --arg sid "$B80_SID" --arg mnv "$B80_MNV" --arg at "$B111_START_AT" '{
   events:[{action:"labor_start",event_id:$ev,device_id:$dev,business_date:$date,payload:{labor_id:$labor,session_id:$sid,mnv:$mnv,shift:"Ca 2",labor_type:"Beta111 exact session CI",start_at:$at,deduct_staff:false,note:""}}]
 }')
@@ -365,6 +365,7 @@ B111_BAD_START_BODY=$(jq -nc --arg ev "$B111_BAD_START" --arg dev "$DEVICE" --ar
 mutation_api b111-bad-session-start "$B111_BAD_START_BODY"
 jq -e '.ok==true and .results[0].status=="REVIEW_REQUIRED" and .results[0].error_code=="ATTENDANCE_NOT_ACTIVE"' "$D/b111-bad-session-start.json" >/dev/null
 
+sleep 2
 B111_END_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 B111_FINISH_BODY=$(jq -nc --arg ev "$B111_LABOR_FINISH" --arg labor "$B111_LABOR_ID" --arg dev "$DEVICE" --arg date "$B80_DATE" --arg sid "$B80_SID" --arg mnv "$B80_MNV" --arg start "$B111_START_AT" --arg end "$B111_END_AT" '{
   events:[{action:"labor_finish",event_id:$ev,device_id:$dev,business_date:$date,payload:{labor_id:$labor,session_id:$sid,mnv:$mnv,start_at:$start,end_at:$end,note:"Beta111 done"}}]
