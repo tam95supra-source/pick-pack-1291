@@ -32,8 +32,8 @@ android {
         create("beta") {
             dimension = "channel"
             applicationId = "vn.pickpack1291.app.beta.publicbeta"
-            versionCode = 119
-            versionName = "0.4.2-beta.113"
+            versionCode = 120
+            versionName = "0.4.2-beta.114"
             manifestPlaceholders["appLabel"] = "Pick Pack 1291 Beta"
             buildConfigField("String", "CHANNEL", "\"BETA\"")
             buildConfigField("String", "ENVIRONMENT_ID", "\"BETA\"")
@@ -107,7 +107,7 @@ dependencies {
 // Firebase client identifiers are injected at build time and default blank so source never contains project config.
 // GSHEET_API_URL remains public discovery/fallback configuration and manual update lookup path; no Service URL is compiled into APK.
 // Signing material remains outside this repository and the Android signer is owner-locked.
-// Beta113: current-version changelog gate, audit routing repair, safe history cleanup, multi-interval labor, data-only calendars, inline shift roster, and UI consistency. Stable unchanged.
+// Beta114: supersedes locked pre-OTA Beta113; preserves inline roster while restoring ACTIVE_PASS roster filters/drilldown and employee-to-QR tap. Stable unchanged.\n// Beta113: pre-OTA candidate superseded after roster interaction regression; never published.
 // Beta112: unified reconciliation/warning UI component; fixed geometry and canonical colors; Beta111 owner-accepted items 2-7 preserved. Stable unchanged.\n// Beta111: owner UI/labor/navigation corrections: actual back stack, exact-session labor authority, non-wrapping wheel time, daily labor list/correction, unified warnings, document tick modes, canonical history-delete cleanup. Stable unchanged.\n// Beta108: durable document pending queue + post-Drive completion resume + bounded 64MB media cache; inherits Beta107 Drive metadata/duplicate design. Category edit/archive remains OWNER-decision fail-closed. Stable unchanged.
 // Beta107: Quản lý biên bản stores metadata in Service/D1 while image bytes upload direct to Google Drive; exact + perceptual duplicate detection. Category edit/archive remains OWNER-decision fail-closed. Stable unchanged.
 // Beta106: sanitize JSONObject.NULL/\"null\" master fields in NCC roster; preserve Beta105 roster/download-QR scope. Stable remains READY_NOT_LIVE until OWNER release.
