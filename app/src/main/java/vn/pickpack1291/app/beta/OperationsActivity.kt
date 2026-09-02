@@ -539,30 +539,66 @@ class OperationsActivity : Activity() {
                 button.startAnimation(android.view.animation.AlphaAnimation(1f,0.28f).apply{duration=650L;repeatMode=android.view.animation.Animation.REVERSE;repeatCount=android.view.animation.Animation.INFINITE})
             }
             button.setOnClickListener{
+                val list=column(surface).apply{setPadding(dp(10),dp(4),dp(10),dp(6))}
+                var dialog:AlertDialog?=null
                 if(pending.isEmpty()){
-                    showCurrentDayShiftStaff(currentDate,shift,entered)
+                    list.addView(info("Không có nhân sự chờ ra ca trong $shift."))
                 }else{
-                    val list=column(surface).apply{setPadding(dp(10),dp(4),dp(10),dp(6))}
-                    var dialog:AlertDialog?=null
-                    list.addView(primary("HIỂN THỊ CHI TIẾT NHÂN SỰ",navy){
-                        dialog?.dismiss()
-                        showCurrentDayShiftStaff(currentDate,shift,entered)
-                    },matchWrap())
-                    list.addView(gap(7))
                     shiftStaffOrdered(pending).forEach{ses->
                         val identity=shiftStaffIdentity(ses)
                         val line=row(surface).apply{gravity=Gravity.CENTER_VERTICAL;setPadding(dp(4),dp(3),dp(4),dp(3))}
-                        line.addView(txt("${dash(identity.supplier)} • ${dash(identity.mnv)} • ${dash(identity.fullName)}",11f,ink,true),LinearLayout.LayoutParams(0,-2,1f))
+                        line.addView(txt("${dash(identity.supplier)} • ${dash(identity.mnv)} • ${dash(identity.fullName)}",10.6f,ink,true),LinearLayout.LayoutParams(0,-2,1f))
                         line.addView(smallButton("RA CA",red).apply{setOnClickListener{dialog?.dismiss();if(identity.mnv.isNotBlank())loadEmployee(identity.mnv)}},LinearLayout.LayoutParams(dp(78),dp(38)))
                         list.addView(line,matchWrap());list.addView(gap(3))
                     }
-                    dialog=AlertDialog.Builder(this).setTitle("$shift • ${pending.size} nhân sự chưa ra").setView(ScrollView(this).apply{addView(list)}).setNegativeButton("Đóng",null).create()
-                    dialog.show()
                 }
+                dialog=AlertDialog.Builder(this).setTitle("$shift • Vào ${entered.size} / Ra ${exited.size}").setView(ScrollView(this).apply{addView(list)}).setNegativeButton("Đóng",null).create()
+                dialog.show()
             }
             bar.addView(button,LinearLayout.LayoutParams(0,dp(42),1f).apply{marginStart=dp(2);marginEnd=dp(2)})
         }
         body.addView(bar,matchWrap());body.addView(gap(4))
+    }
+
+    private fun addInlineCurrentShiftStaff(body:LinearLayout){
+        val currentDate=operationalStore.businessDate()
+        val day=operationalStore.loadDay(currentDate)?:return
+        val sessions=day.optJSONArray("sessions")?:JSONArray()
+        val rows=mutableListOf<JSONObject>()
+        for(i in 0 until sessions.length()){
+            val s=sessions.optJSONObject(i)?:continue
+            val d=s.optString("business_date").trim()
+            if(d.isNotBlank()&&d!=currentDate)continue
+            if(dash(s.optString("enter_at"))=="-")continue
+            rows.add(JSONObject(s.toString()))
+        }
+        if(rows.isEmpty())return
+        body.addView(gap(8));body.addView(section("Chi tiết nhân sự hôm nay"))
+        val shifts=listOf("Ca 1","Ca HC","Ca 2")
+        shifts.forEach{shift->
+            val group=shiftStaffOrdered(rows.filter{it.optString("shift").trim()==shift})
+            if(group.isEmpty())return@forEach
+            val ended=group.count{shiftStaffEnded(it)}
+            val head=row(surface).apply{
+                gravity=Gravity.CENTER_VERTICAL;setPadding(dp(9),dp(7),dp(9),dp(7));background=outlineBg(surface,12)
+                addView(txt(shift,10.8f,navy,true),LinearLayout.LayoutParams(0,-2,1f))
+                addView(txt("Trong ca ${group.size-ended} • Đã ra $ended",9.2f,muted,true))
+            }
+            body.addView(head,matchWrap());body.addView(gap(4))
+            group.groupBy{shiftStaffIdentity(it).supplier.ifBlank{"Chưa xác định NCC"}}.forEach{(supplier,staff)->
+                body.addView(txt("$supplier (${staff.size})",9.4f,teal,true).apply{setPadding(dp(4),dp(3),dp(4),dp(2))})
+                staff.forEach{s->
+                    val id=shiftStaffIdentity(s);val endedRow=shiftStaffEnded(s)
+                    val line=row(bg).apply{
+                        gravity=Gravity.CENTER_VERTICAL;setPadding(dp(5),dp(4),dp(5),dp(4))
+                        addView(txt("${dash(id.mnv)} • ${dash(id.fullName)}",10.1f,ink,true),LinearLayout.LayoutParams(0,-2,1f))
+                        addView(txt(if(endedRow)"ĐÃ RA" else "TRONG CA",8.5f,if(endedRow)muted else green,true))
+                    }
+                    body.addView(line,matchWrap())
+                }
+            }
+            body.addView(gap(6))
+        }
     }
 
     private fun addScannedOldSessionWarning(body:LinearLayout,ctx:JSONObject){
@@ -583,6 +619,7 @@ class OperationsActivity : Activity() {
         addBusinessShiftReconciliation(body)
         val mnv=mnvInput("Scan / Nhập mã nhân viên")
         body.addView(mnv,matchWrap());body.addView(gap(4))
+        addInlineCurrentShiftStaff(body)
         var busy=false
         fun submit(){val v=mnv.text.toString().trim();if(v.isBlank()){TopNotice.show(this,"Nhập hoặc quét Mã nhân viên.",TopNotice.Kind.WARNING);return};if(busy)return;busy=true;hideSoftKeyboard(mnv);loadEmployee(v);mnv.postDelayed({busy=false},600)}
         bindScannerEnter(mnv){submit()}
@@ -746,6 +783,7 @@ class OperationsActivity : Activity() {
             }};return
         }
         when(state){"ACTIVE"->renderActive(body,ctx);"ENDED"->renderEnded(body,ctx);else->renderEnter(body,ctx,masters?:JSONObject())}
+        addInlineCurrentShiftStaff(body)
         root.addView(ScrollView(this).apply{addView(body)},LinearLayout.LayoutParams(-1,0,1f));setScreen(root);hideKeyboardForResult(root,scan)
     }
 
@@ -3181,7 +3219,15 @@ raw.contains("PDA_STATUS_MISMATCH_NOTIFY_SPECIALIST")->"Tình trạng PDA hiện
         }
         elevation=0f
     }
-    private fun mnvInput(h:String)=scanField(h,true,50).apply{setSingleLine(true);minLines=1;maxLines=1;setHorizontallyScrolling(true)}
+    private fun mnvInput(h:String)=scanField(h,true,50).apply{
+        setSingleLine(true);minLines=1;maxLines=1;setHorizontallyScrolling(true)
+        textSize=13.6f;typeface=Typeface.DEFAULT_BOLD
+        setHintTextColor(Color.rgb(51,65,85))
+        background=GradientDrawable().apply{
+            setColor(surface);setStroke(dp(2),teal);cornerRadius=dp(12).toFloat()
+        }
+        elevation=dp(1).toFloat()
+    }
     private fun scanSearchInput(h:String)=scanField(h,false,72)
     private fun bindScannerEnter(v:EditText,submit:()->Unit){v.setOnEditorActionListener{_,id,_->if(id==EditorInfo.IME_ACTION_DONE||id==EditorInfo.IME_ACTION_GO||id==EditorInfo.IME_ACTION_SEARCH){submit();true}else false};v.setOnKeyListener{_,key,event->if(key==KeyEvent.KEYCODE_ENTER&&event.action==KeyEvent.ACTION_UP){submit();true}else false}}
     private fun segmentedChoice(items:List<Pair<String,String>>,initial:String,onChanged:(String)->Unit):LinearLayout{
@@ -3238,8 +3284,27 @@ raw.contains("PDA_STATUS_MISMATCH_NOTIFY_SPECIALIST")->"Tình trạng PDA hiện
     }
     private fun resolvePda(pdas:JSONArray,rawValue:String):String?=resolvePdaObject(pdas,rawValue)?.optString("serial")?.takeIf{it.isNotBlank()}
     private fun input(h:String,password:Boolean)=EditText(this).apply{hint=h;textSize=13.0f;setTextColor(ink);setHintTextColor(Color.rgb(148,163,184));inputType=if(password)InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD else InputType.TYPE_CLASS_TEXT;setPadding(dp(11),dp(8),dp(11),dp(8));minHeight=dp(46);background=outline();elevation=0f}
-    private fun labelled(l:String,v:View)=column(bg).apply{addView(txt(l,9.6f,muted,true));addView(gap(3));addView(v,matchWrap())}
-    private fun spinner(items:Array<String>)=Spinner(this).apply{adapter=ArrayAdapter(this@OperationsActivity,android.R.layout.simple_spinner_dropdown_item,items);setPadding(dp(9),dp(3),dp(9),dp(3));minimumHeight=dp(44);background=outline();elevation=0f}
+    private fun labelled(l:String,v:View)=column(bg).apply{
+        addView(txt(l.uppercase(),9.2f,muted,true).apply{letterSpacing=.025f;setPadding(dp(2),0,dp(2),0)})
+        addView(gap(3));addView(v,matchWrap())
+    }
+    private fun spinner(items:Array<String>)=Spinner(this).apply{
+        val values=items.toList()
+        adapter=object:ArrayAdapter<String>(this@OperationsActivity,android.R.layout.simple_spinner_item,values){
+            override fun getView(position:Int,convertView:View?,parent:ViewGroup):View{
+                val v=super.getView(position,convertView,parent) as TextView
+                v.textSize=13f;v.setTextColor(navy);v.typeface=Typeface.DEFAULT_BOLD;v.gravity=Gravity.CENTER_VERTICAL
+                v.setPadding(dp(12),0,dp(34),0);return v
+            }
+            override fun getDropDownView(position:Int,convertView:View?,parent:ViewGroup):View{
+                val v=super.getDropDownView(position,convertView,parent) as TextView
+                v.textSize=12.5f;v.setTextColor(ink);v.typeface=Typeface.DEFAULT
+                v.gravity=Gravity.CENTER_VERTICAL;v.minHeight=dp(46);v.setPadding(dp(14),dp(7),dp(14),dp(7))
+                return v
+            }
+        }
+        setPadding(0,0,0,0);minimumHeight=dp(46);background=outline();elevation=0f
+    }
     private fun primary(t:String,c:Int,click:()->Unit)=Button(this).apply{text=t;textSize=11.5f;setTextColor(Color.WHITE);typeface=Typeface.DEFAULT_BOLD;isAllCaps=false;minHeight=dp(46);background=gradient(c,darken(c),12);elevation=0f;setOnClickListener{click()}}
     private fun smallButton(t:String,c:Int)=Button(this).apply{text=t;textSize=9.5f;setTextColor(Color.WHITE);typeface=Typeface.DEFAULT_BOLD;isAllCaps=false;background=round(c,10);setPadding(dp(4),0,dp(4),0)}
     private fun reconciliationButton(t:String,balanced:Boolean)=ReviewAlertUi.button(
@@ -3350,7 +3415,7 @@ raw.contains("PDA_STATUS_MISMATCH_NOTIFY_SPECIALIST")->"Tình trạng PDA hiện
     private fun round(c:Int,r:Int)=GradientDrawable().apply{setColor(c);cornerRadius=dp(r).toFloat()}
     private fun gradient(a:Int,b:Int,r:Int)=GradientDrawable(GradientDrawable.Orientation.TL_BR,intArrayOf(a,b)).apply{cornerRadius=dp(r).toFloat()}
     private fun darken(c:Int)=Color.rgb((Color.red(c)*0.82f).toInt(),(Color.green(c)*0.82f).toInt(),(Color.blue(c)*0.82f).toInt())
-    private fun outline()=GradientDrawable().apply{setColor(surface);cornerRadius=dp(15).toFloat();setStroke(dp(1),line)}
+    private fun outline()=GradientDrawable().apply{setColor(surface);cornerRadius=dp(12).toFloat();setStroke(dp(1),line)}
     private fun outlineBg(c:Int,r:Int)=GradientDrawable().apply{setColor(c);cornerRadius=dp(r).toFloat();setStroke(dp(1),line)}
     private fun dp(v:Int)=(v*resources.displayMetrics.density).toInt()
     private fun size(w:Int,h:Int)=ViewGroup.LayoutParams(w,h)
