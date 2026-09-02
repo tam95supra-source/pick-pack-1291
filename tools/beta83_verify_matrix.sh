@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
+trap 'echo "beta83_verify_matrix_failed line=$LINENO command=$BASH_COMMAND" >&2' ERR
 REQ=ops/beta-release-request.json
 VERSION=$(jq -r '.version_name' "$REQ");CODE=$(jq -r '.version_code' "$REQ");PKG=$(jq -r '.package' "$REQ")
 META=/tmp/beta-candidate/release-meta.json;APK=/tmp/beta-candidate/pick-pack-1291-public-beta-$VERSION.apk
@@ -34,7 +35,7 @@ grep -q 'historyRealtimeRefresh' "$OPS"
 ! grep -q 'postDelayed(this,750L)' "$OPS"
 grep -q 'override fun onLost(network: Network)' "$SYNC"
 grep -q 'Bàn Pack / User Pack không còn khớp cấu hình hiện tại' "$OPS"
-grep -q 'Chọn ngày có dữ liệu' "$OPS"
+grep -Fq 'DataDatePickerUi.show(this,dates,selectedDate)' "$OPS"
 ! grep -q 'Site 1291 • Ngày báo cáo' "$OPS"
 grep -q 'showSoftInput(r,android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)' "$OPS"
 ! grep -Fq 'contentDescription="Quay lại"' "$OPS"
@@ -53,7 +54,8 @@ grep -Fq 'ses.optString("business_date")==date' app/src/main/java/vn/pickpack129
 grep -Fq 'CẢNH BÁO: CÒN $count NHÂN SỰ CHƯA ĐIỂM DANH' app/src/main/java/vn/pickpack1291/app/beta/PostMealAttendanceFeature.kt
 grep -Fq 'localInteractive=localNow!=null&&localNow.optBoolean("session_known",true)' "$OPS"
 grep -Fq 'QrPerformanceDiagnostics.recordLocal' "$OPS"
-grep -Fq 'minusDays(13)' app/src/main/java/vn/pickpack1291/app/beta/PostMealAttendanceFeature.kt
+grep -Fq 'api.call("meal_attendance_dates")' app/src/main/java/vn/pickpack1291/app/beta/PostMealAttendanceFeature.kt
+grep -Fq 'DataDatePickerUi.show(activity,availableDates,selected.toString())' app/src/main/java/vn/pickpack1291/app/beta/PostMealAttendanceFeature.kt
 grep -Fq 'minusDays(13)' app/src/main/java/vn/pickpack1291/app/beta/MealAttendanceLocalStore.kt
 grep -Fq 'pp_meal_attendance_14d.db' app/src/main/java/vn/pickpack1291/app/beta/MealAttendanceLocalStore.kt
 grep -Fq 'insertWithOnConflict("meal_day_cache",null,values,SQLiteDatabase.CONFLICT_REPLACE)' app/src/main/java/vn/pickpack1291/app/beta/MealAttendanceLocalStore.kt
