@@ -171,23 +171,47 @@ async function replicateOne(env:Env,token:string,e:EventRow):Promise<void>{
   }
 }
 
+type OutboundLeaseMeta={changes?:number};
+
+async function claimOutboundReplicationLease(env:Env):Promise<string|null>{
+  const lease=crypto.randomUUID(),at=nowIso(),stale=new Date(Date.now()-15*60_000).toISOString();
+  const r=await env.DB.prepare(`INSERT INTO service_maintenance(task_key,last_run_at,checkpoint,updated_at)
+    VALUES('outbound-replication-lock',?1,?2,?1)
+    ON CONFLICT(task_key) DO UPDATE SET last_run_at=excluded.last_run_at,checkpoint=excluded.checkpoint,updated_at=excluded.updated_at
+    WHERE service_maintenance.checkpoint='' OR service_maintenance.updated_at<=?3`).bind(at,lease,stale).run();
+  return Number((r.meta as OutboundLeaseMeta|undefined)?.changes??0)>0?lease:null;
+}
+
+async function releaseOutboundReplicationLease(env:Env,lease:string):Promise<void>{
+  await env.DB.prepare("UPDATE service_maintenance SET checkpoint='',updated_at=?1 WHERE task_key='outbound-replication-lock' AND checkpoint=?2").bind(nowIso(),lease).run();
+}
+
 export async function replicateOutboundPending(env:Env,limit=25):Promise<{ok:boolean;processed:number;pending:number;error?:string}>{
-  const now=nowIso(),stale=new Date(Date.now()-15*60_000).toISOString();
-  await env.DB.prepare("UPDATE outbound_replication_outbox SET status='RETRY',claimed_at=NULL,next_attempt_at=?1,last_error=COALESCE(last_error,'STALE_INFLIGHT_RECOVERED') WHERE status='INFLIGHT' AND (claimed_at IS NULL OR claimed_at<=?2)").bind(now,stale).run();
-  const rows=(await env.DB.prepare("SELECT outbox_id,event_id,attempt_count FROM outbound_replication_outbox WHERE status IN ('PENDING','RETRY') AND next_attempt_at<=?1 ORDER BY outbox_id LIMIT ?2").bind(now,Math.max(1,Math.min(limit,50))).all<{outbox_id:number;event_id:string;attempt_count:number}>()).results??[];
-  if(!rows.length){const p=await env.DB.prepare("SELECT COUNT(*) n FROM outbound_replication_outbox WHERE status IN ('PENDING','RETRY','INFLIGHT')").first<{n:number}>();return{ok:true,processed:0,pending:Number(p?.n||0)};}
+  const lease=await claimOutboundReplicationLease(env);
+  if(!lease){
+    const p=await env.DB.prepare("SELECT COUNT(*) n FROM outbound_replication_outbox WHERE status IN ('PENDING','RETRY','INFLIGHT')").first<{n:number}>();
+    return{ok:true,processed:0,pending:Number(p?.n||0)};
+  }
   try{
-    const token=await googleAccessToken(env),claimAt=nowIso();
-    for(const row of rows){
-      await env.DB.prepare("UPDATE outbound_replication_outbox SET status='INFLIGHT',claimed_at=?1,attempt_count=attempt_count+1,last_error=NULL WHERE outbox_id=?2 AND status IN ('PENDING','RETRY')").bind(claimAt,row.outbox_id).run();
-      const e=await env.DB.prepare("SELECT * FROM events WHERE event_id=?1").bind(row.event_id).first<EventRow>();if(!e)throw new Error(`OUTBOUND_EVENT_MISSING:${row.event_id}`);
-      await replicateOne(env,token,e);
-      await env.DB.prepare("UPDATE outbound_replication_outbox SET status='SYNCED',claimed_at=NULL,replicated_at=?1,last_error=NULL WHERE outbox_id=?2").bind(nowIso(),row.outbox_id).run();
+    const now=nowIso(),stale=new Date(Date.now()-15*60_000).toISOString();
+    await env.DB.prepare("UPDATE outbound_replication_outbox SET status='RETRY',claimed_at=NULL,next_attempt_at=?1,last_error=COALESCE(last_error,'STALE_INFLIGHT_RECOVERED') WHERE status='INFLIGHT' AND (claimed_at IS NULL OR claimed_at<=?2)").bind(now,stale).run();
+    const rows=(await env.DB.prepare("SELECT outbox_id,event_id,attempt_count FROM outbound_replication_outbox WHERE status IN ('PENDING','RETRY') AND next_attempt_at<=?1 ORDER BY outbox_id LIMIT ?2").bind(now,Math.max(1,Math.min(limit,50))).all<{outbox_id:number;event_id:string;attempt_count:number}>()).results??[];
+    if(!rows.length){const p=await env.DB.prepare("SELECT COUNT(*) n FROM outbound_replication_outbox WHERE status IN ('PENDING','RETRY','INFLIGHT')").first<{n:number}>();return{ok:true,processed:0,pending:Number(p?.n||0)};}
+    try{
+      const token=await googleAccessToken(env),claimAt=nowIso();
+      for(const row of rows){
+        await env.DB.prepare("UPDATE outbound_replication_outbox SET status='INFLIGHT',claimed_at=?1,attempt_count=attempt_count+1,last_error=NULL WHERE outbox_id=?2 AND status IN ('PENDING','RETRY')").bind(claimAt,row.outbox_id).run();
+        const e=await env.DB.prepare("SELECT * FROM events WHERE event_id=?1").bind(row.event_id).first<EventRow>();if(!e)throw new Error(`OUTBOUND_EVENT_MISSING:${row.event_id}`);
+        await replicateOne(env,token,e);
+        await env.DB.prepare("UPDATE outbound_replication_outbox SET status='SYNCED',claimed_at=NULL,replicated_at=?1,last_error=NULL WHERE outbox_id=?2").bind(nowIso(),row.outbox_id).run();
+      }
+      const p=await env.DB.prepare("SELECT COUNT(*) n FROM outbound_replication_outbox WHERE status IN ('PENDING','RETRY','INFLIGHT')").first<{n:number}>();return{ok:true,processed:rows.length,pending:Number(p?.n||0)};
+    }catch(e){
+      const msg=String(e).slice(0,500),next=new Date(Date.now()+10_000).toISOString();
+      await env.DB.batch(rows.map(r=>env.DB.prepare("UPDATE outbound_replication_outbox SET status='RETRY',claimed_at=NULL,next_attempt_at=?1,last_error=?2 WHERE outbox_id=?3 AND status='INFLIGHT'").bind(next,msg,r.outbox_id)));
+      const p=await env.DB.prepare("SELECT COUNT(*) n FROM outbound_replication_outbox WHERE status IN ('PENDING','RETRY','INFLIGHT')").first<{n:number}>();return{ok:false,processed:0,pending:Number(p?.n||0),error:msg};
     }
-    const p=await env.DB.prepare("SELECT COUNT(*) n FROM outbound_replication_outbox WHERE status IN ('PENDING','RETRY','INFLIGHT')").first<{n:number}>();return{ok:true,processed:rows.length,pending:Number(p?.n||0)};
-  }catch(e){
-    const msg=String(e).slice(0,500),next=new Date(Date.now()+10_000).toISOString();
-    await env.DB.batch(rows.map(r=>env.DB.prepare("UPDATE outbound_replication_outbox SET status='RETRY',claimed_at=NULL,next_attempt_at=?1,last_error=?2 WHERE outbox_id=?3 AND status='INFLIGHT'").bind(next,msg,r.outbox_id)));
-    const p=await env.DB.prepare("SELECT COUNT(*) n FROM outbound_replication_outbox WHERE status IN ('PENDING','RETRY','INFLIGHT')").first<{n:number}>();return{ok:false,processed:0,pending:Number(p?.n||0),error:msg};
+  }finally{
+    await releaseOutboundReplicationLease(env,lease);
   }
 }
