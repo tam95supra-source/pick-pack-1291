@@ -1544,15 +1544,7 @@ class OperationsActivity : Activity() {
         }
         val ses=ctx.optJSONObject("session")?:JSONObject()
         body.addView(details(listOf("Ca" to dash(ses.optString("shift")),"Vị trí" to dash(workText(ses.optString("work_choice"))),"Vào lúc" to formatIso(ses.optString("enter_at")))));body.addView(gap(7))
-        val tz=ZoneId.of("Asia/Ho_Chi_Minh")
-        fun pickClock(currentIso:String,onPick:(String)->Unit){
-            val z=runCatching{Instant.parse(currentIso).atZone(tz)}.getOrDefault(java.time.ZonedDateTime.now(tz))
-            android.app.TimePickerDialog(this,{_,hour,minute->
-                val picked=z.toLocalDate().atTime(hour,minute).atZone(tz).toInstant()
-                if(picked.isAfter(Instant.now().plusSeconds(60)))TopNotice.show(this,"Thời gian không được ở tương lai.",TopNotice.Kind.WARNING)
-                else onPick(picked.toString())
-            },z.hour,z.minute,true).show()
-        }
+        fun pickClock(currentIso:String,onPick:(String)->Unit)=laborWheelPick(currentIso,onPick)
         fun timeButton(iso:String):Button=Button(this).apply{
             text=compactAttendanceTime(iso);textSize=12f;isAllCaps=false;setTextColor(navy);background=outlineBg(surface,11);minHeight=0;minimumHeight=0
         }
