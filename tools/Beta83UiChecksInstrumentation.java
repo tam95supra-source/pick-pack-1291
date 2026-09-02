@@ -443,6 +443,32 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     mark("navigation_history_beta111");
   }
 
+  @SuppressWarnings({"unchecked","rawtypes"})
+  private void verifyReviewAlertUiSharedStyle(Activity a)throws Exception{
+    Class<?> cls=target.getClassLoader().loadClass("vn.pickpack1291.app.beta.ReviewAlertUi");
+    Class<?> toneCls=target.getClassLoader().loadClass("vn.pickpack1291.app.beta.ReviewAlertUi$Tone");
+    Object instance=cls.getField("INSTANCE").get(null);
+    Object warning=Enum.valueOf((Class)toneCls,"WARNING");
+    Object ok=Enum.valueOf((Class)toneCls,"OK");
+    Method buttonMethod=cls.getMethod("button",Activity.class,String.class,toneCls);
+    android.widget.Button wb=(android.widget.Button)buttonMethod.invoke(instance,a,"CẢNH BÁO TEST",warning);
+    android.widget.Button ob=(android.widget.Button)buttonMethod.invoke(instance,a,"RÀ SOÁT OK",ok);
+    Method lpMethod=cls.getMethod("fixedHeightParams",Activity.class);
+    android.widget.LinearLayout.LayoutParams lp=(android.widget.LinearLayout.LayoutParams)lpMethod.invoke(instance,a);
+    int expectedHeight=(int)(42f*a.getResources().getDisplayMetrics().density);
+    float expectedText=10.5f*a.getResources().getDisplayMetrics().scaledDensity;
+    require(lp.height==expectedHeight,"REVIEW_WARNING_HEIGHT_MISMATCH:"+lp.height+":"+expectedHeight);
+    require(Math.abs(wb.getTextSize()-expectedText)<1.5f,"REVIEW_WARNING_TEXT_SIZE_MISMATCH:"+wb.getTextSize()+":"+expectedText);
+    require(wb.getCurrentTextColor()==android.graphics.Color.rgb(176,0,32),"WARNING_COLOR_MISMATCH:"+wb.getCurrentTextColor());
+    require(ob.getCurrentTextColor()==android.graphics.Color.rgb(16,112,66),"REVIEW_OK_COLOR_MISMATCH:"+ob.getCurrentTextColor());
+    require(!wb.getIncludeFontPadding()&&!ob.getIncludeFontPadding(),"REVIEW_WARNING_FONT_PADDING_MISMATCH");
+    require(wb.getStateListAnimator()==null&&ob.getStateListAnimator()==null,"REVIEW_WARNING_PLATFORM_ANIMATOR_PRESENT");
+    require(wb.getMinimumHeight()==0&&ob.getMinimumHeight()==0,"REVIEW_WARNING_MIN_HEIGHT_VARIANCE");
+    require(wb.getMinimumWidth()==0&&ob.getMinimumWidth()==0,"REVIEW_WARNING_MIN_WIDTH_VARIANCE");
+    require(wb.getPaddingLeft()==ob.getPaddingLeft()&&wb.getPaddingRight()==ob.getPaddingRight(),"REVIEW_WARNING_PADDING_MISMATCH");
+    mark("review_warning_shared_style_beta112");
+  }
+
   private android.widget.TableLayout firstTable(android.view.View v){
     if(v instanceof android.widget.TableLayout)return (android.widget.TableLayout)v;
     if(v instanceof android.view.ViewGroup){
@@ -852,6 +878,7 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
 
     Activity business=open("BUSINESS");
     verifySessionExitGuard(business);
+    verifyReviewAlertUiSharedStyle(business);
     verifyActualNavigationHistory(business);
     business=open("BUSINESS");
     verifyBeta94OwnerScope(business);
@@ -861,6 +888,7 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     require(findText("RÀ SOÁT VÀO / RA",false,false)==null,"REDUNDANT_RECONCILIATION_HEADER_VISIBLE");
     require(findText("Chào buổi",false,false)==null,"GREETING_MUST_BE_REMOVED");
     require(findText("Làm mới và đồng bộ dữ liệu",true,false)==null,"REFRESH_ICON_MUST_BE_REMOVED");
+    shot(tag+"-00-beta112-review-warning-unified");
     AccessibilityNodeInfo networkChip=waitText("Mạng",true,false,10000L);
     AccessibilityNodeInfo syncChip=waitText("Đồng bộ",true,false,10000L);
     AccessibilityNodeInfo serviceChip=waitText("Dịch vụ",true,false,10000L);
