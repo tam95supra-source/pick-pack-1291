@@ -1,6 +1,6 @@
 {
-  "stage": "BETA_AUTH_MIGRATE",
-  "mode": "REPAIR_BETA_AUTH_SHEET_PARITY",
+  "stage": "RUNTIME_DOD_VERIFY",
+  "mode": "PRE_OTA_RUNTIME_DOD_BETA112_AFTER_AUTH_PARITY_REPAIR",
   "version_name": "0.4.2-beta.112",
   "version_code": 118,
   "base_version": "0.4.2-beta.111",
@@ -46,10 +46,10 @@
   "pda_functional_pre_ota": "PASS",
   "back_api36": "PASS",
   "device_regression_status": "PASS",
-  "runtime_dod_status": "PENDING_RETRY_AFTER_AUTH_PARITY_REPAIR",
+  "runtime_dod_status": "PENDING_RETRY",
   "regression_case": "UI-REVIEW-WARNING-001 + tools/beta112_review_warning_contract.py + review_warning_shared_style_beta112; preserve ACTIVE_PASS NAV-HISTORY-BACK-001, LABOR-EXACT-SESSION-002, DOCUMENT-BATCH-MODE-TICK-002, HISTORY-DELETE-CANONICAL-001",
-  "execution_nonce": "beta112-auth-parity-repair-20260902-05",
-  "next_action": "REPAIR_BETA_AUTH_SHEET_PARITY_THEN_READBACK_AND_RERUN_RUNTIME_DOD",
+  "execution_nonce": "beta112-runtime-dod-retry-20260902-06",
+  "next_action": "PASS_RUNTIME_DOD_THEN_RELEASE_LOCK_AND_PUBLISH_EXACT_BYTES",
   "candidate_source_sha": "b3009ca701670af487ee8dce3538fe9c3cde4ae5",
   "candidate_run_id": 33596529877,
   "candidate_artifact_id": 9833670469,
@@ -77,5 +77,10 @@
   "runtime_dod_failed_artifact_id": 9839243368,
   "runtime_dod_failure": "BETA_SHEET_AUTH_TARGET_FAILED",
   "auth_recovery_contract_run_id": 33612134466,
-  "beta_auth_status": "PENDING_REPAIR"
+  "beta_auth_status": "PASS",
+  "beta_auth_run_id": 33612548361,
+  "beta_auth_artifact_id": 9839580952,
+  "beta_auth_recovery": "REPAIR_BETA_AUTH_SHEET_PARITY_NO_ROTATION",
+  "runtime_dod_previous_failed_run_id": 33611682634,
+  "runtime_dod_previous_failure": "BETA_SHEET_AUTH_TARGET_FAILED_SUPERSEDED_BY_AUTH_PARITY_REPAIR"
 }
