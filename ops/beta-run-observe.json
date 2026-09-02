@@ -1,8 +1,8 @@
 {
-  "run_id": 33627016906,
-  "run_sha": "eee65c9b6eb06b1423929e39dcd306d66784cf1c",
-  "ref": "release/beta112-unified-review-warning",
-  "execution_nonce": "beta112-owner-complete-pass-live-20260902-10",
-  "stage": "pass_live",
-  "observed_at": "2026-09-02T11:54:16Z"
+  "run_id": 33632033435,
+  "run_sha": "0e34e62b239670a444a03f1076ea66b9a059758e",
+  "ref": "release/beta113-owner-scope-20260902",
+  "execution_nonce": "beta113-build-verify-20260902-02",
+  "stage": "BUILD_VERIFY",
+  "observed_at": "2026-09-02T12:48:54Z"
 }
