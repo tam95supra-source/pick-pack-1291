@@ -162,7 +162,7 @@ class M2RuntimeBridge(context: Context) {
         private const val KEY_LAST_ERROR="runtime_last_error"
         val DIRECT_READS=setOf(
             "employee_context","master_options","history_shared","old_active_sessions","historical_session_detail",
-            "outbound_location_list","outbound_location_mutate","outbound_drop_append","outbound_drop_clear","meal_attendance_list","labor_list","labor_dates"
+            "outbound_location_list","outbound_location_mutate","outbound_drop_append","outbound_drop_clear","meal_attendance_list","meal_attendance_dates","labor_list","labor_dates"
         )
     }
 }
