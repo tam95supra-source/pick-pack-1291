@@ -28,8 +28,8 @@ object OldSessionWarningFeature {
         val root=LinearLayout(activity).apply{orientation=LinearLayout.VERTICAL;visibility=View.GONE;setPadding(0,0,0,dp(6))}
         val button=Button(activity).apply{
             text=WARNING_TEXT
-            textSize=10.2f;setTextColor(Color.WHITE);typeface=Typeface.DEFAULT_BOLD;isAllCaps=false;gravity=Gravity.CENTER
-            background=round(Color.rgb(139,0,0),11);minHeight=dp(46);setPadding(dp(8),dp(5),dp(8),dp(5))
+            textSize=10.5f;setTextColor(Color.rgb(176,0,32));typeface=Typeface.DEFAULT_BOLD;isAllCaps=false;gravity=Gravity.CENTER
+            background=GradientDrawable().apply{setColor(Color.rgb(255,226,232));cornerRadius=dp(10).toFloat();setStroke(dp(2),Color.rgb(176,0,32))};minHeight=dp(42);setPadding(dp(8),0,dp(8),0)
         }
         root.addView(button,LinearLayout.LayoutParams(-1,-2))
         var items=listOf<Item>()
