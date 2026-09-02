@@ -1,40 +1,48 @@
 # CURRENT STATE — PICK PACK 1291
 
-- updated_at: 2026-09-01T15:04:00Z
-- status: BETA109_LIVE_OWNER_ACCEPTED_ACTIVE_PASS
+- updated_at: 2026-09-02T00:43:15Z
+- status: BETA110_LIVE_OWNER_ACCEPTED_ACTIVE_PASS
 - continuity_branch: beta/current
-- source_sha: a72d8e20eaebe60235338fd1b9aaebde42507825
-- beta_live: 0.4.2-beta.109 (versionCode 115)
+- release_branch: release/beta110-document-labor-attendance
+- source_sha: 1faebbf996836d442ec6e99ffba2a589bf3fcbd2
+- beta_live: 0.4.2-beta.110 (versionCode 116)
 - package: vn.pickpack1291.app.beta.publicbeta
-- candidate_run: 33506205883
-- candidate_artifact: 9799840161
-- verify_run: 33511409449
-- verify_artifact: 9801982052
-- apk_sha256: 1c01a58eefe5d0501eccbfe0359a2d5c0b3ec159f5ef37889d757f0984bbc7c8
-- apk_size: 14167029
+- candidate_run: 33554345340
+- candidate_artifact: 9818862858
+- verify_run: 33569543281
+- verify_artifact: 9824551840
+- apk_sha256: ae83831ac6f0412e2d314418f64ef8f4e28e67fbcf2c3b06d7a83810bda93f84
+- apk_size: 14199797
 - signer_sha256: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
-- service_live: 33509679186 attempt 2 / 9801444305 PASS
-- fast_check: 33510974424 PASS
-- device_regression: 33514582110 / 9803110874 PASS
-- runtime_dod: 33514927663 attempt 2 / 9803295906 PASS
-- terminal_run: 33515483109 PASS
-- publish_artifact: 9803429207
-- pda_ota_artifact: 9803518172
-- final_artifact: 9803526992
-- github_release_asset: 539613285
+- service_live: 33568634524 / 9824237674 PASS
+- fast_check: 33569530461 PASS
+- post_registry_fast_check: 33574631295 PASS
+- device_regression: 33570127113 / 9824662041 PASS
+- runtime_dod: 33573848594 / 9825920815 PASS
+- terminal_run: 33574078129 PASS
+- publish_artifact: 9826016343
+- pda_ota_artifact: 9826069523
+- final_artifact: 9826075161
+- github_release_asset: 540340119
 - visual_matrix: PASS 320x568 / 360x640 / 480x800
-- human_visual: PASS
+- human_visual: PASS / 41 screenshots
 - pda_functional_pre_ota: PASS
-- beta_ota: exact 0.4.2-beta.108 -> 0.4.2-beta.109 PASS via GitHub Release
-- beta_ota_url: https://github.com/tam95supra-source/pick-pack-1291/releases/download/v0.4.2-beta.109-publicbeta/pick-pack-1291-public-beta-0.4.2-beta.109.apk
+- back_api36: PASS
+- beta_ota: exact 0.4.2-beta.109 -> 0.4.2-beta.110 PASS via GitHub Release
+- beta_ota_url: https://github.com/tam95supra-source/pick-pack-1291/releases/download/v0.4.2-beta.110-publicbeta/pick-pack-1291-public-beta-0.4.2-beta.110.apk
 - apk_transport: GITHUB_RELEASE_ONLY
 - google_drive_apk: FORBIDDEN
-- document_management_invariant: DOCUMENT-MANAGEMENT-001 = ACTIVE_PASS
-- technical_receipt: ops/beta109-technical-pass.json
-- owner_acceptance_receipt: ops/beta109-owner-acceptance.json
-- regression_case: qa/beta109_document_management_regression.md
-- owner_accepted_subitems: 1,2,3,4,5,6,7,8
-- stable: unchanged
+- technical_receipt: ops/beta110-technical-pass.json
+- release_lock: ops/beta110-release-lock.json
+- DOCUMENT-BATCH-001: ACTIVE_PASS
+- LABOR-TIME-RANGE-001: ACTIVE_PASS
+- MEAL-UI-NULL-001: ACTIVE_PASS
+- UI-COPY-DENSITY-001: ACTIVE_PASS
+- DOCUMENT-MANAGEMENT-001: ACTIVE_PASS unchanged
+- stable: unchanged / not public
 - main_sha: 021dac5c6932b3ac5c60ce8fdba562ddf3d9688f
 - authority: SERVICE_PRIMARY / PRODUCTION / epoch 9 / generation m2-prod-reset-20260823-001
+- owner_acceptance_receipt: ops/beta110-owner-acceptance.json
+- owner_acceptance: COMPLETE 2026-09-02T07:43:15+07:00
+- ui_followup: new scope only; current acceptance remains valid
 - next_action: WAIT_FOR_OWNER_NEW_SCOPE
