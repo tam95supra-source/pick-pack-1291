@@ -1376,7 +1376,6 @@ class OperationsActivity : Activity() {
         }
         exit.setOnClickListener{
             if(mnv.isBlank()){showError("MNV_REQUIRED");return@setOnClickListener}
-            if(ctx.optJSONObject("active_labor")!=null){openLaborExact(mnv,s.optString("session_id"));return@setOnClickListener}
             if(!exitInFlightMnvs.add(mnv))return@setOnClickListener
             exit.isEnabled=false
             resolveActiveSessionForExit(mnv,s){resolved,remoteLabor,error->
