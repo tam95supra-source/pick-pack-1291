@@ -1,8 +1,8 @@
 {
-  "run_id": 33574078129,
-  "run_sha": "0a1c34b29f6bfa30a47e5b94161dd283cab7b0e7",
-  "ref": "release/beta110-document-labor-attendance",
-  "execution_nonce": "beta110-publish-20260902-07",
-  "stage": "PUBLISH",
-  "observed_at": "2026-09-02T00:08:43Z"
+  "run_id": 33615326288,
+  "run_sha": "7c29ff9b6350a4802d687c440cf04422bd6bcf83",
+  "ref": "release/beta112-unified-review-warning",
+  "execution_nonce": "beta112-pass-live-state-finalize-20260902-08",
+  "stage": "pass_live",
+  "observed_at": "2026-09-02T09:39:45Z"
 }

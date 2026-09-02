@@ -412,6 +412,63 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     mark("session_exit_identity_guard");
   }
 
+  private void verifyActualNavigationHistory(Activity a)throws Exception{
+    Field state=a.getClass().getDeclaredField("screenState");state.setAccessible(true);
+    Field module=a.getClass().getDeclaredField("module");module.setAccessible(true);
+    Field displayedState=a.getClass().getDeclaredField("displayedScreenState");displayedState.setAccessible(true);
+    Field displayedModule=a.getClass().getDeclaredField("displayedModule");displayedModule.setAccessible(true);
+    Field stackField=a.getClass().getDeclaredField("screenBackStack");stackField.setAccessible(true);
+    Method setScreen=a.getClass().getDeclaredMethod("setScreen",android.view.View.class);setScreen.setAccessible(true);
+    Method navigateBack=a.getClass().getDeclaredMethod("navigateBack");navigateBack.setAccessible(true);
+    @SuppressWarnings("unchecked") ArrayDeque<Object> stack=(ArrayDeque<Object>)stackField.get(a);
+    final Throwable[] failure=new Throwable[1];
+    runOnMainSync(new Runnable(){@Override public void run(){
+      try{
+        stack.clear();displayedState.set(a,"");displayedModule.set(a,"");module.set(a,"BUSINESS");
+        state.set(a,"B111_1");setScreen.invoke(a,new android.widget.TextView(a));
+        setScreen.invoke(a,new android.widget.TextView(a));
+        require(stack.isEmpty(),"NAV_SAME_SCREEN_CREATED_FAKE_FRAME");
+        state.set(a,"B111_2");setScreen.invoke(a,new android.widget.TextView(a));
+        state.set(a,"B111_3");setScreen.invoke(a,new android.widget.TextView(a));
+        navigateBack.invoke(a);require("B111_2".equals(String.valueOf(state.get(a))),"NAV_1_2_3_BACK_NOT_2:"+state.get(a));
+        navigateBack.invoke(a);require("B111_1".equals(String.valueOf(state.get(a))),"NAV_1_2_3_BACK_NOT_1:"+state.get(a));
+
+        stack.clear();displayedState.set(a,"");displayedModule.set(a,"");module.set(a,"BUSINESS");
+        state.set(a,"B111_5");setScreen.invoke(a,new android.widget.TextView(a));
+        state.set(a,"B111_3");setScreen.invoke(a,new android.widget.TextView(a));
+        navigateBack.invoke(a);require("B111_5".equals(String.valueOf(state.get(a))),"NAV_5_3_BACK_NOT_5:"+state.get(a));
+      }catch(Throwable t){failure[0]=t;}
+    }});
+    if(failure[0]!=null)throw new IllegalStateException("NAV_HISTORY_BETA111_FAILED",failure[0]);
+    mark("navigation_history_beta111");
+  }
+
+  @SuppressWarnings({"unchecked","rawtypes"})
+  private void verifyReviewAlertUiSharedStyle(Activity a)throws Exception{
+    Class<?> cls=target.getClassLoader().loadClass("vn.pickpack1291.app.beta.ReviewAlertUi");
+    Class<?> toneCls=target.getClassLoader().loadClass("vn.pickpack1291.app.beta.ReviewAlertUi$Tone");
+    Object instance=cls.getField("INSTANCE").get(null);
+    Object warning=Enum.valueOf((Class)toneCls,"WARNING");
+    Object ok=Enum.valueOf((Class)toneCls,"OK");
+    Method buttonMethod=cls.getMethod("button",Activity.class,String.class,toneCls);
+    android.widget.Button wb=(android.widget.Button)buttonMethod.invoke(instance,a,"CẢNH BÁO TEST",warning);
+    android.widget.Button ob=(android.widget.Button)buttonMethod.invoke(instance,a,"RÀ SOÁT OK",ok);
+    Method lpMethod=cls.getMethod("fixedHeightParams",Activity.class);
+    android.widget.LinearLayout.LayoutParams lp=(android.widget.LinearLayout.LayoutParams)lpMethod.invoke(instance,a);
+    int expectedHeight=(int)(42f*a.getResources().getDisplayMetrics().density);
+    float expectedText=10.5f*a.getResources().getDisplayMetrics().scaledDensity;
+    require(lp.height==expectedHeight,"REVIEW_WARNING_HEIGHT_MISMATCH:"+lp.height+":"+expectedHeight);
+    require(Math.abs(wb.getTextSize()-expectedText)<1.5f,"REVIEW_WARNING_TEXT_SIZE_MISMATCH:"+wb.getTextSize()+":"+expectedText);
+    require(wb.getCurrentTextColor()==android.graphics.Color.rgb(176,0,32),"WARNING_COLOR_MISMATCH:"+wb.getCurrentTextColor());
+    require(ob.getCurrentTextColor()==android.graphics.Color.rgb(16,112,66),"REVIEW_OK_COLOR_MISMATCH:"+ob.getCurrentTextColor());
+    require(!wb.getIncludeFontPadding()&&!ob.getIncludeFontPadding(),"REVIEW_WARNING_FONT_PADDING_MISMATCH");
+    require(wb.getStateListAnimator()==null&&ob.getStateListAnimator()==null,"REVIEW_WARNING_PLATFORM_ANIMATOR_PRESENT");
+    require(wb.getMinimumHeight()==0&&ob.getMinimumHeight()==0,"REVIEW_WARNING_MIN_HEIGHT_VARIANCE");
+    require(wb.getMinimumWidth()==0&&ob.getMinimumWidth()==0,"REVIEW_WARNING_MIN_WIDTH_VARIANCE");
+    require(wb.getPaddingLeft()==ob.getPaddingLeft()&&wb.getPaddingRight()==ob.getPaddingRight(),"REVIEW_WARNING_PADDING_MISMATCH");
+    mark("review_warning_shared_style_beta112");
+  }
+
   private android.widget.TableLayout firstTable(android.view.View v){
     if(v instanceof android.widget.TableLayout)return (android.widget.TableLayout)v;
     if(v instanceof android.view.ViewGroup){
@@ -614,7 +671,7 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     SystemClock.sleep(300L);
     waitText("Quét QR nhân sự",true,true,10000L);
     clickTextScrolling("Công nhật",10000L);
-    waitText("Đang thực hiện",true,false,10000L);
+    waitText("Chi tiết công nhật theo ngày",true,false,10000L);
     waitText("Scan / Nhập mã nhân viên",true,false,10000L);
     shot(tag+"-01c-beta110-labor");
     try{ui.executeShellCommand("input keyevent 4").close();}catch(Exception ignored){}
@@ -821,6 +878,9 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
 
     Activity business=open("BUSINESS");
     verifySessionExitGuard(business);
+    verifyReviewAlertUiSharedStyle(business);
+    verifyActualNavigationHistory(business);
+    business=open("BUSINESS");
     verifyBeta94OwnerScope(business);
     waitText("Ca 1",false,false,12000L);
     waitText("Ca HC",false,false,12000L);
@@ -828,6 +888,7 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     require(findText("RÀ SOÁT VÀO / RA",false,false)==null,"REDUNDANT_RECONCILIATION_HEADER_VISIBLE");
     require(findText("Chào buổi",false,false)==null,"GREETING_MUST_BE_REMOVED");
     require(findText("Làm mới và đồng bộ dữ liệu",true,false)==null,"REFRESH_ICON_MUST_BE_REMOVED");
+    shot(tag+"-00-beta112-review-warning-unified");
     AccessibilityNodeInfo networkChip=waitText("Mạng",true,false,10000L);
     AccessibilityNodeInfo syncChip=waitText("Đồng bộ",true,false,10000L);
     AccessibilityNodeInfo serviceChip=waitText("Dịch vụ",true,false,10000L);
@@ -898,7 +959,7 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     SystemClock.sleep(300L);
     waitText("Điểm danh nhân sự",true,true,10000L);
     clickTextScrolling("Công nhật",10000L);
-    waitText("Đang thực hiện",true,false,10000L);
+    waitText("Chi tiết công nhật theo ngày",true,false,10000L);
     waitText("Scan / Nhập mã nhân viên",true,false,10000L);
     mark("labor_open_list_beta110");
     try{ui.executeShellCommand("input keyevent 4").close();}catch(Exception ignored){}

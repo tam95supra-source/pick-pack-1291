@@ -225,13 +225,13 @@ async function commitResourceChange(db:D1Database, auth:AuthContext, req:Canonic
 
 async function commitLaborStart(db:D1Database, auth:AuthContext, req:CanonicalMutationRequest, a:AuthorityRow):Promise<EventRow>{
   if(auth.role==="USER") throw new CoreError("LABOR_ADMIN_REQUIRED","PERMISSION",403);
-  const p=req.payload,mnv=text(p,"mnv",80),shift=text(p,"shift",80),laborType=text(p,"labor_type",180),marker=text(p,"time_marker",120)||"-";
+  const p=req.payload,mnv=text(p,"mnv",80),shift=text(p,"shift",80),laborType=text(p,"labor_type",180),marker=text(p,"time_marker",120)||"-",sessionId=text(p,"session_id",220);
   const selectedStart=text(p,"start_at",80)||req.timestamp;
   if(!mnv||!shift||!laborType) throw new CoreError("LABOR_FIELDS_REQUIRED","VALIDATION",400);
   if(!selectedStart||Number.isNaN(Date.parse(selectedStart)))throw new CoreError("LABOR_START_TIME_INVALID","VALIDATION",400);
   const checks=await db.batch([
     db.prepare("SELECT labor_id,mnv,business_date,state,version FROM labor_sessions WHERE labor_id=?1").bind(req.entity_id),
-    db.prepare("SELECT state,enter_at,exit_at FROM attendance_sessions WHERE mnv=?1 AND business_date=?2").bind(mnv,req.business_date),
+    db.prepare("SELECT state,enter_at,exit_at FROM attendance_sessions WHERE mnv=?1 AND business_date=?2 AND (?3='' OR session_id=?3)").bind(mnv,req.business_date,sessionId),
   ]);
   const current=(checks[0]?.results?.[0]??null) as LaborRow|null,v=current?.version??0;
   if(v!==req.base_version)throw new CoreError("STALE_BASE_VERSION","CONFLICT",409,false,{current_version:v});if(current?.state==="OPEN")throw new CoreError("LABOR_ALREADY_OPEN","CONFLICT",409);
@@ -247,12 +247,15 @@ async function commitLaborStart(db:D1Database, auth:AuthContext, req:CanonicalMu
 async function commitLaborFinish(db:D1Database, auth:AuthContext, req:CanonicalMutationRequest, a:AuthorityRow):Promise<EventRow>{
   if(auth.role==="USER") throw new CoreError("LABOR_ADMIN_REQUIRED","PERMISSION",403);
   const current=await db.prepare("SELECT labor_id,mnv,business_date,state,start_at,version FROM labor_sessions WHERE labor_id=?1").bind(req.entity_id).first<LaborRow&{start_at:string}>();
-  if(!current||current.state!=="OPEN")throw new CoreError("LABOR_NOT_OPEN","CONFLICT",409);if(current.version!==req.base_version)throw new CoreError("STALE_BASE_VERSION","CONFLICT",409,false,{current_version:current.version});
-  const selectedEnd=text(req.payload,"end_at",80)||req.timestamp;
+  const correction=req.payload.correction===true;
+  if(!current||(!correction&&current.state!=="OPEN")||(correction&&!["OPEN","COMPLETED"].includes(current.state)))throw new CoreError("LABOR_NOT_OPEN","CONFLICT",409);
+  if(current.version!==req.base_version)throw new CoreError("STALE_BASE_VERSION","CONFLICT",409,false,{current_version:current.version});
+  const selectedStart=text(req.payload,"start_at",80)||current.start_at,selectedEnd=text(req.payload,"end_at",80)||req.timestamp;
+  if(!selectedStart||Number.isNaN(Date.parse(selectedStart)))throw new CoreError("LABOR_START_TIME_INVALID","VALIDATION",400);
   if(!selectedEnd||Number.isNaN(Date.parse(selectedEnd)))throw new CoreError("LABOR_END_TIME_INVALID","VALIDATION",400);
-  if(current.start_at&&!Number.isNaN(Date.parse(current.start_at))&&Date.parse(selectedEnd)<Date.parse(current.start_at))throw new CoreError("LABOR_END_BEFORE_START","VALIDATION",400);
+  if(Date.parse(selectedEnd)<Date.parse(selectedStart))throw new CoreError("LABOR_END_BEFORE_START","VALIDATION",400);
   const event=await buildEvent(req,auth,a,current.version+1),stmts=eventStatements(db,event,a.authority_seq);
-  stmts.push(db.prepare("UPDATE labor_sessions SET state='COMPLETED',end_at=?1,finish_event_id=?2,version=?3,updated_at=?4 WHERE labor_id=?5 AND version=?6 AND state='OPEN'").bind(selectedEnd,event.event_id,event.new_version,event.committed_at,current.labor_id,current.version));
+  stmts.push(db.prepare("UPDATE labor_sessions SET state='COMPLETED',start_at=?1,end_at=?2,finish_event_id=?3,note=CASE WHEN ?4<>'' THEN ?4 ELSE note END,version=?5,updated_at=?6 WHERE labor_id=?7 AND version=?8 AND state IN ('OPEN','COMPLETED')").bind(selectedStart,selectedEnd,event.event_id,text(req.payload,"note",500),event.new_version,event.committed_at,current.labor_id,current.version));
   await db.batch(stmts);return event;
 }
 

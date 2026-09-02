@@ -108,17 +108,33 @@ async function resourceOptions(db:D1Database,date:string,mnv:string):Promise<Rec
 
 async function employeeContext(env:Env,body:Record<string,unknown>):Promise<Response>{
   const mnv=String(body.mnv||"").trim();if(!mnv)return apiError("MNV_REQUIRED","VALIDATION",400);
-  const date=await businessDate(env.DB);
+  const date=await businessDate(env.DB),requestedSessionId=String(body.session_id||"").trim();
   const employee=await env.DB.prepare("SELECT mnv,full_name,phone,main_position,supplier,department,site,warehouse,start_date,note FROM employees WHERE mnv=?1").bind(mnv).first<Employee>();
   if(!employee)return apiError("EMPLOYEE_NOT_FOUND","VALIDATION",404);
-  const currentSession=await env.DB.prepare("SELECT session_id,mnv,business_date,shift,work_choice,state,pda_serial,user_pick,pack_table,user_pack,pda_enter_status,pda_exit_status,resource_note,enter_at,exit_at,entered_by,exited_by,version FROM attendance_sessions WHERE business_date=?1 AND mnv=?2").bind(date,mnv).first<Record<string,unknown>>();
-  const activeSession=await env.DB.prepare("SELECT session_id,mnv,business_date,shift,work_choice,state,pda_serial,user_pick,pack_table,user_pack,pda_enter_status,pda_exit_status,resource_note,enter_at,exit_at,entered_by,exited_by,version FROM attendance_sessions WHERE mnv=?1 AND state='ACTIVE' ORDER BY business_date DESC,enter_at DESC LIMIT 1").bind(mnv).first<Record<string,unknown>>();
-  const session=activeSession??currentSession;
+  const requestedSession=requestedSessionId?await env.DB.prepare("SELECT session_id,mnv,business_date,shift,work_choice,state,pda_serial,user_pick,pack_table,user_pack,pda_enter_status,pda_exit_status,resource_note,enter_at,exit_at,entered_by,exited_by,version FROM attendance_sessions WHERE session_id=?1 AND mnv=?2").bind(requestedSessionId,mnv).first<Record<string,unknown>>():null;
+  if(requestedSessionId&&!requestedSession)return apiError("SESSION_NOT_FOUND","VALIDATION",404);
+  const currentSession=requestedSessionId?null:await env.DB.prepare("SELECT session_id,mnv,business_date,shift,work_choice,state,pda_serial,user_pick,pack_table,user_pack,pda_enter_status,pda_exit_status,resource_note,enter_at,exit_at,entered_by,exited_by,version FROM attendance_sessions WHERE business_date=?1 AND mnv=?2").bind(date,mnv).first<Record<string,unknown>>();
+  const activeSession=requestedSessionId?null:await env.DB.prepare("SELECT session_id,mnv,business_date,shift,work_choice,state,pda_serial,user_pick,pack_table,user_pack,pda_enter_status,pda_exit_status,resource_note,enter_at,exit_at,entered_by,exited_by,version FROM attendance_sessions WHERE mnv=?1 AND state='ACTIVE' ORDER BY business_date DESC,enter_at DESC LIMIT 1").bind(mnv).first<Record<string,unknown>>();
+  const session=requestedSession??activeSession??currentSession;
   const state=!session?"NOT_ENTERED":String(session.state)==="ACTIVE"?"ACTIVE":"ENDED";
   const sessionOut:Record<string,unknown>|null=session?{...session,work_choice:visibleWork(String(session.work_choice||""))}:null;
-  const activeLabor=body.include_labor===true?await env.DB.prepare("SELECT labor_id,mnv,business_date,shift,labor_type,time_marker,state,start_at,end_at,note,deduct_staff,start_event_id,finish_event_id,version FROM labor_sessions WHERE business_date=?1 AND mnv=?2 AND state='OPEN' ORDER BY start_at DESC LIMIT 1").bind(date,mnv).first<Record<string,unknown>>():null;
-  const options=body.include_options===true?await resourceOptions(env.DB,date,mnv):null;
-  return json({ok:true,source:"SERVICE_D1",business_date:date,employee:employeeJson(employee),state,session:sessionOut,active_labor:activeLabor,options});
+  const laborDate=String(session?.business_date||date);
+  const activeLabor=body.include_labor===true?await env.DB.prepare("SELECT labor_id,mnv,business_date,shift,labor_type,time_marker,state,start_at,end_at,note,deduct_staff,start_event_id,finish_event_id,version FROM labor_sessions WHERE business_date=?1 AND mnv=?2 AND state='OPEN' ORDER BY start_at DESC LIMIT 1").bind(laborDate,mnv).first<Record<string,unknown>>():null;
+  const options=body.include_options===true?await resourceOptions(env.DB,laborDate,mnv):null;
+  return json({ok:true,source:"SERVICE_D1",business_date:laborDate,employee:employeeJson(employee),state,session:sessionOut,active_labor:activeLabor,options});
+}
+
+async function laborList(env:Env,body:Record<string,unknown>):Promise<Response>{
+  const current=await businessDate(env.DB),requested=String(body.business_date||"").trim(),date=requested||current;
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(date))return apiError("BUSINESS_DATE_INVALID","VALIDATION",400);
+  const exists=await env.DB.prepare("SELECT 1 ok FROM business_dates WHERE business_date=?1").bind(date).first<{ok:number}>();
+  if(!exists)return json({ok:true,source:"SERVICE_D1",business_date:date,open_count:0,completed_count:0,items:[]});
+  const rows=(await env.DB.prepare(`SELECT l.labor_id,l.mnv,l.business_date,l.shift,l.labor_type,l.time_marker,l.state,l.start_at,l.end_at,l.note,l.deduct_staff,l.start_event_id,l.finish_event_id,l.version,
+    COALESCE(e.full_name,'') full_name,COALESCE(e.supplier,'') supplier,a.session_id attendance_session_id,a.state attendance_state
+    FROM labor_sessions l LEFT JOIN employees e ON e.mnv=l.mnv
+    LEFT JOIN attendance_sessions a ON a.mnv=l.mnv AND a.business_date=l.business_date
+    WHERE l.business_date=?1 ORDER BY CASE WHEN l.state='OPEN' THEN 0 ELSE 1 END,l.start_at DESC,l.mnv`).bind(date).all<Record<string,unknown>>()).results??[];
+  return json({ok:true,source:"SERVICE_D1",business_date:date,open_count:rows.filter(x=>String(x.state)==="OPEN").length,completed_count:rows.filter(x=>String(x.state)==="COMPLETED").length,items:rows});
 }
 
 async function oldActiveSessions(env:Env):Promise<Response>{
@@ -150,6 +166,7 @@ export async function mobileRead(request:Request,env:Env):Promise<Response>{
   if(action==="old_active_sessions")return oldActiveSessions(env);
   if(action==="historical_session_detail")return historicalSessionDetail(env,body);
   if(action==="meal_attendance_list")return mealAttendanceList(env,{business_date:String(body.business_date||"")});
+  if(action==="labor_list")return laborList(env,body);
   if(action.startsWith("outbound_"))return outboundAction(env,auth,action,body);
   if(action==="runtime_status")return json({ok:true,source:"SERVICE_D1",authority:await currentAuthority(env.DB),service_generation:env.SERVICE_GENERATION});
   return apiError("MOBILE_READ_ACTION_UNSUPPORTED","VALIDATION",400);

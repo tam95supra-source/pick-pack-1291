@@ -1,0 +1,30 @@
+{
+  "status": "PASS",
+  "channel": "BETA",
+  "version_name": "0.4.2-beta.112",
+  "version_code": 118,
+  "package": "vn.pickpack1291.app.beta.publicbeta",
+  "source_sha": "b3009ca701670af487ee8dce3538fe9c3cde4ae5",
+  "candidate_run_id": 33596529877,
+  "candidate_artifact_id": 9833670469,
+  "apk_sha256": "d5de4fea496a1be4926f3acc49f82fb60eb9065de694e075251ca493ce298e76",
+  "visual_run_id": 33597157250,
+  "visual_artifact_id": 9833913262,
+  "screenshot_count": 42,
+  "viewports": [
+    "320x568",
+    "360x640",
+    "480x800"
+  ],
+  "human_visual": "PASS",
+  "inspected_scope": "UI-REVIEW-WARNING-001",
+  "findings": [
+    "Rà soát và cảnh báo dùng cùng chiều cao/bo góc/viền/cỡ chữ.",
+    "Cảnh báo phiên cũ, điểm danh và công nhật dùng cùng warning red canonical.",
+    "Rà soát thiếu dùng warning red canonical; rà soát đủ dùng OK green canonical.",
+    "Không thấy lệch layout giữa ba viewport kiểm tra."
+  ],
+  "pda_functional_pre_ota": "PASS",
+  "back_api36": "PASS",
+  "recorded_at": "2026-09-02T15:54:00+07:00"
+}

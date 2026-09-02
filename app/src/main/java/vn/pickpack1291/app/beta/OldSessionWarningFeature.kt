@@ -25,13 +25,9 @@ object OldSessionWarningFeature {
         fun round(color:Int,r:Int)=GradientDrawable().apply{setColor(color);cornerRadius=dp(r).toFloat()}
         fun txt(v:String,size:Float,color:Int,bold:Boolean=false)=TextView(activity).apply{text=v;textSize=size;setTextColor(color);typeface=if(bold)Typeface.DEFAULT_BOLD else Typeface.DEFAULT}
         fun dash(v:Any?):String=(v?.toString().orEmpty()).trim().ifBlank{"—"}
-        val root=LinearLayout(activity).apply{orientation=LinearLayout.VERTICAL;visibility=View.GONE;setPadding(0,0,0,dp(6))}
-        val button=Button(activity).apply{
-            text=WARNING_TEXT
-            textSize=10.2f;setTextColor(Color.WHITE);typeface=Typeface.DEFAULT_BOLD;isAllCaps=false;gravity=Gravity.CENTER
-            background=round(Color.rgb(139,0,0),11);minHeight=dp(46);setPadding(dp(8),dp(5),dp(8),dp(5))
-        }
-        root.addView(button,LinearLayout.LayoutParams(-1,-2))
+        val root=ReviewAlertUi.warningContainer(activity)
+        val button=ReviewAlertUi.button(activity,WARNING_TEXT,ReviewAlertUi.Tone.WARNING)
+        root.addView(button,ReviewAlertUi.fixedHeightParams(activity))
         var items=listOf<Item>()
         fun parse(arr:JSONArray):List<Item>{
             val out=mutableListOf<Item>()

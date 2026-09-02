@@ -64,7 +64,7 @@ export async function legacyCanonical(db:D1Database,input:LegacyMutationInput,au
   }else if(input.action==="labor_start"){
     eventType="LABOR_START";entityType="LABOR_SESSION";entityId=text(payload.labor_id,180)||eventId;
     const existing=await db.prepare("SELECT version FROM labor_sessions WHERE labor_id=?1").bind(entityId).first<{version:number}>();baseVersion=existing?.version??0;
-    canonicalPayload={mnv,shift:text(payload.shift,80),labor_type:text(payload.labor_type,180),time_marker:text(payload.time_marker,120)||"-",start_at:text(payload.start_at,80),note:text(payload.note,500),deduct_staff:payload.deduct_staff??false};
+    canonicalPayload={mnv,session_id:text(payload.session_id,220),shift:text(payload.shift,80),labor_type:text(payload.labor_type,180),time_marker:text(payload.time_marker,120)||"-",start_at:text(payload.start_at,80),note:text(payload.note,500),deduct_staff:payload.deduct_staff??false};
   }else if(input.action==="meal_checkin"||input.action==="meal_status"){
     if(businessDate!==today)throw new CoreError("MEAL_WRITE_CURRENT_DAY_ONLY","PERMISSION",403);
     const existing=await db.prepare("SELECT status,actual_return_at,version FROM post_meal_attendance WHERE business_date=?1 AND mnv=?2").bind(businessDate,mnv).first<{status:string;actual_return_at:string|null;version:number}>();
@@ -81,8 +81,14 @@ export async function legacyCanonical(db:D1Database,input:LegacyMutationInput,au
       eventType="MEAL_STATUS_UPDATE";canonicalPayload={mnv,status,reason_code:reason,reason_note:note,expected_return_at:expected};
     }
   }else{
-    const open=await activeLabor(db,mnv,businessDate);if(!open)throw new CoreError("LABOR_NOT_OPEN","CONFLICT",409);
-    eventType="LABOR_FINISH";entityType="LABOR_SESSION";entityId=open.labor_id;baseVersion=open.version;canonicalPayload={mnv,end_at:text(payload.end_at,80),note:text(payload.note,500)};
+    const requestedLaborId=text(payload.labor_id,180);
+    const open=requestedLaborId
+      ?await db.prepare("SELECT labor_id,mnv,business_date,state,version FROM labor_sessions WHERE labor_id=?1").bind(requestedLaborId).first<LaborVersionRow&{mnv:string;business_date:string}>()
+      :await activeLabor(db,mnv,businessDate);
+    const correction=payload.correction===true;
+    if(!open||(!correction&&open.state!=="OPEN")||(correction&&!["OPEN","COMPLETED"].includes(open.state))||("mnv" in open&&String(open.mnv)!==mnv)||("business_date" in open&&String(open.business_date)!==businessDate))throw new CoreError("LABOR_NOT_OPEN","CONFLICT",409);
+    eventType="LABOR_FINISH";entityType="LABOR_SESSION";entityId=open.labor_id;baseVersion=open.version;
+    canonicalPayload={mnv,session_id:text(payload.session_id,220),start_at:text(payload.start_at,80),end_at:text(payload.end_at,80),note:text(payload.note,500),correction};
   }
 
   return {event_id:eventId,event_type:eventType,entity_type:entityType,entity_id:entityId,business_date:businessDate,authority_epoch:a.authority_epoch,service_generation:a.service_generation,base_version:baseVersion,timestamp:text(payload.timestamp,80)||nowIso(),payload:canonicalPayload,idempotency_key:`legacy:${device}:${eventId}`,device_id:device,schema_version:1};

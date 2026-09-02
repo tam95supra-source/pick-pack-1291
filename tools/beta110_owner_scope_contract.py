@@ -38,12 +38,12 @@ for token in ["DOCUMENT_UPLOAD","DOCUMENT_DELETE","DOCUMENT_CATEGORY_CREATE","DO
 
 # Labor: explicit time picker/range, open record can exist, exit remains fail-closed while OPEN.
 labor_start=activity[activity.index("private fun showLaborContext"):activity.index("private fun resourceHome")]
-assert "TimePickerDialog" in labor_start
+assert "laborWheelPick" in activity and activity.count("wrapSelectorWheel=false") >= 2
 assert '.put("start_at",startIso)' in labor_start
-assert '.put("end_at",endIso)' in labor_start
+assert '.put("end_at",end)' in labor_start or '.put("end_at",selectedEnd)' in labor_start
 assert '.put("time_marker"' not in labor_start
-assert "laborOpenWarning()" in activity and 'api.call("list_labor")' in activity
-assert "Đang thực hiện" in activity and "CẢNH BÁO:" in activity
+assert "laborOpenWarning()" in activity and 'api.call("labor_list"' in activity
+assert "Chi tiết công nhật theo ngày" in activity and "CẢNH BÁO:" in activity
 for token in ["selectedStart","LABOR_START_TIME_INVALID","selectedEnd","LABOR_END_TIME_INVALID","LABOR_END_BEFORE_START"]:
     assert token in core, token
 assert "state='OPEN'" in session and "OPEN_LABOR_BLOCKS_EXIT" in session, "OPEN labor must block exit"

@@ -233,10 +233,13 @@ Mỗi invariant tối thiểu có:
 - Status: TECHNICAL_PASS_AWAITING_OWNER
 - Scope: Rà soát vào-ra / cảnh báo
 - Rule: các ô rà soát và cảnh báo liên quan đồng nhất chiều cao, typography, radius/stroke và ngôn ngữ màu theo mức độ.
-- Regression: shift reconciliation / old-session / meal / labor warning.
-- Technical evidence Beta111: 0.4.2-beta.111 LIVE / source 03b37e5aa2726c273cc1e7c4a2161763bd3c4d2d / candidate 33586428789/9830403339 / Fast Check 33588839641 / Service 33588851239/9831120144 / visual+PDA+API36 33589199933/9831243286 + human PASS 41 screenshots / device 33590310367/9831531954 / runtime 33590505522 attempt2/9831607439 / terminal 33590747613 / publish 9831669563 / OTA-install-readback 9831721383 / final 9831726759 / SHA256 f67049067e600f4d8439d0ae088889f7b35df8b215e5432a2fcdd54f05f04a4f / size 14216181 / signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged.
-- Technical receipt: `ops/beta111-technical-pass.json`.
-- OWNER acceptance: PENDING — chờ checklist Beta111 1–7.
+- Implementation Beta112: dùng chung `ReviewAlertUi`; fixed 42dp / 10.5sp / radius 10dp / stroke 2dp; cảnh báo cùng đỏ canonical, rà soát đủ xanh canonical; loại bỏ min-size/font-padding/state animator mặc định gây lệch Android Button.
+- Regression: `qa/beta112_review_warning_regression.md` + `tools/beta112_review_warning_contract.py` + runtime flag `review_warning_shared_style_beta112`; giữ toàn bộ Beta111 owner-scope regressions.
+- Technical evidence Beta112: candidate 33596529877/9833670469; SHA256 d5de4fea496a1be4926f3acc49f82fb60eb9065de694e075251ca493ce298e76; Fast Check 33612134466 PASS; visual/PDA/API36 33597157250/9833913262 PASS, 42 screenshots + human PASS 320x568/360x640/480x800; device 33611415963/9839191113 PASS; runtime 33612695867/9839670809 PASS; terminal publish/OTA/install/readback/finalize 33612994423 PASS; GitHub Release asset 540918700 exact bytes; Stable/main/signer/authority unchanged.
+- Auth parity recovery during pre-OTA: 33612548361/9839580952 PASS; no password rotation, no D1 mutation, no session revocation; prior runtime failure 33611682634 superseded.
+- Technical receipt: `ops/beta112-technical-pass.json`.
+- Previous OWNER feedback: Beta111 item 1 chưa OK vì vẫn chưa đồng nhất; Beta112 là technical fix mới.
+- OWNER acceptance: PENDING — chỉ chờ nghiệm thu mục 1 Beta112.
 
 ### LABOR-EXACT-SESSION-002
 - Status: ACTIVE_PASS

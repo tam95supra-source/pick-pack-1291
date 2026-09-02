@@ -1,0 +1,100 @@
+{
+  "status": "TECHNICAL_PASS_AWAITING_OWNER",
+  "task_state": "TECHNICAL_PASS_AWAITING_OWNER",
+  "channel": "BETA",
+  "live": true,
+  "version_name": "0.4.2-beta.112",
+  "version_code": 118,
+  "package": "vn.pickpack1291.app.beta.publicbeta",
+  "source_sha": "b3009ca701670af487ee8dce3538fe9c3cde4ae5",
+  "candidate": {
+    "run_id": 33596529877,
+    "artifact_id": 9833670469,
+    "sha256": "d5de4fea496a1be4926f3acc49f82fb60eb9065de694e075251ca493ce298e76",
+    "size": 14216181,
+    "signer_sha256": "d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e"
+  },
+  "gates": {
+    "fast_check": {
+      "status": "PASS",
+      "run_id": 33612134466,
+      "android_debug": "PASS"
+    },
+    "service": {
+      "status": "PASS_INHERITED",
+      "run_id": 33588851239,
+      "artifact_id": 9831120144,
+      "reason": "service source unchanged"
+    },
+    "visual_pda_api36": {
+      "status": "PASS",
+      "run_id": 33597157250,
+      "artifact_id": 9833913262,
+      "screenshot_count": 42,
+      "viewports": [
+        "320x568",
+        "360x640",
+        "480x800"
+      ],
+      "human_visual": "PASS"
+    },
+    "device_discovery": {
+      "status": "PASS",
+      "run_id": 33611415963,
+      "artifact_id": 9839191113
+    },
+    "beta_auth_parity_repair": {
+      "status": "PASS",
+      "run_id": 33612548361,
+      "artifact_id": 9839580952,
+      "passwords_rotated": false,
+      "d1_mutated": false,
+      "sessions_revoked": false,
+      "stable_unchanged": true
+    },
+    "runtime_dod": {
+      "status": "PASS",
+      "run_id": 33612695867,
+      "artifact_id": 9839670809,
+      "backup_restore": "PASS",
+      "previous_failed_run_id": 33611682634,
+      "previous_failure": "BETA_SHEET_AUTH_TARGET_FAILED_SUPERSEDED"
+    },
+    "terminal": {
+      "status": "PASS",
+      "run_id": 33612994423,
+      "publish_artifact_id": 9839800512,
+      "ota_artifact_id": 9839879502,
+      "final_artifact_id": 9839890706
+    },
+    "github_release": {
+      "status": "PASS",
+      "release_id": 381116427,
+      "asset_id": 540918700,
+      "asset_size": 14216181,
+      "tag": "v0.4.2-beta.112-publicbeta"
+    }
+  },
+  "release_lock": "ops/beta112-release-lock.json",
+  "human_visual_receipt": "ops/beta112-human-visual-receipt.json",
+  "apk_transport": "GITHUB_RELEASE_ONLY",
+  "google_drive_apk": "FORBIDDEN",
+  "stable": "UNCHANGED_NOT_PUBLIC",
+  "main_sha": "021dac5c6932b3ac5c60ce8fdba562ddf3d9688f",
+  "authority_change": "NONE",
+  "owner_acceptance": "PENDING",
+  "awaiting_owner_invariants": [
+    "UI-REVIEW-WARNING-001"
+  ],
+  "preserved_active_pass": [
+    "NAV-HISTORY-BACK-001",
+    "LABOR-EXACT-SESSION-002",
+    "HISTORY-DELETE-CANONICAL-001",
+    "DOCUMENT-BATCH-MODE-TICK-002"
+  ],
+  "owner_checklist": [
+    "Rà soát vào/ra và các cảnh báo liên quan có cùng chiều cao, cỡ chữ, bo góc, viền và bố cục; cảnh báo dùng cùng đỏ canonical, rà soát đủ dùng xanh canonical."
+  ],
+  "next_action": "OWNER_ACCEPTANCE_BETA112_ITEM_1_ONLY",
+  "recorded_at": "2026-09-02T09:18:37Z"
+}

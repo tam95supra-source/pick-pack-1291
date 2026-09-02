@@ -176,18 +176,18 @@ invariants:
     last_verified: "0.4.2-beta.111 LIVE / OWNER accepted checklist scope 2026-09-02T12:44+07:00"
 
   - id: UI-REVIEW-WARNING-001
-    status: LOCKED_REQUIREMENT_PENDING_FIX
+    status: TECHNICAL_PASS_AWAITING_OWNER
     scope: reconciliation-warning-ui
     rule: "Rà soát vào/ra và các cảnh báo liên quan dùng cùng kích thước, typography, radius/stroke và severity visual language; không tạo bố cục lệch giữa các mục."
     regression_minimum: [shift_reconciliation_geometry, old_session_warning_geometry, meal_warning_geometry, labor_warning_geometry, severity_preserved]
-    regression_case: "qa/beta111_owner_ui_labor_navigation_regression.md + tools/beta111_owner_scope_contract.py"
+    regression_case: "qa/beta111_owner_ui_labor_navigation_regression.md + tools/beta111_owner_scope_contract.py + qa/beta112_review_warning_regression.md + tools/beta112_review_warning_contract.py + review_warning_shared_style_beta112"
 
-    technical_candidate: "0.4.2-beta.111 LIVE / source 03b37e5aa2726c273cc1e7c4a2161763bd3c4d2d"
-    technical_evidence: "0.4.2-beta.111 LIVE / source 03b37e5aa2726c273cc1e7c4a2161763bd3c4d2d / candidate 33586428789/9830403339 / Fast Check 33588839641 / Service 33588851239/9831120144 / visual+PDA+API36 33589199933/9831243286 + human PASS 41 screenshots / device 33590310367/9831531954 / runtime 33590505522 attempt2/9831607439 / terminal 33590747613 / publish 9831669563 / OTA-install-readback 9831721383 / final 9831726759 / SHA256 f67049067e600f4d8439d0ae088889f7b35df8b215e5432a2fcdd54f05f04a4f / size 14216181 / signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged"
-    technical_receipt: "ops/beta111-technical-pass.json"
-    owner_acceptance: "OWNER_ITEM_1_NOT_OK_2026-09-02T12:44+07:00"
-    owner_feedback: "Vẫn chưa đồng nhất layout/kích thước/màu giữa rà soát vào-ra và cảnh báo."
-    next_candidate: "0.4.2-beta.112"
+    technical_candidate: "0.4.2-beta.112 LIVE / source b3009ca701670af487ee8dce3538fe9c3cde4ae5"
+    technical_evidence: "Beta112 LIVE / candidate 33596529877/9833670469 / Fast Check 33612134466 PASS incl Android-debug / visual+PDA+API36 33597157250/9833913262 PASS + 42 screenshots + human visual PASS 320x568,360x640,480x800 / device 33611415963/9839191113 PASS / auth parity recovery 33612548361/9839580952 PASS no password rotation no D1/session mutation / runtime 33612695867/9839670809 PASS / terminal 33612994423 PASS / publish 9839800512 / OTA-install-readback 9839879502 / final 9839890706 / GitHub Release asset 540918700 / SHA256 d5de4fea496a1be4926f3acc49f82fb60eb9065de694e075251ca493ce298e76 / size 14216181 / signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged"
+    technical_receipt: "ops/beta112-technical-pass.json"
+    owner_acceptance: "PENDING_BETA112_ITEM_1_ONLY"
+    previous_owner_feedback: "Beta111 item 1 chưa OK: vẫn chưa đồng nhất; superseded by Beta112 technical fix."
+    last_verified: "0.4.2-beta.112 LIVE / terminal 33612994423 / TECHNICAL_PASS_AWAITING_OWNER"
 
   - id: LABOR-EXACT-SESSION-002
     status: ACTIVE_PASS

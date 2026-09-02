@@ -143,8 +143,9 @@ async function replicateLaborFinishOperational(db:D1Database,env:Env,sheetId:str
   if(index.laborFinishEvents.has(e.event_id))return;
   const l=await laborOperational(db,e.entity_id),row=index.laborStartRows.get(l.start_event_id);if(!row)throw new Error(`REPLICA_LABOR_START_ROW_MISSING:${l.start_event_id}`);
   const oldNote=l.note||String((await getValues(env,sheetId,token,"CÔNG NHẬT",`Q${row}:Q${row}`))[0]?.[0]??"");
-  await putValues(env,sheetId,token,"CÔNG NHẬT",`N${row}:V${row}`,[[visibleDateTime(l.end_at||e.occurred_at),l.time_marker,"Hoàn thành",oldNote,e.actor_id,visibleDateTime(e.occurred_at),l.start_event_id,e.event_id,e.authority_seq]]);index.laborFinishEvents.add(e.event_id);
-  await appendHistory(env,sheetId,token,index,e,l.attendance_session_id||`${visibleDate(e.business_date)}|${l.mnv}`,l.mnv,l.full_name,l.shift,"Hoàn thành công nhật",`${l.labor_type} • ${visibleDateTime(l.start_at)} → ${visibleDateTime(l.end_at||e.occurred_at)} • Khấu trừ ${l.deduct_staff?"Có":"Không"}`);
+  await putValues(env,sheetId,token,"CÔNG NHẬT",`M${row}:V${row}`,[[visibleDateTime(l.start_at),visibleDateTime(l.end_at||e.occurred_at),l.time_marker,"Hoàn thành",oldNote,e.actor_id,visibleDateTime(e.occurred_at),l.start_event_id,e.event_id,e.authority_seq]]);index.laborFinishEvents.add(e.event_id);
+  const corrected=payload(e).correction===true;
+  await appendHistory(env,sheetId,token,index,e,l.attendance_session_id||`${visibleDate(e.business_date)}|${l.mnv}`,l.mnv,l.full_name,l.shift,corrected?"Sửa công nhật":"Hoàn thành công nhật",`${l.labor_type} • ${visibleDateTime(l.start_at)} → ${visibleDateTime(l.end_at||e.occurred_at)} • Khấu trừ ${l.deduct_staff?"Có":"Không"}`);
 }
 
 function adminAuditLabel(type:string):string{const m:Record<string,string>={MASTER_STAFF_UPSERT:"Cập nhật nhân sự",MASTER_STAFF_DELETE:"Xóa nhân sự",ACCOUNT_UPSERT:"Tạo / sửa tài khoản",ACCOUNT_STATUS:"Đổi trạng thái tài khoản",ACCOUNT_EMAIL:"Đổi email tài khoản",ACCOUNT_PASSWORD:"Đổi mật khẩu",MASTER_STAFF_IMPORT:"Import nhân sự",ACCOUNT_LOGIN:"Đăng nhập",ACCOUNT_LOGOUT:"Đăng xuất",SETTINGS_CHANGE:"Đổi cài đặt",DOCUMENT_UPLOAD:"Tải biên bản",DOCUMENT_DELETE:"Xóa biên bản",DOCUMENT_CATEGORY_CREATE:"Thêm loại biên bản",DOCUMENT_CATEGORY_UPDATE:"Sửa loại biên bản",DOCUMENT_CATEGORY_DELETE:"Xóa loại biên bản"};return m[type]||type;}
