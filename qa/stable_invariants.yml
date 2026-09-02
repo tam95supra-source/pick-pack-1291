@@ -162,7 +162,7 @@ invariants:
     last_verified: "0.4.2-beta.110 LIVE / terminal run 33574078129 / OWNER acceptance complete 2026-09-02T07:43:15+07:00"
 
   - id: NAV-HISTORY-BACK-001
-    status: TECHNICAL_PASS_AWAITING_OWNER
+    status: ACTIVE_PASS
     scope: navigation
     rule: "System Back và edge-swipe Back phải quay về đúng màn hình thực tế ngay trước đó trong navigation history; không dùng parent cố định theo screenState."
     regression_minimum: [one_two_three_back_two_back_one, five_to_three_back_five, same_screen_rerender_no_fake_frame, root_no_exit_by_swipe]
@@ -171,7 +171,10 @@ invariants:
     technical_candidate: "0.4.2-beta.111 LIVE / source 03b37e5aa2726c273cc1e7c4a2161763bd3c4d2d"
     technical_evidence: "0.4.2-beta.111 LIVE / source 03b37e5aa2726c273cc1e7c4a2161763bd3c4d2d / candidate 33586428789/9830403339 / Fast Check 33588839641 / Service 33588851239/9831120144 / visual+PDA+API36 33589199933/9831243286 + human PASS 41 screenshots / device 33590310367/9831531954 / runtime 33590505522 attempt2/9831607439 / terminal 33590747613 / publish 9831669563 / OTA-install-readback 9831721383 / final 9831726759 / SHA256 f67049067e600f4d8439d0ae088889f7b35df8b215e5432a2fcdd54f05f04a4f / size 14216181 / signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged"
     technical_receipt: "ops/beta111-technical-pass.json"
-    owner_acceptance: "PENDING_OWNER_BETA111_CHECKLIST_1_TO_7"
+    owner_acceptance: "OWNER_ITEM_2_OK_2026-09-02T12:44+07:00 / ops/beta111-owner-acceptance-partial.json"
+    active_pass: true
+    last_verified: "0.4.2-beta.111 LIVE / OWNER accepted checklist scope 2026-09-02T12:44+07:00"
+
   - id: UI-REVIEW-WARNING-001
     status: TECHNICAL_PASS_AWAITING_OWNER
     scope: reconciliation-warning-ui
@@ -184,7 +187,7 @@ invariants:
     technical_receipt: "ops/beta111-technical-pass.json"
     owner_acceptance: "PENDING_OWNER_BETA111_CHECKLIST_1_TO_7"
   - id: LABOR-EXACT-SESSION-002
-    status: TECHNICAL_PASS_AWAITING_OWNER
+    status: ACTIVE_PASS
     scope: labor-session
     rule: "Công nhật quyết định theo Service exact session/business_date/labor_id; chọn giờ-phút bằng wheel không wrap; cho phép start-only hoặc start+end, sửa giờ khi cần; Ra ca gặp labor OPEN phải mở đúng labor của đúng session; danh sách theo ngày hiển thị OPEN và COMPLETED."
     parent_invariant: LABOR-TIME-RANGE-001
@@ -194,9 +197,12 @@ invariants:
     technical_candidate: "0.4.2-beta.111 LIVE / source 03b37e5aa2726c273cc1e7c4a2161763bd3c4d2d"
     technical_evidence: "0.4.2-beta.111 LIVE / source 03b37e5aa2726c273cc1e7c4a2161763bd3c4d2d / candidate 33586428789/9830403339 / Fast Check 33588839641 / Service 33588851239/9831120144 / visual+PDA+API36 33589199933/9831243286 + human PASS 41 screenshots / device 33590310367/9831531954 / runtime 33590505522 attempt2/9831607439 / terminal 33590747613 / publish 9831669563 / OTA-install-readback 9831721383 / final 9831726759 / SHA256 f67049067e600f4d8439d0ae088889f7b35df8b215e5432a2fcdd54f05f04a4f / size 14216181 / signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged"
     technical_receipt: "ops/beta111-technical-pass.json"
-    owner_acceptance: "PENDING_OWNER_BETA111_CHECKLIST_1_TO_7"
+    owner_acceptance: "OWNER_ITEMS_3_4_5_OK_2026-09-02T12:44+07:00 / ops/beta111-owner-acceptance-partial.json"
+    active_pass: true
+    last_verified: "0.4.2-beta.111 LIVE / OWNER accepted checklist scope 2026-09-02T12:44+07:00"
+
   - id: HISTORY-DELETE-CANONICAL-001
-    status: TECHNICAL_PASS_AWAITING_OWNER
+    status: ACTIVE_PASS
     scope: history-delete
     rule: "Chỉ event canonical tồn tại trên Service được gửi history_delete; local-only/noncanonical event không gửi; HISTORY_DELETE_TARGET_NOT_FOUND của deferred delete là terminal cleanup, không retry vô hạn."
     regression_minimum: [canonical_delete, local_only_not_sent, target_not_found_terminal, no_repeat_404_loop]
@@ -205,9 +211,12 @@ invariants:
     technical_candidate: "0.4.2-beta.111 LIVE / source 03b37e5aa2726c273cc1e7c4a2161763bd3c4d2d"
     technical_evidence: "0.4.2-beta.111 LIVE / source 03b37e5aa2726c273cc1e7c4a2161763bd3c4d2d / candidate 33586428789/9830403339 / Fast Check 33588839641 / Service 33588851239/9831120144 / visual+PDA+API36 33589199933/9831243286 + human PASS 41 screenshots / device 33590310367/9831531954 / runtime 33590505522 attempt2/9831607439 / terminal 33590747613 / publish 9831669563 / OTA-install-readback 9831721383 / final 9831726759 / SHA256 f67049067e600f4d8439d0ae088889f7b35df8b215e5432a2fcdd54f05f04a4f / size 14216181 / signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged"
     technical_receipt: "ops/beta111-technical-pass.json"
-    owner_acceptance: "PENDING_OWNER_BETA111_CHECKLIST_1_TO_7"
+    owner_acceptance: "OWNER_ITEM_7_OK_2026-09-02T12:44+07:00 / ops/beta111-owner-acceptance-partial.json"
+    active_pass: true
+    last_verified: "0.4.2-beta.111 LIVE / OWNER accepted checklist scope 2026-09-02T12:44+07:00"
+
   - id: DOCUMENT-BATCH-MODE-TICK-002
-    status: TECHNICAL_PASS_AWAITING_OWNER
+    status: ACTIVE_PASS
     scope: document-management-ui
     rule: "Một biên bản nhiều trang và Nhiều biên bản dùng lựa chọn dạng tích loại trừ nhau, không dùng Spinner/select; semantics grouping DOCUMENT-BATCH-001 giữ nguyên."
     parent_invariant: DOCUMENT-BATCH-001
@@ -217,7 +226,10 @@ invariants:
     technical_candidate: "0.4.2-beta.111 LIVE / source 03b37e5aa2726c273cc1e7c4a2161763bd3c4d2d"
     technical_evidence: "0.4.2-beta.111 LIVE / source 03b37e5aa2726c273cc1e7c4a2161763bd3c4d2d / candidate 33586428789/9830403339 / Fast Check 33588839641 / Service 33588851239/9831120144 / visual+PDA+API36 33589199933/9831243286 + human PASS 41 screenshots / device 33590310367/9831531954 / runtime 33590505522 attempt2/9831607439 / terminal 33590747613 / publish 9831669563 / OTA-install-readback 9831721383 / final 9831726759 / SHA256 f67049067e600f4d8439d0ae088889f7b35df8b215e5432a2fcdd54f05f04a4f / size 14216181 / signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged"
     technical_receipt: "ops/beta111-technical-pass.json"
-    owner_acceptance: "PENDING_OWNER_BETA111_CHECKLIST_1_TO_7"
+    owner_acceptance: "OWNER_ITEM_6_OK_2026-09-02T12:44+07:00 / ops/beta111-owner-acceptance-partial.json"
+    active_pass: true
+    last_verified: "0.4.2-beta.111 LIVE / OWNER accepted checklist scope 2026-09-02T12:44+07:00"
+
   - id: INFRA-RESILIENCE-001
     status: TECHNICAL_PASS_AWAITING_OWNER
     scope: infra-dr
