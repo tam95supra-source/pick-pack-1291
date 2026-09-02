@@ -48,7 +48,7 @@
   "device_regression_status": "PASS",
   "runtime_dod_status": "PASS",
   "regression_case": "UI-REVIEW-WARNING-001 + tools/beta112_review_warning_contract.py + review_warning_shared_style_beta112; preserve ACTIVE_PASS NAV-HISTORY-BACK-001, LABOR-EXACT-SESSION-002, DOCUMENT-BATCH-MODE-TICK-002, HISTORY-DELETE-CANONICAL-001",
-  "execution_nonce": "beta112-owner-accepted-20260902-09",
+  "execution_nonce": "beta112-owner-complete-pass-live-20260902-10",
   "next_action": "WAIT_FOR_OWNER_NEW_SCOPE",
   "candidate_source_sha": "b3009ca701670af487ee8dce3538fe9c3cde4ae5",
   "candidate_run_id": 33596529877,
@@ -104,5 +104,9 @@
   "pass_live_validation": "PASS",
   "pass_live_validation_run_id": 33614916996,
   "post_state_fast_check": "PASS",
-  "post_state_fast_check_run_id": 33614837960
+  "post_state_fast_check_run_id": 33614837960,
+  "owner_lifecycle_fast_check": "PASS",
+  "owner_lifecycle_fast_check_run_id": 33626609464,
+  "owner_lifecycle_failed_route_run_id": 33626482589,
+  "owner_lifecycle_failed_route_status": "SUPERSEDED_HARNESS_ONLY"
 }
