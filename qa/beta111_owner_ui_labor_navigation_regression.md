@@ -2,6 +2,7 @@
 
 OWNER: Nguyễn Văn Tâm
 Baseline: Beta110 LIVE OWNER-accepted. All ACTIVE_PASS semantics remain locked.
+Release metadata: Beta111 / versionCode 117 / Stable unchanged.
 
 ## Scope locked for Beta111
 1. Rà soát vào/ra và cảnh báo dùng cùng visual language: chiều cao, typography, radius/stroke và severity colors nhất quán.
