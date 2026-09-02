@@ -1501,6 +1501,39 @@ class OperationsActivity : Activity() {
         if(initialMnv.isNotBlank())mnv.post{submit()}
         attach(root,body);mnv.requestFocus()
     }
+    private fun laborWheelPick(currentIso:String,onPick:(String)->Unit){
+        val tz=ZoneId.of("Asia/Ho_Chi_Minh");val z=runCatching{Instant.parse(currentIso).atZone(tz)}.getOrDefault(java.time.ZonedDateTime.now(tz))
+        val hour=NumberPicker(this).apply{minValue=0;maxValue=23;value=z.hour;wrapSelectorWheel=false;setFormatter{String.format(java.util.Locale.US,"%02d",it)}}
+        val minute=NumberPicker(this).apply{minValue=0;maxValue=59;value=z.minute;wrapSelectorWheel=false;setFormatter{String.format(java.util.Locale.US,"%02d",it)}}
+        val box=row(surface).apply{gravity=Gravity.CENTER;addView(hour,LinearLayout.LayoutParams(0,dp(126),1f));addView(txt(":",18f,navy,true).apply{gravity=Gravity.CENTER},LinearLayout.LayoutParams(dp(24),dp(126)));addView(minute,LinearLayout.LayoutParams(0,dp(126),1f))}
+        AlertDialog.Builder(this).setTitle("Chọn giờ và phút").setView(box).setNegativeButton("Hủy",null).setPositiveButton("CHỌN"){_,_->
+            val picked=z.toLocalDate().atTime(hour.value,minute.value).atZone(tz).toInstant()
+            if(picked.isAfter(Instant.now().plusSeconds(60)))TopNotice.show(this,"Thời gian không được ở tương lai.",TopNotice.Kind.WARNING) else onPick(picked.toString())
+        }.show()
+    }
+    private fun openLaborExact(mnv:String,sessionId:String){
+        val p=JSONObject().put("mnv",mnv).put("include_labor",true).put("include_options",false);if(sessionId.isNotBlank())p.put("session_id",sessionId)
+        api.call("employee_context",p){r->runOnUiThread{if(handleAuth(r))return@runOnUiThread;if(!r.ok){showError(r.error?:"Không đọc được công nhật");return@runOnUiThread};showLaborContext(r.json?:JSONObject(),MasterDataCache.snapshot(this@OperationsActivity)?:JSONObject())}}
+    }
+    private fun showCompletedLaborEditor(item:JSONObject,verified:Boolean=false){
+        if(!isAdmin())return;if(!verified){verifyEditPassword("sửa công nhật"){showCompletedLaborEditor(item,true)};return}
+        screenState="LABOR_CONTEXT";val root=baseRoot("SỬA CÔNG NHẬT");val body=body()
+        val mnv=item.optString("mnv");val date=item.optString("business_date");val sid=item.optString("attendance_session_id");val laborId=item.optString("labor_id")
+        body.addView(details(listOf("Nhân sự" to "$mnv • ${dash(item.optString("full_name"))}","Ngày" to businessDateVi(date),"Nội dung" to dash(item.optString("labor_type")))));body.addView(gap(7))
+        var startIso=item.optString("start_at");var endIso=item.optString("end_at")
+        fun timeButton(v:String)=Button(this).apply{text=compactAttendanceTime(v);textSize=11.5f;isAllCaps=false;setTextColor(navy);background=outlineBg(surface,11)}
+        val sr=row(bg);sr.addView(txt("Bắt đầu",10.2f,ink,true),LinearLayout.LayoutParams(0,-2,1f));val sb=timeButton(startIso);sr.addView(sb,LinearLayout.LayoutParams(dp(118),dp(42)));body.addView(sr);body.addView(gap(5))
+        val er=row(bg);er.addView(txt("Kết thúc",10.2f,ink,true),LinearLayout.LayoutParams(0,-2,1f));val eb=timeButton(endIso);er.addView(eb,LinearLayout.LayoutParams(dp(118),dp(42)));body.addView(er);body.addView(gap(6))
+        sb.setOnClickListener{laborWheelPick(startIso){startIso=it;sb.text=compactAttendanceTime(it)}};eb.setOnClickListener{laborWheelPick(endIso){endIso=it;eb.text=compactAttendanceTime(it)}}
+        val note=input("Ghi chú",false).apply{setText(item.optString("note"))};body.addView(note);body.addView(gap(7));val save=primary("LƯU SỬA",teal){}
+        save.setOnClickListener{
+            val s=runCatching{Instant.parse(startIso).toEpochMilli()}.getOrDefault(0L);val e=runCatching{Instant.parse(endIso).toEpochMilli()}.getOrDefault(0L);if(s<=0||e<s){TopNotice.show(this,"Kiểm tra lại giờ bắt đầu và kết thúc.",TopNotice.Kind.WARNING);return@setOnClickListener}
+            save.isEnabled=false;api.call("labor_finish",JSONObject().put("event_id",UUID.randomUUID().toString()).put("mnv",mnv).put("business_date",date).put("session_id",sid).put("labor_id",laborId).put("start_at",startIso).put("end_at",endIso).put("correction",true).put("note",note.text.toString())){r->runOnUiThread{
+                save.isEnabled=true;if(handleAuth(r))return@runOnUiThread;if(!r.ok)showError(r.error?:"Không sửa được công nhật")else{TopNotice.show(this,"Đã ghi nhận sửa công nhật.",TopNotice.Kind.SUCCESS);foregroundSync.requestSync();laborHome()}
+            }}
+        };body.addView(save,matchWrap());attach(root,body)
+    }
+
     private fun showLaborContext(ctx:JSONObject, masters:JSONObject){
         screenState="LABOR_CONTEXT"
         val e=ctx.optJSONObject("employee")?:JSONObject();val state=ctx.optString("state");val active=ctx.optJSONObject("active_labor")
