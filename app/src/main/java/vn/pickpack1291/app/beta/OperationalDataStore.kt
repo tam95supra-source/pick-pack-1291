@@ -318,6 +318,30 @@ class OperationalDataStore(context: Context) {
         out
     }
 
+    /**
+     * SUPERADMIN history removal is a presentation/audit cleanup, not a business-rule rewrite.
+     * Local terminal failures may be removed from both history and the already-terminal outbox.
+     * Pending business mutations keep their durable outbox row, so deleting the History card
+     * cannot silently cancel a real attendance/labor write.
+     */
+    fun deleteLocalHistory(eventIds:Collection<String>):Int = withDbLock {
+        val ids=eventIds.map{it.trim()}.filter{it.isNotBlank()}.distinct()
+        if(ids.isEmpty())return@withDbLock 0
+        val db=writableDb();var removed=0
+        db.beginTransaction()
+        try{
+            for(id in ids){
+                val status=db.query("local_history",arrayOf("status"),"event_id=?",arrayOf(id),null,null,null,"1").use{q->if(q.moveToFirst())q.getString(0).orEmpty().uppercase() else ""}
+                if(status in setOf("REJECTED","REVIEW_REQUIRED","CONFLICT","FAILED","ERROR")){
+                    db.delete("mutation_outbox","event_id=? AND status IN ('REJECTED','REVIEW_REQUIRED','CONFLICT','FAILED','ERROR')",arrayOf(id))
+                }
+                removed+=db.delete("local_history","event_id=?",arrayOf(id))
+            }
+            db.setTransactionSuccessful()
+        }finally{db.endTransaction()}
+        removed
+    }
+
     /** Permanently rejected out-of-window rows are audit/history, never network backlog. */
     fun retryDateWindowRejects():Int = 0
 
