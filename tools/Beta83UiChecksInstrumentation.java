@@ -160,9 +160,10 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     while(SystemClock.uptimeMillis()<end){
       AccessibilityNodeInfo r=root();
       CharSequence p=r==null?null:r.getPackageName();
-      if(p!=null&&PKG.equals(p.toString())&&currentActivity!=null){
+      if(p!=null&&PKG.equals(p.toString())&&currentActivity!=null&&ACT.equals(currentActivity.getClass().getName())){
         SystemClock.sleep(250L);
-        return currentActivity;
+        Activity ready=currentActivity;
+        if(ready!=null&&ACT.equals(ready.getClass().getName()))return ready;
       }
       SystemClock.sleep(150L);
     }
