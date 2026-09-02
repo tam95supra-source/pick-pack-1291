@@ -1,48 +1,29 @@
 # CURRENT STATE — PICK PACK 1291
 
-- updated_at: 2026-09-02T00:43:15Z
-- status: BETA110_LIVE_OWNER_ACCEPTED_ACTIVE_PASS
-- continuity_branch: beta/current
-- release_branch: release/beta110-document-labor-attendance
-- source_sha: 1faebbf996836d442ec6e99ffba2a589bf3fcbd2
-- beta_live: 0.4.2-beta.110 (versionCode 116)
+- updated_at: 2026-09-02T04:29:48Z
+- status: BETA111_PASS_LIVE
+- continuity_branch: release/beta111-owner-ui-labor-nav
+- source_sha: 03b37e5aa2726c273cc1e7c4a2161763bd3c4d2d
+- beta_live: 0.4.2-beta.111 (versionCode 117)
 - package: vn.pickpack1291.app.beta.publicbeta
-- candidate_run: 33554345340
-- candidate_artifact: 9818862858
-- verify_run: 33569543281
-- verify_artifact: 9824551840
-- apk_sha256: ae83831ac6f0412e2d314418f64ef8f4e28e67fbcf2c3b06d7a83810bda93f84
-- apk_size: 14199797
+- candidate_run: 33586428789
+- candidate_artifact: 9830403339
+- verify_run: 33589199933
+- verify_artifact: 9831243286
+- apk_sha256: f67049067e600f4d8439d0ae088889f7b35df8b215e5432a2fcdd54f05f04a4f
+- apk_size: 14216181
 - signer_sha256: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
-- service_live: 33568634524 / 9824237674 PASS
-- fast_check: 33569530461 PASS
-- post_registry_fast_check: 33574631295 PASS
-- device_regression: 33570127113 / 9824662041 PASS
-- runtime_dod: 33573848594 / 9825920815 PASS
-- terminal_run: 33574078129 PASS
-- publish_artifact: 9826016343
-- pda_ota_artifact: 9826069523
-- final_artifact: 9826075161
-- github_release_asset: 540340119
+- terminal_run: 33590747613
+- fast_check: PASS
+- service_gate: PASS_FRESH_RUN_33588851239
 - visual_matrix: PASS 320x568 / 360x640 / 480x800
-- human_visual: PASS / 41 screenshots
+- human_visual: PASS
 - pda_functional_pre_ota: PASS
-- back_api36: PASS
-- beta_ota: exact 0.4.2-beta.109 -> 0.4.2-beta.110 PASS via GitHub Release
-- beta_ota_url: https://github.com/tam95supra-source/pick-pack-1291/releases/download/v0.4.2-beta.110-publicbeta/pick-pack-1291-public-beta-0.4.2-beta.110.apk
+- beta_ota: exact 0.4.2-beta.111 PASS via GitHub Release
+- beta_ota_url: https://github.com/tam95supra-source/pick-pack-1291/releases/download/v0.4.2-beta.111-publicbeta/pick-pack-1291-public-beta-0.4.2-beta.111.apk
 - apk_transport: GITHUB_RELEASE_ONLY
 - google_drive_apk: FORBIDDEN
-- technical_receipt: ops/beta110-technical-pass.json
-- release_lock: ops/beta110-release-lock.json
-- DOCUMENT-BATCH-001: ACTIVE_PASS
-- LABOR-TIME-RANGE-001: ACTIVE_PASS
-- MEAL-UI-NULL-001: ACTIVE_PASS
-- UI-COPY-DENSITY-001: ACTIVE_PASS
-- DOCUMENT-MANAGEMENT-001: ACTIVE_PASS unchanged
-- stable: unchanged / not public
+- stable: unchanged
 - main_sha: 021dac5c6932b3ac5c60ce8fdba562ddf3d9688f
 - authority: SERVICE_PRIMARY / PRODUCTION / epoch 9 / generation m2-prod-reset-20260823-001
-- owner_acceptance_receipt: ops/beta110-owner-acceptance.json
-- owner_acceptance: COMPLETE 2026-09-02T07:43:15+07:00
-- ui_followup: new scope only; current acceptance remains valid
 - next_action: WAIT_FOR_OWNER_NEW_SCOPE

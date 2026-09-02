@@ -1,6 +1,6 @@
 {
-  "stage": "PUBLISH",
-  "mode": "PUBLISH_BETA111_EXACT_LOCKED_BYTES",
+  "stage": "pass_live",
+  "mode": "PASS_LIVE_EXACT_BYTES_GITHUB_RELEASE_ONLY",
   "version_name": "0.4.2-beta.111",
   "version_code": 117,
   "base_version": "0.4.2-beta.110",
@@ -18,7 +18,7 @@
   "resign": false,
   "scope": "beta111-owner-ui-labor-navigation-history-delete-document-tick",
   "owner": "Nguyen Van Tam",
-  "live": false,
+  "live": true,
   "release_notes": [
     "Đồng nhất kích thước, màu và bố cục rà soát vào/ra với các cảnh báo liên quan.",
     "Back bằng vuốt/system Back đi theo lịch sử màn hình thực tế thay vì parent cố định.",
@@ -40,7 +40,7 @@
   "google_drive_apk": "FORBIDDEN",
   "regression_case": "NAV-HISTORY-BACK-001,UI-REVIEW-WARNING-001,LABOR-EXACT-SESSION-002,HISTORY-DELETE-CANONICAL-001,DOCUMENT-BATCH-MODE-TICK-002,DOCUMENT-BATCH-001,LABOR-TIME-RANGE-001",
   "execution_nonce": "beta111-publish-20260902-09",
-  "next_action": "PUBLISH_EXACT_BYTES_THEN_OTA_INSTALL_READBACK_FINALIZE",
+  "next_action": "WAIT_FOR_OWNER_NEW_SCOPE",
   "candidate_source_sha": "03b37e5aa2726c273cc1e7c4a2161763bd3c4d2d",
   "candidate_run_id": 33586428789,
   "candidate_artifact_id": 9830403339,
@@ -82,5 +82,6 @@
   "runtime_dod_run_id": 33590505522,
   "runtime_dod_artifact_id": 9831607439,
   "runtime_dod_artifact_name": "beta-stable-runtime-33590505522",
-  "release_lock": "ops/beta111-release-lock.json"
+  "release_lock": "ops/beta111-release-lock.json",
+  "publish_run_id": "33590747613"
 }
