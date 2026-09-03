@@ -1,8 +1,8 @@
 {
-  "run_id": 33783284600,
-  "run_sha": "b27aca6028306f804131a7debf96afcfe8bedc34",
-  "ref": "release/beta116-owner-scope-20260903",
-  "execution_nonce": "beta116-pass-live-post-finalize-ci-20260904-18",
-  "stage": "pass_live",
-  "observed_at": "2026-09-03T17:13:39Z"
+  "run_id": 33786520261,
+  "run_sha": "a1fd30037698b504f016e37756e79db320f20942",
+  "ref": "release/beta116-publish-idempotency-regression-20260904",
+  "execution_nonce": "beta116-duplicate-publish-idempotency-regression-20260904-07",
+  "stage": "PUBLISH",
+  "observed_at": "2026-09-03T17:46:28Z"
 }
