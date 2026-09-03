@@ -1850,7 +1850,7 @@ class OperationsActivity : Activity() {
             }
             body.addView(gap(3))
         }
-        fun pickClock(currentIso:String,onPick:(String)->Unit)=laborWheelPick(currentIso,onPick)
+        fun pickClock(currentIso:String,onPick:(String)->Unit)=laborWheelPick(currentIso,false,onPick)
         fun timeButton(iso:String):Button=Button(this).apply{
             text=compactAttendanceTime(iso);textSize=12f;isAllCaps=false;setTextColor(navy);background=outlineBg(surface,11);minHeight=0;minimumHeight=0
         }
