@@ -110,11 +110,38 @@ try:
     generation=str(auth[0].get("service_generation") or "")
     epoch=int(auth[0].get("authority_epoch") or 0)
     code,health=service_json(service_url+"/health",timeout=30)
-    if code//100!=2 or health.get("ok") is not True or health.get("environment")!="production":
-        raise RuntimeError("BETA_HEALTH_FAILED")
-    ha=health.get("authority") or {}
-    if str(health.get("generation") or "")!=generation or ha.get("mode")!="SERVICE_PRIMARY" or ha.get("scope")!="PRODUCTION" or int(ha.get("authority_epoch") or 0)!=epoch:
-        raise RuntimeError("BETA_LIVE_READBACK_AUTHORITY_MISMATCH")
+    def health_matches(code,h):
+        a=h.get("authority") or {}
+        return code//100==2 and h.get("ok") is True and h.get("environment")=="production" and str(h.get("generation") or "")==generation and a.get("mode")=="SERVICE_PRIMARY" and a.get("scope")=="PRODUCTION" and int(a.get("authority_epoch") or 0)==epoch
+    discovery_diag=[]
+    if not health_matches(code,health):
+        cf_headers={"Authorization":"Bearer "+need("CLOUDFLARE_API_TOKEN"),"Accept":"application/json"}
+        def cf_get(path):
+            req=urllib.request.Request("https://api.cloudflare.com/client/v4/accounts/"+account_id+path,headers=cf_headers,method="GET")
+            try:
+                with urllib.request.urlopen(req,timeout=30) as rr:
+                    return rr.status,json.loads(rr.read().decode() or "{}")
+            except urllib.error.HTTPError as ee:
+                raw=ee.read().decode(errors="replace")
+                try: jj=json.loads(raw)
+                except Exception: jj={"success":False}
+                return ee.code,jj
+        scode,scripts=cf_get("/workers/scripts")
+        dcode,sub=cf_get("/workers/subdomain")
+        if scode//100!=2 or dcode//100!=2:
+            raise RuntimeError("BETA_WORKER_DISCOVERY_API_FAILED:"+str(scode)+":"+str(dcode))
+        subdomain=str((sub.get("result") or {}).get("subdomain") or "")
+        healthy=[]
+        for item in scripts.get("result") or []:
+            name=str(item.get("id") or "")
+            if not (name.startswith("pick-pack-1291") or name.startswith("pickpack")): continue
+            u="https://"+name+"."+subdomain+".workers.dev"
+            hc,hh=service_json(u+"/health",timeout=20)
+            discovery_diag.append({"worker":name,"http":hc,"ok":hh.get("ok") is True,"generation":str(hh.get("generation") or "")})
+            if health_matches(hc,hh): healthy.append((u,hh))
+        if len(healthy)!=1:
+            raise RuntimeError("BETA_LIVE_WORKER_UNAVAILABLE:"+json.dumps(discovery_diag,separators=(",",":"))[:800])
+        service_url,health=healthy[0]
 
     suffix=hashlib.sha256((os.environ.get("GITHUB_RUN_ID","local")+"-"+os.environ.get("GITHUB_RUN_ATTEMPT","1")).encode()).hexdigest()[:12]
     LOGIN="__OWNER_SEED_"+suffix
