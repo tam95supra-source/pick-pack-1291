@@ -1,8 +1,8 @@
 {
-  "run_id": 33778316587,
-  "run_sha": "ec3e89755d9143e277ab09d4ea52ebf463a15839",
+  "run_id": 33778605857,
+  "run_sha": "eefeb7ffb5972903335e84869e9236dae0d69559",
   "ref": "release/beta116-owner-scope-20260903",
-  "execution_nonce": "beta116-device-regression-20260903-11",
-  "stage": "SERVICE_DISCOVERY_ONLY",
-  "observed_at": "2026-09-03T16:23:28Z"
+  "execution_nonce": "beta116-runtime-dod-20260903-12",
+  "stage": "RUNTIME_DOD_VERIFY",
+  "observed_at": "2026-09-03T16:26:27Z"
 }
