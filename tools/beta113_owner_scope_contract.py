@@ -20,6 +20,7 @@ core=read("service/src/core.ts")
 mobile=read("service/src/mobile_hotfix.ts")
 compat=read("service/src/compat.ts")
 outbound=read("service/src/outbound_beta78.ts")
+session_hotfix=read("service/src/session_hotfix.ts")
 
 # 1) Changelog is version-fenced and current Beta metadata is exact.
 assert 'versionCode = 121' in gradle
@@ -57,6 +58,8 @@ labor_ctx=ops[ops.index("private fun showLaborContext"):ops.index("private fun r
 assert 'ctx.optJSONArray("labor_intervals")' in labor_ctx and '"Các khoảng công nhật trong phiên"' in labor_ctx
 for token in ['LABOR_OTHER_INTERVAL_OPEN','LABOR_INTERVAL_OVERLAP','LABOR_START_IN_FUTURE','LABOR_END_AFTER_SHIFT_OR_EXIT','FUTURE_LABOR_BLOCKS_EXIT','deductStaffEnabled']:
     assert token in core, token
+for token in ['OPEN_LABOR_BLOCKS_EXIT','FUTURE_LABOR_BLOCKS_EXIT','MAX(end_at) max_end']:
+    assert token in session_hotfix, token
 assert 'LABOR_END_IN_FUTURE' not in core
 for token in ['"CA 1":14*60','"CA HC":17*60','"CA 2":22*60']:
     assert token in core, token
