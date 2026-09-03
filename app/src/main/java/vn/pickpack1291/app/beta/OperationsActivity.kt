@@ -104,6 +104,8 @@ class OperationsActivity : Activity() {
     private var manualRefreshInFlight=false
     private var resilienceTestInFlight=false
     private var resilienceTestStopping=false
+    private var resilienceLanModeAutoEnabled=false
+    private var lastLanTestModeSyncAt=0L
     private var lastLatencyMs: Long? = null
     private var lastSyncE2eMs: Long? = null
     private var serviceProviderCache = "—"
@@ -160,6 +162,7 @@ class OperationsActivity : Activity() {
                 lastLatencyMs = status.latencyMs
                 lastSyncE2eMs = status.syncE2eMs
                 serviceProviderCache = serviceProviderFromRuntime()
+                if(status.connected)refreshGlobalLanTestMode()
                 lastPingMs = status.latencyMs
                 lastStatusUpdateAt = System.currentTimeMillis()
                 refreshHeaderConnection()
@@ -225,6 +228,7 @@ class OperationsActivity : Activity() {
                 M2ImmediateOutbox.kick(this)
             }
             foregroundSync.start()
+            refreshGlobalLanTestMode(force=true)
         }
     }
 
@@ -2904,6 +2908,36 @@ class OperationsActivity : Activity() {
         }
     }
 
+    private fun applyGlobalLanTestModeResponse(json:JSONObject?):Boolean{
+        val mode=json?.optJSONObject("test_mode")?:return false
+        LanCoordinator.get(this).applyGlobalTestMode(
+            mode.optBoolean("enabled",false),
+            mode.optLong("epoch",0L),
+            mode.optString("enabled_by")
+        )
+        return true
+    }
+    private fun refreshGlobalLanTestMode(force:Boolean=false,onDone:((Boolean)->Unit)?=null){
+        val now=System.currentTimeMillis()
+        if(!force&&now-lastLanTestModeSyncAt<3_000L){onDone?.invoke(true);return}
+        lastLanTestModeSyncAt=now
+        api.call("lan_test_mode_get"){r->runOnUiThread{
+            val ok=r.ok&&applyGlobalLanTestModeResponse(r.json)
+            onDone?.invoke(ok)
+        }}
+    }
+    private fun setGlobalLanTestMode(enabled:Boolean,onDone:(Boolean)->Unit={}){
+        if(!isActualSuper()){showError("Chỉ SUPERADMIN được thay đổi chế độ LAN test toàn cục.");onDone(false);return}
+        api.call("lan_test_mode_set",JSONObject().put("enabled",enabled)){r->runOnUiThread{
+            if(!r.ok||!applyGlobalLanTestModeResponse(r.json)){
+                showError(r.error?:"Không cập nhật được LAN test toàn cục.");onDone(false);return@runOnUiThread
+            }
+            TopNotice.show(this,if(enabled)"Đã bật LAN test toàn cục." else "Đã tắt LAN test toàn cục.",TopNotice.Kind.SUCCESS)
+            if(screenState=="SETTINGS")settingsScreen()
+            onDone(true)
+        }}
+    }
+
     private fun settingsScreen(){
         module="SETTINGS"
         screenState="SETTINGS"
@@ -2990,6 +3024,16 @@ class OperationsActivity : Activity() {
             body.addView(gap(10));body.addView(section("TRUNG TÂM KIỂM THỬ RESILIENCE"))
             val test=ResilienceTestCenter.latest(this)
             val testSpec=test?.optString("scenario")?.let{ResilienceTestScenario.fromCode(it)}
+            val lanTestStatus=LanCoordinator.get(this).status()
+            body.addView(details(listOf(
+                "LAN test toàn cục" to if(lanTestStatus.optBoolean("test_mode_enabled"))"ĐANG BẬT" else "ĐANG TẮT",
+                "LAN test epoch" to lanTestStatus.optLong("test_mode_epoch").toString(),
+                "Thiết bị LAN đang thấy" to lanTestStatus.optInt("peer_count").toString()
+            )))
+            body.addView(gap(6))
+            body.addView(primary(if(lanTestStatus.optBoolean("test_mode_enabled"))"TẮT LAN TEST TOÀN CỤC" else "BẬT LAN TEST TOÀN CỤC",if(lanTestStatus.optBoolean("test_mode_enabled"))red else teal){
+                setGlobalLanTestMode(!lanTestStatus.optBoolean("test_mode_enabled"))
+            },matchWrap());body.addView(gap(7))
             val ev=test?.optJSONObject("evidence")?:JSONObject()
             val serviceEv=ev.optJSONObject("recovery_service")?:ev.optJSONObject("service")?:JSONObject()
             body.addView(details(listOf(
@@ -3083,6 +3127,14 @@ class OperationsActivity : Activity() {
 
     private fun runResilienceScenario(scenario:ResilienceTestScenario){
         if(resilienceTestInFlight)return
+        if(scenario==ResilienceTestScenario.SERVICE_GOOGLE_OFFLINE_LAN&&!LanCoordinator.get(this).globalTestModeEnabled()){
+            resilienceLanModeAutoEnabled=true
+            setGlobalLanTestMode(true){ok->
+                if(!ok){resilienceLanModeAutoEnabled=false;return@setGlobalLanTestMode}
+                android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({runResilienceScenario(scenario)},1_500L)
+            }
+            return
+        }
         resilienceTestStopping=false
         resilienceTestInFlight=true
         TopNotice.show(this,"Đang kiểm thử: ${scenario.label}",TopNotice.Kind.INFO)
@@ -3102,6 +3154,9 @@ class OperationsActivity : Activity() {
                     when{ok->"Resilience test PASS: ${scenario.label}";unavailable->"Chưa đủ điều kiện để test: ${scenario.label}";cancelled->"Đã dừng test và trở về trạng thái bình thường.";else->"Resilience test FAIL: ${scenario.label}"},
                     when{ok->TopNotice.Kind.SUCCESS;unavailable||cancelled->TopNotice.Kind.WARNING;else->TopNotice.Kind.ERROR}
                 )
+                if(scenario==ResilienceTestScenario.SERVICE_GOOGLE_OFFLINE_LAN&&resilienceLanModeAutoEnabled){
+                    resilienceLanModeAutoEnabled=false;setGlobalLanTestMode(false)
+                }
             }
         }.start()
     }
@@ -3110,6 +3165,7 @@ class OperationsActivity : Activity() {
         if(!resilienceTestInFlight||resilienceTestStopping)return
         resilienceTestStopping=true
         ResilienceTestCenter.stop()
+        if(resilienceLanModeAutoEnabled){resilienceLanModeAutoEnabled=false;setGlobalLanTestMode(false)}
         TopNotice.show(this,"Đã yêu cầu dừng test. App sẽ kết thúc bước kỹ thuật đang chạy và trở về trạng thái bình thường.",TopNotice.Kind.WARNING)
         if(screenState=="SETTINGS")settingsScreen()
     }
