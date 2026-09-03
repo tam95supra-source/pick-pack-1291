@@ -324,7 +324,11 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
   private void setEmployee(String mnv){
     long end=SystemClock.uptimeMillis()+12000L;
     AccessibilityNodeInfo n=null;
-    while(SystemClock.uptimeMillis()<end&&n==null){n=findEditable();if(n==null)SystemClock.sleep(180L);}
+    while(SystemClock.uptimeMillis()<end&&n==null){
+      n=findEditableHint("Scan / Nhập mã nhân viên");
+      if(n==null)n=findEditable();
+      if(n==null)SystemClock.sleep(180L);
+    }
     if(n==null)throw new IllegalStateException("EMPLOYEE_INPUT_NOT_FOUND");
     Bundle b=new Bundle();
     b.putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE,mnv);
