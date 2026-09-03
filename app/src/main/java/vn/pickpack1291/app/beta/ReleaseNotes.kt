@@ -1,21 +1,20 @@
 package vn.pickpack1291.app.beta
 
 object ReleaseNotes {
-    const val VERSION_NAME = "0.4.2-beta.116"
+    const val VERSION_NAME = "0.4.2-beta.117"
 
     private val current = listOf(
-        "Quản lý biên bản dùng icon gọn, chọn/xóa ảnh trước tải, chọn tất cả, chú thích từng ảnh/trang, xem lớn có vuốt trang và pinch zoom.",
-        "Tài nguyên PDA tự lấy 5 số cuối Seri từ mã/tên PDA, không nhập tay và không cho khoảng trắng.",
-        "Báo cáo nhân sự giữ Tổng trước khấu trừ, tách Khấu trừ công nhật và hiển thị Picker/Packer thực tế sau khấu trừ.",
-        "Nhận hàng rớt dùng icon CRUD, DO/Số kiện cùng dòng, có danh sách chi tiết và xóa một/nhiều bản ghi bằng xác nhận mật khẩu.",
-        "Đổi/Trả PDA và Công nhật hiển thị dữ liệu local trước rồi reconcile nền; chi tiết Công nhật vẫn xác minh exact-session từ Service.",
-        "Điểm danh có tìm MNV/họ tên cùng dòng ngày, ô quét nổi bật và bộ lọc Ca/NCC/Vị trí.",
-        "Công nhật có bộ lọc Ca/NCC/Vị trí, cảnh báo kiểm tra các vị trí cố định và bố cục nút tạo/kết thúc nhanh cân đối hơn.",
-        "Danh sách QR vào/ra tách rõ khỏi ô quét và có bộ lọc Ca/NCC/Vị trí.",
-        "SUPERADMIN có thể đổi mật khẩu từng tài khoản khác sau xác nhận quyền hiện tại; không hiển thị mật khẩu cũ.",
-        "LAN test dùng trạng thái Service toàn cục có epoch; các thiết bị online tự theo trạng thái test, trong khi traffic nghiệp vụ thật vẫn cô lập.",
-        "Nút, thẻ và vùng bấm chính có phản hồi nhấn nhẹ, ngắn, không dùng animation layout nặng.",
-        "Giữ nguyên toàn bộ invariant Beta115 đã được OWNER nghiệm thu OK."
+        "Quản lý biên bản gọn hơn: nút thao tác cùng hàng, tự ẩn vùng rỗng/chế độ không cần thiết, hỗ trợ sửa và xóa từng hoặc nhiều ảnh.",
+        "Viewer biên bản vuốt xuyên giữa các biên bản, vẫn pan X/Y khi zoom và có chế độ toàn màn hình cho ảnh đã chọn hoặc đã tải.",
+        "Danh sách biên bản, hàng rớt, QR/điểm danh, công nhật và danh sách lớn render theo lô; Lịch sử debounce tìm kiếm để giảm giật trên PDA yếu.",
+        "Select/Spinner được thu gọn toàn app nhưng vẫn giữ vùng chạm phù hợp PDA; bộ lọc không rebuild adapter khi dữ liệu lựa chọn không đổi.",
+        "Nhận hàng rớt hiển thị nhất quán HH:mm dd/MM/yyyy | vị trí | DO | số kiện, mới nhất trước; ADMIN/SUPERADMIN được xóa theo xác thực canonical.",
+        "Cảnh báo công nhật vị trí cố định hỗ trợ chọn nhiều/chọn tất cả, áp một khoảng giờ cho nhiều NLĐ và chỉ ẩn đúng người đã xác nhận không tính.",
+        "LAN thực tế được tách hoàn toàn khỏi LAN test; chỉ SUPERADMIN bật/tắt và có thể bật ngay cả khi Service không phản hồi, sau đó reconcile an toàn.",
+        "Phản hồi nhấn được tăng nhẹ so với Beta116 nhưng vẫn chỉ dùng transform ngắn, không animation layout.",
+        "PDA serial và SUPERADMIN reset mật khẩu giữ nguyên semantics Beta116 đã OWNER chốt.",
+        "Báo cáo nhân sự và local-first Đổi/Trả PDA + Công nhật vẫn giữ trạng thái chờ OWNER nghiệm thu thực tế; không tự promote.",
+        "Giữ toàn bộ ACTIVE_PASS Beta115/Beta116 và không thay đổi Stable/main/signer/authority."
     )
 
     fun currentItems():List<String> = current.toList()
