@@ -2808,17 +2808,20 @@ class OperationsActivity : Activity() {
         render={filter:String->
             listBox.removeAllViews()
             val rows=holders.values.filter{matches(it.serial,filter)}.sortedWith(Comparator{p,q->naturalUserCompare(p.serial,q.serial)})
-            if(rows.isEmpty()){listBox.addView(info(if(filter.isBlank())"Hiện không có PDA nào đang được sử dụng." else "Không có PDA đang dùng khớp 5 số cuối."));return}
-            rows.forEach{h->
-                val e=MasterDataCache.employee(this,h.mnv)?:JSONObject().put("mnv",h.mnv)
-                val item=column(surface).apply{setPadding(dp(9),dp(8),dp(9),dp(8));background=outlineBg(surface,12)}
-                item.addView(txt("${h.serial.takeLast(5)} • ${h.serial}",13f,navy,true))
-                item.addView(txt("${e.optString("mnv")} • ${dash(e.optString("full_name"))} • ${dash(e.optString("main_position"))}",9.5f,ink,false))
-                item.addView(txt("Tình trạng: ${h.status.ifBlank{"—"}}",9.3f,teal,true));item.addView(gap(6))
-                val actions=row(surface)
-                actions.addView(smallButton("ĐỔI PDA",teal).apply{setOnClickListener{change(h)}},LinearLayout.LayoutParams(0,dp(42),1f).apply{marginEnd=dp(4)})
-                actions.addView(smallButton("TRẢ PDA",orange).apply{setOnClickListener{giveBack(h)}},LinearLayout.LayoutParams(0,dp(42),1f).apply{marginStart=dp(4)})
-                item.addView(actions,matchWrap());listBox.addView(item,matchWrap());listBox.addView(gap(6))
+            if(rows.isEmpty()){
+                listBox.addView(info(if(filter.isBlank())"Hiện không có PDA nào đang được sử dụng." else "Không có PDA đang dùng khớp 5 số cuối."))
+            }else{
+                rows.forEach{h->
+                    val e=MasterDataCache.employee(this,h.mnv)?:JSONObject().put("mnv",h.mnv)
+                    val item=column(surface).apply{setPadding(dp(9),dp(8),dp(9),dp(8));background=outlineBg(surface,12)}
+                    item.addView(txt("${h.serial.takeLast(5)} • ${h.serial}",13f,navy,true))
+                    item.addView(txt("${e.optString("mnv")} • ${dash(e.optString("full_name"))} • ${dash(e.optString("main_position"))}",9.5f,ink,false))
+                    item.addView(txt("Tình trạng: ${h.status.ifBlank{"—"}}",9.3f,teal,true));item.addView(gap(6))
+                    val actions=row(surface)
+                    actions.addView(smallButton("ĐỔI PDA",teal).apply{setOnClickListener{change(h)}},LinearLayout.LayoutParams(0,dp(42),1f).apply{marginEnd=dp(4)})
+                    actions.addView(smallButton("TRẢ PDA",orange).apply{setOnClickListener{giveBack(h)}},LinearLayout.LayoutParams(0,dp(42),1f).apply{marginStart=dp(4)})
+                    item.addView(actions,matchWrap());listBox.addView(item,matchWrap());listBox.addView(gap(6))
+                }
             }
         }
         fun reconcileRemote(){
