@@ -53,8 +53,8 @@ for token in ['var startIso=Instant.now().toString();var endIso:String?=null','L
 assert activity.count("OPEN_LABOR_BLOCKS_EXIT") >= 1
 assert 'openLaborExact(mnv,resolved.optString("session_id"))' in activity
 
-# Daily labor list includes OPEN and COMPLETED.
-for token in ["Chi tiết công nhật theo ngày",'state").equals("OPEN",true)','state").equals("COMPLETED",true)',"Hoàn thành: $done"]:
+# Daily labor list includes OPEN and completed intervals; UI may group multiple intervals per employee/session.
+for token in ["Chi tiết công nhật theo ngày",'state").equals("OPEN",true)','"HOÀN THÀNH"',"intervals.size","openLaborExact(id,sid)"]:
     assert token in activity, token
 
 # Document batch mode is exclusive tick choice, not Spinner.
