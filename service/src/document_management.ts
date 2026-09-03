@@ -617,7 +617,7 @@ export async function documentUpdate(request:Request,env:Env):Promise<Response>{
     if(category.mutation_state!=="NONE")return apiError("DOCUMENT_CATEGORY_MUTATION_IN_PROGRESS","CONFLICT",409,true);
     categoryName=category.display_name;newFileName=renamedDocumentFileName(row,categoryName);
     if(row.drive_file_id&&newFileName!==row.file_name){
-      try{const token=await googleAccessToken(env);await renameDriveFile(token,row.drive_file_id,newFileName);}
+      try{const token=await googleToken(env);await renameDriveFile(token,row.drive_file_id,newFileName);}
       catch(e){return apiError("DOCUMENT_DRIVE_RENAME_FAILED","RESOURCE",503,true,{detail:String(e).slice(0,240)});}
     }
   }
