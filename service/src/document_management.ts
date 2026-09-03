@@ -74,6 +74,7 @@ function documentPublic(r:DocRow){return{
 function canonicalDocumentAction(action:string):string|null{
   if(action==="DOCUMENT_UPLOAD_COMPLETE")return "document_upload";
   if(action==="DOCUMENT_DELETE_SELECTED")return "document_delete";
+  if(action==="DOCUMENT_UPDATE")return "document_update";
   if(action==="CATEGORY_CREATE")return "document_category_create";
   if(action==="CATEGORY_RENAME_ALL")return "document_category_update";
   if(action==="CATEGORY_DELETE_ALL")return "document_category_delete";
@@ -84,6 +85,7 @@ function documentHistoryDetail(action:string,detail:Record<string,unknown>):Reco
     byte_size:Number(detail.byte_size||0),group_id:String(detail.group_id||""),page_index:Number(detail.page_index||1),page_count:Number(detail.page_count||1)
   };
   if(action==="DOCUMENT_DELETE_SELECTED")return{deleted_count:Number(detail.deleted_count||0),mutation_id:String(detail.mutation_id||"")};
+  if(action==="DOCUMENT_UPDATE")return{before:detail.before||{},after:detail.after||{}};
   if(action==="CATEGORY_CREATE")return{};
   if(action==="CATEGORY_RENAME_ALL")return{category_id:String(detail.category_id||""),total_items:Number(detail.total_items||0),mutation_id:String(detail.mutation_id||"")};
   if(action==="CATEGORY_DELETE_ALL")return{category_id:String(detail.category_id||""),total_items:Number(detail.total_items||0),mutation_id:String(detail.mutation_id||"")};
@@ -107,7 +109,7 @@ async function audit(env:Env,auth:AuthContext,action:string,targetType:string,ta
 }
 export async function flushDocumentAuditHistory(env:Env):Promise<number>{
   const rows=await env.DB.prepare(`SELECT audit_id,action,target_type,target_id,actor_id,actor_role,detail_json,created_at FROM document_audit
-    WHERE action IN ('DOCUMENT_UPLOAD_COMPLETE','DOCUMENT_DELETE_SELECTED','CATEGORY_CREATE','CATEGORY_RENAME_ALL','CATEGORY_DELETE_ALL')
+    WHERE action IN ('DOCUMENT_UPLOAD_COMPLETE','DOCUMENT_DELETE_SELECTED','DOCUMENT_UPDATE','CATEGORY_CREATE','CATEGORY_RENAME_ALL','CATEGORY_DELETE_ALL')
     ORDER BY created_at DESC LIMIT 200`).all<{audit_id:string;action:string;target_type:string;target_id:string;actor_id:string;actor_role:"ADMIN"|"SUPERADMIN";detail_json:string;created_at:string}>();
   let emitted=0;
   for(const row of (rows.results||[]).reverse()){
@@ -599,6 +601,38 @@ export async function processDocumentDeleteMutations(env:Env):Promise<{processed
   const active=await env.DB.prepare("SELECT COUNT(*) AS n FROM document_delete_mutations WHERE state='RUNNING'").first<{n:number}>();
   return{processed,active:Number(active?.n||0)};
 }
+
+export async function documentUpdate(request:Request,env:Env):Promise<Response>{
+  const auth=await requireAdmin(request,env);if(isResponse(auth))return auth;
+  const body=await readJsonBody<{document_id?:string;category_id?:string;note?:string}>(request,32_000);
+  const documentId=String(body.document_id||"").trim();if(!documentId)return apiError("DOCUMENT_ID_REQUIRED","VALIDATION",400,false);
+  const row=await env.DB.prepare("SELECT * FROM document_records WHERE document_id=?1 AND status='COMPLETE'").bind(documentId).first<DocRow>();
+  if(!row)return apiError("DOCUMENT_NOT_FOUND","VALIDATION",404,false);
+  const categoryId=String(body.category_id??row.category_id).trim()||row.category_id;
+  const note=String(body.note??row.note??"").trim().slice(0,240);
+  let categoryName=row.category_name_snapshot,newFileName=row.file_name;
+  if(categoryId!==row.category_id){
+    const category=await env.DB.prepare("SELECT * FROM document_categories WHERE category_id=?1 AND status='ACTIVE'").bind(categoryId).first<DocCategoryRow>();
+    if(!category)return apiError("DOCUMENT_CATEGORY_NOT_FOUND","VALIDATION",404,false);
+    if(category.mutation_state!=="NONE")return apiError("DOCUMENT_CATEGORY_MUTATION_IN_PROGRESS","CONFLICT",409,true);
+    categoryName=category.display_name;newFileName=renamedDocumentFileName(row,categoryName);
+    if(row.drive_file_id&&newFileName!==row.file_name){
+      try{const token=await googleAccessToken(env);await renameDriveFile(token,row.drive_file_id,newFileName);}
+      catch(e){return apiError("DOCUMENT_DRIVE_RENAME_FAILED","RESOURCE",503,true,{detail:String(e).slice(0,240)});}
+    }
+  }
+  if(categoryId===row.category_id&&note===String(row.note||""))return json({ok:true,no_change:true,document:documentPublic(row)});
+  const at=nowIso();
+  await env.DB.prepare("UPDATE document_records SET category_id=?1,category_name_snapshot=?2,note=?3,file_name=?4,updated_at=?5 WHERE document_id=?6 AND status='COMPLETE'")
+    .bind(categoryId,categoryName,note,newFileName,at,documentId).run();
+  const updated=await env.DB.prepare("SELECT * FROM document_records WHERE document_id=?1").bind(documentId).first<DocRow>();
+  await audit(env,auth,"DOCUMENT_UPDATE","DOCUMENT",documentId,{
+    before:{category_id:row.category_id,category_name:row.category_name_snapshot,note:String(row.note||"")},
+    after:{category_id:categoryId,category_name:categoryName,note}
+  });
+  return json({ok:true,document:updated?documentPublic(updated):documentPublic({...row,category_id:categoryId,category_name_snapshot:categoryName,note,file_name:newFileName,updated_at:at})});
+}
+
 export async function documentDeleteMutate(request:Request,env:Env):Promise<Response>{
   const auth=await requireAdmin(request,env);if(isResponse(auth))return auth;
   const body=await readJsonBody<Record<string,unknown>>(request),operation=String(body.operation||"START").toUpperCase();

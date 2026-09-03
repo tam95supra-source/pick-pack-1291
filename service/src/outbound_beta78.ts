@@ -135,6 +135,7 @@ async function dropList(env:Env):Promise<Response>{
 }
 
 async function dropDelete(env:Env,auth:AuthContext,body:Record<string,unknown>):Promise<Response>{
+  if(auth.role!=="ADMIN"&&auth.role!=="SUPERADMIN")return apiError("ADMIN_REQUIRED","PERMISSION",403);
   const idsRaw=Array.isArray(body.record_ids)?body.record_ids:[],ids=[...new Set(idsRaw.map(x=>String(x||"").trim()).filter(Boolean))].slice(0,100);
   const idem=String(body.idempotency_key||body.event_id||"").trim();
   if(!idem)return apiError("OUTBOUND_IDEMPOTENCY_REQUIRED","VALIDATION",400);
