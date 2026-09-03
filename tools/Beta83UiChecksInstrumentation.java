@@ -931,20 +931,23 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     SystemClock.sleep(200L);
     mark("status_chip_details_beta100");
 
-    // Beta107: existing business card opens the native document-management screen.
+    // Beta117: document screen keeps source/list controls visible but hides empty draft/pending sections.
     open("BUSINESS");
     clickTextScrolling("Quản lý biên bản",10000L);
     waitText("Loại biên bản",true,false,10000L);
     waitText("Chụp ảnh",true,true,10000L);
     waitText("Chọn nhiều ảnh",true,true,10000L);
-    waitText("Một biên bản nhiều trang",true,false,10000L);
-    waitText("Tải lên",true,true,10000L);
-    waitText("Ảnh chờ tải",true,false,10000L);
-    waitText("Không có ảnh chờ tải.",true,false,10000L);
+    require(findText("Một biên bản nhiều trang",true,false)==null,"FUNCTIONAL_DOCUMENT_MODE_VISIBLE_WITH_ZERO_DRAFTS");
+    require(findText("Nhiều biên bản",true,false)==null,"FUNCTIONAL_DOCUMENT_MULTI_MODE_VISIBLE_WITH_ZERO_DRAFTS");
+    require(findText("Tải lên",true,false)==null,"FUNCTIONAL_DOCUMENT_DRAFT_ACTION_VISIBLE_WITH_ZERO_DRAFTS");
+    require(findText("Ảnh chờ tải",true,false)==null,"FUNCTIONAL_DOCUMENT_PENDING_BOX_VISIBLE_WHEN_EMPTY");
+    require(findText("Không có ảnh chờ tải.",true,false)==null,"FUNCTIONAL_DOCUMENT_EMPTY_PENDING_COPY_VISIBLE");
     waitText("Tất cả loại biên bản",true,false,10000L);
-    waitText("Xóa đã chọn",true,true,10000L);
+    waitText("Đã chọn 0 ảnh",true,false,10000L);
+    waitText("Chọn tất cả biên bản đang lọc",true,false,10000L);
+    waitText("Xóa biên bản đã chọn",true,false,10000L);
     require(findText("Cần OWNER",false,false)==null,"OWNER_HELPER_COPY_VISIBLE");
-    mark("document_batch_controls_beta110");
+    mark("document_batch_controls_beta117");
     waitText("Mạng",true,false,10000L);waitText("Đồng bộ",true,false,10000L);waitText("Dịch vụ",true,false,10000L);
     mark("document_management_card_beta107");
     mark("document_management_controls_beta107");
