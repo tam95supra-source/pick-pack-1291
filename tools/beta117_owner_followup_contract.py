@@ -22,6 +22,7 @@ assert not (root/"service/migrations/0014_beta117_owner_followup.sql").exists()
 assert 'versionCode = 123' in gradle and 'versionName = "0.4.2-beta.117"' in gradle
 assert 'const val VERSION_NAME = "0.4.2-beta.117"' in notes
 assert 'versionCode = 1' in gradle and 'versionName = "0.1.0-stable"' in gradle
+# Release request metadata is checked independently by resilience_static_gate.mjs.
 
 for token in [
     "modeRowHost.visibility=if(enabled)View.VISIBLE else View.GONE",
