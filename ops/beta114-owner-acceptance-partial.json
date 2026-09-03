@@ -1,0 +1,35 @@
+{
+  "status": "PARTIAL_OWNER_ACCEPTANCE",
+  "version_name": "0.4.2-beta.114",
+  "owner": "Nguyễn Văn Tâm",
+  "accepted_at": "2026-09-03T08:06:00+07:00",
+  "accepted_items": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    9,
+    10
+  ],
+  "pending_fix_items": [
+    6,
+    7,
+    8
+  ],
+  "active_invariants": [
+    "CHANGELOG-CURRENT-VERSION-001",
+    "ADMIN-AUDIT-PASSWORD-001",
+    "HISTORY-SUPERADMIN-CLEANUP-002",
+    "UI-EMPLOYEE-SCAN-ROSTER-001",
+    "LABOR-SCAN-PINNED-004",
+    "UI-FORM-BASE-CONSISTENCY-003"
+  ],
+  "pending_invariants": [
+    "LABOR-MULTI-INTERVAL-003",
+    "UI-DATA-DATE-SELECT-001",
+    "UI-FORM-CONSISTENCY-002"
+  ],
+  "note": "Items 5 and 10 are locked separately so pending fixes 6-8 cannot regress accepted scan placement or accepted base form/ReviewAlertUi behavior.",
+  "next_action": "IMPLEMENT_OWNER_FIXES_6_7_8_AND_RELEASE_NEW_BETA"
+}
