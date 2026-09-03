@@ -43,5 +43,11 @@ Beta116 đã Technical PASS/LIVE trên exact locked APK. Toàn bộ candidate/se
 ## Blocker
 Không có blocker kỹ thuật.
 
+## OWNER-reported OTA incident 2026-09-04
+- Beta115 thiết bị thật báo Dịch vụ suy giảm và không cập nhật được Beta116.
+- OWNER reported Beta115 could not update and UI showed Service degraded. Fresh recovery: service-discovery 33784531907/9904956795 PASS; exact Beta116 Service source cf01dab16e1c62091561ca008a355a8f49326581 redeployed and full service regression 33784753619/9905201718 PASS with test_cleanup PASS; Beta-only live readback 33788505404/9906368570 PASS: Worker /health HTTP 200, GAS service_discovery HTTP 200 -> https://pickpack.1291.workers.dev, update_check from current_version 0.4.2-beta.115 HTTP 200 available=true -> 0.4.2-beta.116 code 122, SHA256 a346d4554e07fc37552c9d8876179860677fc93923a3bd42f9b3f97f5e11f235, size 14347253, GitHub Release URL exact. No APK rebuild/resign/republish; Stable untouched. Initial device degradation exact cause not provable from contaminated first probes.
+- Incident receipt: `ops/beta116-ota-service-recovery.json`.
+- Trạng thái: TECHNICAL_PASS_AWAITING_OWNER real-device recheck.
+
 ## NEXT_ACTION
-WAIT_FOR_OWNER_ACCEPTANCE_BETA116_CHECKLIST_1_TO_11
+WAIT_FOR_OWNER_RECHECK_BETA115_TO_BETA116_OTA
