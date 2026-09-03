@@ -1,46 +1,29 @@
 # CURRENT STATE — PICK PACK 1291
 
-- updated_at: 2026-09-03T16:44:55Z
+- updated_at: 2026-09-03T17:49:38Z
 - status: BETA116_PASS_LIVE
-- owner_acceptance: PENDING_BETA116_CHECKLIST_1_TO_11
-- continuity_branch: release/beta116-owner-scope-20260903
+- continuity_branch: release/beta116-publish-idempotency-regression-20260904
 - source_sha: cf01dab16e1c62091561ca008a355a8f49326581
 - beta_live: 0.4.2-beta.116 (versionCode 122)
 - package: vn.pickpack1291.app.beta.publicbeta
 - candidate_run: 33767353642
 - candidate_artifact: 9898290631
-- service_run: 33767353642
-- service_artifact: 9898616640
 - verify_run: 33774026289
 - verify_artifact: 9901071098
-- beta_auth_run: 33776285435
-- beta_auth_artifact: 9902148937
-- device_regression_run: 33778316587
-- device_regression_artifact: 9902571477
-- runtime_dod_run: 33778605857
-- runtime_dod_artifact: 9902663700
-- domain_run: 33778957345
-- domain_artifact: 9902758766
-- publish_run: 33780057070
-- publish_artifact: 9903236359
-- ota_install_readback_run: 33780057070
-- ota_install_readback_artifact: 9903336912
-- fast_check_post_harness_fix: 33780103022 PASS
 - apk_sha256: a346d4554e07fc37552c9d8876179860677fc93923a3bd42f9b3f97f5e11f235
 - apk_size: 14347253
 - signer_sha256: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
+- terminal_run: 33786520261
+- fast_check: PASS
+- service_gate: PASS_EXACT_SERVICE_SOURCE_CF01_RUN_33767353642_ARTIFACT_9898616640
 - visual_matrix: PASS 320x568 / 360x640 / 480x800
-- human_visual: PASS (43 screenshots)
+- human_visual: PASS
 - pda_functional_pre_ota: PASS
 - beta_ota: exact 0.4.2-beta.116 PASS via GitHub Release
 - beta_ota_url: https://github.com/tam95supra-source/pick-pack-1291/releases/download/v0.4.2-beta.116-publicbeta/pick-pack-1291-public-beta-0.4.2-beta.116.apk
 - apk_transport: GITHUB_RELEASE_ONLY
 - google_drive_apk: FORBIDDEN
-- stable: unchanged / unavailable public
+- stable: unchanged
 - main_sha: 021dac5c6932b3ac5c60ce8fdba562ddf3d9688f
 - authority: SERVICE_PRIMARY / PRODUCTION / epoch 9 / generation m2-prod-reset-20260823-001
-- finalization_recovery: canonical state reconstructed from PASS publish/PDA receipts after finalize rebase conflict; no APK rebuild/resign/republish.
-- pass_live_validation_run: 33783284600 PASS
-- final_tree_targeted_verification: PASS
-- technical_receipt: ops/beta116-technical-pass.json
-- next_action: WAIT_FOR_OWNER_ACCEPTANCE_BETA116_CHECKLIST_1_TO_11
+- next_action: WAIT_FOR_OWNER_ACCEPTANCE_NUMBERED_CHECKLIST
