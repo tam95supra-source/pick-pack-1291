@@ -256,38 +256,41 @@ invariants:
 
 
   - id: CHANGELOG-CURRENT-VERSION-001
-    status: TECHNICAL_PASS_AWAITING_OWNER
+    status: ACTIVE_PASS
     scope: changelog-current-version
     rule: "In-app changelog must exactly match running versionName; Beta version bump without matching ReleaseNotes must fail build."
     regression_minimum: [version_name_match, release_notes_match, prebuild_gate]
     regression_case: "qa/beta113_owner_scope_regression.md + tools/beta113_owner_scope_contract.py"
-    owner_acceptance: "PENDING_BETA114"
+    owner_acceptance: "OWNER_OK_2026-09-03T08:06+07:00"
     technical_evidence: "Beta114 LIVE technical PASS: source 5686da2cc6fdb2bf845456bda9e703eb68e9f1f0; candidate 33691947969/9870515268; Fast Check 33698830085; visual+PDA+API36 33698830042/9872907916; device 33697808957/9872457667; runtime 33698019451/9872504979; terminal 33699803398; publish 9873117701; OTA/install/readback 9873169722; final 9873176752; SHA256 cc611efc72a3cd0af413f316b6182adb281d398c189f5bb9d613235722b296bd; size 14232565; Stable/main/signer/authority unchanged."
     technical_receipt: "ops/beta114-technical-pass.json"
-    active_pass: false
+    owner_receipt: "ops/beta114-owner-acceptance-partial.json"
+    active_pass: true
 
   - id: ADMIN-AUDIT-PASSWORD-001
-    status: TECHNICAL_PASS_AWAITING_OWNER
+    status: ACTIVE_PASS
     scope: password-admin-audit
     rule: "Successful password change must record canonical change_password audit; admin_audit is routing only and audit payload must not contain password/proof/verifier."
     regression_minimum: [password_success, canonical_audit_action, durable_route, no_sensitive_audit_payload, no_false_sync_failure]
     regression_case: "qa/beta113_owner_scope_regression.md + tools/beta113_owner_scope_contract.py"
-    owner_acceptance: "PENDING_BETA114"
+    owner_acceptance: "OWNER_OK_2026-09-03T08:06+07:00"
     technical_evidence: "Beta114 LIVE technical PASS: source 5686da2cc6fdb2bf845456bda9e703eb68e9f1f0; candidate 33691947969/9870515268; Fast Check 33698830085; visual+PDA+API36 33698830042/9872907916; device 33697808957/9872457667; runtime 33698019451/9872504979; terminal 33699803398; publish 9873117701; OTA/install/readback 9873169722; final 9873176752; SHA256 cc611efc72a3cd0af413f316b6182adb281d398c189f5bb9d613235722b296bd; size 14232565; Stable/main/signer/authority unchanged."
     technical_receipt: "ops/beta114-technical-pass.json"
-    active_pass: false
+    owner_receipt: "ops/beta114-owner-acceptance-partial.json"
+    active_pass: true
 
   - id: HISTORY-SUPERADMIN-CLEANUP-002
-    status: TECHNICAL_PASS_AWAITING_OWNER
+    status: ACTIVE_PASS
     scope: superadmin-history-cleanup
     parent_invariant: HISTORY-DELETE-CANONICAL-001
     rule: "SUPERADMIN may delete any History card after existing security verification; canonical Service records use tombstones, terminal local unsyncable records delete locally, pending business mutations are not silently cancelled."
     regression_minimum: [canonical_tombstone, local_terminal_cleanup, pending_outbox_preserved, privileged_verification]
     regression_case: "qa/beta113_owner_scope_regression.md + tools/beta113_owner_scope_contract.py"
-    owner_acceptance: "PENDING_BETA114"
+    owner_acceptance: "OWNER_OK_2026-09-03T08:06+07:00"
     technical_evidence: "Beta114 LIVE technical PASS: source 5686da2cc6fdb2bf845456bda9e703eb68e9f1f0; candidate 33691947969/9870515268; Fast Check 33698830085; visual+PDA+API36 33698830042/9872907916; device 33697808957/9872457667; runtime 33698019451/9872504979; terminal 33699803398; publish 9873117701; OTA/install/readback 9873169722; final 9873176752; SHA256 cc611efc72a3cd0af413f316b6182adb281d398c189f5bb9d613235722b296bd; size 14232565; Stable/main/signer/authority unchanged."
     technical_receipt: "ops/beta114-technical-pass.json"
-    active_pass: false
+    owner_receipt: "ops/beta114-owner-acceptance-partial.json"
+    active_pass: true
 
   - id: LABOR-MULTI-INTERVAL-003
     status: TECHNICAL_PASS_AWAITING_OWNER
@@ -313,15 +316,16 @@ invariants:
     active_pass: false
 
   - id: UI-EMPLOYEE-SCAN-ROSTER-001
-    status: TECHNICAL_PASS_AWAITING_OWNER
+    status: ACTIVE_PASS
     scope: employee-scan-inline-roster
     rule: "Employee scan stays same height but visually emphasized; current-day roster is inline below scan; scanned employee/session renders before roster; reconciliation tiles only show quick in/out and pending-to-exit list with Exit."
     regression_minimum: [scan_emphasis, inline_roster, scanned_session_first, reconciliation_pending_only]
     regression_case: "qa/beta113_owner_scope_regression.md + tools/beta113_owner_scope_contract.py"
-    owner_acceptance: "PENDING_BETA114"
+    owner_acceptance: "OWNER_OK_2026-09-03T08:06+07:00"
     technical_evidence: "Beta114 LIVE technical PASS: source 5686da2cc6fdb2bf845456bda9e703eb68e9f1f0; candidate 33691947969/9870515268; Fast Check 33698830085; visual+PDA+API36 33698830042/9872907916; device 33697808957/9872457667; runtime 33698019451/9872504979; terminal 33699803398; publish 9873117701; OTA/install/readback 9873169722; final 9873176752; SHA256 cc611efc72a3cd0af413f316b6182adb281d398c189f5bb9d613235722b296bd; size 14232565; Stable/main/signer/authority unchanged."
     technical_receipt: "ops/beta114-technical-pass.json"
-    active_pass: false
+    owner_receipt: "ops/beta114-owner-acceptance-partial.json"
+    active_pass: true
 
   - id: UI-FORM-CONSISTENCY-002
     status: TECHNICAL_PASS_AWAITING_OWNER
@@ -335,8 +339,33 @@ invariants:
     technical_receipt: "ops/beta114-technical-pass.json"
     active_pass: false
 
+
+  - id: LABOR-SCAN-PINNED-004
+    status: ACTIVE_PASS
+    scope: labor-scan-layout
+    parent_invariant: LABOR-MULTI-INTERVAL-003
+    rule: "Labor scan/input remains permanently above the day labor list and stays visible when entering an employee labor context; no separate 'other employee' flow may replace the canonical scan field."
+    regression_minimum: [scan_above_list, scan_visible_in_context, no_other_employee_substitute]
+    regression_case: "qa/beta115_owner_scope_regression.md"
+    owner_acceptance: "OWNER_OK_2026-09-03T08:06+07:00_ITEM_5"
+    technical_evidence: "Beta114 technical PASS; OWNER accepted checklist item 5."
+    owner_receipt: "ops/beta114-owner-acceptance-partial.json"
+    active_pass: true
+
+  - id: UI-FORM-BASE-CONSISTENCY-003
+    status: ACTIVE_PASS
+    scope: common-form-base-and-review-alert
+    parent_invariant: UI-FORM-CONSISTENCY-002
+    rule: "Common form layout/outline consistency and locked ReviewAlertUi Beta112 geometry/severity semantics remain unchanged. Select-specific title/value/option hierarchy is explicitly excluded until item 7 is accepted."
+    regression_minimum: [common_outline_preserved, review_alert_unchanged, select_semantics_not_relaxed]
+    regression_case: "qa/beta115_owner_scope_regression.md"
+    owner_acceptance: "OWNER_OK_2026-09-03T08:06+07:00_ITEM_10"
+    technical_evidence: "Beta114 technical PASS; OWNER accepted checklist item 10."
+    owner_receipt: "ops/beta114-owner-acceptance-partial.json"
+    active_pass: true
+
 impact_map:
-  "app/**": [UI-STATUS-001, QR-LOCAL-001, MEAL-DATE-001, MEAL-WARN-001, ROLE-HISTORY-001, OTA-BETA-001, PDA-EXIT-001, ENV-ISOLATION-001, SERVICE-DISCOVERY-001, SHIFT-STAFF-DOWNLOAD-QR-001, DOCUMENT-MANAGEMENT-001, DOCUMENT-BATCH-001, LABOR-TIME-RANGE-001, MEAL-UI-NULL-001, UI-COPY-DENSITY-001, NAV-HISTORY-BACK-001, UI-REVIEW-WARNING-001, LABOR-EXACT-SESSION-002, HISTORY-DELETE-CANONICAL-001, DOCUMENT-BATCH-MODE-TICK-002, INFRA-RESILIENCE-001, CHANGELOG-CURRENT-VERSION-001, ADMIN-AUDIT-PASSWORD-001, HISTORY-SUPERADMIN-CLEANUP-002, LABOR-MULTI-INTERVAL-003, UI-DATA-DATE-SELECT-001, UI-EMPLOYEE-SCAN-ROSTER-001, UI-FORM-CONSISTENCY-002]
+  "app/**": [LABOR-SCAN-PINNED-004, UI-FORM-BASE-CONSISTENCY-003, UI-STATUS-001, QR-LOCAL-001, MEAL-DATE-001, MEAL-WARN-001, ROLE-HISTORY-001, OTA-BETA-001, PDA-EXIT-001, ENV-ISOLATION-001, SERVICE-DISCOVERY-001, SHIFT-STAFF-DOWNLOAD-QR-001, DOCUMENT-MANAGEMENT-001, DOCUMENT-BATCH-001, LABOR-TIME-RANGE-001, MEAL-UI-NULL-001, UI-COPY-DENSITY-001, NAV-HISTORY-BACK-001, UI-REVIEW-WARNING-001, LABOR-EXACT-SESSION-002, HISTORY-DELETE-CANONICAL-001, DOCUMENT-BATCH-MODE-TICK-002, INFRA-RESILIENCE-001, CHANGELOG-CURRENT-VERSION-001, ADMIN-AUDIT-PASSWORD-001, HISTORY-SUPERADMIN-CLEANUP-002, LABOR-MULTI-INTERVAL-003, UI-DATA-DATE-SELECT-001, UI-EMPLOYEE-SCAN-ROSTER-001, UI-FORM-CONSISTENCY-002]
   "service/**": [QR-LOCAL-001, MEAL-DATE-001, PDA-EXIT-001, ENV-ISOLATION-001, DOCUMENT-MANAGEMENT-001, DOCUMENT-BATCH-001, LABOR-TIME-RANGE-001, LABOR-EXACT-SESSION-002, INFRA-RESILIENCE-001, ADMIN-AUDIT-PASSWORD-001, LABOR-MULTI-INTERVAL-003, UI-DATA-DATE-SELECT-001]
   "services/**": [ENV-ISOLATION-001, INFRA-RESILIENCE-001, BETA-STABLE-AUDIT-001]
   "google-apps-script/**": [ENV-ISOLATION-001, INFRA-RESILIENCE-001, OTA-BETA-001]
