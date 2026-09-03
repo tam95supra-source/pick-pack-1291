@@ -1,6 +1,6 @@
 {
   "stage": "VISUAL_ONLY",
-  "mode": "BETA117_VISUAL_PDA_EXACT_CANDIDATE_AFTER_ZERO_STATE_HARNESS_REPAIR",
+  "mode": "BETA117_VISUAL_PDA_EXACT_CANDIDATE_AFTER_ALL_ZERO_STATE_HARNESS_REPAIRS",
   "version_name": "0.4.2-beta.117",
   "version_code": 123,
   "base_version": "0.4.2-beta.116",
@@ -53,7 +53,7 @@
   "stable_gas_repair_status": "INHERITED_STABLE_UNCHANGED",
   "beta_domain_status": "PENDING",
   "regression_case": "tools/beta117_owner_followup_contract.py + tools/beta116_owner_scope_contract.py + preserve all ACTIVE_PASS Beta115/Beta116; REPORT-LABOR-DEDUCTION-002 and LOCAL-FIRST-RECONCILE-002 remain OWNER-pending",
-  "execution_nonce": "beta117-visual-exact-harness-repair-20260904-02",
+  "execution_nonce": "beta117-visual-exact-harness-repair-20260904-03",
   "next_action": "VERIFY_VISUAL_PDA_API36_EXACT_CANDIDATE_NO_REBUILD",
   "candidate_source_sha": "3daa29d1e6ab17f5e2704438be10ab3a07b22ffc",
   "service_gate_status": "PASS",
@@ -65,8 +65,8 @@
   "candidate_artifact_name": "beta-candidate-33797938890",
   "apk_sha256": "10f4289890c6198481a5e393a08dcc025f7ab8aa348bb44513fe6020e1c78149",
   "apk_size": 14396405,
-  "failure_class": "RESOLVED_STALE_VISUAL_HARNESS_ZERO_DOCUMENT_STATE",
-  "failed_verify_run_id": 33797938890,
-  "failed_verify_artifact_id": 9910381739,
+  "failure_class": "RESOLVED_ALL_STALE_DOCUMENT_ZERO_STATE_HARNESS_ASSERTIONS",
+  "failed_verify_run_id": 33799392582,
+  "failed_verify_artifact_id": 9910543190,
   "base_live_final_repo_receipt": "ops/beta116-technical-pass.json"
 }
