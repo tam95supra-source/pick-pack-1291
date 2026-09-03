@@ -1820,19 +1820,46 @@ class OperationsActivity : Activity() {
             if(pending.isEmpty())return
             val warn=reconciliationButton("KIỂM TRA CÔNG NHẬT CHO CÁC VỊ TRÍ CỐ ĐỊNH (${pending.size})",false)
             warn.setOnClickListener{
+                val remaining=pending.toMutableList();val selected=linkedSetOf<String>()
                 val host=column(surface).apply{setPadding(dp(8),dp(5),dp(8),dp(8))}
                 var dialog:AlertDialog?=null
-                pending.forEach{x->
-                    val sid=x.optString("session_id");val id=x.optString("mnv")
-                    val line=column(surface).apply{
-                        setPadding(dp(7),dp(5),dp(7),dp(5));background=outlineBg(surface,10)
-                        addView(txt("$id • ${dash(x.optString("_name"))}",10.4f,navy,true));addView(txt("${dash(x.optString("_position"))} • ${dash(x.optString("shift"))}",9.2f,muted,false))
-                        val acts=row(surface);acts.addView(smallButton("CÔNG NHẬT",green).apply{setOnClickListener{dialog?.dismiss();initialMnv=id;laborHome()}},LinearLayout.LayoutParams(0,dp(38),1f).apply{marginEnd=dp(3)})
-                        acts.addView(smallButton("ĐÃ KIỂM TRA - KHÔNG",navy).apply{setOnClickListener{acknowledged.add(sid);reviewPrefs.edit().putStringSet("ack_$currentDate",acknowledged).apply();dialog?.dismiss();reviewFixed(rows)}},LinearLayout.LayoutParams(0,dp(38),1.25f).apply{marginStart=dp(3)});addView(acts,matchWrap())
+                fun renderDialog(){
+                    host.removeAllViews()
+                    if(remaining.isEmpty()){
+                        host.addView(info("Đã xử lý hết danh sách cần kiểm tra."));dialog?.getButton(AlertDialog.BUTTON_POSITIVE)?.isEnabled=false;return
                     }
-                    host.addView(line,matchWrap());host.addView(gap(4))
+                    val count=txt("Đã chọn ${selected.size}/${remaining.size}",9.6f,muted,true)
+                    val top=row(surface);val all=smallButton(if(selected.size==remaining.size)"BỎ CHỌN" else "CHỌN TẤT CẢ",teal);val create=smallButton("TẠO CÔNG NHẬT ĐÃ CHỌN",green)
+                    top.addView(all,LinearLayout.LayoutParams(0,dp(38),.8f).apply{marginEnd=dp(3)});top.addView(create,LinearLayout.LayoutParams(0,dp(38),1.2f).apply{marginStart=dp(3)})
+                    host.addView(top,matchWrap());host.addView(gap(4));host.addView(count);host.addView(gap(5))
+                    all.setOnClickListener{if(selected.size==remaining.size)selected.clear()else remaining.forEach{selected.add(it.optString("session_id"))};renderDialog()}
+                    create.setOnClickListener{
+                        val chosen=remaining.filter{it.optString("session_id") in selected}
+                        if(chosen.isEmpty()){TopNotice.show(this,"Chọn ít nhất một nhân sự.",TopNotice.Kind.WARNING);return@setOnClickListener}
+                        dialog?.dismiss();showLaborBatchCreateForm(chosen.map{laborBatchCandidateFromSession(it)})
+                    }
+                    remaining.toList().forEach{x->
+                        val sid=x.optString("session_id");val id=x.optString("mnv")
+                        val line=column(surface).apply{
+                            setPadding(dp(7),dp(5),dp(7),dp(5));background=outlineBg(surface,10)
+                            val head=row(surface).apply{gravity=Gravity.CENTER_VERTICAL}
+                            val cb=CheckBox(this@OperationsActivity).apply{isChecked=sid in selected;setOnCheckedChangeListener{_,on->if(on)selected.add(sid)else selected.remove(sid);count.text="Đã chọn ${selected.size}/${remaining.size}"}}
+                            head.addView(cb,LinearLayout.LayoutParams(dp(36),dp(36)))
+                            head.addView(column(surface).apply{addView(txt("$id • ${dash(x.optString("_name"))}",10.4f,navy,true));addView(txt("${dash(x.optString("_position"))} • ${dash(x.optString("shift"))}",9.2f,muted,false))},LinearLayout.LayoutParams(0,-2,1f))
+                            addView(head,matchWrap())
+                            val noLabor=smallButton("ĐÃ KIỂM TRA — KHÔNG TÍNH CÔNG NHẬT",navy)
+                            noLabor.setOnClickListener{
+                                acknowledged.add(sid);selected.remove(sid);remaining.removeAll{it.optString("session_id")==sid}
+                                reviewPrefs.edit().putStringSet("ack_$currentDate",acknowledged).apply()
+                                renderDialog();reviewFixed(rows)
+                            }
+                            addView(noLabor,LinearLayout.LayoutParams(-1,dp(36)))
+                        }
+                        host.addView(line,matchWrap());host.addView(gap(4))
+                    }
                 }
-                dialog=AlertDialog.Builder(this).setTitle("Kiểm tra công nhật vị trí cố định").setView(ScrollView(this).apply{addView(host)}).setNegativeButton("Đóng",null).create();dialog.show()
+                dialog=AlertDialog.Builder(this).setTitle("Kiểm tra công nhật vị trí cố định").setView(ScrollView(this).apply{addView(host)}).setNegativeButton("Đóng"){_,_->reviewFixed(rows)}.create()
+                renderDialog();dialog?.show()
             }
             fixedWarningHost.addView(warn,ReviewAlertUi.fixedHeightParams(this))
         }
