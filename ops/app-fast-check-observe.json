@@ -1,8 +1,8 @@
 {
-  "run_id": 33797993724,
-  "run_sha": "5960439d66127d68bd26cd7832cce0bcbea18841",
+  "run_id": 33798630445,
+  "run_sha": "770ddef714b2d25568be416e16c35e34fe61aeaa",
   "ref": "release/beta117-owner-followup-performance-20260904",
   "execution_nonce": "beta117-build-verify-20260904-01",
   "stage": "BUILD_VERIFY",
-  "observed_at": "2026-09-03T19:42:45Z"
+  "observed_at": "2026-09-03T19:49:51Z"
 }
