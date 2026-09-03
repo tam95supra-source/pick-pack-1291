@@ -69,7 +69,7 @@ def gas_post(body):
         if p.returncode:
             last="TRANSPORT:"+p.stderr[-240:].replace("\n"," ")
         else:
-            marker="\\n__HTTP_STATUS__:"
+            marker="\n__HTTP_STATUS__:"
             if marker not in p.stdout:
                 last="STATUS_MISSING"
             else:
