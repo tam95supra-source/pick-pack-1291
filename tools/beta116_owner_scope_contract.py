@@ -51,8 +51,11 @@ for token in ['Tìm MNV / họ tên','Tất cả ca','Tất cả NCC','Tất c�
 inline=ops[ops.index("private fun addInlineCurrentShiftStaff"):ops.index("private fun addScannedOldSessionWarning")]
 for token in ['Tất cả ca','Tất cả NCC','Tất cả vị trí','Danh sách QR vào / ra']:
     assert token in inline, token
-# Beta115 canonical click semantics must stay exact.
-assert 'setOnClickListener{showCurrentDayShiftStaff(currentDate,shift,group)}' in inline
+# Beta115 canonical click semantics must stay exact while allowing implementation-local variable naming.
+assert any(token in inline for token in [
+    'setOnClickListener{showCurrentDayShiftStaff(currentDate,shift,group)}',
+    'setOnClickListener{showCurrentDayShiftStaff(currentDate,shiftName,group)}',
+])
 assert 'setOnClickListener{if(id.mnv.isNotBlank())loadEmployee(id.mnv)}' in inline
 
 # Labor: local list shell, Service exact-session detail, fixed-position review, filters and weighted buttons.
