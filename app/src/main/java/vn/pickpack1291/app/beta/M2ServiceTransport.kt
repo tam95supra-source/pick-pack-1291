@@ -290,12 +290,14 @@ class M2ServiceTransport(context: Context) {
                     JSONObject().put("service_blocked",true).put("google_blocked",true))
                 stopIfRequested()?.let{return it}
                 val lan=LanCoordinator.get(app)
-                if(!lan.canRoute()){
-                    update("NOT_AVAILABLE","LAN_PREREQUISITE_MISSING","LAN_NOT_AVAILABLE_ON_THIS_DEVICE",
-                        JSONObject().put("requires_lan_master_backup",true))
+                val deadline=System.currentTimeMillis()+8_000L
+                while(!lan.canRouteForTest()&&System.currentTimeMillis()<deadline&&!cancelled())Thread.sleep(250L)
+                if(!lan.canRouteForTest()){
+                    update("NOT_AVAILABLE","LAN_PREREQUISITE_MISSING","LAN_GLOBAL_TEST_TOPOLOGY_NOT_READY",
+                        JSONObject().put("requires_lan_master_backup",true).put("global_test_mode",lan.globalTestModeEnabled()).put("lan_status",lan.status()))
                     return row()?:JSONObject().put("status","NOT_AVAILABLE")
                 }
-                val ack=lan.submit(body)
+                val ack=lan.submitTest(body)
                 if(!ack.handled||!ack.ok)return fail("LAN_FALLBACK",ack.error?:"LAN_SUBMIT_FAILED",
                     JSONObject().put("lan_generation",ack.generation).put("lan_handled",ack.handled))
                 update("RUNNING","LAN_DURABLE_ACK","",JSONObject().put("lan_generation",ack.generation).put("lan_ack",true))
