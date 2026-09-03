@@ -220,7 +220,7 @@ object DocumentManagementFeature {
             body.addView(imageBox,LinearLayout.LayoutParams(-1,-2))
             body.addView(gap(10))
 
-            val pendingBox=column().apply{background=bg();setPadding(dp(10),dp(9),dp(10),dp(10))};pendingBoxView=pendingBox
+            val pendingBox=column().apply{background=bg();setPadding(dp(10),dp(9),dp(10),dp(10));visibility=View.GONE};pendingBoxView=pendingBox
             val pendingHead=row()
             pendingHead.addView(text("Ảnh chờ tải",10.5f,navy,true),LinearLayout.LayoutParams(0,-2,1f))
             retryPendingButton=button("Tải lại",navy)
@@ -282,6 +282,8 @@ object DocumentManagementFeature {
                 override fun onNothingSelected(parent:AdapterView<*>?)=Unit
                 override fun onItemSelected(parent:AdapterView<*>?,view:View?,position:Int,id:Long){if(!suppressFilter)refreshDocuments()}
             }
+            // Apply the empty state synchronously before any cache/network work so hidden sections never flash on screen.
+            renderSelectedPreview()
             restoreCachedCategories()
             restoreDraft()
             refreshCategories()
