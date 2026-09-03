@@ -802,8 +802,8 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     Class<?> storeClass=cl.loadClass("vn.pickpack1291.app.beta.DocumentPendingStore");
     Object store1=storeClass.getConstructor(Context.class).newInstance(target);
     String idem="b108-local-"+System.nanoTime();
-    Object item=storeClass.getMethod("enqueue",String.class,String.class,String.class,String.class,String.class,imageClass,String.class,String.class,int.class,int.class)
-      .invoke(store1,"admin","b110-category","CAMERA","2026-09-01T00:00:00Z",idem,image,"b110-group","MULTI_PAGE",1,2);
+    Object item=storeClass.getMethod("enqueue",String.class,String.class,String.class,String.class,String.class,imageClass,String.class,String.class,int.class,int.class,String.class)
+      .invoke(store1,"admin","b110-category","CAMERA","2026-09-01T00:00:00Z",idem,image,"b110-group","MULTI_PAGE",1,2,"b116-note");
     Class<?> itemClass=cl.loadClass("vn.pickpack1291.app.beta.DocumentPendingStore$Item");
     String pendingId=String.valueOf(itemClass.getMethod("getPendingId").invoke(item));
     require(!pendingId.isEmpty(),"DOCUMENT_PENDING_ID_MISSING");
@@ -811,6 +811,7 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     require("b110-group".equals(String.valueOf(itemClassMeta.getMethod("getGroupId").invoke(item))),"DOCUMENT_PENDING_GROUP_MISSING");
     require("MULTI_PAGE".equals(String.valueOf(itemClassMeta.getMethod("getGroupMode").invoke(item))),"DOCUMENT_PENDING_GROUP_MODE_MISSING");
     require(((Integer)itemClassMeta.getMethod("getPageIndex").invoke(item))==1&&((Integer)itemClassMeta.getMethod("getPageCount").invoke(item))==2,"DOCUMENT_PENDING_PAGE_META_MISSING");
+    require("b116-note".equals(String.valueOf(itemClassMeta.getMethod("getNote").invoke(item))),"DOCUMENT_PENDING_NOTE_NOT_DURABLE");
     Object store2=storeClass.getConstructor(Context.class).newInstance(target);
     Object found=storeClass.getMethod("find",String.class).invoke(store2,pendingId);
     require(found!=null,"DOCUMENT_PENDING_NOT_DURABLE_ACROSS_STORE_INSTANCE");
