@@ -411,7 +411,7 @@ jq -e '.error.code=="HISTORY_DELETE_TARGET_NOT_FOUND"' "$D/b111-history-delete-m
 echo 'beta111_labor_exact_session=PASS exact_context=PASS daily_open_done=PASS open_exit_redirect_contract=PASS stale_session_reject=PASS stale_labor_reject=PASS completed_correction=PASS history_delete_canonical=PASS history_missing_404=PASS'
 
 # Beta115: future scheduled end, strict cap/overlap/exit reconciliation, boolean deduction and exact MNV+shift report movement.
-read_api b115-report-before "$(jq -nc --arg date "$B80_DATE" '{action:"sync_day",business_date:$date}')"
+owner_api /v1/legacy-sync b115-report-before "$(jq -nc --arg date "$B80_DATE" '{action:"sync_day",business_date:$date}')"
 B115_AT="$B111_END_AT"
 B115_START_A_BODY=$(jq -nc --arg ev "$B115_START_A" --arg labor "$B115_LABOR_A" --arg dev "$DEVICE" --arg date "$B80_DATE" --arg sid "$B80_SID" --arg mnv "$B80_MNV" --arg at "$B115_AT" '{
   events:[{action:"labor_start",event_id:$ev,device_id:$dev,business_date:$date,payload:{labor_id:$labor,session_id:$sid,mnv:$mnv,shift:"Ca 2",labor_type:"Beta115 Support A",start_at:$at,deduct_staff:true,note:"boolean true"}}]
@@ -464,7 +464,7 @@ B115_OVERLAP_BODY=$(jq -nc --arg ev "$B115_OVERLAP_CONFLICT" --arg dev "$DEVICE"
 mutation_api b115-overlap-conflict "$B115_OVERLAP_BODY"
 jq -e '.ok==true and .results[0].status=="REVIEW_REQUIRED" and .results[0].error_code=="LABOR_INTERVAL_OVERLAP"' "$D/b115-overlap-conflict.json" >/dev/null
 
-read_api b115-report-after "$(jq -nc --arg date "$B80_DATE" '{action:"sync_day",business_date:$date}')"
+owner_api /v1/legacy-sync b115-report-after "$(jq -nc --arg date "$B80_DATE" '{action:"sync_day",business_date:$date}')"
 node - "$D/b115-report-before.json" "$D/b115-report-after.json" <<'NODE'
 const fs=require('fs'),before=JSON.parse(fs.readFileSync(process.argv[2],'utf8')).day.report.reports.ca2,after=JSON.parse(fs.readFileSync(process.argv[3],'utf8')).day.report.reports.ca2;
 const row=(matrix,key,value)=>(matrix.rows||[]).find(x=>x[key]===value)||{counts:{},total:0};
