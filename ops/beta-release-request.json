@@ -1,6 +1,6 @@
 {
   "stage": "RUNTIME_DOD_VERIFY",
-  "mode": "BETA116_LIVE_RUNTIME_DIAGNOSTIC_READBACK",
+  "mode": "BETA116_LIVE_RUNTIME_DIAGNOSTIC_BETA_ONLY",
   "version_name": "0.4.2-beta.116",
   "version_code": 122,
   "base_version": "0.4.2-beta.116",
@@ -53,8 +53,8 @@
   "stable_gas_repair_status": "PASS",
   "beta_domain_status": "PASS",
   "regression_case": "tools/beta116_owner_scope_contract.py + preserve Beta115 ACTIVE_PASS including LABOR-EXACT-SESSION-002, DOCUMENT-BATCH-MODE-TICK-002, UI-REVIEW-WARNING-001, NAV-HISTORY-BACK-001, PDA-EXIT-001, ENV-ISOLATION-001",
-  "execution_nonce": "beta116-runtime-live-diagnostic-after-service-pass-20260904-04",
-  "next_action": "READBACK_WORKER_HEALTH_GAS_DISCOVERY_UPDATE_CHECK_AFTER_SERVICE_RECOVERY",
+  "execution_nonce": "beta116-beta-only-live-readback-20260904-05",
+  "next_action": "VERIFY_BETA_WORKER_DISCOVERY_AND_UPDATE_CHECK_FROM_BETA115",
   "service_gate_status": "PASS",
   "service_gate_run_id": 33767353642,
   "service_gate_artifact_id": 9898616640,
