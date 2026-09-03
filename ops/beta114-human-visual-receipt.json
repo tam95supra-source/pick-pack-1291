@@ -1,0 +1,34 @@
+{
+  "status": "PASS",
+  "channel": "BETA",
+  "version_name": "0.4.2-beta.114",
+  "version_code": 120,
+  "package": "vn.pickpack1291.app.beta.publicbeta",
+  "source_sha": "5686da2cc6fdb2bf845456bda9e703eb68e9f1f0",
+  "candidate_run_id": 33691947969,
+  "candidate_artifact_id": 9870515268,
+  "candidate_artifact_name": "beta-candidate-33691947969",
+  "apk_sha256": "cc611efc72a3cd0af413f316b6182adb281d398c189f5bb9d613235722b296bd",
+  "apk_size": 14232565,
+  "signer_sha256": "d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e",
+  "visual_run_id": 33694668738,
+  "visual_artifact_id": 9871627721,
+  "visual_artifact_name": "beta-verify-33694668738",
+  "screenshot_count": 42,
+  "viewports": [
+    "320x568",
+    "360x640",
+    "480x800"
+  ],
+  "human_visual": "PASS",
+  "inspected_scope": "BETA114_OWNER_SCOPE_AND_ACTIVE_PASS_VISUAL_REGRESSION",
+  "findings": [
+    "320x568 PASS.",
+    "360x640 PASS.",
+    "480x800 PASS; không thấy clipping/overlap nghiêm trọng.",
+    "Các layout/chức năng visual trong exact candidate giữ contract ACTIVE_PASS liên quan."
+  ],
+  "pda_functional_pre_ota": "PASS",
+  "back_api36": "PASS",
+  "recorded_at": "2026-09-03T07:00:00+07:00"
+}
