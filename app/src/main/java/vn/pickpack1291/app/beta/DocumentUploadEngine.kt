@@ -48,7 +48,7 @@ class DocumentUploadEngine(context:Context, private val api:BetaApiClient) {
             .put("dhash64_variants",JSONArray(item.dhash64Variants))
             .put("width",item.width).put("height",item.height).put("source_kind",item.sourceKind)
             .put("captured_at",item.capturedAt).put("idempotency_key",item.idempotencyKey).put("allow_similar",item.allowSimilar)
-            .put("group_id",item.groupId).put("group_mode",item.groupMode).put("page_index",item.pageIndex).put("page_count",item.pageCount)
+            .put("group_id",item.groupId).put("group_mode",item.groupMode).put("page_index",item.pageIndex).put("page_count",item.pageCount).put("note",item.note)
         val session=client.post("/v1/documents/upload-session",payload)
         if(!session.ok){
             return when(session.error){
