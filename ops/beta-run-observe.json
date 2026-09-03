@@ -1,8 +1,8 @@
 {
-  "run_id": 33819159706,
-  "run_sha": "22c1662a5ed17d01b6b496fd29c4507199ea1a1c",
+  "run_id": 33819263277,
+  "run_sha": "d1dba9e06564bbb018a5d7cce8da88d87d5ed549",
   "ref": "release/beta117-owner-followup-performance-20260904",
-  "execution_nonce": "beta117-runtime-dod-post-discovery-20260904-10",
+  "execution_nonce": "beta117-runtime-dod-device-evidence-20260904-11",
   "stage": "RUNTIME_DOD_VERIFY",
-  "observed_at": "2026-09-03T23:48:23Z"
+  "observed_at": "2026-09-03T23:49:51Z"
 }
