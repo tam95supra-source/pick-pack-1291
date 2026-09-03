@@ -8,6 +8,7 @@ import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
+import android.content.Context
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
@@ -21,12 +22,32 @@ import java.util.UUID
 import java.util.concurrent.Executors
 
 object DocumentManagementFeature {
-    // Beta108 final owner rule: category UPDATE renames all; DELETE hard-purges; both reuse canonical action confirmation.
+    private class ZoomSwipeImageView(context:Context,private val onPrev:()->Unit,private val onNext:()->Unit):ImageView(context){
+        private var zoom=1f
+        private val scale=android.view.ScaleGestureDetector(context,object:android.view.ScaleGestureDetector.SimpleOnScaleGestureListener(){
+            override fun onScale(d:android.view.ScaleGestureDetector):Boolean{
+                zoom=(zoom*d.scaleFactor).coerceIn(1f,5f);scaleX=zoom;scaleY=zoom;pivotX=d.focusX;pivotY=d.focusY;return true
+            }
+        })
+        private val gesture=android.view.GestureDetector(context,object:android.view.GestureDetector.SimpleOnGestureListener(){
+            override fun onDown(e:android.view.MotionEvent)=true
+            override fun onFling(e1:android.view.MotionEvent?,e2:android.view.MotionEvent,velocityX:Float,velocityY:Float):Boolean{
+                if(zoom>1.05f||e1==null||kotlin.math.abs(e2.x-e1.x)<90f)return false
+                if(e2.x<e1.x)onNext() else onPrev();return true
+            }
+        })
+        init{scaleType=ScaleType.FIT_CENTER;isClickable=true}
+        override fun onTouchEvent(e:android.view.MotionEvent):Boolean{scale.onTouchEvent(e);gesture.onTouchEvent(e);return true}
+        fun resetZoom(){zoom=1f;scaleX=1f;scaleY=1f;translationX=0f;translationY=0f}
+    }
+
+    // Category mutation semantics and batch grouping remain owner-locked.
     private data class Selected(
         val image:DocumentImageProcessor.ProcessedImage,
         val sourceKind:String,
         val capturedAt:String,
-        val idempotencyKey:String
+        val idempotencyKey:String,
+        var note:String=""
     )
 
     class Controller(
@@ -55,6 +76,7 @@ object DocumentManagementFeature {
         private val green=Color.rgb(36,153,85)
         private val selected=mutableListOf<Selected>()
         private val selectedDocumentIds=linkedSetOf<String>()
+        private val selectedDraftKeys=linkedSetOf<String>()
         private var categoryIds=listOf<String>()
         private var categoryNames=listOf<String>()
         private lateinit var categorySpinner:Spinner
@@ -66,6 +88,8 @@ object DocumentManagementFeature {
         private var filterCategoryIds=listOf<String>("")
         private var suppressFilter=false
         private lateinit var selectedHost:LinearLayout
+        private lateinit var selectAllDraftButton:Button
+        private lateinit var deleteDraftButton:Button
         private lateinit var previewMeta:TextView
         private lateinit var uploadButton:Button
         private lateinit var pendingText:TextView
@@ -88,6 +112,10 @@ object DocumentManagementFeature {
             text=label;textSize=10.5f;setTextColor(Color.WHITE);typeface=Typeface.DEFAULT_BOLD;isAllCaps=false
             setPadding(dp(6),0,dp(6),0);background=GradientDrawable().apply{setColor(color);cornerRadius=dp(10).toFloat()}
         }
+        private fun iconButton(res:Int,color:Int,desc:String)=ImageButton(activity).apply{
+            setImageResource(res);imageTintList=ColorStateList.valueOf(Color.WHITE);contentDescription=desc
+            setPadding(dp(10),dp(10),dp(10),dp(10));background=GradientDrawable().apply{setColor(color);cornerRadius=dp(10).toFloat()}
+        }
         private fun postUi(block:()->Unit){if(!disposed)activity.runOnUiThread{if(!disposed)block()}}
         private fun error(message:String)=TopNotice.show(activity,message,TopNotice.Kind.ERROR)
         private fun success(message:String)=TopNotice.show(activity,message,TopNotice.Kind.SUCCESS)
@@ -102,18 +130,16 @@ object DocumentManagementFeature {
 
 
             val categoryBox=column().apply{background=bg();setPadding(dp(10),dp(9),dp(10),dp(10))}
-            categoryBox.addView(text("Loại biên bản",10f,muted,true))
-            categoryBox.addView(gap(4))
+            categoryBox.addView(text("Loại biên bản",10f,muted,true));categoryBox.addView(gap(4))
             categorySpinner=Spinner(activity).apply{minimumHeight=dp(46);setPadding(dp(8),dp(3),dp(8),dp(3));background=bg()}
-            categoryBox.addView(categorySpinner,LinearLayout.LayoutParams(-1,dp(46)))
-            categoryBox.addView(gap(6))
             val categoryActions=row()
-            val add=button("Thêm",teal)
-            val edit=button("Sửa",navy)
-            val remove=button("Xóa",red)
-            categoryActions.addView(add,LinearLayout.LayoutParams(0,dp(42),1f).apply{marginEnd=dp(3)})
-            categoryActions.addView(edit,LinearLayout.LayoutParams(0,dp(42),1f).apply{marginStart=dp(3);marginEnd=dp(3)})
-            categoryActions.addView(remove,LinearLayout.LayoutParams(0,dp(42),1f).apply{marginStart=dp(3)})
+            val add=iconButton(R.drawable.ic_pp_add,teal,"Thêm loại biên bản")
+            val edit=iconButton(R.drawable.ic_pp_edit,navy,"Sửa loại biên bản")
+            val remove=iconButton(R.drawable.ic_pp_delete,red,"Xóa loại biên bản")
+            categoryActions.addView(categorySpinner,LinearLayout.LayoutParams(0,dp(46),1f).apply{marginEnd=dp(4)})
+            categoryActions.addView(add,LinearLayout.LayoutParams(dp(44),dp(44)).apply{marginStart=dp(2);marginEnd=dp(2)})
+            categoryActions.addView(edit,LinearLayout.LayoutParams(dp(44),dp(44)).apply{marginStart=dp(2);marginEnd=dp(2)})
+            categoryActions.addView(remove,LinearLayout.LayoutParams(dp(44),dp(44)).apply{marginStart=dp(2)})
             categoryBox.addView(categoryActions,LinearLayout.LayoutParams(-1,-2))
             body.addView(categoryBox,LinearLayout.LayoutParams(-1,-2))
             body.addView(gap(10))
@@ -154,10 +180,15 @@ object DocumentManagementFeature {
             imageBox.addView(gap(8))
             val selectedScroll=HorizontalScrollView(activity).apply{isHorizontalScrollBarEnabled=false}
             selectedHost=row().apply{setPadding(dp(3),dp(3),dp(3),dp(3))}
-            selectedScroll.addView(selectedHost,ViewGroup.LayoutParams(-2,dp(92)))
-            imageBox.addView(selectedScroll,LinearLayout.LayoutParams(-1,dp(92)))
-            previewMeta=text("0 ảnh",9.4f,muted)
-            imageBox.addView(previewMeta)
+            selectedScroll.addView(selectedHost,ViewGroup.LayoutParams(-2,dp(108)))
+            imageBox.addView(selectedScroll,LinearLayout.LayoutParams(-1,dp(108)))
+            previewMeta=text("0 ảnh",9.4f,muted);imageBox.addView(previewMeta);imageBox.addView(gap(5))
+            val draftActions=row()
+            selectAllDraftButton=button("Chọn tất cả",navy).apply{isEnabled=false;alpha=.4f}
+            deleteDraftButton=button("Xóa ảnh chọn",red).apply{isEnabled=false;alpha=.4f}
+            draftActions.addView(selectAllDraftButton,LinearLayout.LayoutParams(0,dp(38),1f).apply{marginEnd=dp(3)})
+            draftActions.addView(deleteDraftButton,LinearLayout.LayoutParams(0,dp(38),1f).apply{marginStart=dp(3)})
+            imageBox.addView(draftActions,LinearLayout.LayoutParams(-1,dp(38)))
             imageBox.addView(gap(8))
             uploadButton=button("Tải lên",green).apply{isEnabled=false;alpha=.4f}
             imageBox.addView(uploadButton,LinearLayout.LayoutParams(-1,dp(46)))
@@ -187,9 +218,11 @@ object DocumentManagementFeature {
             body.addView(filterSpinner,LinearLayout.LayoutParams(-1,dp(42)));body.addView(gap(5))
             val selectionRow=row()
             selectedDeleteText=text("Đã chọn 0 ảnh",9.3f,muted,true)
+            val selectAllUploaded=button("Chọn tất cả",navy)
             deleteSelectedButton=button("Xóa đã chọn",red).apply{isEnabled=false;alpha=.4f}
             selectionRow.addView(selectedDeleteText,LinearLayout.LayoutParams(0,-2,1f))
-            selectionRow.addView(deleteSelectedButton,LinearLayout.LayoutParams(dp(112),dp(38)))
+            selectionRow.addView(selectAllUploaded,LinearLayout.LayoutParams(dp(94),dp(38)).apply{marginEnd=dp(3)})
+            selectionRow.addView(deleteSelectedButton,LinearLayout.LayoutParams(dp(108),dp(38)))
             body.addView(selectionRow);body.addView(gap(5))
             emptyText=text("Đang tải...",9.5f,muted).apply{setPadding(dp(4),dp(8),dp(4),dp(8))}
             body.addView(emptyText)
@@ -204,7 +237,23 @@ object DocumentManagementFeature {
             uploadButton.setOnClickListener{uploadSelected()}
             retryPendingButton.setOnClickListener{retryPending()}
             refresh.setOnClickListener{refreshDocuments();refreshPending()}
+            selectAllDraftButton.setOnClickListener{selectedDraftKeys.clear();selectedDraftKeys.addAll(selected.map{it.idempotencyKey});renderSelectedPreview()}
+            deleteDraftButton.setOnClickListener{
+                val keys=selectedDraftKeys.toSet();if(keys.isNotEmpty()){
+                    draftStore.removeItems(login,keys);selected.removeAll{it.idempotencyKey in keys};selectedDraftKeys.clear();renderSelectedPreview()
+                }
+            }
             deleteSelectedButton.setOnClickListener{deleteSelectedRecords()}
+            selectAllUploaded.setOnClickListener{
+                selectedDocumentIds.clear()
+                for(i in 0 until recordsHost.childCount){
+                    val group=recordsHost.getChildAt(i)
+                    group.findViewWithTag<View>("document_check_all_marker")
+                }
+                val category=selectedFilterId()
+                val path=if(category.isBlank())"/v1/documents?limit=100" else "/v1/documents?limit=100&category_id="+java.net.URLEncoder.encode(category,"UTF-8")
+                executor.execute{val result=client.get(path);postUi{if(result.ok){val a=result.json?.optJSONArray("items")?:JSONArray();for(i in 0 until a.length())a.optJSONObject(i)?.optString("document_id")?.takeIf{it.isNotBlank()}?.let(selectedDocumentIds::add);refreshDocumentsWithSelection()}}}
+            }
             filterSpinner.onItemSelectedListener=object:AdapterView.OnItemSelectedListener{
                 override fun onNothingSelected(parent:AdapterView<*>?)=Unit
                 override fun onItemSelected(parent:AdapterView<*>?,view:View?,position:Int,id:Long){if(!suppressFilter)refreshDocuments()}
@@ -234,7 +283,7 @@ object DocumentManagementFeature {
                         val image=DocumentImageProcessor.process(activity,uri)
                         val capturedAt=Instant.now().toString();val idempotencyKey=UUID.randomUUID().toString()
                         draftStore.append(login,sourceKind,capturedAt,idempotencyKey,image)
-                        selected.add(Selected(image,sourceKind,capturedAt,idempotencyKey));added++
+                        selected.add(Selected(image,sourceKind,capturedAt,idempotencyKey,""));added++
                     }catch(t:Throwable){if(firstError==null)firstError=t.message?:"IMAGE_READ_FAILED"}
                     finally{if(sourceKind=="CAMERA")runCatching{activity.contentResolver.delete(uri,null,null)}}
                 }
@@ -249,27 +298,52 @@ object DocumentManagementFeature {
 
         private fun renderSelectedPreview(){
             selectedHost.removeAllViews()
-            selected.take(12).forEachIndexed{index,item->
+            selected.forEachIndexed{index,item->
                 val box=column().apply{setPadding(dp(2),dp(2),dp(2),dp(2));background=bg(Color.rgb(248,250,252),8)}
                 val opts=BitmapFactory.Options().apply{inSampleSize=8;inPreferredConfig=android.graphics.Bitmap.Config.RGB_565}
                 val bmp=BitmapFactory.decodeByteArray(item.image.bytes,0,item.image.bytes.size,opts)
-                val thumb=ImageView(activity).apply{setImageBitmap(bmp);scaleType=ImageView.ScaleType.CENTER_CROP;contentDescription="Ảnh ${index+1}"}
-                box.addView(thumb,LinearLayout.LayoutParams(dp(66),dp(64)))
-                box.addView(text("${index+1}",8.5f,navy,true).apply{gravity=Gravity.CENTER},LinearLayout.LayoutParams(dp(66),dp(18)))
-                selectedHost.addView(box,LinearLayout.LayoutParams(dp(70),dp(86)).apply{marginEnd=dp(3)})
+                val thumb=ImageView(activity).apply{setImageBitmap(bmp);scaleType=ImageView.ScaleType.CENTER_CROP;contentDescription="Xem ảnh ${index+1}";setOnClickListener{showSelectedViewer(index)}}
+                box.addView(thumb,LinearLayout.LayoutParams(dp(70),dp(62)))
+                val foot=row()
+                val check=CheckBox(activity).apply{isChecked=item.idempotencyKey in selectedDraftKeys;setOnCheckedChangeListener{_,on->if(on)selectedDraftKeys.add(item.idempotencyKey)else selectedDraftKeys.remove(item.idempotencyKey);updateDraftSelection()}}
+                foot.addView(check,LinearLayout.LayoutParams(dp(34),dp(34)))
+                foot.addView(text(if(item.note.isBlank())"${index+1}" else "${index+1} • note",8.2f,navy,true).apply{gravity=Gravity.CENTER},LinearLayout.LayoutParams(dp(54),dp(34)))
+                box.addView(foot,LinearLayout.LayoutParams(dp(88),dp(34)))
+                selectedHost.addView(box,LinearLayout.LayoutParams(dp(92),dp(102)).apply{marginEnd=dp(3)})
             }
-            if(selected.size>12)selectedHost.addView(text("+${selected.size-12}",12f,navy,true).apply{gravity=Gravity.CENTER},LinearLayout.LayoutParams(dp(54),dp(86)))
             val total=selected.sumOf{it.image.bytes.size.toLong()}
             previewMeta.text=if(selected.isEmpty())"0 ảnh" else "${selected.size} ảnh • ${formatBytes(total)}"
             if(::multiPageCheck.isInitialized){
-                val enabled=selected.size>1
-                multiPageCheck.isEnabled=enabled
-                multiDocumentCheck.isEnabled=enabled
+                val enabled=selected.size>1;multiPageCheck.isEnabled=enabled;multiDocumentCheck.isEnabled=enabled
                 if(!enabled){multiPageCheck.isChecked=true;multiDocumentCheck.isChecked=false}
             }
-            uploadButton.isEnabled=selected.isNotEmpty()&&categoryIds.isNotEmpty()&&!busy
-            uploadButton.alpha=if(uploadButton.isEnabled)1f else .4f
+            uploadButton.isEnabled=selected.isNotEmpty()&&categoryIds.isNotEmpty()&&!busy;uploadButton.alpha=if(uploadButton.isEnabled)1f else .4f
+            updateDraftSelection()
         }
+        private fun updateDraftSelection(){
+            if(!::deleteDraftButton.isInitialized)return
+            selectAllDraftButton.isEnabled=selected.isNotEmpty();selectAllDraftButton.alpha=if(selected.isNotEmpty())1f else .4f
+            deleteDraftButton.isEnabled=selectedDraftKeys.isNotEmpty();deleteDraftButton.alpha=if(selectedDraftKeys.isNotEmpty())1f else .4f
+            deleteDraftButton.text=if(selectedDraftKeys.isEmpty())"Xóa ảnh chọn" else "Xóa ${selectedDraftKeys.size} ảnh"
+        }
+        private fun showSelectedViewer(start:Int){
+            if(start !in selected.indices)return
+            var index=start
+            val host=column().apply{setPadding(dp(8),dp(6),dp(8),dp(4))}
+            lateinit var image:ZoomSwipeImageView
+            val page=text("",9.5f,navy,true).apply{gravity=Gravity.CENTER}
+            val note=EditText(activity).apply{hint="Chú thích ngắn";setSingleLine(false);maxLines=3;background=bg();setPadding(dp(9),dp(7),dp(9),dp(7))}
+            fun render(){
+                val item=selected[index];val bmp=BitmapFactory.decodeByteArray(item.image.bytes,0,item.image.bytes.size)
+                image.resetZoom();image.setImageBitmap(bmp);page.text="Ảnh ${index+1}/${selected.size}";note.setText(item.note)
+            }
+            image=ZoomSwipeImageView(activity,{if(index>0){index--;render()}},{if(index<selected.lastIndex){index++;render()}})
+            host.addView(image,LinearLayout.LayoutParams(-1,dp(360)));host.addView(page);host.addView(gap(5));host.addView(note,LinearLayout.LayoutParams(-1,-2))
+            val dialog=AlertDialog.Builder(activity).setTitle("Xem ảnh đã chọn • vuốt / pinch zoom").setView(host).setNegativeButton("Đóng",null).setPositiveButton("LƯU CHÚ THÍCH",null).create()
+            dialog.setOnShowListener{dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener{val v=note.text.toString().trim().take(240);selected[index].note=v;draftStore.updateNote(login,selected[index].idempotencyKey,v);renderSelectedPreview();page.text="Đã lưu • Ảnh ${index+1}/${selected.size}"}}
+            dialog.show();render()
+        }
+
         private fun applyCategoryEntries(entries:List<DocumentCategoryCache.Entry>){
             val previousCategory=selectedCategory()?.first
             val previousFilter=if(::filterSpinner.isInitialized)filterCategoryIds.getOrNull(filterSpinner.selectedItemPosition).orEmpty() else ""
@@ -295,7 +369,7 @@ object DocumentManagementFeature {
             executor.execute{
                 val drafts=draftStore.loadAll(login)
                 if(drafts.isEmpty())return@execute
-                selected.clear();selected.addAll(drafts.map{Selected(it.image,it.sourceKind,it.capturedAt,it.idempotencyKey)})
+                selected.clear();selected.addAll(drafts.map{Selected(it.image,it.sourceKind,it.capturedAt,it.idempotencyKey,it.note)})
                 postUi{renderSelectedPreview()}
             }
         }
@@ -450,7 +524,7 @@ object DocumentManagementFeature {
                         try{
                             val pageIndex=if(mode=="MULTI_PAGE")index+1 else 1
                             val pageCount=if(mode=="MULTI_PAGE")batch.size else 1
-                            queued+=pendingStore.enqueue(login,categoryId,item.sourceKind,item.capturedAt,item.idempotencyKey,item.image,groupId,mode,pageIndex,pageCount)
+                            queued+=pendingStore.enqueue(login,categoryId,item.sourceKind,item.capturedAt,item.idempotencyKey,item.image,groupId,mode,pageIndex,pageCount,item.note)
                         }catch(t:Throwable){enqueueError=t.message?:"DOCUMENT_PENDING_SAVE_FAILED"}
                     }
                 }
@@ -568,13 +642,14 @@ object DocumentManagementFeature {
             uploadButton.isEnabled=false;uploadButton.alpha=.4f
         }
         private fun selectedFilterId():String=if(::filterSpinner.isInitialized)filterCategoryIds.getOrNull(filterSpinner.selectedItemPosition).orEmpty() else ""
-        private fun refreshDocuments(){
+        private fun refreshDocumentsWithSelection(){refreshDocuments(clearSelection=false)}
+        private fun refreshDocuments(clearSelection:Boolean=true){
             val category=selectedFilterId()
             val path=if(category.isBlank())"/v1/documents?limit=100" else "/v1/documents?limit=100&category_id="+java.net.URLEncoder.encode(category,"UTF-8")
             executor.execute{
                 val result=client.get(path)
                 postUi{
-                    recordsHost.removeAllViews();selectedDocumentIds.clear();updateDeleteSelection()
+                    recordsHost.removeAllViews();if(clearSelection)selectedDocumentIds.clear();updateDeleteSelection()
                     if(!result.ok){emptyText.visibility=View.VISIBLE;emptyText.text=messageFor(result.error);return@postUi}
                     val arr=result.json?.optJSONArray("items")?:JSONArray()
                     if(arr.length()==0){emptyText.visibility=View.VISIBLE;emptyText.text="Chưa có biên bản.";return@postUi}
@@ -613,10 +688,11 @@ object DocumentManagementFeature {
                 }
                 line.addView(check,LinearLayout.LayoutParams(dp(38),dp(38)))
                 val label=if(pages>1)"Trang $page/$pages" else "Ảnh"
-                line.addView(text("$label • ${item.optInt("width")}×${item.optInt("height")} • ${formatBytes(item.optLong("byte_size"))}",8.9f,ink,true),LinearLayout.LayoutParams(0,-2,1f))
+                val note=item.optString("note").trim()
+                line.addView(text("$label • ${item.optInt("width")}×${item.optInt("height")} • ${formatBytes(item.optLong("byte_size"))}${if(note.isBlank())"" else "\n"+note}",8.9f,ink,true).apply{maxLines=3},LinearLayout.LayoutParams(0,-2,1f))
                 val view=button("Xem",teal)
                 line.addView(view,LinearLayout.LayoutParams(dp(60),dp(34)))
-                view.setOnClickListener{viewDocument(id)}
+                val idx=items.indexOf(item);view.setOnClickListener{viewDocumentGroup(items,idx)}
                 card.addView(line);card.addView(gap(3))
             }
             return card
@@ -651,30 +727,31 @@ object DocumentManagementFeature {
                 }
             }
         }
-        private fun viewDocument(documentId:String){
-            if(busy)return
-            val id=documentId.trim()
-            if(id.isBlank())return
-            busy=true
+        private fun viewDocumentGroup(items:List<JSONObject>,start:Int){
+            if(busy||items.isEmpty())return;busy=true
             executor.execute{
-                val cached=mediaCache.get(id)
-                val bytes=if(cached!=null)cached else{
-                    val result=client.getMedia(id)
-                    if(!result.ok||result.bytes==null){
-                        busy=false
-                        postUi{error(messageFor(result.error))}
-                        return@execute
-                    }
-                    mediaCache.put(id,result.bytes)
-                    result.bytes
+                val bytes=mutableListOf<ByteArray>();var errorCode:String?=null
+                for(item in items){
+                    val id=item.optString("document_id")
+                    val cached=mediaCache.get(id)
+                    val data=cached?:client.getMedia(id).let{r->if(!r.ok||r.bytes==null){errorCode=r.error;null}else{mediaCache.put(id,r.bytes);r.bytes}}
+                    if(data==null)break else bytes.add(data)
                 }
                 busy=false
                 postUi{
-                    val bmp=BitmapFactory.decodeByteArray(bytes,0,bytes.size)
-                    if(bmp==null){mediaCache.clear(id);error("Không hiển thị được ảnh.");return@postUi}
-                    val image=ImageView(activity).apply{setImageBitmap(bmp);adjustViewBounds=true;scaleType=ImageView.ScaleType.FIT_CENTER;setPadding(dp(4),dp(4),dp(4),dp(4))}
-                    val scroll=ScrollView(activity).apply{addView(image,ViewGroup.LayoutParams(-1,-2))}
-                    AlertDialog.Builder(activity).setTitle("Ảnh biên bản").setView(scroll).setPositiveButton("Đóng",null).show()
+                    if(errorCode!=null||bytes.size!=items.size){error(messageFor(errorCode));return@postUi}
+                    var index=start.coerceIn(0,bytes.lastIndex)
+                    val host=column().apply{setPadding(dp(8),dp(6),dp(8),dp(4))}
+                    lateinit var image:ZoomSwipeImageView
+                    val page=text("",9.5f,navy,true).apply{gravity=Gravity.CENTER}
+                    val note=text("",9.4f,ink,false).apply{setPadding(dp(8),dp(5),dp(8),dp(5));background=bg(Color.rgb(248,250,252),8)}
+                    fun render(){
+                        val bmp=BitmapFactory.decodeByteArray(bytes[index],0,bytes[index].size)
+                        image.resetZoom();image.setImageBitmap(bmp);page.text="Trang ${index+1}/${bytes.size}";note.text=items[index].optString("note").ifBlank{"Không có chú thích"}
+                    }
+                    image=ZoomSwipeImageView(activity,{if(index>0){index--;render()}},{if(index<bytes.lastIndex){index++;render()}})
+                    host.addView(image,LinearLayout.LayoutParams(-1,dp(390)));host.addView(page);host.addView(gap(4));host.addView(note,LinearLayout.LayoutParams(-1,-2))
+                    AlertDialog.Builder(activity).setTitle("Biên bản • vuốt trang / pinch zoom").setView(host).setPositiveButton("Đóng",null).show();render()
                 }
             }
         }
