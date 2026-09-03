@@ -2121,7 +2121,7 @@ class OperationsActivity : Activity() {
         fun supplierCode(raw:String):String{val x=fold(raw);return when{x=="INHOUSE"||x=="IH"->"IH";x=="NGUON LUC VIET"||x=="NLV"->"NLV";x=="VIET WORK"||x=="VW"->"VW";x=="MAN POWER"||x=="MP"->"MP";x=="MEGA LINK"||x=="MGL"->"MGL";x=="HA GIA PHAT"||x=="HGP"->"HGP";x=="HOA ANH DAO"||x=="HAD"->"HAD";else->raw.trim().ifBlank{"Khác"}}}
         fun reportPosition(emp:JSONObject,work:String):String{val p=fold(emp.optString("main_position"));val d=fold(emp.optString("department"));return when{p=="TRUONG NHOM"->"Trưởng nhóm";p=="CHUYEN VIEN"->"Chuyên viên";p=="TO TRUONG"->"Tổ trưởng";p.contains("DIEU PHOI")&&d.contains("PACK")->"Điều phối khu pack";p.contains("DIEU PHOI")&&(d.contains("CHO XUAT")||d.contains("GIAO VAN")||d.contains("OUTBOUND"))->"Điều phối khu chờ xuất";p.contains("KEO HANG")->"Kéo hàng";p=="5S"||p.contains(" 5S")->"5S";p.contains("PHUC LONG")->"Phúc Long";fold(work)=="PICK"||p.contains("PICK")->"Picker";fold(work)=="PACK"||p.contains("PACK")->"Packer";else->emp.optString("main_position").ifBlank{"Khác"}}}
         fun tenureLabel(emp:JSONObject,date:String):String{val raw=emp.optString("start_date").trim();if(raw.isBlank())return "Nhân sự cũ";val started=runCatching{if(raw.matches(Regex("\\d{2}/\\d{2}/\\d{4}")))java.time.LocalDate.parse(raw,DateTimeFormatter.ofPattern("dd/MM/yyyy"))else java.time.LocalDate.parse(raw.take(10))}.getOrNull()?:return "Nhân sự cũ";val target=runCatching{java.time.LocalDate.parse(date)}.getOrNull()?:return "Nhân sự cũ";return if(java.time.temporal.ChronoUnit.DAYS.between(started,target)<=30)"Nhân sự mới" else "Nhân sự cũ"}
-        data class Entry(val mnv:String,val shift:String,val work:String,val emp:JSONObject)
+        data class Entry(val mnv:String,val shift:String,val work:String,val emp:JSONObject,val deductSupport:Boolean=false)
         var cachedDate="";var cachedEntries:List<Entry> = emptyList();var loadSerial=0
         fun makeGrid(rows:List<Entry>,kind:String,date:String):JSONObject{
             val columns=listOf("IH","NLV","VW","MP","MGL","HGP","HAD").filter{c->rows.any{supplierCode(it.emp.optString("supplier"))==c}}
@@ -2130,23 +2130,45 @@ class OperationsActivity : Activity() {
             rows.forEach{r->val label=if(kind=="position")reportPosition(r.emp,r.work) else tenureLabel(r.emp,date);val key=if(values.containsKey(label))label else if(kind=="position")"Khác" else label;val sup=supplierCode(r.emp.optString("supplier"));values.getOrPut(key){LinkedHashMap()}[sup]=(values[key]?.get(sup)?:0)+1}
             val outRows=JSONArray();rowOrder.forEach{label->val counts=JSONObject();var total=0;columns.forEach{c->val n=values[label]?.get(c)?:0;counts.put(c,n);total+=n};if(total>0||kind!="position")outRows.put(JSONObject().put(if(kind=="position")"position" else "label",label).put("counts",counts).put("total",total))};val totals=JSONObject();var grand=0;columns.forEach{c->val n=rowOrder.sumOf{values[it]?.get(c)?:0};totals.put(c,n);grand+=n};return JSONObject().put("columns",JSONArray(columns)).put("rows",outRows).put("totals",totals).put("total",grand)
         }
+        fun supportGrid(rows:List<Entry>):JSONObject{
+            val unique=rows.distinctBy{"${it.mnv}|${shiftBucket(it.shift)}"}
+            val columns=listOf("IH","NLV","VW","MP","MGL","HGP","HAD").filter{code->unique.any{supplierCode(it.emp.optString("supplier"))==code}}
+            val counts=JSONObject();var total=0
+            columns.forEach{code->val n=unique.count{supplierCode(it.emp.optString("supplier"))==code};counts.put(code,n);total+=n}
+            val row=JSONObject().put("position","Hỗ trợ bộ phận khác").put("counts",counts).put("total",total)
+            return JSONObject().put("columns",JSONArray(columns)).put("rows",JSONArray().put(row)).put("totals",JSONObject(counts.toString())).put("total",total)
+        }
         fun renderCached(){
             box.removeAllViews();if(cachedDate!=selectedDate){box.addView(info("Đang đọc snapshot $selectedDate từ bộ nhớ PDA…"));return}
             val selected=cachedEntries.filter{when(period.selectedItemPosition){0->shiftBucket(it.shift) in setOf("CA1","HC");1->shiftBucket(it.shift)=="CA2";else->true}}
-            box.addView(s34ReportGrid("",makeGrid(selected,"position",selectedDate),"Vị trí","position"));box.addView(gap(4));box.addView(s34ReportGrid("",makeGrid(selected,"tenure",selectedDate),"Thâm niên","label"))
+            val support=selected.filter{it.deductSupport}.distinctBy{"${it.mnv}|${shiftBucket(it.shift)}"}
+            val main=selected.filterNot{it.deductSupport}
+            box.addView(s34ReportGrid("",makeGrid(main,"position",selectedDate),"Vị trí","position"));box.addView(gap(4));box.addView(s34ReportGrid("",makeGrid(main,"tenure",selectedDate),"Thâm niên","label"))
+            if(support.isNotEmpty()){box.addView(gap(4));box.addView(s34ReportGrid("",supportGrid(support),"Hỗ trợ","position"))}
             if(cachedEntries.isEmpty())box.addView(info("Chưa có snapshot ngày đã chọn trên PDA. Chọn ngày khác hoặc đồng bộ để tải dữ liệu canonical."))
         }
         fun loadDate(){
             val serial=++loadSerial;cachedDate="";box.removeAllViews();box.addView(info("Đang đọc báo cáo $selectedDate…"))
             Thread{
                 val out=LinkedHashMap<String,Entry>();val day=operationalStore.loadDay(selectedDate);val events=day?.optJSONArray("events")?:JSONArray()
+                val deducted=mutableSetOf<String>()
+                fun deductedFlag(v:Any?):Boolean=when(v){is Boolean->v;is Number->v.toInt()!=0;else->foldLocal(v?.toString().orEmpty()) in setOf("CO","TRUE","1","YES")}
+                for(i in 0 until events.length()){
+                    val e=events.optJSONObject(i)?:continue;if(e.optString("event_type").uppercase()!="LABOR_START")continue
+                    val p=runCatching{JSONObject(e.optString("payload_json","{}"))}.getOrDefault(JSONObject())
+                    val after=p.optJSONObject("after");val mnv=e.optString("mnv").ifBlank{p.optString("mnv")}.ifBlank{after?.optString("mnv").orEmpty()}
+                    val shift=e.optString("shift").ifBlank{p.optString("shift")}.ifBlank{after?.optString("shift").orEmpty()}
+                    val raw=if(p.has("deduct_staff"))p.opt("deduct_staff") else after?.opt("deduct_staff")
+                    if(mnv.isNotBlank()&&shift.isNotBlank()&&deductedFlag(raw))deducted.add("$mnv|${shiftBucket(shift)}")
+                }
                 for(i in 0 until events.length()){
                     val e=events.optJSONObject(i)?:continue;if(e.optString("event_type").uppercase()!="ATTENDANCE_ENTER")continue
                     val p=runCatching{JSONObject(e.optString("payload_json","{}"))}.getOrDefault(JSONObject());val after=p.optJSONObject("after");val snap=p.optJSONObject("employee_snapshot")?:after?.optJSONObject("employee_snapshot")
                     val mnv=e.optString("mnv").ifBlank{p.optString("mnv")}.ifBlank{after?.optString("mnv").orEmpty()}.ifBlank{snap?.optString("mnv").orEmpty()};if(mnv.isBlank())continue
                     val emp=MasterDataCache.employee(this,mnv)?:snap?:JSONObject();if(!site1291(emp.optString("site")))continue
                     val shift=e.optString("shift").ifBlank{p.optString("shift")}.ifBlank{after?.optString("shift").orEmpty()};val work=e.optString("work_choice").ifBlank{p.optString("work_choice")}.ifBlank{after?.optString("work_choice").orEmpty()}
-                    val key=e.optString("entity_id").ifBlank{e.optString("session_id")}.ifBlank{e.optString("event_id")}.ifBlank{"$mnv|$shift|$i"};out[key]=Entry(mnv,shift,work,emp)
+                    val key=e.optString("entity_id").ifBlank{e.optString("session_id")}.ifBlank{e.optString("event_id")}.ifBlank{"$mnv|$shift|$i"}
+                    out[key]=Entry(mnv,shift,work,emp,"$mnv|${shiftBucket(shift)}" in deducted)
                 }
                 runOnUiThread{if(serial==loadSerial&&screenState=="REPORT"){cachedDate=selectedDate;cachedEntries=out.values.toList();renderCached()}}
             }.start()
