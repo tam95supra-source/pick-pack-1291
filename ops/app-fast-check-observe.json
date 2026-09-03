@@ -1,8 +1,8 @@
 {
-  "run_id": 33798630445,
-  "run_sha": "770ddef714b2d25568be416e16c35e34fe61aeaa",
+  "run_id": 33799895639,
+  "run_sha": "e3fe74c1e3d286d22e52b315c6e83102d330d4db",
   "ref": "release/beta117-owner-followup-performance-20260904",
-  "execution_nonce": "beta117-build-verify-20260904-01",
-  "stage": "BUILD_VERIFY",
-  "observed_at": "2026-09-03T19:49:51Z"
+  "execution_nonce": "beta117-visual-exact-harness-repair-20260904-02",
+  "stage": "VISUAL_ONLY",
+  "observed_at": "2026-09-03T20:02:19Z"
 }
