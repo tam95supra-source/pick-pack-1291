@@ -1,6 +1,6 @@
 {
   "stage": "PUBLISH",
-  "mode": "PUBLISH_EXACT_LOCKED_BETA115_AFTER_ALL_PRE_OTA_PASS",
+  "mode": "PUBLISH_EXACT_LOCKED_BETA115_AFTER_PROVENANCE_HARNESS_FIX",
   "version_name": "0.4.2-beta.115",
   "version_code": 121,
   "base_version": "0.4.2-beta.114",
@@ -52,8 +52,8 @@
   "stable_gas_repair_status": "PASS",
   "beta_domain_status": "PASS",
   "regression_case": "qa/beta115_owner_scope_regression.md + tools/beta113_owner_scope_contract.py; preserve all ACTIVE_PASS including LABOR-SCAN-PINNED-004, UI-FORM-BASE-CONSISTENCY-003, UI-EMPLOYEE-SCAN-ROSTER-001, UI-REVIEW-WARNING-001, NAV-HISTORY-BACK-001, LABOR-EXACT-SESSION-002, HISTORY-DELETE-CANONICAL-001, DOCUMENT-BATCH-MODE-TICK-002, SHIFT-STAFF-DOWNLOAD-QR-001",
-  "execution_nonce": "beta115-publish-exact-locked-20260903-11",
-  "next_action": "PUBLISH_EXACT_LOCKED_BYTES_GITHUB_RELEASE_THEN_OTA_INSTALL_READBACK",
+  "execution_nonce": "beta115-publish-exact-locked-20260903-12",
+  "next_action": "RETRY_PUBLISH_EXACT_LOCKED_BYTES_AFTER_PROVENANCE_HARNESS_PASS",
   "candidate_source_sha": "3f343ea1be0dbace5df995e4c81e1cdca9defd24",
   "candidate_run_id": 33703823187,
   "candidate_artifact_id": 9874569505,
@@ -79,11 +79,14 @@
   "device_regression_artifact_name": "beta-service-discovery-33705707420",
   "service_gate_status": "PASS",
   "service_gate_artifact_name": "beta-service-33707525071",
-  "fast_check_run_id": 33708224706,
+  "fast_check_run_id": 33708743727,
   "runtime_dod_run_id": 33708224737,
   "runtime_dod_artifact_id": 9876009359,
   "runtime_dod_artifact_name": "beta-stable-runtime-33708224737",
   "release_lock_status": "LOCKED",
   "release_lock_receipt": "ops/beta115-release-lock.json",
-  "release_lock_at": "2026-09-03T02:39:16Z"
+  "release_lock_at": "2026-09-03T02:39:16Z",
+  "failed_publish_run_id": 33708509523,
+  "publish_failure_class": "HARNESS_PROVENANCE_SOURCE_SHA_CONFLATION_PRE_NETWORK",
+  "publish_partial_activation": false
 }
