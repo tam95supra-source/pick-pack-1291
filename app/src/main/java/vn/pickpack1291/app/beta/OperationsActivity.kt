@@ -609,7 +609,7 @@ class OperationsActivity : Activity() {
                 val head=row(surface).apply{
                     gravity=Gravity.CENTER_VERTICAL;setPadding(dp(9),dp(7),dp(9),dp(7));background=outlineBg(surface,12)
                     isClickable=true;isFocusable=true;contentDescription="Mở danh sách nhân sự $shiftName"
-                    setOnClickListener{tapFeedback(this);showCurrentDayShiftStaff(currentDate,shiftName,group)}
+                    setOnTouchListener{v,e->if(e.action==android.view.MotionEvent.ACTION_UP)tapFeedback(v);false};setOnClickListener{showCurrentDayShiftStaff(currentDate,shiftName,group)}
                     addView(txt(shiftName,10.8f,navy,true),LinearLayout.LayoutParams(0,-2,1f))
                     addView(txt("Trong ca ${group.size-ended} • Đã ra $ended",9.2f,muted,true))
                 }
