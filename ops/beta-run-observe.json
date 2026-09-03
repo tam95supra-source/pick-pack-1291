@@ -1,8 +1,8 @@
 {
-  "run_id": 33778605857,
-  "run_sha": "eefeb7ffb5972903335e84869e9236dae0d69559",
+  "run_id": 33778957345,
+  "run_sha": "fbf74932aaba9c36966bf8082649b1a15c4bb318",
   "ref": "release/beta116-owner-scope-20260903",
-  "execution_nonce": "beta116-runtime-dod-20260903-12",
-  "stage": "RUNTIME_DOD_VERIFY",
-  "observed_at": "2026-09-03T16:26:27Z"
+  "execution_nonce": "beta116-domain-readback-20260903-13",
+  "stage": "BETA_DOMAIN_PREPARE",
+  "observed_at": "2026-09-03T16:29:52Z"
 }
