@@ -14,7 +14,8 @@ CODE=$(jq -r '.version_code' "$R")
 PKG=$(jq -r '.package' "$R")
 PREV=$(jq -r '.base_version' "$R")
 BASE_CODE=$(jq -r '.base_version_code' "$R")
-SOURCE=$(jq -r '.source_sha' "$R")
+SERVICE_SOURCE=$(jq -r '.source_sha' "$R")
+CANDIDATE_SOURCE=$(jq -r '.candidate_source_sha // .source_sha' "$R")
 BASE_SOURCE=$(jq -r '.base_source_sha' "$R")
 SHA=$(jq -r '.apk_sha256' "$R")
 SIZE=$(jq -r '.apk_size' "$R")
@@ -32,7 +33,7 @@ BASE_FINAL=/tmp/beta-base-final/receipt.json
 if [[ ! -f "$VERIFY" && -f /tmp/beta-verify/beta-verify/receipt.json ]]; then VERIFY=/tmp/beta-verify/beta-verify/receipt.json; fi
 test -f "$APK" -a -f "$BASE_APK" -a -f "$META" -a -f "$VERIFY" -a -f "$BASE_FINAL"
 
-jq -e --arg v "$VERSION" --argjson c "$CODE" --arg p "$PKG" --arg s "$SOURCE" --arg h "$SHA" --argjson z "$SIZE" --arg signer "$SIGNER" '
+jq -e --arg v "$VERSION" --argjson c "$CODE" --arg p "$PKG" --arg s "$CANDIDATE_SOURCE" --arg h "$SHA" --argjson z "$SIZE" --arg signer "$SIGNER" '
   .version_name==$v and .version_code==$c and .package==$p and .source_sha==$s and .apk_sha256==$h and .apk_size==$z and
   .signer_sha256==$signer and .candidate_locked==true and .stable_publish=="FORBIDDEN" and .authority_change=="NONE"
 ' "$META" >/dev/null
@@ -65,7 +66,8 @@ test "$(sha256sum "$APK"|awk '{print $1}')" = "$SHA"
 test "$(stat -c '%s' "$APK")" = "$SIZE"
 test "$(sha256sum "$BASE_APK"|awk '{print $1}')" = "$BASE_SHA"
 test "$(stat -c '%s' "$BASE_APK")" = "$BASE_SIZE"
-git diff --quiet "$SOURCE" HEAD -- app service google-apps-script
+git diff --quiet "$SERVICE_SOURCE" HEAD -- service google-apps-script
+git diff --quiet "$CANDIDATE_SOURCE" HEAD -- app
 
 RAW=$(printf '%s' "$GAS_DEPLOYMENT_ID"|tr -d '\r\n\t ')
 DEP="$RAW"
@@ -170,7 +172,7 @@ jq -e '.ok==true and .authority.mode=="SERVICE_PRIMARY" and .authority.scope=="P
 
 APK_NAME=$(basename "$APK")
 printf '%s\n' "$RELEASE_NOTES" > "$E/release-notes.txt"
-bash tools/ensure_beta_github_release.sh "$VERSION" "$SOURCE" "$APK" "$SHA" "$SIZE" \
+bash tools/ensure_beta_github_release.sh "$VERSION" "$CANDIDATE_SOURCE" "$APK" "$SHA" "$SIZE" \
   "$E/release-notes.txt" "$APK_NAME" "$E/github-release.json"
 APK_URL=$(jq -r '.apk_url' "$E/github-release.json")
 test -n "$APK_URL"
@@ -258,13 +260,13 @@ jq -S '.authority' "$E/authority-after.json" > "$E/aa"
 cmp -s "$E/ab" "$E/aa"
 
 jq -n \
-  --arg v "$VERSION" --argjson c "$CODE" --arg p "$PKG" --arg source "$SOURCE" --arg h "$SHA" --argjson z "$SIZE" --arg signer "$SIGNER" \
+  --arg v "$VERSION" --argjson c "$CODE" --arg p "$PKG" --arg source "$CANDIDATE_SOURCE" --arg service_source "$SERVICE_SOURCE" --arg h "$SHA" --argjson z "$SIZE" --arg signer "$SIGNER" \
   --arg url "$RETURNED_URL" --arg main "$MAIN_AFTER" \
   --slurpfile beta "$E/beta-after.json" --slurpfile current "$E/beta-current.json" --slurpfile stable "$E/stable-after.json" \
   --slurpfile auth "$E/authority-after.json" --slurpfile baseline "$E/baseline-evidence.json" \
   --slurpfile contract "$E/gas-contract.json" --slurpfile gh "$E/github-release.json" --slurpfile basegh "$E/base-github-release.json" \
   '{
-    status:"PASS",channel:"BETA",version_name:$v,version_code:$c,package:$p,source_sha:$source,apk_sha256:$h,apk_size:$z,signer_sha256:$signer,
+    status:"PASS",channel:"BETA",version_name:$v,version_code:$c,package:$p,source_sha:$source,service_source_sha:$service_source,apk_sha256:$h,apk_size:$z,signer_sha256:$signer,
     apk_url:$url,ota_exact_bytes:true,ota_transport:"GITHUB_RELEASE",google_drive_apk:"FORBIDDEN",
     baseline_evidence:$baseline[0],baseline_github_release:$basegh[0],github_release:$gh[0],gas_contract:$contract[0],
     beta_readback:$beta[0],target_current_readback:$current[0],stable_readback:$stable[0],
