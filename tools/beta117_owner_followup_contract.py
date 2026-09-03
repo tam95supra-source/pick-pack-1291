@@ -56,6 +56,15 @@ assert "renderGeneration" in attendance and "startIndex+24" in attendance
 assert "qrRenderGeneration" in ops and "from+24" in ops
 assert "laborRenderGeneration" in ops and "from+16" in ops
 assert "from+18" in ops and "renderGroup(groupIndex+1)" in ops
+assert "listRenderGeneration" in ops and "from+20" in ops
+assert "historySearchGeneration" in ops and "postDelayed({if(generation==historySearchGeneration" in ops and "},160L)" in ops
+assert "documentRenderGeneration" in doc and "from+10" in doc and "addDocumentChunk" in doc
+assert "dropRenderGeneration" in drop and "from+20" in drop and "addDropChunk" in drop
+viewer=doc[doc.index("private fun viewDocumentGroup"):doc.index("private fun formatTime")]
+assert viewer.count("category.adapter=")==1, "viewer must reuse category adapter while swiping"
+assert "val bitmap=bytes?.let{BitmapFactory.decodeByteArray(it,0,it.size)}" in viewer
+draft_viewer=doc[doc.index("private fun showSelectedViewer"):doc.index("private fun applyCategoryEntries")]
+assert 'button("TOÀN MÀN HÌNH",navy)' in draft_viewer
 
 for token in [
     '"CHỌN TẤT CẢ"',
