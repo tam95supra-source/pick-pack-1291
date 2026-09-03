@@ -179,6 +179,61 @@ APK_URL=$(jq -r '.apk_url' "$E/github-release.json")
 test -n "$APK_URL"
 echo "::add-mask::$APK_URL"
 
+# Idempotency fence: if an earlier publish already activated these exact bytes,
+# this run is read-only. A duplicate/stale publish must never mutate GAS or
+# restore the prior baseline after the target is already LIVE.
+if [[ "$BASELINE_READBACK" == "PARTIAL_TARGET_ACTIVE_FROM_PRIOR_PUBLISH" ]]; then
+  update BETA "$VERSION" "$E/beta-current.json"
+  jq -e --arg v "$VERSION" --arg p "$PKG" '
+    .ok==true and .channel=="BETA" and .source=="GITHUB_RELEASE" and
+    .available==false and .version_name==$v and .package==$p
+  ' "$E/beta-current.json" >/dev/null
+
+  RETURNED_URL=$(jq -r '.apk_url // empty' "$E/beta-before.json")
+  test "$RETURNED_URL" = "$APK_URL"
+  echo "::add-mask::$RETURNED_URL"
+  curl -fsSL --retry 2 --retry-delay 2 --connect-timeout 15 --max-time 180 "$RETURNED_URL" -o "$E/contract.apk"
+  test "$(sha256sum "$E/contract.apk"|awk '{print $1}')" = "$SHA"
+  test "$(stat -c '%s' "$E/contract.apk")" = "$SIZE"
+  cmp -s "$APK" "$E/contract.apk"
+
+  update STABLE 0.1.0-stable "$E/stable-after.json"
+  jq -S . "$E/stable-before.json" > "$E/sb"
+  jq -S . "$E/stable-after.json" > "$E/sa"
+  cmp -s "$E/sb" "$E/sa"
+
+  MAIN_AFTER=$(curl -fsSL --connect-timeout 15 --max-time 30 -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/branches/main"|jq -r '.commit.sha')
+  test "$MAIN_AFTER" = "$MAIN_BEFORE"
+  curl -fsSL --connect-timeout 15 --max-time 30 "$SERVICE_URL/v1/authority" > "$E/authority-after.json"
+  jq -S '.authority' "$E/authority-before.json" > "$E/ab"
+  jq -S '.authority' "$E/authority-after.json" > "$E/aa"
+  cmp -s "$E/ab" "$E/aa"
+
+  cp "$E/beta-before.json" "$E/beta-after.json"
+  jq -n --arg v "$VERSION" --argjson c "$CODE" --arg p "$PKG" --arg h "$SHA" --argjson z "$SIZE" --arg url "$RETURNED_URL" '{
+    status:"PASS",change_scope:"NONE_TARGET_ALREADY_ACTIVE",idempotent_noop:true,
+    version_name:$v,version_code:$c,package:$p,sha256:$h,size:$z,apk_url:$url,
+    ota_transport:"GITHUB_RELEASE",google_drive_apk:"FORBIDDEN"
+  }' > "$E/gas-contract.json"
+
+  jq -n \
+    --arg v "$VERSION" --argjson c "$CODE" --arg p "$PKG" --arg source "$CANDIDATE_SOURCE" --arg service_source "$SERVICE_SOURCE" --arg h "$SHA" --argjson z "$SIZE" --arg signer "$SIGNER" \
+    --arg url "$RETURNED_URL" --arg main "$MAIN_AFTER" \
+    --slurpfile beta "$E/beta-after.json" --slurpfile current "$E/beta-current.json" --slurpfile stable "$E/stable-after.json" \
+    --slurpfile auth "$E/authority-after.json" --slurpfile baseline "$E/baseline-evidence.json" \
+    --slurpfile contract "$E/gas-contract.json" --slurpfile gh "$E/github-release.json" --slurpfile basegh "$E/base-github-release.json" \
+    '{
+      status:"PASS",channel:"BETA",version_name:$v,version_code:$c,package:$p,source_sha:$source,service_source_sha:$service_source,apk_sha256:$h,apk_size:$z,signer_sha256:$signer,
+      apk_url:$url,ota_exact_bytes:true,ota_transport:"GITHUB_RELEASE",google_drive_apk:"FORBIDDEN",
+      idempotent_target_already_active:true,gas_mutation:false,baseline_restore:false,
+      baseline_evidence:$baseline[0],baseline_github_release:$basegh[0],github_release:$gh[0],gas_contract:$contract[0],
+      beta_readback:$beta[0],target_current_readback:$current[0],stable_readback:$stable[0],
+      stable_unchanged:true,main_sha:$main,main_unchanged:true,authority:$auth[0].authority,authority_change:"NONE"
+    }' > "$E/receipt.json"
+  cat "$E/receipt.json"
+  exit 0
+fi
+
 PUBLISHED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 restore_baseline(){
   printf '%s\n' "Khôi phục exact LIVE $PREV qua GitHub Release." > "$E/base-notes.txt"
