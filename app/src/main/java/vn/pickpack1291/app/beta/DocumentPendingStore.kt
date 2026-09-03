@@ -32,7 +32,8 @@ class DocumentPendingStore(context:Context) {
         val groupId:String,
         val groupMode:String,
         val pageIndex:Int,
-        val pageCount:Int
+        val pageCount:Int,
+        val note:String
     )
     class CapacityException(message:String):IllegalStateException(message)
 
@@ -48,7 +49,8 @@ class DocumentPendingStore(context:Context) {
         groupId:String=idempotencyKey,
         groupMode:String="SINGLE",
         pageIndex:Int=1,
-        pageCount:Int=1
+        pageCount:Int=1,
+        note:String=""
     ):Item=synchronized(lock){
         listUnlocked().firstOrNull{it.idempotencyKey==idempotencyKey}?.let{return it}
         val current=listUnlocked()
@@ -68,7 +70,7 @@ class DocumentPendingStore(context:Context) {
             byteSize=image.bytes.size,createdAt=now,updatedAt=now,documentId=null,driveFileId=null,
             allowSimilar=false,lastError=null,retryCount=0,
             groupId=groupId.trim().ifBlank{idempotencyKey},groupMode=groupMode.trim().uppercase().ifBlank{"SINGLE"},
-            pageIndex=pageIndex.coerceAtLeast(1),pageCount=pageCount.coerceAtLeast(1)
+            pageIndex=pageIndex.coerceAtLeast(1),pageCount=pageCount.coerceAtLeast(1),note=note.trim().take(240)
         )
         try{writeMeta(item)}catch(t:Throwable){bytesFile.delete();throw t}
         item
@@ -148,7 +150,7 @@ class DocumentPendingStore(context:Context) {
             groupId=j.optString("group_id").ifBlank{j.getString("idempotency_key")},
             groupMode=j.optString("group_mode","SINGLE").ifBlank{"SINGLE"},
             pageIndex=j.optInt("page_index",1).coerceAtLeast(1),
-            pageCount=j.optInt("page_count",1).coerceAtLeast(1)
+            pageCount=j.optInt("page_count",1).coerceAtLeast(1),note=j.optString("note")
         )
     }.getOrNull()
     private fun toJson(i:Item)=JSONObject()
@@ -158,7 +160,7 @@ class DocumentPendingStore(context:Context) {
         .put("mime_type",i.mimeType).put("byte_size",i.byteSize).put("created_at",i.createdAt).put("updated_at",i.updatedAt)
         .put("document_id",i.documentId?:"").put("drive_file_id",i.driveFileId?:"").put("allow_similar",i.allowSimilar)
         .put("last_error",i.lastError?:"").put("retry_count",i.retryCount)
-        .put("group_id",i.groupId).put("group_mode",i.groupMode).put("page_index",i.pageIndex).put("page_count",i.pageCount)
+        .put("group_id",i.groupId).put("group_mode",i.groupMode).put("page_index",i.pageIndex).put("page_count",i.pageCount).put("note",i.note)
     private fun cleanupTemps(){
         val cutoff=System.currentTimeMillis()-24*60*60*1000L
         dir.listFiles()?.filter{it.name.endsWith(".tmp")&&it.lastModified()<cutoff}?.forEach{it.delete()}
