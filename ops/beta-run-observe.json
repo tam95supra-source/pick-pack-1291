@@ -1,8 +1,8 @@
 {
-  "run_id": 33780057070,
-  "run_sha": "769d57a7878bbe636bdf5f28663f97bcb385359f",
+  "run_id": 33780103076,
+  "run_sha": "3e0382a71f21bae4ff2b000ca1bf4d5319db54e1",
   "ref": "release/beta116-owner-scope-20260903",
-  "execution_nonce": "beta116-publish-provenance-fix-20260903-15",
+  "execution_nonce": "beta116-publish-provenance-fix-20260903-16",
   "stage": "PUBLISH",
-  "observed_at": "2026-09-03T16:41:00Z"
+  "observed_at": "2026-09-03T16:45:39Z"
 }
