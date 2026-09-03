@@ -1,8 +1,8 @@
 {
-  "run_id": 33799895639,
-  "run_sha": "e3fe74c1e3d286d22e52b315c6e83102d330d4db",
+  "run_id": 33819637036,
+  "run_sha": "9be610a05dcc5ef258b84132e8ba5dc4e0eace2b",
   "ref": "release/beta117-owner-followup-performance-20260904",
-  "execution_nonce": "beta117-visual-exact-harness-repair-20260904-02",
-  "stage": "VISUAL_ONLY",
-  "observed_at": "2026-09-03T20:02:19Z"
+  "execution_nonce": "beta117-protected-stable-gas-blocker-20260904-12",
+  "stage": "RUNTIME_DOD_VERIFY",
+  "observed_at": "2026-09-03T23:55:25Z"
 }
