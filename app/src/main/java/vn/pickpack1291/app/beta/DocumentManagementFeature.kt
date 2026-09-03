@@ -24,9 +24,14 @@ import java.util.concurrent.Executors
 object DocumentManagementFeature {
     private class ZoomSwipeImageView(context:Context,private val onPrev:()->Unit,private val onNext:()->Unit):ImageView(context){
         private var zoom=1f
+        private var lastX=0f
+        private var lastY=0f
         private val scale=android.view.ScaleGestureDetector(context,object:android.view.ScaleGestureDetector.SimpleOnScaleGestureListener(){
             override fun onScale(d:android.view.ScaleGestureDetector):Boolean{
-                zoom=(zoom*d.scaleFactor).coerceIn(1f,5f);scaleX=zoom;scaleY=zoom;pivotX=d.focusX;pivotY=d.focusY;return true
+                zoom=(zoom*d.scaleFactor).coerceIn(1f,5f)
+                pivotX=width/2f;pivotY=height/2f;scaleX=zoom;scaleY=zoom
+                if(zoom<=1.01f){translationX=0f;translationY=0f}
+                return true
             }
         })
         private val gesture=android.view.GestureDetector(context,object:android.view.GestureDetector.SimpleOnGestureListener(){
@@ -37,7 +42,22 @@ object DocumentManagementFeature {
             }
         })
         init{scaleType=ScaleType.FIT_CENTER;isClickable=true}
-        override fun onTouchEvent(e:android.view.MotionEvent):Boolean{scale.onTouchEvent(e);gesture.onTouchEvent(e);return true}
+        override fun onTouchEvent(e:android.view.MotionEvent):Boolean{
+            scale.onTouchEvent(e);gesture.onTouchEvent(e)
+            if(e.pointerCount==1&&zoom>1.05f&&!scale.isInProgress){
+                when(e.actionMasked){
+                    android.view.MotionEvent.ACTION_DOWN->{lastX=e.x;lastY=e.y}
+                    android.view.MotionEvent.ACTION_MOVE->{
+                        val maxX=(width*(zoom-1f)/2f).coerceAtLeast(0f)
+                        val maxY=(height*(zoom-1f)/2f).coerceAtLeast(0f)
+                        translationX=(translationX+e.x-lastX).coerceIn(-maxX,maxX)
+                        translationY=(translationY+e.y-lastY).coerceIn(-maxY,maxY)
+                        lastX=e.x;lastY=e.y
+                    }
+                }
+            }
+            return true
+        }
         fun resetZoom(){zoom=1f;scaleX=1f;scaleY=1f;translationX=0f;translationY=0f}
     }
 
@@ -82,14 +102,19 @@ object DocumentManagementFeature {
         private lateinit var categorySpinner:Spinner
         private lateinit var multiPageCheck:CheckBox
         private lateinit var multiDocumentCheck:CheckBox
+        private lateinit var modeRowHost:View
+        private lateinit var selectedScrollView:HorizontalScrollView
+        private lateinit var draftActionRow:View
+        private lateinit var pendingBoxView:View
         private lateinit var filterSpinner:Spinner
-        private lateinit var deleteSelectedButton:Button
+        private lateinit var deleteSelectedButton:ImageButton
         private lateinit var selectedDeleteText:TextView
         private var filterCategoryIds=listOf<String>("")
         private var suppressFilter=false
         private lateinit var selectedHost:LinearLayout
-        private lateinit var selectAllDraftButton:Button
-        private lateinit var deleteDraftButton:Button
+        private lateinit var selectAllDraftButton:ImageButton
+        private lateinit var deleteDraftButton:ImageButton
+        private var currentDocumentItems=listOf<JSONObject>()
         private lateinit var previewMeta:TextView
         private lateinit var uploadButton:Button
         private lateinit var pendingText:TextView
@@ -131,12 +156,12 @@ object DocumentManagementFeature {
 
             val categoryBox=column().apply{background=bg();setPadding(dp(10),dp(9),dp(10),dp(10))}
             categoryBox.addView(text("Loại biên bản",10f,muted,true));categoryBox.addView(gap(4))
-            categorySpinner=Spinner(activity).apply{minimumHeight=dp(46);setPadding(dp(8),dp(3),dp(8),dp(3));background=bg()}
+            categorySpinner=Spinner(activity).apply{minimumHeight=dp(36);setPadding(dp(7),0,dp(7),0);background=bg()}
             val categoryActions=row()
             val add=iconButton(R.drawable.ic_pp_add,teal,"Thêm loại biên bản")
             val edit=iconButton(R.drawable.ic_pp_edit,navy,"Sửa loại biên bản")
             val remove=iconButton(R.drawable.ic_pp_delete,red,"Xóa loại biên bản")
-            categoryActions.addView(categorySpinner,LinearLayout.LayoutParams(0,dp(46),1f).apply{marginEnd=dp(4)})
+            categoryActions.addView(categorySpinner,LinearLayout.LayoutParams(0,dp(38),1f).apply{marginEnd=dp(4)})
             categoryActions.addView(add,LinearLayout.LayoutParams(dp(44),dp(44)).apply{marginStart=dp(2);marginEnd=dp(2)})
             categoryActions.addView(edit,LinearLayout.LayoutParams(dp(44),dp(44)).apply{marginStart=dp(2);marginEnd=dp(2)})
             categoryActions.addView(remove,LinearLayout.LayoutParams(dp(44),dp(44)).apply{marginStart=dp(2)})
@@ -147,7 +172,7 @@ object DocumentManagementFeature {
             val imageBox=column().apply{background=bg();setPadding(dp(10),dp(9),dp(10),dp(10))}
             imageBox.addView(text("Ảnh biên bản",10f,muted,true))
             imageBox.addView(gap(5))
-            val modeRow=row()
+            val modeRow=row();modeRowHost=modeRow
             var modeSync=false
             multiPageCheck=CheckBox(activity).apply{
                 text="Một biên bản nhiều trang";textSize=10.2f;setTextColor(ink);isChecked=true;isEnabled=false
@@ -169,7 +194,7 @@ object DocumentManagementFeature {
             }
             modeRow.addView(multiPageCheck,LinearLayout.LayoutParams(0,dp(42),1.15f))
             modeRow.addView(multiDocumentCheck,LinearLayout.LayoutParams(0,dp(42),.85f))
-            imageBox.addView(modeRow,LinearLayout.LayoutParams(-1,dp(42)))
+            imageBox.addView(modeRow,LinearLayout.LayoutParams(-1,dp(38)))
             imageBox.addView(gap(5))
             val sourceActions=row()
             val camera=button("Chụp ảnh",teal)
@@ -178,24 +203,23 @@ object DocumentManagementFeature {
             sourceActions.addView(gallery,LinearLayout.LayoutParams(0,dp(44),1f).apply{marginStart=dp(4)})
             imageBox.addView(sourceActions,LinearLayout.LayoutParams(-1,-2))
             imageBox.addView(gap(8))
-            val selectedScroll=HorizontalScrollView(activity).apply{isHorizontalScrollBarEnabled=false}
+            val selectedScroll=HorizontalScrollView(activity).apply{isHorizontalScrollBarEnabled=false};selectedScrollView=selectedScroll
             selectedHost=row().apply{setPadding(dp(3),dp(3),dp(3),dp(3))}
             selectedScroll.addView(selectedHost,ViewGroup.LayoutParams(-2,dp(108)))
             imageBox.addView(selectedScroll,LinearLayout.LayoutParams(-1,dp(108)))
             previewMeta=text("0 ảnh",9.4f,muted);imageBox.addView(previewMeta);imageBox.addView(gap(5))
-            val draftActions=row()
-            selectAllDraftButton=button("Chọn tất cả",navy).apply{isEnabled=false;alpha=.4f}
-            deleteDraftButton=button("Xóa ảnh chọn",red).apply{isEnabled=false;alpha=.4f}
-            draftActions.addView(selectAllDraftButton,LinearLayout.LayoutParams(0,dp(38),1f).apply{marginEnd=dp(3)})
-            draftActions.addView(deleteDraftButton,LinearLayout.LayoutParams(0,dp(38),1f).apply{marginStart=dp(3)})
-            imageBox.addView(draftActions,LinearLayout.LayoutParams(-1,dp(38)))
-            imageBox.addView(gap(8))
+            val draftActions=row();draftActionRow=draftActions
+            selectAllDraftButton=iconButton(android.R.drawable.ic_menu_agenda,navy,"Chọn tất cả ảnh chờ").apply{isEnabled=false;alpha=.4f}
+            deleteDraftButton=iconButton(R.drawable.ic_pp_delete,red,"Xóa ảnh đã chọn").apply{isEnabled=false;alpha=.4f}
             uploadButton=button("Tải lên",green).apply{isEnabled=false;alpha=.4f}
-            imageBox.addView(uploadButton,LinearLayout.LayoutParams(-1,dp(46)))
+            draftActions.addView(selectAllDraftButton,LinearLayout.LayoutParams(dp(42),dp(42)).apply{marginEnd=dp(4)})
+            draftActions.addView(deleteDraftButton,LinearLayout.LayoutParams(dp(42),dp(42)).apply{marginEnd=dp(4)})
+            draftActions.addView(uploadButton,LinearLayout.LayoutParams(0,dp(42),1f))
+            imageBox.addView(draftActions,LinearLayout.LayoutParams(-1,dp(42)))
             body.addView(imageBox,LinearLayout.LayoutParams(-1,-2))
             body.addView(gap(10))
 
-            val pendingBox=column().apply{background=bg();setPadding(dp(10),dp(9),dp(10),dp(10))}
+            val pendingBox=column().apply{background=bg();setPadding(dp(10),dp(9),dp(10),dp(10))};pendingBoxView=pendingBox
             val pendingHead=row()
             pendingHead.addView(text("Ảnh chờ tải",10.5f,navy,true),LinearLayout.LayoutParams(0,-2,1f))
             retryPendingButton=button("Tải lại",navy)
@@ -212,18 +236,17 @@ object DocumentManagementFeature {
             val refresh=button("Làm mới",navy)
             listHead.addView(refresh,LinearLayout.LayoutParams(dp(90),dp(38)))
             body.addView(listHead,LinearLayout.LayoutParams(-1,-2));body.addView(gap(5))
-            filterSpinner=Spinner(activity).apply{minimumHeight=dp(42);setPadding(dp(8),0,dp(8),0);background=bg()}
+            filterSpinner=Spinner(activity).apply{minimumHeight=dp(36);setPadding(dp(7),0,dp(7),0);background=bg()}
             filterCategoryIds=listOf("")+categoryIds
             filterSpinner.adapter=ArrayAdapter(activity,android.R.layout.simple_spinner_dropdown_item,listOf("Tất cả loại biên bản")+categoryNames)
-            body.addView(filterSpinner,LinearLayout.LayoutParams(-1,dp(42)));body.addView(gap(5))
             val selectionRow=row()
-            selectedDeleteText=text("Đã chọn 0 ảnh",9.3f,muted,true)
-            val selectAllUploaded=button("Chọn tất cả",navy)
-            deleteSelectedButton=button("Xóa đã chọn",red).apply{isEnabled=false;alpha=.4f}
-            selectionRow.addView(selectedDeleteText,LinearLayout.LayoutParams(0,-2,1f))
-            selectionRow.addView(selectAllUploaded,LinearLayout.LayoutParams(dp(94),dp(38)).apply{marginEnd=dp(3)})
-            selectionRow.addView(deleteSelectedButton,LinearLayout.LayoutParams(dp(108),dp(38)))
-            body.addView(selectionRow);body.addView(gap(5))
+            selectedDeleteText=text("Đã chọn 0 ảnh",8.8f,muted,true)
+            val selectAllUploaded=iconButton(android.R.drawable.ic_menu_agenda,navy,"Chọn tất cả biên bản đang lọc")
+            deleteSelectedButton=iconButton(R.drawable.ic_pp_delete,red,"Xóa biên bản đã chọn").apply{isEnabled=false;alpha=.4f}
+            selectionRow.addView(filterSpinner,LinearLayout.LayoutParams(0,dp(38),1f).apply{marginEnd=dp(4)})
+            selectionRow.addView(selectAllUploaded,LinearLayout.LayoutParams(dp(40),dp(40)).apply{marginEnd=dp(4)})
+            selectionRow.addView(deleteSelectedButton,LinearLayout.LayoutParams(dp(40),dp(40)))
+            body.addView(selectionRow);body.addView(selectedDeleteText);body.addView(gap(5))
             emptyText=text("Đang tải...",9.5f,muted).apply{setPadding(dp(4),dp(8),dp(4),dp(8))}
             body.addView(emptyText)
             recordsHost=column()
@@ -313,18 +336,19 @@ object DocumentManagementFeature {
             }
             val total=selected.sumOf{it.image.bytes.size.toLong()}
             previewMeta.text=if(selected.isEmpty())"0 ảnh" else "${selected.size} ảnh • ${formatBytes(total)}"
+            val has=selected.isNotEmpty();selectedScrollView.visibility=if(has)View.VISIBLE else View.GONE;previewMeta.visibility=if(has)View.VISIBLE else View.GONE;draftActionRow.visibility=if(has)View.VISIBLE else View.GONE
             if(::multiPageCheck.isInitialized){
-                val enabled=selected.size>1;multiPageCheck.isEnabled=enabled;multiDocumentCheck.isEnabled=enabled
+                val enabled=selected.size>1;modeRowHost.visibility=if(enabled)View.VISIBLE else View.GONE;multiPageCheck.isEnabled=enabled;multiDocumentCheck.isEnabled=enabled
                 if(!enabled){multiPageCheck.isChecked=true;multiDocumentCheck.isChecked=false}
             }
-            uploadButton.isEnabled=selected.isNotEmpty()&&categoryIds.isNotEmpty()&&!busy;uploadButton.alpha=if(uploadButton.isEnabled)1f else .4f
+            uploadButton.isEnabled=has&&categoryIds.isNotEmpty()&&!busy;uploadButton.alpha=if(uploadButton.isEnabled)1f else .4f
             updateDraftSelection()
         }
         private fun updateDraftSelection(){
             if(!::deleteDraftButton.isInitialized)return
             selectAllDraftButton.isEnabled=selected.isNotEmpty();selectAllDraftButton.alpha=if(selected.isNotEmpty())1f else .4f
             deleteDraftButton.isEnabled=selectedDraftKeys.isNotEmpty();deleteDraftButton.alpha=if(selectedDraftKeys.isNotEmpty())1f else .4f
-            deleteDraftButton.text=if(selectedDraftKeys.isEmpty())"Xóa ảnh chọn" else "Xóa ${selectedDraftKeys.size} ảnh"
+            deleteDraftButton.contentDescription=if(selectedDraftKeys.isEmpty())"Xóa ảnh đã chọn" else "Xóa ${selectedDraftKeys.size} ảnh đã chọn"
         }
         private fun showSelectedViewer(start:Int){
             if(start !in selected.indices)return
@@ -629,14 +653,15 @@ object DocumentManagementFeature {
             val items=pendingStore.list().filter{it.ownerLogin==login}
             val bytes=items.sumOf{it.byteSize.toLong()}
             val review=items.count{it.lastError=="DOCUMENT_SIMILAR_IMAGE"}
-            pendingText.text=if(items.isEmpty())"Không có ảnh chờ tải." else "Đang chờ: "+items.size+" ảnh • "+formatBytes(bytes)+(if(review>0)" • "+review+" ảnh cần xác nhận trùng" else "")
+            pendingBoxView.visibility=if(items.isEmpty())View.GONE else View.VISIBLE
+            pendingText.text=if(items.isEmpty())"" else "Đang chờ: "+items.size+" ảnh • "+formatBytes(bytes)+(if(review>0)" • "+review+" ảnh cần xác nhận trùng" else "")
             retryPendingButton.isEnabled=items.isNotEmpty()&&!busy
             retryPendingButton.alpha=if(retryPendingButton.isEnabled)1f else .45f
         }
         private fun clearSelected(){
-            selectedHost.removeAllViews();previewMeta.text="0 ảnh"
+            selectedHost.removeAllViews();previewMeta.text="0 ảnh";selectedScrollView.visibility=View.GONE;previewMeta.visibility=View.GONE;draftActionRow.visibility=View.GONE
             if(::multiPageCheck.isInitialized){
-                multiPageCheck.isEnabled=false;multiDocumentCheck.isEnabled=false
+                modeRowHost.visibility=View.GONE;multiPageCheck.isEnabled=false;multiDocumentCheck.isEnabled=false
                 multiPageCheck.isChecked=true;multiDocumentCheck.isChecked=false
             }
             uploadButton.isEnabled=false;uploadButton.alpha=.4f
@@ -652,11 +677,12 @@ object DocumentManagementFeature {
                     recordsHost.removeAllViews();if(clearSelection)selectedDocumentIds.clear();updateDeleteSelection()
                     if(!result.ok){emptyText.visibility=View.VISIBLE;emptyText.text=messageFor(result.error);return@postUi}
                     val arr=result.json?.optJSONArray("items")?:JSONArray()
-                    if(arr.length()==0){emptyText.visibility=View.VISIBLE;emptyText.text="Chưa có biên bản.";return@postUi}
+                    if(arr.length()==0){currentDocumentItems=emptyList();emptyText.visibility=View.VISIBLE;emptyText.text="Chưa có biên bản.";return@postUi}
                     emptyText.visibility=View.GONE
+                    currentDocumentItems=(0 until arr.length()).mapNotNull{arr.optJSONObject(it)?.let{j->JSONObject(j.toString())}}
+                        .sortedByDescending{it.optString("completed_at").ifBlank{it.optString("created_at")}}
                     val groups=linkedMapOf<String,MutableList<JSONObject>>()
-                    for(i in 0 until arr.length()){
-                        val item=arr.optJSONObject(i)?:continue
+                    currentDocumentItems.forEach{item->
                         val key=item.optString("group_id").takeIf{it.isNotBlank()}?:item.optString("document_id")
                         groups.getOrPut(key){mutableListOf()}.add(item)
                     }
@@ -702,6 +728,7 @@ object DocumentManagementFeature {
             selectedDeleteText.text="Đã chọn ${selectedDocumentIds.size} ảnh"
             deleteSelectedButton.isEnabled=selectedDocumentIds.isNotEmpty()&&!busy
             deleteSelectedButton.alpha=if(deleteSelectedButton.isEnabled)1f else .4f
+            deleteSelectedButton.contentDescription=if(selectedDocumentIds.isEmpty())"Xóa biên bản đã chọn" else "Xóa ${selectedDocumentIds.size} ảnh đã chọn"
         }
         private fun deleteSelectedRecords(){
             val ids=selectedDocumentIds.toList();if(ids.isEmpty()||busy)return
@@ -727,33 +754,90 @@ object DocumentManagementFeature {
                 }
             }
         }
-        private fun viewDocumentGroup(items:List<JSONObject>,start:Int){
-            if(busy||items.isEmpty())return;busy=true
+        private fun showFullscreen(bytes:ByteArray,title:String){
+            val dialog=android.app.Dialog(activity,android.R.style.Theme_Black_NoTitleBar_Fullscreen)
+            val root=FrameLayout(activity).apply{setBackgroundColor(Color.BLACK)}
+            val image=ZoomSwipeImageView(activity,{},{})
+            image.setImageBitmap(BitmapFactory.decodeByteArray(bytes,0,bytes.size))
+            root.addView(image,FrameLayout.LayoutParams(-1,-1))
+            val close=iconButton(android.R.drawable.ic_menu_close_clear_cancel,Color.argb(210,30,41,59),"Đóng toàn màn hình").apply{setOnClickListener{dialog.dismiss()}}
+            root.addView(close,FrameLayout.LayoutParams(dp(46),dp(46),Gravity.TOP or Gravity.END).apply{topMargin=dp(18);rightMargin=dp(12)})
+            val label=text(title,10f,Color.WHITE,true).apply{gravity=Gravity.CENTER;background=Color.argb(145,0,0,0);setPadding(dp(8),dp(5),dp(8),dp(5))}
+            root.addView(label,FrameLayout.LayoutParams(-1,-2,Gravity.BOTTOM).apply{bottomMargin=dp(12)})
+            dialog.setContentView(root);dialog.show()
+        }
+
+        private fun updateDocumentRecord(item:JSONObject,categoryId:String,note:String,onDone:(Boolean)->Unit){
             executor.execute{
-                val bytes=mutableListOf<ByteArray>();var errorCode:String?=null
-                for(item in items){
-                    val id=item.optString("document_id")
-                    val cached=mediaCache.get(id)
-                    val data=cached?:client.getMedia(id).let{r->if(!r.ok||r.bytes==null){errorCode=r.error;null}else{mediaCache.put(id,r.bytes);r.bytes}}
-                    if(data==null)break else bytes.add(data)
-                }
-                busy=false
+                val result=client.post("/v1/documents/update",JSONObject().put("document_id",item.optString("document_id")).put("category_id",categoryId).put("note",note.take(240)))
                 postUi{
-                    if(errorCode!=null||bytes.size!=items.size){error(messageFor(errorCode));return@postUi}
-                    var index=start.coerceIn(0,bytes.lastIndex)
-                    val host=column().apply{setPadding(dp(8),dp(6),dp(8),dp(4))}
-                    lateinit var image:ZoomSwipeImageView
-                    val page=text("",9.5f,navy,true).apply{gravity=Gravity.CENTER}
-                    val note=text("",9.4f,ink,false).apply{setPadding(dp(8),dp(5),dp(8),dp(5));background=bg(Color.rgb(248,250,252),8)}
-                    fun render(){
-                        val bmp=BitmapFactory.decodeByteArray(bytes[index],0,bytes[index].size)
-                        image.resetZoom();image.setImageBitmap(bmp);page.text="Trang ${index+1}/${bytes.size}";note.text=items[index].optString("note").ifBlank{"Không có chú thích"}
+                    if(!result.ok){error(messageFor(result.error));onDone(false);return@postUi}
+                    val updated=result.json?.optJSONObject("document")
+                    if(updated!=null){
+                        item.put("category_id",updated.optString("category_id")).put("category_name",updated.optString("category_name")).put("note",updated.optString("note")).put("file_name",updated.optString("file_name"))
                     }
-                    image=ZoomSwipeImageView(activity,{if(index>0){index--;render()}},{if(index<bytes.lastIndex){index++;render()}})
-                    host.addView(image,LinearLayout.LayoutParams(-1,dp(390)));host.addView(page);host.addView(gap(4));host.addView(note,LinearLayout.LayoutParams(-1,-2))
-                    AlertDialog.Builder(activity).setTitle("Biên bản • vuốt trang / pinch zoom").setView(host).setPositiveButton("Đóng",null).show();render()
+                    success("Đã cập nhật ảnh biên bản.");onDone(true);refreshDocumentsWithSelection()
                 }
             }
+        }
+
+        private fun viewDocumentGroup(items:List<JSONObject>,start:Int){
+            if(busy||items.isEmpty())return
+            val original=items.getOrNull(start)?:items.first()
+            val originalId=original.optString("document_id")
+            val sequence=currentDocumentItems.takeIf{it.isNotEmpty()}?:items
+            var index=sequence.indexOfFirst{it.optString("document_id")==originalId}.takeIf{it>=0}?:0
+            val selectedInViewer=linkedSetOf<String>()
+            val host=column().apply{setPadding(dp(8),dp(5),dp(8),dp(6))}
+            lateinit var image:ZoomSwipeImageView
+            val page=text("",9.3f,navy,true).apply{gravity=Gravity.CENTER}
+            val category=Spinner(activity).apply{minimumHeight=dp(36);background=bg()}
+            val note=EditText(activity).apply{hint="Chú thích";setSingleLine(false);maxLines=2;background=bg();setPadding(dp(8),dp(5),dp(8),dp(5))}
+            val pick=CheckBox(activity).apply{text="Chọn ảnh này";textSize=9.6f;setTextColor(ink)}
+            var currentBytes:ByteArray?=null
+            var loadGeneration=0L
+            fun renderMeta(){
+                val item=sequence[index]
+                page.text="Ảnh ${index+1}/${sequence.size} • ${item.optString("category_name").ifBlank{"-"}"
+                val ci=categoryIds.indexOf(item.optString("category_id")).takeIf{it>=0}?:0
+                category.adapter=ArrayAdapter(activity,android.R.layout.simple_spinner_dropdown_item,if(categoryNames.isEmpty())listOf("Chưa có loại biên bản") else categoryNames)
+                if(categoryIds.isNotEmpty())category.setSelection(ci)
+                note.setText(item.optString("note"))
+                pick.setOnCheckedChangeListener(null);pick.isChecked=item.optString("document_id") in selectedInViewer
+                pick.setOnCheckedChangeListener{_,on->if(on)selectedInViewer.add(item.optString("document_id"))else selectedInViewer.remove(item.optString("document_id"))}
+            }
+            fun loadCurrent(){
+                val item=sequence[index];val id=item.optString("document_id");val generation=++loadGeneration
+                image.resetZoom();image.setImageDrawable(null);page.text="Đang tải ảnh ${index+1}/${sequence.size}…";renderMeta()
+                executor.execute{
+                    val bytes=mediaCache.get(id)?:client.getMedia(id).let{r->if(!r.ok||r.bytes==null)null else{mediaCache.put(id,r.bytes);r.bytes}}
+                    postUi{
+                        if(generation!=loadGeneration)return@postUi
+                        if(bytes==null){error("Không tải được ảnh biên bản.");return@postUi}
+                        currentBytes=bytes;image.setImageBitmap(BitmapFactory.decodeByteArray(bytes,0,bytes.size));renderMeta()
+                    }
+                }
+            }
+            image=ZoomSwipeImageView(activity,{if(index>0){index--;loadCurrent()}},{if(index<sequence.lastIndex){index++;loadCurrent()}})
+            host.addView(image,LinearLayout.LayoutParams(-1,dp(350)));host.addView(page);host.addView(gap(4))
+            val full=button("TOÀN MÀN HÌNH",navy).apply{setOnClickListener{currentBytes?.let{showFullscreen(it,"Ảnh ${index+1}/${sequence.size}")}}}
+            host.addView(full,LinearLayout.LayoutParams(-1,dp(36)));host.addView(gap(5))
+            val editRow=row();editRow.addView(category,LinearLayout.LayoutParams(0,dp(38),.42f).apply{marginEnd=dp(4)});editRow.addView(note,LinearLayout.LayoutParams(0,-2,.58f))
+            host.addView(editRow,LinearLayout.LayoutParams(-1,-2));host.addView(pick)
+            val dialog=AlertDialog.Builder(activity).setTitle("Biên bản • vuốt mọi ảnh / pinch / kéo ảnh").setView(host).setNegativeButton("Đóng",null)
+                .setNeutralButton("XÓA ẢNH ĐÃ CHỌN",null).setPositiveButton("LƯU",null).create()
+            dialog.setOnShowListener{
+                dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener{
+                    if(categoryIds.isEmpty())return@setOnClickListener
+                    val item=sequence[index];val categoryId=categoryIds.getOrNull(category.selectedItemPosition)?:item.optString("category_id")
+                    confirmAction("sửa ảnh biên bản"){updateDocumentRecord(item,categoryId,note.text.toString().trim()){if(it)loadCurrent()}}
+                }
+                dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener{
+                    val ids=selectedInViewer.toList();if(ids.isEmpty()){warning("Chọn ít nhất một ảnh.");return@setOnClickListener}
+                    confirmAction("xóa ${ids.size} ảnh trong biên bản"){dialog.dismiss();startDeleteRecords(ids)}
+                }
+            }
+            dialog.show();loadCurrent()
         }
         private fun formatTime(value:String):String=runCatching{
             Instant.parse(value).atZone(ZoneId.of("Asia/Ho_Chi_Minh")).format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"))
