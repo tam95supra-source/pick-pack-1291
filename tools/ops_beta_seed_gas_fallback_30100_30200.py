@@ -137,19 +137,19 @@ try:
 
     # Authenticate with disposable Beta USER; verifier is read from Beta Sheet, no password required or changed.
     admins=sheet_values(tok,sid,"'Danh sách Admin'!A2:K")
-    row=next((r for r in admins if str(r[0] if len(r)>0 else "").strip()=="user1"
+    row=next((r for r in admins if str(r[0] if len(r)>0 else "").strip()=="user3"
               and str(r[2] if len(r)>2 else "").strip().upper()=="USER"
               and (str(r[8] if len(r)>8 else "ACTIVE").strip().upper() or "ACTIVE")=="ACTIVE"),None)
-    if not row:raise RuntimeError("BETA_USER1_ACTIVE_ACCOUNT_NOT_FOUND")
+    if not row:raise RuntimeError("BETA_USER3_ACTIVE_ACCOUNT_NOT_FOUND")
     vp=str(row[1] if len(row)>1 else "").strip().split("$")
-    if len(vp)!=4 or vp[0]!="pbkdf2_sha256":raise RuntimeError("BETA_USER1_VERIFIER_INVALID")
+    if len(vp)!=4 or vp[0]!="pbkdf2_sha256":raise RuntimeError("BETA_USER3_VERIFIER_INVALID")
     key=b64ud(vp[3])
     device="owner-seed-"+hashlib.sha256((os.environ.get("GITHUB_RUN_ID","run")+"-gas").encode()).hexdigest()[:12]
-    ch=gas_post(env_body("login_challenge",{"login_id":"user1","_device_id":device}))
+    ch=gas_post(env_body("login_challenge",{"login_id":"user3","_device_id":device}))
     proof=b64u(hmac.new(key,str(ch.get("challenge") or "").encode(),hashlib.sha256).digest())
-    lg=gas_post(env_body("login",{"login_id":"user1","challenge_id":ch.get("challenge_id"),"proof":proof,
+    lg=gas_post(env_body("login",{"login_id":"user3","challenge_id":ch.get("challenge_id"),"proof":proof,
                                    "_device_id":device,"_device_label":"OWNER BETA TEST SEED"}))
-    if lg.get("ok") is not True or (lg.get("account") or {}).get("role")!="USER":raise RuntimeError("GAS_USER1_LOGIN_FAILED")
+    if lg.get("ok") is not True or (lg.get("account") or {}).get("role")!="USER":raise RuntimeError("GAS_USER3_LOGIN_FAILED")
     gas_token=str(lg.get("token") or "")
     if not gas_token:raise RuntimeError("GAS_TOKEN_MISSING")
 
