@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import base64, hashlib, hmac, json, os, pathlib, subprocess, sys, urllib.error, urllib.parse, urllib.request
+import base64, hashlib, hmac, json, os, pathlib, subprocess, sys, time, urllib.error, urllib.parse, urllib.request
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
@@ -60,11 +60,30 @@ def sheet_values(tok,sid,rng):
     return j.get("values") or []
 
 def gas_post(body):
-    p=subprocess.run(["curl","-fsS","-L","--connect-timeout","15","--max-time","60","-H","Content-Type: application/json","--data-binary","@-",gas_url],
-      input=json.dumps(body,ensure_ascii=False,separators=(",",":")),text=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=70)
-    if p.returncode:raise RuntimeError("GAS_TRANSPORT_FAILED:"+p.stderr[-300:].replace("\n"," "))
-    try:return json.loads(p.stdout)
-    except Exception as e:raise RuntimeError("GAS_BAD_JSON:"+p.stdout[:200]) from e
+    action=str((body or {}).get("action") or "UNKNOWN")
+    payload=json.dumps(body,ensure_ascii=False,separators=(",",":"))
+    last=""
+    for attempt in range(1,5):
+        p=subprocess.run(["curl","-sS","-L","--connect-timeout","15","--max-time","60","-H","Content-Type: application/json","--data-binary","@-","-w","\\n__HTTP_STATUS__:%{http_code}",gas_url],
+          input=payload,text=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=70)
+        if p.returncode:
+            last="TRANSPORT:"+p.stderr[-240:].replace("\n"," ")
+        else:
+            marker="\\n__HTTP_STATUS__:"
+            if marker not in p.stdout:
+                last="STATUS_MISSING"
+            else:
+                raw,code_s=p.stdout.rsplit(marker,1)
+                try:code=int(code_s.strip())
+                except Exception:code=0
+                if 200<=code<300:
+                    try:return json.loads(raw or "{}")
+                    except Exception as e:raise RuntimeError("GAS_BAD_JSON:"+action+":"+raw[:180]) from e
+                last="HTTP_"+str(code)+":"+raw[:180].replace("\n"," ")
+                if code not in (404,408,425,429) and not (500<=code<600):
+                    break
+        if attempt<4:time.sleep(attempt)
+    raise RuntimeError("GAS_CALL_FAILED:"+action+":"+last)
 
 def env_body(action,extra=None):
     x={"action":action,"_app_channel":"BETA","_environment_id":"BETA","_service_audience":"PICK_PACK_1291_BETA"}
