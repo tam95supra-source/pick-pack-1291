@@ -16,7 +16,12 @@ entry=read("service/src/entry_product.ts")
 mobile=read("service/src/mobile_hotfix.ts")
 outbound=read("service/src/outbound_beta78.ts")
 migration=read("service/migrations/0014_beta117_manual_lan.sql")
+gradle=read("app/build.gradle.kts")
+notes=read("app/src/main/java/vn/pickpack1291/app/beta/ReleaseNotes.kt")
 assert not (root/"service/migrations/0014_beta117_owner_followup.sql").exists()
+assert 'versionCode = 123' in gradle and 'versionName = "0.4.2-beta.117"' in gradle
+assert 'const val VERSION_NAME = "0.4.2-beta.117"' in notes
+assert 'versionCode = 1' in gradle and 'versionName = "0.1.0-stable"' in gradle
 
 for token in [
     "modeRowHost.visibility=if(enabled)View.VISIBLE else View.GONE",
