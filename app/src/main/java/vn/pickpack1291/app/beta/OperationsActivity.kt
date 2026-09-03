@@ -606,15 +606,15 @@ class OperationsActivity : Activity() {
                 (position=="Tất cả vị trí"||id.position==position)
             }
             if(visible.isEmpty()){host.addView(info("Không có nhân sự phù hợp bộ lọc."));return}
-            listOf("Ca 1","Ca HC","Ca 2").forEach{shiftName->
-                val group=shiftStaffOrdered(visible.filter{it.optString("shift").trim()==shiftName})
+            listOf("Ca 1","Ca HC","Ca 2").forEach{shift->
+                val group=shiftStaffOrdered(visible.filter{it.optString("shift").trim()==shift})
                 if(group.isEmpty())return@forEach
                 val ended=group.count{shiftStaffEnded(it)}
                 val head=row(surface).apply{
                     gravity=Gravity.CENTER_VERTICAL;setPadding(dp(9),dp(7),dp(9),dp(7));background=outlineBg(surface,12)
-                    isClickable=true;isFocusable=true;contentDescription="Mở danh sách nhân sự $shiftName"
-                    setOnTouchListener{v,e->if(e.action==android.view.MotionEvent.ACTION_UP)tapFeedback(v);false};setOnClickListener{showCurrentDayShiftStaff(currentDate,shiftName,group)}
-                    addView(txt(shiftName,10.8f,navy,true),LinearLayout.LayoutParams(0,-2,1f))
+                    isClickable=true;isFocusable=true;contentDescription="Mở danh sách nhân sự $shift"
+                    setOnTouchListener{v,e->if(e.action==android.view.MotionEvent.ACTION_UP)tapFeedback(v);false};setOnClickListener{showCurrentDayShiftStaff(currentDate,shift,group)}
+                    addView(txt(shift,10.8f,navy,true),LinearLayout.LayoutParams(0,-2,1f))
                     addView(txt("Trong ca ${group.size-ended} • Đã ra $ended",9.2f,muted,true))
                 }
                 host.addView(head,matchWrap());host.addView(gap(4))
@@ -625,7 +625,7 @@ class OperationsActivity : Activity() {
                         val line=row(bg).apply{
                             gravity=Gravity.CENTER_VERTICAL;setPadding(dp(5),dp(4),dp(5),dp(4))
                             isClickable=true;isFocusable=true;contentDescription="Mở quét QR vào ra ${dash(id.fullName)}"
-                            setOnClickListener{if(id.mnv.isNotBlank()){tapFeedback(this);loadEmployee(id.mnv)}}
+                            setOnTouchListener{v,e->if(e.action==android.view.MotionEvent.ACTION_UP)tapFeedback(v);false};setOnClickListener{if(id.mnv.isNotBlank())loadEmployee(id.mnv)}
                             addView(txt("${dash(id.mnv)} • ${dash(id.fullName)}",10.1f,ink,true),LinearLayout.LayoutParams(0,-2,1f))
                             addView(txt(if(endedRow)"ĐÃ RA" else "TRONG CA",8.5f,if(endedRow)muted else green,true))
                         }
