@@ -20,7 +20,8 @@ import java.util.Locale
 
 /**
  * Calendar for DISPLAY-ONLY date filters.
- * Dates without real data are visible but disabled/dimmed.
+ * Dates without real data are visible but disabled/dimmed, except TODAY which is always selectable
+ * so the operator can intentionally view an empty current-day state.
  * Do not use for date/time correction or data editing.
  */
 object DataDatePickerUi {
@@ -29,10 +30,11 @@ object DataDatePickerUi {
     private val weekday = listOf("T2","T3","T4","T5","T6","T7","CN")
 
     fun show(activity:Activity, availableDates:Collection<String>, selectedDate:String?, onSelected:(String)->Unit){
-        val available=availableDates.mapNotNull{runCatching{LocalDate.parse(it,iso)}.getOrNull()}.toSortedSet()
-        if(available.isEmpty())return
-        val selected=runCatching{selectedDate?.let{LocalDate.parse(it,iso)}}.getOrNull()?.takeIf{it in available}
-        var month=YearMonth.from(selected?:available.last())
+        val dataDates=availableDates.mapNotNull{runCatching{LocalDate.parse(it,iso)}.getOrNull()}.toSortedSet()
+        val today=LocalDate.now()
+        val selectable=(dataDates+today).toSortedSet()
+        val selected=runCatching{selectedDate?.let{LocalDate.parse(it,iso)}}.getOrNull()?.takeIf{it in selectable}
+        var month=YearMonth.from(selected?:today)
         val outer=LinearLayout(activity).apply{
             orientation=LinearLayout.VERTICAL
             setPadding(dp(activity,12),dp(activity,8),dp(activity,12),dp(activity,8))
@@ -47,7 +49,7 @@ object DataDatePickerUi {
         outer.addView(header,ViewGroup.LayoutParams(-1,-2))
         val grid=GridLayout(activity).apply{columnCount=7;alignmentMode=GridLayout.ALIGN_BOUNDS}
         outer.addView(grid,ViewGroup.LayoutParams(-1,-2))
-        val dialog=AlertDialog.Builder(activity).setTitle("Chọn ngày có dữ liệu").setView(outer).setNegativeButton("Hủy",null).create()
+        val dialog=AlertDialog.Builder(activity).setTitle("Chọn ngày xem dữ liệu").setView(outer).setNegativeButton("Hủy",null).create()
 
         fun render(){
             grid.removeAllViews()
@@ -60,7 +62,7 @@ object DataDatePickerUi {
             val offset=(first.dayOfWeek.value-DayOfWeek.MONDAY.value+7)%7
             repeat(offset){grid.addView(View(activity),GridLayout.LayoutParams().apply{width=0;height=dp(activity,42);columnSpec=GridLayout.spec(GridLayout.UNDEFINED,1f)})}
             for(day in 1..month.lengthOfMonth()){
-                val date=month.atDay(day);val enabled=date in available;val chosen=date==selected
+                val date=month.atDay(day);val hasData=date in dataDates;val enabled=hasData||date==today;val chosen=date==selected
                 val cell=text(activity,day.toString(),11.5f,if(enabled)Color.rgb(15,47,77) else Color.rgb(148,163,184),enabled).apply{
                     gravity=Gravity.CENTER
                     isEnabled=enabled
@@ -78,12 +80,12 @@ object DataDatePickerUi {
                     setMargins(dp(activity,2),dp(activity,2),dp(activity,2),dp(activity,2))
                 })
             }
-            val months=available.map{YearMonth.from(it)}.toSet()
+            val months=selectable.map{YearMonth.from(it)}.toSet()
             prev.isEnabled=months.any{it<month};prev.alpha=if(prev.isEnabled)1f else .3f
             next.isEnabled=months.any{it>month};next.alpha=if(next.isEnabled)1f else .3f
         }
-        prev.setOnClickListener{available.map{YearMonth.from(it)}.filter{it<month}.maxOrNull()?.let{month=it;render()}}
-        next.setOnClickListener{available.map{YearMonth.from(it)}.filter{it>month}.minOrNull()?.let{month=it;render()}}
+        prev.setOnClickListener{selectable.map{YearMonth.from(it)}.filter{it<month}.maxOrNull()?.let{month=it;render()}}
+        next.setOnClickListener{selectable.map{YearMonth.from(it)}.filter{it>month}.minOrNull()?.let{month=it;render()}}
         render();dialog.show()
     }
 
