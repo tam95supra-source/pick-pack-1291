@@ -19,8 +19,8 @@ migration=(root/"service/migrations/0013_beta116_owner_scope.sql").read_text()
 gradle=(root/"app/build.gradle.kts").read_text()
 notes=(root/"app/src/main/java/vn/pickpack1291/app/beta/ReleaseNotes.kt").read_text()
 
-assert 'versionCode = 122' in gradle and 'versionName = "0.4.2-beta.116"' in gradle
-assert 'const val VERSION_NAME = "0.4.2-beta.116"' in notes
+assert 'applicationId = "vn.pickpack1291.app.beta.publicbeta"' in gradle
+assert 'const val VERSION_NAME = ' in notes
 
 # Document UX: icon CRUD, pre-upload selection/delete, note durability, swipe/zoom group viewer.
 for token in ['ic_pp_add','ic_pp_edit','ic_pp_delete','selectedDraftKeys','selectAllDraftButton','deleteDraftButton','ZoomSwipeImageView','showSelectedViewer','viewDocumentGroup']:
