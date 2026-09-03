@@ -1490,16 +1490,26 @@ class OperationsActivity : Activity() {
     private fun laborHome(){
         screenState="LABOR_HOME"
         if(!isAdmin()){simpleMessage("CÔNG NHẬT","Không có quyền truy cập.");return}
-        val root=baseRoot("CÔNG NHẬT");val body=body();var selectedLaborDate=operationalStore.businessDate();var laborDates:List<String> = emptyList()
+        val root=baseRoot("CÔNG NHẬT");val body=body()
+        val currentDate=operationalStore.businessDate()
+        var selectedLaborDate=currentDate
+        var laborDates:List<String> = listOf(currentDate).filter{it.isNotBlank()}
 
-        // Input must stay above the potentially long labor list.
+        // ACTIVE_PASS LABOR-SCAN-PINNED-004: canonical scan is always above every labor list/action.
         body.addView(section("Ghi nhận công nhật"))
         val mnv=mnvInput("Scan / Nhập mã nhân viên").apply{setText(initialMnv)}
-        body.addView(labelled("Mã nhân viên",mnv));body.addView(gap(10))
+        body.addView(labelled("Mã nhân viên",mnv));body.addView(gap(7))
+
+        val batchRow=row(bg).apply{gravity=Gravity.CENTER_VERTICAL}
+        val batchCreate=smallButton("TẠO NHANH NHIỀU NLĐ",green)
+        val batchFinish=smallButton("KẾT THÚC NHANH NHIỀU NLĐ",red)
+        batchRow.addView(batchCreate,LinearLayout.LayoutParams(0,dp(42),1f).apply{marginEnd=dp(3)})
+        batchRow.addView(batchFinish,LinearLayout.LayoutParams(0,dp(42),1f).apply{marginStart=dp(3)})
+        body.addView(batchRow,matchWrap());body.addView(gap(10))
 
         val dateRow=row(bg);dateRow.addView(section("Chi tiết công nhật theo ngày"),LinearLayout.LayoutParams(0,-2,1f))
         val laborDateButton=Button(this).apply{
-            text="Đang tải...";textSize=10.5f;isAllCaps=false;setTextColor(navy);background=outlineBg(surface,12);isEnabled=false
+            text=businessDateVi(selectedLaborDate);textSize=10.5f;isAllCaps=false;setTextColor(navy);background=outlineBg(surface,12);isEnabled=true
         }
         dateRow.addView(laborDateButton,LinearLayout.LayoutParams(dp(112),dp(42)));body.addView(dateRow,matchWrap())
         val laborCount=txt("",9.5f,muted,true);body.addView(laborCount);body.addView(gap(4))
@@ -1517,30 +1527,32 @@ class OperationsActivity : Activity() {
         }
         fun loadOpen(){
             openBox.removeAllViews()
-            if(laborDates.isEmpty()){
-                laborCount.text="Chưa có ngày có dữ liệu công nhật."
-                laborDateButton.text="—";laborDateButton.isEnabled=false
-                openBox.addView(txt("Chưa có dữ liệu công nhật.",9.8f,muted,false));return
-            }
             openBox.addView(txt("Đang tải...",9.5f,muted,false))
             api.call("labor_list",JSONObject().put("business_date",selectedLaborDate)){r->runOnUiThread{
                 if(screenState!="LABOR_HOME")return@runOnUiThread
                 openBox.removeAllViews();if(handleAuth(r))return@runOnUiThread
                 if(!r.ok){openBox.addView(txt("-",10f,muted,false));return@runOnUiThread}
                 val a=r.json?.optJSONArray("items")?:JSONArray();val rows=mutableListOf<JSONObject>()
-                for(i in 0 until a.length())a.optJSONObject(i)?.let{rows.add(it)}
-                val pending=rows.count{it.optString("state").equals("OPEN",true)};val done=rows.count{it.optString("state").equals("COMPLETED",true)}
-                laborCount.text="Đang làm: $pending  •  Hoàn thành: $done  •  Tổng: ${rows.size}"
-                if(rows.isEmpty()){openBox.addView(txt("Chưa có công nhật trong ngày.",9.8f,muted,false));return@runOnUiThread}
-                rows.forEach{x->
-                    val id=x.optString("mnv");val open=x.optString("state").equals("OPEN",true);val fill=if(open)Color.rgb(255,247,237) else Color.rgb(240,253,250)
-                    val name=dash(x.optString("full_name"));val supplier=dash(x.optString("supplier"));val sid=x.optString("attendance_session_id")
+                for(i in 0 until a.length())a.optJSONObject(i)?.let{rows.add(JSONObject(it.toString()))}
+                val groups=rows.groupBy{x->"${x.optString("mnv")}|${x.optString("attendance_session_id")}"}
+                    .values.sortedWith(compareByDescending<List<JSONObject>>{g->g.any{it.optString("state").equals("OPEN",true)}}.thenBy{g->foldLocal(g.firstOrNull()?.optString("supplier").orEmpty())}.thenBy{g->g.firstOrNull()?.optString("mnv").orEmpty()})
+                val openPeople=groups.count{g->g.any{it.optString("state").equals("OPEN",true)}}
+                laborCount.text="Nhân sự: ${groups.size}  •  Đang làm: $openPeople  •  Tổng khoảng: ${rows.size}"
+                if(groups.isEmpty()){openBox.addView(txt("Chưa có công nhật trong ngày.",9.8f,muted,false));return@runOnUiThread}
+                groups.forEach{intervals->
+                    val first=intervals.first();val id=first.optString("mnv");val sid=first.optString("attendance_session_id")
+                    val anyOpen=intervals.any{it.optString("state").equals("OPEN",true)}
+                    val fill=if(anyOpen)Color.rgb(255,247,237) else Color.rgb(240,253,250)
+                    val name=dash(first.optString("full_name"));val supplier=dash(first.optString("supplier"))
+                    val summaries=intervals.sortedBy{it.optString("start_at")}.map{x->
+                        "${compactAttendanceTime(x.optString("start_at"))}–${if(x.optString("state").equals("OPEN",true))"…" else compactAttendanceTime(x.optString("end_at"))}"
+                    }
                     val card=column(fill).apply{
                         setPadding(dp(9),dp(7),dp(9),dp(7));background=outlineBg(fill,12)
-                        val top=row(fill);top.addView(txt("$id • $name",10.5f,navy,true),LinearLayout.LayoutParams(0,-2,1f));top.addView(txt(if(open)"ĐANG LÀM" else "HOÀN THÀNH",8.8f,if(open)Color.rgb(194,65,12) else green,true));addView(top)
-                        addView(txt("$supplier • ${dash(x.optString("labor_type"))}",9.2f,ink,false))
-                        addView(txt("${compactAttendanceTime(x.optString("start_at"))} → ${if(open)"-" else compactAttendanceTime(x.optString("end_at"))}",9.2f,muted,false))
-                        setOnClickListener{if(open)openLaborExact(id,sid)else showCompletedLaborEditor(JSONObject(x.toString()))}
+                        val top=row(fill);top.addView(txt("$id • $name",10.5f,navy,true),LinearLayout.LayoutParams(0,-2,1f));top.addView(txt(if(anyOpen)"ĐANG LÀM" else "HOÀN THÀNH",8.8f,if(anyOpen)Color.rgb(194,65,12) else green,true));addView(top)
+                        addView(txt("$supplier • ${intervals.size} khoảng công nhật",9.2f,ink,false))
+                        addView(txt(summaries.joinToString("  •  "),9.2f,muted,false).apply{maxLines=2})
+                        setOnClickListener{openLaborExact(id,sid)}
                     }
                     openBox.addView(card,matchWrap());openBox.addView(gap(5))
                 }
@@ -1554,20 +1566,19 @@ class OperationsActivity : Activity() {
             api.call("labor_dates"){r->runOnUiThread{
                 if(screenState!="LABOR_HOME")return@runOnUiThread
                 val remote=if(r.ok)jsonStrings(r.json?.optJSONArray("dates")) else emptyList()
-                laborDates=(remote+localLaborDates()).distinct().sortedDescending()
-                if(laborDates.isNotEmpty()){
-                    selectedLaborDate=selectedLaborDate.takeIf{it in laborDates}?:laborDates.first()
-                    laborDateButton.text=businessDateVi(selectedLaborDate);laborDateButton.isEnabled=true
-                }
+                laborDates=(remote+localLaborDates()+listOf(currentDate)).filter{it.isNotBlank()}.distinct().sortedDescending()
+                if(selectedLaborDate.isBlank())selectedLaborDate=currentDate
+                laborDateButton.text=businessDateVi(selectedLaborDate);laborDateButton.isEnabled=true
                 loadOpen()
             }}
         }
         laborDateButton.setOnClickListener{
-            if(laborDates.isEmpty()){TopNotice.show(this,"Chưa có ngày có dữ liệu công nhật.",TopNotice.Kind.INFO);return@setOnClickListener}
             DataDatePickerUi.show(this,laborDates,selectedLaborDate){chosen->
                 selectedLaborDate=chosen;laborDateButton.text=businessDateVi(chosen);loadOpen()
             }
         }
+        batchCreate.setOnClickListener{showLaborBatchCreate()}
+        batchFinish.setOnClickListener{showLaborBatchFinish()}
         bindScannerEnter(mnv){submit()};loadLaborDates()
         if(initialMnv.isNotBlank())mnv.post{submit()}
         attach(root,body);mnv.requestFocus()
