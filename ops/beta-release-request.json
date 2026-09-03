@@ -1,6 +1,6 @@
 {
-  "stage": "SERVICE_DISCOVERY_ONLY",
-  "mode": "BETA116_DEVICE_SERVICE_DISCOVERY_EXACT_CANDIDATE",
+  "stage": "RUNTIME_DOD_VERIFY",
+  "mode": "BETA116_RUNTIME_DOD_EXACT_CANDIDATE",
   "version_name": "0.4.2-beta.116",
   "version_code": 122,
   "base_version": "0.4.2-beta.115",
@@ -47,14 +47,14 @@
   "visual_matrix": "PASS",
   "pda_functional_pre_ota": "PASS",
   "back_api36": "PASS",
-  "device_regression_status": "PENDING",
+  "device_regression_status": "PASS",
   "runtime_dod_status": "PENDING",
   "beta_auth_status": "PASS",
   "stable_gas_repair_status": "PASS",
   "beta_domain_status": "PENDING",
   "regression_case": "tools/beta116_owner_scope_contract.py + preserve Beta115 ACTIVE_PASS including LABOR-EXACT-SESSION-002, DOCUMENT-BATCH-MODE-TICK-002, UI-REVIEW-WARNING-001, NAV-HISTORY-BACK-001, PDA-EXIT-001, ENV-ISOLATION-001",
-  "execution_nonce": "beta116-device-regression-20260903-11",
-  "next_action": "RUN_SERVICE_DISCOVERY_DEVICE_REGRESSION_EXACT_CANDIDATE",
+  "execution_nonce": "beta116-runtime-dod-20260903-12",
+  "next_action": "RUN_RUNTIME_DOD_EXACT_CANDIDATE",
   "service_gate_status": "PASS",
   "service_gate_run_id": 33767353642,
   "service_gate_artifact_id": 9898616640,
@@ -84,5 +84,8 @@
   "beta_auth_run_id": 33776285435,
   "beta_auth_artifact_id": 9902148937,
   "beta_auth_artifact_name": "beta-auth-33776285435",
-  "stable_gas_repair_evidence": "INHERITED_BETA115_OWNER_ACCEPTED_STABLE_UNCHANGED_NO_GAS_DIFF"
+  "stable_gas_repair_evidence": "INHERITED_BETA115_OWNER_ACCEPTED_STABLE_UNCHANGED_NO_GAS_DIFF",
+  "device_regression_run_id": 33778316587,
+  "device_regression_artifact_id": 9902571477,
+  "device_regression_artifact_name": "beta-service-discovery-33778316587"
 }
