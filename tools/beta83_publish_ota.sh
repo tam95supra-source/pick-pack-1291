@@ -31,7 +31,12 @@ BASE_APK="/tmp/beta-base/pick-pack-1291-public-beta-$PREV.apk"
 META=/tmp/beta-candidate/release-meta.json
 VERIFY=/tmp/beta-verify/receipt.json
 BASE_FINAL=/tmp/beta-base-final/receipt.json
+BASE_FINAL_KIND=ARTIFACT
 if [[ ! -f "$VERIFY" && -f /tmp/beta-verify/beta-verify/receipt.json ]]; then VERIFY=/tmp/beta-verify/beta-verify/receipt.json; fi
+if [[ ! -f "$BASE_FINAL" ]]; then
+  BASE_FINAL=$(jq -r '.base_live_final_repo_receipt // empty' "$R")
+  BASE_FINAL_KIND=REPO_TECHNICAL_PASS
+fi
 test -f "$APK" -a -f "$BASE_APK" -a -f "$META" -a -f "$VERIFY" -a -f "$BASE_FINAL"
 
 jq -e --arg v "$VERSION" --argjson c "$CODE" --arg p "$PKG" --arg s "$CANDIDATE_SOURCE" --arg h "$SHA" --argjson z "$SIZE" --arg signer "$SIGNER" '
@@ -54,10 +59,18 @@ python3 tools/verify_beta_visual_receipt.py \
   --evidence-dir "$(dirname "$VERIFY")" \
   --request "$R" > "$E/visual-receipt-verify.json"
 
-jq -e --arg v "$PREV" --arg source "$BASE_SOURCE" --arg h "$BASE_SHA" --argjson z "$BASE_SIZE" --arg signer "$SIGNER" '
-  .status=="PASS" and .version_name==$v and .source_sha==$source and .apk_sha256==$h and .apk_size==$z and
-  .signer_sha256==$signer and .stable_unchanged==true and .authority_change=="NONE" and .readback==true
-' "$BASE_FINAL" >/dev/null
+if [[ "$BASE_FINAL_KIND" == REPO_TECHNICAL_PASS ]]; then
+  jq -e --arg v "$PREV" --arg source "$BASE_SOURCE" --arg h "$BASE_SHA" --argjson z "$BASE_SIZE" --arg signer "$SIGNER" '
+    .status=="PASS" and .version_name==$v and .candidate_source_sha==$source and .apk_sha256==$h and .apk_size==$z and
+    .signer_sha256==$signer and .stable_unchanged==true and .authority_change=="NONE" and
+    (.ota_readback_run_id|type=="number") and (.ota_readback_artifact_id|type=="number")
+  ' "$BASE_FINAL" >/dev/null
+else
+  jq -e --arg v "$PREV" --arg source "$BASE_SOURCE" --arg h "$BASE_SHA" --argjson z "$BASE_SIZE" --arg signer "$SIGNER" '
+    .status=="PASS" and .version_name==$v and .source_sha==$source and .apk_sha256==$h and .apk_size==$z and
+    .signer_sha256==$signer and .stable_unchanged==true and .authority_change=="NONE" and .readback==true
+  ' "$BASE_FINAL" >/dev/null
+fi
 
 jq -e '.human_visual_pass==true and .visual_matrix=="PASS" and .pda_functional_pre_ota=="PASS" and .back_api36=="PASS" and
        .rebuild==false and .resign==false and .stable_publish=="FORBIDDEN" and .authority_change=="NONE" and
