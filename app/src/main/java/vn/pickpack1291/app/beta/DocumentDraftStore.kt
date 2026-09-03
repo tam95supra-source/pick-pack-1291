@@ -17,29 +17,46 @@ class DocumentDraftStore(context:Context){
         val capturedAt:String,
         val idempotencyKey:String,
         val image:DocumentImageProcessor.ProcessedImage,
+        val note:String,
         val updatedAt:Long
     )
 
     private val root=File(context.filesDir,"document-draft-v1").apply{mkdirs()}
 
     /** Backward-compatible single-draft replace. */
-    fun save(ownerLogin:String,sourceKind:String,capturedAt:String,idempotencyKey:String,image:DocumentImageProcessor.ProcessedImage):Draft=synchronized(lock){
+    fun save(ownerLogin:String,sourceKind:String,capturedAt:String,idempotencyKey:String,image:DocumentImageProcessor.ProcessedImage,note:String=""):Draft=synchronized(lock){
         remove(ownerLogin)
-        appendUnlocked(ownerLogin,sourceKind,capturedAt,idempotencyKey,image)
+        appendUnlocked(ownerLogin,sourceKind,capturedAt,idempotencyKey,image,note)
     }
 
     /** Durable append used by Beta110 multi-image selection. */
-    fun append(ownerLogin:String,sourceKind:String,capturedAt:String,idempotencyKey:String,image:DocumentImageProcessor.ProcessedImage):Draft=synchronized(lock){
+    fun append(ownerLogin:String,sourceKind:String,capturedAt:String,idempotencyKey:String,image:DocumentImageProcessor.ProcessedImage,note:String=""):Draft=synchronized(lock){
         val existing=loadAllUnlocked(ownerLogin)
         existing.firstOrNull{it.idempotencyKey==idempotencyKey}?.let{return it}
-        appendUnlocked(ownerLogin,sourceKind,capturedAt,idempotencyKey,image)
+        appendUnlocked(ownerLogin,sourceKind,capturedAt,idempotencyKey,image,note)
     }
 
     fun load(ownerLogin:String):Draft?=synchronized(lock){loadAllUnlocked(ownerLogin).firstOrNull()}
     fun loadAll(ownerLogin:String):List<Draft> = synchronized(lock){loadAllUnlocked(ownerLogin)}
     fun remove(ownerLogin:String)=synchronized(lock){accountDir(ownerLogin,false)?.deleteRecursively()}
+    fun removeItems(ownerLogin:String,keys:Set<String>)=synchronized(lock){
+        val account=accountDir(ownerLogin,false)?:return@synchronized
+        val ids=manifestIds(account);val keep=mutableListOf<String>()
+        for(id in ids){
+            val meta=runCatching{JSONObject(File(account,"$id.json").readText(Charsets.UTF_8))}.getOrNull()
+            if(meta?.optString("idempotency_key") in keys){File(account,"$id.json").delete();File(account,"$id.jpg").delete()} else keep.add(id)
+        }
+        writeManifest(account,keep)
+    }
+    fun updateNote(ownerLogin:String,key:String,note:String)=synchronized(lock){
+        val account=accountDir(ownerLogin,false)?:return@synchronized
+        for(id in manifestIds(account)){
+            val file=File(account,"$id.json");val j=runCatching{JSONObject(file.readText(Charsets.UTF_8))}.getOrNull()?:continue
+            if(j.optString("idempotency_key")==key){j.put("note",note.trim().take(240)).put("updated_at",System.currentTimeMillis());file.writeText(j.toString(),Charsets.UTF_8);break}
+        }
+    }
 
-    private fun appendUnlocked(ownerLogin:String,sourceKind:String,capturedAt:String,idempotencyKey:String,image:DocumentImageProcessor.ProcessedImage):Draft{
+    private fun appendUnlocked(ownerLogin:String,sourceKind:String,capturedAt:String,idempotencyKey:String,image:DocumentImageProcessor.ProcessedImage,note:String=""):Draft{
         val account=accountDir(ownerLogin)?:throw IllegalStateException("DOCUMENT_DRAFT_DIR_UNAVAILABLE")
         cleanupTemps(account)
         val existingIds=manifestIds(account).toMutableList()
@@ -59,7 +76,7 @@ class DocumentDraftStore(context:Context){
             .put("idempotency_key",idempotencyKey).put("sha256",image.sha256).put("md5",image.md5)
             .put("dhash64",image.dhash64).put("dhash64_variants",JSONArray(image.dhash64Variants))
             .put("width",image.width).put("height",image.height).put("mime_type",image.mimeType)
-            .put("byte_size",image.bytes.size).put("updated_at",now)
+            .put("byte_size",image.bytes.size).put("note",note.trim().take(240)).put("updated_at",now)
         val metaTmp=File(account,"$generation.json.tmp")
         val metaFile=File(account,"$generation.json")
         metaTmp.writeText(meta.toString(),Charsets.UTF_8)
@@ -70,7 +87,7 @@ class DocumentDraftStore(context:Context){
         }catch(t:Throwable){
             bytesFile.delete();metaFile.delete();throw t
         }
-        return Draft(ownerLogin.trim(),sourceKind,capturedAt,idempotencyKey,image,now)
+        return Draft(ownerLogin.trim(),sourceKind,capturedAt,idempotencyKey,image,note.trim().take(240),now)
     }
 
     private fun loadAllUnlocked(ownerLogin:String):List<Draft>{
@@ -100,7 +117,7 @@ class DocumentDraftStore(context:Context){
                         bytes=bytes,sha256=sha,md5=j.getString("md5"),dhash64=primary,
                         dhash64Variants=variants.distinct().take(4),width=j.getInt("width"),height=j.getInt("height"),
                         mimeType=j.optString("mime_type","image/jpeg")
-                    ),updatedAt=j.getLong("updated_at")
+                    ),note=j.optString("note"),updatedAt=j.getLong("updated_at")
                 )
             }.getOrNull()
             if(draft!=null)out.add(draft)
