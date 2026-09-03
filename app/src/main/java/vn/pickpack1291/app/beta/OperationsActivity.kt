@@ -1573,14 +1573,18 @@ class OperationsActivity : Activity() {
         attach(root,body);mnv.requestFocus()
     }
 
-    private fun laborWheelPick(currentIso:String,onPick:(String)->Unit){
-        val tz=ZoneId.of("Asia/Ho_Chi_Minh");val z=runCatching{Instant.parse(currentIso).atZone(tz)}.getOrDefault(java.time.ZonedDateTime.now(tz))
-        val hour=NumberPicker(this).apply{minValue=0;maxValue=23;value=z.hour;wrapSelectorWheel=false;setFormatter{String.format(java.util.Locale.US,"%02d",it)}}
-        val minute=NumberPicker(this).apply{minValue=0;maxValue=59;value=z.minute;wrapSelectorWheel=false;setFormatter{String.format(java.util.Locale.US,"%02d",it)}}
+    private fun laborWheelPick(currentIso:String,allowFuture:Boolean=false,onPick:(String)->Unit){
+        val tz=ZoneId.of("Asia/Ho_Chi_Minh")
+        val raw=runCatching{Instant.parse(currentIso).atZone(tz)}.getOrDefault(java.time.ZonedDateTime.now(tz))
+        val roundedMinutes=((raw.minute+7)/15)*15
+        val z=if(roundedMinutes>=60)raw.plusHours(1).withMinute(0).withSecond(0).withNano(0) else raw.withMinute(roundedMinutes).withSecond(0).withNano(0)
+        val minuteValues=arrayOf("00","15","30","45")
+        val hour=NumberPicker(this).apply{minValue=0;maxValue=23;value=z.hour;wrapSelectorWheel=true;setFormatter{String.format(java.util.Locale.US,"%02d",it)}}
+        val minute=NumberPicker(this).apply{minValue=0;maxValue=3;value=(z.minute/15).coerceIn(0,3);displayedValues=minuteValues;wrapSelectorWheel=true}
         val box=row(surface).apply{gravity=Gravity.CENTER;addView(hour,LinearLayout.LayoutParams(0,dp(126),1f));addView(txt(":",18f,navy,true).apply{gravity=Gravity.CENTER},LinearLayout.LayoutParams(dp(24),dp(126)));addView(minute,LinearLayout.LayoutParams(0,dp(126),1f))}
         AlertDialog.Builder(this).setTitle("Chọn giờ và phút").setView(box).setNegativeButton("Hủy",null).setPositiveButton("CHỌN"){_,_->
-            val picked=z.toLocalDate().atTime(hour.value,minute.value).atZone(tz).toInstant()
-            if(picked.isAfter(Instant.now().plusSeconds(60)))TopNotice.show(this,"Thời gian không được ở tương lai.",TopNotice.Kind.WARNING) else onPick(picked.toString())
+            val picked=z.toLocalDate().atTime(hour.value,minute.value*15).atZone(tz).toInstant()
+            if(!allowFuture&&picked.isAfter(Instant.now().plusSeconds(60)))TopNotice.show(this,"Giờ bắt đầu không được ở tương lai.",TopNotice.Kind.WARNING) else onPick(picked.toString())
         }.show()
     }
     private fun openLaborExact(mnv:String,sessionId:String){
@@ -1596,7 +1600,7 @@ class OperationsActivity : Activity() {
         fun timeButton(v:String)=Button(this).apply{text=compactAttendanceTime(v);textSize=11.5f;isAllCaps=false;setTextColor(navy);background=outlineBg(surface,11)}
         val sr=row(bg);sr.addView(txt("Bắt đầu",10.2f,ink,true),LinearLayout.LayoutParams(0,-2,1f));val sb=timeButton(startIso);sr.addView(sb,LinearLayout.LayoutParams(dp(118),dp(42)));body.addView(sr);body.addView(gap(5))
         val er=row(bg);er.addView(txt("Kết thúc",10.2f,ink,true),LinearLayout.LayoutParams(0,-2,1f));val eb=timeButton(endIso);er.addView(eb,LinearLayout.LayoutParams(dp(118),dp(42)));body.addView(er);body.addView(gap(6))
-        sb.setOnClickListener{laborWheelPick(startIso){startIso=it;sb.text=compactAttendanceTime(it)}};eb.setOnClickListener{laborWheelPick(endIso){endIso=it;eb.text=compactAttendanceTime(it)}}
+        sb.setOnClickListener{laborWheelPick(startIso){startIso=it;sb.text=compactAttendanceTime(it)}};eb.setOnClickListener{laborWheelPick(endIso,true){endIso=it;eb.text=compactAttendanceTime(it)}}
         val note=input("Ghi chú",false).apply{setText(item.optString("note"))};body.addView(note);body.addView(gap(7));val save=primary("LƯU SỬA",teal){}
         save.setOnClickListener{
             val s=runCatching{Instant.parse(startIso).toEpochMilli()}.getOrDefault(0L);val e=runCatching{Instant.parse(endIso).toEpochMilli()}.getOrDefault(0L);if(s<=0||e<s){TopNotice.show(this,"Kiểm tra lại giờ bắt đầu và kết thúc.",TopNotice.Kind.WARNING);return@setOnClickListener}
@@ -1651,7 +1655,7 @@ class OperationsActivity : Activity() {
             val endRow=row(bg);endRow.addView(txt("Kết thúc",10.2f,ink,true),LinearLayout.LayoutParams(0,-2,1f))
             val endTime=Button(this).apply{text="Chưa chọn";textSize=12f;isAllCaps=false;setTextColor(navy);background=outlineBg(surface,11)};endRow.addView(endTime,LinearLayout.LayoutParams(dp(112),dp(42)));body.addView(endRow,matchWrap());body.addView(gap(6))
             startTime.setOnClickListener{pickClock(startIso){picked->startIso=picked;startTime.text=compactAttendanceTime(picked)}}
-            endTime.setOnClickListener{pickClock(endIso?:Instant.now().toString()){picked->endIso=picked;endTime.text=compactAttendanceTime(picked)}}
+            endTime.setOnClickListener{laborWheelPick(endIso?:Instant.now().toString(),true){picked->endIso=picked;endTime.text=compactAttendanceTime(picked)}}
             val note=input("Ghi chú",false).apply{setText(active.optString("note"))};body.addView(note,matchWrap());body.addView(gap(7))
             val finish=primary("HOÀN THÀNH",red){}
             finish.setOnClickListener{
@@ -1678,7 +1682,7 @@ class OperationsActivity : Activity() {
             val endRow=row(bg);endRow.addView(txt("Kết thúc (không bắt buộc)",10.2f,ink,true),LinearLayout.LayoutParams(0,-2,1f));val endTime=Button(this).apply{text="Chưa chọn";textSize=11.5f;isAllCaps=false;setTextColor(navy);background=outlineBg(surface,11)};endRow.addView(endTime,LinearLayout.LayoutParams(dp(112),dp(42)));body.addView(endRow,matchWrap());body.addView(gap(5))
             val clearEnd=smallButton("BỎ KT",muted).apply{visibility=View.GONE};body.addView(clearEnd,LinearLayout.LayoutParams(dp(86),dp(36)).apply{gravity=Gravity.END})
             startTime.setOnClickListener{pickClock(startIso){picked->startIso=picked;startTime.text=compactAttendanceTime(picked)}}
-            endTime.setOnClickListener{pickClock(endIso?:Instant.now().toString()){picked->endIso=picked;endTime.text=compactAttendanceTime(picked);clearEnd.visibility=View.VISIBLE}};clearEnd.setOnClickListener{endIso=null;endTime.text="Chưa chọn";clearEnd.visibility=View.GONE}
+            endTime.setOnClickListener{laborWheelPick(endIso?:Instant.now().toString(),true){picked->endIso=picked;endTime.text=compactAttendanceTime(picked);clearEnd.visibility=View.VISIBLE}};clearEnd.setOnClickListener{endIso=null;endTime.text="Chưa chọn";clearEnd.visibility=View.GONE}
             val fixedMain=foldLocal(e.optString("main_position")).let{it.contains("KEO HANG")||it.contains("TO TRUONG")}
             val deduct=CheckBox(this).apply{text="Khấu trừ nhân sự";isChecked=false;setTextColor(ink);textSize=11f}
             fun updateDeduct(){val fixedLabor=foldLocal(typeSpinner.selectedItem?.toString().orEmpty()).let{it.contains("KEO HANG")||it.contains("TO TRUONG")};val blocked=fixedMain||fixedLabor;deduct.isEnabled=!blocked;if(blocked)deduct.isChecked=false;deduct.setTextColor(if(blocked)muted else ink)}
