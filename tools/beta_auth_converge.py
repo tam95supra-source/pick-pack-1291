@@ -294,7 +294,20 @@ ON CONFLICT(login_id) DO UPDATE SET verifier=excluded.verifier,verifier_hash=exc
     g=gas_post(beta["gas"],{"action":"login","login_id":login,"challenge_id":c["challenge_id"],"proof":pr,"_device_id":device,"_device_label":"CI AUTH MIGRATION","_app_channel":"BETA","_environment_id":"BETA","_service_audience":"PICK_PACK_1291_BETA"})
     if g.get("ok") is not True or (g.get("account") or {}).get("role")!="SUPERADMIN":raise RuntimeError("ADMINBETA_GAS_LOGIN_FAILED")
     gas_token=str(g.get("token",""));print("::add-mask::"+gas_token)
-    code,sess=worker_json("POST",beta["url"]+"/v1/auth/gas-session",body={"gas_token":gas_token,"device_id":device,"device_label":"CI AUTH MIGRATION","environment_id":"BETA","service_audience":"PICK_PACK_1291_BETA"},headers={"X-Pick-Pack-Environment":"BETA","X-Pick-Pack-Audience":"PICK_PACK_1291_BETA"})
+    # Prove the freshly issued GAS bearer directly before asking Service to exchange it.
+    # Service's validator uses the same m2_authority_status call but has a short network timeout,
+    # so bounded same-token retries distinguish a transient GAS fetch from bad credentials.
+    gas_check=gas_post(beta["gas"],{"action":"m2_authority_status","_token":gas_token,"_device_id":device,"_app_channel":"BETA","_environment_id":"BETA","_service_audience":"PICK_PACK_1291_BETA","_app_version":"auth-converge-direct-proof"})
+    if gas_check.get("ok") is not True or str(gas_check.get("authority_mode",""))!="SERVICE_PRIMARY":
+        raise RuntimeError("ADMINBETA_GAS_SESSION_PROOF_FAILED:"+str(gas_check.get("error") or gas_check.get("authority_mode") or "UNKNOWN")[:120])
+    sess={};code=0
+    for attempt,delay in enumerate((0,3,8,15),1):
+        if delay:time.sleep(delay)
+        code,sess=worker_json("POST",beta["url"]+"/v1/auth/gas-session",body={"gas_token":gas_token,"device_id":device,"device_label":"CI AUTH MIGRATION","environment_id":"BETA","service_audience":"PICK_PACK_1291_BETA"},headers={"X-Pick-Pack-Environment":"BETA","X-Pick-Pack-Audience":"PICK_PACK_1291_BETA"})
+        if code//100==2 and sess.get("ok") is True and (sess.get("account") or {}).get("role")=="SUPERADMIN":break
+        err=(sess.get("error") or {})
+        errcode=(err.get("code") if isinstance(err,dict) else str(err)) or sess.get("error_code") or "UNKNOWN"
+        if str(errcode)!="GAS_SESSION_INVALID":break
     if code//100!=2 or sess.get("ok") is not True or (sess.get("account") or {}).get("role")!="SUPERADMIN":
         err=(sess.get("error") or {})
         errcode=(err.get("code") if isinstance(err,dict) else str(err)) or sess.get("error_code") or "UNKNOWN"
