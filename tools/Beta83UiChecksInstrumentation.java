@@ -824,11 +824,11 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     Object draft1=draftClass.getConstructor(Context.class).newInstance(target);
     String draftLogin="admin";
     String draftIdem="b109-draft-"+System.nanoTime();
-    draftClass.getMethod("save",String.class,String.class,String.class,String.class,imageClass)
-      .invoke(draft1,draftLogin,"CAMERA","2026-09-01T00:00:00Z",draftIdem,image);
+    draftClass.getMethod("save",String.class,String.class,String.class,String.class,imageClass,String.class)
+      .invoke(draft1,draftLogin,"CAMERA","2026-09-01T00:00:00Z",draftIdem,image,"b116-draft-note");
     String draftIdem2="b110-draft2-"+System.nanoTime();
-    draftClass.getMethod("append",String.class,String.class,String.class,String.class,imageClass)
-      .invoke(draft1,draftLogin,"GALLERY","2026-09-01T00:01:00Z",draftIdem2,image);
+    draftClass.getMethod("append",String.class,String.class,String.class,String.class,imageClass,String.class)
+      .invoke(draft1,draftLogin,"GALLERY","2026-09-01T00:01:00Z",draftIdem2,image,"b116-draft-note-2");
     Object draft2=draftClass.getConstructor(Context.class).newInstance(target);
     java.util.List<?> restoredDrafts=(java.util.List<?>)draftClass.getMethod("loadAll",String.class).invoke(draft2,draftLogin);
     require(restoredDrafts.size()==2,"DOCUMENT_SELECTED_MULTI_DRAFT_NOT_DURABLE");
@@ -836,6 +836,7 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     require(restoredDraft!=null,"DOCUMENT_SELECTED_DRAFT_NOT_DURABLE");
     Class<?> draftDataClass=cl.loadClass("vn.pickpack1291.app.beta.DocumentDraftStore$Draft");
     require(draftIdem.equals(String.valueOf(draftDataClass.getMethod("getIdempotencyKey").invoke(restoredDraft))),"DOCUMENT_SELECTED_DRAFT_IDEMPOTENCY_MISMATCH");
+    require("b116-draft-note".equals(String.valueOf(draftDataClass.getMethod("getNote").invoke(restoredDraft))),"DOCUMENT_SELECTED_DRAFT_NOTE_NOT_DURABLE");
     require(draftClass.getMethod("load",String.class).invoke(draft2,"other-account")==null,"DOCUMENT_SELECTED_DRAFT_ACCOUNT_FENCE_FAILED");
     draftClass.getMethod("remove",String.class).invoke(draft2,draftLogin);
     require(draftClass.getMethod("load",String.class).invoke(draft2,draftLogin)==null,"DOCUMENT_SELECTED_DRAFT_REMOVE_FAILED");
