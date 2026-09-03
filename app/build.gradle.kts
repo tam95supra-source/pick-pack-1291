@@ -32,8 +32,8 @@ android {
         create("beta") {
             dimension = "channel"
             applicationId = "vn.pickpack1291.app.beta.publicbeta"
-            versionCode = 122
-            versionName = "0.4.2-beta.116"
+            versionCode = 123
+            versionName = "0.4.2-beta.117"
             manifestPlaceholders["appLabel"] = "Pick Pack 1291 Beta"
             buildConfigField("String", "CHANNEL", "\"BETA\"")
             buildConfigField("String", "ENVIRONMENT_ID", "\"BETA\"")
@@ -107,7 +107,7 @@ dependencies {
 // Firebase client identifiers are injected at build time and default blank so source never contains project config.
 // GSHEET_API_URL remains public discovery/fallback configuration and manual update lookup path; no Service URL is compiled into APK.
 // Signing material remains outside this repository and the Android signer is owner-locked.
-// Beta116: document batch UX/notes/viewer, PDA/drop/attendance/QR/labor/report refinements, SUPERADMIN password reset, global isolated LAN test control, and light tap feedback; preserves Beta115 accepted ACTIVE_PASS behavior. Stable unchanged.
+// Beta117: OWNER follow-up document compact/edit/fullscreen, cross-document viewer, dropped-receiving admin layout, large-data rendering, fixed-role labor bulk/per-person ack, true SUPERADMIN LAN mode, compact selects, and stronger transform-only tap feedback; preserves Beta116 ACTIVE_PASS. Stable unchanged.\n// Beta116: document batch UX/notes/viewer, PDA/drop/attendance/QR/labor/report refinements, SUPERADMIN password reset, global isolated LAN test control, and light tap feedback; preserves Beta115 accepted ACTIVE_PASS behavior. Stable unchanged.
 // Beta115: owner revisions for labor future-end caps/quarter-hour wrap/deduction/bulk operations, canonical selects, and current-day empty calendar selection; preserves Beta114 accepted ACTIVE_PASS behavior. Stable unchanged.
 // Beta114: supersedes locked pre-OTA Beta113; preserves inline roster while restoring ACTIVE_PASS roster filters/drilldown and employee-to-QR tap. Stable unchanged.\n// Beta113: pre-OTA candidate superseded after roster interaction regression; never published.
 // Beta112: unified reconciliation/warning UI component; fixed geometry and canonical colors; Beta111 owner-accepted items 2-7 preserved. Stable unchanged.\n// Beta111: owner UI/labor/navigation corrections: actual back stack, exact-session labor authority, non-wrapping wheel time, daily labor list/correction, unified warnings, document tick modes, canonical history-delete cleanup. Stable unchanged.\n// Beta108: durable document pending queue + post-Drive completion resume + bounded 64MB media cache; inherits Beta107 Drive metadata/duplicate design. Category edit/archive remains OWNER-decision fail-closed. Stable unchanged.
