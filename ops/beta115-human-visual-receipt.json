@@ -1,0 +1,30 @@
+{
+  "status": "PASS",
+  "channel": "BETA",
+  "version_name": "0.4.2-beta.115",
+  "version_code": 121,
+  "package": "vn.pickpack1291.app.beta.publicbeta",
+  "source_sha": "3f343ea1be0dbace5df995e4c81e1cdca9defd24",
+  "candidate_run_id": 33703823187,
+  "candidate_artifact_id": 9874569505,
+  "candidate_artifact_name": "beta-candidate-33703823187",
+  "apk_sha256": "af2c267e2101223387fdf4feb86b6ae315fe17b44c09d89c9f6166a8a73d49e5",
+  "apk_size": 14281717,
+  "signer_sha256": "d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e",
+  "visual_run_id": 33705116149,
+  "visual_artifact_id": 9875061341,
+  "visual_artifact_name": "beta-verify-33705116149",
+  "screenshot_count": 43,
+  "viewports": [
+    "320x568",
+    "360x640",
+    "480x800"
+  ],
+  "human_visual": "PASS",
+  "human_visual_basis": "MANUAL_INSPECTION_ALL_43_SCREENSHOTS_3_VIEWPORTS",
+  "visual_matrix": "PASS",
+  "pda_functional_pre_ota": "PASS",
+  "back_api36": "PASS",
+  "stable_main_signer_authority": "UNCHANGED",
+  "recorded_at": "2026-09-03T08:55:00+07:00"
+}
