@@ -95,6 +95,25 @@ object PostMealAttendanceFeature {
         fun gap(v:Int)=Space(activity).apply{layoutParams=ViewGroup.LayoutParams(1,dp(v))}
         fun button(label:String,color:Int)=Button(activity).apply{text=label;textSize=10f;setTextColor(Color.WHITE);typeface=Typeface.DEFAULT_BOLD;isAllCaps=false;minHeight=0;minimumHeight=0;background=GradientDrawable().apply{setColor(color);cornerRadius=dp(9).toFloat()}}
         fun input(hintText:String)=EditText(activity).apply{hint=hintText;textSize=13f;setTextColor(ink);setHintTextColor(Color.rgb(148,163,184));setPadding(dp(10),dp(7),dp(10),dp(7));background=drawable();setSingleLine(true);imeOptions=EditorInfo.IME_ACTION_DONE}
+        fun selectSpinner(values:List<String>)=Spinner(activity).apply{
+            adapter=object:ArrayAdapter<String>(activity,android.R.layout.simple_spinner_item,values){
+                override fun getView(position:Int,convertView:View?,parent:ViewGroup):View{
+                    val v=super.getView(position,convertView,parent) as TextView
+                    v.textSize=13f;v.setTextColor(navy);v.typeface=Typeface.DEFAULT_BOLD;v.gravity=Gravity.CENTER_VERTICAL
+                    v.setPadding(dp(12),0,dp(34),0);return v
+                }
+                override fun getDropDownView(position:Int,convertView:View?,parent:ViewGroup):View{
+                    val v=super.getDropDownView(position,convertView,parent) as TextView
+                    v.textSize=12.5f;v.setTextColor(ink);v.typeface=Typeface.DEFAULT;v.gravity=Gravity.CENTER_VERTICAL
+                    v.minHeight=dp(46);v.setPadding(dp(14),dp(7),dp(14),dp(7));return v
+                }
+            }
+            minimumHeight=dp(46);background=drawable(Color.WHITE,Color.rgb(220,228,226),12)
+        }
+        fun labelledSelect(label:String,spinner:Spinner)=column().apply{
+            addView(text(label.uppercase(),9.2f,muted,true).apply{letterSpacing=.025f;setPadding(dp(2),0,dp(2),0)})
+            addView(gap(3));addView(spinner,LinearLayout.LayoutParams(-1,dp(46)))
+        }
         fun safe(v:String)=v.trim().takeUnless{it.isBlank()||it.equals("null",true)}?:"-"
         fun fmtDate(v:String)=runCatching{LocalDate.parse(v).format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}.getOrDefault(safe(v))
         fun fmtTime(v:String):String{
@@ -155,11 +174,11 @@ object PostMealAttendanceFeature {
         lateinit var showReasonDialog:(JSONObject)->Unit
 
         fun applyAvailableDates(remote:List<String> = emptyList()){
-            availableDates=(remote+store.availableDatesWithData())
+            availableDates=(remote+store.availableDatesWithData()+today().toString())
                 .filter{it.matches(Regex("\\d{4}-\\d{2}-\\d{2}"))}
                 .distinct().sortedDescending()
-            dateBtn.isEnabled=availableDates.isNotEmpty()
-            dateBtn.alpha=if(dateBtn.isEnabled)1f else .45f
+            dateBtn.isEnabled=true
+            dateBtn.alpha=1f
         }
         fun refreshAvailableDates(){
             api.call("meal_attendance_dates"){r->activity.runOnUiThread{
@@ -321,27 +340,27 @@ object PostMealAttendanceFeature {
             if(selected!=today()){
                 TopNotice.show(activity,"Ngày lịch sử chỉ được xem.",TopNotice.Kind.INFO)
             }else{
-            val reasons=arrayOf("Xin về sớm","Đi hỗ trợ bộ phận/vị trí khác","Xin vào muộn","Nghỉ đột xuất","Có việc cá nhân","Được quản lý điều chuyển","Khác")
-            AlertDialog.Builder(activity).setTitle("Xử lý ${item.optString("mnv")}").setItems(reasons){_,which->
-                val reason=reasons[which]
-                if(reason=="Khác"){
-                    val note=input("Nhập lý do")
-                    val d=AlertDialog.Builder(activity).setTitle("Lý do khác").setView(note).setNegativeButton("Hủy",null).setPositiveButton("LƯU",null).create()
-                    d.setOnShowListener{d.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener{
-                        val v=note.text.toString().trim();if(v.isBlank()){TopNotice.show(activity,"Phải nhập lý do.",TopNotice.Kind.WARNING);return@setOnClickListener}
-                        d.dismiss();applyReason(item,reason,v,"")
-                    }};d.show()
-                }else if(reason=="Xin vào muộn")askExpected(item,reason,"")
-                else applyReason(item,reason,"","")
-            }.show()
+                val reasons=listOf("Xin về sớm","Đi hỗ trợ bộ phận/vị trí khác","Xin vào muộn","Nghỉ đột xuất","Có việc cá nhân","Được quản lý điều chuyển","Khác")
+                val reasonSpinner=selectSpinner(reasons)
+                val box=column().apply{setPadding(dp(10),dp(5),dp(10),dp(8));addView(labelledSelect("Lý do không vào ca",reasonSpinner))}
+                val d=AlertDialog.Builder(activity).setTitle("Xử lý ${item.optString("mnv")}").setView(box).setNegativeButton("Hủy",null).setPositiveButton("TIẾP TỤC",null).create()
+                d.setOnShowListener{d.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener{
+                    val reason=reasonSpinner.selectedItem?.toString().orEmpty();if(reason.isBlank())return@setOnClickListener
+                    d.dismiss()
+                    if(reason=="Khác"){
+                        val note=input("Nhập lý do")
+                        val other=AlertDialog.Builder(activity).setTitle("Lý do khác").setView(note).setNegativeButton("Hủy",null).setPositiveButton("LƯU",null).create()
+                        other.setOnShowListener{other.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener{
+                            val v=note.text.toString().trim();if(v.isBlank()){TopNotice.show(activity,"Phải nhập lý do.",TopNotice.Kind.WARNING);return@setOnClickListener}
+                            other.dismiss();applyReason(item,reason,v,"")
+                        }};other.show()
+                    }else if(reason=="Xin vào muộn")askExpected(item,reason,"")
+                    else applyReason(item,reason,"","")
+                }};d.show()
             }
         }
 
         dateBtn.setOnClickListener{
-            if(availableDates.isEmpty()){
-                TopNotice.show(activity,"Chưa có ngày nào có dữ liệu điểm danh.",TopNotice.Kind.INFO)
-                return@setOnClickListener
-            }
             DataDatePickerUi.show(activity,availableDates,selected.toString()){chosen->
                 runCatching{LocalDate.parse(chosen)}.getOrNull()?.let{load(it)}
             }
