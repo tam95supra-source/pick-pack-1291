@@ -1,0 +1,76 @@
+{
+  "status": "LOCKED",
+  "channel": "BETA",
+  "version_name": "0.4.2-beta.116",
+  "version_code": 122,
+  "package": "vn.pickpack1291.app.beta.publicbeta",
+  "candidate_source_sha": "cf01dab16e1c62091561ca008a355a8f49326581",
+  "service_source_sha": "cf01dab16e1c62091561ca008a355a8f49326581",
+  "candidate_run_id": 33767353642,
+  "candidate_artifact_id": 9898290631,
+  "candidate_artifact_name": "beta-candidate-33767353642",
+  "apk_sha256": "a346d4554e07fc37552c9d8876179860677fc93923a3bd42f9b3f97f5e11f235",
+  "apk_size": 14347253,
+  "signer_sha256": "d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e",
+  "service_gate": {
+    "status": "PASS",
+    "run_id": 33767353642,
+    "artifact_id": 9898616640,
+    "artifact_name": "beta-service-33767353642"
+  },
+  "fast_check": {
+    "status": "PASS",
+    "run_id": 33767353720
+  },
+  "visual": {
+    "status": "PASS",
+    "run_id": 33774026289,
+    "artifact_id": 9901071098,
+    "artifact_name": "beta-verify-33774026289",
+    "viewports": [
+      "320x568",
+      "360x640",
+      "480x800"
+    ],
+    "human_visual": "PASS",
+    "receipt": "ops/beta116-human-visual-receipt.json"
+  },
+  "pda_functional_pre_ota": "PASS",
+  "back_api36": "PASS",
+  "beta_auth": {
+    "status": "PASS",
+    "run_id": 33776285435,
+    "artifact_id": 9902148937,
+    "artifact_name": "beta-auth-33776285435",
+    "stable_unchanged": true
+  },
+  "device_regression": {
+    "status": "PASS",
+    "run_id": 33778316587,
+    "artifact_id": 9902571477,
+    "artifact_name": "beta-service-discovery-33778316587"
+  },
+  "runtime_dod": {
+    "status": "PASS",
+    "run_id": 33778605857,
+    "artifact_id": 9902663700,
+    "artifact_name": "beta-stable-runtime-33778605857"
+  },
+  "beta_domain": {
+    "status": "PASS",
+    "run_id": 33778957345,
+    "artifact_id": 9902758766,
+    "artifact_name": "beta-domain-prepare-33778957345",
+    "changed": false,
+    "http_status": 200,
+    "stable_root_attached": false
+  },
+  "apk_transport": "GITHUB_RELEASE_ONLY",
+  "rebuild": false,
+  "resign": false,
+  "stable_publish": "FORBIDDEN",
+  "authority_change": "NONE",
+  "stable_main_signer_authority": "UNCHANGED",
+  "locked_at": "2026-09-03T16:31:03Z",
+  "next_action": "PUBLISH_EXACT_LOCKED_BYTES_BETA_OTA"
+}
