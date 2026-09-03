@@ -256,69 +256,83 @@ invariants:
 
 
   - id: CHANGELOG-CURRENT-VERSION-001
-    status: LOCKED_REQUIREMENT_PENDING_FIX
+    status: TECHNICAL_PASS_AWAITING_OWNER
     scope: changelog-current-version
     rule: "In-app changelog must exactly match running versionName; Beta version bump without matching ReleaseNotes must fail build."
     regression_minimum: [version_name_match, release_notes_match, prebuild_gate]
     regression_case: "qa/beta113_owner_scope_regression.md + tools/beta113_owner_scope_contract.py"
-    owner_acceptance: "PENDING_BETA113"
+    owner_acceptance: "PENDING_BETA114"
+    technical_evidence: "Beta114 LIVE technical PASS: source 5686da2cc6fdb2bf845456bda9e703eb68e9f1f0; candidate 33691947969/9870515268; Fast Check 33698830085; visual+PDA+API36 33698830042/9872907916; device 33697808957/9872457667; runtime 33698019451/9872504979; terminal 33699803398; publish 9873117701; OTA/install/readback 9873169722; final 9873176752; SHA256 cc611efc72a3cd0af413f316b6182adb281d398c189f5bb9d613235722b296bd; size 14232565; Stable/main/signer/authority unchanged."
+    technical_receipt: "ops/beta114-technical-pass.json"
     active_pass: false
 
   - id: ADMIN-AUDIT-PASSWORD-001
-    status: LOCKED_REQUIREMENT_PENDING_FIX
+    status: TECHNICAL_PASS_AWAITING_OWNER
     scope: password-admin-audit
     rule: "Successful password change must record canonical change_password audit; admin_audit is routing only and audit payload must not contain password/proof/verifier."
     regression_minimum: [password_success, canonical_audit_action, durable_route, no_sensitive_audit_payload, no_false_sync_failure]
     regression_case: "qa/beta113_owner_scope_regression.md + tools/beta113_owner_scope_contract.py"
-    owner_acceptance: "PENDING_BETA113"
+    owner_acceptance: "PENDING_BETA114"
+    technical_evidence: "Beta114 LIVE technical PASS: source 5686da2cc6fdb2bf845456bda9e703eb68e9f1f0; candidate 33691947969/9870515268; Fast Check 33698830085; visual+PDA+API36 33698830042/9872907916; device 33697808957/9872457667; runtime 33698019451/9872504979; terminal 33699803398; publish 9873117701; OTA/install/readback 9873169722; final 9873176752; SHA256 cc611efc72a3cd0af413f316b6182adb281d398c189f5bb9d613235722b296bd; size 14232565; Stable/main/signer/authority unchanged."
+    technical_receipt: "ops/beta114-technical-pass.json"
     active_pass: false
 
   - id: HISTORY-SUPERADMIN-CLEANUP-002
-    status: LOCKED_REQUIREMENT_PENDING_FIX
+    status: TECHNICAL_PASS_AWAITING_OWNER
     scope: superadmin-history-cleanup
     parent_invariant: HISTORY-DELETE-CANONICAL-001
     rule: "SUPERADMIN may delete any History card after existing security verification; canonical Service records use tombstones, terminal local unsyncable records delete locally, pending business mutations are not silently cancelled."
     regression_minimum: [canonical_tombstone, local_terminal_cleanup, pending_outbox_preserved, privileged_verification]
     regression_case: "qa/beta113_owner_scope_regression.md + tools/beta113_owner_scope_contract.py"
-    owner_acceptance: "PENDING_BETA113"
+    owner_acceptance: "PENDING_BETA114"
+    technical_evidence: "Beta114 LIVE technical PASS: source 5686da2cc6fdb2bf845456bda9e703eb68e9f1f0; candidate 33691947969/9870515268; Fast Check 33698830085; visual+PDA+API36 33698830042/9872907916; device 33697808957/9872457667; runtime 33698019451/9872504979; terminal 33699803398; publish 9873117701; OTA/install/readback 9873169722; final 9873176752; SHA256 cc611efc72a3cd0af413f316b6182adb281d398c189f5bb9d613235722b296bd; size 14232565; Stable/main/signer/authority unchanged."
+    technical_receipt: "ops/beta114-technical-pass.json"
     active_pass: false
 
   - id: LABOR-MULTI-INTERVAL-003
-    status: LOCKED_REQUIREMENT_PENDING_FIX
+    status: TECHNICAL_PASS_AWAITING_OWNER
     scope: labor-multi-interval
     parent_invariant: LABOR-EXACT-SESSION-002
     rule: "One attendance session may have multiple labor intervals with unique labor_id; at most one OPEN, no overlap or auto-merge, exact labor edit/finish, attendance-bound and non-future times, all intervals visible."
     regression_minimum: [multiple_intervals, one_open, no_overlap, no_auto_merge, exact_labor_id, attendance_bounds, no_future, all_visible]
     regression_case: "qa/beta113_owner_scope_regression.md + tools/beta113_owner_scope_contract.py"
-    owner_acceptance: "PENDING_BETA113"
+    owner_acceptance: "PENDING_BETA114"
+    technical_evidence: "Beta114 LIVE technical PASS: source 5686da2cc6fdb2bf845456bda9e703eb68e9f1f0; candidate 33691947969/9870515268; Fast Check 33698830085; visual+PDA+API36 33698830042/9872907916; device 33697808957/9872457667; runtime 33698019451/9872504979; terminal 33699803398; publish 9873117701; OTA/install/readback 9873169722; final 9873176752; SHA256 cc611efc72a3cd0af413f316b6182adb281d398c189f5bb9d613235722b296bd; size 14232565; Stable/main/signer/authority unchanged."
+    technical_receipt: "ops/beta114-technical-pass.json"
     active_pass: false
 
   - id: UI-DATA-DATE-SELECT-001
-    status: LOCKED_REQUIREMENT_PENDING_FIX
+    status: TECHNICAL_PASS_AWAITING_OWNER
     scope: data-display-date-picker
     rule: "Display-only date pickers enable only dates with real data and dim/disable empty dates; edit/change date-time pickers remain unrestricted."
     regression_minimum: [report_data_dates, history_data_dates, labor_data_dates, meal_data_dates, all_display_only_dates, empty_dim_disabled, edit_date_exempt]
     regression_case: "qa/beta113_owner_scope_regression.md + tools/beta113_owner_scope_contract.py"
-    owner_acceptance: "PENDING_BETA113"
+    owner_acceptance: "PENDING_BETA114"
+    technical_evidence: "Beta114 LIVE technical PASS: source 5686da2cc6fdb2bf845456bda9e703eb68e9f1f0; candidate 33691947969/9870515268; Fast Check 33698830085; visual+PDA+API36 33698830042/9872907916; device 33697808957/9872457667; runtime 33698019451/9872504979; terminal 33699803398; publish 9873117701; OTA/install/readback 9873169722; final 9873176752; SHA256 cc611efc72a3cd0af413f316b6182adb281d398c189f5bb9d613235722b296bd; size 14232565; Stable/main/signer/authority unchanged."
+    technical_receipt: "ops/beta114-technical-pass.json"
     active_pass: false
 
   - id: UI-EMPLOYEE-SCAN-ROSTER-001
-    status: LOCKED_REQUIREMENT_PENDING_FIX
+    status: TECHNICAL_PASS_AWAITING_OWNER
     scope: employee-scan-inline-roster
     rule: "Employee scan stays same height but visually emphasized; current-day roster is inline below scan; scanned employee/session renders before roster; reconciliation tiles only show quick in/out and pending-to-exit list with Exit."
     regression_minimum: [scan_emphasis, inline_roster, scanned_session_first, reconciliation_pending_only]
     regression_case: "qa/beta113_owner_scope_regression.md + tools/beta113_owner_scope_contract.py"
-    owner_acceptance: "PENDING_BETA113"
+    owner_acceptance: "PENDING_BETA114"
+    technical_evidence: "Beta114 LIVE technical PASS: source 5686da2cc6fdb2bf845456bda9e703eb68e9f1f0; candidate 33691947969/9870515268; Fast Check 33698830085; visual+PDA+API36 33698830042/9872907916; device 33697808957/9872457667; runtime 33698019451/9872504979; terminal 33699803398; publish 9873117701; OTA/install/readback 9873169722; final 9873176752; SHA256 cc611efc72a3cd0af413f316b6182adb281d398c189f5bb9d613235722b296bd; size 14232565; Stable/main/signer/authority unchanged."
+    technical_receipt: "ops/beta114-technical-pass.json"
     active_pass: false
 
   - id: UI-FORM-CONSISTENCY-002
-    status: LOCKED_REQUIREMENT_PENDING_FIX
+    status: TECHNICAL_PASS_AWAITING_OWNER
     scope: form-select-ui-consistency
     parent_invariant: UI-REVIEW-WARNING-001
     rule: "Common form controls use consistent title/value hierarchy, radius/stroke/size; MNV scan intentionally uses 2dp emphasis; locked Beta112 ReviewAlertUi geometry and severity semantics remain unchanged."
     regression_minimum: [common_outline, spinner_hierarchy, pda_select_hierarchy, review_alert_unchanged, visual_matrix]
     regression_case: "qa/beta113_owner_scope_regression.md + tools/beta113_owner_scope_contract.py"
-    owner_acceptance: "PENDING_BETA113"
+    owner_acceptance: "PENDING_BETA114"
+    technical_evidence: "Beta114 LIVE technical PASS: source 5686da2cc6fdb2bf845456bda9e703eb68e9f1f0; candidate 33691947969/9870515268; Fast Check 33698830085; visual+PDA+API36 33698830042/9872907916; device 33697808957/9872457667; runtime 33698019451/9872504979; terminal 33699803398; publish 9873117701; OTA/install/readback 9873169722; final 9873176752; SHA256 cc611efc72a3cd0af413f316b6182adb281d398c189f5bb9d613235722b296bd; size 14232565; Stable/main/signer/authority unchanged."
+    technical_receipt: "ops/beta114-technical-pass.json"
     active_pass: false
 
 impact_map:
