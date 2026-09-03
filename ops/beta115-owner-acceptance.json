@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "project": "APK PICK PACK 1291",
+  "owner": "Nguyễn Văn Tâm",
+  "channel": "BETA",
+  "version_name": "0.4.2-beta.115",
+  "version_code": 121,
+  "status": "OWNER_ACCEPTANCE_COMPLETE",
+  "accepted_at_local": "2026-09-03T10:08:00+07:00",
+  "accepted_at_utc": "2026-09-03T03:08:00Z",
+  "owner_statement": "Tất cả OK về mặt lý thuyết/yêu cầu; ghi nhận PASS hết các mục nghiệm thu. Vẫn còn nhiều thứ cần chỉnh sửa và sẽ được nêu ở phiên chat mới.",
+  "accepted_checklist_items": [
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "accepted_invariants": [
+    "LABOR-MULTI-INTERVAL-003",
+    "UI-DATA-DATE-SELECT-001",
+    "UI-FORM-CONSISTENCY-002"
+  ],
+  "scope_note": "Acceptance hoàn tất cho checklist Beta115 hiện tại. Các chỉnh sửa chưa được OWNER mô tả cụ thể không được suy diễn; chúng là scope mới ở phiên tiếp theo.",
+  "technical_evidence": {
+    "terminal_run_id": 33709045943,
+    "candidate_run_id": 33703823187,
+    "candidate_artifact_id": 9874569505,
+    "candidate_source_sha": "3f343ea1be0dbace5df995e4c81e1cdca9defd24",
+    "service_source_sha": "429c39f82aacba19351351234f7f66a8d3b655f1",
+    "fast_check_run_id": 33708743727,
+    "service_run_id": 33707525071,
+    "runtime_run_id": 33708224737,
+    "publish_artifact_id": 9876309366,
+    "ota_readback_artifact_id": 9876353676,
+    "final_artifact_id": 9876357969,
+    "apk_sha256": "af2c267e2101223387fdf4feb86b6ae315fe17b44c09d89c9f6166a8a73d49e5",
+    "apk_size": 14281717,
+    "signer_sha256": "d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e",
+    "stable_main_signer_authority": "UNCHANGED"
+  },
+  "next_action": "WAIT_FOR_OWNER_NEW_SCOPE"
+}

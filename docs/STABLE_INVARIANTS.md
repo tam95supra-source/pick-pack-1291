@@ -342,31 +342,40 @@ Mỗi invariant tối thiểu có:
 
 
 ### LABOR-MULTI-INTERVAL-003
-- Status: LOCKED_REQUIREMENT_PENDING_FIX
+- Status: ACTIVE_PASS
 - Parent: LABOR-EXACT-SESSION-002 ACTIVE_PASS.
 - Scope: Công nhật / nhiều khoảng trong một phiên
 - Rule: một phiên điểm danh có nhiều khoảng công nhật riêng theo `labor_id`; tối đa một khoảng OPEN; các khoảng không chồng/không tự gộp. Giờ bắt đầu không ở tương lai/không trước giờ vào ca. Giờ kết thúc được phép nhập trước trong tương lai tới cuối ca cố định (Ca 1 14:00, Ca HC 17:00, Ca 2 22:00); nếu NLĐ làm quá ca thì chỉ được kéo dài theo thời gian thực tế phiên và không vượt giờ ra thực tế. Sửa/kết thúc đúng `labor_id`. Tạo/kết thúc hàng loạt phải xác nhận mật khẩu thời gian thực.
 - Regression: multiple_intervals / one_open / no_overlap / no_auto_merge / exact_labor_id / start_not_future / shift_end_cap / overtime_elapsed_or_exit_cap / deduct_support_exact / grouped_employee_card / batch_create_filters / batch_finish_filters / password_gate.
 - Regression case: `qa/beta113_owner_scope_regression.md` + `tools/beta113_owner_scope_contract.py`.
-- OWNER acceptance: PENDING — OWNER revised items 6–8 on 2026-09-03 08:06 +07:00; requires new Beta.
+- Technical evidence: 0.4.2-beta.115 LIVE; APK candidate source 3f343ea1be0dbace5df995e4c81e1cdca9defd24; service source 429c39f82aacba19351351234f7f66a8d3b655f1; candidate 33703823187/9874569505; visual+human 33705116149/9875061341; device regression 33705707420/9875164876; service 33707525071/9875965938; runtime 33708224737/9876009359; Fast Check 33708743727 PASS; terminal 33709045943; publish 9876309366; OTA/install/open/readback 9876353676; final 9876357969; SHA256 af2c267e2101223387fdf4feb86b6ae315fe17b44c09d89c9f6166a8a73d49e5; size 14281717; signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/signer/authority unchanged.
+- Owner receipt: `ops/beta115-owner-acceptance.json`.
+- Last verified: 0.4.2-beta.115 LIVE / terminal run 33709045943 / OWNER acceptance complete 2026-09-03T10:08:00+07:00.
+- OWNER acceptance: PASS — OWNER xác nhận toàn bộ checklist Beta115 OK lúc 2026-09-03T10:08:00+07:00.
 
 ### UI-DATA-DATE-SELECT-001
-- Status: LOCKED_REQUIREMENT_PENDING_FIX
+- Status: ACTIVE_PASS
 - Scope: lịch chọn ngày để xem dữ liệu
 - Rule: lịch chỉ để xem dữ liệu bật các ngày có dữ liệu và luôn bật ngày HÔM NAY kể cả chưa có dữ liệu; các ngày trống khác vẫn mờ/disabled. Lịch sửa/chỉnh ngày giờ nghiệp vụ không bị giới hạn.
 - Regression: report/history/labor/điểm danh / today_always_selectable / other_empty_dim_disabled / edit-date exemption.
 - Regression case: `qa/beta113_owner_scope_regression.md` + `tools/beta113_owner_scope_contract.py`.
-- OWNER acceptance: PENDING — OWNER revised items 6–8 on 2026-09-03 08:06 +07:00; requires new Beta.
+- Technical evidence: 0.4.2-beta.115 LIVE; APK candidate source 3f343ea1be0dbace5df995e4c81e1cdca9defd24; service source 429c39f82aacba19351351234f7f66a8d3b655f1; candidate 33703823187/9874569505; visual+human 33705116149/9875061341; device regression 33705707420/9875164876; service 33707525071/9875965938; runtime 33708224737/9876009359; Fast Check 33708743727 PASS; terminal 33709045943; publish 9876309366; OTA/install/open/readback 9876353676; final 9876357969; SHA256 af2c267e2101223387fdf4feb86b6ae315fe17b44c09d89c9f6166a8a73d49e5; size 14281717; signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/signer/authority unchanged.
+- Owner receipt: `ops/beta115-owner-acceptance.json`.
+- Last verified: 0.4.2-beta.115 LIVE / terminal run 33709045943 / OWNER acceptance complete 2026-09-03T10:08:00+07:00.
+- OWNER acceptance: PASS — OWNER xác nhận toàn bộ checklist Beta115 OK lúc 2026-09-03T10:08:00+07:00.
 
 
 ### UI-FORM-CONSISTENCY-002
-- Status: LOCKED_REQUIREMENT_PENDING_FIX
+- Status: ACTIVE_PASS
 - Parent: UI-REVIEW-WARNING-001 ACTIVE_PASS giữ nguyên component cảnh báo.
 - Scope: giao diện chung / form / select
 - Rule: mọi select phải theo cùng hierarchy: nhãn nhỏ/muted, giá trị đang chọn nổi bật/bold, danh sách lựa chọn nhẹ hơn/normal; bao gồm select lý do không vào ca và các catalog select. Base form outline đã OWNER chốt và ReviewAlertUi Beta112 phải giữ nguyên.
 - Regression: all_selects_canonical / reason_select_canonical / spinner hierarchy / PDA searchable select hierarchy / base outline preserved / locked ReviewAlertUi unchanged.
 - Regression case: `qa/beta113_owner_scope_regression.md` + `tools/beta113_owner_scope_contract.py`.
-- OWNER acceptance: PENDING — OWNER revised items 6–8 on 2026-09-03 08:06 +07:00; requires new Beta.
+- Technical evidence: 0.4.2-beta.115 LIVE; APK candidate source 3f343ea1be0dbace5df995e4c81e1cdca9defd24; service source 429c39f82aacba19351351234f7f66a8d3b655f1; candidate 33703823187/9874569505; visual+human 33705116149/9875061341; device regression 33705707420/9875164876; service 33707525071/9875965938; runtime 33708224737/9876009359; Fast Check 33708743727 PASS; terminal 33709045943; publish 9876309366; OTA/install/open/readback 9876353676; final 9876357969; SHA256 af2c267e2101223387fdf4feb86b6ae315fe17b44c09d89c9f6166a8a73d49e5; size 14281717; signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/signer/authority unchanged.
+- Owner receipt: `ops/beta115-owner-acceptance.json`.
+- Last verified: 0.4.2-beta.115 LIVE / terminal run 33709045943 / OWNER acceptance complete 2026-09-03T10:08:00+07:00.
+- OWNER acceptance: PASS — OWNER xác nhận toàn bộ checklist Beta115 OK lúc 2026-09-03T10:08:00+07:00.
 
 
 ### INFRA-RESILIENCE-001

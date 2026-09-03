@@ -1,6 +1,6 @@
 # CURRENT STATE — PICK PACK 1291
 
-- updated_at: 2026-09-03T02:53:33Z
+- updated_at: 2026-09-03T03:08:00Z
 - status: BETA115_PASS_LIVE
 - continuity_branch: release/beta113-owner-scope-20260902
 - source_sha: 429c39f82aacba19351351234f7f66a8d3b655f1
@@ -14,6 +14,11 @@
 - apk_size: 14281717
 - signer_sha256: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
 - terminal_run: 33709045943
+- owner_acceptance: COMPLETE_BETA115_CHECKLIST_1_TO_5
+- owner_acceptance_at: 2026-09-03T10:08:00+07:00
+- owner_acceptance_receipt: ops/beta115-owner-acceptance.json
+- accepted_invariants: LABOR-MULTI-INTERVAL-003 / UI-DATA-DATE-SELECT-001 / UI-FORM-CONSISTENCY-002
+- owner_note: Beta115 checklist accepted; additional adjustments remain future OWNER-defined scope and are not inferred here.
 - fast_check: PASS
 - service_gate: PASS_EXACT_SERVICE_SOURCE_429c39f82aacba19351351234f7f66a8d3b655f1
 - visual_matrix: PASS 320x568 / 360x640 / 480x800
