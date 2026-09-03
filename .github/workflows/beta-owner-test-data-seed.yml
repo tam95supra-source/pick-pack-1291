@@ -1,0 +1,38 @@
+name: Beta owner test data seed 30100-30200
+
+on:
+  push:
+    branches:
+      - ops/beta115-seed-30100-30200-20260903
+
+permissions:
+  contents: read
+
+concurrency:
+  group: beta-owner-test-seed-30100-30200
+  cancel-in-progress: false
+
+jobs:
+  seed:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install pinned Service tooling
+        run: npm --prefix service install --ignore-scripts --no-audit --no-fund
+      - name: Seed Beta test employees and enter-only sessions
+        run: python3 tools/ops_beta_seed_30100_30200.py
+      - name: Upload redacted receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: beta-owner-test-seed-${{ github.run_id }}
+          path: /tmp/beta115-owner-seed-30100-30200.json
+          if-no-files-found: error
