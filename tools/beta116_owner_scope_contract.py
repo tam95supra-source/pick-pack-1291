@@ -77,8 +77,9 @@ assert 'lan_test_mode_get' in mobile and 'lan_test_mode_set' in mobile
 assert 'CREATE TABLE IF NOT EXISTS lan_test_mode' in migration and 'epoch INTEGER NOT NULL DEFAULT 0' in migration
 assert 'lan.canRouteForTest()' in m2 and 'lan.submitTest(body)' in m2
 assert 'if(lan.canRoute())' in m2, "production LAN routing must remain separate"
-for token in ['refreshGlobalLanTestMode','setGlobalLanTestMode','BẬT LAN TEST TOÀN CỤC','resilienceLanModeAutoEnabled']:
+for token in ['refreshGlobalLanTestMode','setGlobalLanTestMode','resilienceLanModeAutoEnabled']:
     assert token in ops, token
+assert ('BẬT LAN TEST TOÀN CỤC' in ops) or ('BẬT LAN TEST CÔ LẬP' in ops), "global isolated LAN test control must remain visible"
 
 # Lightweight tap feedback must be transform-only, not layout animation.
 assert 'private fun tapFeedback(v:View)' in ops
