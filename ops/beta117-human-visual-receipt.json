@@ -1,0 +1,26 @@
+{
+  "status": "PASS",
+  "version_name": "0.4.2-beta.117",
+  "version_code": 123,
+  "package": "vn.pickpack1291.app.beta.publicbeta",
+  "candidate_source_sha": "d8ea2c2f31549647e8676b40dc536d2b1b80e6e5",
+  "candidate_run_id": 33800745880,
+  "candidate_artifact_id": 9911117214,
+  "apk_sha256": "b3454574547eece69ea44c51b2f88da93dd142eb5d1afb82e7fbd0f293cc0d87",
+  "apk_size": 14396405,
+  "verify_run_id": 33816769626,
+  "verify_artifact_id": 9916961610,
+  "verify_artifact_name": "beta-verify-33816769626",
+  "screenshot_count": 43,
+  "sizes": [
+    "320x568",
+    "360x640",
+    "480x800"
+  ],
+  "functional_direct_candidate": "PASS",
+  "back_api36": "PASS",
+  "human_inspection": "PASS",
+  "human_findings": "No severe overlap, clipping, broken hierarchy, unusable control, or empty document section regression observed across 43 real screenshots. Document zero-state stays compact and the 320x568, 360x640, 480x800 layouts remain usable.",
+  "stable_unchanged": true,
+  "inspected_at_utc": "2026-09-03T23:22:00Z"
+}
