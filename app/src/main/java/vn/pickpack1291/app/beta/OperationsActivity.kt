@@ -1487,6 +1487,188 @@ class OperationsActivity : Activity() {
         val posBox=column(bg);posBox.addView(segmentedChoice(positionChoices,posKey){k->posKey=k;posLabel=positionChoices.firstOrNull{it.second==k}?.first?:k;preferredPick="";preferredPackTable="";preferredPackUser="";preferredPackUsed=false;rebuildResources()},matchWrap());body.addView(labelled("Vị trí trong ca",posBox));body.addView(gap(7));body.addView(resource,matchWrap());rebuildResources()
         val enter=primary("VÀO CA",teal){};enter.setOnClickListener{val positions=JSONArray();if(posKey!="NONE")positions.put(JSONObject().put("position_key",posKey).put("position_label",posLabel));val resources=JSONArray();if(posKey=="PICK"){val typed=pdaField?.text?.toString()?.trim().orEmpty();val p=selectedPda?:resolvePdaObject(pdas,typed);val expected=p?.optString("last5").orEmpty().ifBlank{p?.optString("serial").orEmpty().takeLast(5)};if(p==null||typed!=expected){showError("Vị trí Pick bắt buộc chọn PDA bằng đúng 5 số cuối.");return@setOnClickListener};resources.put(JSONObject().put("resource_type","PDA").put("resource_id",p.optString("serial")).put("pda_enter_status",p.optString("status")));val choice=pickChoices.getOrNull(pickSpin?.selectedItemPosition?:0)?:("" to false);if(choice.first.isNotBlank())resources.put(JSONObject().put("resource_type","USER_PICK").put("resource_id",choice.first).put("duplicate_user",choice.second))};if(posKey=="PACK"){val q=packSelection;val table=q?.optString("table").orEmpty().trim();val user=q?.optString("user_pack").orEmpty().trim();if(q==null||table.isBlank()||user.isBlank()){showError("Chọn đủ Bàn Pack và User Pack đúng theo bàn.");return@setOnClickListener};resources.put(JSONObject().put("resource_type","PACK_TABLE").put("resource_id",table));resources.put(JSONObject().put("resource_type","USER_PACK").put("resource_id",user).put("duplicate_user",preferredPackUsed||q.optBoolean("duplicate_user")))};val gen=employeeLookupGeneration;enter.isEnabled=false;enter.text="ĐANG VÀO CA...";api.call("attendance_enter_v2",JSONObject().put("mnv",mnv).put("shift",shiftValue).put("positions",positions).put("resources",resources).put("idempotency_key",UUID.randomUUID().toString())){r->runOnUiThread{enter.isEnabled=true;enter.text="VÀO CA";if(!r.ok){showError(r.error?:"VÀO CA thất bại");return@runOnUiThread};TopNotice.show(this,"Đã ghi nhận vào ca.",TopNotice.Kind.SUCCESS);foregroundSync.requestSync();if(gen==employeeLookupGeneration&&liveEmployeeMnv==mnv)scheduleAttendanceAutoReset(mnv,gen)}}};body.addView(gap(8));body.addView(enter,matchWrap())
     }
+    private fun laborBatchCandidateFromSession(s:JSONObject):JSONObject{
+        val id=shiftStaffIdentity(s)
+        return JSONObject()
+            .put("mnv",id.mnv).put("full_name",id.fullName).put("supplier",id.supplier).put("position",id.position)
+            .put("session_id",s.optString("session_id")).put("business_date",s.optString("business_date"))
+            .put("shift",s.optString("shift")).put("state",s.optString("state")).put("enter_at",s.optString("enter_at")).put("exit_at",s.optString("exit_at"))
+    }
+
+    private fun showLaborBatchSelector(title:String,candidates:List<JSONObject>,onSelected:(List<JSONObject>)->Unit){
+        if(candidates.isEmpty()){TopNotice.show(this,"Không có nhân sự phù hợp.",TopNotice.Kind.INFO);return}
+        val selected=linkedSetOf<String>()
+        val suppliers=(listOf("Tất cả NCC")+candidates.map{dash(it.optString("supplier"))}.distinct().sortedBy{foldLocal(it)}).toMutableList()
+        val positions=(listOf("Tất cả vị trí")+candidates.map{dash(it.optString("position"))}.distinct().sortedBy{foldLocal(it)}).toMutableList()
+        val box=column(surface).apply{setPadding(dp(10),dp(4),dp(10),dp(8))}
+        val supplier=spinner(suppliers.toTypedArray());val position=spinner(positions.toTypedArray())
+        box.addView(labelled("Nhà cung cấp",supplier));box.addView(gap(6));box.addView(labelled("Vị trí",position));box.addView(gap(7))
+        val actions=row(surface);val selectVisible=smallButton("CHỌN ĐANG LỌC",teal);val clear=smallButton("BỎ CHỌN",muted)
+        actions.addView(selectVisible,LinearLayout.LayoutParams(0,dp(38),1f).apply{marginEnd=dp(3)});actions.addView(clear,LinearLayout.LayoutParams(0,dp(38),1f).apply{marginStart=dp(3)})
+        box.addView(actions,matchWrap());box.addView(gap(6))
+        val count=txt("Đã chọn 0",9.6f,muted,true);box.addView(count);box.addView(gap(5))
+        val list=column(surface);box.addView(list,matchWrap())
+        fun visible():List<JSONObject>{
+            val sup=supplier.selectedItem?.toString().orEmpty();val posValue=position.selectedItem?.toString().orEmpty()
+            return candidates.filter{x->
+                (sup=="Tất cả NCC"||dash(x.optString("supplier"))==sup)&&
+                (posValue=="Tất cả vị trí"||dash(x.optString("position"))==posValue)
+            }
+        }
+        fun render(){
+            list.removeAllViews();val rows=visible()
+            if(rows.isEmpty()){list.addView(info("Không có nhân sự theo bộ lọc."));return}
+            rows.forEach{x->
+                val id=x.optString("mnv");val cb=CheckBox(this).apply{
+                    text="${dash(x.optString("supplier"))} • $id • ${dash(x.optString("full_name"))}\n${dash(x.optString("position"))} • ${dash(x.optString("shift"))}"
+                    textSize=10.2f;setTextColor(ink);isChecked=id in selected
+                    setOnCheckedChangeListener{_,checked->if(checked)selected.add(id)else selected.remove(id);count.text="Đã chọn ${selected.size}"}
+                }
+                list.addView(cb,matchWrap());list.addView(gap(2))
+            }
+        }
+        val listener=object:android.widget.AdapterView.OnItemSelectedListener{
+            override fun onItemSelected(p:android.widget.AdapterView<*>?,v:View?,position:Int,id:Long){render()}
+            override fun onNothingSelected(p:android.widget.AdapterView<*>?)=Unit
+        }
+        supplier.onItemSelectedListener=listener;position.onItemSelectedListener=listener
+        selectVisible.setOnClickListener{visible().forEach{selected.add(it.optString("mnv"))};count.text="Đã chọn ${selected.size}";render()}
+        clear.setOnClickListener{selected.clear();count.text="Đã chọn 0";render()}
+        val dialog=AlertDialog.Builder(this).setTitle(title).setView(ScrollView(this).apply{addView(box)}).setNegativeButton("Hủy",null).setPositiveButton("TIẾP TỤC",null).create()
+        dialog.setOnShowListener{dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener{
+            if(selected.isEmpty()){TopNotice.show(this,"Chọn ít nhất một nhân sự.",TopNotice.Kind.WARNING);return@setOnClickListener}
+            val out=candidates.filter{it.optString("mnv") in selected};dialog.dismiss();onSelected(out)
+        }}
+        render();dialog.show()
+    }
+
+    private fun laborBatchResult(title:String,success:Int,failures:List<String>){
+        foregroundSync.requestSync()
+        if(failures.isEmpty()){
+            TopNotice.show(this,"$title: thành công $success nhân sự.",TopNotice.Kind.SUCCESS);laborHome();return
+        }
+        AlertDialog.Builder(this).setTitle(title).setMessage("Thành công: $success\nLỗi: ${failures.size}\n\n${failures.take(12).joinToString("\n")}").setPositiveButton("Đóng"){_,_->laborHome()}.show()
+    }
+
+    private fun showLaborBatchCreate(){
+        val date=operationalStore.businessDate();val day=operationalStore.loadDay(date)
+        val sessions=day?.optJSONArray("sessions")?:JSONArray();val base=mutableListOf<JSONObject>()
+        for(i in 0 until sessions.length()){
+            val s=sessions.optJSONObject(i)?:continue
+            if(!s.optString("state").equals("ACTIVE",true)||dash(s.optString("enter_at"))=="-")continue
+            base.add(laborBatchCandidateFromSession(s))
+        }
+        if(base.isEmpty()){TopNotice.show(this,"Không có nhân sự đang trong ca.",TopNotice.Kind.INFO);return}
+        api.call("labor_list",JSONObject().put("business_date",date)){r->runOnUiThread{
+            if(handleAuth(r))return@runOnUiThread
+            val open=mutableSetOf<String>();val items=r.json?.optJSONArray("items")?:JSONArray()
+            for(i in 0 until items.length()){val x=items.optJSONObject(i)?:continue;if(x.optString("state").equals("OPEN",true))open.add(x.optString("mnv"))}
+            val eligible=base.filter{it.optString("mnv") !in open}
+            showLaborBatchSelector("Tạo công nhật nhanh",eligible){chosen->showLaborBatchCreateForm(chosen)}
+        }}
+    }
+
+    private fun showLaborBatchCreateForm(chosen:List<JSONObject>){
+        val masters=MasterDataCache.snapshot(this)?:JSONObject()
+        val types=catalogValues("CÔNG NHẬT_Thông tin công nhật",jsonStrings(masters.optJSONArray("labor_types"))).ifEmpty{mutableListOf("Khác")}
+        val box=column(surface).apply{setPadding(dp(10),dp(5),dp(10),dp(8))}
+        box.addView(txt("Đã chọn ${chosen.size} nhân sự",10.2f,navy,true));box.addView(gap(6))
+        val typeSpinner=spinner(types.toTypedArray());box.addView(labelled("Thông tin công nhật",typeSpinner));box.addView(gap(7))
+        var startIso=Instant.now().toString();var endIso:String?=null
+        fun timeButton(label:String)=Button(this).apply{text=label;textSize=11.5f;isAllCaps=false;setTextColor(navy);background=outlineBg(surface,11)}
+        val startBtn=timeButton(compactAttendanceTime(startIso));val endBtn=timeButton("Chưa chọn")
+        box.addView(labelled("Bắt đầu",startBtn));box.addView(gap(6));box.addView(labelled("Kết thúc (không bắt buộc)",endBtn));box.addView(gap(5))
+        startBtn.setOnClickListener{laborWheelPick(startIso){picked->startIso=picked;startBtn.text=compactAttendanceTime(picked)}}
+        endBtn.setOnClickListener{laborWheelPick(endIso?:Instant.now().toString(),true){picked->endIso=picked;endBtn.text=compactAttendanceTime(picked)}}
+        val deduct=CheckBox(this).apply{text="Khấu trừ nhân sự";textSize=11f;setTextColor(ink)}
+        box.addView(deduct,matchWrap());box.addView(gap(5))
+        val note=input("Ghi chú",false);box.addView(note,matchWrap())
+        val dialog=AlertDialog.Builder(this).setTitle("Tạo công nhật cho ${chosen.size} NLĐ").setView(ScrollView(this).apply{addView(box)}).setNegativeButton("Hủy",null).setPositiveButton("XÁC NHẬN",null).create()
+        dialog.setOnShowListener{dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener{
+            val type=typeSpinner.selectedItem?.toString().orEmpty();if(type.isBlank())return@setOnClickListener
+            val end=endIso;if(end!=null&&runCatching{Instant.parse(end).isBefore(Instant.parse(startIso))}.getOrDefault(true)){TopNotice.show(this,"Giờ kết thúc phải sau giờ bắt đầu.",TopNotice.Kind.WARNING);return@setOnClickListener}
+            val noteText=note.text.toString();val deductRequested=deduct.isChecked
+            dialog.dismiss()
+            verifyActionPassword("tạo công nhật nhanh cho ${chosen.size} nhân sự"){
+                val failures=mutableListOf<String>()
+                fun next(index:Int,ok:Int){
+                    if(index>=chosen.size){laborBatchResult("Tạo công nhật nhanh",ok,failures);return}
+                    val row=chosen[index];val mnv=row.optString("mnv");val sid=row.optString("session_id")
+                    api.call("employee_context",JSONObject().put("mnv",mnv).put("session_id",sid).put("include_labor",true).put("include_options",false)){fresh->runOnUiThread{
+                        val json=fresh.json;val session=json?.optJSONObject("session")
+                        if(!fresh.ok||json?.optString("state")!="ACTIVE"||json.optJSONObject("active_labor")!=null||session==null){
+                            failures.add("$mnv: phiên/công nhật đã thay đổi");next(index+1,ok);return@runOnUiThread
+                        }
+                        val laborId=UUID.randomUUID().toString();val startEvent=UUID.randomUUID().toString()
+                        val fixedMain=foldLocal(row.optString("position")).let{it.contains("KEO HANG")||it.contains("TO TRUONG")}
+                        val fixedLabor=foldLocal(type).let{it.contains("KEO HANG")||it.contains("TO TRUONG")}
+                        val payload=JSONObject().put("event_id",startEvent).put("labor_id",laborId).put("mnv",mnv).put("business_date",session.optString("business_date"))
+                            .put("session_id",session.optString("session_id")).put("shift",session.optString("shift")).put("labor_type",type).put("start_at",startIso)
+                            .put("deduct_staff",deductRequested&&!fixedMain&&!fixedLabor).put("note",noteText)
+                        api.call("labor_start",payload){started->runOnUiThread{
+                            if(!started.ok){failures.add("$mnv: ${started.error?:"không tạo được"}");next(index+1,ok);return@runOnUiThread}
+                            if(end==null){next(index+1,ok+1);return@runOnUiThread}
+                            api.call("labor_finish",JSONObject().put("event_id",UUID.randomUUID().toString()).put("depends_on_event_id",startEvent).put("labor_id",laborId)
+                                .put("mnv",mnv).put("business_date",session.optString("business_date")).put("session_id",session.optString("session_id")).put("start_at",startIso).put("end_at",end).put("note",noteText)){done->runOnUiThread{
+                                if(!done.ok){failures.add("$mnv: đã tạo nhưng chưa kết thúc — ${done.error?:"lỗi"}");next(index+1,ok)}
+                                else next(index+1,ok+1)
+                            }}
+                        }}
+                    }}
+                }
+                next(0,0)
+            }
+        }}
+        dialog.show()
+    }
+
+    private fun showLaborBatchFinish(){
+        val date=operationalStore.businessDate()
+        api.call("labor_list",JSONObject().put("business_date",date)){r->runOnUiThread{
+            if(handleAuth(r))return@runOnUiThread
+            if(!r.ok){showError(r.error?:"Không tải được công nhật đang mở");return@runOnUiThread}
+            val items=r.json?.optJSONArray("items")?:JSONArray();val candidates=mutableListOf<JSONObject>()
+            for(i in 0 until items.length()){
+                val x=items.optJSONObject(i)?:continue;if(!x.optString("state").equals("OPEN",true))continue
+                val emp=MasterDataCache.employee(this,x.optString("mnv"))
+                candidates.add(JSONObject(x.toString()).put("position",emp?.optString("main_position").orEmpty()).put("supplier",x.optString("supplier").ifBlank{emp?.optString("supplier").orEmpty()}).put("full_name",x.optString("full_name").ifBlank{emp?.optString("full_name").orEmpty()}))
+            }
+            showLaborBatchSelector("Kết thúc công nhật nhanh",candidates){chosen->showLaborBatchFinishForm(chosen)}
+        }}
+    }
+
+    private fun showLaborBatchFinishForm(chosen:List<JSONObject>){
+        val box=column(surface).apply{setPadding(dp(10),dp(5),dp(10),dp(8))}
+        box.addView(txt("Đã chọn ${chosen.size} nhân sự đang làm công nhật",10.2f,navy,true));box.addView(gap(6))
+        var endIso=Instant.now().toString()
+        val endBtn=Button(this).apply{text=compactAttendanceTime(endIso);textSize=11.5f;isAllCaps=false;setTextColor(navy);background=outlineBg(surface,11)}
+        box.addView(labelled("Giờ kết thúc",endBtn));box.addView(gap(5))
+        endBtn.setOnClickListener{laborWheelPick(endIso,true){picked->endIso=picked;endBtn.text=compactAttendanceTime(picked)}}
+        val note=input("Ghi chú",false);box.addView(note,matchWrap())
+        val dialog=AlertDialog.Builder(this).setTitle("Kết thúc công nhật ${chosen.size} NLĐ").setView(box).setNegativeButton("Hủy",null).setPositiveButton("XÁC NHẬN",null).create()
+        dialog.setOnShowListener{dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener{
+            val noteText=note.text.toString();dialog.dismiss()
+            verifyActionPassword("kết thúc công nhật nhanh cho ${chosen.size} nhân sự"){
+                val failures=mutableListOf<String>()
+                fun next(index:Int,ok:Int){
+                    if(index>=chosen.size){laborBatchResult("Kết thúc công nhật nhanh",ok,failures);return}
+                    val row=chosen[index];val mnv=row.optString("mnv");val sid=row.optString("attendance_session_id");val laborId=row.optString("labor_id")
+                    api.call("employee_context",JSONObject().put("mnv",mnv).put("session_id",sid).put("include_labor",true).put("include_options",false)){fresh->runOnUiThread{
+                        val active=fresh.json?.optJSONObject("active_labor")
+                        if(!fresh.ok||active?.optString("labor_id")!=laborId){failures.add("$mnv: công nhật đã thay đổi");next(index+1,ok);return@runOnUiThread}
+                        api.call("labor_finish",JSONObject().put("event_id",UUID.randomUUID().toString()).put("labor_id",laborId).put("mnv",mnv)
+                            .put("business_date",row.optString("business_date")).put("session_id",sid).put("start_at",active.optString("start_at")).put("end_at",endIso).put("note",noteText)){done->runOnUiThread{
+                            if(!done.ok){failures.add("$mnv: ${done.error?:"không kết thúc được"}");next(index+1,ok)}
+                            else next(index+1,ok+1)
+                        }}
+                    }}
+                }
+                next(0,0)
+            }
+        }}
+        dialog.show()
+    }
+
     private fun laborHome(){
         screenState="LABOR_HOME"
         if(!isAdmin()){simpleMessage("CÔNG NHẬT","Không có quyền truy cập.");return}
