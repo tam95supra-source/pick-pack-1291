@@ -79,7 +79,7 @@ object DropReceiveFeature {
         doPackage.addView(field("DO",order),LinearLayout.LayoutParams(0,-2,1f).apply{marginEnd=dp(4)})
         doPackage.addView(field("Số kiện",packages),LinearLayout.LayoutParams(0,-2,1f).apply{marginStart=dp(4)})
         body.addView(doPackage,LinearLayout.LayoutParams(-1,-2));body.addView(gap(10))
-        val addBtn=button("Thêm thông tin",teal).apply{textSize=11f};val clearBtn=button("Xóa toàn bộ",red).apply{textSize=11f;isEnabled=actualSuper;alpha=if(actualSuper)1f else .35f}
+        val addBtn=button("Thêm thông tin",teal).apply{textSize=11f};val clearBtn=button("Xóa toàn bộ",red).apply{textSize=11f;isEnabled=canDelete;alpha=if(canDelete)1f else .35f}
         val actions=row();actions.addView(addBtn,LinearLayout.LayoutParams(0,dp(46),1f).apply{marginEnd=dp(4)});actions.addView(clearBtn,LinearLayout.LayoutParams(0,dp(46),1f).apply{marginStart=dp(4)});body.addView(actions,LinearLayout.LayoutParams(-1,-2))
         body.addView(gap(10))
         val listHead=row();listHead.addView(text("Danh sách hàng rớt",11f,navy,true),LinearLayout.LayoutParams(0,-2,1f))
@@ -198,7 +198,7 @@ object DropReceiveFeature {
         }
 
         clearBtn.setOnClickListener{
-            if(!actualSuper){error("Chỉ Superadmin được Xóa toàn bộ.");return@setOnClickListener}
+            if(!canDelete){error("Chỉ ADMIN/SUPERADMIN được xóa hàng rớt.");return@setOnClickListener}
             AlertDialog.Builder(activity).setTitle("Xóa toàn bộ dữ liệu?").setMessage("Chỉ xóa các dòng nghiệp vụ trong tab Nhận hàng rớt; không xóa header, Vị trí, quyền hoặc protected ranges.").setNegativeButton("Hủy",null).setPositiveButton("TIẾP TỤC"){_,_->
                 val pw=input("Nhập mật khẩu thực tế").apply{inputType=InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD}
                 val authDialog=AlertDialog.Builder(activity).setTitle("Xác thực trước khi xóa").setView(pw).setNegativeButton("Hủy",null).setPositiveButton("XÁC THỰC",null).create()
