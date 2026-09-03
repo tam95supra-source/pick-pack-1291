@@ -1613,10 +1613,24 @@ class OperationsActivity : Activity() {
     private fun showLaborContext(ctx:JSONObject, masters:JSONObject){
         screenState="LABOR_CONTEXT"
         val e=ctx.optJSONObject("employee")?:JSONObject();val state=ctx.optString("state");val active=ctx.optJSONObject("active_labor")
-        val root=baseRoot("CÔNG NHẬT");val body=body();body.addView(employeeCard(e));body.addView(gap(7))
+        val root=baseRoot("CÔNG NHẬT");val body=body()
+        val laborScan=mnvInput("Scan / Nhập mã nhân viên")
+        body.addView(laborScan,matchWrap());body.addView(gap(7))
+        var scanBusy=false
+        fun submitLaborScan(){
+            val id=laborScan.text.toString().trim();if(id.isBlank()){TopNotice.show(this,"Nhập hoặc quét Mã nhân viên.",TopNotice.Kind.WARNING);return};if(scanBusy)return
+            scanBusy=true;hideSoftKeyboard(laborScan)
+            api.call("employee_context",JSONObject().put("mnv",id).put("include_labor",true).put("include_options",false)){r->runOnUiThread{
+                scanBusy=false;if(handleAuth(r))return@runOnUiThread
+                if(!r.ok){showError(r.error?:"Không đọc được công nhật");return@runOnUiThread}
+                showLaborContext(r.json?:JSONObject(),MasterDataCache.snapshot(this@OperationsActivity)?:JSONObject())
+            }}
+        }
+        bindScannerEnter(laborScan){submitLaborScan()}
+        body.addView(employeeCard(e));body.addView(gap(7))
         if(state!="ACTIVE"){
             body.addView(status(if(state=="ENDED")"ĐÃ HẾT PHIÊN" else "CHƯA VÀO CA",red,Color.rgb(255,238,239)))
-            body.addView(gap(7));body.addView(primary("Mã nhân viên KHÁC",navy){initialMnv="";laborHome()},matchWrap());attach(root,body);return
+            attach(root,body);laborScan.requestFocus();return
         }
         val ses=ctx.optJSONObject("session")?:JSONObject()
         val laborMnv=e.optString("mnv");val laborSessionId=ses.optString("session_id");val laborBusinessDate=ses.optString("business_date").ifBlank{ctx.optString("business_date")}
@@ -1708,7 +1722,7 @@ class OperationsActivity : Activity() {
             }
             body.addView(start,matchWrap())
         }
-        body.addView(gap(7));body.addView(primary("Mã nhân viên KHÁC",navy){initialMnv="";laborHome()},matchWrap());attach(root,body)
+        body.addView(gap(7));attach(root,body)
     }
     private fun resourceHome(){
         screenState="RESOURCE_HOME"
