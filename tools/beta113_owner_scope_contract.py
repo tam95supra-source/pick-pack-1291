@@ -23,10 +23,13 @@ outbound=read("service/src/outbound_beta78.ts")
 session_hotfix=read("service/src/session_hotfix.ts")
 publish=read("tools/beta83_publish_ota.sh")
 
-# 1) Changelog is version-fenced and current Beta metadata is exact.
-assert 'versionCode = 121' in gradle
-assert 'versionName = "0.4.2-beta.115"' in gradle
-assert 'const val VERSION_NAME = "0.4.2-beta.115"' in notes
+# 1) Changelog is version-fenced; Beta115 is the minimum accepted baseline and later Betas inherit this contract.
+beta_block=gradle[gradle.index('create("beta")'):gradle.index('create("stable")')]
+code_match=re.search(r'versionCode = (\\d+)',beta_block)
+name_match=re.search(r'versionName = "(0\\.4\\.2-beta\\.(\\d+))"',beta_block)
+assert code_match and int(code_match.group(1))>=121
+assert name_match and int(name_match.group(2))>=115
+assert f'const val VERSION_NAME = "{name_match.group(1)}"' in notes
 assert 'verifyBetaReleaseNotes' in gradle and 'dependsOn("verifyBetaReleaseNotes")' in gradle
 
 # 2) Admin audit durable routing keeps transport action and business audit action separate.
