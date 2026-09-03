@@ -588,9 +588,9 @@ class OperationsActivity : Activity() {
         val supplierSp=spinner(supplierValues.toTypedArray())
         val positionSp=spinner(positionValues.toTypedArray())
         val filters=row(bg).apply{
-            addView(shiftSp,LinearLayout.LayoutParams(0,dp(48),1f).apply{marginEnd=dp(2)})
-            addView(supplierSp,LinearLayout.LayoutParams(0,dp(48),1f).apply{marginStart=dp(2);marginEnd=dp(2)})
-            addView(positionSp,LinearLayout.LayoutParams(0,dp(48),1f).apply{marginStart=dp(2)})
+            addView(shiftSp,LinearLayout.LayoutParams(0,dp(38),1f).apply{marginEnd=dp(2)})
+            addView(supplierSp,LinearLayout.LayoutParams(0,dp(38),1f).apply{marginStart=dp(2);marginEnd=dp(2)})
+            addView(positionSp,LinearLayout.LayoutParams(0,dp(38),1f).apply{marginStart=dp(2)})
         }
         body.addView(filters,matchWrap());body.addView(gap(10))
         val host=column(bg);body.addView(host,matchWrap())
@@ -1738,9 +1738,9 @@ class OperationsActivity : Activity() {
         val supplierSp=spinner(arrayOf("Tất cả NCC"))
         val positionSp=spinner(arrayOf("Tất cả vị trí"))
         val filterRow=row(bg).apply{
-            addView(shiftSp,LinearLayout.LayoutParams(0,dp(48),1f).apply{marginEnd=dp(2)})
-            addView(supplierSp,LinearLayout.LayoutParams(0,dp(48),1f).apply{marginStart=dp(2);marginEnd=dp(2)})
-            addView(positionSp,LinearLayout.LayoutParams(0,dp(48),1f).apply{marginStart=dp(2)})
+            addView(shiftSp,LinearLayout.LayoutParams(0,dp(38),1f).apply{marginEnd=dp(2)})
+            addView(supplierSp,LinearLayout.LayoutParams(0,dp(38),1f).apply{marginStart=dp(2);marginEnd=dp(2)})
+            addView(positionSp,LinearLayout.LayoutParams(0,dp(38),1f).apply{marginStart=dp(2)})
         }
         body.addView(filterRow,matchWrap());body.addView(gap(5))
         val laborCount=txt("",9.5f,muted,true);body.addView(laborCount);body.addView(gap(4))
@@ -2484,7 +2484,7 @@ class OperationsActivity : Activity() {
                 };box.addView(card,matchWrap());box.addView(gap(6))
             }
             updateSelectedCount()
-            if(visible.isEmpty())box.addView(info("Không có lịch sử phù hợp."));if(filtered.isNotEmpty()){val from=pageStart+1;val to=(pageStart+visible.size).coerceAtMost(filtered.size);box.addView(txt("$from–$to / ${filtered.size}",9f,muted,false));val nav=row(bg);if(pageStart>0)nav.addView(smallButton("‹ 100 TRƯỚC",navy).apply{setOnClickListener{pageStart=(pageStart-pageSize).coerceAtLeast(0);render()}},LinearLayout.LayoutParams(0,dp(46),1f).apply{marginEnd=dp(3)});if(pageStart+pageSize<filtered.size)nav.addView(smallButton("100 TIẾP ›",teal).apply{setOnClickListener{pageStart+=pageSize;render()}},LinearLayout.LayoutParams(0,dp(46),1f).apply{marginStart=dp(3)});if(nav.childCount>0)box.addView(nav,matchWrap())}
+            if(visible.isEmpty())box.addView(info("Không có lịch sử phù hợp."));if(filtered.isNotEmpty()){val from=pageStart+1;val to=(pageStart+visible.size).coerceAtMost(filtered.size);box.addView(txt("$from–$to / ${filtered.size}",9f,muted,false));val nav=row(bg);if(pageStart>0)nav.addView(smallButton("‹ 100 TRƯỚC",navy).apply{setOnClickListener{pageStart=(pageStart-pageSize).coerceAtLeast(0);render()}},LinearLayout.LayoutParams(0,dp(38),1f).apply{marginEnd=dp(3)});if(pageStart+pageSize<filtered.size)nav.addView(smallButton("100 TIẾP ›",teal).apply{setOnClickListener{pageStart+=pageSize;render()}},LinearLayout.LayoutParams(0,dp(38),1f).apply{marginStart=dp(3)});if(nav.childCount>0)box.addView(nav,matchWrap())}
         }
         allBtn.setOnClickListener{filter="ALL";pageStart=0;render()};pendingBtn.setOnClickListener{filter="PENDING";pageStart=0;render()};failBtn.setOnClickListener{filter="FAILED";pageStart=0;render()}
         q.addTextChangedListener(object:TextWatcher{override fun beforeTextChanged(v:CharSequence?,st:Int,c:Int,a:Int)=Unit;override fun onTextChanged(v:CharSequence?,st:Int,b:Int,c:Int){query=v?.toString().orEmpty();pageStart=0;render()};override fun afterTextChanged(v:Editable?)=Unit})
@@ -2663,7 +2663,7 @@ class OperationsActivity : Activity() {
         overview.addView(overviewTitle);overview.addView(gap(4));overview.addView(overviewSub);body.addView(overview,matchWrap());body.addView(gap(9))
         val pdaBox=column(bg);val serviceBox=column(bg);val sheetBox=column(bg);val otherBox=column(bg)
         body.addView(pdaBox,matchWrap());body.addView(serviceBox,matchWrap());body.addView(sheetBox,matchWrap());body.addView(otherBox,matchWrap())
-        val actions=row(bg);val syncNow=smallButton("ĐỒNG BỘ NGAY",teal);val refresh=smallButton("LÀM MỚI",navy);actions.addView(syncNow,LinearLayout.LayoutParams(0,dp(46),1f).apply{marginEnd=dp(4)});actions.addView(refresh,LinearLayout.LayoutParams(0,dp(46),1f).apply{marginStart=dp(4)});body.addView(gap(9));body.addView(actions,matchWrap())
+        val actions=row(bg);val syncNow=smallButton("ĐỒNG BỘ NGAY",teal);val refresh=smallButton("LÀM MỚI",navy);actions.addView(syncNow,LinearLayout.LayoutParams(0,dp(38),1f).apply{marginEnd=dp(4)});actions.addView(refresh,LinearLayout.LayoutParams(0,dp(38),1f).apply{marginStart=dp(4)});body.addView(gap(9));body.addView(actions,matchWrap())
         fun dateVi(v:String)=runCatching{java.time.LocalDate.parse(v.take(10)).format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}.getOrDefault(v.ifBlank{"—"})
         fun timeVi(v:String)=if(v.isBlank())"—" else formatIso(v)
         fun authorityVi(v:String)=when(v.uppercase()){ "SERVICE_PRIMARY"->"Dịch vụ chính";"GOOGLE_FALLBACK"->"Google dự phòng";"RECONCILING"->"Đang đối chiếu dữ liệu";"OFFLINE_LOCAL"->"Chỉ lưu trên PDA";else->"Chưa xác định" }
@@ -2977,8 +2977,8 @@ class OperationsActivity : Activity() {
         val accountButtons=row(bg)
         val passBtn=primary("ĐỔI MẬT KHẨU",navy){changePasswordDialog()}.apply{textSize=9.6f;setSingleLine(true)}
         val mailBtn=primary("ĐỔI MAIL",teal){changeEmailDialog()}.apply{textSize=9.6f;setSingleLine(true)}
-        accountButtons.addView(passBtn,LinearLayout.LayoutParams(0,dp(46),1f).apply{marginEnd=dp(3)})
-        accountButtons.addView(mailBtn,LinearLayout.LayoutParams(0,dp(46),1f).apply{marginStart=dp(3)})
+        accountButtons.addView(passBtn,LinearLayout.LayoutParams(0,dp(38),1f).apply{marginEnd=dp(3)})
+        accountButtons.addView(mailBtn,LinearLayout.LayoutParams(0,dp(38),1f).apply{marginStart=dp(3)})
         body.addView(accountButtons,matchWrap())
         if(isAdmin()){
             body.addView(gap(7))
@@ -3770,8 +3770,10 @@ raw.contains("PDA_STATUS_MISMATCH_NOTIFY_SPECIALIST")->"Tình trạng PDA hiện
     }
 
     private fun tapFeedback(v:View){
-        v.animate().cancel();v.animate().scaleX(.96f).scaleY(.96f).translationY(-dp(1).toFloat()).setDuration(70L).withEndAction{
-            v.animate().scaleX(1f).scaleY(1f).translationY(0f).setDuration(90L).start()
+        v.animate().cancel();v.animate().scaleX(.95f).scaleY(.95f).translationY(-dp(2).toFloat()).setDuration(65L).withEndAction{
+            v.animate().scaleX(1.01f).scaleY(1.01f).translationY(0f).setDuration(70L).withEndAction{
+                v.animate().scaleX(1f).scaleY(1f).setDuration(55L).start()
+            }.start()
         }.start()
     }
     private fun iconActionButton(res:Int,color:Int,desc:String,click:()->Unit)=FrameLayout(this).apply{
@@ -3857,7 +3859,7 @@ raw.contains("PDA_STATUS_MISMATCH_NOTIFY_SPECIALIST")->"Tình trạng PDA hiện
     private fun segmentedChoice(items:List<Pair<String,String>>,initial:String,onChanged:(String)->Unit):LinearLayout{
         val host=row(bg);val buttons=mutableListOf<Button>();var selected=initial
         fun paint(){buttons.forEachIndexed{i,b->val on=items[i].second==selected;b.setTextColor(if(on)Color.WHITE else navy);b.background=if(on)gradient(teal,darken(teal),12) else outlineBg(surface,12);b.elevation=if(on)dp(2).toFloat() else 0f}}
-        items.forEachIndexed{i,item->val b=Button(this).apply{text=item.first;textSize=10.5f;isAllCaps=false;typeface=Typeface.DEFAULT_BOLD;minHeight=dp(46);setPadding(dp(3),0,dp(3),0);setOnClickListener{selected=item.second;paint();onChanged(selected)}};buttons.add(b);host.addView(b,LinearLayout.LayoutParams(0,dp(46),1f).apply{if(i>0)marginStart=dp(3);if(i<items.lastIndex)marginEnd=dp(3)})};paint();return host
+        items.forEachIndexed{i,item->val b=Button(this).apply{text=item.first;textSize=10.5f;isAllCaps=false;typeface=Typeface.DEFAULT_BOLD;minHeight=dp(46);setPadding(dp(3),0,dp(3),0);setOnClickListener{selected=item.second;paint();onChanged(selected)}};buttons.add(b);host.addView(b,LinearLayout.LayoutParams(0,dp(38),1f).apply{if(i>0)marginStart=dp(3);if(i<items.lastIndex)marginEnd=dp(3)})};paint();return host
     }
     private fun resolvePdaObject(pdas:JSONArray,rawValue:String):JSONObject?{
         val raw=rawValue.trim();val candidate=raw.substringBefore(" • ").trim();val hits=mutableListOf<JSONObject>();for(i in 0 until pdas.length()){val p=pdas.optJSONObject(i)?:continue;val serial=p.optString("serial").trim();val last5=p.optString("last5").trim().ifBlank{serial.takeLast(5)};if(serial.isBlank())continue;if(candidate==serial||candidate==last5||(raw.contains(serial)&&raw.contains("Tình trạng:")))hits.add(p)};return hits.distinctBy{it.optString("serial")}.singleOrNull()
@@ -3923,17 +3925,17 @@ raw.contains("PDA_STATUS_MISMATCH_NOTIFY_SPECIALIST")->"Tình trạng PDA hiện
         adapter=object:ArrayAdapter<String>(this@OperationsActivity,android.R.layout.simple_spinner_item,values){
             override fun getView(position:Int,convertView:View?,parent:ViewGroup):View{
                 val v=super.getView(position,convertView,parent) as TextView
-                v.textSize=13f;v.setTextColor(navy);v.typeface=Typeface.DEFAULT_BOLD;v.gravity=Gravity.CENTER_VERTICAL
-                v.setPadding(dp(12),0,dp(34),0);return v
+                v.textSize=11.2f;v.setTextColor(navy);v.typeface=Typeface.DEFAULT_BOLD;v.gravity=Gravity.CENTER_VERTICAL
+                v.setPadding(dp(8),0,dp(24),0);v.minHeight=dp(36);return v
             }
             override fun getDropDownView(position:Int,convertView:View?,parent:ViewGroup):View{
                 val v=super.getDropDownView(position,convertView,parent) as TextView
-                v.textSize=12.5f;v.setTextColor(ink);v.typeface=Typeface.DEFAULT
-                v.gravity=Gravity.CENTER_VERTICAL;v.minHeight=dp(46);v.setPadding(dp(14),dp(7),dp(14),dp(7))
+                v.textSize=11.2f;v.setTextColor(ink);v.typeface=Typeface.DEFAULT
+                v.gravity=Gravity.CENTER_VERTICAL;v.minHeight=dp(38);v.setPadding(dp(10),dp(5),dp(10),dp(5))
                 return v
             }
         }
-        setPadding(0,0,0,0);minimumHeight=dp(46);background=outline();elevation=0f
+        setPadding(0,0,0,0);minimumHeight=dp(36);background=outline();elevation=0f
     }
     private fun primary(t:String,c:Int,click:()->Unit)=Button(this).apply{text=t;textSize=11.5f;setTextColor(Color.WHITE);typeface=Typeface.DEFAULT_BOLD;isAllCaps=false;minHeight=dp(46);background=gradient(c,darken(c),12);elevation=0f;setOnClickListener{tapFeedback(this);click()}}
     private fun smallButton(t:String,c:Int)=Button(this).apply{text=t;textSize=9.5f;setTextColor(Color.WHITE);typeface=Typeface.DEFAULT_BOLD;isAllCaps=false;background=round(c,10);setPadding(dp(4),0,dp(4),0);setOnTouchListener{v,e->if(e.action==android.view.MotionEvent.ACTION_UP)tapFeedback(v);false}}

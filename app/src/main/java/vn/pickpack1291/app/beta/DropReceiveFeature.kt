@@ -61,15 +61,15 @@ object DropReceiveFeature {
         root.addView(bar,LinearLayout.LayoutParams(-1,-2))
 
         val body=column().apply{setPadding(dp(10),dp(8),dp(10),dp(18))}
-        val actualSuper=actualRole.uppercase()=="SUPERADMIN"
-        val locationSpinner=Spinner(activity).apply{minimumHeight=dp(46);setPadding(dp(8),dp(3),dp(8),dp(3));background=bg()}
+        val normalizedRole=actualRole.uppercase();val actualSuper=normalizedRole=="SUPERADMIN";val canDelete=normalizedRole=="ADMIN"||actualSuper
+        val locationSpinner=Spinner(activity).apply{minimumHeight=dp(38);setPadding(dp(7),dp(1),dp(7),dp(1));background=bg()}
         fun iconButton(res:Int,color:Int,desc:String)=ImageButton(activity).apply{setImageResource(res);imageTintList=ColorStateList.valueOf(Color.WHITE);contentDescription=desc;setPadding(dp(10),dp(10),dp(10),dp(10));background=GradientDrawable().apply{setColor(color);cornerRadius=dp(10).toFloat()}}
         val createBtn=iconButton(R.drawable.ic_pp_add,teal,"Tạo vị trí");val editBtn=iconButton(R.drawable.ic_pp_edit,navy,"Sửa vị trí");val deleteBtn=iconButton(R.drawable.ic_pp_delete,red,"Xóa vị trí")
         var canManageLocations=false
         fun applyLocationPermission(allowed:Boolean){canManageLocations=allowed;listOf(createBtn,editBtn,deleteBtn).forEach{it.isEnabled=allowed;it.alpha=if(allowed)1f else .35f}}
         applyLocationPermission(false)
         body.addView(text("Vị trí",9.7f,muted,true));body.addView(gap(3))
-        val locationRow=row();locationRow.addView(locationSpinner,LinearLayout.LayoutParams(0,dp(46),1f).apply{marginEnd=dp(4)});locationRow.addView(createBtn,LinearLayout.LayoutParams(dp(44),dp(44)).apply{marginStart=dp(2);marginEnd=dp(2)});locationRow.addView(editBtn,LinearLayout.LayoutParams(dp(44),dp(44)).apply{marginStart=dp(2);marginEnd=dp(2)});locationRow.addView(deleteBtn,LinearLayout.LayoutParams(dp(44),dp(44)).apply{marginStart=dp(2)})
+        val locationRow=row();locationRow.addView(locationSpinner,LinearLayout.LayoutParams(0,dp(38),1f).apply{marginEnd=dp(4)});locationRow.addView(createBtn,LinearLayout.LayoutParams(dp(44),dp(44)).apply{marginStart=dp(2);marginEnd=dp(2)});locationRow.addView(editBtn,LinearLayout.LayoutParams(dp(44),dp(44)).apply{marginStart=dp(2);marginEnd=dp(2)});locationRow.addView(deleteBtn,LinearLayout.LayoutParams(dp(44),dp(44)).apply{marginStart=dp(2)})
         body.addView(locationRow,LinearLayout.LayoutParams(-1,-2));body.addView(gap(9))
 
         val qr=input("Scan QR").apply{imeOptions=EditorInfo.IME_ACTION_DONE}
@@ -83,7 +83,7 @@ object DropReceiveFeature {
         val actions=row();actions.addView(addBtn,LinearLayout.LayoutParams(0,dp(46),1f).apply{marginEnd=dp(4)});actions.addView(clearBtn,LinearLayout.LayoutParams(0,dp(46),1f).apply{marginStart=dp(4)});body.addView(actions,LinearLayout.LayoutParams(-1,-2))
         body.addView(gap(10))
         val listHead=row();listHead.addView(text("Danh sách hàng rớt",11f,navy,true),LinearLayout.LayoutParams(0,-2,1f))
-        val selectAll=button("Chọn tất cả",navy);val deleteSelected=button("Xóa đã chọn",red).apply{isEnabled=false;alpha=.4f}
+        val selectAll=button("Chọn tất cả",navy);val deleteSelected=button("Xóa đã chọn",red).apply{isEnabled=false;alpha=.4f;visibility=if(canDelete)View.VISIBLE else View.GONE}
         listHead.addView(selectAll,LinearLayout.LayoutParams(dp(94),dp(38)).apply{marginEnd=dp(3)});listHead.addView(deleteSelected,LinearLayout.LayoutParams(dp(106),dp(38)))
         body.addView(listHead,LinearLayout.LayoutParams(-1,-2));body.addView(gap(5))
         val dropList=column();body.addView(dropList,LinearLayout.LayoutParams(-1,-2))
@@ -108,28 +108,29 @@ object DropReceiveFeature {
         fun cachedLocations():List<String>{val raw=locationCache.getString("items","").orEmpty();if(raw.isBlank())return emptyList();return runCatching{val arr=JSONArray(raw);val out=mutableListOf<String>();for(i in 0 until arr.length()){val v=arr.optString(i).trim();if(v.isNotBlank())out.add(v)};out}.getOrDefault(emptyList())}
         fun readItems(json:JSONObject?):List<String>{val arr=json?.optJSONArray("items")?:JSONArray();val out=mutableListOf<String>();for(i in 0 until arr.length()){val v=arr.optString(i).trim();if(v.isNotBlank())out.add(v)};return out}
         fun fmtDropTime(raw:String):String=runCatching{
-            java.time.Instant.parse(raw).atZone(java.time.ZoneId.of("Asia/Ho_Chi_Minh")).format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"))
+            java.time.Instant.parse(raw).atZone(java.time.ZoneId.of("Asia/Ho_Chi_Minh")).format(java.time.format.DateTimeFormatter.ofPattern("HH:mm dd/MM/yyyy"))
         }.getOrDefault(raw.ifBlank{"-"})
         fun updateDeleteSelection(){
-            deleteSelected.isEnabled=selectedDropIds.isNotEmpty();deleteSelected.alpha=if(deleteSelected.isEnabled)1f else .4f
+            deleteSelected.isEnabled=canDelete&&selectedDropIds.isNotEmpty();deleteSelected.alpha=if(deleteSelected.isEnabled)1f else .4f
             deleteSelected.text=if(selectedDropIds.isEmpty())"Xóa đã chọn" else "Xóa ${selectedDropIds.size}"
         }
         fun renderDropList(items:List<JSONObject>){
-            dropList.removeAllViews();displayedDropIds=items.map{it.optString("record_id")}.filter{it.isNotBlank()}
+            val sorted=items.sortedByDescending{runCatching{java.time.Instant.parse(it.optString("created_at")).toEpochMilli()}.getOrDefault(0L)}
+            dropList.removeAllViews();displayedDropIds=sorted.map{it.optString("record_id")}.filter{it.isNotBlank()}
             selectedDropIds.retainAll(displayedDropIds.toSet());updateDeleteSelection()
-            if(items.isEmpty()){dropList.addView(text("Chưa có dữ liệu nhận hàng rớt.",9.7f,muted,false));return}
-            items.forEach{x->
+            if(sorted.isEmpty()){dropList.addView(text("Chưa có dữ liệu nhận hàng rớt.",9.7f,muted,false));return}
+            sorted.forEach{x->
                 val id=x.optString("record_id")
                 val card=column().apply{setPadding(dp(8),dp(7),dp(8),dp(7));background=bg()}
-                val head=row()
-                val check=CheckBox(activity).apply{isChecked=id in selectedDropIds;setOnCheckedChangeListener{_,on->if(on)selectedDropIds.add(id)else selectedDropIds.remove(id);updateDeleteSelection()}}
-                head.addView(check,LinearLayout.LayoutParams(dp(40),dp(40)))
-                head.addView(text("${fmtDropTime(x.optString("created_at"))} • ${x.optString("location").ifBlank{"-"}}",9.8f,navy,true),LinearLayout.LayoutParams(0,-2,1f))
-                card.addView(head)
-                val fields=row()
-                fields.addView(text("DO: ${x.optString("do_number").ifBlank{"-"}}",9.5f,ink,true),LinearLayout.LayoutParams(0,-2,1f).apply{marginEnd=dp(4)})
-                fields.addView(text("Số kiện: ${x.optInt("package_count")}",9.5f,ink,true).apply{gravity=Gravity.END},LinearLayout.LayoutParams(0,-2,1f).apply{marginStart=dp(4)})
-                card.addView(fields);dropList.addView(card,LinearLayout.LayoutParams(-1,-2).apply{bottomMargin=dp(5)})
+                val line=row().apply{gravity=Gravity.CENTER_VERTICAL}
+                val check=CheckBox(activity).apply{visibility=if(canDelete)View.VISIBLE else View.GONE;isChecked=id in selectedDropIds;setOnCheckedChangeListener{_,on->if(on)selectedDropIds.add(id)else selectedDropIds.remove(id);updateDeleteSelection()}}
+                if(canDelete)line.addView(check,LinearLayout.LayoutParams(dp(34),dp(34)))
+                fun cell(value:String,weight:Float,gravityValue:Int=Gravity.START)=text(value,8.9f,ink,true).apply{gravity=gravityValue;maxLines=2;setPadding(dp(3),0,dp(3),0)}
+                line.addView(cell(fmtDropTime(x.optString("created_at")),1.18f),LinearLayout.LayoutParams(0,-2,1.18f))
+                line.addView(cell(x.optString("location").ifBlank{"-"},.78f),LinearLayout.LayoutParams(0,-2,.78f))
+                line.addView(cell("DO: ${x.optString("do_number").ifBlank{"-"}}",1.12f),LinearLayout.LayoutParams(0,-2,1.12f))
+                line.addView(cell("Số kiện: ${x.optInt("package_count")}",.92f,Gravity.END),LinearLayout.LayoutParams(0,-2,.92f))
+                card.addView(line);dropList.addView(card,LinearLayout.LayoutParams(-1,-2).apply{bottomMargin=dp(5)})
             }
         }
         fun loadDropList(){
@@ -139,9 +140,10 @@ object DropReceiveFeature {
                 renderDropList(items)
             }}
         }
-        selectAll.setOnClickListener{selectedDropIds.clear();selectedDropIds.addAll(displayedDropIds);updateDeleteSelection();loadDropList()}
+        selectAll.visibility=if(canDelete)View.VISIBLE else View.GONE
+        selectAll.setOnClickListener{if(!canDelete)return@setOnClickListener;selectedDropIds.clear();selectedDropIds.addAll(displayedDropIds);updateDeleteSelection();loadDropList()}
         deleteSelected.setOnClickListener{
-            val ids=selectedDropIds.toList();if(ids.isEmpty())return@setOnClickListener
+            if(!canDelete){error("Chỉ ADMIN/SUPERADMIN được xóa hàng rớt.");return@setOnClickListener};val ids=selectedDropIds.toList();if(ids.isEmpty())return@setOnClickListener
             confirmAction("xóa ${ids.size} hàng rớt"){
                 api.call("outbound_drop_delete",JSONObject().put("record_ids",JSONArray(ids)).put("idempotency_key",UUID.randomUUID().toString())){r->activity.runOnUiThread{
                     if(!r.ok){error(r.error?:"Không xóa được hàng rớt.");return@runOnUiThread}
