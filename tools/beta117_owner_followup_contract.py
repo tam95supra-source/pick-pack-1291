@@ -71,6 +71,9 @@ assert "from+18" in ops and "renderGroup(groupIndex+1)" in ops
 assert "listRenderGeneration" in ops and "from+20" in ops
 assert "historySearchGeneration" in ops and "postDelayed({if(generation==historySearchGeneration" in ops and "},160L)" in ops
 assert "documentRenderGeneration" in doc and "from+10" in doc and "addDocumentChunk" in doc
+assert 'visibility=View.GONE};pendingBoxView=pendingBox' in doc
+build_block=doc[doc.index("fun build():View"):doc.index("fun dispose()")]
+assert build_block.index("renderSelectedPreview()") < build_block.index("restoreCachedCategories()"), "empty document state must render synchronously before async/cache restore"
 assert "dropRenderGeneration" in drop and "from+20" in drop and "addDropChunk" in drop
 viewer=doc[doc.index("private fun viewDocumentGroup"):doc.index("private fun formatTime")]
 assert viewer.count("category.adapter=")==1, "viewer must reuse category adapter while swiping"
