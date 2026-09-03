@@ -773,7 +773,7 @@ object DocumentManagementFeature {
             root.addView(image,FrameLayout.LayoutParams(-1,-1))
             val close=iconButton(android.R.drawable.ic_menu_close_clear_cancel,Color.argb(210,30,41,59),"Đóng toàn màn hình").apply{setOnClickListener{dialog.dismiss()}}
             root.addView(close,FrameLayout.LayoutParams(dp(46),dp(46),Gravity.TOP or Gravity.END).apply{topMargin=dp(18);rightMargin=dp(12)})
-            val label=text(title,10f,Color.WHITE,true).apply{gravity=Gravity.CENTER;background=Color.argb(145,0,0,0);setPadding(dp(8),dp(5),dp(8),dp(5))}
+            val label=text(title,10f,Color.WHITE,true).apply{gravity=Gravity.CENTER;setBackgroundColor(Color.argb(145,0,0,0));setPadding(dp(8),dp(5),dp(8),dp(5))}
             root.addView(label,FrameLayout.LayoutParams(-1,-2,Gravity.BOTTOM).apply{bottomMargin=dp(12)})
             dialog.setContentView(root);dialog.show()
         }
