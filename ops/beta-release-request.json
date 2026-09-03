@@ -1,6 +1,6 @@
 {
-  "stage": "PUBLISH",
-  "mode": "PUBLISH_BETA114_EXACT_LOCKED_BYTES_AFTER_HARNESS_FIX",
+  "stage": "pass_live",
+  "mode": "PASS_LIVE_EXACT_BYTES_GITHUB_RELEASE_ONLY",
   "version_name": "0.4.2-beta.114",
   "version_code": 120,
   "base_version": "0.4.2-beta.112",
@@ -16,7 +16,7 @@
   "candidate_locked": true,
   "rebuild": false,
   "resign": false,
-  "live": false,
+  "live": true,
   "scope": "beta114-owner-scope-supersede-preota-beta113-roster-active-pass",
   "owner": "Nguyen Van Tam",
   "owner_acceptance_baseline": "BETA112_ALL_OWNER_ACCEPTED_ACTIVE_PASS",
@@ -50,7 +50,7 @@
   "runtime_dod_status": "PASS",
   "regression_case": "qa/beta113_owner_scope_regression.md + tools/beta113_owner_scope_contract.py; preserve ACTIVE_PASS SHIFT-STAFF-DOWNLOAD-QR-001, UI-EMPLOYEE-SCAN-ROSTER-001, UI-REVIEW-WARNING-001, NAV-HISTORY-BACK-001, LABOR-EXACT-SESSION-002, HISTORY-DELETE-CANONICAL-001, DOCUMENT-BATCH-MODE-TICK-002 and all existing ACTIVE_PASS invariants",
   "execution_nonce": "beta114-publish-20260903-12",
-  "next_action": "PUBLISH_EXACT_BYTES_THEN_OTA_INSTALL_READBACK_AND_FINALIZE",
+  "next_action": "WAIT_FOR_OWNER_NEW_SCOPE",
   "superseded_pre_ota_candidate": {
     "version_name": "0.4.2-beta.113",
     "version_code": 119,
@@ -106,5 +106,6 @@
   "beta_domain_basis": "FRESH_RUNTIME_DOD_33698019451_BETA_TARGET_DOMAIN_READY",
   "release_lock": "ops/beta114-release-lock-v2.json",
   "owner_acceptance": "PENDING",
-  "technical_pass_status": "PENDING_PUBLISH"
+  "technical_pass_status": "PENDING_PUBLISH",
+  "publish_run_id": "33699803398"
 }
