@@ -398,6 +398,99 @@ Mỗi invariant tối thiểu có:
 - Last verified: 2026-09-01 / audit branch release/audit-beta104-stable-private-20260831.
 
 
+## 4B. Beta116 — TECHNICAL_PASS_AWAITING_OWNER
+
+Technical receipt: `ops/beta116-technical-pass.json`. Regression: `qa/beta116_owner_scope_regression.md` + `tools/beta116_owner_scope_contract.py`. Chỉ chuyển ACTIVE_PASS sau OWNER xác nhận từng mục.
+
+### DOCUMENT-DRAFT-NOTE-UX-003
+- Status: TECHNICAL_PASS_AWAITING_OWNER
+- Scope: document-draft-note-ui
+- Rule: Biên bản dùng icon CRUD; trước tải lên cho phép chọn/xóa/chọn tất cả ảnh nháp và lưu chú thích riêng từng ảnh/trang xuyên draft→pending→upload→Service.
+- Regression: icon_crud / draft_multi_select / select_all / delete_selected_before_upload / per_page_note_durable.
+- Technical evidence: 0.4.2-beta.116 Technical PASS/LIVE; candidate source cf01dab16e1c62091561ca008a355a8f49326581; candidate 33767353642/9898290631; Service 33767353642/9898616640; visual+PDA/API36 33774026289/9901071098 + human PASS 43 screenshots 320x568/360x640/480x800; Beta Auth 33776285435/9902148937; device 33778316587/9902571477; runtime 33778605857/9902663700; domain 33778957345/9902758766; Fast Check 33780103022 PASS; publish 33780057070/9903236359; OTA install/open/readback 33780057070/9903336912; SHA256 a346d4554e07fc37552c9d8876179860677fc93923a3bd42f9b3f97f5e11f235; size 14347253; signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged.
+- OWNER acceptance: PENDING — checklist Beta116 item 1/11.
+
+### DOCUMENT-GROUP-VIEWER-004
+- Status: TECHNICAL_PASS_AWAITING_OWNER
+- Scope: document-group-viewer
+- Rule: Nhóm ảnh biên bản hỗ trợ vuốt giữa trang và pinch zoom; viewer không làm đổi semantics grouping đã ACTIVE_PASS.
+- Regression: group_viewer / swipe_pages / pinch_zoom / grouping_semantics_unchanged.
+- Technical evidence: 0.4.2-beta.116 Technical PASS/LIVE; candidate source cf01dab16e1c62091561ca008a355a8f49326581; candidate 33767353642/9898290631; Service 33767353642/9898616640; visual+PDA/API36 33774026289/9901071098 + human PASS 43 screenshots 320x568/360x640/480x800; Beta Auth 33776285435/9902148937; device 33778316587/9902571477; runtime 33778605857/9902663700; domain 33778957345/9902758766; Fast Check 33780103022 PASS; publish 33780057070/9903236359; OTA install/open/readback 33780057070/9903336912; SHA256 a346d4554e07fc37552c9d8876179860677fc93923a3bd42f9b3f97f5e11f235; size 14347253; signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged.
+- OWNER acceptance: PENDING — checklist Beta116 item 2/11.
+
+### PDA-SERIAL-DERIVE-002
+- Status: TECHNICAL_PASS_AWAITING_OWNER
+- Scope: pda-resource-serial
+- Rule: Tài nguyên PDA tự suy ra 5 số cuối Seri từ mã/tên canonical; không nhập tay và key PDA không chứa khoảng trắng.
+- Regression: derive_last5 / no_manual_serial / no_whitespace_key.
+- Technical evidence: 0.4.2-beta.116 Technical PASS/LIVE; candidate source cf01dab16e1c62091561ca008a355a8f49326581; candidate 33767353642/9898290631; Service 33767353642/9898616640; visual+PDA/API36 33774026289/9901071098 + human PASS 43 screenshots 320x568/360x640/480x800; Beta Auth 33776285435/9902148937; device 33778316587/9902571477; runtime 33778605857/9902663700; domain 33778957345/9902758766; Fast Check 33780103022 PASS; publish 33780057070/9903236359; OTA install/open/readback 33780057070/9903336912; SHA256 a346d4554e07fc37552c9d8876179860677fc93923a3bd42f9b3f97f5e11f235; size 14347253; signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged.
+- OWNER acceptance: PENDING — checklist Beta116 item 3/11.
+
+### REPORT-LABOR-DEDUCTION-002
+- Status: TECHNICAL_PASS_AWAITING_OWNER
+- Scope: staff-report-labor
+- Rule: Báo cáo nhân sự giữ Tổng nhân sự trước khấu trừ, tách Khấu trừ công nhật, Picker thực tế và Packer thực tế.
+- Regression: gross_total_preserved / labor_deduction_separate / picker_actual / packer_actual.
+- Technical evidence: 0.4.2-beta.116 Technical PASS/LIVE; candidate source cf01dab16e1c62091561ca008a355a8f49326581; candidate 33767353642/9898290631; Service 33767353642/9898616640; visual+PDA/API36 33774026289/9901071098 + human PASS 43 screenshots 320x568/360x640/480x800; Beta Auth 33776285435/9902148937; device 33778316587/9902571477; runtime 33778605857/9902663700; domain 33778957345/9902758766; Fast Check 33780103022 PASS; publish 33780057070/9903236359; OTA install/open/readback 33780057070/9903336912; SHA256 a346d4554e07fc37552c9d8876179860677fc93923a3bd42f9b3f97f5e11f235; size 14347253; signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged.
+- OWNER acceptance: PENDING — checklist Beta116 item 4/11.
+
+### DROP-RECEIVE-CRUD-001
+- Status: TECHNICAL_PASS_AWAITING_OWNER
+- Scope: drop-receive
+- Rule: Nhận hàng rớt có icon CRUD, DO/Số kiện cùng dòng, danh sách chi tiết, chọn nhiều/chọn tất cả và xóa selected qua canonical password gate.
+- Regression: crud_icons / do_package_inline / list_detail / multi_select / delete_selected_password.
+- Technical evidence: 0.4.2-beta.116 Technical PASS/LIVE; candidate source cf01dab16e1c62091561ca008a355a8f49326581; candidate 33767353642/9898290631; Service 33767353642/9898616640; visual+PDA/API36 33774026289/9901071098 + human PASS 43 screenshots 320x568/360x640/480x800; Beta Auth 33776285435/9902148937; device 33778316587/9902571477; runtime 33778605857/9902663700; domain 33778957345/9902758766; Fast Check 33780103022 PASS; publish 33780057070/9903236359; OTA install/open/readback 33780057070/9903336912; SHA256 a346d4554e07fc37552c9d8876179860677fc93923a3bd42f9b3f97f5e11f235; size 14347253; signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged.
+- OWNER acceptance: PENDING — checklist Beta116 item 5/11.
+
+### LOCAL-FIRST-RECONCILE-002
+- Status: TECHNICAL_PASS_AWAITING_OWNER
+- Scope: local-first-reconcile
+- Rule: Đổi/Trả PDA và Công nhật hiển thị local trước rồi reconcile nền; chi tiết Công nhật vẫn lấy authority theo exact Service session, không dùng local projection làm business truth.
+- Regression: local_first_render / background_reconcile / exact_service_session / no_local_authority_override.
+- Technical evidence: 0.4.2-beta.116 Technical PASS/LIVE; candidate source cf01dab16e1c62091561ca008a355a8f49326581; candidate 33767353642/9898290631; Service 33767353642/9898616640; visual+PDA/API36 33774026289/9901071098 + human PASS 43 screenshots 320x568/360x640/480x800; Beta Auth 33776285435/9902148937; device 33778316587/9902571477; runtime 33778605857/9902663700; domain 33778957345/9902758766; Fast Check 33780103022 PASS; publish 33780057070/9903236359; OTA install/open/readback 33780057070/9903336912; SHA256 a346d4554e07fc37552c9d8876179860677fc93923a3bd42f9b3f97f5e11f235; size 14347253; signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged.
+- OWNER acceptance: PENDING — checklist Beta116 item 6/11.
+
+### ATTENDANCE-QR-FILTER-002
+- Status: TECHNICAL_PASS_AWAITING_OWNER
+- Scope: attendance-qr-filter
+- Rule: Điểm danh và QR vào/ra có bộ lọc Ca/NCC/Vị trí; Điểm danh có tìm MNV/họ tên và ô scan nổi bật; click semantics danh sách ca giữ canonical Beta115.
+- Regression: shift_filter / ncc_filter / position_filter / employee_search / scan_emphasis / canonical_click_semantics.
+- Technical evidence: 0.4.2-beta.116 Technical PASS/LIVE; candidate source cf01dab16e1c62091561ca008a355a8f49326581; candidate 33767353642/9898290631; Service 33767353642/9898616640; visual+PDA/API36 33774026289/9901071098 + human PASS 43 screenshots 320x568/360x640/480x800; Beta Auth 33776285435/9902148937; device 33778316587/9902571477; runtime 33778605857/9902663700; domain 33778957345/9902758766; Fast Check 33780103022 PASS; publish 33780057070/9903236359; OTA install/open/readback 33780057070/9903336912; SHA256 a346d4554e07fc37552c9d8876179860677fc93923a3bd42f9b3f97f5e11f235; size 14347253; signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged.
+- OWNER acceptance: PENDING — checklist Beta116 item 7/11.
+
+### LABOR-FIXED-ROLE-REVIEW-005
+- Status: TECHNICAL_PASS_AWAITING_OWNER
+- Scope: labor-role-review
+- Rule: Công nhật có cảnh báo kiểm tra các vị trí cố định Tổ trưởng/Kéo hàng/5S nhưng không tự sinh công nhật; nút tạo/kết thúc nhanh giữ trọng số UI đã chốt và exact-session authority.
+- Regression: fixed_role_warning / no_auto_labor / quick_button_weight / exact_session_authority.
+- Technical evidence: 0.4.2-beta.116 Technical PASS/LIVE; candidate source cf01dab16e1c62091561ca008a355a8f49326581; candidate 33767353642/9898290631; Service 33767353642/9898616640; visual+PDA/API36 33774026289/9901071098 + human PASS 43 screenshots 320x568/360x640/480x800; Beta Auth 33776285435/9902148937; device 33778316587/9902571477; runtime 33778605857/9902663700; domain 33778957345/9902758766; Fast Check 33780103022 PASS; publish 33780057070/9903236359; OTA install/open/readback 33780057070/9903336912; SHA256 a346d4554e07fc37552c9d8876179860677fc93923a3bd42f9b3f97f5e11f235; size 14347253; signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged.
+- OWNER acceptance: PENDING — checklist Beta116 item 8/11.
+
+### ADMIN-OTHER-PASSWORD-003
+- Status: TECHNICAL_PASS_AWAITING_OWNER
+- Scope: admin-password
+- Rule: SUPERADMIN đổi mật khẩu từng tài khoản sau privileged re-auth; thao tác một tài khoản mỗi lần và verifier generation vẫn ở canonical BetaApiClient.
+- Regression: superadmin_only / one_account_at_time / privileged_reauth / canonical_verifier.
+- Technical evidence: 0.4.2-beta.116 Technical PASS/LIVE; candidate source cf01dab16e1c62091561ca008a355a8f49326581; candidate 33767353642/9898290631; Service 33767353642/9898616640; visual+PDA/API36 33774026289/9901071098 + human PASS 43 screenshots 320x568/360x640/480x800; Beta Auth 33776285435/9902148937; device 33778316587/9902571477; runtime 33778605857/9902663700; domain 33778957345/9902758766; Fast Check 33780103022 PASS; publish 33780057070/9903236359; OTA install/open/readback 33780057070/9903336912; SHA256 a346d4554e07fc37552c9d8876179860677fc93923a3bd42f9b3f97f5e11f235; size 14347253; signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged.
+- OWNER acceptance: PENDING — checklist Beta116 item 9/11.
+
+### LAN-GLOBAL-TEST-002
+- Status: TECHNICAL_PASS_AWAITING_OWNER
+- Scope: lan-global-test
+- Rule: LAN test toàn cục dùng Service authority + epoch, đồng bộ trạng thái app và chỉ route test qua canRouteForTest/submitTest; production LAN route giữ tách biệt.
+- Regression: global_test_mode / epoch / service_authority / test_route_isolated / production_route_separate.
+- Technical evidence: 0.4.2-beta.116 Technical PASS/LIVE; candidate source cf01dab16e1c62091561ca008a355a8f49326581; candidate 33767353642/9898290631; Service 33767353642/9898616640; visual+PDA/API36 33774026289/9901071098 + human PASS 43 screenshots 320x568/360x640/480x800; Beta Auth 33776285435/9902148937; device 33778316587/9902571477; runtime 33778605857/9902663700; domain 33778957345/9902758766; Fast Check 33780103022 PASS; publish 33780057070/9903236359; OTA install/open/readback 33780057070/9903336912; SHA256 a346d4554e07fc37552c9d8876179860677fc93923a3bd42f9b3f97f5e11f235; size 14347253; signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged.
+- OWNER acceptance: PENDING — checklist Beta116 item 10/11.
+
+### UI-TAP-FEEDBACK-004
+- Status: TECHNICAL_PASS_AWAITING_OWNER
+- Scope: tap-feedback
+- Rule: Phản hồi bấm nhẹ chỉ dùng transform scale ngắn, không layout animation và không làm đổi geometry ACTIVE_PASS.
+- Regression: transform_only / short_scale / no_layout_animation / active_geometry_preserved.
+- Technical evidence: 0.4.2-beta.116 Technical PASS/LIVE; candidate source cf01dab16e1c62091561ca008a355a8f49326581; candidate 33767353642/9898290631; Service 33767353642/9898616640; visual+PDA/API36 33774026289/9901071098 + human PASS 43 screenshots 320x568/360x640/480x800; Beta Auth 33776285435/9902148937; device 33778316587/9902571477; runtime 33778605857/9902663700; domain 33778957345/9902758766; Fast Check 33780103022 PASS; publish 33780057070/9903236359; OTA install/open/readback 33780057070/9903336912; SHA256 a346d4554e07fc37552c9d8876179860677fc93923a3bd42f9b3f97f5e11f235; size 14347253; signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged.
+- OWNER acceptance: PENDING — checklist Beta116 item 11/11.
+
+
 ## 5. Quy tắc tích lũy sau mỗi task
 
 Khi DoD PASS:

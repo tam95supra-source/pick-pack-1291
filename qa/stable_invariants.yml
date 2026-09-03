@@ -370,9 +370,142 @@ invariants:
     owner_receipt: "ops/beta114-owner-acceptance-partial.json"
     active_pass: true
 
+  - id: DOCUMENT-DRAFT-NOTE-UX-003
+    status: TECHNICAL_PASS_AWAITING_OWNER
+    scope: document-draft-note-ui
+    rule: "Biên bản dùng icon CRUD; trước tải lên cho phép chọn/xóa/chọn tất cả ảnh nháp và lưu chú thích riêng từng ảnh/trang xuyên draft→pending→upload→Service."
+    regression_minimum: [icon_crud, draft_multi_select, select_all, delete_selected_before_upload, per_page_note_durable]
+    regression_case: "qa/beta116_owner_scope_regression.md + tools/beta116_owner_scope_contract.py"
+    technical_candidate: "0.4.2-beta.116 LIVE / source cf01dab16e1c62091561ca008a355a8f49326581"
+    technical_evidence: "0.4.2-beta.116 Technical PASS/LIVE; candidate source cf01dab16e1c62091561ca008a355a8f49326581; candidate 33767353642/9898290631; Service 33767353642/9898616640; visual+PDA/API36 33774026289/9901071098 + human PASS 43 screenshots 320x568/360x640/480x800; Beta Auth 33776285435/9902148937; device 33778316587/9902571477; runtime 33778605857/9902663700; domain 33778957345/9902758766; Fast Check 33780103022 PASS; publish 33780057070/9903236359; OTA install/open/readback 33780057070/9903336912; SHA256 a346d4554e07fc37552c9d8876179860677fc93923a3bd42f9b3f97f5e11f235; size 14347253; signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged."
+    technical_receipt: "ops/beta116-technical-pass.json"
+    owner_acceptance: "PENDING_BETA116_ITEM_1_OF_11"
+    active_pass: false
+
+  - id: DOCUMENT-GROUP-VIEWER-004
+    status: TECHNICAL_PASS_AWAITING_OWNER
+    scope: document-group-viewer
+    rule: "Nhóm ảnh biên bản hỗ trợ vuốt giữa trang và pinch zoom; viewer không làm đổi semantics grouping đã ACTIVE_PASS."
+    regression_minimum: [group_viewer, swipe_pages, pinch_zoom, grouping_semantics_unchanged]
+    regression_case: "qa/beta116_owner_scope_regression.md + tools/beta116_owner_scope_contract.py"
+    technical_candidate: "0.4.2-beta.116 LIVE / source cf01dab16e1c62091561ca008a355a8f49326581"
+    technical_evidence: "0.4.2-beta.116 Technical PASS/LIVE; candidate source cf01dab16e1c62091561ca008a355a8f49326581; candidate 33767353642/9898290631; Service 33767353642/9898616640; visual+PDA/API36 33774026289/9901071098 + human PASS 43 screenshots 320x568/360x640/480x800; Beta Auth 33776285435/9902148937; device 33778316587/9902571477; runtime 33778605857/9902663700; domain 33778957345/9902758766; Fast Check 33780103022 PASS; publish 33780057070/9903236359; OTA install/open/readback 33780057070/9903336912; SHA256 a346d4554e07fc37552c9d8876179860677fc93923a3bd42f9b3f97f5e11f235; size 14347253; signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged."
+    technical_receipt: "ops/beta116-technical-pass.json"
+    owner_acceptance: "PENDING_BETA116_ITEM_2_OF_11"
+    active_pass: false
+
+  - id: PDA-SERIAL-DERIVE-002
+    status: TECHNICAL_PASS_AWAITING_OWNER
+    scope: pda-resource-serial
+    rule: "Tài nguyên PDA tự suy ra 5 số cuối Seri từ mã/tên canonical; không nhập tay và key PDA không chứa khoảng trắng."
+    regression_minimum: [derive_last5, no_manual_serial, no_whitespace_key]
+    regression_case: "qa/beta116_owner_scope_regression.md + tools/beta116_owner_scope_contract.py"
+    technical_candidate: "0.4.2-beta.116 LIVE / source cf01dab16e1c62091561ca008a355a8f49326581"
+    technical_evidence: "0.4.2-beta.116 Technical PASS/LIVE; candidate source cf01dab16e1c62091561ca008a355a8f49326581; candidate 33767353642/9898290631; Service 33767353642/9898616640; visual+PDA/API36 33774026289/9901071098 + human PASS 43 screenshots 320x568/360x640/480x800; Beta Auth 33776285435/9902148937; device 33778316587/9902571477; runtime 33778605857/9902663700; domain 33778957345/9902758766; Fast Check 33780103022 PASS; publish 33780057070/9903236359; OTA install/open/readback 33780057070/9903336912; SHA256 a346d4554e07fc37552c9d8876179860677fc93923a3bd42f9b3f97f5e11f235; size 14347253; signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged."
+    technical_receipt: "ops/beta116-technical-pass.json"
+    owner_acceptance: "PENDING_BETA116_ITEM_3_OF_11"
+    active_pass: false
+
+  - id: REPORT-LABOR-DEDUCTION-002
+    status: TECHNICAL_PASS_AWAITING_OWNER
+    scope: staff-report-labor
+    rule: "Báo cáo nhân sự giữ Tổng nhân sự trước khấu trừ, tách Khấu trừ công nhật, Picker thực tế và Packer thực tế."
+    regression_minimum: [gross_total_preserved, labor_deduction_separate, picker_actual, packer_actual]
+    regression_case: "qa/beta116_owner_scope_regression.md + tools/beta116_owner_scope_contract.py"
+    technical_candidate: "0.4.2-beta.116 LIVE / source cf01dab16e1c62091561ca008a355a8f49326581"
+    technical_evidence: "0.4.2-beta.116 Technical PASS/LIVE; candidate source cf01dab16e1c62091561ca008a355a8f49326581; candidate 33767353642/9898290631; Service 33767353642/9898616640; visual+PDA/API36 33774026289/9901071098 + human PASS 43 screenshots 320x568/360x640/480x800; Beta Auth 33776285435/9902148937; device 33778316587/9902571477; runtime 33778605857/9902663700; domain 33778957345/9902758766; Fast Check 33780103022 PASS; publish 33780057070/9903236359; OTA install/open/readback 33780057070/9903336912; SHA256 a346d4554e07fc37552c9d8876179860677fc93923a3bd42f9b3f97f5e11f235; size 14347253; signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged."
+    technical_receipt: "ops/beta116-technical-pass.json"
+    owner_acceptance: "PENDING_BETA116_ITEM_4_OF_11"
+    active_pass: false
+
+  - id: DROP-RECEIVE-CRUD-001
+    status: TECHNICAL_PASS_AWAITING_OWNER
+    scope: drop-receive
+    rule: "Nhận hàng rớt có icon CRUD, DO/Số kiện cùng dòng, danh sách chi tiết, chọn nhiều/chọn tất cả và xóa selected qua canonical password gate."
+    regression_minimum: [crud_icons, do_package_inline, list_detail, multi_select, delete_selected_password]
+    regression_case: "qa/beta116_owner_scope_regression.md + tools/beta116_owner_scope_contract.py"
+    technical_candidate: "0.4.2-beta.116 LIVE / source cf01dab16e1c62091561ca008a355a8f49326581"
+    technical_evidence: "0.4.2-beta.116 Technical PASS/LIVE; candidate source cf01dab16e1c62091561ca008a355a8f49326581; candidate 33767353642/9898290631; Service 33767353642/9898616640; visual+PDA/API36 33774026289/9901071098 + human PASS 43 screenshots 320x568/360x640/480x800; Beta Auth 33776285435/9902148937; device 33778316587/9902571477; runtime 33778605857/9902663700; domain 33778957345/9902758766; Fast Check 33780103022 PASS; publish 33780057070/9903236359; OTA install/open/readback 33780057070/9903336912; SHA256 a346d4554e07fc37552c9d8876179860677fc93923a3bd42f9b3f97f5e11f235; size 14347253; signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged."
+    technical_receipt: "ops/beta116-technical-pass.json"
+    owner_acceptance: "PENDING_BETA116_ITEM_5_OF_11"
+    active_pass: false
+
+  - id: LOCAL-FIRST-RECONCILE-002
+    status: TECHNICAL_PASS_AWAITING_OWNER
+    scope: local-first-reconcile
+    rule: "Đổi/Trả PDA và Công nhật hiển thị local trước rồi reconcile nền; chi tiết Công nhật vẫn lấy authority theo exact Service session, không dùng local projection làm business truth."
+    regression_minimum: [local_first_render, background_reconcile, exact_service_session, no_local_authority_override]
+    regression_case: "qa/beta116_owner_scope_regression.md + tools/beta116_owner_scope_contract.py"
+    technical_candidate: "0.4.2-beta.116 LIVE / source cf01dab16e1c62091561ca008a355a8f49326581"
+    technical_evidence: "0.4.2-beta.116 Technical PASS/LIVE; candidate source cf01dab16e1c62091561ca008a355a8f49326581; candidate 33767353642/9898290631; Service 33767353642/9898616640; visual+PDA/API36 33774026289/9901071098 + human PASS 43 screenshots 320x568/360x640/480x800; Beta Auth 33776285435/9902148937; device 33778316587/9902571477; runtime 33778605857/9902663700; domain 33778957345/9902758766; Fast Check 33780103022 PASS; publish 33780057070/9903236359; OTA install/open/readback 33780057070/9903336912; SHA256 a346d4554e07fc37552c9d8876179860677fc93923a3bd42f9b3f97f5e11f235; size 14347253; signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged."
+    technical_receipt: "ops/beta116-technical-pass.json"
+    owner_acceptance: "PENDING_BETA116_ITEM_6_OF_11"
+    active_pass: false
+
+  - id: ATTENDANCE-QR-FILTER-002
+    status: TECHNICAL_PASS_AWAITING_OWNER
+    scope: attendance-qr-filter
+    rule: "Điểm danh và QR vào/ra có bộ lọc Ca/NCC/Vị trí; Điểm danh có tìm MNV/họ tên và ô scan nổi bật; click semantics danh sách ca giữ canonical Beta115."
+    regression_minimum: [shift_filter, ncc_filter, position_filter, employee_search, scan_emphasis, canonical_click_semantics]
+    regression_case: "qa/beta116_owner_scope_regression.md + tools/beta116_owner_scope_contract.py"
+    technical_candidate: "0.4.2-beta.116 LIVE / source cf01dab16e1c62091561ca008a355a8f49326581"
+    technical_evidence: "0.4.2-beta.116 Technical PASS/LIVE; candidate source cf01dab16e1c62091561ca008a355a8f49326581; candidate 33767353642/9898290631; Service 33767353642/9898616640; visual+PDA/API36 33774026289/9901071098 + human PASS 43 screenshots 320x568/360x640/480x800; Beta Auth 33776285435/9902148937; device 33778316587/9902571477; runtime 33778605857/9902663700; domain 33778957345/9902758766; Fast Check 33780103022 PASS; publish 33780057070/9903236359; OTA install/open/readback 33780057070/9903336912; SHA256 a346d4554e07fc37552c9d8876179860677fc93923a3bd42f9b3f97f5e11f235; size 14347253; signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged."
+    technical_receipt: "ops/beta116-technical-pass.json"
+    owner_acceptance: "PENDING_BETA116_ITEM_7_OF_11"
+    active_pass: false
+
+  - id: LABOR-FIXED-ROLE-REVIEW-005
+    status: TECHNICAL_PASS_AWAITING_OWNER
+    scope: labor-role-review
+    rule: "Công nhật có cảnh báo kiểm tra các vị trí cố định Tổ trưởng/Kéo hàng/5S nhưng không tự sinh công nhật; nút tạo/kết thúc nhanh giữ trọng số UI đã chốt và exact-session authority."
+    regression_minimum: [fixed_role_warning, no_auto_labor, quick_button_weight, exact_session_authority]
+    regression_case: "qa/beta116_owner_scope_regression.md + tools/beta116_owner_scope_contract.py"
+    technical_candidate: "0.4.2-beta.116 LIVE / source cf01dab16e1c62091561ca008a355a8f49326581"
+    technical_evidence: "0.4.2-beta.116 Technical PASS/LIVE; candidate source cf01dab16e1c62091561ca008a355a8f49326581; candidate 33767353642/9898290631; Service 33767353642/9898616640; visual+PDA/API36 33774026289/9901071098 + human PASS 43 screenshots 320x568/360x640/480x800; Beta Auth 33776285435/9902148937; device 33778316587/9902571477; runtime 33778605857/9902663700; domain 33778957345/9902758766; Fast Check 33780103022 PASS; publish 33780057070/9903236359; OTA install/open/readback 33780057070/9903336912; SHA256 a346d4554e07fc37552c9d8876179860677fc93923a3bd42f9b3f97f5e11f235; size 14347253; signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged."
+    technical_receipt: "ops/beta116-technical-pass.json"
+    owner_acceptance: "PENDING_BETA116_ITEM_8_OF_11"
+    active_pass: false
+
+  - id: ADMIN-OTHER-PASSWORD-003
+    status: TECHNICAL_PASS_AWAITING_OWNER
+    scope: admin-password
+    rule: "SUPERADMIN đổi mật khẩu từng tài khoản sau privileged re-auth; thao tác một tài khoản mỗi lần và verifier generation vẫn ở canonical BetaApiClient."
+    regression_minimum: [superadmin_only, one_account_at_time, privileged_reauth, canonical_verifier]
+    regression_case: "qa/beta116_owner_scope_regression.md + tools/beta116_owner_scope_contract.py"
+    technical_candidate: "0.4.2-beta.116 LIVE / source cf01dab16e1c62091561ca008a355a8f49326581"
+    technical_evidence: "0.4.2-beta.116 Technical PASS/LIVE; candidate source cf01dab16e1c62091561ca008a355a8f49326581; candidate 33767353642/9898290631; Service 33767353642/9898616640; visual+PDA/API36 33774026289/9901071098 + human PASS 43 screenshots 320x568/360x640/480x800; Beta Auth 33776285435/9902148937; device 33778316587/9902571477; runtime 33778605857/9902663700; domain 33778957345/9902758766; Fast Check 33780103022 PASS; publish 33780057070/9903236359; OTA install/open/readback 33780057070/9903336912; SHA256 a346d4554e07fc37552c9d8876179860677fc93923a3bd42f9b3f97f5e11f235; size 14347253; signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged."
+    technical_receipt: "ops/beta116-technical-pass.json"
+    owner_acceptance: "PENDING_BETA116_ITEM_9_OF_11"
+    active_pass: false
+
+  - id: LAN-GLOBAL-TEST-002
+    status: TECHNICAL_PASS_AWAITING_OWNER
+    scope: lan-global-test
+    rule: "LAN test toàn cục dùng Service authority + epoch, đồng bộ trạng thái app và chỉ route test qua canRouteForTest/submitTest; production LAN route giữ tách biệt."
+    regression_minimum: [global_test_mode, epoch, service_authority, test_route_isolated, production_route_separate]
+    regression_case: "qa/beta116_owner_scope_regression.md + tools/beta116_owner_scope_contract.py"
+    technical_candidate: "0.4.2-beta.116 LIVE / source cf01dab16e1c62091561ca008a355a8f49326581"
+    technical_evidence: "0.4.2-beta.116 Technical PASS/LIVE; candidate source cf01dab16e1c62091561ca008a355a8f49326581; candidate 33767353642/9898290631; Service 33767353642/9898616640; visual+PDA/API36 33774026289/9901071098 + human PASS 43 screenshots 320x568/360x640/480x800; Beta Auth 33776285435/9902148937; device 33778316587/9902571477; runtime 33778605857/9902663700; domain 33778957345/9902758766; Fast Check 33780103022 PASS; publish 33780057070/9903236359; OTA install/open/readback 33780057070/9903336912; SHA256 a346d4554e07fc37552c9d8876179860677fc93923a3bd42f9b3f97f5e11f235; size 14347253; signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged."
+    technical_receipt: "ops/beta116-technical-pass.json"
+    owner_acceptance: "PENDING_BETA116_ITEM_10_OF_11"
+    active_pass: false
+
+  - id: UI-TAP-FEEDBACK-004
+    status: TECHNICAL_PASS_AWAITING_OWNER
+    scope: tap-feedback
+    rule: "Phản hồi bấm nhẹ chỉ dùng transform scale ngắn, không layout animation và không làm đổi geometry ACTIVE_PASS."
+    regression_minimum: [transform_only, short_scale, no_layout_animation, active_geometry_preserved]
+    regression_case: "qa/beta116_owner_scope_regression.md + tools/beta116_owner_scope_contract.py"
+    technical_candidate: "0.4.2-beta.116 LIVE / source cf01dab16e1c62091561ca008a355a8f49326581"
+    technical_evidence: "0.4.2-beta.116 Technical PASS/LIVE; candidate source cf01dab16e1c62091561ca008a355a8f49326581; candidate 33767353642/9898290631; Service 33767353642/9898616640; visual+PDA/API36 33774026289/9901071098 + human PASS 43 screenshots 320x568/360x640/480x800; Beta Auth 33776285435/9902148937; device 33778316587/9902571477; runtime 33778605857/9902663700; domain 33778957345/9902758766; Fast Check 33780103022 PASS; publish 33780057070/9903236359; OTA install/open/readback 33780057070/9903336912; SHA256 a346d4554e07fc37552c9d8876179860677fc93923a3bd42f9b3f97f5e11f235; size 14347253; signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged."
+    technical_receipt: "ops/beta116-technical-pass.json"
+    owner_acceptance: "PENDING_BETA116_ITEM_11_OF_11"
+    active_pass: false
+
+
 impact_map:
-  "app/**": [LABOR-SCAN-PINNED-004, UI-FORM-BASE-CONSISTENCY-003, UI-STATUS-001, QR-LOCAL-001, MEAL-DATE-001, MEAL-WARN-001, ROLE-HISTORY-001, OTA-BETA-001, PDA-EXIT-001, ENV-ISOLATION-001, SERVICE-DISCOVERY-001, SHIFT-STAFF-DOWNLOAD-QR-001, DOCUMENT-MANAGEMENT-001, DOCUMENT-BATCH-001, LABOR-TIME-RANGE-001, MEAL-UI-NULL-001, UI-COPY-DENSITY-001, NAV-HISTORY-BACK-001, UI-REVIEW-WARNING-001, LABOR-EXACT-SESSION-002, HISTORY-DELETE-CANONICAL-001, DOCUMENT-BATCH-MODE-TICK-002, INFRA-RESILIENCE-001, CHANGELOG-CURRENT-VERSION-001, ADMIN-AUDIT-PASSWORD-001, HISTORY-SUPERADMIN-CLEANUP-002, LABOR-MULTI-INTERVAL-003, UI-DATA-DATE-SELECT-001, UI-EMPLOYEE-SCAN-ROSTER-001, UI-FORM-CONSISTENCY-002]
-  "service/**": [QR-LOCAL-001, MEAL-DATE-001, PDA-EXIT-001, ENV-ISOLATION-001, DOCUMENT-MANAGEMENT-001, DOCUMENT-BATCH-001, LABOR-TIME-RANGE-001, LABOR-EXACT-SESSION-002, INFRA-RESILIENCE-001, ADMIN-AUDIT-PASSWORD-001, LABOR-MULTI-INTERVAL-003, UI-DATA-DATE-SELECT-001]
+  "app/**": [DOCUMENT-DRAFT-NOTE-UX-003, DOCUMENT-GROUP-VIEWER-004, PDA-SERIAL-DERIVE-002, REPORT-LABOR-DEDUCTION-002, DROP-RECEIVE-CRUD-001, LOCAL-FIRST-RECONCILE-002, ATTENDANCE-QR-FILTER-002, LABOR-FIXED-ROLE-REVIEW-005, ADMIN-OTHER-PASSWORD-003, LAN-GLOBAL-TEST-002, UI-TAP-FEEDBACK-004, LABOR-SCAN-PINNED-004, UI-FORM-BASE-CONSISTENCY-003, UI-STATUS-001, QR-LOCAL-001, MEAL-DATE-001, MEAL-WARN-001, ROLE-HISTORY-001, OTA-BETA-001, PDA-EXIT-001, ENV-ISOLATION-001, SERVICE-DISCOVERY-001, SHIFT-STAFF-DOWNLOAD-QR-001, DOCUMENT-MANAGEMENT-001, DOCUMENT-BATCH-001, LABOR-TIME-RANGE-001, MEAL-UI-NULL-001, UI-COPY-DENSITY-001, NAV-HISTORY-BACK-001, UI-REVIEW-WARNING-001, LABOR-EXACT-SESSION-002, HISTORY-DELETE-CANONICAL-001, DOCUMENT-BATCH-MODE-TICK-002, INFRA-RESILIENCE-001, CHANGELOG-CURRENT-VERSION-001, ADMIN-AUDIT-PASSWORD-001, HISTORY-SUPERADMIN-CLEANUP-002, LABOR-MULTI-INTERVAL-003, UI-DATA-DATE-SELECT-001, UI-EMPLOYEE-SCAN-ROSTER-001, UI-FORM-CONSISTENCY-002]
+  "service/**": [DOCUMENT-DRAFT-NOTE-UX-003, DROP-RECEIVE-CRUD-001, LOCAL-FIRST-RECONCILE-002, ADMIN-OTHER-PASSWORD-003, LAN-GLOBAL-TEST-002, QR-LOCAL-001, MEAL-DATE-001, PDA-EXIT-001, ENV-ISOLATION-001, DOCUMENT-MANAGEMENT-001, DOCUMENT-BATCH-001, LABOR-TIME-RANGE-001, LABOR-EXACT-SESSION-002, INFRA-RESILIENCE-001, ADMIN-AUDIT-PASSWORD-001, LABOR-MULTI-INTERVAL-003, UI-DATA-DATE-SELECT-001]
   "services/**": [ENV-ISOLATION-001, INFRA-RESILIENCE-001, BETA-STABLE-AUDIT-001]
   "google-apps-script/**": [ENV-ISOLATION-001, INFRA-RESILIENCE-001, OTA-BETA-001]
   ".github/workflows/**": [OTA-BETA-001, ENV-ISOLATION-001, INFRA-RESILIENCE-001, BETA-STABLE-AUDIT-001, CHANGELOG-CURRENT-VERSION-001]
