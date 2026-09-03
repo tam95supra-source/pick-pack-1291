@@ -254,10 +254,43 @@ def promotion_lock_mode_selftest():
     # Promotion mode must still reject source drift.
     if promo["beta_acceptance_lock"].get("source_sha")==source:raise RuntimeError("PROMOTION_SOURCE_DRIFT_SELFTEST_INVALID_FIXTURE")
 
+
+def beta_live_readback_only(release):
+    contract=json.loads((ROOT/"config/environment_contracts.json").read_text())
+    beta_c=contract["environments"]["BETA"]
+    beta_name=str(beta_c["current_service"]["worker"])
+    beta_s=worker_settings(beta_name);bb=bindmap(beta_s)
+    sub=str((cf("/workers/subdomain") or {}).get("subdomain") or "")
+    beta_url=f"https://{beta_name}.{sub}.workers.dev"
+    health_code,health=curl_json("GET",beta_url+"/health")
+    if health_code!=200 or health.get("ok") is not True:
+        raise RuntimeError("BETA_WORKER_HEALTH_FAILED:"+str(health_code))
+    beta_gas=btext(bb,"GAS_API_URL")
+    if not beta_gas.startswith("https://script.google.com/"):
+        raise RuntimeError("BETA_GAS_URL_INVALID")
+    common={"_app_channel":"BETA","_environment_id":"BETA","_service_audience":"PICK_PACK_1291_BETA"}
+    discovery_code,discovery=curl_json("POST",beta_gas,body={**common,"action":"service_discovery"},follow=True,timeout=60)
+    expected_service=str(beta_c["current_service"]["url"]).rstrip("/")
+    if discovery_code!=200 or discovery.get("ok") is not True or discovery.get("environment_id")!="BETA" or discovery.get("service_audience")!="PICK_PACK_1291_BETA" or str(discovery.get("service_url") or "").rstrip("/")!=expected_service:
+        raise RuntimeError("BETA_GAS_SERVICE_DISCOVERY_FAILED:"+json.dumps({"http":discovery_code,"ok":discovery.get("ok"),"environment_id":discovery.get("environment_id"),"service_audience":discovery.get("service_audience"),"service_url":discovery.get("service_url")},separators=(",",":")))
+    manifest_code,manifest=curl_json("POST",beta_gas,body={**common,"action":"update_check","channel":"BETA","current_version":"0.4.2-beta.115"},follow=True,timeout=60)
+    if manifest_code!=200 or manifest.get("ok") is not True:
+        raise RuntimeError("BETA_UPDATE_CHECK_FAILED:"+json.dumps({"http":manifest_code,"ok":manifest.get("ok"),"error":manifest.get("error")},separators=(",",":")))
+    if manifest.get("available") is not True or manifest.get("version_name")!="0.4.2-beta.116" or int(manifest.get("version_code") or 0)!=122:
+        raise RuntimeError("BETA_UPDATE_MANIFEST_VERSION_DRIFT:"+json.dumps({"available":manifest.get("available"),"version_name":manifest.get("version_name"),"version_code":manifest.get("version_code")},separators=(",",":")))
+    if str(manifest.get("sha256") or "")!="a346d4554e07fc37552c9d8876179860677fc93923a3bd42f9b3f97f5e11f235" or int(manifest.get("size") or 0)!=14347253 or not str(manifest.get("apk_url") or "").startswith("https://github.com/"):
+        raise RuntimeError("BETA_UPDATE_MANIFEST_IDENTITY_DRIFT")
+    receipt={"status":"PASS","phase":"BETA_LIVE_READBACK_ONLY","worker_health":{"http":health_code,"ok":True,"service_url":beta_url},"gas_service_discovery":{"http":discovery_code,"ok":True,"service_url":discovery.get("service_url"),"environment_id":discovery.get("environment_id"),"service_audience":discovery.get("service_audience")},"update_check_from_beta115":{"http":manifest_code,"ok":True,"available":manifest.get("available"),"version_name":manifest.get("version_name"),"version_code":manifest.get("version_code"),"sha256":manifest.get("sha256"),"size":manifest.get("size"),"apk_url":manifest.get("apk_url")},"production_write":False,"stable_touched":False}
+    pathlib.Path("/tmp/beta-stable-runtime-verify.json").write_text(json.dumps(receipt,indent=2,ensure_ascii=False)+"\n")
+    print(json.dumps({"status":"PASS","phase":"BETA_LIVE_READBACK_ONLY","worker_health":200,"discovery":"PASS","update_check":"PASS","version_name":"0.4.2-beta.116","version_code":122}))
+
 def main():
     promotion_mode="--promotion-dry-run" in sys.argv
     for n in ["CLOUDFLARE_API_TOKEN","CLOUDFLARE_ACCOUNT_ID","GOOGLE_OAUTH_CLIENT_ID","GOOGLE_OAUTH_CLIENT_SECRET","GOOGLE_OAUTH_REFRESH_TOKEN"]:
         print("::add-mask::"+need(n))
+    diagnostic_release=json.loads((ROOT/"ops/beta-release-request.json").read_text())
+    if diagnostic_release.get("mode")=="BETA116_LIVE_RUNTIME_DIAGNOSTIC_BETA_ONLY":
+        beta_live_readback_only(diagnostic_release);return
     tok=oauth();print("::add-mask::"+tok)
     contract=json.loads((ROOT/"config/environment_contracts.json").read_text())
     prov=json.loads((ROOT/"ops/stable-private-provision-request.json").read_text())
