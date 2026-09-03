@@ -37,7 +37,7 @@ object DropReceiveQrParser {
 }
 
 object DropReceiveFeature {
-    fun build(activity:Activity,api:BetaApiClient,login:String,displayName:String,actualRole:String,onBack:()->Unit):View{
+    fun build(activity:Activity,api:BetaApiClient,login:String,displayName:String,actualRole:String,confirmAction:(String,()->Unit)->Unit,onBack:()->Unit):View{
         val density=activity.resources.displayMetrics.density
         fun dp(v:Int)=(v*density).toInt()
         val teal=ThemeManager.primary(activity);val navy=ThemeManager.primaryDark(activity)
@@ -63,19 +63,30 @@ object DropReceiveFeature {
         val body=column().apply{setPadding(dp(10),dp(8),dp(10),dp(18))}
         val actualSuper=actualRole.uppercase()=="SUPERADMIN"
         val locationSpinner=Spinner(activity).apply{minimumHeight=dp(46);setPadding(dp(8),dp(3),dp(8),dp(3));background=bg()}
-        val createBtn=button("Tạo",teal);val editBtn=button("Sửa",navy);val deleteBtn=button("Xóa",red)
+        fun iconButton(res:Int,color:Int,desc:String)=ImageButton(activity).apply{setImageResource(res);imageTintList=ColorStateList.valueOf(Color.WHITE);contentDescription=desc;setPadding(dp(10),dp(10),dp(10),dp(10));background=GradientDrawable().apply{setColor(color);cornerRadius=dp(10).toFloat()}}
+        val createBtn=iconButton(R.drawable.ic_pp_add,teal,"Tạo vị trí");val editBtn=iconButton(R.drawable.ic_pp_edit,navy,"Sửa vị trí");val deleteBtn=iconButton(R.drawable.ic_pp_delete,red,"Xóa vị trí")
         var canManageLocations=false
         fun applyLocationPermission(allowed:Boolean){canManageLocations=allowed;listOf(createBtn,editBtn,deleteBtn).forEach{it.isEnabled=allowed;it.alpha=if(allowed)1f else .35f}}
         applyLocationPermission(false)
         body.addView(text("Vị trí",9.7f,muted,true));body.addView(gap(3))
-        val locationRow=row();locationRow.addView(locationSpinner,LinearLayout.LayoutParams(0,dp(46),1.7f).apply{marginEnd=dp(3)});locationRow.addView(createBtn,LinearLayout.LayoutParams(0,dp(42),.66f).apply{marginStart=dp(2);marginEnd=dp(2)});locationRow.addView(editBtn,LinearLayout.LayoutParams(0,dp(42),.66f).apply{marginStart=dp(2);marginEnd=dp(2)});locationRow.addView(deleteBtn,LinearLayout.LayoutParams(0,dp(42),.66f).apply{marginStart=dp(2)})
+        val locationRow=row();locationRow.addView(locationSpinner,LinearLayout.LayoutParams(0,dp(46),1f).apply{marginEnd=dp(4)});locationRow.addView(createBtn,LinearLayout.LayoutParams(dp(44),dp(44)).apply{marginStart=dp(2);marginEnd=dp(2)});locationRow.addView(editBtn,LinearLayout.LayoutParams(dp(44),dp(44)).apply{marginStart=dp(2);marginEnd=dp(2)});locationRow.addView(deleteBtn,LinearLayout.LayoutParams(dp(44),dp(44)).apply{marginStart=dp(2)})
         body.addView(locationRow,LinearLayout.LayoutParams(-1,-2));body.addView(gap(9))
 
         val qr=input("Scan QR").apply{imeOptions=EditorInfo.IME_ACTION_DONE}
         val order=input("DO");val packages=input("Số kiện",true)
-        body.addView(field("Scan QR",qr));body.addView(gap(8));body.addView(field("DO",order));body.addView(gap(8));body.addView(field("Số kiện",packages));body.addView(gap(10))
+        body.addView(field("Scan QR",qr));body.addView(gap(8))
+        val doPackage=row()
+        doPackage.addView(field("DO",order),LinearLayout.LayoutParams(0,-2,1f).apply{marginEnd=dp(4)})
+        doPackage.addView(field("Số kiện",packages),LinearLayout.LayoutParams(0,-2,1f).apply{marginStart=dp(4)})
+        body.addView(doPackage,LinearLayout.LayoutParams(-1,-2));body.addView(gap(10))
         val addBtn=button("Thêm thông tin",teal).apply{textSize=11f};val clearBtn=button("Xóa toàn bộ",red).apply{textSize=11f;isEnabled=actualSuper;alpha=if(actualSuper)1f else .35f}
         val actions=row();actions.addView(addBtn,LinearLayout.LayoutParams(0,dp(46),1f).apply{marginEnd=dp(4)});actions.addView(clearBtn,LinearLayout.LayoutParams(0,dp(46),1f).apply{marginStart=dp(4)});body.addView(actions,LinearLayout.LayoutParams(-1,-2))
+        body.addView(gap(10))
+        val listHead=row();listHead.addView(text("Danh sách hàng rớt",11f,navy,true),LinearLayout.LayoutParams(0,-2,1f))
+        val selectAll=button("Chọn tất cả",navy);val deleteSelected=button("Xóa đã chọn",red).apply{isEnabled=false;alpha=.4f}
+        listHead.addView(selectAll,LinearLayout.LayoutParams(dp(94),dp(38)).apply{marginEnd=dp(3)});listHead.addView(deleteSelected,LinearLayout.LayoutParams(dp(106),dp(38)))
+        body.addView(listHead,LinearLayout.LayoutParams(-1,-2));body.addView(gap(5))
+        val dropList=column();body.addView(dropList,LinearLayout.LayoutParams(-1,-2))
         body.addView(gap(8));body.addView(text("Service/D1 xác nhận ngay; Google Sheet được đồng bộ nền qua outbox.",9f,muted,false))
 
         val scroll=ScrollView(activity).apply{isFillViewport=true;addView(body,ViewGroup.LayoutParams(-1,-2))}
@@ -84,6 +95,8 @@ object DropReceiveFeature {
         val locationCache=activity.getSharedPreferences("drop_receive_location_cache",android.content.Context.MODE_PRIVATE)
         var locationItems=listOf<String>()
         var pendingRecordId:String?=null
+        val selectedDropIds=linkedSetOf<String>()
+        var displayedDropIds=listOf<String>()
         fun selectedLocation():String=if(locationItems.isEmpty())"" else locationItems.getOrNull(locationSpinner.selectedItemPosition).orEmpty()
         fun setLocations(items:List<String>,preferred:String=""){
             val clean=items.map{it.trim()}.filter{it.isNotBlank()}.distinct();locationItems=clean
@@ -94,6 +107,49 @@ object DropReceiveFeature {
         fun cacheLocations(items:List<String>){locationCache.edit().putString("items",JSONArray(items).toString()).apply()}
         fun cachedLocations():List<String>{val raw=locationCache.getString("items","").orEmpty();if(raw.isBlank())return emptyList();return runCatching{val arr=JSONArray(raw);val out=mutableListOf<String>();for(i in 0 until arr.length()){val v=arr.optString(i).trim();if(v.isNotBlank())out.add(v)};out}.getOrDefault(emptyList())}
         fun readItems(json:JSONObject?):List<String>{val arr=json?.optJSONArray("items")?:JSONArray();val out=mutableListOf<String>();for(i in 0 until arr.length()){val v=arr.optString(i).trim();if(v.isNotBlank())out.add(v)};return out}
+        fun fmtDropTime(raw:String):String=runCatching{
+            java.time.Instant.parse(raw).atZone(java.time.ZoneId.of("Asia/Ho_Chi_Minh")).format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"))
+        }.getOrDefault(raw.ifBlank{"-"})
+        fun updateDeleteSelection(){
+            deleteSelected.isEnabled=selectedDropIds.isNotEmpty();deleteSelected.alpha=if(deleteSelected.isEnabled)1f else .4f
+            deleteSelected.text=if(selectedDropIds.isEmpty())"Xóa đã chọn" else "Xóa ${selectedDropIds.size}"
+        }
+        fun renderDropList(items:List<JSONObject>){
+            dropList.removeAllViews();displayedDropIds=items.map{it.optString("record_id")}.filter{it.isNotBlank()}
+            selectedDropIds.retainAll(displayedDropIds.toSet());updateDeleteSelection()
+            if(items.isEmpty()){dropList.addView(text("Chưa có dữ liệu nhận hàng rớt.",9.7f,muted,false));return}
+            items.forEach{x->
+                val id=x.optString("record_id")
+                val card=column().apply{setPadding(dp(8),dp(7),dp(8),dp(7));background=bg()}
+                val head=row()
+                val check=CheckBox(activity).apply{isChecked=id in selectedDropIds;setOnCheckedChangeListener{_,on->if(on)selectedDropIds.add(id)else selectedDropIds.remove(id);updateDeleteSelection()}}
+                head.addView(check,LinearLayout.LayoutParams(dp(40),dp(40)))
+                head.addView(text("${fmtDropTime(x.optString("created_at"))} • ${x.optString("location").ifBlank{"-"}}",9.8f,navy,true),LinearLayout.LayoutParams(0,-2,1f))
+                card.addView(head)
+                val fields=row()
+                fields.addView(text("DO: ${x.optString("do_number").ifBlank{"-"}}",9.5f,ink,true),LinearLayout.LayoutParams(0,-2,1f).apply{marginEnd=dp(4)})
+                fields.addView(text("Số kiện: ${x.optInt("package_count")}",9.5f,ink,true).apply{gravity=Gravity.END},LinearLayout.LayoutParams(0,-2,1f).apply{marginStart=dp(4)})
+                card.addView(fields);dropList.addView(card,LinearLayout.LayoutParams(-1,-2).apply{bottomMargin=dp(5)})
+            }
+        }
+        fun loadDropList(){
+            api.call("outbound_drop_list"){r->activity.runOnUiThread{
+                if(!r.ok){if(dropList.childCount==0)dropList.addView(text("Chưa tải được danh sách.",9.5f,muted,false));return@runOnUiThread}
+                val a=r.json?.optJSONArray("items")?:JSONArray();val items=(0 until a.length()).mapNotNull{a.optJSONObject(it)?.let{j->JSONObject(j.toString())}}
+                renderDropList(items)
+            }}
+        }
+        selectAll.setOnClickListener{selectedDropIds.clear();selectedDropIds.addAll(displayedDropIds);updateDeleteSelection();loadDropList()}
+        deleteSelected.setOnClickListener{
+            val ids=selectedDropIds.toList();if(ids.isEmpty())return@setOnClickListener
+            confirmAction("xóa ${ids.size} hàng rớt"){
+                api.call("outbound_drop_delete",JSONObject().put("record_ids",JSONArray(ids)).put("idempotency_key",UUID.randomUUID().toString())){r->activity.runOnUiThread{
+                    if(!r.ok){error(r.error?:"Không xóa được hàng rớt.");return@runOnUiThread}
+                    selectedDropIds.clear();success("Đã xóa ${r.json?.optInt("rows_deleted",ids.size)?:ids.size} bản ghi.");loadDropList()
+                }}
+            }
+        }
+
         fun reloadLocations(preferred:String=""){
             api.call("outbound_location_list"){r->activity.runOnUiThread{
                 if(!r.ok){error(r.error?:"Không tải được danh sách vị trí từ Service/D1.");return@runOnUiThread}
@@ -135,7 +191,7 @@ object DropReceiveFeature {
             api.call("outbound_drop_append",payload){r->activity.runOnUiThread{
                 addBtn.isEnabled=true;addBtn.text="Thêm thông tin"
                 if(!r.ok){error(r.error?:"Service/D1 chưa xác nhận. Dữ liệu trên form được giữ nguyên để thử lại cùng mã chống trùng.");return@runOnUiThread}
-                pendingRecordId=null;qr.setText("");order.setText("");packages.setText("");success("Service/D1 đã nhận đúng một bản ghi; Google Sheet đồng bộ nền.")
+                pendingRecordId=null;qr.setText("");order.setText("");packages.setText("");success("Service/D1 đã nhận đúng một bản ghi; Google Sheet đồng bộ nền.");loadDropList()
             }}
         }
 
@@ -148,7 +204,7 @@ object DropReceiveFeature {
             }.show()
         }
 
-        setLocations(cachedLocations());reloadLocations(selectedLocation())
+        setLocations(cachedLocations());reloadLocations(selectedLocation());loadDropList()
         return root
     }
 }
