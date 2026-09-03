@@ -2244,14 +2244,84 @@ class OperationsActivity : Activity() {
 
     private fun listsScreen(){
         screenState = "LISTS"
-        val root=baseRoot("DANH SÁCH");val body=body();val q=scanSearchInput("Scan / Nhập mã nhân viên, họ tên để tìm kiếm");body.addView(q,matchWrap());body.addView(gap(8));val buttons=row(bg);val sessions=smallButton("PHIÊN HÔM NAY",blue);val labor=smallButton("CÔNG NHẬT",green);val staff=smallButton("NHÂN SỰ",navy);buttons.addView(sessions,LinearLayout.LayoutParams(0,dp(44),1f).apply{marginEnd=dp(3)});buttons.addView(labor,LinearLayout.LayoutParams(0,dp(44),1f).apply{marginStart=dp(3);marginEnd=dp(3)});buttons.addView(staff,LinearLayout.LayoutParams(0,dp(44),1f).apply{marginStart=dp(3)});body.addView(buttons,matchWrap());body.addView(gap(9));val box=column(bg);body.addView(box,matchWrap())
+        val root=baseRoot("DANH SÁCH")
+        val body=body()
+        val q=scanSearchInput("Scan / Nhập mã nhân viên, họ tên để tìm kiếm")
+        body.addView(q,matchWrap());body.addView(gap(8))
+        val buttons=row(bg)
+        val sessions=smallButton("PHIÊN HÔM NAY",blue)
+        val labor=smallButton("CÔNG NHẬT",green)
+        val staff=smallButton("NHÂN SỰ",navy)
+        buttons.addView(sessions,LinearLayout.LayoutParams(0,dp(44),1f).apply{marginEnd=dp(3)})
+        buttons.addView(labor,LinearLayout.LayoutParams(0,dp(44),1f).apply{marginStart=dp(3);marginEnd=dp(3)})
+        buttons.addView(staff,LinearLayout.LayoutParams(0,dp(44),1f).apply{marginStart=dp(3)})
+        body.addView(buttons,matchWrap());body.addView(gap(9))
+        val box=column(bg);body.addView(box,matchWrap())
         var active="SESSIONS"
-        fun loadSessions(){box.removeAllViews();box.addView(txt("Đang tải...",10.5f,muted,false));api.call("list_sessions",JSONObject().put("query",q.text.toString())){r->runOnUiThread{if(screenState!="LISTS"||active!="SESSIONS")return@runOnUiThread;box.removeAllViews();if(handleAuth(r))return@runOnUiThread;if(!r.ok){box.addView(info(r.error?:"Lỗi"));return@runOnUiThread};val a=r.json?.optJSONArray("items")?:JSONArray();if(a.length()==0)box.addView(info("Chưa có phiên phù hợp."));for(i in 0 until a.length()){val s=a.optJSONObject(i)?:continue;val e=s.optJSONObject("employee_snapshot")?:JSONObject();box.addView(listCard("${s.optString("mnv")} • ${e.optString("full_name")}","${s.optString("state")} • ${s.optString("shift")} • ${workText(s.optString("work_choice"))}\nPDA ${dash(s.optString("pda_serial"))} • Pick ${dash(s.optString("user_pick"))} • Pack ${dash(s.optString("pack_table"))}"));box.addView(gap(6))}}}}
-        fun loadLabor(){box.removeAllViews();if(!isAdmin()){box.addView(info("Công nhật chỉ hiển thị cho ADMIN/SUPERADMIN."));return};api.call("list_labor"){r->runOnUiThread{if(screenState!="LISTS"||active!="LABOR")return@runOnUiThread;box.removeAllViews();if(handleAuth(r))return@runOnUiThread;if(!r.ok){box.addView(info(r.error?:"Lỗi"));return@runOnUiThread};val a=r.json?.optJSONArray("items")?:JSONArray();if(a.length()==0)box.addView(info("Chưa có công nhật hôm nay."));for(i in 0 until a.length()){val l=a.optJSONObject(i)?:continue;val e=l.optJSONObject("employee_snapshot")?:JSONObject();box.addView(listCard("${l.optString("mnv")} • ${e.optString("full_name")}","${l.optString("state")} • ${l.optString("labor_type")}\n${formatIso(l.optString("start_at"))} → ${formatIso(l.optString("end_at"))}"));box.addView(gap(6))}}}}
-        fun searchStaff(){val query=q.text.toString().trim();box.removeAllViews();if(query.length<2){box.addView(info("Nhập ít nhất 2 ký tự để tìm nhân sự."));return};val a=MasterDataCache.searchStaff(this,query);for(i in 0 until a.length()){val e=a.optJSONObject(i)?:continue;box.addView(listCard("${e.optString("mnv")} • ${e.optString("full_name")}","${e.optString("main_position")} • ${e.optString("supplier")} • ${e.optString("department")}"));box.addView(gap(6))};if(a.length()==0)box.addView(info("Không tìm thấy nhân sự phù hợp."))}
+        var listRenderGeneration=0L
+
+        fun renderChunked(items:List<JSONObject>,emptyMessage:String,build:(JSONObject)->View){
+            val generation=++listRenderGeneration
+            box.removeAllViews()
+            if(items.isEmpty()){box.addView(info(emptyMessage));return}
+            fun addChunk(from:Int){
+                if(generation!=listRenderGeneration||screenState!="LISTS")return
+                val to=minOf(from+20,items.size)
+                for(i in from until to){box.addView(build(items[i]));box.addView(gap(6))}
+                if(to<items.size)box.post{addChunk(to)}
+            }
+            box.post{addChunk(0)}
+        }
+
+        fun loadSessions(){
+            ++listRenderGeneration;box.removeAllViews();box.addView(txt("Đang tải...",10.5f,muted,false))
+            api.call("list_sessions",JSONObject().put("query",q.text.toString())){r->runOnUiThread{
+                if(screenState!="LISTS"||active!="SESSIONS")return@runOnUiThread
+                if(handleAuth(r))return@runOnUiThread
+                if(!r.ok){box.removeAllViews();box.addView(info(r.error?:"Lỗi"));return@runOnUiThread}
+                val a=r.json?.optJSONArray("items")?:JSONArray()
+                val items=(0 until a.length()).mapNotNull{a.optJSONObject(it)?.let{j->JSONObject(j.toString())}}
+                renderChunked(items,"Chưa có phiên phù hợp."){s->
+                    val e=s.optJSONObject("employee_snapshot")?:JSONObject()
+                    listCard("${s.optString("mnv")} • ${e.optString("full_name")}","${s.optString("state")} • ${s.optString("shift")} • ${workText(s.optString("work_choice"))}\nPDA ${dash(s.optString("pda_serial"))} • Pick ${dash(s.optString("user_pick"))} • Pack ${dash(s.optString("pack_table"))}")
+                }
+            }}
+        }
+
+        fun loadLabor(){
+            ++listRenderGeneration;box.removeAllViews()
+            if(!isAdmin()){box.addView(info("Công nhật chỉ hiển thị cho ADMIN/SUPERADMIN."));return}
+            api.call("list_labor"){r->runOnUiThread{
+                if(screenState!="LISTS"||active!="LABOR")return@runOnUiThread
+                if(handleAuth(r))return@runOnUiThread
+                if(!r.ok){box.addView(info(r.error?:"Lỗi"));return@runOnUiThread}
+                val a=r.json?.optJSONArray("items")?:JSONArray()
+                val items=(0 until a.length()).mapNotNull{a.optJSONObject(it)?.let{j->JSONObject(j.toString())}}
+                renderChunked(items,"Chưa có công nhật hôm nay."){l->
+                    val e=l.optJSONObject("employee_snapshot")?:JSONObject()
+                    listCard("${l.optString("mnv")} • ${e.optString("full_name")}","${l.optString("state")} • ${l.optString("labor_type")}\n${formatIso(l.optString("start_at"))} → ${formatIso(l.optString("end_at"))}")
+                }
+            }}
+        }
+
+        fun searchStaff(){
+            val query=q.text.toString().trim()
+            ++listRenderGeneration;box.removeAllViews()
+            if(query.length<2){box.addView(info("Nhập ít nhất 2 ký tự để tìm nhân sự."));return}
+            val a=MasterDataCache.searchStaff(this,query)
+            val items=(0 until a.length()).mapNotNull{a.optJSONObject(it)?.let{j->JSONObject(j.toString())}}
+            renderChunked(items,"Không tìm thấy nhân sự phù hợp."){e->
+                listCard("${e.optString("mnv")} • ${e.optString("full_name")}","${e.optString("main_position")} • ${e.optString("supplier")} • ${e.optString("department")}")
+            }
+        }
+
         fun refreshActive(){when(active){"LABOR"->loadLabor();"STAFF"->searchStaff();else->loadSessions()}}
         listsRealtimeRefresh={if(screenState=="LISTS")refreshActive()}
-        sessions.setOnClickListener{active="SESSIONS";loadSessions()};labor.setOnClickListener{active="LABOR";loadLabor()};staff.setOnClickListener{active="STAFF";searchStaff()};q.setOnEditorActionListener{_,_,_->active="STAFF";searchStaff();true};loadSessions();attach(root,body)
+        sessions.setOnClickListener{active="SESSIONS";loadSessions()}
+        labor.setOnClickListener{active="LABOR";loadLabor()}
+        staff.setOnClickListener{active="STAFF";searchStaff()}
+        q.setOnEditorActionListener{_,_,_->active="STAFF";searchStaff();true}
+        loadSessions();attach(root,body)
     }
 
     private fun reportDateLabel(iso:String):String=runCatching{
@@ -2526,7 +2596,16 @@ class OperationsActivity : Activity() {
             if(visible.isEmpty())box.addView(info("Không có lịch sử phù hợp."));if(filtered.isNotEmpty()){val from=pageStart+1;val to=(pageStart+visible.size).coerceAtMost(filtered.size);box.addView(txt("$from–$to / ${filtered.size}",9f,muted,false));val nav=row(bg);if(pageStart>0)nav.addView(smallButton("‹ 100 TRƯỚC",navy).apply{setOnClickListener{pageStart=(pageStart-pageSize).coerceAtLeast(0);render()}},LinearLayout.LayoutParams(0,dp(38),1f).apply{marginEnd=dp(3)});if(pageStart+pageSize<filtered.size)nav.addView(smallButton("100 TIẾP ›",teal).apply{setOnClickListener{pageStart+=pageSize;render()}},LinearLayout.LayoutParams(0,dp(38),1f).apply{marginStart=dp(3)});if(nav.childCount>0)box.addView(nav,matchWrap())}
         }
         allBtn.setOnClickListener{filter="ALL";pageStart=0;render()};pendingBtn.setOnClickListener{filter="PENDING";pageStart=0;render()};failBtn.setOnClickListener{filter="FAILED";pageStart=0;render()}
-        q.addTextChangedListener(object:TextWatcher{override fun beforeTextChanged(v:CharSequence?,st:Int,c:Int,a:Int)=Unit;override fun onTextChanged(v:CharSequence?,st:Int,b:Int,c:Int){query=v?.toString().orEmpty();pageStart=0;render()};override fun afterTextChanged(v:Editable?)=Unit})
+        var historySearchGeneration=0L
+        q.addTextChangedListener(object:TextWatcher{
+            override fun beforeTextChanged(v:CharSequence?,st:Int,c:Int,a:Int)=Unit
+            override fun onTextChanged(v:CharSequence?,st:Int,b:Int,c:Int){
+                query=v?.toString().orEmpty();pageStart=0
+                val generation=++historySearchGeneration
+                q.postDelayed({if(generation==historySearchGeneration&&screenState=="HISTORY")render()},160L)
+            }
+            override fun afterTextChanged(v:Editable?)=Unit
+        })
         dateButton.setOnClickListener{
             val localDates=operationalStore.localHistoryAll().mapNotNull{local->
                 val bodyJ=local.optJSONObject("body")?:return@mapNotNull null
