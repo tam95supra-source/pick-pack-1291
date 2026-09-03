@@ -1,8 +1,8 @@
 {
-  "run_id": 33818941214,
-  "run_sha": "6bbc4b8587ef5446d1493b5c669857faf55bb7d2",
+  "run_id": 33819159706,
+  "run_sha": "22c1662a5ed17d01b6b496fd29c4507199ea1a1c",
   "ref": "release/beta117-owner-followup-performance-20260904",
-  "execution_nonce": "beta117-service-discovery-post-auth-20260904-09",
-  "stage": "SERVICE_DISCOVERY_ONLY",
-  "observed_at": "2026-09-03T23:45:22Z"
+  "execution_nonce": "beta117-runtime-dod-post-discovery-20260904-10",
+  "stage": "RUNTIME_DOD_VERIFY",
+  "observed_at": "2026-09-03T23:48:23Z"
 }
