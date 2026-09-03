@@ -1849,8 +1849,8 @@ class OperationsActivity : Activity() {
         fun submit(){
             val v=mnv.text.toString().trim();if(v.isBlank()){TopNotice.show(this,"Nhập Mã nhân viên.",TopNotice.Kind.WARNING);return};if(busy)return
             busy=true
-            val local=PdaLocalProjection.employeeContext(this,v)
-            if(local!=null&&local.optString("state").equals("ACTIVE",true)){busy=false;showLaborContext(local,MasterDataCache.snapshot(this)?:JSONObject());return}
+            // LABOR-EXACT-SESSION-002: local data may render the roster shell only.
+            // Exact labor context is always resolved from Service by employee/session identity.
             api.call("employee_context",JSONObject().put("mnv",v).put("include_labor",true).put("include_options",false)){r->runOnUiThread{
                 busy=false;if(handleAuth(r))return@runOnUiThread;if(!r.ok){showError(r.error?:"Không kiểm tra được Mã nhân viên");return@runOnUiThread};showLaborContext(r.json?:JSONObject(),MasterDataCache.snapshot(this@OperationsActivity)?:JSONObject())
             }}
