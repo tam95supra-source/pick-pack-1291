@@ -1,6 +1,6 @@
 {
   "stage": "BETA_AUTH_MIGRATE",
-  "mode": "BETA116_POST_VISUAL_AUTH_VERIFY",
+  "mode": "BETA116_AUTH_RETRY_SAME_TOKEN_PROOF",
   "version_name": "0.4.2-beta.116",
   "version_code": 122,
   "base_version": "0.4.2-beta.115",
@@ -49,12 +49,12 @@
   "back_api36": "PASS",
   "device_regression_status": "PENDING",
   "runtime_dod_status": "PENDING",
-  "beta_auth_status": "PENDING",
+  "beta_auth_status": "PENDING_RETRY_AFTER_GAS_SESSION_TRANSIENT",
   "stable_gas_repair_status": "INHERITED_STABLE_UNCHANGED",
   "beta_domain_status": "PENDING",
   "regression_case": "tools/beta116_owner_scope_contract.py + preserve Beta115 ACTIVE_PASS including LABOR-EXACT-SESSION-002, DOCUMENT-BATCH-MODE-TICK-002, UI-REVIEW-WARNING-001, NAV-HISTORY-BACK-001, PDA-EXIT-001, ENV-ISOLATION-001",
-  "execution_nonce": "beta116-auth-postvisual-20260903-09",
-  "next_action": "VERIFY_BETA_AUTH_AFTER_VISUAL_PASS",
+  "execution_nonce": "beta116-auth-gas-proof-retry-20260903-10",
+  "next_action": "RUN_BETA_AUTH_MIGRATE_WITH_DIRECT_GAS_PROOF_AND_SAME_TOKEN_RETRY",
   "service_gate_status": "PASS",
   "service_gate_run_id": 33767353642,
   "service_gate_artifact_id": 9898616640,
@@ -77,5 +77,8 @@
   ],
   "verify_run_id": 33774026289,
   "verify_artifact_id": 9901071098,
-  "verify_artifact_name": "beta-verify-33774026289"
+  "verify_artifact_name": "beta-verify-33774026289",
+  "failed_auth_run_id": 33775083693,
+  "failed_auth_artifact_id": 9901441136,
+  "auth_failure_class": "GAS_SESSION_INVALID_WITH_UNCHANGED_BETA115_VALIDATOR"
 }
