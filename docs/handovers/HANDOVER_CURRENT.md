@@ -2,58 +2,45 @@
 
 - schema_version: 2
 - status: READY
-- time_utc: 2026-09-03T16:44:55Z
+- time_utc: 2026-09-03T23:53:00Z
 - owner: Nguyễn Văn Tâm
-- branch: release/beta116-owner-scope-20260903
-- release_trigger_sha: 769d57a7878bbe636bdf5f28663f97bcb385359f
-- archive_file: docs/handovers/HANDOVER_20260903-164455_beta116-technical-pass-awaiting-owner.md
+- branch: release/beta117-owner-followup-performance-20260904
+- archive_file: docs/handovers/archive/HANDOVER_20260903-235300_beta117-pre-ota-stable-gas-primary-404.md
 
-## Mục tiêu + DoD
-Beta116 đã Technical PASS/LIVE trên exact locked APK. Toàn bộ candidate/service/visual/PDA/API36/auth/device/runtime/domain/publish/OTA-install-open-readback PASS. Finalize job ban đầu chỉ fail do Git rebase conflict control-plane sau khi OTA đã PASS; canonical state được khôi phục từ exact PASS receipts và finalizer harness đã được sửa. OWNER acceptance còn PENDING.
+## Mục tiêu + trạng thái
+Beta117 đã có exact locked candidate và đã PASS Service, visual 3 kích thước + human inspection, PDA functional, API36 Back, Beta auth, service-discovery/device regression và Fast Check. Chưa OTA vì Runtime DoD đang fail ở Stable private GAS primary HTTP 404. Beta116 vẫn LIVE.
 
-## LIVE / EXACT EVIDENCE
-- LIVE BETA: 0.4.2-beta.116 / versionCode 122 / package vn.pickpack1291.app.beta.publicbeta.
-- Source/candidate: cf01dab16e1c62091561ca008a355a8f49326581.
-- Candidate: 33767353642 / 9898290631.
-- Service: 33767353642 / 9898616640.
-- Visual + PDA pre-OTA + API36: 33774026289 / 9901071098; human PASS 43 ảnh ở 320x568 / 360x640 / 480x800.
-- Beta Auth: 33776285435 / 9902148937.
-- Device regression: 33778316587 / 9902571477.
-- Runtime DoD: 33778605857 / 9902663700.
-- Domain: 33778957345 / 9902758766.
-- Fast Check sau harness fix: 33780103022 PASS.
-- Publish: 33780057070 / 9903236359 PASS.
-- OTA Beta115 → Beta116 / install / open / exact readback: 33780057070 / 9903336912 PASS.
-- Pass-live validation: 33783284600 PASS.
-- Final tree targeted release-state/finalizer/registry verification: PASS.
-- SHA256: a346d4554e07fc37552c9d8876179860677fc93923a3bd42f9b3f97f5e11f235 / size 14347253.
-- Signer: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e.
-- Stable/main/authority: unchanged.
-- APK transport: GITHUB_RELEASE_ONLY; Google Drive APK FORBIDDEN.
+## LIVE
+- Beta116: 0.4.2-beta.116 / code 122 / source cf01dab16e1c62091561ca008a355a8f49326581.
+- APK: a346d4554e07fc37552c9d8876179860677fc93923a3bd42f9b3f97f5e11f235 / 14347253 bytes.
+- Stable/main/signer/authority unchanged.
 
-## Finalize recovery
-- Failed finalize trong run 33780057070: rebase conflict tại ops/beta-release-request.json do branch control-plane được cập nhật sau khi run bắt đầu.
-- Không có publish/OTA failure; không rollback; không rebuild/resign.
-- Fix harness: rebase/fence trước khi render state + explicit technical_pass_status=PASS + owner_acceptance=PENDING + NEXT_ACTION owner checklist.
-- Regression khóa tại tools/ci_release_fencing_contract.py.
+## Beta117 exact candidate
+- 0.4.2-beta.117 / code 123 / package vn.pickpack1291.app.beta.publicbeta.
+- source: d8ea2c2f31549647e8676b40dc536d2b1b80e6e5.
+- candidate: run 33800745880 / artifact 9911117214.
+- SHA256: b3454574547eece69ea44c51b2f88da93dd142eb5d1afb82e7fbd0f293cc0d87 / size 14396405.
+- signer: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e.
+- locked=true; rebuild=false; resign=false; live=false.
 
-## Beta116 invariants
-11 invariant mới được ghi TECHNICAL_PASS_AWAITING_OWNER trong docs/STABLE_INVARIANTS.md và qa/stable_invariants.yml; chưa có invariant nào được tự nâng ACTIVE_PASS.
+## PASS evidence
+- Service inherited unchanged: 33797938890 / 9910299408.
+- Visual + PDA + API36: 33816769626 / 9916961610 PASS.
+- Human visual: PASS 43 ảnh thật, 320x568 / 360x640 / 480x800; `ops/beta117-human-visual-receipt.json`.
+- Beta auth: 33817394774 / 9917295154 PASS; Stable D1/Sheet unchanged.
+- Device/service-discovery: 33818941214 / 9917593203 PASS.
+- Fast Check: 33819263208 PASS.
 
 ## Blocker
-Không có blocker kỹ thuật.
+- Runtime DoD first failed only because request thiếu device-regression provenance; đã sửa.
+- Runtime DoD run 33819263277 sau đó fail `STABLE_GAS_GET_FAILED:primary:404`; exact job retry cũng fail cùng lỗi, latest failed artifact 9917714789.
+- Apps Script deployment readback trước GET vẫn xác nhận deployment ID, exact URL và policy hợp lệ. Vì vậy đây không phải stale hardcode/harness.
+- Beta116 runtime 33778605857 / 9902663700 trước đó PASS cả Stable GAS primary/outbound/dr HTTP 200.
+- Sửa/redeploy Stable private GAS là protected Stable action; chưa thực hiện.
 
-## OWNER-reported OTA incident 2026-09-04
-- Beta115 thiết bị thật báo Dịch vụ suy giảm và không cập nhật được Beta116.
-- OWNER reported Beta115 could not update and UI showed Service degraded. Fresh recovery: service-discovery 33784531907/9904956795 PASS; exact Beta116 Service source cf01dab16e1c62091561ca008a355a8f49326581 redeployed and full service regression 33784753619/9905201718 PASS with test_cleanup PASS; Beta-only live readback 33788505404/9906368570 PASS: Worker /health HTTP 200, GAS service_discovery HTTP 200 -> https://pickpack.1291.workers.dev, update_check from current_version 0.4.2-beta.115 HTTP 200 available=true -> 0.4.2-beta.116 code 122, SHA256 a346d4554e07fc37552c9d8876179860677fc93923a3bd42f9b3f97f5e11f235, size 14347253, GitHub Release URL exact. No APK rebuild/resign/republish; Stable untouched. Initial device degradation exact cause not provable from contaminated first probes.
-- Incident receipt: `ops/beta116-ota-service-recovery.json`.
-- Trạng thái: ACTIVE_PASS — OWNER xác nhận Beta115 → Beta116 cập nhật thực tế OK.
-
-## OWNER acceptance Beta116 — 2026-09-04
-- Accepted: 1,2,3,5,7,8,9,10,11.
-- Pending: 4,6 do chưa có dữ liệu đủ nghiệm thu.
-- Các yêu cầu tinh chỉnh mới của OWNER được tách thành Beta117, không sửa lịch sử ACTIVE_PASS của scope Beta116.
-- Receipt: `ops/beta116-owner-acceptance-partial.json`.
+## OWNER acceptance carry-over
+- Beta116 accepted: 1,2,3,5,7,8,9,10,11.
+- Pending: 4,6; vẫn TECHNICAL_PASS_AWAITING_OWNER.
 
 ## NEXT_ACTION
-IMPLEMENT_BETA117_OWNER_FOLLOWUP_AND_PERFORMANCE_SCOPE
+OWNER_AUTHORIZE_STABLE_PRIVATE_GAS_PRIMARY_RECOVERY_THEN_RERUN_RUNTIME_DOD
