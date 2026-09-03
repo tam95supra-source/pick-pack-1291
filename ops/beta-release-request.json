@@ -1,6 +1,6 @@
 {
   "stage": "VERIFY_ONLY",
-  "mode": "VERIFY_ONLY_BETA116_EXACT_CANDIDATE_ATTENDANCE_SCAN_HARNESS_REPAIR",
+  "mode": "VERIFY_ONLY_BETA116_EXACT_CANDIDATE_GLOBAL_LAN_HARNESS_REPAIR",
   "version_name": "0.4.2-beta.116",
   "version_code": 122,
   "base_version": "0.4.2-beta.115",
@@ -53,7 +53,7 @@
   "stable_gas_repair_status": "INHERITED_STABLE_UNCHANGED",
   "beta_domain_status": "PENDING",
   "regression_case": "tools/beta116_owner_scope_contract.py + preserve Beta115 ACTIVE_PASS including LABOR-EXACT-SESSION-002, DOCUMENT-BATCH-MODE-TICK-002, UI-REVIEW-WARNING-001, NAV-HISTORY-BACK-001, PDA-EXIT-001, ENV-ISOLATION-001",
-  "execution_nonce": "beta116-verify-only-exact-20260903-07",
+  "execution_nonce": "beta116-verify-only-exact-20260903-08",
   "next_action": "VERIFY_VISUAL_PDA_API36_EXACT_CANDIDATE_NO_REBUILD",
   "service_gate_status": "PASS",
   "service_gate_run_id": 33767353642,
@@ -66,7 +66,7 @@
   "apk_sha256": "a346d4554e07fc37552c9d8876179860677fc93923a3bd42f9b3f97f5e11f235",
   "apk_size": 14347253,
   "fast_check_run_id": 33767353720,
-  "failure_class": "HARNESS_ATTENDANCE_SEARCH_FIELD_INTERCEPTED_SCAN",
-  "failed_verify_run_id": 33771142931,
-  "failed_verify_artifact_id": 9899741246
+  "failure_class": "HARNESS_STALE_LAN_GLOBAL_MODE_PRECONDITION",
+  "failed_verify_run_id": 33771505217,
+  "failed_verify_artifact_id": 9899934784
 }
