@@ -16,6 +16,7 @@ on:
       - tools/resilience_static_gate.mjs
       - tools/document_management_contract.py
       - tools/beta116_owner_scope_contract.py
+      - tools/beta117_owner_followup_contract.py
       - tools/beta_stable_isolation_contract.mjs
       - tools/portable_backup_verify.sh
       - tools/d1_generation_autopilot.sh
@@ -312,6 +313,7 @@ jobs:
           python3 tools/beta112_auth_parity_repair_contract.py
           python3 tools/beta113_owner_scope_contract.py
           python3 tools/beta116_owner_scope_contract.py
+          python3 tools/beta117_owner_followup_contract.py
           grep -q 'versionCode = 1' app/build.gradle.kts
           grep -q 'versionName = "0.1.0-stable"' app/build.gradle.kts
           gradle --no-daemon --build-cache --parallel :app:testBetaDebugUnitTest :app:assembleBetaDebug :app:assembleStableDebug
