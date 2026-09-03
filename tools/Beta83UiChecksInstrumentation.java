@@ -255,6 +255,10 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     }
     return null;
   }
+  private boolean textVisible(String text,boolean exact){
+    AccessibilityNodeInfo n=findText(text,exact,false);
+    return n!=null&&n.isVisibleToUser();
+  }
   private AccessibilityNodeInfo waitText(String text,boolean exact,boolean clickable,long timeout){
     long end=SystemClock.uptimeMillis()+timeout;
     while(SystemClock.uptimeMillis()<end){
@@ -670,10 +674,10 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     waitText("Loại biên bản",true,false,10000L);
     waitText("Chụp ảnh",true,true,10000L);
     waitText("Chọn nhiều ảnh",true,true,10000L);
-    require(findText("Một biên bản nhiều trang",true,false)==null,"DOCUMENT_MODE_VISIBLE_WITH_ZERO_DRAFTS");
-    require(findText("Nhiều biên bản",true,false)==null,"DOCUMENT_MULTI_MODE_VISIBLE_WITH_ZERO_DRAFTS");
-    require(findText("Tải lên",true,false)==null,"DOCUMENT_DRAFT_ACTION_VISIBLE_WITH_ZERO_DRAFTS");
-    require(findText("Ảnh chờ tải",true,false)==null,"DOCUMENT_PENDING_BOX_VISIBLE_WHEN_EMPTY");
+    require(!textVisible("Một biên bản nhiều trang",true),"DOCUMENT_MODE_VISIBLE_WITH_ZERO_DRAFTS");
+    require(!textVisible("Nhiều biên bản",true),"DOCUMENT_MULTI_MODE_VISIBLE_WITH_ZERO_DRAFTS");
+    require(!textVisible("Tải lên",true),"DOCUMENT_DRAFT_ACTION_VISIBLE_WITH_ZERO_DRAFTS");
+    require(!textVisible("Ảnh chờ tải",true),"DOCUMENT_PENDING_BOX_VISIBLE_WHEN_EMPTY");
     waitText("Tất cả loại biên bản",true,false,10000L);
     waitText("Đã chọn 0 ảnh",true,false,10000L);
     waitText("Chọn tất cả biên bản đang lọc",true,false,10000L);
@@ -937,11 +941,11 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     waitText("Loại biên bản",true,false,10000L);
     waitText("Chụp ảnh",true,true,10000L);
     waitText("Chọn nhiều ảnh",true,true,10000L);
-    require(findText("Một biên bản nhiều trang",true,false)==null,"FUNCTIONAL_DOCUMENT_MODE_VISIBLE_WITH_ZERO_DRAFTS");
-    require(findText("Nhiều biên bản",true,false)==null,"FUNCTIONAL_DOCUMENT_MULTI_MODE_VISIBLE_WITH_ZERO_DRAFTS");
-    require(findText("Tải lên",true,false)==null,"FUNCTIONAL_DOCUMENT_DRAFT_ACTION_VISIBLE_WITH_ZERO_DRAFTS");
-    require(findText("Ảnh chờ tải",true,false)==null,"FUNCTIONAL_DOCUMENT_PENDING_BOX_VISIBLE_WHEN_EMPTY");
-    require(findText("Không có ảnh chờ tải.",true,false)==null,"FUNCTIONAL_DOCUMENT_EMPTY_PENDING_COPY_VISIBLE");
+    require(!textVisible("Một biên bản nhiều trang",true),"FUNCTIONAL_DOCUMENT_MODE_VISIBLE_WITH_ZERO_DRAFTS");
+    require(!textVisible("Nhiều biên bản",true),"FUNCTIONAL_DOCUMENT_MULTI_MODE_VISIBLE_WITH_ZERO_DRAFTS");
+    require(!textVisible("Tải lên",true),"FUNCTIONAL_DOCUMENT_DRAFT_ACTION_VISIBLE_WITH_ZERO_DRAFTS");
+    require(!textVisible("Ảnh chờ tải",true),"FUNCTIONAL_DOCUMENT_PENDING_BOX_VISIBLE_WHEN_EMPTY");
+    require(!textVisible("Không có ảnh chờ tải.",true),"FUNCTIONAL_DOCUMENT_EMPTY_PENDING_COPY_VISIBLE");
     waitText("Tất cả loại biên bản",true,false,10000L);
     waitText("Đã chọn 0 ảnh",true,false,10000L);
     waitText("Chọn tất cả biên bản đang lọc",true,false,10000L);
