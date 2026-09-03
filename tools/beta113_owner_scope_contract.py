@@ -21,9 +21,9 @@ mobile=read("service/src/mobile_hotfix.ts")
 outbound=read("service/src/outbound_beta78.ts")
 
 # 1) Changelog is version-fenced and current Beta metadata is exact.
-assert 'versionCode = 120' in gradle
-assert 'versionName = "0.4.2-beta.114"' in gradle
-assert 'const val VERSION_NAME = "0.4.2-beta.114"' in notes
+assert 'versionCode = 121' in gradle
+assert 'versionName = "0.4.2-beta.115"' in gradle
+assert 'const val VERSION_NAME = "0.4.2-beta.115"' in notes
 assert 'verifyBetaReleaseNotes' in gradle and 'dependsOn("verifyBetaReleaseNotes")' in gradle
 
 # 2) Admin audit durable routing keeps transport action and business audit action separate.
@@ -54,19 +54,31 @@ assert labor_home.index('section("Ghi nhận công nhật")') < labor_home.index
 assert 'DataDatePickerUi.show(this,laborDates,selectedLaborDate)' in labor_home
 labor_ctx=ops[ops.index("private fun showLaborContext"):ops.index("private fun resourceHome")]
 assert 'ctx.optJSONArray("labor_intervals")' in labor_ctx and '"Các khoảng công nhật trong phiên"' in labor_ctx
-for token in ['LABOR_OTHER_INTERVAL_OPEN','LABOR_INTERVAL_OVERLAP','LABOR_START_IN_FUTURE','LABOR_END_IN_FUTURE']:
+for token in ['LABOR_OTHER_INTERVAL_OPEN','LABOR_INTERVAL_OVERLAP','LABOR_START_IN_FUTURE','LABOR_END_AFTER_SHIFT_OR_EXIT','FUTURE_LABOR_BLOCKS_EXIT','deductStaffEnabled']:
     assert token in core, token
+assert 'LABOR_END_IN_FUTURE' not in core
+for token in ['"CA 1":14*60','"CA HC":17*60','"CA 2":22*60']:
+    assert token in core, token
+assert 'arrayOf("00","15","30","45")' in ops and 'wrapSelectorWheel=true' in ops
+assert 'allowFuture:Boolean=false' in ops and '!allowFuture&&picked.isAfter' in ops
+assert '"Mã nhân viên KHÁC"' not in labor_ctx
+assert 'private fun showLaborBatchCreate' in ops and 'private fun showLaborBatchFinish' in ops
+assert 'verifyActionPassword("tạo công nhật nhanh cho ${chosen.size} nhân sự")' in ops
+assert 'verifyActionPassword("kết thúc công nhật nhanh cho ${chosen.size} nhân sự")' in ops
 assert 'labor_intervals:laborRows' in mobile
 assert 'if(action==="labor_dates")return laborDates(env);' in mobile
 assert '"labor_dates"' in bridge
 
 # 8) Display-only calendar visibly disables empty dates; edit calendar remains unrestricted.
-for token in ['isEnabled=enabled','alpha=if(enabled)1f else .30f','if(enabled)setOnClickListener','availableDates:Collection<String>']:
+for token in ['isEnabled=enabled','alpha=if(enabled)1f else .30f','if(enabled)setOnClickListener','availableDates:Collection<String>','val today=LocalDate.now()','val enabled=hasData||date==today']:
     assert token in calendar, token
 assert ops.count("DatePickerDialog") == 1, "Only staff start-date editor may keep unrestricted DatePickerDialog"
 assert ops.count("DataDatePickerUi.show(") >= 3, "Report, History and Labor must use data-only calendar"
 assert "DatePickerDialog" not in postmeal, "Point Attendance display history must not use unrestricted DatePickerDialog"
 assert "DataDatePickerUi.show(activity,availableDates,selected.toString())" in postmeal
+assert 'selectSpinner(values:List<String>)' in postmeal
+assert 'labelledSelect("Lý do không vào ca",reasonSpinner)' in postmeal
+assert 'setItems(reasons)' not in postmeal
 assert 'api.call("meal_attendance_dates")' in postmeal
 assert "availableDatesWithData" in meal_store
 assert "export async function mealAttendanceDates" in meal_service
@@ -90,4 +102,4 @@ inline=ops[ops.index("private fun addInlineCurrentShiftStaff"):ops.index("privat
 for token in ['setOnClickListener{showCurrentDayShiftStaff(currentDate,shift,group)}','setOnClickListener{if(id.mnv.isNotBlank())loadEmployee(id.mnv)}','contentDescription="Mở quét QR vào ra']:
     assert token in inline, token
 
-print("beta114_owner_scope_contract=PASS changelog=PASS audit=PASS history_delete=PASS scan_select_ui=PASS labor_multi_interval=PASS all_view_data_dates=PASS outbound_sheet_row_index=PASS inline_roster=PASS")
+print("beta115_owner_scope_contract=PASS changelog=PASS audit=PASS history_delete=PASS labor_revised=PASS bulk=PASS select_ui=PASS today_calendar=PASS outbound_sheet_row_index=PASS inline_roster=PASS")
