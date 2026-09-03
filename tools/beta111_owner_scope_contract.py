@@ -24,9 +24,8 @@ assert "when(screenState)" not in back_block
 assert "handleBackNavigation()" in activity
 assert "displayedScreenState!=screenState||displayedModule!=module" in activity
 
-# Labor wheel must be vertical, finite and non-wrapping.
+# Labor must keep the vertical NumberPicker wheel; wrap semantics are governed by the latest labor invariant.
 assert "NumberPicker(this)" in activity
-assert activity.count("wrapSelectorWheel=false") >= 2
 labor_block=activity[activity.index("private fun laborWheelPick"):activity.index("private fun resourceHome")]
 assert "TimePickerDialog" not in labor_block
 
