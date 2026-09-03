@@ -18,6 +18,7 @@ gradle=read("app/build.gradle.kts")
 service=read("service/src/index.ts")
 core=read("service/src/core.ts")
 mobile=read("service/src/mobile_hotfix.ts")
+compat=read("service/src/compat.ts")
 outbound=read("service/src/outbound_beta78.ts")
 
 # 1) Changelog is version-fenced and current Beta metadata is exact.
@@ -68,6 +69,9 @@ assert 'verifyActionPassword("kết thúc công nhật nhanh cho ${chosen.size} 
 assert 'labor_intervals:laborRows' in mobile
 assert 'if(action==="labor_dates")return laborDates(env);' in mobile
 assert '"labor_dates"' in bridge
+for token in ['staffShiftKey','label:"Hỗ trợ bộ phận khác"','matrix(main,columns)','deducted.has(staffShiftKey(s.mnv,s.shift))']:
+    assert token in compat, token
+assert 'rowsByType' not in compat, "Support report must count each MNV+shift once across multiple labor types"
 
 # 8) Display-only calendar visibly disables empty dates; edit calendar remains unrestricted.
 for token in ['isEnabled=enabled','alpha=if(enabled)1f else .30f','if(enabled)setOnClickListener','availableDates:Collection<String>','val today=LocalDate.now()','val enabled=hasData||date==today']:

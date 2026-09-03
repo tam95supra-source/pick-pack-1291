@@ -23,6 +23,14 @@ function supplierCode(v:string):string{
   for(const c of SUPPLIER_ORDER)if(new RegExp(`(^| )${c}( |$)`).test(f))return c;
   return SUPPLIER_ORDER.includes(f)?f:"";
 }
+function reportShift(v:string):string{
+  const f=fold(v).replace(/\s+/g,"");
+  if(f==="CA1"||f==="1")return"CA1";
+  if(f==="CAHC"||f==="HC"||f.includes("HANHCHINH"))return"CAHC";
+  if(f==="CA2"||f==="2")return"CA2";
+  return f;
+}
+function staffShiftKey(mnv:string,shift:string):string{return`${mnv}|${reportShift(shift)}`;}
 function reportPosition(s:{work_choice:string;employee_snapshot:Employee}):string{
   const e=s.employee_snapshot,p=fold(e.main_position),d=fold(e.department),work=String(s.work_choice||"");
   if(p==="TRUONG NHOM")return"Trưởng nhóm";if(p==="CHUYEN VIEN")return"Chuyên viên";if(p==="TO TRUONG")return"Tổ trưởng";
@@ -40,19 +48,19 @@ function matrix(sessions:Array<{mnv:string;work_choice:string;employee_snapshot:
   const rows=REPORT_ROWS.map(position=>{const counts:Record<string,number>={};for(const c of columns)counts[c]=data[position]?.[c]??0;return{position,counts,total:columns.reduce((n,c)=>n+(counts[c]??0),0)};});
   const totals:Record<string,number>={};for(const c of columns)totals[c]=rows.reduce((n,r)=>n+(r.counts[c]??0),0);return{columns,rows,totals,total:columns.reduce((n,c)=>n+(totals[c]??0),0)};
 }
-function tenure(sessions:Array<{mnv:string;work_choice:string;employee_snapshot:Employee}>,columns:string[],work:string,deducted:Set<string>,date:string){
+function tenure(sessions:Array<{mnv:string;shift:string;work_choice:string;employee_snapshot:Employee}>,columns:string[],work:string,deducted:Set<string>,date:string){
   const data:Record<string,Record<string,number>>={"Nhân sự mới":{},"Nhân sự cũ":{}};for(const label of Object.keys(data))for(const c of columns)data[label]![c]=0;
-  for(const s of sessions){if(s.work_choice!==work||deducted.has(s.mnv))continue;const sup=supplierCode(s.employee_snapshot.supplier);if(!sup||!columns.includes(sup))continue;const label=tenureDays(s.employee_snapshot.start_date,date)<=30?"Nhân sự mới":"Nhân sự cũ";data[label]![sup]=(data[label]![sup]??0)+1;}
+  for(const s of sessions){if(s.work_choice!==work||deducted.has(staffShiftKey(s.mnv,s.shift)))continue;const sup=supplierCode(s.employee_snapshot.supplier);if(!sup||!columns.includes(sup))continue;const label=tenureDays(s.employee_snapshot.start_date,date)<=30?"Nhân sự mới":"Nhân sự cũ";data[label]![sup]=(data[label]![sup]??0)+1;}
   const rows=["Nhân sự mới","Nhân sự cũ"].map(label=>{const counts:Record<string,number>={};for(const c of columns)counts[c]=data[label]?.[c]??0;return{label,counts,total:columns.reduce((n,c)=>n+(counts[c]??0),0)};});const totals:Record<string,number>={};for(const c of columns)totals[c]=rows.reduce((n,r)=>n+(r.counts[c]??0),0);return{columns,rows,totals,total:rows.reduce((n,r)=>n+r.total,0)};
 }
 function support(sessions:Array<{mnv:string;shift:string;employee_snapshot:Employee}>,labor:LaborRow[],allowed:string[],columns:string[]){
-  const byMnv=new Map(sessions.map(s=>[s.mnv,s])),deducted=new Set<string>(),rowsByType:Record<string,{label:string;counts:Record<string,number>;total:number}>={},seen=new Set<string>();
-  for(const r of labor){if(!allowed.includes(r.shift)||!r.deduct_staff)continue;const s=byMnv.get(r.mnv);if(!s)continue;const type=r.labor_type||"Khác";if(!deductAllowed(s.employee_snapshot.main_position,type))continue;const k=`${type}|${r.mnv}`;if(seen.has(k))continue;seen.add(k);deducted.add(r.mnv);const sup=supplierCode(s.employee_snapshot.supplier);if(!sup||!columns.includes(sup))continue;if(!rowsByType[type]){const counts:Record<string,number>={};for(const c of columns)counts[c]=0;rowsByType[type]={label:type,counts,total:0};}rowsByType[type]!.counts[sup]=(rowsByType[type]!.counts[sup]??0)+1;rowsByType[type]!.total++;}
-  const rows=Object.keys(rowsByType).sort().map(k=>rowsByType[k]!);const totals:Record<string,number>={};for(const c of columns)totals[c]=rows.reduce((n,r)=>n+(r.counts[c]??0),0);return{deducted,matrix:{columns,rows,totals,total:rows.reduce((n,r)=>n+r.total,0),unique_staff:deducted.size}};
+  const allowedShifts=new Set(allowed.map(reportShift)),byStaffShift=new Map(sessions.map(s=>[staffShiftKey(s.mnv,s.shift),s])),deducted=new Set<string>(),counts:Record<string,number>={};for(const c of columns)counts[c]=0;
+  for(const r of labor){const key=staffShiftKey(r.mnv,r.shift);if(!allowedShifts.has(reportShift(r.shift))||!r.deduct_staff||deducted.has(key))continue;const s=byStaffShift.get(key);if(!s||!deductAllowed(s.employee_snapshot.main_position,r.labor_type||"Khác"))continue;const sup=supplierCode(s.employee_snapshot.supplier);if(!sup||!columns.includes(sup))continue;deducted.add(key);counts[sup]=(counts[sup]??0)+1;}
+  const total=columns.reduce((n,c)=>n+(counts[c]??0),0),rows=total?[{label:"Hỗ trợ bộ phận khác",counts,total}]:[];return{deducted,matrix:{columns,rows,totals:{...counts},total,unique_staff:deducted.size}};
 }
 function period(sessions:Array<{mnv:string;shift:string;work_choice:string;employee_snapshot:Employee}>,labor:LaborRow[],allowed:string[],label:string,date:string){
-  const items=sessions.filter(s=>allowed.includes(s.shift)),seen=new Set<string>();for(const s of items){const c=supplierCode(s.employee_snapshot.supplier);if(c)seen.add(c);}const columns=SUPPLIER_ORDER.filter(c=>seen.has(c));const sp=support(items,labor,allowed,columns),picker=tenure(items,columns,"PICK",sp.deducted,date),packer=tenure(items,columns,"PACK",sp.deducted,date);
-  const one=(x:{rows:Array<{total:number}>})=>{const n=x.rows[0]?.total??0,o=x.rows[1]?.total??0;return{new:n,old:o,total:n+o}};return{label,manpower:matrix(items,columns),picker_tenure:picker,packer_tenure:packer,support:sp.matrix,remaining:{picker:one(picker),packer:one(packer)},session_total:items.length};
+  const allowedShifts=new Set(allowed.map(reportShift)),items=sessions.filter(s=>allowedShifts.has(reportShift(s.shift))),seen=new Set<string>();for(const s of items){const c=supplierCode(s.employee_snapshot.supplier);if(c)seen.add(c);}const columns=SUPPLIER_ORDER.filter(c=>seen.has(c));const sp=support(items,labor,allowed,columns),main=items.filter(s=>!sp.deducted.has(staffShiftKey(s.mnv,s.shift))),picker=tenure(items,columns,"PICK",sp.deducted,date),packer=tenure(items,columns,"PACK",sp.deducted,date);
+  const one=(x:{rows:Array<{total:number}>})=>{const n=x.rows[0]?.total??0,o=x.rows[1]?.total??0;return{new:n,old:o,total:n+o}};return{label,manpower:matrix(main,columns),picker_tenure:picker,packer_tenure:packer,support:sp.matrix,remaining:{picker:one(picker),packer:one(packer)},session_total:items.length};
 }
 function history(events:CompatEvent[]){
   const groups:Record<string,{mnv:string;full_name:string;shift:string;state:string;event_count:number;last_time:string;last_at_iso:string;last_actor:string;last_label:string}>={};

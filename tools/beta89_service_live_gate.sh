@@ -133,6 +133,10 @@ B92_BLOCKED_TABLE="__B92_BLOCKED_TABLE_${SUFFIX}"; B92_BLOCKED_PACK="__B92_BLOCK
 B99_PROBE="__B99_RESILIENCE_PROBE_${SUFFIX}"
 B110_LABOR_START="__B110_LABOR_START_${SUFFIX}"; B110_LABOR_FINISH="__B110_LABOR_FINISH_${SUFFIX}"
 B111_LABOR_ID="__B111_LABOR_${SUFFIX}"; B111_LABOR_START="__B111_LABOR_START_${SUFFIX}"; B111_LABOR_FINISH="__B111_LABOR_FINISH_${SUFFIX}"; B111_LABOR_CORRECT="__B111_LABOR_CORRECT_${SUFFIX}"; B111_BAD_START="__B111_BAD_START_${SUFFIX}"; B111_BAD_FINISH="__B111_BAD_FINISH_${SUFFIX}"; B111_HISTORY_DELETE="__B111_HISTORY_DELETE_${SUFFIX}"
+B115_LABOR_A="__B115_LABOR_A_${SUFFIX}"; B115_START_A="__B115_START_A_${SUFFIX}"; B115_FINISH_A="__B115_FINISH_A_${SUFFIX}"
+B115_LABOR_B="__B115_LABOR_B_${SUFFIX}"; B115_START_B="__B115_START_B_${SUFFIX}"; B115_FINISH_B="__B115_FINISH_B_${SUFFIX}"
+B115_OPEN_CONFLICT="__B115_OPEN_CONFLICT_${SUFFIX}"; B115_CAP_CONFLICT="__B115_CAP_CONFLICT_${SUFFIX}"; B115_OVERLAP_CONFLICT="__B115_OVERLAP_CONFLICT_${SUFFIX}"
+B115_PRE_EXIT_CORRECT="__B115_PRE_EXIT_CORRECT_${SUFFIX}"; B115_AFTER_EXIT_BAD="__B115_AFTER_EXIT_BAD_${SUFFIX}"; B115_AFTER_EXIT_OK="__B115_AFTER_EXIT_OK_${SUFFIX}"
 DOC_CATEGORY_ID=""
 DOC_CATEGORY_NAME="__B107_BIEN_BAN_${SUFFIX}"
 DOC_CATEGORY_RENAMED="__B108_RENAMED_${SUFFIX}"
@@ -184,7 +188,7 @@ cleanup_d1(){
 }
 trap 'rc=$?; cleanup_document_drive; cleanup_d1; exit $rc' EXIT
 cleanup_d1
-sql "INSERT INTO accounts(login_id,verifier,verifier_hash,role,display_name,position,email,status,source_row,source_checksum,is_shadow_test) VALUES('$LOGIN','b78-test','$VH','SUPERADMIN','Beta78 Test','TEST','tam95.supra@gmail.com','ACTIVE',-78,'b78-test',1); INSERT INTO auth_sessions(login_id,session_id,device_id,issued_at) VALUES('$LOGIN','$AUTH_SESSION','$DEVICE','$NOW'); INSERT INTO employees(mnv,full_name,main_position,source_row,source_checksum) VALUES('$B80_MNV','Beta80 Session Fixture','Pick',-80,'b80-fixture'); INSERT INTO resources(resource_type,resource_id,status_label,available,metadata_json,source_row,source_checksum) VALUES('PDA','$B80_PDA','Tốt',1,'{}',-80,'b80-fixture'),('PDA','$B89_PDA2','Tốt',1,'{}',-89,'b89-fixture'),('USER_PICK','$B89_PICK','Hoạt động',1,'{}',-89,'b89-fixture'),('USER_PICK','$B89_BLOCKED_PICK','Không khả dụng',0,'{}',-89,'b89-fixture'),('PACK_TABLE','$B91_TABLE','Khả dụng',1,'{}',-91,'b91-fixture'),('USER_PACK','$B91_PACK','Khả dụng',1,'{}',-91,'b91-fixture'),('PACK_TABLE','$B91_BLOCKED_TABLE','Không khả dụng',0,'{}',-91,'b91-fixture'),('USER_PACK','$B91_BLOCKED_PACK','Khả dụng',1,'{}',-91,'b91-fixture'),('USER_PICK','$B92_USED_PICK','Hoạt động',1,'{}',-92,'b92-fixture'),('PACK_TABLE','$B92_USED_TABLE','Khả dụng',1,'{}',-92,'b92-fixture'),('USER_PACK','$B92_USED_PACK','Khả dụng',1,'{}',-92,'b92-fixture'),('PACK_TABLE','$B92_BLOCKED_TABLE','Khả dụng',1,'{}',-92,'b92-fixture'),('USER_PACK','$B92_BLOCKED_PACK','Không khả dụng',0,'{}',-92,'b92-fixture'); INSERT INTO resource_pack_map(pack_table,shift,user_pack,label,available,source_row,source_checksum) VALUES('$B91_TABLE','Ca 2','$B91_PACK','Ca 2-91',1,-91,'b91-fixture'),('$B91_BLOCKED_TABLE','Ca 2','$B91_BLOCKED_PACK','Ca 2-92',1,-91,'b91-fixture'),('$B92_USED_TABLE','Ca 2','$B92_USED_PACK','Ca 2-93',1,-92,'b92-fixture'),('$B92_BLOCKED_TABLE','Ca 2','$B92_BLOCKED_PACK','Ca 2-94',1,-92,'b92-fixture');" >/dev/null
+sql "INSERT INTO accounts(login_id,verifier,verifier_hash,role,display_name,position,email,status,source_row,source_checksum,is_shadow_test) VALUES('$LOGIN','b78-test','$VH','SUPERADMIN','Beta78 Test','TEST','tam95.supra@gmail.com','ACTIVE',-78,'b78-test',1); INSERT INTO auth_sessions(login_id,session_id,device_id,issued_at) VALUES('$LOGIN','$AUTH_SESSION','$DEVICE','$NOW'); INSERT INTO employees(mnv,full_name,main_position,supplier,site,start_date,source_row,source_checksum) VALUES('$B80_MNV','Beta80 Session Fixture','Pick','IH','1291','2026-01-01',-80,'b80-fixture'); INSERT INTO resources(resource_type,resource_id,status_label,available,metadata_json,source_row,source_checksum) VALUES('PDA','$B80_PDA','Tốt',1,'{}',-80,'b80-fixture'),('PDA','$B89_PDA2','Tốt',1,'{}',-89,'b89-fixture'),('USER_PICK','$B89_PICK','Hoạt động',1,'{}',-89,'b89-fixture'),('USER_PICK','$B89_BLOCKED_PICK','Không khả dụng',0,'{}',-89,'b89-fixture'),('PACK_TABLE','$B91_TABLE','Khả dụng',1,'{}',-91,'b91-fixture'),('USER_PACK','$B91_PACK','Khả dụng',1,'{}',-91,'b91-fixture'),('PACK_TABLE','$B91_BLOCKED_TABLE','Không khả dụng',0,'{}',-91,'b91-fixture'),('USER_PACK','$B91_BLOCKED_PACK','Khả dụng',1,'{}',-91,'b91-fixture'),('USER_PICK','$B92_USED_PICK','Hoạt động',1,'{}',-92,'b92-fixture'),('PACK_TABLE','$B92_USED_TABLE','Khả dụng',1,'{}',-92,'b92-fixture'),('USER_PACK','$B92_USED_PACK','Khả dụng',1,'{}',-92,'b92-fixture'),('PACK_TABLE','$B92_BLOCKED_TABLE','Khả dụng',1,'{}',-92,'b92-fixture'),('USER_PACK','$B92_BLOCKED_PACK','Không khả dụng',0,'{}',-92,'b92-fixture'); INSERT INTO resource_pack_map(pack_table,shift,user_pack,label,available,source_row,source_checksum) VALUES('$B91_TABLE','Ca 2','$B91_PACK','Ca 2-91',1,-91,'b91-fixture'),('$B91_BLOCKED_TABLE','Ca 2','$B91_BLOCKED_PACK','Ca 2-92',1,-91,'b91-fixture'),('$B92_USED_TABLE','Ca 2','$B92_USED_PACK','Ca 2-93',1,-92,'b92-fixture'),('$B92_BLOCKED_TABLE','Ca 2','$B92_BLOCKED_PACK','Ca 2-94',1,-92,'b92-fixture');" >/dev/null
 
 owner_api(){ local path=$1 name=$2 body=$3; curl -fsS --connect-timeout 10 --max-time 20 -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' --data-binary "$body" "$SERVICE_URL$path" > "$D/$name.json"; }
 owner_api_slow(){ local path=$1 name=$2 body=$3; curl -fsS --connect-timeout 10 --max-time 60 -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' --data-binary "$body" "$SERVICE_URL$path" > "$D/$name.json"; }
@@ -406,6 +410,83 @@ jq -e '.error.code=="HISTORY_DELETE_TARGET_NOT_FOUND"' "$D/b111-history-delete-m
 
 echo 'beta111_labor_exact_session=PASS exact_context=PASS daily_open_done=PASS open_exit_redirect_contract=PASS stale_session_reject=PASS stale_labor_reject=PASS completed_correction=PASS history_delete_canonical=PASS history_missing_404=PASS'
 
+# Beta115: future scheduled end, strict cap/overlap/exit reconciliation, boolean deduction and exact MNV+shift report movement.
+read_api b115-report-before "$(jq -nc --arg date "$B80_DATE" '{action:"sync_day",business_date:$date}')"
+B115_AT="$B111_END_AT"
+B115_START_A_BODY=$(jq -nc --arg ev "$B115_START_A" --arg labor "$B115_LABOR_A" --arg dev "$DEVICE" --arg date "$B80_DATE" --arg sid "$B80_SID" --arg mnv "$B80_MNV" --arg at "$B115_AT" '{
+  events:[{action:"labor_start",event_id:$ev,device_id:$dev,business_date:$date,payload:{labor_id:$labor,session_id:$sid,mnv:$mnv,shift:"Ca 2",labor_type:"Beta115 Support A",start_at:$at,deduct_staff:true,note:"boolean true"}}]
+}')
+mutation_api b115-labor-start-a "$B115_START_A_BODY"
+jq -e --arg e "$B115_START_A" '.ok==true and .results[0].local_event_id==$e and .results[0].status=="CONFIRMED"' "$D/b115-labor-start-a.json" >/dev/null
+B115_DEDUCT_DB=$(sql "SELECT labor_id,state,deduct_staff FROM labor_sessions WHERE labor_id='$B115_LABOR_A';")
+printf '%s' "$B115_DEDUCT_DB" > "$D/b115-deduct-boolean-db.json"
+node -e 'const j=JSON.parse(process.argv[1]),r=j?.[0]?.results?.[0];if(!r||r.state!=="OPEN"||Number(r.deduct_staff)!==1)throw new Error("B115_BOOLEAN_DEDUCT_NOT_PERSISTED:"+JSON.stringify(r))' "$B115_DEDUCT_DB"
+
+B115_OPEN_BODY=$(jq -nc --arg ev "$B115_OPEN_CONFLICT" --arg dev "$DEVICE" --arg date "$B80_DATE" --arg sid "$B80_SID" --arg mnv "$B80_MNV" --arg at "$B115_AT" '{
+  events:[{action:"labor_start",event_id:$ev,device_id:$dev,business_date:$date,payload:{labor_id:("__OPEN_"+$ev),session_id:$sid,mnv:$mnv,shift:"Ca 2",labor_type:"Beta115 second open",start_at:$at,deduct_staff:false,note:""}}]
+}')
+mutation_api b115-open-conflict "$B115_OPEN_BODY"
+jq -e '.ok==true and .results[0].status=="REVIEW_REQUIRED" and .results[0].error_code=="LABOR_OTHER_INTERVAL_OPEN"' "$D/b115-open-conflict.json" >/dev/null
+
+B115_FINISH_A_BODY=$(jq -nc --arg ev "$B115_FINISH_A" --arg labor "$B115_LABOR_A" --arg dev "$DEVICE" --arg date "$B80_DATE" --arg sid "$B80_SID" --arg mnv "$B80_MNV" --arg at "$B115_AT" '{
+  events:[{action:"labor_finish",event_id:$ev,device_id:$dev,business_date:$date,payload:{labor_id:$labor,session_id:$sid,mnv:$mnv,start_at:$at,end_at:$at,note:"Beta115 A done"}}]
+}')
+mutation_api b115-labor-finish-a "$B115_FINISH_A_BODY"
+jq -e '.ok==true and .results[0].status=="CONFIRMED"' "$D/b115-labor-finish-a.json" >/dev/null
+
+B115_START_B_BODY=$(jq -nc --arg ev "$B115_START_B" --arg labor "$B115_LABOR_B" --arg dev "$DEVICE" --arg date "$B80_DATE" --arg sid "$B80_SID" --arg mnv "$B80_MNV" --arg at "$B115_AT" '{
+  events:[{action:"labor_start",event_id:$ev,device_id:$dev,business_date:$date,payload:{labor_id:$labor,session_id:$sid,mnv:$mnv,shift:"Ca 2",labor_type:"Beta115 Support B",start_at:$at,deduct_staff:true,note:"second deducted interval"}}]
+}')
+mutation_api b115-labor-start-b "$B115_START_B_BODY"
+jq -e '.ok==true and .results[0].status=="CONFIRMED"' "$D/b115-labor-start-b.json" >/dev/null
+
+B115_SHIFT_END="${B80_DATE}T15:00:00Z"
+B115_AFTER_CAP="${B80_DATE}T15:15:00Z"
+node -e 'if(Date.parse(process.argv[1])<=Date.now()+60000)throw new Error("B115_SCHEDULED_END_NOT_FUTURE_FOR_LIVE_GATE")' "$B115_SHIFT_END"
+B115_CAP_BODY=$(jq -nc --arg ev "$B115_CAP_CONFLICT" --arg labor "$B115_LABOR_B" --arg dev "$DEVICE" --arg date "$B80_DATE" --arg sid "$B80_SID" --arg mnv "$B80_MNV" --arg start "$B115_AT" --arg end "$B115_AFTER_CAP" '{
+  events:[{action:"labor_finish",event_id:$ev,device_id:$dev,business_date:$date,payload:{labor_id:$labor,session_id:$sid,mnv:$mnv,start_at:$start,end_at:$end,note:"beyond shift cap"}}]
+}')
+mutation_api b115-cap-conflict "$B115_CAP_BODY"
+jq -e '.ok==true and .results[0].status=="REVIEW_REQUIRED" and .results[0].error_code=="LABOR_END_AFTER_SHIFT_OR_EXIT"' "$D/b115-cap-conflict.json" >/dev/null
+
+B115_FINISH_B_BODY=$(jq -nc --arg ev "$B115_FINISH_B" --arg labor "$B115_LABOR_B" --arg dev "$DEVICE" --arg date "$B80_DATE" --arg sid "$B80_SID" --arg mnv "$B80_MNV" --arg start "$B115_AT" --arg end "$B115_SHIFT_END" '{
+  events:[{action:"labor_finish",event_id:$ev,device_id:$dev,business_date:$date,payload:{labor_id:$labor,session_id:$sid,mnv:$mnv,start_at:$start,end_at:$end,note:"future scheduled end"}}]
+}')
+mutation_api b115-labor-finish-b "$B115_FINISH_B_BODY"
+jq -e '.ok==true and .results[0].status=="CONFIRMED"' "$D/b115-labor-finish-b.json" >/dev/null
+B115_MULTI_DB=$(sql "SELECT COUNT(*) AS n,SUM(deduct_staff) AS deducted,SUM(CASE WHEN state='COMPLETED' THEN 1 ELSE 0 END) AS completed FROM labor_sessions WHERE labor_id IN ('$B115_LABOR_A','$B115_LABOR_B');")
+printf '%s' "$B115_MULTI_DB" > "$D/b115-multi-deduct-db.json"
+node -e 'const j=JSON.parse(process.argv[1]),r=j?.[0]?.results?.[0];if(Number(r?.n)!==2||Number(r?.deducted)!==2||Number(r?.completed)!==2)throw new Error("B115_MULTI_DEDUCT_MISMATCH:"+JSON.stringify(r))' "$B115_MULTI_DB"
+
+B115_OVERLAP_BODY=$(jq -nc --arg ev "$B115_OVERLAP_CONFLICT" --arg dev "$DEVICE" --arg date "$B80_DATE" --arg sid "$B80_SID" --arg mnv "$B80_MNV" --arg at "$B115_AT" '{
+  events:[{action:"labor_start",event_id:$ev,device_id:$dev,business_date:$date,payload:{labor_id:("__OVERLAP_"+$ev),session_id:$sid,mnv:$mnv,shift:"Ca 2",labor_type:"Beta115 overlap",start_at:$at,deduct_staff:false,note:""}}]
+}')
+mutation_api b115-overlap-conflict "$B115_OVERLAP_BODY"
+jq -e '.ok==true and .results[0].status=="REVIEW_REQUIRED" and .results[0].error_code=="LABOR_INTERVAL_OVERLAP"' "$D/b115-overlap-conflict.json" >/dev/null
+
+read_api b115-report-after "$(jq -nc --arg date "$B80_DATE" '{action:"sync_day",business_date:$date}')"
+node - "$D/b115-report-before.json" "$D/b115-report-after.json" <<'NODE'
+const fs=require('fs'),before=JSON.parse(fs.readFileSync(process.argv[2],'utf8')).day.report.reports.ca2,after=JSON.parse(fs.readFileSync(process.argv[3],'utf8')).day.report.reports.ca2;
+const row=(matrix,key,value)=>(matrix.rows||[]).find(x=>x[key]===value)||{counts:{},total:0};
+const bSupport=before.support||{totals:{},rows:[],total:0},aSupport=after.support||{totals:{},rows:[],total:0};
+const bSupportIH=Number(bSupport.totals?.IH||0),aSupportIH=Number(aSupport.totals?.IH||0);
+const bPicker=Number(row(before.manpower,'position','Picker').counts?.IH||0),aPicker=Number(row(after.manpower,'position','Picker').counts?.IH||0);
+const bOld=Number(row(before.picker_tenure,'label','Nhân sự cũ').counts?.IH||0),aOld=Number(row(after.picker_tenure,'label','Nhân sự cũ').counts?.IH||0);
+if(Number(aSupport.total)!==Number(bSupport.total)+1||aSupportIH!==bSupportIH+1||aPicker!==bPicker-1||aOld!==bOld-1||Number(aSupport.unique_staff)!==Number(bSupport.unique_staff)+1||row(aSupport,'label','Hỗ trợ bộ phận khác').total<1)throw new Error('B115_REPORT_DEDUCTION_MISMATCH:'+JSON.stringify({bSupport,aSupport,bPicker,aPicker,bOld,aOld}));
+NODE
+
+B115_EXIT_FUTURE_HTTP=$(curl -sS --connect-timeout 10 --max-time 20 -o "$D/b115-exit-future-blocked.json" -w '%{http_code}' -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' --data-binary "$(jq -nc --arg sid "$B80_SID" --arg mnv "$B80_MNV" --arg idem "__B115_EXIT_FUTURE_$SUFFIX" '{session_id:$sid,mnv:$mnv,pda_exit_status:"Tốt",idempotency_key:$idem}')" "$SERVICE_URL/v1/session/exit-v2")
+[[ "$B115_EXIT_FUTURE_HTTP" == 409 ]]
+jq -e '.error.code=="FUTURE_LABOR_BLOCKS_EXIT"' "$D/b115-exit-future-blocked.json" >/dev/null
+
+B115_NOW=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+B115_CORRECT_BODY=$(jq -nc --arg ev "$B115_PRE_EXIT_CORRECT" --arg labor "$B115_LABOR_B" --arg dev "$DEVICE" --arg date "$B80_DATE" --arg sid "$B80_SID" --arg mnv "$B80_MNV" --arg start "$B115_AT" --arg end "$B115_NOW" '{
+  events:[{action:"labor_finish",event_id:$ev,device_id:$dev,business_date:$date,payload:{labor_id:$labor,session_id:$sid,mnv:$mnv,start_at:$start,end_at:$end,correction:true,note:"reconciled before exit"}}]
+}')
+mutation_api b115-pre-exit-correct "$B115_CORRECT_BODY"
+jq -e '.ok==true and .results[0].status=="CONFIRMED"' "$D/b115-pre-exit-correct.json" >/dev/null
+echo 'beta115_labor_future=PASS scheduled_cap=PASS overlap=PASS one_open=PASS boolean_deduct=PASS multi_interval_unique_support=PASS future_exit_guard=PASS'
+
 B80_EXIT_BODY="{\"session_id\":\"$B80_SID\",\"mnv\":\"$B80_MNV\",\"pda_exit_status\":\"Tốt\",\"idempotency_key\":\"$B80_EXIT\"}"
 for attempt in 1 2 3 4; do
   B80_EXIT_HTTP=$(curl -sS --connect-timeout 10 --max-time 20 -o "$D/b80-exit.json" -w '%{http_code}' -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' --data-binary "$B80_EXIT_BODY" "$SERVICE_URL/v1/session/exit-v2" || printf 000)
@@ -419,6 +500,20 @@ for attempt in 1 2 3 4; do
 done
 [[ "$B80_EXIT_HTTP" =~ ^2 ]] || { echo "B80_EXIT_CAS_RETRY_EXHAUSTED" >&2; exit 32; }
 jq -e --arg sid "$B80_SID" '.ok==true and .session.session_id==$sid and .session.state=="ENDED"' "$D/b80-exit.json" >/dev/null
+
+B80_EXIT_AT=$(jq -r '.session.exit_at' "$D/b80-exit.json")
+B115_AFTER_EXIT=$(date -u -d "$B80_EXIT_AT + 1 minute" +%Y-%m-%dT%H:%M:%SZ)
+B115_AFTER_EXIT_BAD_BODY=$(jq -nc --arg ev "$B115_AFTER_EXIT_BAD" --arg labor "$B115_LABOR_B" --arg dev "$DEVICE" --arg date "$B80_DATE" --arg sid "$B80_SID" --arg mnv "$B80_MNV" --arg start "$B115_AT" --arg end "$B115_AFTER_EXIT" '{
+  events:[{action:"labor_finish",event_id:$ev,device_id:$dev,business_date:$date,payload:{labor_id:$labor,session_id:$sid,mnv:$mnv,start_at:$start,end_at:$end,correction:true,note:"after actual exit"}}]
+}')
+mutation_api b115-after-exit-bad "$B115_AFTER_EXIT_BAD_BODY"
+jq -e '.ok==true and .results[0].status=="REVIEW_REQUIRED" and .results[0].error_code=="LABOR_END_AFTER_SHIFT_OR_EXIT"' "$D/b115-after-exit-bad.json" >/dev/null
+B115_AFTER_EXIT_OK_BODY=$(jq -nc --arg ev "$B115_AFTER_EXIT_OK" --arg labor "$B115_LABOR_B" --arg dev "$DEVICE" --arg date "$B80_DATE" --arg sid "$B80_SID" --arg mnv "$B80_MNV" --arg start "$B115_AT" --arg end "$B80_EXIT_AT" '{
+  events:[{action:"labor_finish",event_id:$ev,device_id:$dev,business_date:$date,payload:{labor_id:$labor,session_id:$sid,mnv:$mnv,start_at:$start,end_at:$end,correction:true,note:"exact actual exit"}}]
+}')
+mutation_api b115-after-exit-ok "$B115_AFTER_EXIT_OK_BODY"
+jq -e '.ok==true and .results[0].status=="CONFIRMED"' "$D/b115-after-exit-ok.json" >/dev/null
+echo 'beta115_actual_exit_cap=PASS exact_exit_allowed=PASS after_exit_rejected=PASS'
 
 owner_api /v1/session/resources/snapshot b80-ended-snapshot "{\"session_id\":\"$B80_SID\",\"mnv\":\"$B80_MNV\"}"
 jq -e --arg sid "$B80_SID" '.ok==true and .session.session_id==$sid and .session.state=="ENDED" and (.resource_assignments|all(.state=="USED"))' "$D/b80-ended-snapshot.json" >/dev/null
@@ -667,5 +762,7 @@ BACKUP_ID=$(jq -r .backup_id "$D/portable-backup/manifest.json")
 AUTOPILOT_STATE=$(jq -r .state "$D/d1-autopilot/receipt.json")
 ROLLOVER_STATUS=$(jq -r .status "$D/d1-rollover-rehearsal/receipt.json")
 jq -n --arg source_sha "${SERVICE_SOURCE_SHA:-$GITHUB_SHA}" --arg service_url "$SERVICE_URL" --arg worker "$WORKER_NAME" --arg generation "$GEN" --arg backup_id "$BACKUP_ID" --arg autopilot "$AUTOPILOT_STATE" --arg rollover "$ROLLOVER_STATUS" --argjson baseline_ms "$BASELINE_MS" --argjson service_ack_ms "$SERVICE_ACK_MS" --argjson replication_ms "$REPLICATION_MS" --argjson d1_bytes "$DB_BYTES" --argjson d1_limit "$DB_LIMIT" '{status:"PASS",source_sha:$source_sha,worker:$worker,service_url:$service_url,generation:$generation,d1:{bytes:$d1_bytes,limit_bytes:$d1_limit,usage_ratio:($d1_bytes/$d1_limit),retention_config_range_days:"45..365",portable_backup:"VERIFIED",backup_id:$backup_id,capacity_autopilot:$autopilot,rollover_rehearsal_2x:$rollover,heavy_repair_interval_minutes:30},beta99:{resilience_probe_service_direct:"PASS",resilience_probe_duplicate:"PASS",business_projection:"NONE"},historical_sessions:["07323dde-0456-45f8-a1d6-942e9f2e602e","03b1337f-08fd-46a1-ab94-8b0700763df3","d94d968a-0cf6-4086-8352-85154a5ec62e"],historical_result:"3/3_SERVICE_D1_EXACT",outbound:{location_crud:"PASS",duplicate:"PASS",gsheet_readback:"PASS",baseline_google_append_readback_ms:$baseline_ms,service_d1_ack_ms:$service_ack_ms,background_replication_ms:$replication_ms,dual_write:false},authority_change:"NONE",beta89:{pda_return:"PASS",pda_exchange:"PASS",same_session_user_pick:"PASS",unavailable_new_assignment:"PASS",duplicate_leases:"PASS",audit_storage_before_after:"PASS",legacy_sync_payload_projection:"PASS"},beta95:{meal_attendance:"PASS",idempotency:"PASS",late_audit:"PASS",history_14d:"PASS",d1_retention:"CONFIG_45_365_BACKUP_GUARDED",repair_scan_interval:"30M"},beta107:{document_management:"PASS",drive_scope:"PASS",resumable_direct_upload:"PASS",exact_byte_readback:"PASS",exact_duplicate_guard:"PASS",category_edit_delete:"OWNER_DECISION_FAIL_CLOSED",cleanup:"PASS"},beta110:{labor_time_range:"PASS",open_exit_block:"PASS",document_batch:"PASS"},beta111:{labor_exact_session:"PASS",daily_open_completed:"PASS",open_exit_block:"PASS",stale_session_reject:"PASS",stale_labor_reject:"PASS",completed_correction:"PASS",history_delete_canonical:"PASS",history_missing_404:"PASS"},test_cleanup:"PASS"}' > "$D/receipt.json"
-jq -e '.status=="PASS" and .historical_result=="3/3_SERVICE_D1_EXACT" and .outbound.duplicate=="PASS" and .outbound.gsheet_readback=="PASS"' "$D/receipt.json" >/dev/null
+B115_RECEIPT_TMP=$(mktemp "$D/receipt-beta115.XXXXXX.json")
+jq '.beta115={future_scheduled_end:"PASS",shift_and_actual_exit_cap:"PASS",one_open_and_overlap:"PASS",boolean_deduct_write:"PASS",exact_mnv_shift_report_move:"PASS",multi_interval_no_double_count:"PASS",future_exit_reconcile:"PASS"}' "$D/receipt.json" > "$B115_RECEIPT_TMP" && mv "$B115_RECEIPT_TMP" "$D/receipt.json"
+jq -e '.status=="PASS" and .historical_result=="3/3_SERVICE_D1_EXACT" and .outbound.duplicate=="PASS" and .outbound.gsheet_readback=="PASS" and (.beta115|to_entries|all(.value=="PASS"))' "$D/receipt.json" >/dev/null
 cat "$D/receipt.json"
