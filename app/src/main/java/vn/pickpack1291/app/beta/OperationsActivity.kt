@@ -2757,6 +2757,7 @@ class OperationsActivity : Activity() {
         fun matches(serial:String,typed:String):Boolean{val q=typed.trim();if(q.isBlank())return true;return q.length<=5&&q.all{it.isDigit()}&&serial.takeLast(5).startsWith(q)}
         data class Holder(val serial:String,val mnv:String,var status:String)
         val holders=linkedMapOf<String,Holder>()
+        lateinit var render:(String)->Unit
 
         fun loadLocal(){
             holders.clear()
@@ -2804,7 +2805,7 @@ class OperationsActivity : Activity() {
             }
         }
         fun giveBack(h:Holder){loadSession(h){_,ses->confirmPdaHandoverCondition(ses,h.serial,"Trả PDA"){condition->chooseReason("Lý do trả PDA",returnReasons){why->mutate(h,ses,"","Trả","$why • Tình trạng bàn giao: $condition")}}}}
-        fun render(filter:String){
+        render={filter:String->
             listBox.removeAllViews()
             val rows=holders.values.filter{matches(it.serial,filter)}.sortedWith(Comparator{p,q->naturalUserCompare(p.serial,q.serial)})
             if(rows.isEmpty()){listBox.addView(info(if(filter.isBlank())"Hiện không có PDA nào đang được sử dụng." else "Không có PDA đang dùng khớp 5 số cuối."));return}
