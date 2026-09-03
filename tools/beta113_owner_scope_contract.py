@@ -51,7 +51,9 @@ assert 'addAll(clean)' not in delete_fn[delete_fn.index('val deferred='):]
 mnv=ops[ops.index("private fun mnvInput"):ops.index("private fun scanSearchInput")]
 assert 'scanField(h,true,50)' in mnv and 'setStroke(dp(2),teal)' in mnv
 labelled=ops[ops.index("private fun labelled"):ops.index("private fun primary")]
-assert 'l.uppercase()' in labelled and 'Typeface.DEFAULT_BOLD' in labelled and 'minimumHeight=dp(46)' in labelled
+assert 'l.uppercase()' in labelled and 'Typeface.DEFAULT_BOLD' in labelled
+assert 'private fun spinner(items:Array<String>)=Spinner(this).apply{' in labelled
+assert 'minimumHeight=dp(36)' in labelled and 'v.minHeight=dp(38)' in labelled
 assert 'private fun outline()=GradientDrawable().apply{setColor(surface);cornerRadius=dp(12)' in ops
 
 # 5,6) Labor scan precedes list; multi-interval is explicit, non-overlap, max one OPEN.
