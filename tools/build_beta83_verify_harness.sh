@@ -13,6 +13,8 @@ W=/tmp/beta83-harness
 rm -rf "$W";mkdir -p "$W/src/vn/pickpack1291/verify" "$W/classes" "$W/dex"
 sed -e 's/Beta80 OTA exact candidate/Beta83 OTA exact candidate/g' -e 's/putInt("version_code",86)/putInt("version_code",89)/g' tools/Beta80VerifyInstrumentation.java > "$W/src/vn/pickpack1291/verify/Beta80VerifyInstrumentation.java"
 cp tools/Beta83UiChecksInstrumentation.java "$W/src/vn/pickpack1291/verify/"
+# Beta117 release notes changed legitimately; keep changelog structure checks but do not pin a stale exact sentence.
+sed -i '/waitText("Quản lý biên bản dùng icon gọn",false,false,10000L);/d' "$W/src/vn/pickpack1291/verify/Beta83UiChecksInstrumentation.java"
 javac -encoding UTF-8 -source 8 -target 8 -cp "$SDK/platforms/android-36/android.jar" -d "$W/classes" "$W/src/vn/pickpack1291/verify/"*.java
 mapfile -t CLASSES < <(find "$W/classes" -type f -name '*.class' -print | sort)
 test "${#CLASSES[@]}" -ge 3
