@@ -1020,7 +1020,7 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     pressSystemBack();
     waitText("THÔNG TIN CA",true,false,10000L);
 
-    showTextOnScreen("Chi tiết nhân sự hôm nay",10000L);
+    showTextOnScreen("Danh sách QR vào / ra",10000L);
     waitText("TEST (",false,false,10000L);
     waitText("Chưa xác định NCC (",false,false,10000L);
     require(findText("null",true,false)==null,"INLINE_SHIFT_STAFF_VISIBLE_NULL_FOUND");
@@ -1167,7 +1167,7 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     waitText("THAY ĐỔI BẢN MỚI",false,false,10000L);
     waitText("Sửa lỗi tài nguyên bản mới",false,false,10000L);
     waitText("THAY ĐỔI BẢN HIỆN TẠI",false,false,10000L);
-    waitText("Công nhật cho phép chọn trước giờ kết thúc trong tương lai",false,false,10000L);
+    waitText("Quản lý biên bản dùng icon gọn",false,false,10000L);
     require(findText("SHA256",false,false)==null,"TECHNICAL_RELEASE_METADATA_VISIBLE_IN_CHANGELOG");
     mark("dual_changelog");
     shot(tag+"-07-settings-top");
