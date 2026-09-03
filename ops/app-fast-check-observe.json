@@ -1,8 +1,8 @@
 {
-  "run_id": 33707082380,
-  "run_sha": "0ec26a489edaf26e6ea8f780b06d53ceace9fb50",
+  "run_id": 33707483494,
+  "run_sha": "429c39f82aacba19351351234f7f66a8d3b655f1",
   "ref": "release/beta113-owner-scope-20260902",
   "execution_nonce": "beta115-service-exact-report-20260903-08",
   "stage": "SERVICE_ONLY",
-  "observed_at": "2026-09-03T02:18:01Z"
+  "observed_at": "2026-09-03T02:24:03Z"
 }
