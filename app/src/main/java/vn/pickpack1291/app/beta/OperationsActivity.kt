@@ -2110,7 +2110,7 @@ class OperationsActivity : Activity() {
         var selectedDate=initialReportDates.firstOrNull()?:operationalStore.businessDate()
         val dateButton=Button(this).apply{
             text=runCatching{java.time.LocalDate.parse(selectedDate).format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}.getOrDefault(selectedDate)
-            textSize=12f;isAllCaps=false;background=outlineBg(surface,14);setTextColor(ink);isEnabled=initialReportDates.isNotEmpty()
+            textSize=12f;isAllCaps=false;background=outlineBg(surface,14);setTextColor(ink);isEnabled=true
         }
         val controls=row(bg).apply{gravity=Gravity.CENTER_VERTICAL;addView(period,LinearLayout.LayoutParams(0,dp(50),1f).apply{marginEnd=dp(5)});addView(dateButton,LinearLayout.LayoutParams(0,dp(50),1f).apply{marginStart=dp(5)})}
         body.addView(section("Phạm vi báo cáo"));body.addView(controls,matchWrap());body.addView(gap(7))
@@ -2175,7 +2175,6 @@ class OperationsActivity : Activity() {
         }
         dateButton.setOnClickListener{
             val dates=availableReportDates()
-            if(dates.isEmpty()){TopNotice.show(this,"Chưa có ngày nào có dữ liệu báo cáo trên PDA.",TopNotice.Kind.INFO);return@setOnClickListener}
             DataDatePickerUi.show(this,dates,selectedDate){chosen->
                 selectedDate=chosen;dateButton.text=reportDateLabel(chosen);loadDate()
             }
@@ -2362,7 +2361,6 @@ class OperationsActivity : Activity() {
                 }.takeIf{it.matches(Regex("\\d{4}-\\d{2}-\\d{2}"))}
             }
             val dates=(canonicalHistoryDates()+localDates).distinct().sortedDescending()
-            if(dates.isEmpty()){TopNotice.show(this,"Chưa có ngày nào có dữ liệu lịch sử.",TopNotice.Kind.INFO);return@setOnClickListener}
             DataDatePickerUi.show(this,dates,selectedDate){chosen->
                 selectedDate=chosen;dateButton.text=java.time.LocalDate.parse(chosen).format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));query="";q.setText("");pageStart=0;render()
             }
