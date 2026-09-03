@@ -66,7 +66,8 @@ class M2ServiceTransport(context: Context) {
         M2WorkScheduler.schedule(app)
         M2ImmediateOutbox.kick(app)
         val mode = cachedDiscoverySnapshot()?.optString("authority_mode").orEmpty()
-        val projection = when { !hasNetwork() -> "OFFLINE_LOCAL"; mode == "GOOGLE_FALLBACK" -> "EMERGENCY_LEDGER_PENDING"; else -> "SERVICE_D1_PENDING" }
+        val manualLan=LanCoordinator.get(app).globalManualModeEnabled()
+        val projection = when { manualLan -> "LAN_MANUAL_PENDING"; !hasNetwork() -> "OFFLINE_LOCAL"; mode == "GOOGLE_FALLBACK" -> "EMERGENCY_LEDGER_PENDING"; else -> "SERVICE_D1_PENDING" }
         return queuedResult(eventId, exclusive, projection)
     }
 
@@ -450,6 +451,17 @@ class M2ServiceTransport(context: Context) {
 
     private fun flushOutboxLocked(): Boolean {
         val items=store.unresolvedMutations(100);if(items.isEmpty())return true
+        val lan=LanCoordinator.get(app)
+        if(lan.globalManualModeEnabled()){
+            if(lan.canRoute()){
+                items.forEach{item->
+                    val ack=lan.submit(item.body)
+                    if(ack.handled&&ack.ok)store.markLanConfirmed(item.eventId,ack.generation)
+                    else if(item.status!="OFFLINE_PROVISIONAL")store.markMutationRetry(item.eventId,ack.error?:"LAN_MANUAL_NOT_READY",retryDelay(item.attemptCount))
+                }
+            }else items.filter{it.status!="OFFLINE_PROVISIONAL"}.forEach{store.markMutationRetry(it.eventId,"LAN_MANUAL_NOT_READY",retryDelay(it.attemptCount))}
+            return false
+        }
         if (!hasNetwork()) return serviceUnavailable(items,"NETWORK_UNAVAILABLE",false)
         if(ServiceFaultInjection.cloudflareDisabled(app))return serviceUnavailable(items,"TEST_CLOUDFLARE_DISABLED",true)
         val discovery=discoverySnapshot()

@@ -33,6 +33,9 @@ internal class LanCoordinator private constructor(context:Context):LanSocketTran
     @Volatile private var testModeEnabled=prefs.getBoolean("test_mode_enabled",false)
     @Volatile private var testModeEpoch=prefs.getLong("test_mode_epoch",0L)
     @Volatile private var testModeEnabledBy=prefs.getString("test_mode_enabled_by","").orEmpty()
+    @Volatile private var manualModeEnabled=prefs.getBoolean("manual_mode_enabled",false)
+    @Volatile private var manualModeEpoch=prefs.getLong("manual_mode_epoch",0L)
+    @Volatile private var manualModeEnabledBy=prefs.getString("manual_mode_enabled_by","").orEmpty()
     private var serverPort=0
     private var unavailableTask:ScheduledFuture<*>?=null
     private var heartbeatTask:ScheduledFuture<*>?=null
@@ -46,7 +49,7 @@ internal class LanCoordinator private constructor(context:Context):LanSocketTran
             if(connected){
                 outageStartedAt=0L
                 unavailableTask?.cancel(false);unavailableTask=null
-                if(testModeEnabled){
+                if(manualModeEnabled||testModeEnabled){
                     recovering=false
                     if(!isLanActive())startPeerPresence()
                     notifyState()
@@ -76,7 +79,7 @@ internal class LanCoordinator private constructor(context:Context):LanSocketTran
 
     fun onNetworkChanged(){
         synchronized(stateLock){
-            if(testModeEnabled){
+            if(manualModeEnabled||testModeEnabled){
                 if(!isLanActive())discovery.restartDiscovery(M2DeviceIdentity.id(app),::peerObserved)
             }else if(!cloudConnected&&outageAgeMs()>=LanAuthorityPolicy.SERVICE_UNAVAILABLE_AFTER_MS){
                 discovery.restartDiscovery(M2DeviceIdentity.id(app),::peerObserved)
@@ -113,6 +116,39 @@ internal class LanCoordinator private constructor(context:Context):LanSocketTran
         .put("test_mode_enabled",testModeEnabled)
         .put("test_mode_epoch",testModeEpoch)
         .put("test_mode_enabled_by",testModeEnabledBy)
+        .put("manual_mode_enabled",manualModeEnabled)
+        .put("manual_mode_epoch",manualModeEpoch)
+        .put("manual_mode_enabled_by",manualModeEnabledBy)
+
+    fun applyGlobalManualMode(enabled:Boolean,epoch:Long,enabledBy:String){
+        synchronized(stateLock){
+            if(epoch<manualModeEpoch)return
+            manualModeEnabled=enabled;manualModeEpoch=epoch;manualModeEnabledBy=enabledBy
+            prefs.edit().putBoolean("manual_mode_enabled",enabled).putLong("manual_mode_epoch",epoch).putString("manual_mode_enabled_by",enabledBy).apply()
+            if(!enabled){
+                if(cloudConnected&&isLanActive()){
+                    recovering=true;M2ImmediateOutbox.kick(app);notifyState()
+                    if(nodeRole==NodeRole.MASTER) LanRecoveryClient.reconcile(app){ok,_->if(ok)completeRecovery()}
+                }else if(cloudConnected){
+                    recovering=false;stopPeerPresence();notifyState()
+                }else notifyState()
+                return
+            }
+            recovering=false
+            val selfLogin=BetaApiClient(app).restoredAccount()?.optString("login_id").orEmpty()
+            if(!isLanActive())startPeerPresence()
+            if(accountRole()=="SUPERADMIN"&&selfLogin.isNotBlank()&&selfLogin==enabledBy&&nodeRole!=NodeRole.MASTER){
+                val generation=maxOf(currentGeneration+1,System.currentTimeMillis())
+                becomeMaster(generation,maxOf(lanEpoch+1,epoch),Long.MAX_VALUE)
+            }else if(nodeRole !in setOf(NodeRole.MASTER,NodeRole.BACKUP,NodeRole.CLIENT)){
+                discovery.restartDiscovery(M2DeviceIdentity.id(app),::peerObserved)
+            }
+            M2ImmediateOutbox.kick(app);notifyState()
+        }
+    }
+
+    fun globalManualModeEnabled():Boolean=manualModeEnabled
+    fun globalManualModeEpoch():Long=manualModeEpoch
 
     fun applyGlobalTestMode(enabled:Boolean,epoch:Long,enabledBy:String){
         synchronized(stateLock){
@@ -189,7 +225,7 @@ internal class LanCoordinator private constructor(context:Context):LanSocketTran
         io.execute{
             if(nodeRole!=NodeRole.MASTER){stopLan();callback(true,null);return@execute}
             if(backupId.isBlank()||!socket.hasConnection(backupId)){callback(false,"LAN_BACKUP_REQUIRED_FOR_LOGOUT");return@execute}
-            if(hasInternet()&&!ServiceFaultInjection.googleDisabled(app)){
+            if(!manualModeEnabled&&hasInternet()&&!ServiceFaultInjection.googleDisabled(app)){
                 val response=gasLease("HANDOVER",JSONObject().put("generation",currentGeneration).put("backup_device_id",backupId))
                 if(response?.optBoolean("ok",false)==true){
                     val l=response.optJSONObject("lease")?:JSONObject()
@@ -236,12 +272,12 @@ internal class LanCoordinator private constructor(context:Context):LanSocketTran
         discovery.discover(M2DeviceIdentity.id(app),::peerObserved)
         sendPresence()
         if(presenceTask==null||presenceTask?.isCancelled==true){
-            presenceTask=timer.scheduleAtFixedRate({if(!cloudConnected||testModeEnabled)sendPresence()},45,45,TimeUnit.SECONDS)
+            presenceTask=timer.scheduleAtFixedRate({if(!cloudConnected||manualModeEnabled||testModeEnabled)sendPresence()},45,45,TimeUnit.SECONDS)
         }
     }
 
     private fun stopPeerPresence(){
-        if(isLanActive()||testModeEnabled)return
+        if(isLanActive()||manualModeEnabled||testModeEnabled)return
         presenceTask?.cancel(false);presenceTask=null
         discovery.close();socket.close();serverPort=0
         nodeRole=NodeRole.NONE
@@ -285,7 +321,7 @@ internal class LanCoordinator private constructor(context:Context):LanSocketTran
     private fun masterHeartbeat(){
         if(nodeRole!=NodeRole.MASTER)return
         val now=System.currentTimeMillis()
-        if(hasInternet()&&!ServiceFaultInjection.googleDisabled(app)&&leaseUntil-now<20_000L){
+        if(!manualModeEnabled&&hasInternet()&&!ServiceFaultInjection.googleDisabled(app)&&leaseUntil-now<20_000L){
             val response=gasLease("RENEW",JSONObject().put("generation",currentGeneration))
             val l=response?.optJSONObject("lease")
             if(response?.optBoolean("ok",false)==true&&l!=null){
@@ -297,7 +333,7 @@ internal class LanCoordinator private constructor(context:Context):LanSocketTran
             socket.connections().firstOrNull()?.let{assignBackup(it)}
         }else if(!socket.hasConnection(backupId)){
             backupId="";socket.clearBackup();persistState()
-            if(hasInternet())gasLease("SET_BACKUP",JSONObject().put("generation",currentGeneration).put("backup_device_id",""))
+            if(!manualModeEnabled&&hasInternet())gasLease("SET_BACKUP",JSONObject().put("generation",currentGeneration).put("backup_device_id",""))
         }
     }
 
@@ -305,7 +341,7 @@ internal class LanCoordinator private constructor(context:Context):LanSocketTran
         val voters=fixedVoters().ifEmpty{setOf(M2DeviceIdentity.id(app),id)}
         if(socket.assignBackup(id,voters,lanEpoch,leaseUntil)){
             backupId=id;persistFixedVoters(voters);persistState()
-            if(hasInternet())gasLease("SET_BACKUP",JSONObject().put("generation",currentGeneration).put("backup_device_id",id))
+            if(!manualModeEnabled&&hasInternet())gasLease("SET_BACKUP",JSONObject().put("generation",currentGeneration).put("backup_device_id",id))
         }
     }
 
@@ -331,7 +367,7 @@ internal class LanCoordinator private constructor(context:Context):LanSocketTran
         if(nodeRole!=NodeRole.BACKUP||System.currentTimeMillis()-lastMasterHeartbeat<LanAuthorityPolicy.MASTER_MISSED_MS)return
         io.execute{
             if(nodeRole!=NodeRole.BACKUP)return@execute
-            if(hasInternet()&&!ServiceFaultInjection.googleDisabled(app)){
+            if(!manualModeEnabled&&hasInternet()&&!ServiceFaultInjection.googleDisabled(app)){
                 val wait=(leaseUntil-System.currentTimeMillis()).coerceAtLeast(0L)
                 if(wait>0)Thread.sleep(wait.coerceAtMost(LanAuthorityPolicy.MASTER_LEASE_MS))
                 val response=gasLease("TAKEOVER",JSONObject().put("generation",currentGeneration+1))

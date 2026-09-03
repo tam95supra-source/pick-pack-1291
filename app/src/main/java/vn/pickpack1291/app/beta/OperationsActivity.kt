@@ -228,6 +228,7 @@ class OperationsActivity : Activity() {
                 M2ImmediateOutbox.kick(this)
             }
             foregroundSync.start()
+            refreshGlobalLanManualMode(force=true)
             refreshGlobalLanTestMode(force=true)
         }
     }
@@ -2912,6 +2913,29 @@ class OperationsActivity : Activity() {
         }
     }
 
+    private fun applyGlobalLanManualModeResponse(json:JSONObject?):Boolean{
+        val mode=json?.optJSONObject("manual_mode")?:return false
+        LanCoordinator.get(this).applyGlobalManualMode(mode.optBoolean("enabled",false),mode.optLong("epoch",0L),mode.optString("enabled_by"))
+        return true
+    }
+    private fun refreshGlobalLanManualMode(force:Boolean=false,onDone:((Boolean)->Unit)?=null){
+        api.call("lan_manual_mode_get"){r->runOnUiThread{
+            val ok=r.ok&&applyGlobalLanManualModeResponse(r.json);onDone?.invoke(ok)
+        }}
+    }
+    private fun setGlobalLanManualMode(enabled:Boolean){
+        if(!isActualSuper()){showError("Chỉ SUPERADMIN được bật/tắt LAN thủ công.");return}
+        val localEpoch=maxOf(LanCoordinator.get(this).globalManualModeEpoch()+1,System.currentTimeMillis())
+        api.call("lan_manual_mode_set",JSONObject().put("enabled",enabled)){r->runOnUiThread{
+            val synced=r.ok&&applyGlobalLanManualModeResponse(r.json)
+            if(!synced){
+                LanCoordinator.get(this).applyGlobalManualMode(enabled,localEpoch,login)
+                TopNotice.show(this,if(enabled)"Service không phản hồi; đã bật LAN thủ công cục bộ và bắt đầu tìm PDA LAN." else "Service không phản hồi; đã tắt chế độ LAN thủ công trên thiết bị này.",TopNotice.Kind.WARNING)
+            }else TopNotice.show(this,if(enabled)"Đã bật LAN THỰC TẾ. Nghiệp vụ sẽ ưu tiên LAN dù Service đang hoạt động." else "Đã tắt LAN thủ công; hệ thống đang hội tụ lại Service.",TopNotice.Kind.SUCCESS)
+            if(screenState=="SETTINGS")settingsScreen()
+        }}
+    }
+
     private fun applyGlobalLanTestModeResponse(json:JSONObject?):Boolean{
         val mode=json?.optJSONObject("test_mode")?:return false
         LanCoordinator.get(this).applyGlobalTestMode(
@@ -3013,6 +3037,21 @@ class OperationsActivity : Activity() {
                 "LAN epoch" to ls.optLong("lan_epoch").toString(),
                 "PDA LAN đang thấy" to ls.optInt("peer_count").toString()
             )))
+            if(isActualSuper()){
+                body.addView(gap(7))
+                val manual=ls.optBoolean("manual_mode_enabled",false)
+                body.addView(details(listOf(
+                    "LAN thực tế thủ công" to if(manual)"ĐANG BẬT — ưu tiên LAN" else "ĐANG TẮT",
+                    "Quyền điều khiển" to "Chỉ SUPERADMIN",
+                    "Phạm vi" to "Nghiệp vụ thật • tách biệt hoàn toàn khỏi 7 chế độ test"
+                )))
+                body.addView(gap(6))
+                body.addView(primary(if(manual)"TẮT LAN THỰC TẾ" else "BẬT LAN THỰC TẾ",if(manual)red else green){
+                    AlertDialog.Builder(this).setTitle(if(manual)"Tắt LAN thực tế?" else "Bật LAN thực tế?")
+                        .setMessage(if(manual)"Hệ thống sẽ hội tụ dữ liệu LAN về Service khi Service khả dụng." else "Khi bật, nghiệp vụ thật sẽ ưu tiên LAN ngay cả khi Service vẫn đang hoạt động. Chỉ SUPERADMIN được điều khiển.")
+                        .setNegativeButton("HỦY",null).setPositiveButton(if(manual)"TẮT" else "BẬT"){_,_->setGlobalLanManualMode(!manual)}.show()
+                },matchWrap())
+            }
             val hs=lan.healthState()
             if(hs==LanAuthorityPolicy.HealthState.SERVICE_UNAVAILABLE||hs==LanAuthorityPolicy.HealthState.LAN_AVAILABLE){
                 body.addView(gap(7))
@@ -3030,12 +3069,12 @@ class OperationsActivity : Activity() {
             val testSpec=test?.optString("scenario")?.let{ResilienceTestScenario.fromCode(it)}
             val lanTestStatus=LanCoordinator.get(this).status()
             body.addView(details(listOf(
-                "LAN test toàn cục" to if(lanTestStatus.optBoolean("test_mode_enabled"))"ĐANG BẬT" else "ĐANG TẮT",
+                "LAN cô lập phục vụ test" to if(lanTestStatus.optBoolean("test_mode_enabled"))"ĐANG BẬT" else "ĐANG TẮT",
                 "LAN test epoch" to lanTestStatus.optLong("test_mode_epoch").toString(),
                 "Thiết bị LAN đang thấy" to lanTestStatus.optInt("peer_count").toString()
             )))
             body.addView(gap(6))
-            body.addView(primary(if(lanTestStatus.optBoolean("test_mode_enabled"))"TẮT LAN TEST TOÀN CỤC" else "BẬT LAN TEST TOÀN CỤC",if(lanTestStatus.optBoolean("test_mode_enabled"))red else teal){
+            body.addView(primary(if(lanTestStatus.optBoolean("test_mode_enabled"))"TẮT LAN TEST CÔ LẬP" else "BẬT LAN TEST CÔ LẬP",if(lanTestStatus.optBoolean("test_mode_enabled"))red else teal){
                 setGlobalLanTestMode(!lanTestStatus.optBoolean("test_mode_enabled"))
             },matchWrap());body.addView(gap(7))
             val ev=test?.optJSONObject("evidence")?:JSONObject()
