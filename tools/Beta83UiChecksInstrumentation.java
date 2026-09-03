@@ -172,6 +172,16 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
 
   private Activity open(String module){return openRole(module,"SUPERADMIN");}
 
+  private void enableGlobalLanTestModeFixture()throws Exception{
+    ClassLoader cl=target.getClassLoader();
+    Class<?> lanClass=cl.loadClass("vn.pickpack1291.app.beta.LanCoordinator");
+    Class<?> companionClass=cl.loadClass("vn.pickpack1291.app.beta.LanCoordinator$Companion");
+    Object companion=lanClass.getField("Companion").get(null);
+    Object lan=companionClass.getMethod("get",Context.class).invoke(companion,target);
+    lanClass.getMethod("applyGlobalTestMode",boolean.class,long.class,String.class).invoke(lan,true,116L,"beta83_verify");
+    require(Boolean.TRUE.equals(lanClass.getMethod("globalTestModeEnabled").invoke(lan)),"LAN_GLOBAL_TEST_MODE_FIXTURE_NOT_APPLIED");
+  }
+
   private void appendRealtimeTimelineEventAndNotify(String mnv)throws Exception{
     Activity a=currentActivity;
     require(a!=null&&PKG.equals(a.getPackageName()),"CURRENT_ACTIVITY_MISSING_REALTIME");
@@ -716,11 +726,13 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     waitText("2. Thiết bị mất Internet • giữ local",false,false,10000L);
     shot(tag+"-13-beta101-bordered-options");
 
+    enableGlobalLanTestModeFixture();
     clickTextScrolling("7. Service + Google/GAS mất • LAN dự phòng",12000L);
     waitText("Kỳ vọng:",false,false,10000L);
     waitText("Test chỉ tạo event kỹ thuật cô lập",false,false,10000L);
     clickText("CHẠY TEST",true,10000L);
     waitText("CHƯA ĐỦ ĐIỀU KIỆN",false,false,12000L);
+    waitText("ĐANG BẬT",true,false,10000L);
     waitText("Không chạm business outbox",false,false,10000L);
     waitText("PASS",true,false,10000L);
 
@@ -1199,11 +1211,13 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     waitText("2. Thiết bị mất Internet • giữ local",false,false,10000L);
     shot(tag+"-13-beta101-bordered-options");
     mark("resilience_options_bordered_beta101");
+    enableGlobalLanTestModeFixture();
     clickTextScrolling("7. Service + Google/GAS mất • LAN dự phòng",12000L);
     waitText("Kỳ vọng:",false,false,10000L);
     waitText("Test chỉ tạo event kỹ thuật cô lập",false,false,10000L);
     clickText("CHẠY TEST",true,10000L);
     waitText("CHƯA ĐỦ ĐIỀU KIỆN",false,false,12000L);
+    waitText("ĐANG BẬT",true,false,10000L);
     int pendingAfterResilience=operationalPendingCount();
     require(pendingAfterResilience==pendingBeforeResilience,
       "RESILIENCE_TEST_TOUCHED_BUSINESS_OUTBOX:"+pendingBeforeResilience+"->"+pendingAfterResilience);
