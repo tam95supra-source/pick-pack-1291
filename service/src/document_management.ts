@@ -21,7 +21,7 @@ type DocRow={
   completed_at:string|null;status:string;file_name:string;mime_type:string;byte_size:number;sha256:string;md5:string;
   dhash64:string|null;width:number|null;height:number|null;source_kind:string;drive_file_id:string|null;
   duplicate_of_document_id:string|null;last_error:string|null;
-  group_id:string|null;group_mode:string|null;page_index:number|null;page_count:number|null;
+  group_id:string|null;group_mode:string|null;page_index:number|null;page_count:number|null;note:string|null;
 };
 type DocDeleteMutationRow={
   mutation_id:string;idempotency_key:string;state:"RUNNING"|"DONE"|"FAILED";total_items:number;processed_items:number;
@@ -69,7 +69,7 @@ function documentPublic(r:DocRow){return{
   created_at:r.created_at,completed_at:r.completed_at,status:r.status,file_name:r.file_name,
   mime_type:r.mime_type,byte_size:Number(r.byte_size||0),width:r.width,height:r.height,source_kind:r.source_kind,
   duplicate_of_document_id:r.duplicate_of_document_id,group_id:r.group_id||r.document_id,group_mode:r.group_mode||"SINGLE",
-  page_index:Number(r.page_index||1),page_count:Number(r.page_count||1)
+  page_index:Number(r.page_index||1),page_count:Number(r.page_count||1),note:r.note||""
 };}
 function canonicalDocumentAction(action:string):string|null{
   if(action==="DOCUMENT_UPLOAD_COMPLETE")return "document_upload";
@@ -443,6 +443,7 @@ export async function documentUploadSession(request:Request,env:Env):Promise<Res
   const groupId=String(body.group_id||idempotency).trim().slice(0,120);
   const groupMode=String(body.group_mode||"SINGLE").trim().toUpperCase();
   const pageIndex=Number(body.page_index||1),pageCount=Number(body.page_count||1);
+  const note=String(body.note||"").trim().slice(0,240);
   const allowSimilar=body.allow_similar===true;
   if(mimeType!=="image/jpeg")return apiError("DOCUMENT_IMAGE_MIME_INVALID","VALIDATION",400,false);
   if(!Number.isInteger(size)||size<=0||size>MAX_IMAGE_BYTES)return apiError("DOCUMENT_IMAGE_SIZE_INVALID","VALIDATION",400,false);
@@ -493,9 +494,9 @@ export async function documentUploadSession(request:Request,env:Env):Promise<Res
     await env.DB.prepare(`INSERT INTO document_records(
       document_id,idempotency_key,category_id,category_name_snapshot,uploader_id,uploader_name_snapshot,captured_at,created_at,updated_at,status,
       file_name,mime_type,byte_size,sha256,md5,dhash64,width,height,source_kind,drive_file_id,duplicate_of_document_id,last_error,
-      group_id,group_mode,page_index,page_count
-    ) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?8,'PENDING',?9,?10,?11,?12,?13,?14,?15,?16,?17,NULL,NULL,NULL,?18,?19,?20,?21)`)
-      .bind(documentId,idempotency,category.category_id,category.display_name,auth.login_id,uploaderName,capturedAt,at,fileName,mimeType,size,sha256,md5,dhash64||null,width,height,sourceKind,groupId,groupMode,pageIndex,pageCount).run();
+      group_id,group_mode,page_index,page_count,note
+    ) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?8,'PENDING',?9,?10,?11,?12,?13,?14,?15,?16,?17,NULL,NULL,NULL,?18,?19,?20,?21,?22)`)
+      .bind(documentId,idempotency,category.category_id,category.display_name,auth.login_id,uploaderName,capturedAt,at,fileName,mimeType,size,sha256,md5,dhash64||null,width,height,sourceKind,groupId,groupMode,pageIndex,pageCount,note).run();
     row=await env.DB.prepare("SELECT * FROM document_records WHERE document_id=?1").bind(documentId).first<DocRow>()||null;
   }
   if(!row)return apiError("DOCUMENT_PENDING_CREATE_FAILED","INTERNAL",500,true);
