@@ -342,37 +342,31 @@ Mỗi invariant tối thiểu có:
 
 
 ### LABOR-MULTI-INTERVAL-003
-- Status: TECHNICAL_PASS_AWAITING_OWNER
+- Status: LOCKED_REQUIREMENT_PENDING_FIX
 - Parent: LABOR-EXACT-SESSION-002 ACTIVE_PASS.
 - Scope: Công nhật / nhiều khoảng trong một phiên
-- Rule: một phiên có thể có nhiều khoảng công nhật riêng với labor_id riêng; tối đa một khoảng OPEN; không chồng thời gian; không tự gộp; sửa/kết thúc đúng labor_id; mốc thời gian phải nằm trong biên phiên và không ở tương lai; toàn bộ khoảng phải hiển thị.
-- Regression: sequential intervals / one-open guard / overlap guard / attendance bounds / future guard / exact edit-finish / all intervals visible.
+- Rule: một phiên điểm danh có nhiều khoảng công nhật riêng theo `labor_id`; tối đa một khoảng OPEN; các khoảng không chồng/không tự gộp. Giờ bắt đầu không ở tương lai/không trước giờ vào ca. Giờ kết thúc được phép nhập trước trong tương lai tới cuối ca cố định (Ca 1 14:00, Ca HC 17:00, Ca 2 22:00); nếu NLĐ làm quá ca thì chỉ được kéo dài theo thời gian thực tế phiên và không vượt giờ ra thực tế. Sửa/kết thúc đúng `labor_id`. Tạo/kết thúc hàng loạt phải xác nhận mật khẩu thời gian thực.
+- Regression: multiple_intervals / one_open / no_overlap / no_auto_merge / exact_labor_id / start_not_future / shift_end_cap / overtime_elapsed_or_exit_cap / deduct_support_exact / grouped_employee_card / batch_create_filters / batch_finish_filters / password_gate.
 - Regression case: `qa/beta113_owner_scope_regression.md` + `tools/beta113_owner_scope_contract.py`.
-- Technical evidence Beta114: source `5686da2cc6fdb2bf845456bda9e703eb68e9f1f0`; candidate `33691947969/9870515268`; Fast Check `33698830085` PASS; visual/PDA/API36 `33698830042/9872907916` PASS; device `33697808957/9872457667` PASS; runtime `33698019451/9872504979` PASS; terminal `33699803398` PASS; publish `9873117701`; OTA/install/readback `9873169722`; final `9873176752`; SHA256 `cc611efc72a3cd0af413f316b6182adb281d398c189f5bb9d613235722b296bd`; size `14232565`; Stable/main/signer/authority unchanged.
-- Technical receipt: `ops/beta114-technical-pass.json`.
-- OWNER acceptance: PENDING Beta114.
+- OWNER acceptance: PENDING — OWNER revised items 6–8 on 2026-09-03 08:06 +07:00; requires new Beta.
 
 ### UI-DATA-DATE-SELECT-001
-- Status: TECHNICAL_PASS_AWAITING_OWNER
+- Status: LOCKED_REQUIREMENT_PENDING_FIX
 - Scope: lịch chọn ngày để xem dữ liệu
-- Rule: lịch dùng để hiển thị dữ liệu chỉ cho chọn ngày thực sự có dữ liệu; ngày trống vẫn thấy nhưng mờ và disabled. Lịch dùng để sửa/thay đổi ngày giờ nghiệp vụ không áp dụng giới hạn này.
-- Regression: Report/History/Labor/Điểm danh và mọi display-only date selector chỉ bật ngày có dữ liệu thật + edit-date exemption.
+- Rule: lịch chỉ để xem dữ liệu bật các ngày có dữ liệu và luôn bật ngày HÔM NAY kể cả chưa có dữ liệu; các ngày trống khác vẫn mờ/disabled. Lịch sửa/chỉnh ngày giờ nghiệp vụ không bị giới hạn.
+- Regression: report/history/labor/điểm danh / today_always_selectable / other_empty_dim_disabled / edit-date exemption.
 - Regression case: `qa/beta113_owner_scope_regression.md` + `tools/beta113_owner_scope_contract.py`.
-- Technical evidence Beta114: source `5686da2cc6fdb2bf845456bda9e703eb68e9f1f0`; candidate `33691947969/9870515268`; Fast Check `33698830085` PASS; visual/PDA/API36 `33698830042/9872907916` PASS; device `33697808957/9872457667` PASS; runtime `33698019451/9872504979` PASS; terminal `33699803398` PASS; publish `9873117701`; OTA/install/readback `9873169722`; final `9873176752`; SHA256 `cc611efc72a3cd0af413f316b6182adb281d398c189f5bb9d613235722b296bd`; size `14232565`; Stable/main/signer/authority unchanged.
-- Technical receipt: `ops/beta114-technical-pass.json`.
-- OWNER acceptance: PENDING Beta114.
+- OWNER acceptance: PENDING — OWNER revised items 6–8 on 2026-09-03 08:06 +07:00; requires new Beta.
 
 
 ### UI-FORM-CONSISTENCY-002
-- Status: TECHNICAL_PASS_AWAITING_OWNER
+- Status: LOCKED_REQUIREMENT_PENDING_FIX
 - Parent: UI-REVIEW-WARNING-001 ACTIVE_PASS giữ nguyên component cảnh báo.
 - Scope: giao diện chung / form / select
-- Rule: form controls dùng hierarchy tiêu đề–giá trị rõ ràng, common radius/stroke/kích thước thống nhất; MNV scan được phép nhấn mạnh 2dp có chủ đích; ReviewAlertUi Beta112 giữ nguyên 42dp/10.5sp/radius10/stroke2 và semantic màu đã OWNER chốt.
-- Regression: common outline / spinner hierarchy / searchable PDA select hierarchy / locked ReviewAlertUi unchanged / visual matrix.
+- Rule: mọi select phải theo cùng hierarchy: nhãn nhỏ/muted, giá trị đang chọn nổi bật/bold, danh sách lựa chọn nhẹ hơn/normal; bao gồm select lý do không vào ca và các catalog select. Base form outline đã OWNER chốt và ReviewAlertUi Beta112 phải giữ nguyên.
+- Regression: all_selects_canonical / reason_select_canonical / spinner hierarchy / PDA searchable select hierarchy / base outline preserved / locked ReviewAlertUi unchanged.
 - Regression case: `qa/beta113_owner_scope_regression.md` + `tools/beta113_owner_scope_contract.py`.
-- Technical evidence Beta114: source `5686da2cc6fdb2bf845456bda9e703eb68e9f1f0`; candidate `33691947969/9870515268`; Fast Check `33698830085` PASS; visual/PDA/API36 `33698830042/9872907916` PASS; device `33697808957/9872457667` PASS; runtime `33698019451/9872504979` PASS; terminal `33699803398` PASS; publish `9873117701`; OTA/install/readback `9873169722`; final `9873176752`; SHA256 `cc611efc72a3cd0af413f316b6182adb281d398c189f5bb9d613235722b296bd`; size `14232565`; Stable/main/signer/authority unchanged.
-- Technical receipt: `ops/beta114-technical-pass.json`.
-- OWNER acceptance: PENDING Beta114.
+- OWNER acceptance: PENDING — OWNER revised items 6–8 on 2026-09-03 08:06 +07:00; requires new Beta.
 
 
 ### INFRA-RESILIENCE-001
