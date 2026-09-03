@@ -9,7 +9,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: beta-owner-test-seed-fast-30100-30200
+  group: beta-owner-test-seed-30100-30200
   cancel-in-progress: true
 
 jobs:
