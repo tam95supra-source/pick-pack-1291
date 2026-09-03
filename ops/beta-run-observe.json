@@ -1,8 +1,8 @@
 {
-  "run_id": 33776285435,
-  "run_sha": "640732ead1d2d5baddfb117b34560b90822a4c1a",
+  "run_id": 33778316587,
+  "run_sha": "ec3e89755d9143e277ab09d4ea52ebf463a15839",
   "ref": "release/beta116-owner-scope-20260903",
-  "execution_nonce": "beta116-auth-gas-proof-retry-20260903-10",
-  "stage": "BETA_AUTH_MIGRATE",
-  "observed_at": "2026-09-03T16:03:13Z"
+  "execution_nonce": "beta116-device-regression-20260903-11",
+  "stage": "SERVICE_DISCOVERY_ONLY",
+  "observed_at": "2026-09-03T16:23:28Z"
 }
