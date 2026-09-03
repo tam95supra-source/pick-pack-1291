@@ -1,6 +1,6 @@
 {
-  "stage": "BETA_AUTH_MIGRATE",
-  "mode": "BETA117_POST_VISUAL_AUTH_VERIFY",
+  "stage": "SERVICE_DISCOVERY_ONLY",
+  "mode": "BETA117_POST_AUTH_SERVICE_DISCOVERY_VERIFY",
   "version_name": "0.4.2-beta.117",
   "version_code": 123,
   "base_version": "0.4.2-beta.116",
@@ -65,7 +65,10 @@
   "verify_artifact_name": "beta-verify-33816769626",
   "device_regression_status": "PENDING",
   "runtime_dod_status": "PENDING",
-  "beta_auth_status": "PENDING",
+  "beta_auth_status": "PASS",
+  "beta_auth_run_id": 33817394774,
+  "beta_auth_artifact_id": 9917295154,
+  "beta_auth_artifact_name": "beta-auth-33817394774",
   "stable_gas_repair_status": "INHERITED_STABLE_UNCHANGED",
   "beta_domain_status": "PENDING",
   "regression_case": "tools/beta117_owner_followup_contract.py + tools/beta116_owner_scope_contract.py + preserve all ACTIVE_PASS Beta115/Beta116; REPORT-LABOR-DEDUCTION-002 and LOCAL-FIRST-RECONCILE-002 remain OWNER-pending",
@@ -73,6 +76,6 @@
   "superseded_candidate_run_id": 33797938890,
   "superseded_candidate_artifact_id": 9910080784,
   "superseded_apk_sha256": "10f4289890c6198481a5e393a08dcc025f7ab8aa348bb44513fe6020e1c78149",
-  "execution_nonce": "beta117-auth-postvisual-20260904-08",
-  "next_action": "VERIFY_BETA_AUTH_AFTER_VISUAL_PASS"
+  "execution_nonce": "beta117-service-discovery-post-auth-20260904-09",
+  "next_action": "VERIFY_SERVICE_DISCOVERY_EXACT_LOCKED_CANDIDATE"
 }
