@@ -1,6 +1,6 @@
 {
   "stage": "VISUAL_ONLY",
-  "mode": "BETA117_VISUAL_PDA_EXACT_CANDIDATE_AFTER_CHANGELOG_HARNESS_REPAIR",
+  "mode": "BETA117_VISUAL_PDA_EXACT_CANDIDATE_AFTER_MARKER_HARNESS_REPAIR",
   "version_name": "0.4.2-beta.117",
   "version_code": 123,
   "base_version": "0.4.2-beta.116",
@@ -64,12 +64,12 @@
   "stable_gas_repair_status": "INHERITED_STABLE_UNCHANGED",
   "beta_domain_status": "PENDING",
   "regression_case": "tools/beta117_owner_followup_contract.py + tools/beta116_owner_scope_contract.py + preserve all ACTIVE_PASS Beta115/Beta116; REPORT-LABOR-DEDUCTION-002 and LOCAL-FIRST-RECONCILE-002 remain OWNER-pending",
-  "failure_class": "RESOLVED_STALE_CHANGELOG_COPY_VISUAL_HARNESS",
-  "failed_verify_run_id": 33800745880,
-  "failed_verify_artifact_id": 9911227928,
+  "failure_class": "RESOLVED_STALE_BETA110_DOCUMENT_MARKER_IN_VISUAL_MATRIX",
+  "failed_verify_run_id": 33816318004,
+  "failed_verify_artifact_id": 9916731294,
   "superseded_candidate_run_id": 33797938890,
   "superseded_candidate_artifact_id": 9910080784,
   "superseded_apk_sha256": "10f4289890c6198481a5e393a08dcc025f7ab8aa348bb44513fe6020e1c78149",
-  "execution_nonce": "beta117-visual-exact-changelog-harness-repair-20260904-06",
+  "execution_nonce": "beta117-visual-exact-marker-harness-repair-20260904-07",
   "next_action": "VERIFY_VISUAL_PDA_API36_EXACT_CANDIDATE_NO_REBUILD"
 }
