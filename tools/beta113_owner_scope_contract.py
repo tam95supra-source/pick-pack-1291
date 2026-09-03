@@ -119,7 +119,8 @@ assert scan.index('body.addView(mnv') < scan.index('addInlineCurrentShiftStaff(b
 render=ops[ops.index("private fun renderEmployee(ctx"):ops.index("private fun sameEmployeeContext")]
 assert render.index('when(state)') < render.index('addInlineCurrentShiftStaff(body)')
 inline=ops[ops.index("private fun addInlineCurrentShiftStaff"):ops.index("private fun addScannedOldSessionWarning")]
-for token in ['setOnClickListener{showCurrentDayShiftStaff(currentDate,shift,group)}','setOnClickListener{if(id.mnv.isNotBlank())loadEmployee(id.mnv)}','contentDescription="Mở quét QR vào ra']:
+assert re.search(r'setOnClickListener\\{showCurrentDayShiftStaff\\(currentDate,(?:shift|shiftName),group\\)\\}',inline)
+for token in ['setOnClickListener{if(id.mnv.isNotBlank())loadEmployee(id.mnv)}','contentDescription="Mở quét QR vào ra']:
     assert token in inline, token
 
 print("beta115_owner_scope_contract=PASS changelog=PASS audit=PASS history_delete=PASS labor_revised=PASS bulk=PASS select_ui=PASS today_calendar=PASS outbound_sheet_row_index=PASS inline_roster=PASS")
