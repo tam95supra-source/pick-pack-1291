@@ -1,8 +1,8 @@
 {
-  "run_id": 33778957345,
-  "run_sha": "fbf74932aaba9c36966bf8082649b1a15c4bb318",
+  "run_id": 33779160977,
+  "run_sha": "47c60b7adbb87ad25acbe35d86626773e1304d7f",
   "ref": "release/beta116-owner-scope-20260903",
-  "execution_nonce": "beta116-domain-readback-20260903-13",
-  "stage": "BETA_DOMAIN_PREPARE",
-  "observed_at": "2026-09-03T16:29:52Z"
+  "execution_nonce": "beta116-publish-exact-locked-20260903-14",
+  "stage": "PUBLISH",
+  "observed_at": "2026-09-03T16:31:49Z"
 }
