@@ -2735,45 +2735,105 @@ class OperationsActivity : Activity() {
     }
 
     private fun pdaExchangeScreen(){
-        module="PDA_EXCHANGE";screenState="PDA_EXCHANGE";val root=baseRoot("ĐỔI / TRẢ PDA");val body=body();val serialField=input("Nhập 5 số cuối PDA",false).apply{setSingleLine(true);inputType=InputType.TYPE_CLASS_NUMBER;keyListener=DigitsKeyListener.getInstance("0123456789");imeOptions=EditorInfo.IME_ACTION_DONE}
-        body.addView(txt("PDA ĐANG ĐƯỢC SỬ DỤNG",13f,navy,true));body.addView(txt("Nhập 5 số cuối để lọc. Mỗi PDA có thao tác Đổi và Trả riêng.",9.7f,muted,false));body.addView(gap(7));body.addView(labelled("Tìm nhanh PDA",serialField));body.addView(gap(8));val listBox=column(bg);body.addView(listBox,matchWrap())
+        module="PDA_EXCHANGE";screenState="PDA_EXCHANGE";val root=baseRoot("ĐỔI / TRẢ PDA");val body=body()
+        val serialField=mnvInput("Nhập 5 số cuối PDA").apply{imeOptions=EditorInfo.IME_ACTION_DONE}
+        body.addView(txt("PDA ĐANG ĐƯỢC SỬ DỤNG",13f,navy,true))
+        body.addView(gap(5));body.addView(labelled("Tìm nhanh PDA",serialField));body.addView(gap(8))
+        val listBox=column(bg);body.addView(listBox,matchWrap())
         val changeReasons=arrayOf("PDA lỗi quét / không đọc mã","PDA lỗi mạng / không đồng bộ","PDA yếu pin / hết pin","PDA lỗi phần cứng / hư hỏng","PDA treo / hoạt động không ổn định","Đổi theo điều phối vận hành","Khác")
         val returnReasons=arrayOf("Đi công nhật","Làm xong sớm","Về sớm","Chuyển sang Pack","Điều chuyển sang công việc / vị trí không cần PDA","Tạm dừng Pick theo điều phối","Khác")
-        fun chooseReason(title:String,items:Array<String>,done:(String)->Unit){AlertDialog.Builder(this).setTitle(title).setItems(items){_,which->val chosen=items[which];if(chosen!="Khác"){done(chosen);return@setItems};val other=input("Nhập lý do",false);AlertDialog.Builder(this).setTitle("Lý do khác").setView(other).setNegativeButton("Hủy",null).setPositiveButton("XÁC NHẬN"){_,_->val v=other.text.toString().trim();if(v.isBlank())showError("Nhập lý do.")else done(v)}.show()}.setNegativeButton("Hủy",null).show()}
-        fun cleanPdaSerial(v:String)=v.trim().takeUnless{it.isBlank()||it.equals("null",true)||it=="—"}.orEmpty()
-        fun matches(serial:String,typed:String):Boolean{val q=typed.trim();if(q.isBlank())return true;return q.length==5&&q.all{it.isDigit()}&&serial.takeLast(5)==q}
-        fun refreshList(filter:String){listBox.removeAllViews();listBox.addView(info("Đang tải PDA đang sử dụng..."));api.call("resource_master_list"){rr->runOnUiThread{listBox.removeAllViews();if(handleAuth(rr))return@runOnUiThread
-            class Holder(val serial:String,val mnv:String,var status:String);val holders=linkedMapOf<String,Holder>();val day=operationalStore.loadDay(operationalStore.businessDate());val sessions=day?.optJSONArray("sessions")?:JSONArray();for(i in 0 until sessions.length()){val x=sessions.optJSONObject(i)?:continue;if(!x.optString("state").equals("ACTIVE",true))continue;val serial=cleanPdaSerial(x.optString("pda_serial"));val mnv=x.optString("mnv").trim();if(serial.isBlank()||mnv.isBlank()||!matches(serial,filter))continue;holders[serial]=Holder(serial,mnv,x.optString("pda_enter_status").ifBlank{"—"})}
-            if(rr.ok){val resources=rr.json?.optJSONArray("resources")?:JSONArray();for(i in 0 until resources.length()){val x=resources.optJSONObject(i)?:continue;if(!x.optString("resource_type").equals("PDA",true))continue;val serial=cleanPdaSerial(x.optString("resource_id"));if(serial.isBlank())continue;holders[serial]?.status=x.optString("status_label").ifBlank{holders[serial]?.status?:"—"}}}else TopNotice.show(this@OperationsActivity,"Chưa tải được tình trạng PDA từ Service; vẫn giữ danh sách đang dùng trên thiết bị.",TopNotice.Kind.WARNING)
-            val rows=holders.values.sortedWith(Comparator{a,b->naturalUserCompare(a.serial,b.serial)});if(rows.isEmpty()){listBox.addView(info(if(filter.isBlank())"Hiện không có PDA nào đang được sử dụng." else "Không có PDA đang dùng khớp 5 số cuối."));return@runOnUiThread}
-            fun loadSession(h:Holder,done:(JSONObject,JSONObject)->Unit){api.call("employee_context",JSONObject().put("mnv",h.mnv).put("include_options",true)){r->runOnUiThread{if(handleAuth(r))return@runOnUiThread;if(!r.ok){showError(r.error?:"Không tải được phiên");return@runOnUiThread};val c=r.json?:JSONObject();val ses=c.optJSONObject("session")?:JSONObject();if(!c.optString("state").equals("ACTIVE",true)||!cleanPdaSerial(ses.optString("pda_serial")).equals(h.serial,true)){showError("PDA đã thay đổi người dùng hoặc phiên. Đồng bộ lại rồi thử lại.");foregroundSync.requestSync();refreshList(serialField.text.toString());return@runOnUiThread};done(c,ses)}}}
-            fun mutate(h:Holder,ses:JSONObject,next:String,kind:String,why:String){
-                val p=JSONObject()
-                PdaOnlyMutationPayload.fields(
-                    sessionId=ses.optString("session_id"),
-                    mnv=h.mnv,
-                    pdaSerial=next,
-                    kind=kind,
-                    reason=why,
-                    idempotencyKey=UUID.randomUUID().toString(),
-                ).forEach{(k,v)->p.put(k,v)}
-                api.call("session_work_update",p){x->runOnUiThread{
-                    if(handleAuth(x))return@runOnUiThread
-                    if(!x.ok){showError(x.error?:"Không cập nhật được PDA");return@runOnUiThread}
-                    TopNotice.show(this,"Đã ${if(kind=="Đổi")"đổi" else "trả"} PDA và lưu lịch sử.",TopNotice.Kind.SUCCESS)
-                    foregroundSync.requestSync()
-                    if(kind=="Trả"){
-                        for(i in listBox.childCount-1 downTo 0)if(listBox.getChildAt(i).tag==h.serial)listBox.removeViewAt(i)
-                        if(listBox.childCount==0)listBox.addView(info("Hiện không có PDA nào đang được sử dụng."))
-                    }else refreshList(serialField.text.toString())
-                }}
+        fun chooseReason(title:String,items:Array<String>,done:(String)->Unit){
+            AlertDialog.Builder(this).setTitle(title).setItems(items){_,which->
+                val chosen=items[which];if(chosen!="Khác"){done(chosen);return@setItems}
+                val other=input("Nhập lý do",false)
+                AlertDialog.Builder(this).setTitle("Lý do khác").setView(other).setNegativeButton("Hủy",null).setPositiveButton("XÁC NHẬN"){_,_->val v=other.text.toString().trim();if(v.isBlank())showError("Nhập lý do.")else done(v)}.show()
+            }.setNegativeButton("Hủy",null).show()
+        }
+        fun clean(v:String)=v.trim().takeUnless{it.isBlank()||it.equals("null",true)||it=="—"}.orEmpty()
+        fun matches(serial:String,typed:String):Boolean{val q=typed.trim();if(q.isBlank())return true;return q.length<=5&&q.all{it.isDigit()}&&serial.takeLast(5).startsWith(q)}
+        data class Holder(val serial:String,val mnv:String,var status:String)
+        val holders=linkedMapOf<String,Holder>()
+
+        fun loadLocal(){
+            holders.clear()
+            val day=operationalStore.loadDay(operationalStore.businessDate())
+            val sessions=day?.optJSONArray("sessions")?:JSONArray()
+            for(i in 0 until sessions.length()){
+                val x=sessions.optJSONObject(i)?:continue
+                if(!x.optString("state").equals("ACTIVE",true))continue
+                val serial=clean(x.optString("pda_serial"));val mnv=x.optString("mnv").trim()
+                if(serial.isNotBlank()&&mnv.isNotBlank())holders[serial]=Holder(serial,mnv,x.optString("pda_enter_status").ifBlank{"—"})
             }
-            fun change(h:Holder){loadSession(h){_,ses->val pdas=MasterDataCache.resourceOptions(this).optJSONArray("pdas")?:JSONArray();val field=pdaInput(pdas,h.serial);val wrap=column(surface).apply{setPadding(dp(10),dp(4),dp(10),dp(8));addView(txt("PDA hiện tại: ${h.serial}",12f,navy,true));addView(txt("Tình trạng: ${h.status}",10f,muted,true));addView(gap(7));addView(labelled("PDA mới — gõ 5 số cuối",field));addView(gap(5));addView(pdaSelectedPanel(pdas,field))};AlertDialog.Builder(this).setTitle("Đổi PDA").setView(wrap).setNegativeButton("Hủy",null).setPositiveButton("TIẾP TỤC"){_,_->val next=resolvePda(pdas,field.text.toString());if(next==null||next.equals(h.serial,true)){showError("Chọn PDA mới khác PDA hiện tại.");return@setPositiveButton};confirmPdaHandoverCondition(ses,h.serial,"Đổi PDA"){condition->chooseReason("Lý do đổi PDA",changeReasons){why->mutate(h,ses,next,"Đổi","$why • Tình trạng bàn giao: $condition")}}}.show()}}
-            fun giveBack(h:Holder){loadSession(h){_,ses->confirmPdaHandoverCondition(ses,h.serial,"Trả PDA"){condition->chooseReason("Lý do trả PDA",returnReasons){why->mutate(h,ses,"","Trả","$why • Tình trạng bàn giao: $condition")}}}}
-            rows.forEach{h->val e=MasterDataCache.employee(this,h.mnv)?:JSONObject().put("mnv",h.mnv);val item=column(bg).apply{tag=h.serial;setPadding(dp(2),dp(8),dp(2),dp(8))};val top=row(bg).apply{gravity=Gravity.CENTER_VERTICAL};top.addView(column(bg).apply{addView(txt(h.serial,15.5f,navy,true));addView(txt("Tình trạng: ${h.status.ifBlank{"—"}}",10f,teal,true))},LinearLayout.LayoutParams(0,-2,1f));item.addView(top,matchWrap());item.addView(gap(3));item.addView(txt("${e.optString("mnv")} • ${e.optString("full_name")}",11f,ink,true));item.addView(txt("${dash(e.optString("main_position"))} • ${dash(e.optString("supplier"))}",9.4f,muted,false));item.addView(gap(6));val actions=row(bg);actions.addView(smallButton("Đổi PDA",teal).apply{setOnClickListener{change(h)}},LinearLayout.LayoutParams(0,dp(42),1f).apply{marginEnd=dp(4)});actions.addView(smallButton("Trả PDA",orange).apply{setOnClickListener{giveBack(h)}},LinearLayout.LayoutParams(0,dp(42),1f).apply{marginStart=dp(4)});item.addView(actions,matchWrap());item.addView(View(this@OperationsActivity).apply{setBackgroundColor(line)},LinearLayout.LayoutParams(-1,dp(1)).apply{topMargin=dp(9)});listBox.addView(item,matchWrap())}
-        }}}
-        bindScannerEnter(serialField){hideSoftKeyboard(serialField);refreshList(serialField.text.toString())};attach(root,body);foregroundSync.requestSync();refreshList("");serialField.requestFocus()
+        }
+        fun loadSession(h:Holder,done:(JSONObject,JSONObject)->Unit){
+            api.call("employee_context",JSONObject().put("mnv",h.mnv).put("include_options",true)){r->runOnUiThread{
+                if(handleAuth(r))return@runOnUiThread;if(!r.ok){showError(r.error?:"Không tải được phiên");return@runOnUiThread}
+                val c=r.json?:JSONObject();val ses=c.optJSONObject("session")?:JSONObject()
+                if(!c.optString("state").equals("ACTIVE",true)||!clean(ses.optString("pda_serial")).equals(h.serial,true)){showError("PDA đã thay đổi người dùng hoặc phiên. Đồng bộ lại rồi thử lại.");foregroundSync.requestSync();loadLocal();render(serialField.text.toString());return@runOnUiThread}
+                done(c,ses)
+            }}
+        }
+        fun mutate(h:Holder,ses:JSONObject,next:String,kind:String,why:String){
+            val p=JSONObject()
+            PdaOnlyMutationPayload.fields(sessionId=ses.optString("session_id"),mnv=h.mnv,pdaSerial=next,kind=kind,reason=why,idempotencyKey=UUID.randomUUID().toString()).forEach{(k,v)->p.put(k,v)}
+            api.call("session_work_update",p){x->runOnUiThread{
+                if(handleAuth(x))return@runOnUiThread;if(!x.ok){showError(x.error?:"Không cập nhật được PDA");return@runOnUiThread}
+                TopNotice.show(this,"Đã ${if(kind=="Đổi")"đổi" else "trả"} PDA và lưu lịch sử.",TopNotice.Kind.SUCCESS)
+                // optimistic local display; Service reconcile runs in background.
+                if(kind=="Trả")holders.remove(h.serial) else{holders.remove(h.serial);holders[next]=Holder(next,h.mnv,h.status)}
+                render(serialField.text.toString());foregroundSync.requestSync()
+            }}
+        }
+        fun change(h:Holder){
+            loadSession(h){_,ses->
+                val pdas=MasterDataCache.resourceOptions(this).optJSONArray("pdas")?:JSONArray()
+                val field=pdaInput(pdas,h.serial)
+                val wrap=column(surface).apply{
+                    setPadding(dp(10),dp(4),dp(10),dp(8))
+                    addView(txt("PDA hiện tại: ${h.serial}",12f,navy,true));addView(gap(7))
+                    addView(labelled("PDA mới",field));addView(gap(5));addView(pdaSelectedPanel(pdas,field))
+                }
+                AlertDialog.Builder(this).setTitle("Đổi PDA").setView(wrap).setNegativeButton("Hủy",null).setPositiveButton("TIẾP TỤC"){_,_->
+                    val next=resolvePda(pdas,field.text.toString());if(next==null||next.equals(h.serial,true)){showError("Chọn PDA mới khác PDA hiện tại.");return@setPositiveButton}
+                    confirmPdaHandoverCondition(ses,h.serial,"Đổi PDA"){condition->chooseReason("Lý do đổi PDA",changeReasons){why->mutate(h,ses,next,"Đổi","$why • Tình trạng bàn giao: $condition")}}
+                }.show()
+            }
+        }
+        fun giveBack(h:Holder){loadSession(h){_,ses->confirmPdaHandoverCondition(ses,h.serial,"Trả PDA"){condition->chooseReason("Lý do trả PDA",returnReasons){why->mutate(h,ses,"","Trả","$why • Tình trạng bàn giao: $condition")}}}}
+        fun render(filter:String){
+            listBox.removeAllViews()
+            val rows=holders.values.filter{matches(it.serial,filter)}.sortedWith(Comparator{p,q->naturalUserCompare(p.serial,q.serial)})
+            if(rows.isEmpty()){listBox.addView(info(if(filter.isBlank())"Hiện không có PDA nào đang được sử dụng." else "Không có PDA đang dùng khớp 5 số cuối."));return}
+            rows.forEach{h->
+                val e=MasterDataCache.employee(this,h.mnv)?:JSONObject().put("mnv",h.mnv)
+                val item=column(surface).apply{setPadding(dp(9),dp(8),dp(9),dp(8));background=outlineBg(surface,12)}
+                item.addView(txt("${h.serial.takeLast(5)} • ${h.serial}",13f,navy,true))
+                item.addView(txt("${e.optString("mnv")} • ${dash(e.optString("full_name"))} • ${dash(e.optString("main_position"))}",9.5f,ink,false))
+                item.addView(txt("Tình trạng: ${h.status.ifBlank{"—"}}",9.3f,teal,true));item.addView(gap(6))
+                val actions=row(surface)
+                actions.addView(smallButton("ĐỔI PDA",teal).apply{setOnClickListener{change(h)}},LinearLayout.LayoutParams(0,dp(42),1f).apply{marginEnd=dp(4)})
+                actions.addView(smallButton("TRẢ PDA",orange).apply{setOnClickListener{giveBack(h)}},LinearLayout.LayoutParams(0,dp(42),1f).apply{marginStart=dp(4)})
+                item.addView(actions,matchWrap());listBox.addView(item,matchWrap());listBox.addView(gap(6))
+            }
+        }
+        fun reconcileRemote(){
+            api.call("resource_master_list"){rr->runOnUiThread{
+                if(rr.ok){
+                    val resources=rr.json?.optJSONArray("resources")?:JSONArray()
+                    for(i in 0 until resources.length()){
+                        val x=resources.optJSONObject(i)?:continue;if(!x.optString("resource_type").equals("PDA",true))continue
+                        holders[clean(x.optString("resource_id"))]?.status=x.optString("status_label").ifBlank{holders[clean(x.optString("resource_id"))]?.status?:"—"}
+                    }
+                    render(serialField.text.toString())
+                }
+            }}
+        }
+        loadLocal();render("")
+        bindScannerEnter(serialField){hideSoftKeyboard(serialField);render(serialField.text.toString())}
+        serialField.addTextChangedListener(object:TextWatcher{override fun beforeTextChanged(v:CharSequence?,a:Int,b:Int,c:Int)=Unit;override fun onTextChanged(v:CharSequence?,a:Int,b:Int,c:Int){render(v?.toString().orEmpty())};override fun afterTextChanged(v:Editable?)=Unit})
+        attach(root,body);reconcileRemote();serialField.requestFocus()
     }
+
     private fun addVersionChangelog(body:LinearLayout,title:String,version:String,notes:String){
         val preview=UpdateManager.previewNotesForDisplay(notes,4)
         body.addView(txt("$title • $version",10.8f,navy,true).apply{setPadding(dp(2),dp(4),dp(2),dp(3))})
