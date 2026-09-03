@@ -97,6 +97,7 @@ object DropReceiveFeature {
         var pendingRecordId:String?=null
         val selectedDropIds=linkedSetOf<String>()
         var displayedDropIds=listOf<String>()
+        var dropRenderGeneration=0L
         fun selectedLocation():String=if(locationItems.isEmpty())"" else locationItems.getOrNull(locationSpinner.selectedItemPosition).orEmpty()
         fun setLocations(items:List<String>,preferred:String=""){
             val clean=items.map{it.trim()}.filter{it.isNotBlank()}.distinct();locationItems=clean
@@ -116,22 +117,29 @@ object DropReceiveFeature {
         }
         fun renderDropList(items:List<JSONObject>){
             val sorted=items.sortedByDescending{runCatching{java.time.Instant.parse(it.optString("created_at")).toEpochMilli()}.getOrDefault(0L)}
+            val generation=++dropRenderGeneration
             dropList.removeAllViews();displayedDropIds=sorted.map{it.optString("record_id")}.filter{it.isNotBlank()}
             selectedDropIds.retainAll(displayedDropIds.toSet());updateDeleteSelection()
             if(sorted.isEmpty()){dropList.addView(text("Chưa có dữ liệu nhận hàng rớt.",9.7f,muted,false));return}
-            sorted.forEach{x->
-                val id=x.optString("record_id")
-                val card=column().apply{setPadding(dp(8),dp(7),dp(8),dp(7));background=bg()}
-                val line=row().apply{gravity=Gravity.CENTER_VERTICAL}
-                val check=CheckBox(activity).apply{visibility=if(canDelete)View.VISIBLE else View.GONE;isChecked=id in selectedDropIds;setOnCheckedChangeListener{_,on->if(on)selectedDropIds.add(id)else selectedDropIds.remove(id);updateDeleteSelection()}}
-                if(canDelete)line.addView(check,LinearLayout.LayoutParams(dp(34),dp(34)))
-                fun cell(value:String,weight:Float,gravityValue:Int=Gravity.START)=text(value,8.9f,ink,true).apply{gravity=gravityValue;maxLines=2;setPadding(dp(3),0,dp(3),0)}
-                line.addView(cell(fmtDropTime(x.optString("created_at")),1.18f),LinearLayout.LayoutParams(0,-2,1.18f))
-                line.addView(cell(x.optString("location").ifBlank{"-"},.78f),LinearLayout.LayoutParams(0,-2,.78f))
-                line.addView(cell("DO: ${x.optString("do_number").ifBlank{"-"}}",1.12f),LinearLayout.LayoutParams(0,-2,1.12f))
-                line.addView(cell("Số kiện: ${x.optInt("package_count")}",.92f,Gravity.END),LinearLayout.LayoutParams(0,-2,.92f))
-                card.addView(line);dropList.addView(card,LinearLayout.LayoutParams(-1,-2).apply{bottomMargin=dp(5)})
+            fun addDropChunk(from:Int){
+                if(generation!=dropRenderGeneration)return
+                val to=minOf(from+20,sorted.size)
+                for(i in from until to){
+                    val x=sorted[i];val id=x.optString("record_id")
+                    val card=column().apply{setPadding(dp(8),dp(7),dp(8),dp(7));background=bg()}
+                    val line=row().apply{gravity=Gravity.CENTER_VERTICAL}
+                    val check=CheckBox(activity).apply{visibility=if(canDelete)View.VISIBLE else View.GONE;isChecked=id in selectedDropIds;setOnCheckedChangeListener{_,on->if(on)selectedDropIds.add(id)else selectedDropIds.remove(id);updateDeleteSelection()}}
+                    if(canDelete)line.addView(check,LinearLayout.LayoutParams(dp(34),dp(34)))
+                    fun cell(value:String,weight:Float,gravityValue:Int=Gravity.START)=text(value,8.9f,ink,true).apply{gravity=gravityValue;maxLines=2;setPadding(dp(3),0,dp(3),0)}
+                    line.addView(cell(fmtDropTime(x.optString("created_at")),1.18f),LinearLayout.LayoutParams(0,-2,1.18f))
+                    line.addView(cell(x.optString("location").ifBlank{"-"},.78f),LinearLayout.LayoutParams(0,-2,.78f))
+                    line.addView(cell("DO: ${x.optString("do_number").ifBlank{"-"}}",1.12f),LinearLayout.LayoutParams(0,-2,1.12f))
+                    line.addView(cell("Số kiện: ${x.optInt("package_count")}",.92f,Gravity.END),LinearLayout.LayoutParams(0,-2,.92f))
+                    card.addView(line);dropList.addView(card,LinearLayout.LayoutParams(-1,-2).apply{bottomMargin=dp(5)})
+                }
+                if(to<sorted.size)dropList.post{addDropChunk(to)}
             }
+            dropList.post{addDropChunk(0)}
         }
         fun loadDropList(){
             api.call("outbound_drop_list"){r->activity.runOnUiThread{
