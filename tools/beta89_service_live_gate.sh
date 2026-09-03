@@ -447,7 +447,7 @@ B115_CAP_BODY=$(jq -nc --arg ev "$B115_CAP_CONFLICT" --arg labor "$B115_LABOR_B"
   events:[{action:"labor_finish",event_id:$ev,device_id:$dev,business_date:$date,payload:{labor_id:$labor,session_id:$sid,mnv:$mnv,start_at:$start,end_at:$end,note:"beyond shift cap"}}]
 }')
 mutation_api b115-cap-conflict "$B115_CAP_BODY"
-jq -e '.ok==true and .results[0].status=="REVIEW_REQUIRED" and .results[0].error_code=="LABOR_END_AFTER_SHIFT_OR_EXIT"' "$D/b115-cap-conflict.json" >/dev/null
+jq -e '.ok==true and .results[0].status=="REJECTED" and .results[0].error_code=="LABOR_END_AFTER_SHIFT_OR_EXIT"' "$D/b115-cap-conflict.json" >/dev/null
 
 B115_FINISH_B_BODY=$(jq -nc --arg ev "$B115_FINISH_B" --arg labor "$B115_LABOR_B" --arg dev "$DEVICE" --arg date "$B80_DATE" --arg sid "$B80_SID" --arg mnv "$B80_MNV" --arg start "$B115_AT" --arg end "$B115_SHIFT_END" '{
   events:[{action:"labor_finish",event_id:$ev,device_id:$dev,business_date:$date,payload:{labor_id:$labor,session_id:$sid,mnv:$mnv,start_at:$start,end_at:$end,note:"future scheduled end"}}]
