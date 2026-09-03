@@ -60,9 +60,10 @@ grep -Fq 'minusDays(13)' app/src/main/java/vn/pickpack1291/app/beta/MealAttendan
 grep -Fq 'pp_meal_attendance_14d.db' app/src/main/java/vn/pickpack1291/app/beta/MealAttendanceLocalStore.kt
 grep -Fq 'insertWithOnConflict("meal_day_cache",null,values,SQLiteDatabase.CONFLICT_REPLACE)' app/src/main/java/vn/pickpack1291/app/beta/MealAttendanceLocalStore.kt
 ! grep -Fq 'ON CONFLICT(business_date) DO UPDATE' app/src/main/java/vn/pickpack1291/app/beta/MealAttendanceLocalStore.kt
-grep -Fq 'cleanPdaSerial' "$OPS"
+grep -Fq 'fun clean(v:String)=v.trim().takeUnless{it.isBlank()||it.equals("null",true)||it=="—"}.orEmpty()' "$OPS"
 grep -Fq 'if(kind=="Trả")' "$OPS"
-grep -Fq 'tag=h.serial' "$OPS"
+grep -Fq 'if(!c.optString("state").equals("ACTIVE",true)||!clean(ses.optString("pda_serial")).equals(h.serial,true))' "$OPS"
+grep -Fq 'val next=resolvePda(pdas,field.text.toString())' "$OPS"
 grep -Fq 'Tài khoản $phone / $employeeName' "$OPS"
 grep -Fq 'addBusinessShiftReconciliation(body)' "$OPS"
 test "$(grep -Fc 'if(projected.isNotBlank())return projected' "$OPS")" -ge 3
