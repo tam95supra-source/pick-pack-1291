@@ -129,6 +129,24 @@ async function dropAppend(env:Env,auth:AuthContext,body:Record<string,unknown>):
   return json({ok:true,source:"SERVICE_D1",idempotent:result.duplicate,event_id:result.event.event_id,item:record,replication:"OUTBOX_PENDING"});
 }
 
+async function dropList(env:Env):Promise<Response>{
+  const rows=(await env.DB.prepare("SELECT record_id,location,business_date,do_number,package_count,actor_id,actor_display_name,created_at FROM outbound_drop_records ORDER BY created_at DESC,record_id DESC LIMIT 300").all<Record<string,unknown>>()).results??[];
+  return json({ok:true,source:"SERVICE_D1",items:rows});
+}
+
+async function dropDelete(env:Env,auth:AuthContext,body:Record<string,unknown>):Promise<Response>{
+  const idsRaw=Array.isArray(body.record_ids)?body.record_ids:[],ids=[...new Set(idsRaw.map(x=>String(x||"").trim()).filter(Boolean))].slice(0,100);
+  const idem=String(body.idempotency_key||body.event_id||"").trim();
+  if(!idem)return apiError("OUTBOUND_IDEMPOTENCY_REQUIRED","VALIDATION",400);
+  if(!ids.length)return apiError("OUTBOUND_DROP_IDS_REQUIRED","VALIDATION",400);
+  const placeholders=ids.map((_,i)=>"?"+(i+1)).join(",");
+  const found=(await env.DB.prepare(`SELECT record_id FROM outbound_drop_records WHERE record_id IN (${placeholders})`).bind(...ids).all<{record_id:string}>()).results??[];
+  const foundIds=found.map(x=>x.record_id);if(!foundIds.length)return apiError("OUTBOUND_DROP_NOT_FOUND","VALIDATION",404);
+  const result=await commit(env,auth,{eventType:"OUTBOUND_DROP_DELETE_SELECTED",entityType:"OUTBOUND_DROP",entityId:"BULK",businessDate:bangkokToday(),idempotencyKey:idem,payload:{mnv:"",record_ids:foundIds,rows_deleted:foundIds.length},baseVersion:0,newVersion:1,preconditionSql:"1=1",preconditionBindings:[],projection:(eventId)=>foundIds.map(id=>env.DB.prepare("DELETE FROM outbound_drop_records WHERE record_id=?1 AND EXISTS(SELECT 1 FROM events WHERE event_id=?2)").bind(id,eventId))});
+  if(result instanceof Response)return result;
+  return json({ok:true,source:"SERVICE_D1",idempotent:result.duplicate,rows_deleted:foundIds.length,event_id:result.event.event_id,replication:"OUTBOX_PENDING"});
+}
+
 async function dropClear(env:Env,auth:AuthContext,body:Record<string,unknown>):Promise<Response>{
   if(auth.role!=="SUPERADMIN")return apiError("SUPERADMIN_REQUIRED","PERMISSION",403);
   const idem=String(body.idempotency_key||body.event_id||"").trim();if(!idem)return apiError("OUTBOUND_IDEMPOTENCY_REQUIRED","VALIDATION",400);
@@ -142,6 +160,8 @@ export async function outboundAction(env:Env,auth:AuthContext,action:string,body
   if(action==="outbound_location_list")return locationList(env,auth);
   if(action==="outbound_location_mutate")return locationMutate(env,auth,body);
   if(action==="outbound_drop_append")return dropAppend(env,auth,body);
+  if(action==="outbound_drop_list")return dropList(env);
+  if(action==="outbound_drop_delete")return dropDelete(env,auth,body);
   if(action==="outbound_drop_clear")return dropClear(env,auth,body);
   return apiError("OUTBOUND_ACTION_UNSUPPORTED","VALIDATION",400);
 }
@@ -153,6 +173,15 @@ async function replicateOne(env:Env,token:string,e:EventRow):Promise<void>{
     const id=String(p.record_id||e.idempotency_key),ids=await getValues(env,token,DROP_SHEET,"H2:H");
     if(ids.some(r=>String(r[0]||"")===id))return;
     await appendValues(env,token,DROP_SHEET,"A:H",[[String(p.location||""),visibleDate(e.business_date),String(p.scan_qr||""),String(p.do_number||""),Number(p.package_count||0),String(p.actor_display_name||e.actor_id),visibleDateTime(e.occurred_at),id]]);return;
+  }
+  if(e.event_type==="OUTBOUND_DROP_DELETE_SELECTED"){
+    const ids=new Set((Array.isArray(p.record_ids)?p.record_ids:[]).map(x=>String(x||"")));
+    const rows=await getValues(env,token,DROP_SHEET,"A2:H");
+    if(rows.length){
+      const next=rows.map(r=>ids.has(String(r[7]||""))?["","","","","","","",""]:r);
+      await putValues(env,token,DROP_SHEET,`A2:H${rows.length+1}`,next);
+    }
+    return;
   }
   if(e.event_type==="OUTBOUND_DROP_CLEAR"){
     const rows=await getValues(env,token,DROP_SHEET,"A2:H");if(rows.length)await putValues(env,token,DROP_SHEET,`A2:H${rows.length+1}`,rows.map(()=>["","","","","","","",""]));return;
