@@ -1,0 +1,59 @@
+{
+  "status": "LOCKED",
+  "channel": "BETA",
+  "version_name": "0.4.2-beta.115",
+  "version_code": 121,
+  "package": "vn.pickpack1291.app.beta.publicbeta",
+  "candidate_source_sha": "3f343ea1be0dbace5df995e4c81e1cdca9defd24",
+  "service_source_sha": "429c39f82aacba19351351234f7f66a8d3b655f1",
+  "candidate_run_id": 33703823187,
+  "candidate_artifact_id": 9874569505,
+  "candidate_artifact_name": "beta-candidate-33703823187",
+  "apk_sha256": "af2c267e2101223387fdf4feb86b6ae315fe17b44c09d89c9f6166a8a73d49e5",
+  "apk_size": 14281717,
+  "signer_sha256": "d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e",
+  "service_gate": {
+    "status": "PASS",
+    "run_id": 33707525071,
+    "artifact_id": 9875965938,
+    "artifact_name": "beta-service-33707525071"
+  },
+  "fast_check": {
+    "status": "PASS",
+    "run_id": 33708224706
+  },
+  "visual": {
+    "status": "PASS",
+    "run_id": 33705116149,
+    "artifact_id": 9875061341,
+    "artifact_name": "beta-verify-33705116149",
+    "viewports": [
+      "320x568",
+      "360x640",
+      "480x800"
+    ],
+    "human_visual": "PASS"
+  },
+  "pda_functional_pre_ota": "PASS",
+  "back_api36": "PASS",
+  "device_regression": {
+    "status": "PASS",
+    "run_id": 33705707420,
+    "artifact_id": 9875164876,
+    "artifact_name": "beta-service-discovery-33705707420"
+  },
+  "runtime_dod": {
+    "status": "PASS",
+    "run_id": 33708224737,
+    "artifact_id": 9876009359,
+    "artifact_name": "beta-stable-runtime-33708224737"
+  },
+  "apk_transport": "GITHUB_RELEASE_ONLY",
+  "rebuild": false,
+  "resign": false,
+  "stable_publish": "FORBIDDEN",
+  "authority_change": "NONE",
+  "stable_main_signer_authority": "UNCHANGED",
+  "locked_at": "2026-09-03T02:39:16Z",
+  "next_action": "PUBLISH_EXACT_LOCKED_BYTES_BETA_OTA"
+}
