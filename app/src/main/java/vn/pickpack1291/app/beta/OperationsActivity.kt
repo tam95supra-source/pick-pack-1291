@@ -595,7 +595,9 @@ class OperationsActivity : Activity() {
         body.addView(filters,matchWrap());body.addView(gap(10))
         val host=column(bg);body.addView(host,matchWrap())
 
+        var qrRenderGeneration=0L
         fun render(){
+            val generation=++qrRenderGeneration
             host.removeAllViews()
             val shift=shiftValues.getOrNull(shiftSp.selectedItemPosition).orEmpty()
             val supplier=supplierValues.getOrNull(supplierSp.selectedItemPosition).orEmpty()
@@ -607,35 +609,47 @@ class OperationsActivity : Activity() {
                 (position=="Tất cả vị trí"||id.position==position)
             }
             if(visible.isEmpty()){host.addView(info("Không có nhân sự phù hợp bộ lọc."));return}
-            listOf("Ca 1","Ca HC","Ca 2").forEach{shift->
-                val group=shiftStaffOrdered(visible.filter{it.optString("shift").trim()==shift})
+            val builders=mutableListOf<()->View>()
+            listOf("Ca 1","Ca HC","Ca 2").forEach{shiftName->
+                val group=shiftStaffOrdered(visible.filter{it.optString("shift").trim()==shiftName})
                 if(group.isEmpty())return@forEach
                 val ended=group.count{shiftStaffEnded(it)}
-                val head=row(surface).apply{
-                    gravity=Gravity.CENTER_VERTICAL;setPadding(dp(9),dp(7),dp(9),dp(7));background=outlineBg(surface,12)
-                    isClickable=true;isFocusable=true;contentDescription="Mở danh sách nhân sự $shift"
-                    setOnTouchListener{v,e->if(e.action==android.view.MotionEvent.ACTION_UP)tapFeedback(v);false};setOnClickListener{showCurrentDayShiftStaff(currentDate,shift,group)}
-                    addView(txt(shift,10.8f,navy,true),LinearLayout.LayoutParams(0,-2,1f))
-                    addView(txt("Trong ca ${group.size-ended} • Đã ra $ended",9.2f,muted,true))
-                }
-                host.addView(head,matchWrap());host.addView(gap(4))
-                group.groupBy{shiftStaffIdentity(it).supplier.ifBlank{"Chưa xác định NCC"}}.forEach{(sup,staff)->
-                    host.addView(txt("$sup (${staff.size})",9.4f,teal,true).apply{setPadding(dp(4),dp(3),dp(4),dp(2))})
-                    staff.forEach{x->
-                        val id=shiftStaffIdentity(x);val endedRow=shiftStaffEnded(x)
-                        val line=row(bg).apply{
-                            gravity=Gravity.CENTER_VERTICAL;setPadding(dp(5),dp(4),dp(5),dp(4))
-                            isClickable=true;isFocusable=true;contentDescription="Mở quét QR vào ra ${dash(id.fullName)}"
-                            setOnTouchListener{v,e->if(e.action==android.view.MotionEvent.ACTION_UP)tapFeedback(v);false};setOnClickListener{if(id.mnv.isNotBlank())loadEmployee(id.mnv)}
-                            addView(txt("${dash(id.mnv)} • ${dash(id.fullName)}",10.1f,ink,true),LinearLayout.LayoutParams(0,-2,1f))
-                            addView(txt(if(endedRow)"ĐÃ RA" else "TRONG CA",8.5f,if(endedRow)muted else green,true))
-                        }
-                        host.addView(line,matchWrap())
+                builders.add{
+                    row(surface).apply{
+                        gravity=Gravity.CENTER_VERTICAL;setPadding(dp(9),dp(7),dp(9),dp(7));background=outlineBg(surface,12)
+                        isClickable=true;isFocusable=true;contentDescription="Mở danh sách nhân sự $shiftName"
+                        setOnTouchListener{v,e->if(e.action==android.view.MotionEvent.ACTION_UP)tapFeedback(v);false};setOnClickListener{showCurrentDayShiftStaff(currentDate,shiftName,group)}
+                        addView(txt(shiftName,10.8f,navy,true),LinearLayout.LayoutParams(0,-2,1f))
+                        addView(txt("Trong ca ${group.size-ended} • Đã ra $ended",9.2f,muted,true))
                     }
                 }
-                host.addView(gap(7))
+                group.groupBy{shiftStaffIdentity(it).supplier.ifBlank{"Chưa xác định NCC"}}.forEach{(sup,staff)->
+                    builders.add{txt("$sup (${staff.size})",9.4f,teal,true).apply{setPadding(dp(4),dp(3),dp(4),dp(2))}}
+                    staff.forEach{x->
+                        builders.add{
+                            val id=shiftStaffIdentity(x);val endedRow=shiftStaffEnded(x)
+                            row(bg).apply{
+                                gravity=Gravity.CENTER_VERTICAL;setPadding(dp(5),dp(4),dp(5),dp(4))
+                                isClickable=true;isFocusable=true;contentDescription="Mở quét QR vào ra ${dash(id.fullName)}"
+                                setOnTouchListener{v,e->if(e.action==android.view.MotionEvent.ACTION_UP)tapFeedback(v);false};setOnClickListener{if(id.mnv.isNotBlank())loadEmployee(id.mnv)}
+                                addView(txt("${dash(id.mnv)} • ${dash(id.fullName)}",10.1f,ink,true),LinearLayout.LayoutParams(0,-2,1f))
+                                addView(txt(if(endedRow)"ĐÃ RA" else "TRONG CA",8.5f,if(endedRow)muted else green,true))
+                            }
+                        }
+                    }
+                    builders.add{gap(2)}
+                }
+                builders.add{gap(7)}
             }
+            fun addChunk(from:Int){
+                if(generation!=qrRenderGeneration||!host.isAttachedToWindow)return
+                val to=minOf(from+24,builders.size)
+                for(i in from until to)host.addView(builders[i](),matchWrap())
+                if(to<builders.size)host.post{addChunk(to)}
+            }
+            host.post{addChunk(0)}
         }
+
         val listener=object:android.widget.AdapterView.OnItemSelectedListener{
             override fun onItemSelected(p:android.widget.AdapterView<*>?,v:View?,pos:Int,id:Long)=render()
             override fun onNothingSelected(p:android.widget.AdapterView<*>?)=Unit
