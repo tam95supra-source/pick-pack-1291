@@ -153,13 +153,25 @@ object PostMealAttendanceFeature {
         root.addView(header,LinearLayout.LayoutParams(-1,-2))
 
         val controls=column().apply{setPadding(dp(10),dp(8),dp(10),dp(6))}
-        val dateBtn=button("",navy).apply{textSize=11f}
-        controls.addView(dateBtn,LinearLayout.LayoutParams(-1,dp(42)))
-        controls.addView(gap(7))
-        val scanBox=column()
-        val scan=input("Scan / Nhập mã nhân viên")
-        scanBox.addView(scan,LinearLayout.LayoutParams(-1,dp(44)))
-        controls.addView(scanBox,LinearLayout.LayoutParams(-1,-2))
+        val dateBtn=button("",navy).apply{textSize=10.5f}
+        val search=input("Tìm MNV / họ tên").apply{textSize=11.5f}
+        val dateSearch=row()
+        dateSearch.addView(dateBtn,LinearLayout.LayoutParams(0,dp(44),.46f).apply{marginEnd=dp(3)})
+        dateSearch.addView(search,LinearLayout.LayoutParams(0,dp(44),.54f).apply{marginStart=dp(3)})
+        controls.addView(dateSearch,LinearLayout.LayoutParams(-1,dp(44)));controls.addView(gap(7))
+        val scanBox=column().apply{setPadding(dp(7),dp(6),dp(7),dp(7));background=drawable(Color.rgb(240,253,250),teal,12)}
+        scanBox.addView(text("QUÉT ĐỂ ĐIỂM DANH",10.2f,teal,true));scanBox.addView(gap(3))
+        val scan=input("Scan / Nhập mã nhân viên").apply{background=drawable(Color.WHITE,teal,10)}
+        scanBox.addView(scan,LinearLayout.LayoutParams(-1,dp(46)))
+        controls.addView(scanBox,LinearLayout.LayoutParams(-1,-2));controls.addView(gap(7))
+        val shiftFilter=selectSpinner(listOf("Tất cả ca"))
+        val supplierFilter=selectSpinner(listOf("Tất cả NCC"))
+        val positionFilter=selectSpinner(listOf("Tất cả vị trí"))
+        val filterRow=row()
+        filterRow.addView(shiftFilter,LinearLayout.LayoutParams(0,dp(46),1f).apply{marginEnd=dp(2)})
+        filterRow.addView(supplierFilter,LinearLayout.LayoutParams(0,dp(46),1f).apply{marginStart=dp(2);marginEnd=dp(2)})
+        filterRow.addView(positionFilter,LinearLayout.LayoutParams(0,dp(46),1f).apply{marginStart=dp(2)})
+        controls.addView(filterRow,LinearLayout.LayoutParams(-1,dp(46)))
         root.addView(controls,LinearLayout.LayoutParams(-1,-2))
 
         val contentBox=column().apply{setPadding(dp(10),dp(2),dp(10),dp(78))}
@@ -171,7 +183,25 @@ object PostMealAttendanceFeature {
         var payload:JSONObject?=null
         var loadGeneration=0L
         var availableDates=store.availableDatesWithData()
+        var filterSync=false
         lateinit var showReasonDialog:(JSONObject)->Unit
+
+        fun employeePosition(item:JSONObject):String{
+            val mnv=item.optString("mnv")
+            return MasterDataCache.employee(activity,mnv)?.optString("main_position").orEmpty().ifBlank{item.optString("position_snapshot")}
+        }
+        fun setFilterValues(sp:Spinner,values:List<String>){
+            val old=sp.selectedItem?.toString().orEmpty()
+            sp.adapter=ArrayAdapter(activity,android.R.layout.simple_spinner_dropdown_item,values)
+            sp.setSelection(values.indexOf(old).takeIf{it>=0}?:0)
+        }
+        fun refreshFilterOptions(rows:List<JSONObject>){
+            filterSync=true
+            setFilterValues(shiftFilter,listOf("Tất cả ca")+rows.map{it.optString("shift")}.filter{it.isNotBlank()}.distinct())
+            setFilterValues(supplierFilter,listOf("Tất cả NCC")+rows.map{it.optString("supplier_snapshot")}.filter{it.isNotBlank()}.distinct().sorted())
+            setFilterValues(positionFilter,listOf("Tất cả vị trí")+rows.map{employeePosition(it)}.filter{it.isNotBlank()}.distinct().sorted())
+            filterSync=false
+        }
 
         fun applyAvailableDates(remote:List<String> = emptyList()){
             availableDates=(remote+store.availableDatesWithData()+today().toString())
@@ -229,9 +259,21 @@ object PostMealAttendanceFeature {
                     if(preview.isNotBlank())banner.addView(text(preview,9.5f,ink,false))
                     contentBox.addView(banner,LinearLayout.LayoutParams(-1,-2));contentBox.addView(gap(7))
                 }
-                val rows=itemList(source)
+                val allRows=itemList(source)
+                refreshFilterOptions(allRows)
+                val q=search.text.toString().trim().lowercase()
+                val sf=shiftFilter.selectedItem?.toString().orEmpty()
+                val nf=supplierFilter.selectedItem?.toString().orEmpty()
+                val pf=positionFilter.selectedItem?.toString().orEmpty()
+                val rows=allRows.filter{item->
+                    val mnv=item.optString("mnv");val name=item.optString("full_name_snapshot")
+                    (q.isBlank()||mnv.lowercase().contains(q)||name.lowercase().contains(q))&&
+                    (sf=="Tất cả ca"||item.optString("shift")==sf)&&
+                    (nf=="Tất cả NCC"||item.optString("supplier_snapshot")==nf)&&
+                    (pf=="Tất cả vị trí"||employeePosition(item)==pf)
+                }
                 if(rows.isEmpty()){
-                    contentBox.addView(text("Không có nhân sự cần điểm danh trong ngày ${fmtDate(selected.toString())}.",11f,muted,false));return
+                    contentBox.addView(text(if(allRows.isEmpty())"Không có nhân sự cần điểm danh trong ngày ${fmtDate(selected.toString())}." else "Không có nhân sự phù hợp bộ lọc.",11f,muted,false));return
                 }
                 rows.forEach{item->
                     val card=column().apply{setPadding(dp(10),dp(8),dp(10),dp(8));background=drawable()}
@@ -359,6 +401,17 @@ object PostMealAttendanceFeature {
                 }};d.show()
             }
         }
+
+        search.addTextChangedListener(object:android.text.TextWatcher{
+            override fun beforeTextChanged(s:CharSequence?,start:Int,count:Int,after:Int)=Unit
+            override fun onTextChanged(s:CharSequence?,start:Int,before:Int,count:Int){render()}
+            override fun afterTextChanged(s:android.text.Editable?)=Unit
+        })
+        val filterListener=object:android.widget.AdapterView.OnItemSelectedListener{
+            override fun onItemSelected(p:android.widget.AdapterView<*>?,v:View?,pos:Int,id:Long){if(!filterSync)render()}
+            override fun onNothingSelected(p:android.widget.AdapterView<*>?)=Unit
+        }
+        shiftFilter.onItemSelectedListener=filterListener;supplierFilter.onItemSelectedListener=filterListener;positionFilter.onItemSelectedListener=filterListener
 
         dateBtn.setOnClickListener{
             DataDatePickerUi.show(activity,availableDates,selected.toString()){chosen->
