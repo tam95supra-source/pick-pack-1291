@@ -21,6 +21,7 @@ mobile=read("service/src/mobile_hotfix.ts")
 compat=read("service/src/compat.ts")
 outbound=read("service/src/outbound_beta78.ts")
 session_hotfix=read("service/src/session_hotfix.ts")
+publish=read("tools/beta83_publish_ota.sh")
 
 # 1) Changelog is version-fenced and current Beta metadata is exact.
 assert 'versionCode = 121' in gradle
@@ -75,6 +76,13 @@ assert '"labor_dates"' in bridge
 for token in ['staffShiftKey','label:"Hỗ trợ bộ phận khác"','matrix(main,columns)','deducted.has(staffShiftKey(s.mnv,s.shift))']:
     assert token in compat, token
 assert 'rowsByType' not in compat, "Support report must count each MNV+shift once across multiple labor types"
+
+# Release provenance: APK bytes bind candidate source; mutable service source is guarded separately.
+assert 'CANDIDATE_SOURCE=$(jq -r \'.candidate_source_sha // .source_sha\' "$R")' in publish
+assert 'SERVICE_SOURCE=$(jq -r \'.source_sha\' "$R")' in publish
+assert 'git diff --quiet "$SERVICE_SOURCE" HEAD -- service google-apps-script' in publish
+assert 'git diff --quiet "$CANDIDATE_SOURCE" HEAD -- app' in publish
+assert 'ensure_beta_github_release.sh "$VERSION" "$CANDIDATE_SOURCE"' in publish
 
 # 8) Display-only calendar visibly disables empty dates; edit calendar remains unrestricted.
 for token in ['isEnabled=enabled','alpha=if(enabled)1f else .30f','if(enabled)setOnClickListener','availableDates:Collection<String>','val today=LocalDate.now()','val enabled=hasData||date==today']:
