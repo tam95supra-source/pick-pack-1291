@@ -254,7 +254,50 @@ def promotion_lock_mode_selftest():
     # Promotion mode must still reject source drift.
     if promo["beta_acceptance_lock"].get("source_sha")==source:raise RuntimeError("PROMOTION_SOURCE_DRIFT_SELFTEST_INVALID_FIXTURE")
 
+def beta_user_update_path_probe():
+    for n in ["CLOUDFLARE_API_TOKEN","CLOUDFLARE_ACCOUNT_ID","GOOGLE_OAUTH_CLIENT_ID","GOOGLE_OAUTH_CLIENT_SECRET","GOOGLE_OAUTH_REFRESH_TOKEN"]:
+        print("::add-mask::"+need(n))
+    contract=json.loads((ROOT/"config/environment_contracts.json").read_text())
+    release=json.loads((ROOT/"ops/beta-release-request.json").read_text())
+    beta=contract["environments"]["BETA"]
+    worker=str(beta["current_service"]["worker"])
+    settings=worker_settings(worker); by=bindmap(settings)
+    sub=str((cf("/workers/subdomain") or {}).get("subdomain") or "")
+    worker_url=f"https://{worker}.{sub}.workers.dev"
+    health_code,health=curl_json("GET",worker_url+"/health")
+    env_code,envj=curl_json("GET",worker_url+"/environment.json")
+    gas_url=btext(by,"GAS_API_URL")
+    discovery_code,discovery=curl_json("POST",gas_url,body={"action":"service_discovery","_app_channel":"BETA","_app_version":"0.4.2-beta.115","_environment_id":"BETA","_service_audience":"PICK_PACK_1291_BETA"},follow=True,timeout=60)
+    update_code,update=curl_json("POST",gas_url,body={"action":"update_check","channel":"BETA","current_version":"0.4.2-beta.115","_app_channel":"BETA","_app_version":"0.4.2-beta.115","_environment_id":"BETA","_service_audience":"PICK_PACK_1291_BETA"},follow=True,timeout=60)
+    expected_url=str(beta["current_service"]["url"]).rstrip("/")
+    expected_sha=str(release["apk_sha256"])
+    expected_size=int(release["apk_size"])
+    expected_version=str(release["version_name"])
+    checks={
+      "worker_health": health_code==200 and health.get("ok") is True,
+      "worker_environment": env_code==200 and envj.get("environment_id")=="BETA" and envj.get("service_audience")=="PICK_PACK_1291_BETA",
+      "gas_discovery": discovery_code==200 and discovery.get("ok") is True and str(discovery.get("service_url") or "").rstrip("/")==expected_url,
+      "gas_update_http": update_code==200 and update.get("ok") is True,
+      "gas_update_available_from_115": update.get("available") is True,
+      "gas_update_version": str(update.get("version_name") or "")==expected_version,
+      "gas_update_sha": str(update.get("sha256") or "")==expected_sha,
+      "gas_update_size": int(update.get("size") or 0)==expected_size,
+      "gas_update_url": str(update.get("apk_url") or "").startswith("https://github.com/") and "/releases/download/" in str(update.get("apk_url") or "")
+    }
+    receipt={"status":"PASS" if all(checks.values()) else "FAIL","phase":"BETA115_TO_BETA116_USER_UPDATE_PATH_READONLY","checks":checks,
+      "worker":{"url":worker_url,"health_http":health_code,"health_ok":health.get("ok"),"environment_http":env_code,"environment_id":envj.get("environment_id"),"service_audience":envj.get("service_audience")},
+      "gas":{"discovery_http":discovery_code,"discovery_ok":discovery.get("ok"),"service_url":discovery.get("service_url"),"update_http":update_code,"update_ok":update.get("ok"),"available":update.get("available"),"version_name":update.get("version_name"),"sha256":update.get("sha256"),"size":update.get("size"),"apk_url":update.get("apk_url"),"error":update.get("error")},
+      "writes":False}
+    pathlib.Path("/tmp/beta-stable-runtime-verify.json").write_text(json.dumps(receipt,indent=2,ensure_ascii=False)+"\n")
+    print(json.dumps(receipt,ensure_ascii=False))
+    if receipt["status"]!="PASS": raise RuntimeError("BETA_USER_UPDATE_PATH_FAIL:"+json.dumps(checks,separators=(",",":")))
+    return
+
 def main():
+    release_probe=json.loads((ROOT/"ops/beta-release-request.json").read_text())
+    if release_probe.get("mode")=="BETA116_USER_UPDATE_PATH_READONLY":
+        beta_user_update_path_probe()
+        return
     promotion_mode="--promotion-dry-run" in sys.argv
     for n in ["CLOUDFLARE_API_TOKEN","CLOUDFLARE_ACCOUNT_ID","GOOGLE_OAUTH_CLIENT_ID","GOOGLE_OAUTH_CLIENT_SECRET","GOOGLE_OAUTH_REFRESH_TOKEN"]:
         print("::add-mask::"+need(n))
