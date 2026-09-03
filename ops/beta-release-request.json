@@ -6,7 +6,7 @@
   "base_version": "0.4.2-beta.114",
   "base_version_code": 120,
   "base_source_sha": "5686da2cc6fdb2bf845456bda9e703eb68e9f1f0",
-  "source_sha": "37d1dde17fcce52874e62b42f92e52f1f6a70349",
+  "source_sha": "3f343ea1be0dbace5df995e4c81e1cdca9defd24",
   "package": "vn.pickpack1291.app.beta.publicbeta",
   "service_gate_required": true,
   "service_gate": "REQUIRED_SERVICE_SOURCE_CHANGED_BETA115",
@@ -52,6 +52,6 @@
   "stable_gas_repair_status": "PASS",
   "beta_domain_status": "PASS",
   "regression_case": "qa/beta115_owner_scope_regression.md + tools/beta113_owner_scope_contract.py; preserve all ACTIVE_PASS including LABOR-SCAN-PINNED-004, UI-FORM-BASE-CONSISTENCY-003, UI-EMPLOYEE-SCAN-ROSTER-001, UI-REVIEW-WARNING-001, NAV-HISTORY-BACK-001, LABOR-EXACT-SESSION-002, HISTORY-DELETE-CANONICAL-001, DOCUMENT-BATCH-MODE-TICK-002, SHIFT-STAFF-DOWNLOAD-QR-001",
-  "execution_nonce": "beta115-build-verify-20260903-01",
-  "next_action": "BUILD_SIGN_THEN_FRESH_SERVICE_VISUAL_PDA_API36_RUNTIME_GATES"
+  "execution_nonce": "beta115-build-verify-20260903-02",
+  "next_action": "REBUILD_AFTER_COMPILE_SIGNATURE_FIX_THEN_FRESH_GATES"
 }
