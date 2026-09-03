@@ -26,6 +26,8 @@ assert 'versionCode = 1' in gradle and 'versionName = "0.1.0-stable"' in gradle
 assert 'DOCUMENT_PENDING_BOX_VISIBLE_WHEN_EMPTY' in visual_harness
 assert 'DOCUMENT_MODE_VISIBLE_WITH_ZERO_DRAFTS' in visual_harness
 assert 'waitText("Ảnh chờ tải",true,false,10000L)' not in visual_harness
+assert 'waitText("Không có ảnh chờ tải.",true,false,10000L)' not in visual_harness
+assert visual_harness.count("PENDING_BOX_VISIBLE_WHEN_EMPTY") >= 2
 # Release request metadata is checked independently by resilience_static_gate.mjs.
 
 for token in [
