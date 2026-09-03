@@ -37,11 +37,7 @@ jobs:
           rc=$?
           set -e
           if [[ "$rc" -eq 0 ]]; then exit 0; fi
-          if python3 - <<'PY'
-import json
-p=json.load(open('/tmp/beta115-owner-seed-30100-30200.json',encoding='utf-8'))
-raise SystemExit(0 if str(p.get('error','')).startswith('BETA_LIVE_WORKER_UNAVAILABLE:') else 1)
-PY
+          if python3 -c "import json; p=json.load(open('/tmp/beta115-owner-seed-30100-30200.json',encoding='utf-8')); raise SystemExit(0 if str(p.get('error','')).startswith('BETA_LIVE_WORKER_UNAVAILABLE:') else 1)"
           then
             python3 tools/ops_beta_seed_gas_fallback_30100_30200.py
           else
