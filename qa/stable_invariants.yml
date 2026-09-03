@@ -293,26 +293,22 @@ invariants:
     active_pass: true
 
   - id: LABOR-MULTI-INTERVAL-003
-    status: TECHNICAL_PASS_AWAITING_OWNER
+    status: LOCKED_REQUIREMENT_PENDING_FIX
     scope: labor-multi-interval
     parent_invariant: LABOR-EXACT-SESSION-002
-    rule: "One attendance session may have multiple labor intervals with unique labor_id; at most one OPEN, no overlap or auto-merge, exact labor edit/finish, attendance-bound and non-future times, all intervals visible."
-    regression_minimum: [multiple_intervals, one_open, no_overlap, no_auto_merge, exact_labor_id, attendance_bounds, no_future, all_visible]
+    rule: "One attendance session may have multiple labor intervals with unique labor_id; max one OPEN; no overlap/auto-merge; start cannot be future or before attendance; end may be preplanned into the future up to the shift cap (Ca1 14:00, CaHC 17:00, Ca2 22:00), may extend beyond shift only when actual attendance extends and never beyond actual exit; exact edit/finish; batch create/finish require real-time password confirmation."
+    regression_minimum: [multiple_intervals, one_open, no_overlap, no_auto_merge, exact_labor_id, start_not_future, shift_end_cap, overtime_elapsed_or_exit_cap, deduct_support_exact, grouped_employee_card, batch_create_filters, batch_finish_filters, password_gate]
     regression_case: "qa/beta113_owner_scope_regression.md + tools/beta113_owner_scope_contract.py"
-    owner_acceptance: "PENDING_BETA114"
-    technical_evidence: "Beta114 LIVE technical PASS: source 5686da2cc6fdb2bf845456bda9e703eb68e9f1f0; candidate 33691947969/9870515268; Fast Check 33698830085; visual+PDA+API36 33698830042/9872907916; device 33697808957/9872457667; runtime 33698019451/9872504979; terminal 33699803398; publish 9873117701; OTA/install/readback 9873169722; final 9873176752; SHA256 cc611efc72a3cd0af413f316b6182adb281d398c189f5bb9d613235722b296bd; size 14232565; Stable/main/signer/authority unchanged."
-    technical_receipt: "ops/beta114-technical-pass.json"
+    owner_acceptance: "PENDING_BETA115_OWNER_REVISED_2026-09-03T08:06+07:00"
     active_pass: false
 
   - id: UI-DATA-DATE-SELECT-001
-    status: TECHNICAL_PASS_AWAITING_OWNER
+    status: LOCKED_REQUIREMENT_PENDING_FIX
     scope: data-display-date-picker
-    rule: "Display-only date pickers enable only dates with real data and dim/disable empty dates; edit/change date-time pickers remain unrestricted."
-    regression_minimum: [report_data_dates, history_data_dates, labor_data_dates, meal_data_dates, all_display_only_dates, empty_dim_disabled, edit_date_exempt]
+    rule: "Display-only date pickers enable dates with real data and always enable TODAY even when empty; other empty dates remain dim/disabled. Edit/change date-time pickers remain unrestricted."
+    regression_minimum: [report_data_dates, history_data_dates, labor_data_dates, meal_data_dates, today_always_selectable, other_empty_dim_disabled, edit_date_exempt]
     regression_case: "qa/beta113_owner_scope_regression.md + tools/beta113_owner_scope_contract.py"
-    owner_acceptance: "PENDING_BETA114"
-    technical_evidence: "Beta114 LIVE technical PASS: source 5686da2cc6fdb2bf845456bda9e703eb68e9f1f0; candidate 33691947969/9870515268; Fast Check 33698830085; visual+PDA+API36 33698830042/9872907916; device 33697808957/9872457667; runtime 33698019451/9872504979; terminal 33699803398; publish 9873117701; OTA/install/readback 9873169722; final 9873176752; SHA256 cc611efc72a3cd0af413f316b6182adb281d398c189f5bb9d613235722b296bd; size 14232565; Stable/main/signer/authority unchanged."
-    technical_receipt: "ops/beta114-technical-pass.json"
+    owner_acceptance: "PENDING_BETA115_OWNER_REVISED_2026-09-03T08:06+07:00"
     active_pass: false
 
   - id: UI-EMPLOYEE-SCAN-ROSTER-001
@@ -328,15 +324,13 @@ invariants:
     active_pass: true
 
   - id: UI-FORM-CONSISTENCY-002
-    status: TECHNICAL_PASS_AWAITING_OWNER
+    status: LOCKED_REQUIREMENT_PENDING_FIX
     scope: form-select-ui-consistency
     parent_invariant: UI-REVIEW-WARNING-001
-    rule: "Common form controls use consistent title/value hierarchy, radius/stroke/size; MNV scan intentionally uses 2dp emphasis; locked Beta112 ReviewAlertUi geometry and severity semantics remain unchanged."
-    regression_minimum: [common_outline, spinner_hierarchy, pda_select_hierarchy, review_alert_unchanged, visual_matrix]
+    rule: "Every select uses the canonical label/selected-value/options hierarchy: label muted+small, selected value stronger/bold, option rows weaker/normal; this includes reason-for-no-return and all catalog selects. Common base form outline remains consistent and ACTIVE_PASS ReviewAlertUi geometry/severity semantics remain unchanged."
+    regression_minimum: [all_selects_canonical, reason_select_canonical, spinner_hierarchy, pda_select_hierarchy, common_outline_preserved, review_alert_unchanged]
     regression_case: "qa/beta113_owner_scope_regression.md + tools/beta113_owner_scope_contract.py"
-    owner_acceptance: "PENDING_BETA114"
-    technical_evidence: "Beta114 LIVE technical PASS: source 5686da2cc6fdb2bf845456bda9e703eb68e9f1f0; candidate 33691947969/9870515268; Fast Check 33698830085; visual+PDA+API36 33698830042/9872907916; device 33697808957/9872457667; runtime 33698019451/9872504979; terminal 33699803398; publish 9873117701; OTA/install/readback 9873169722; final 9873176752; SHA256 cc611efc72a3cd0af413f316b6182adb281d398c189f5bb9d613235722b296bd; size 14232565; Stable/main/signer/authority unchanged."
-    technical_receipt: "ops/beta114-technical-pass.json"
+    owner_acceptance: "PENDING_BETA115_OWNER_REVISED_2026-09-03T08:06+07:00"
     active_pass: false
 
 
