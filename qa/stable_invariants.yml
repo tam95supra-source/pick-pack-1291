@@ -504,14 +504,14 @@ invariants:
 
 
   - id: OTA-BETA-LIVE-RECOVERY-002
-    status: TECHNICAL_PASS_AWAITING_OWNER
+    status: ACTIVE_PASS
     scope: beta-ota-service-recovery
     rule: "Beta115 phải lấy được Beta116 qua update_check khi Internet hoạt động; không yêu cầu xóa dữ liệu app; APK GitHub Release exact bytes."
     regression_minimum: [worker_health, gas_service_discovery, update_check_from_beta115, exact_manifest_identity, stale_cache_self_rewrite, service_test_cleanup, stable_untouched]
     regression_case: "ops/beta116-ota-service-recovery.json"
     technical_evidence: "OWNER reported Beta115 could not update and UI showed Service degraded. Fresh recovery: service-discovery 33784531907/9904956795 PASS; exact Beta116 Service source cf01dab16e1c62091561ca008a355a8f49326581 redeployed and full service regression 33784753619/9905201718 PASS with test_cleanup PASS; Beta-only live readback 33788505404/9906368570 PASS: Worker /health HTTP 200, GAS service_discovery HTTP 200 -> https://pickpack.1291.workers.dev, update_check from current_version 0.4.2-beta.115 HTTP 200 available=true -> 0.4.2-beta.116 code 122, SHA256 a346d4554e07fc37552c9d8876179860677fc93923a3bd42f9b3f97f5e11f235, size 14347253, GitHub Release URL exact. No APK rebuild/resign/republish; Stable untouched. Initial device degradation exact cause not provable from contaminated first probes."
-    owner_acceptance: "PENDING_REAL_DEVICE_RETRY"
-    active_pass: false
+    owner_acceptance: "OK_REAL_DEVICE_BETA115_TO_BETA116_OTA"
+    active_pass: true
 
 impact_map:
   "app/**": [DOCUMENT-DRAFT-NOTE-UX-003, DOCUMENT-GROUP-VIEWER-004, PDA-SERIAL-DERIVE-002, REPORT-LABOR-DEDUCTION-002, DROP-RECEIVE-CRUD-001, LOCAL-FIRST-RECONCILE-002, ATTENDANCE-QR-FILTER-002, LABOR-FIXED-ROLE-REVIEW-005, ADMIN-OTHER-PASSWORD-003, LAN-GLOBAL-TEST-002, UI-TAP-FEEDBACK-004, LABOR-SCAN-PINNED-004, UI-FORM-BASE-CONSISTENCY-003, UI-STATUS-001, QR-LOCAL-001, MEAL-DATE-001, MEAL-WARN-001, ROLE-HISTORY-001, OTA-BETA-001, PDA-EXIT-001, ENV-ISOLATION-001, SERVICE-DISCOVERY-001, SHIFT-STAFF-DOWNLOAD-QR-001, DOCUMENT-MANAGEMENT-001, DOCUMENT-BATCH-001, LABOR-TIME-RANGE-001, MEAL-UI-NULL-001, UI-COPY-DENSITY-001, NAV-HISTORY-BACK-001, UI-REVIEW-WARNING-001, LABOR-EXACT-SESSION-002, HISTORY-DELETE-CANONICAL-001, DOCUMENT-BATCH-MODE-TICK-002, INFRA-RESILIENCE-001, CHANGELOG-CURRENT-VERSION-001, ADMIN-AUDIT-PASSWORD-001, HISTORY-SUPERADMIN-CLEANUP-002, LABOR-MULTI-INTERVAL-003, UI-DATA-DATE-SELECT-001, UI-EMPLOYEE-SCAN-ROSTER-001, UI-FORM-CONSISTENCY-002]

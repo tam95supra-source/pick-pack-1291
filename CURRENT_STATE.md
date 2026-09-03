@@ -43,10 +43,12 @@
 - pass_live_validation_run: 33783284600 PASS
 - final_tree_targeted_verification: PASS
 - technical_receipt: ops/beta116-technical-pass.json
-- next_action: WAIT_FOR_OWNER_RECHECK_BETA115_TO_BETA116_OTA
+- next_action: WAIT_FOR_OWNER_ACCEPTANCE_BETA116_CHECKLIST_1_TO_11
 
-- ota_service_incident_recovery: TECHNICAL_PASS_AWAITING_OWNER
+- ota_service_incident_recovery: ACTIVE_PASS
 - ota_service_recovery_receipt: ops/beta116-ota-service-recovery.json
 - service_recovery_run: 33784753619 / 9905201718 PASS
 - beta115_update_readback_run: 33788505404 / 9906368570 PASS
 - beta115_update_readback: HTTP 200 available=true -> Beta116 exact GitHub Release
+
+- ota_service_owner_acceptance: OK_REAL_DEVICE_BETA115_TO_BETA116_OTA

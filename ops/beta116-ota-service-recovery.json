@@ -1,5 +1,5 @@
 {
-  "status": "TECHNICAL_PASS_AWAITING_OWNER",
+  "status": "ACTIVE_PASS",
   "incident_id": "OTA-BETA-LIVE-RECOVERY-002",
   "owner_report": "Beta115 cannot update to Beta116; Service shows degraded / cannot connect.",
   "beta_live": {
@@ -54,6 +54,7 @@
   "apk_resigned": false,
   "apk_republished": false,
   "stable_touched": false,
-  "owner_acceptance": "PENDING_REAL_DEVICE_RECHECK",
-  "next_action": "OWNER_RETRY_BETA115_TO_BETA116_OTA_ON_REAL_DEVICE_NO_DATA_CLEAR"
+  "owner_acceptance": "OK_REAL_DEVICE_BETA115_TO_BETA116_OTA",
+  "next_action": "CONTINUE_BETA116_OWNER_CHECKLIST_1_TO_11",
+  "owner_accepted_at": "2026-09-04"
 }

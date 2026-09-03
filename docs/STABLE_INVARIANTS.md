@@ -492,12 +492,12 @@ Technical receipt: `ops/beta116-technical-pass.json`. Regression: `qa/beta116_ow
 
 
 ### OTA-BETA-LIVE-RECOVERY-002
-- Status: TECHNICAL_PASS_AWAITING_OWNER
+- Status: ACTIVE_PASS
 - Scope: Beta OTA / Service recovery / update_check.
 - Rule: Beta115 phải tự lấy được Beta116 qua environment-scoped update_check khi Internet hoạt động; Service recovery không được yêu cầu xóa dữ liệu app; APK vẫn GitHub Release exact bytes.
 - Regression: fresh Worker health + GAS service_discovery + update_check(current=Beta115) exact version/hash/size/GitHub URL; stale discovery cache phải tự rewrite; Service recovery giữ authority/Stable và cleanup test fixture.
 - Technical evidence: OWNER reported Beta115 could not update and UI showed Service degraded. Fresh recovery: service-discovery 33784531907/9904956795 PASS; exact Beta116 Service source cf01dab16e1c62091561ca008a355a8f49326581 redeployed and full service regression 33784753619/9905201718 PASS with test_cleanup PASS; Beta-only live readback 33788505404/9906368570 PASS: Worker /health HTTP 200, GAS service_discovery HTTP 200 -> https://pickpack.1291.workers.dev, update_check from current_version 0.4.2-beta.115 HTTP 200 available=true -> 0.4.2-beta.116 code 122, SHA256 a346d4554e07fc37552c9d8876179860677fc93923a3bd42f9b3f97f5e11f235, size 14347253, GitHub Release URL exact. No APK rebuild/resign/republish; Stable untouched. Initial device degradation exact cause not provable from contaminated first probes.
-- OWNER acceptance: PENDING real-device retry.
+- OWNER acceptance: OK — OWNER xác nhận cập nhật Beta115 → Beta116 trên thiết bị thật thành công.
 
 
 ## 5. Quy tắc tích lũy sau mỗi task
