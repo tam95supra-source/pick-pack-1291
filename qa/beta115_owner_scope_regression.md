@@ -77,3 +77,9 @@ Baseline: items 1,2,3,4,5,9,10 from Beta114 remain ACTIVE_PASS and must not regr
 - all other existing ACTIVE_PASS invariants.
 
 Release is not allowed until these cases and the full impacted ACTIVE_PASS regression are PASS on the same exact signed Beta115 candidate.
+
+## Release provenance regression
+- APK release metadata and GitHub Release must bind `candidate_source_sha` (exact APK source).
+- Service drift guard must bind `source_sha` separately when service changed after the APK candidate was locked.
+- A service-only fix after candidate lock must not rebuild/resign APK and must not make publish compare APK metadata against the service source SHA.
+
