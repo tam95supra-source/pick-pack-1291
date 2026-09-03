@@ -1921,10 +1921,10 @@ class OperationsActivity : Activity() {
         screenState="RESOURCE_HOME"
         val root=baseRoot("TÀI NGUYÊN");val body=body()
         val cards=listOf(
-            Triple("PDA","DANH SÁCH PDA",""),
-            Triple("USER_PICK","DANH SÁCH USER PICK","User Pick / tình trạng"),
-            Triple("PACK_TABLE","DANH SÁCH BÀN PACK","Bàn Pack / tình trạng"),
-            Triple("USER_PACK","DANH SÁCH USER PACK","User Pack / bàn liên kết")
+            Triple("PDA","PDA","Danh sách PDA"),
+            Triple("USER_PICK","USER PICK","Danh sách / tình trạng"),
+            Triple("PACK_TABLE","BÀN PACK","Danh sách / tình trạng"),
+            Triple("USER_PACK","USER PACK","Danh sách / bàn liên kết")
         )
         cards.chunked(2).forEach{pair->
             val row=businessRow(
@@ -1965,13 +1965,22 @@ class OperationsActivity : Activity() {
         val note=input("Ghi chú",false).apply{setText(meta.optString("Ghi chú").ifBlank{meta.optString("note")})}
         val extra1=input(when(type){"PDA"->"5 số cuối Seri";"USER_PICK"->"Số User";"USER_PACK"->"Tên bàn pack";else->""},false)
         val extra2=input(if(type=="USER_PACK")"Nhãn User pack (ví dụ CA 1-...)" else "",false)
-        if(type=="PDA")extra1.setText(meta.optString("5 số cuối Seri"));if(type=="USER_PICK")extra1.setText(meta.optString("Số User"));if(type=="USER_PACK"){extra1.setText(meta.optString("Tên bàn pack").ifBlank{meta.optString("pack_table")});extra2.setText(meta.optString("User pack").ifBlank{meta.optString("label")})}
+        if(type=="PDA"){
+            fun syncLast5(){
+                val clean=id.text.toString().replace(Regex("\\s+"),"")
+                if(id.text.toString()!=clean){id.setText(clean);id.setSelection(clean.length);return}
+                extra1.setText(clean.takeLast(5));extra1.isEnabled=false;extra1.alpha=.72f
+            }
+            id.addTextChangedListener(object:TextWatcher{override fun beforeTextChanged(v:CharSequence?,a:Int,b:Int,c:Int)=Unit;override fun onTextChanged(v:CharSequence?,a:Int,b:Int,c:Int)=syncLast5();override fun afterTextChanged(v:Editable?)=Unit})
+            syncLast5()
+        }else if(type=="USER_PICK")extra1.setText(meta.optString("Số User")) else if(type=="USER_PACK"){extra1.setText(meta.optString("Tên bàn pack").ifBlank{meta.optString("pack_table")});extra2.setText(meta.optString("User pack").ifBlank{meta.optString("label")})}
         fun add(l:String,v:View){if(l.isBlank())return;box.addView(txt(l,10.2f,ink,true));box.addView(gap(4));box.addView(v,matchWrap());box.addView(gap(8))}
-        add("Mã / tên tài nguyên",id);add("Tình trạng",statusSp);if(type!="PACK_TABLE")add(extra1.hint?.toString().orEmpty(),extra1);if(type=="USER_PACK")add(extra2.hint?.toString().orEmpty(),extra2);add("Ghi chú",note)
+        add("Mã / tên tài nguyên",id);add("Tình trạng",statusSp);if(type=="PDA")add("5 số cuối Seri (tự động)",extra1) else if(type!="PACK_TABLE")add(extra1.hint?.toString().orEmpty(),extra1);if(type=="USER_PACK")add(extra2.hint?.toString().orEmpty(),extra2);add("Ghi chú",note)
         AlertDialog.Builder(this).setTitle(if(existing==null)"Thêm tài nguyên" else "Sửa tài nguyên").setView(ScrollView(this).apply{addView(box)}).setNegativeButton("Hủy",null).setPositiveButton("LƯU"){_,_->
             val key=id.text.toString().trim();if(key.isBlank()){showError("Mã tài nguyên là bắt buộc.");return@setPositiveButton}
+            if(type=="PDA"&&key.any{it.isWhitespace()}){showError("Mã / tên PDA không được có khoảng trống.");return@setPositiveButton}
             val m=JSONObject().put("Ghi chú",note.text.toString().trim())
-            when(type){"PDA"->{val last=extra1.text.toString().trim().ifBlank{key.takeLast(5)};if(last.length!=5||!last.all{it.isDigit()}){showError("5 số cuối Seri phải gồm đúng 5 chữ số.");return@setPositiveButton};m.put("Seri PDA",key).put("5 số cuối Seri",last)};"USER_PICK"->m.put("User Pick",key).put("Số User",extra1.text.toString().trim());"USER_PACK"->{val table=extra1.text.toString().trim();if(table.isBlank()){showError("Tên bàn pack là bắt buộc cho User Pack.");return@setPositiveButton};m.put("Tên bàn pack",table).put("User Pack",key).put("User pack",extra2.text.toString().trim())};"PACK_TABLE"->m.put("Tên bàn pack",key)}
+            when(type){"PDA"->{val last=key.takeLast(5);if(last.length!=5||!last.all{it.isDigit()}){showError("5 ký tự cuối Mã / tên PDA phải là 5 chữ số Seri.");return@setPositiveButton};m.put("Seri PDA",key).put("5 số cuối Seri",last)};"USER_PICK"->m.put("User Pick",key).put("Số User",extra1.text.toString().trim());"USER_PACK"->{val table=extra1.text.toString().trim();if(table.isBlank()){showError("Tên bàn pack là bắt buộc cho User Pack.");return@setPositiveButton};m.put("Tên bàn pack",table).put("User Pack",key).put("User pack",extra2.text.toString().trim())};"PACK_TABLE"->m.put("Tên bàn pack",key)}
             val p=JSONObject().put("operation","UPSERT").put("resource_type",type).put("resource_id",key).put("status_label",statusSp.selectedItem?.toString().orEmpty()).put("metadata",m).put("idempotency_key",UUID.randomUUID().toString())
             api.call("resource_master_upsert",p){r->runOnUiThread{if(handleAuth(r))return@runOnUiThread;if(!r.ok)showError(r.error?:"Không lưu được tài nguyên")else{TopNotice.show(this,"Đã cập nhật tài nguyên.",TopNotice.Kind.SUCCESS);resourceListScreen(type,when(type){"PDA"->"DANH SÁCH PDA";"USER_PICK"->"DANH SÁCH USER PICK";"PACK_TABLE"->"DANH SÁCH BÀN PACK";else->"DANH SÁCH USER PACK"})}}}
         }.show()
@@ -2142,9 +2151,21 @@ class OperationsActivity : Activity() {
             box.removeAllViews();if(cachedDate!=selectedDate){box.addView(info("Đang đọc snapshot $selectedDate từ bộ nhớ PDA…"));return}
             val selected=cachedEntries.filter{when(period.selectedItemPosition){0->shiftBucket(it.shift) in setOf("CA1","HC");1->shiftBucket(it.shift)=="CA2";else->true}}
             val support=selected.filter{it.deductSupport}.distinctBy{"${it.mnv}|${shiftBucket(it.shift)}"}
-            val main=selected.filterNot{it.deductSupport}
+            // OWNER Beta116: Tổng luôn là nhân sự thực tế trước khấu trừ.
+            val main=selected
             box.addView(s34ReportGrid("",makeGrid(main,"position",selectedDate),"Vị trí","position"));box.addView(gap(4));box.addView(s34ReportGrid("",makeGrid(main,"tenure",selectedDate),"Thâm niên","label"))
-            if(support.isNotEmpty()){box.addView(gap(4));box.addView(s34ReportGrid("",supportGrid(support),"Hỗ trợ","position"))}
+            val pickerBase=main.count{reportPosition(it.emp,it.work)=="Picker"}
+            val packerBase=main.count{reportPosition(it.emp,it.work)=="Packer"}
+            val pickerDeduct=support.count{reportPosition(it.emp,it.work)=="Picker"}
+            val packerDeduct=support.count{reportPosition(it.emp,it.work)=="Packer"}
+            box.addView(gap(4))
+            box.addView(details(listOf(
+                "Tổng nhân sự" to main.distinctBy{"${it.mnv}|${shiftBucket(it.shift)}"}.size.toString(),
+                "Khấu trừ công nhật" to support.size.toString(),
+                "Picker thực tế" to "${(pickerBase-pickerDeduct).coerceAtLeast(0)} / $pickerBase",
+                "Packer thực tế" to "${(packerBase-packerDeduct).coerceAtLeast(0)} / $packerBase"
+            )))
+            if(support.isNotEmpty()){box.addView(gap(4));box.addView(s34ReportGrid("",supportGrid(support),"Khấu trừ công nhật","position"))}
             if(cachedEntries.isEmpty())box.addView(info("Chưa có snapshot ngày đã chọn trên PDA. Chọn ngày khác hoặc đồng bộ để tải dữ liệu canonical."))
         }
         fun loadDate(){
@@ -3053,7 +3074,8 @@ class OperationsActivity : Activity() {
                         addView(gap(6))
                         val actions=row(surface)
                         if(isSuper()){
-                            actions.addView(smallButton("SỬA",teal).apply{setOnClickListener{accountEditDialog(x)}},LinearLayout.LayoutParams(0,dp(38),1f).apply{marginEnd=dp(3)})
+                            actions.addView(smallButton("SỬA",teal).apply{setOnClickListener{accountEditDialog(x)}},LinearLayout.LayoutParams(0,dp(38),.85f).apply{marginEnd=dp(2)})
+                            if(!isProtectedAccount)actions.addView(smallButton("ĐỔI MK",navy).apply{setOnClickListener{changeOtherAccountPassword(x)}},LinearLayout.LayoutParams(0,dp(38),1f).apply{marginStart=dp(2);marginEnd=dp(2)})
                         }
                         val newStatus=if(x.optString("status")=="ACTIVE")"DISABLED" else "ACTIVE"
                         actions.addView(smallButton(if(newStatus=="DISABLED")"VÔ HIỆU" else "KÍCH HOẠT",if(newStatus=="DISABLED")orange else green).apply{
@@ -3070,6 +3092,28 @@ class OperationsActivity : Activity() {
             }
         }}
         attach(root,body)
+    }
+
+    private fun changeOtherAccountPassword(x:JSONObject){
+        if(!isSuper())return
+        val id=x.optString("login_id").trim()
+        if(id.isBlank()||id==login||x.optString("role").equals("SUPERADMIN",true)){showError("Không thể đổi mật khẩu tài khoản này.");return}
+        val box=column(surface).apply{setPadding(dp(10),dp(4),dp(10),dp(8))}
+        val next=input("Mật khẩu mới",true);val confirm=input("Nhập lại mật khẩu mới",true)
+        box.addView(labelled("Tài khoản",txt("$id • ${x.optString("display_name")}",11f,navy,true)));box.addView(gap(7));box.addView(next);box.addView(gap(7));box.addView(confirm)
+        val dialog=AlertDialog.Builder(this).setTitle("Đổi mật khẩu cho $id").setView(box).setNegativeButton("Hủy",null).setPositiveButton("CẬP NHẬT",null).create()
+        dialog.setOnShowListener{dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener{
+            val a=next.text.toString();if(a.length !in 8..128){showError("Mật khẩu mới phải có ít nhất 8 ký tự.");return@setOnClickListener}
+            if(a!=confirm.text.toString()){showError("Mật khẩu xác nhận không khớp.");return@setOnClickListener}
+            dialog.dismiss()
+            verifyActionPassword("đổi mật khẩu tài khoản $id"){
+                api.call("account_upsert",JSONObject().put("login_id",id).put("display_name",x.optString("display_name")).put("position",x.optString("role").lowercase()).put("email",x.optString("email")).put("role",x.optString("role")).put("password",a)){r->runOnUiThread{
+                    if(handleAuth(r))return@runOnUiThread
+                    if(!r.ok)showError(r.error?:"Không đổi được mật khẩu") else{TopNotice.show(this,"Đã đổi mật khẩu cho $id.",TopNotice.Kind.SUCCESS);accountManager()}
+                }}
+            }
+        }}
+        dialog.show()
     }
 
     private fun accountEditDialog(x:JSONObject,verified:Boolean=false){
@@ -3444,7 +3488,7 @@ raw.contains("PDA_STATUS_MISMATCH_NOTIFY_SPECIALIST")->"Tình trạng PDA hiện
         addView(gap(3))
         addView(View(this@OperationsActivity).apply{background=round(teal,2)},size(dp(26),dp(3)))
         if(sub.isNotBlank()){addView(gap(6));addView(txt(sub,9.8f,muted,false).apply{gravity=Gravity.CENTER;maxLines=3;ellipsize=android.text.TextUtils.TruncateAt.END;setAutoSizeTextTypeUniformWithConfiguration(8,10,1,android.util.TypedValue.COMPLEX_UNIT_SP)},matchWrap())}
-        if(enabled)setOnClickListener{click()} else setOnClickListener(null)
+        if(enabled)setOnClickListener{tapFeedback(this);click()} else setOnClickListener(null)
     }
 
     private fun businessRow(a:View,b:View)=row(bg).apply{
@@ -3456,10 +3500,15 @@ raw.contains("PDA_STATUS_MISMATCH_NOTIFY_SPECIALIST")->"Tình trạng PDA hiện
         addView(Space(this@OperationsActivity),LinearLayout.LayoutParams(0,dp(112),1f).apply{marginStart=dp(3)})
     }
 
+    private fun tapFeedback(v:View){
+        v.animate().cancel();v.animate().scaleX(.96f).scaleY(.96f).translationY(-dp(1).toFloat()).setDuration(70L).withEndAction{
+            v.animate().scaleX(1f).scaleY(1f).translationY(0f).setDuration(90L).start()
+        }.start()
+    }
     private fun iconActionButton(res:Int,color:Int,desc:String,click:()->Unit)=FrameLayout(this).apply{
         contentDescription=desc
         background=round(ThemeManager.soft(this@OperationsActivity),10)
-        setOnClickListener{click()}
+        setOnClickListener{tapFeedback(this);click()}
         addView(ImageView(this@OperationsActivity).apply{setImageResource(res);imageTintList=ColorStateList.valueOf(color);setPadding(dp(8),dp(8),dp(8),dp(8))},FrameLayout.LayoutParams(-1,-1))
     }
 
@@ -3617,8 +3666,8 @@ raw.contains("PDA_STATUS_MISMATCH_NOTIFY_SPECIALIST")->"Tình trạng PDA hiện
         }
         setPadding(0,0,0,0);minimumHeight=dp(46);background=outline();elevation=0f
     }
-    private fun primary(t:String,c:Int,click:()->Unit)=Button(this).apply{text=t;textSize=11.5f;setTextColor(Color.WHITE);typeface=Typeface.DEFAULT_BOLD;isAllCaps=false;minHeight=dp(46);background=gradient(c,darken(c),12);elevation=0f;setOnClickListener{click()}}
-    private fun smallButton(t:String,c:Int)=Button(this).apply{text=t;textSize=9.5f;setTextColor(Color.WHITE);typeface=Typeface.DEFAULT_BOLD;isAllCaps=false;background=round(c,10);setPadding(dp(4),0,dp(4),0)}
+    private fun primary(t:String,c:Int,click:()->Unit)=Button(this).apply{text=t;textSize=11.5f;setTextColor(Color.WHITE);typeface=Typeface.DEFAULT_BOLD;isAllCaps=false;minHeight=dp(46);background=gradient(c,darken(c),12);elevation=0f;setOnClickListener{tapFeedback(this);click()}}
+    private fun smallButton(t:String,c:Int)=Button(this).apply{text=t;textSize=9.5f;setTextColor(Color.WHITE);typeface=Typeface.DEFAULT_BOLD;isAllCaps=false;background=round(c,10);setPadding(dp(4),0,dp(4),0);setOnTouchListener{v,e->if(e.action==android.view.MotionEvent.ACTION_UP)tapFeedback(v);false}}
     private fun reconciliationButton(t:String,balanced:Boolean)=ReviewAlertUi.button(
         this,
         t,
