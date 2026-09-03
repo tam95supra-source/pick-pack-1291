@@ -137,18 +137,19 @@ try:
         login=str(row[0] if len(row)>0 else "").strip()
         role=str(row[2] if len(row)>2 else "").strip().upper()
         status=str(row[8] if len(row)>8 else "ACTIVE").strip().upper() or "ACTIVE"
-        if login=="admintest" and role=="ADMIN" and status=="ACTIVE":admin=row;break
-    if not admin:raise RuntimeError("BETA_ADMINTEST_ACTIVE_ACCOUNT_NOT_FOUND")
+        if login=="user1" and role=="USER" and status=="ACTIVE":admin=row;break
+    if not admin:raise RuntimeError("BETA_USER1_ACTIVE_ACCOUNT_NOT_FOUND")
     verifier=str(admin[1] if len(admin)>1 else "").strip();vp=verifier.split("$")
     if len(vp)!=4 or vp[0]!="pbkdf2_sha256":raise RuntimeError("BETA_ADMINTEST_VERIFIER_INVALID")
     key=b64ud(vp[3])
 
     device="owner-seed-"+hashlib.sha256((os.environ.get("GITHUB_RUN_ID","run")+"-gas").encode()).hexdigest()[:12]
-    ch=gas_post(env_body("login_challenge",{"login_id":"admintest","_device_id":device}))
+    ch=gas_post(env_body("login_challenge",{"login_id":"user1","_device_id":device}))
     if ch.get("ok") is not True:raise RuntimeError("GAS_LOGIN_CHALLENGE_FAILED")
     proof=b64u(hmac.new(key,str(ch["challenge"]).encode(),hashlib.sha256).digest())
-    login=gas_post(env_body("login",{"login_id":"admintest","challenge_id":ch["challenge_id"],"proof":proof,"_device_id":device,"_device_label":"OWNER BETA TEST SEED"}))
-    if login.get("ok") is not True or (login.get("account") or {}).get("role")!="ADMIN":raise RuntimeError("GAS_ADMINTEST_LOGIN_FAILED")
+    login=gas_post(env_body("login",{"login_id":"user1","challenge_id":ch["challenge_id"],"proof":proof,"_device_id":device,"_device_label":"OWNER BETA TEST SEED"}))
+    if login.get("ok") is not True or (login.get("account") or {}).get("role")!="USER":
+        raise RuntimeError("GAS_USER1_LOGIN_FAILED:"+str(login.get("error") or (login.get("account") or {}).get("role") or "UNKNOWN"))
     gas_token=str(login.get("token") or "")
     if not gas_token:raise RuntimeError("GAS_TOKEN_MISSING")
 
