@@ -17,6 +17,7 @@ BASE_CODE=$(jq -r '.base_version_code' "$R")
 SERVICE_SOURCE=$(jq -r '.source_sha' "$R")
 CANDIDATE_SOURCE=$(jq -r '.candidate_source_sha // .source_sha' "$R")
 BASE_SOURCE=$(jq -r '.base_source_sha' "$R")
+BASE_CANDIDATE_SOURCE=$(jq -r '.base_candidate_source_sha // .base_source_sha' "$R")
 SHA=$(jq -r '.apk_sha256' "$R")
 SIZE=$(jq -r '.apk_size' "$R")
 SIGNER=$(jq -r '.signer_sha256' "$R")
@@ -111,7 +112,7 @@ python3 tools/gas_resilience_contract_readback.py "$E/gas-resilience-readback.js
 
 BASE_APK_NAME=$(basename "$BASE_APK")
 printf '%s\n' "Exact LIVE rollback baseline $PREV." > "$E/base-release-notes.txt"
-bash tools/ensure_beta_github_release.sh "$PREV" "$BASE_SOURCE" "$BASE_APK" "$BASE_SHA" "$BASE_SIZE" \
+bash tools/ensure_beta_github_release.sh "$PREV" "$BASE_CANDIDATE_SOURCE" "$BASE_APK" "$BASE_SHA" "$BASE_SIZE" \
   "$E/base-release-notes.txt" "$BASE_APK_NAME" "$E/base-github-release.json"
 BASE_URL=$(jq -r '.apk_url' "$E/base-github-release.json")
 test -n "$BASE_URL"

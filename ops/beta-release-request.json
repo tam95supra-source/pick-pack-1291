@@ -53,8 +53,8 @@
   "stable_gas_repair_status": "PASS",
   "beta_domain_status": "PASS",
   "regression_case": "tools/beta116_owner_scope_contract.py + preserve Beta115 ACTIVE_PASS including LABOR-EXACT-SESSION-002, DOCUMENT-BATCH-MODE-TICK-002, UI-REVIEW-WARNING-001, NAV-HISTORY-BACK-001, PDA-EXIT-001, ENV-ISOLATION-001",
-  "execution_nonce": "beta116-publish-exact-locked-20260903-14",
-  "next_action": "PUBLISH_EXACT_LOCKED_BYTES_AND_VERIFY_OTA_READBACK",
+  "execution_nonce": "beta116-publish-provenance-fix-20260903-15",
+  "next_action": "RETRY_PUBLISH_EXACT_LOCKED_BYTES_AFTER_BASELINE_PROVENANCE_HARNESS_FIX",
   "service_gate_status": "PASS",
   "service_gate_run_id": 33767353642,
   "service_gate_artifact_id": 9898616640,
@@ -97,5 +97,10 @@
   "release_lock_status": "LOCKED",
   "release_lock_receipt": "ops/beta116-release-lock.json",
   "release_lock_at": "2026-09-03T16:31:03Z",
-  "technical_pass_status": "PENDING_OTA_READBACK"
+  "technical_pass_status": "PENDING_OTA_READBACK",
+  "base_candidate_source_sha": "3f343ea1be0dbace5df995e4c81e1cdca9defd24",
+  "failed_publish_run_id": 33779160977,
+  "failed_publish_artifact_id": 9902882397,
+  "publish_failure_class": "HARNESS_BASELINE_RELEASE_CANDIDATE_SERVICE_SOURCE_CONFLATION_PRE_ACTIVATION",
+  "publish_partial_activation": false
 }
