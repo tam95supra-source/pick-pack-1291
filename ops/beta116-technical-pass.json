@@ -44,11 +44,11 @@
     "ota_republished": false,
     "harness_fixed": true
   },
-  "owner_acceptance": "PENDING",
+  "owner_acceptance": "PARTIAL",
   "owner_checklist_count": 11,
   "pass_live_validation_run_id": 33783284600,
   "post_finalize_fast_check_run_id": null,
-  "next_action": "WAIT_FOR_OWNER_ACCEPTANCE_BETA116_CHECKLIST_1_TO_11",
+  "next_action": "IMPLEMENT_BETA117_OWNER_FOLLOWUP_AND_PERFORMANCE_SCOPE",
   "pass_live_validation": "PASS",
   "product_fast_check_run_id": 33780103022,
   "final_tree_targeted_verification": "PASS",
@@ -66,5 +66,21 @@
     "service_recovery_run_id": 33784753619,
     "beta115_update_readback_run_id": 33788505404,
     "owner_recheck": "OK_REAL_DEVICE_BETA115_TO_BETA116_OTA"
-  }
+  },
+  "owner_accepted_invariants": [
+    "DOCUMENT-DRAFT-NOTE-UX-003",
+    "DOCUMENT-GROUP-VIEWER-004",
+    "PDA-SERIAL-DERIVE-002",
+    "DROP-RECEIVE-CRUD-001",
+    "ATTENDANCE-QR-FILTER-002",
+    "LABOR-FIXED-ROLE-REVIEW-005",
+    "ADMIN-OTHER-PASSWORD-003",
+    "LAN-GLOBAL-TEST-002",
+    "UI-TAP-FEEDBACK-004"
+  ],
+  "owner_pending_invariants": [
+    "REPORT-LABOR-DEDUCTION-002",
+    "LOCAL-FIRST-RECONCILE-002"
+  ],
+  "owner_acceptance_receipt": "ops/beta116-owner-acceptance-partial.json"
 }

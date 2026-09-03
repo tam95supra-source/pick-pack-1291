@@ -49,5 +49,11 @@ Không có blocker kỹ thuật.
 - Incident receipt: `ops/beta116-ota-service-recovery.json`.
 - Trạng thái: ACTIVE_PASS — OWNER xác nhận Beta115 → Beta116 cập nhật thực tế OK.
 
+## OWNER acceptance Beta116 — 2026-09-04
+- Accepted: 1,2,3,5,7,8,9,10,11.
+- Pending: 4,6 do chưa có dữ liệu đủ nghiệm thu.
+- Các yêu cầu tinh chỉnh mới của OWNER được tách thành Beta117, không sửa lịch sử ACTIVE_PASS của scope Beta116.
+- Receipt: `ops/beta116-owner-acceptance-partial.json`.
+
 ## NEXT_ACTION
-WAIT_FOR_OWNER_ACCEPTANCE_BETA116_CHECKLIST_1_TO_11
+IMPLEMENT_BETA117_OWNER_FOLLOWUP_AND_PERFORMANCE_SCOPE

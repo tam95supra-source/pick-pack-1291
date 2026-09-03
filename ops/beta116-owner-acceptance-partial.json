@@ -1,0 +1,24 @@
+{
+  "status": "PARTIAL_OWNER_ACCEPTANCE",
+  "version_name": "0.4.2-beta.116",
+  "version_code": 122,
+  "accepted_invariants": [
+    "DOCUMENT-DRAFT-NOTE-UX-003",
+    "DOCUMENT-GROUP-VIEWER-004",
+    "PDA-SERIAL-DERIVE-002",
+    "DROP-RECEIVE-CRUD-001",
+    "ATTENDANCE-QR-FILTER-002",
+    "LABOR-FIXED-ROLE-REVIEW-005",
+    "ADMIN-OTHER-PASSWORD-003",
+    "LAN-GLOBAL-TEST-002",
+    "UI-TAP-FEEDBACK-004"
+  ],
+  "pending_invariants": [
+    "REPORT-LABOR-DEDUCTION-002",
+    "LOCAL-FIRST-RECONCILE-002"
+  ],
+  "owner_feedback_date": "2026-09-04",
+  "follow_up_release": "0.4.2-beta.117",
+  "note": "OWNER accepted Beta116 scope items 1,2,3,5,7,8,9,10,11; requested refinements are new Beta117 scope. Items 4 and 6 remain pending due insufficient concrete data for acceptance.",
+  "next_action": "IMPLEMENT_BETA117_OWNER_FOLLOWUP_AND_PERFORMANCE_SCOPE"
+}

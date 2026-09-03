@@ -403,7 +403,7 @@ Mỗi invariant tối thiểu có:
 Technical receipt: `ops/beta116-technical-pass.json`. Regression: `qa/beta116_owner_scope_regression.md` + `tools/beta116_owner_scope_contract.py`. Chỉ chuyển ACTIVE_PASS sau OWNER xác nhận từng mục.
 
 ### DOCUMENT-DRAFT-NOTE-UX-003
-- Status: TECHNICAL_PASS_AWAITING_OWNER
+- Status: ACTIVE_PASS
 - Scope: document-draft-note-ui
 - Rule: Biên bản dùng icon CRUD; trước tải lên cho phép chọn/xóa/chọn tất cả ảnh nháp và lưu chú thích riêng từng ảnh/trang xuyên draft→pending→upload→Service.
 - Regression: icon_crud / draft_multi_select / select_all / delete_selected_before_upload / per_page_note_durable.
@@ -411,7 +411,7 @@ Technical receipt: `ops/beta116-technical-pass.json`. Regression: `qa/beta116_ow
 - OWNER acceptance: PENDING — checklist Beta116 item 1/11.
 
 ### DOCUMENT-GROUP-VIEWER-004
-- Status: TECHNICAL_PASS_AWAITING_OWNER
+- Status: ACTIVE_PASS
 - Scope: document-group-viewer
 - Rule: Nhóm ảnh biên bản hỗ trợ vuốt giữa trang và pinch zoom; viewer không làm đổi semantics grouping đã ACTIVE_PASS.
 - Regression: group_viewer / swipe_pages / pinch_zoom / grouping_semantics_unchanged.
@@ -419,7 +419,7 @@ Technical receipt: `ops/beta116-technical-pass.json`. Regression: `qa/beta116_ow
 - OWNER acceptance: PENDING — checklist Beta116 item 2/11.
 
 ### PDA-SERIAL-DERIVE-002
-- Status: TECHNICAL_PASS_AWAITING_OWNER
+- Status: ACTIVE_PASS
 - Scope: pda-resource-serial
 - Rule: Tài nguyên PDA tự suy ra 5 số cuối Seri từ mã/tên canonical; không nhập tay và key PDA không chứa khoảng trắng.
 - Regression: derive_last5 / no_manual_serial / no_whitespace_key.
@@ -435,7 +435,7 @@ Technical receipt: `ops/beta116-technical-pass.json`. Regression: `qa/beta116_ow
 - OWNER acceptance: PENDING — checklist Beta116 item 4/11.
 
 ### DROP-RECEIVE-CRUD-001
-- Status: TECHNICAL_PASS_AWAITING_OWNER
+- Status: ACTIVE_PASS
 - Scope: drop-receive
 - Rule: Nhận hàng rớt có icon CRUD, DO/Số kiện cùng dòng, danh sách chi tiết, chọn nhiều/chọn tất cả và xóa selected qua canonical password gate.
 - Regression: crud_icons / do_package_inline / list_detail / multi_select / delete_selected_password.
@@ -451,7 +451,7 @@ Technical receipt: `ops/beta116-technical-pass.json`. Regression: `qa/beta116_ow
 - OWNER acceptance: PENDING — checklist Beta116 item 6/11.
 
 ### ATTENDANCE-QR-FILTER-002
-- Status: TECHNICAL_PASS_AWAITING_OWNER
+- Status: ACTIVE_PASS
 - Scope: attendance-qr-filter
 - Rule: Điểm danh và QR vào/ra có bộ lọc Ca/NCC/Vị trí; Điểm danh có tìm MNV/họ tên và ô scan nổi bật; click semantics danh sách ca giữ canonical Beta115.
 - Regression: shift_filter / ncc_filter / position_filter / employee_search / scan_emphasis / canonical_click_semantics.
@@ -459,7 +459,7 @@ Technical receipt: `ops/beta116-technical-pass.json`. Regression: `qa/beta116_ow
 - OWNER acceptance: PENDING — checklist Beta116 item 7/11.
 
 ### LABOR-FIXED-ROLE-REVIEW-005
-- Status: TECHNICAL_PASS_AWAITING_OWNER
+- Status: ACTIVE_PASS
 - Scope: labor-role-review
 - Rule: Công nhật có cảnh báo kiểm tra các vị trí cố định Tổ trưởng/Kéo hàng/5S nhưng không tự sinh công nhật; nút tạo/kết thúc nhanh giữ trọng số UI đã chốt và exact-session authority.
 - Regression: fixed_role_warning / no_auto_labor / quick_button_weight / exact_session_authority.
@@ -467,7 +467,7 @@ Technical receipt: `ops/beta116-technical-pass.json`. Regression: `qa/beta116_ow
 - OWNER acceptance: PENDING — checklist Beta116 item 8/11.
 
 ### ADMIN-OTHER-PASSWORD-003
-- Status: TECHNICAL_PASS_AWAITING_OWNER
+- Status: ACTIVE_PASS
 - Scope: admin-password
 - Rule: SUPERADMIN đổi mật khẩu từng tài khoản sau privileged re-auth; thao tác một tài khoản mỗi lần và verifier generation vẫn ở canonical BetaApiClient.
 - Regression: superadmin_only / one_account_at_time / privileged_reauth / canonical_verifier.
@@ -475,7 +475,7 @@ Technical receipt: `ops/beta116-technical-pass.json`. Regression: `qa/beta116_ow
 - OWNER acceptance: PENDING — checklist Beta116 item 9/11.
 
 ### LAN-GLOBAL-TEST-002
-- Status: TECHNICAL_PASS_AWAITING_OWNER
+- Status: ACTIVE_PASS
 - Scope: lan-global-test
 - Rule: LAN test toàn cục dùng Service authority + epoch, đồng bộ trạng thái app và chỉ route test qua canRouteForTest/submitTest; production LAN route giữ tách biệt.
 - Regression: global_test_mode / epoch / service_authority / test_route_isolated / production_route_separate.
@@ -483,7 +483,7 @@ Technical receipt: `ops/beta116-technical-pass.json`. Regression: `qa/beta116_ow
 - OWNER acceptance: PENDING — checklist Beta116 item 10/11.
 
 ### UI-TAP-FEEDBACK-004
-- Status: TECHNICAL_PASS_AWAITING_OWNER
+- Status: ACTIVE_PASS
 - Scope: tap-feedback
 - Rule: Phản hồi bấm nhẹ chỉ dùng transform scale ngắn, không layout animation và không làm đổi geometry ACTIVE_PASS.
 - Regression: transform_only / short_scale / no_layout_animation / active_geometry_preserved.

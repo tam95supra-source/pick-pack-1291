@@ -2,7 +2,7 @@
 
 - updated_at: 2026-09-03T16:44:55Z
 - status: BETA116_PASS_LIVE
-- owner_acceptance: PENDING_BETA116_CHECKLIST_1_TO_11
+- owner_acceptance: PARTIAL_BETA116_9_OF_11_ACCEPTED
 - continuity_branch: release/beta116-owner-scope-20260903
 - source_sha: cf01dab16e1c62091561ca008a355a8f49326581
 - beta_live: 0.4.2-beta.116 (versionCode 122)
@@ -43,7 +43,7 @@
 - pass_live_validation_run: 33783284600 PASS
 - final_tree_targeted_verification: PASS
 - technical_receipt: ops/beta116-technical-pass.json
-- next_action: WAIT_FOR_OWNER_ACCEPTANCE_BETA116_CHECKLIST_1_TO_11
+- next_action: IMPLEMENT_BETA117_OWNER_FOLLOWUP_AND_PERFORMANCE_SCOPE
 
 - ota_service_incident_recovery: ACTIVE_PASS
 - ota_service_recovery_receipt: ops/beta116-ota-service-recovery.json
@@ -52,3 +52,8 @@
 - beta115_update_readback: HTTP 200 available=true -> Beta116 exact GitHub Release
 
 - ota_service_owner_acceptance: OK_REAL_DEVICE_BETA115_TO_BETA116_OTA
+
+- beta116_owner_partial_receipt: ops/beta116-owner-acceptance-partial.json
+- beta116_accepted_items: 1,2,3,5,7,8,9,10,11
+- beta116_pending_items: 4,6
+- beta117_followup: REQUIRED_BY_OWNER
