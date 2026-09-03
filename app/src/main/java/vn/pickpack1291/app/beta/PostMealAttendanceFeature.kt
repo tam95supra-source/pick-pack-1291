@@ -99,20 +99,20 @@ object PostMealAttendanceFeature {
             adapter=object:ArrayAdapter<String>(activity,android.R.layout.simple_spinner_item,values){
                 override fun getView(position:Int,convertView:View?,parent:ViewGroup):View{
                     val v=super.getView(position,convertView,parent) as TextView
-                    v.textSize=13f;v.setTextColor(navy);v.typeface=Typeface.DEFAULT_BOLD;v.gravity=Gravity.CENTER_VERTICAL
-                    v.setPadding(dp(12),0,dp(34),0);return v
+                    v.textSize=11.2f;v.setTextColor(navy);v.typeface=Typeface.DEFAULT_BOLD;v.gravity=Gravity.CENTER_VERTICAL
+                    v.setPadding(dp(8),0,dp(24),0);v.minHeight=dp(36);return v
                 }
                 override fun getDropDownView(position:Int,convertView:View?,parent:ViewGroup):View{
                     val v=super.getDropDownView(position,convertView,parent) as TextView
-                    v.textSize=12.5f;v.setTextColor(ink);v.typeface=Typeface.DEFAULT;v.gravity=Gravity.CENTER_VERTICAL
-                    v.minHeight=dp(46);v.setPadding(dp(14),dp(7),dp(14),dp(7));return v
+                    v.textSize=11.2f;v.setTextColor(ink);v.typeface=Typeface.DEFAULT;v.gravity=Gravity.CENTER_VERTICAL
+                    v.minHeight=dp(38);v.setPadding(dp(10),dp(5),dp(10),dp(5));return v
                 }
             }
-            minimumHeight=dp(46);background=drawable(Color.WHITE,Color.rgb(220,228,226),12)
+            minimumHeight=dp(36);background=drawable(Color.WHITE,Color.rgb(220,228,226),10)
         }
         fun labelledSelect(label:String,spinner:Spinner)=column().apply{
             addView(text(label.uppercase(),9.2f,muted,true).apply{letterSpacing=.025f;setPadding(dp(2),0,dp(2),0)})
-            addView(gap(3));addView(spinner,LinearLayout.LayoutParams(-1,dp(46)))
+            addView(gap(2));addView(spinner,LinearLayout.LayoutParams(-1,dp(36)))
         }
         fun safe(v:String)=v.trim().takeUnless{it.isBlank()||it.equals("null",true)}?:"-"
         fun fmtDate(v:String)=runCatching{LocalDate.parse(v).format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}.getOrDefault(safe(v))
@@ -168,10 +168,10 @@ object PostMealAttendanceFeature {
         val supplierFilter=selectSpinner(listOf("Tất cả NCC"))
         val positionFilter=selectSpinner(listOf("Tất cả vị trí"))
         val filterRow=row()
-        filterRow.addView(shiftFilter,LinearLayout.LayoutParams(0,dp(46),1f).apply{marginEnd=dp(2)})
-        filterRow.addView(supplierFilter,LinearLayout.LayoutParams(0,dp(46),1f).apply{marginStart=dp(2);marginEnd=dp(2)})
-        filterRow.addView(positionFilter,LinearLayout.LayoutParams(0,dp(46),1f).apply{marginStart=dp(2)})
-        controls.addView(filterRow,LinearLayout.LayoutParams(-1,dp(46)))
+        filterRow.addView(shiftFilter,LinearLayout.LayoutParams(0,dp(36),1f).apply{marginEnd=dp(2)})
+        filterRow.addView(supplierFilter,LinearLayout.LayoutParams(0,dp(36),1f).apply{marginStart=dp(2);marginEnd=dp(2)})
+        filterRow.addView(positionFilter,LinearLayout.LayoutParams(0,dp(36),1f).apply{marginStart=dp(2)})
+        controls.addView(filterRow,LinearLayout.LayoutParams(-1,dp(36)))
         root.addView(controls,LinearLayout.LayoutParams(-1,-2))
 
         val contentBox=column().apply{setPadding(dp(10),dp(2),dp(10),dp(78))}
@@ -184,6 +184,9 @@ object PostMealAttendanceFeature {
         var loadGeneration=0L
         var availableDates=store.availableDatesWithData()
         var filterSync=false
+        var filterSignature=""
+        var renderGeneration=0L
+        var searchRenderRunnable:Runnable?=null
         lateinit var showReasonDialog:(JSONObject)->Unit
 
         fun employeePosition(item:JSONObject):String{
@@ -192,14 +195,26 @@ object PostMealAttendanceFeature {
         }
         fun setFilterValues(sp:Spinner,values:List<String>){
             val old=sp.selectedItem?.toString().orEmpty()
-            sp.adapter=ArrayAdapter(activity,android.R.layout.simple_spinner_dropdown_item,values)
-            sp.setSelection(values.indexOf(old).takeIf{it>=0}?:0)
+            sp.adapter=object:ArrayAdapter<String>(activity,android.R.layout.simple_spinner_item,values){
+                override fun getView(position:Int,convertView:View?,parent:ViewGroup):View{
+                    val v=super.getView(position,convertView,parent) as TextView
+                    v.textSize=11.2f;v.setTextColor(navy);v.typeface=Typeface.DEFAULT_BOLD;v.gravity=Gravity.CENTER_VERTICAL;v.setPadding(dp(8),0,dp(22),0);v.minHeight=dp(36);return v
+                }
+                override fun getDropDownView(position:Int,convertView:View?,parent:ViewGroup):View{
+                    val v=super.getDropDownView(position,convertView,parent) as TextView
+                    v.textSize=11.2f;v.setTextColor(ink);v.gravity=Gravity.CENTER_VERTICAL;v.minHeight=dp(38);v.setPadding(dp(10),dp(5),dp(10),dp(5));return v
+                }
+            }
+            sp.setSelection(values.indexOf(old).takeIf{it>=0}?:0,false)
         }
         fun refreshFilterOptions(rows:List<JSONObject>){
-            filterSync=true
-            setFilterValues(shiftFilter,listOf("Tất cả ca")+rows.map{it.optString("shift")}.filter{it.isNotBlank()}.distinct())
-            setFilterValues(supplierFilter,listOf("Tất cả NCC")+rows.map{it.optString("supplier_snapshot")}.filter{it.isNotBlank()}.distinct().sorted())
-            setFilterValues(positionFilter,listOf("Tất cả vị trí")+rows.map{employeePosition(it)}.filter{it.isNotBlank()}.distinct().sorted())
+            val shifts=listOf("Tất cả ca")+rows.map{it.optString("shift")}.filter{it.isNotBlank()}.distinct()
+            val suppliers=listOf("Tất cả NCC")+rows.map{it.optString("supplier_snapshot")}.filter{it.isNotBlank()}.distinct().sorted()
+            val positions=listOf("Tất cả vị trí")+rows.map{employeePosition(it)}.filter{it.isNotBlank()}.distinct().sorted()
+            val signature=(shifts+listOf("|") + suppliers+listOf("|")+positions).joinToString("\u001f")
+            if(signature==filterSignature)return
+            filterSignature=signature;filterSync=true
+            setFilterValues(shiftFilter,shifts);setFilterValues(supplierFilter,suppliers);setFilterValues(positionFilter,positions)
             filterSync=false
         }
 
@@ -240,65 +255,48 @@ object PostMealAttendanceFeature {
         }
 
         fun render(){
+            val generation=++renderGeneration
             val source=payload
-            contentBox.suppressLayout(true)
-            try{
-                contentBox.removeAllViews()
-                if(source==null){
-                    contentBox.addView(text("Đang tải dữ liệu điểm danh…",11f,muted,false));return
-                }
-                val alert=localAlert(source)
-                val severity=alert.optString("severity")
-                val unresolved=alert.optInt("unresolved_count",0)
-                if(selected==today()&&severity!="NONE"&&unresolved>0){
-                    val ids=alert.optJSONArray("unresolved_mnvs")?:JSONArray()
-                    val preview=(0 until minOf(ids.length(),8)).map{ids.optString(it)}.filter{it.isNotBlank()}.joinToString(", ")
-                    val message=if(severity=="SEVERE")"Cần xử lý ngay: $unresolved nhân sự chưa hoàn tất điểm danh." else "Còn $unresolved nhân sự cần điểm danh."
-                    val banner=column().apply{setPadding(dp(10),dp(8),dp(10),dp(8));background=drawable(if(severity=="SEVERE")Color.rgb(255,240,240) else Color.rgb(255,248,230),if(severity=="SEVERE")red else orange)}
-                    banner.addView(text(message,11f,if(severity=="SEVERE")red else orange,true))
-                    if(preview.isNotBlank())banner.addView(text(preview,9.5f,ink,false))
-                    contentBox.addView(banner,LinearLayout.LayoutParams(-1,-2));contentBox.addView(gap(7))
-                }
-                val allRows=itemList(source)
-                refreshFilterOptions(allRows)
-                val q=search.text.toString().trim().lowercase()
-                val sf=shiftFilter.selectedItem?.toString().orEmpty()
-                val nf=supplierFilter.selectedItem?.toString().orEmpty()
-                val pf=positionFilter.selectedItem?.toString().orEmpty()
-                val rows=allRows.filter{item->
-                    val mnv=item.optString("mnv");val name=item.optString("full_name_snapshot")
-                    (q.isBlank()||mnv.lowercase().contains(q)||name.lowercase().contains(q))&&
-                    (sf=="Tất cả ca"||item.optString("shift")==sf)&&
-                    (nf=="Tất cả NCC"||item.optString("supplier_snapshot")==nf)&&
-                    (pf=="Tất cả vị trí"||employeePosition(item)==pf)
-                }
-                if(rows.isEmpty()){
-                    contentBox.addView(text(if(allRows.isEmpty())"Không có nhân sự cần điểm danh trong ngày ${fmtDate(selected.toString())}." else "Không có nhân sự phù hợp bộ lọc.",11f,muted,false));return
-                }
-                rows.forEach{item->
-                    val card=column().apply{setPadding(dp(10),dp(8),dp(10),dp(8));background=drawable()}
+            contentBox.removeAllViews()
+            if(source==null){contentBox.addView(text("Đang tải dữ liệu điểm danh…",11f,muted,false));return}
+            val alert=localAlert(source);val severity=alert.optString("severity");val unresolved=alert.optInt("unresolved_count",0)
+            if(selected==today()&&severity!="NONE"&&unresolved>0){
+                val ids=alert.optJSONArray("unresolved_mnvs")?:JSONArray()
+                val preview=(0 until minOf(ids.length(),8)).map{ids.optString(it)}.filter{it.isNotBlank()}.joinToString(", ")
+                val message=if(severity=="SEVERE")"Cần xử lý ngay: $unresolved nhân sự chưa hoàn tất điểm danh." else "Còn $unresolved nhân sự cần điểm danh."
+                val banner=column().apply{setPadding(dp(10),dp(8),dp(10),dp(8));background=drawable(if(severity=="SEVERE")Color.rgb(255,240,240) else Color.rgb(255,248,230),if(severity=="SEVERE")red else orange)}
+                banner.addView(text(message,11f,if(severity=="SEVERE")red else orange,true));if(preview.isNotBlank())banner.addView(text(preview,9.5f,ink,false))
+                contentBox.addView(banner,LinearLayout.LayoutParams(-1,-2));contentBox.addView(gap(7))
+            }
+            val allRows=itemList(source);refreshFilterOptions(allRows)
+            val q=search.text.toString().trim().lowercase()
+            val sf=shiftFilter.selectedItem?.toString().orEmpty();val nf=supplierFilter.selectedItem?.toString().orEmpty();val pf=positionFilter.selectedItem?.toString().orEmpty()
+            val rows=allRows.filter{item->
+                val mnv=item.optString("mnv");val name=item.optString("full_name_snapshot")
+                (q.isBlank()||mnv.lowercase().contains(q)||name.lowercase().contains(q))&&
+                (sf=="Tất cả ca"||item.optString("shift")==sf)&&
+                (nf=="Tất cả NCC"||item.optString("supplier_snapshot")==nf)&&
+                (pf=="Tất cả vị trí"||employeePosition(item)==pf)
+            }
+            if(rows.isEmpty()){contentBox.addView(text(if(allRows.isEmpty())"Không có nhân sự cần điểm danh trong ngày ${fmtDate(selected.toString())}." else "Không có nhân sự phù hợp bộ lọc.",11f,muted,false));return}
+            fun addChunk(startIndex:Int){
+                if(generation!=renderGeneration||!contentBox.isAttachedToWindow)return
+                val endIndex=minOf(startIndex+24,rows.size)
+                for(index in startIndex until endIndex){
+                    val item=rows[index]
+                    val card=column().apply{setPadding(dp(10),dp(7),dp(10),dp(7));background=drawable()}
                     val titleRow=row()
-                    titleRow.addView(text("${safe(item.optString("supplier_snapshot"))} • ${safe(item.optString("mnv"))} • ${safe(item.optString("full_name_snapshot"))}",10.5f,ink,true),LinearLayout.LayoutParams(0,-2,1f))
-                    titleRow.addView(text(statusLabel(item),9.5f,statusColor(item),true),LinearLayout.LayoutParams(-2,-2))
-                    card.addView(titleRow)
-                    val actual=fmtTime(item.optString("actual_return_at").ifBlank{item.optString("checked_at")})
-                    val reason=item.optString("reason_code")
-                    val details=mutableListOf<String>()
-                    if(actual!="-")details+="Thực tế $actual"
-                    safe(reason).takeIf{it!="-" }?.let{details+="Lý do: $it"}
-                    safe(item.optString("reason_note")).takeIf{it!="-" }?.let{details+="Ghi chú: $it"}
-                    safe(item.optString("expected_return_at")).takeIf{it!="-" }?.let{details+="Dự kiến ${fmtTime(it)}"}
-                    card.addView(gap(3))
-                    card.addView(text("Ca ${safe(item.optString("shift"))} • ${if(details.isEmpty())"-" else details.joinToString(" • ")}",9.2f,muted,false))
-                    if(selected==today()&&item.optString("status")!="CHECKED_IN"){
-                        card.addView(gap(6))
-                        val act=button(if(item.optString("status")=="LATE_EXPECTED")"CẬP NHẬT / SỬA GIỜ" else "XỬ LÝ",teal)
-                        act.setOnClickListener{showReasonDialog(item)}
-                        card.addView(act,LinearLayout.LayoutParams(-1,dp(38)))
-                    }
-                    contentBox.addView(card,LinearLayout.LayoutParams(-1,-2));contentBox.addView(gap(6))
+                    titleRow.addView(text("${safe(item.optString("supplier_snapshot"))} • ${safe(item.optString("mnv"))} • ${safe(item.optString("full_name_snapshot"))}",10.2f,ink,true),LinearLayout.LayoutParams(0,-2,1f))
+                    titleRow.addView(text(statusLabel(item),9.2f,statusColor(item),true),LinearLayout.LayoutParams(-2,-2));card.addView(titleRow)
+                    val actual=fmtTime(item.optString("actual_return_at").ifBlank{item.optString("checked_at")});val reason=item.optString("reason_code");val details=mutableListOf<String>()
+                    if(actual!="-")details+="Thực tế $actual";safe(reason).takeIf{it!="-" }?.let{details+="Lý do: $it"};safe(item.optString("reason_note")).takeIf{it!="-" }?.let{details+="Ghi chú: $it"};safe(item.optString("expected_return_at")).takeIf{it!="-" }?.let{details+="Dự kiến ${fmtTime(it)}"}
+                    card.addView(gap(3));card.addView(text("Ca ${safe(item.optString("shift"))} • ${if(details.isEmpty())"-" else details.joinToString(" • ")}",9f,muted,false))
+                    if(selected==today()&&item.optString("status")!="CHECKED_IN"){card.addView(gap(5));val act=button(if(item.optString("status")=="LATE_EXPECTED")"CẬP NHẬT / SỬA GIỜ" else "XỬ LÝ",teal);act.setOnClickListener{showReasonDialog(item)};card.addView(act,LinearLayout.LayoutParams(-1,dp(36)))}
+                    contentBox.addView(card,LinearLayout.LayoutParams(-1,-2));contentBox.addView(gap(5))
                 }
-            }finally{contentBox.suppressLayout(false)}
+                if(endIndex<rows.size)contentBox.post{addChunk(endIndex)}
+            }
+            contentBox.post{addChunk(0)}
         }
 
         fun remoteLoad(){
@@ -404,7 +402,10 @@ object PostMealAttendanceFeature {
 
         search.addTextChangedListener(object:android.text.TextWatcher{
             override fun beforeTextChanged(s:CharSequence?,start:Int,count:Int,after:Int)=Unit
-            override fun onTextChanged(s:CharSequence?,start:Int,before:Int,count:Int){render()}
+            override fun onTextChanged(s:CharSequence?,start:Int,before:Int,count:Int){
+                searchRenderRunnable?.let{main.removeCallbacks(it)}
+                searchRenderRunnable=Runnable{render()}.also{main.postDelayed(it,140L)}
+            }
             override fun afterTextChanged(s:android.text.Editable?)=Unit
         })
         val filterListener=object:android.widget.AdapterView.OnItemSelectedListener{
