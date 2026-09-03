@@ -1,6 +1,6 @@
 {
-  "stage": "pass_live",
-  "mode": "PASS_LIVE_EXACT_BYTES_GITHUB_RELEASE_ONLY",
+  "stage": "PUBLISH",
+  "mode": "BETA116_REPAIR_LIVE_GAS_OTA_MANIFEST_EXACT_LOCKED_BYTES",
   "version_name": "0.4.2-beta.116",
   "version_code": 122,
   "base_version": "0.4.2-beta.115",
@@ -16,7 +16,7 @@
   "candidate_locked": true,
   "rebuild": false,
   "resign": false,
-  "live": true,
+  "live": false,
   "scope": "beta116-owner-document-pda-report-drop-attendance-labor-qr-admin-lan-ui",
   "owner": "Nguyen Van Tam",
   "owner_acceptance_baseline": "BETA115_OWNER_ACCEPTED_COMPLETE",
@@ -53,8 +53,8 @@
   "stable_gas_repair_status": "PASS",
   "beta_domain_status": "PASS",
   "regression_case": "tools/beta116_owner_scope_contract.py + preserve Beta115 ACTIVE_PASS including LABOR-EXACT-SESSION-002, DOCUMENT-BATCH-MODE-TICK-002, UI-REVIEW-WARNING-001, NAV-HISTORY-BACK-001, PDA-EXIT-001, ENV-ISOLATION-001",
-  "execution_nonce": "beta116-pass-live-post-finalize-ci-20260904-18",
-  "next_action": "WAIT_FOR_OWNER_ACCEPTANCE_BETA116_CHECKLIST_1_TO_11",
+  "execution_nonce": "beta116-ota-manifest-repair-20260904-05",
+  "next_action": "REPAIR_GAS_UPDATE_CHECK_TO_EXACT_BETA116_AND_VERIFY_OTA",
   "service_gate_status": "PASS",
   "service_gate_run_id": 33767353642,
   "service_gate_artifact_id": 9898616640,
@@ -114,5 +114,16 @@
   "finalization_recovery": "CANONICAL_STATE_RECOVERY_FROM_EXISTING_PASS_PUBLISH_AND_PDA_RECEIPTS",
   "failed_finalize_run_id": 33780057070,
   "failed_finalize_reason": "GIT_REBASE_CONFLICT_ON_OPS_BETA_RELEASE_REQUEST_AFTER_CONCURRENT_CONTROL_PLANE_UPDATE",
-  "finalizer_harness_fix": "PRE_REBASE_BEFORE_FINAL_STATE_RENDER_AND_EXPLICIT_TECHNICAL_PASS_OWNER_PENDING"
+  "finalizer_harness_fix": "PRE_REBASE_BEFORE_FINAL_STATE_RENDER_AND_EXPLICIT_TECHNICAL_PASS_OWNER_PENDING",
+  "live_issue": {
+    "detected_by_run_id": 33785387399,
+    "artifact_id": 9905218199,
+    "worker_health": "PASS",
+    "service_discovery": "PASS",
+    "update_check_returned_version": "0.4.2-beta.115",
+    "expected_version": "0.4.2-beta.116",
+    "failure": "BETA_GAS_UPDATE_MANIFEST_REGRESSED_TO_115"
+  },
+  "service_recovery_run_id": 33784753619,
+  "service_recovery_artifact_id": 9905201718
 }
