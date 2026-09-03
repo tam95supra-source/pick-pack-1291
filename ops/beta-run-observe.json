@@ -1,8 +1,8 @@
 {
-  "run_id": 33783284600,
-  "run_sha": "b27aca6028306f804131a7debf96afcfe8bedc34",
-  "ref": "release/beta116-owner-scope-20260903",
-  "execution_nonce": "beta116-pass-live-post-finalize-ci-20260904-18",
-  "stage": "pass_live",
-  "observed_at": "2026-09-03T17:13:39Z"
+  "run_id": 33785602097,
+  "run_sha": "a740e5b7b6147dd3203fbcbd5f5aadfc149845c3",
+  "ref": "release/beta116-ota-manifest-repair-20260904",
+  "execution_nonce": "beta116-ota-manifest-repair-20260904-05",
+  "stage": "PUBLISH",
+  "observed_at": "2026-09-03T17:37:03Z"
 }
