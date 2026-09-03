@@ -116,5 +116,22 @@
     "Bố cục form đồng nhất; ReviewAlertUi đã chốt ở Beta112 không bị thay đổi."
   ],
   "next_action": "WAIT_FOR_OWNER_ACCEPTANCE_BETA114_CHECKLIST",
-  "recorded_at": "2026-09-03T07:35:00+07:00"
+  "recorded_at": "2026-09-03T07:35:00+07:00",
+  "lifecycle_validation": {
+    "fast_check": {
+      "run_id": 33700273573,
+      "status": "PASS"
+    },
+    "pass_live_noop": {
+      "run_id": 33700273561,
+      "status": "PASS",
+      "route": "PASS",
+      "candidate": "SKIPPED",
+      "publish": "SKIPPED",
+      "pda_verify": "SKIPPED",
+      "finalize": "SKIPPED",
+      "rollback": "SKIPPED",
+      "handoff_finalizer": "SKIPPED"
+    }
+  }
 }
