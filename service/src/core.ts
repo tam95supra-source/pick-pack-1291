@@ -35,6 +35,40 @@ interface LaborRow {
   version: number;
 }
 
+const LABOR_SHIFT_END_MINUTES:Record<string,number>={
+  "CA 1":14*60,
+  "CA1":14*60,
+  "CA HC":17*60,
+  "CAHC":17*60,
+  "HC":17*60,
+  "CA 2":22*60,
+  "CA2":22*60,
+};
+
+function laborShiftEndMs(businessDate:string,shift:string):number{
+  const minutes=LABOR_SHIFT_END_MINUTES[fold(shift).replace(/\s+/g," ")]??LABOR_SHIFT_END_MINUTES[fold(shift)];
+  if(minutes===undefined)return Number.NaN;
+  const hh=String(Math.floor(minutes/60)).padStart(2,"0"),mm=String(minutes%60).padStart(2,"0");
+  return Date.parse(`${businessDate}T${hh}:${mm}:00+07:00`);
+}
+
+function laborEndCapMs(businessDate:string,attendance:{state?:string;shift?:string;exit_at?:string|null}):number{
+  const actual=String(attendance.exit_at||"");
+  if(actual&&!Number.isNaN(Date.parse(actual)))return Date.parse(actual);
+  const scheduled=laborShiftEndMs(businessDate,String(attendance.shift||""));
+  if(String(attendance.state||"")==="ACTIVE"){
+    const now=Date.now()+60_000;
+    return Number.isNaN(scheduled)?now:Math.max(scheduled,now);
+  }
+  return Number.isNaN(scheduled)?Date.now()+60_000:scheduled;
+}
+
+function deductStaffEnabled(value:unknown):boolean{
+  if(value===true)return true;
+  if(typeof value==="number")return value!==0;
+  return ["CO","TRUE","1","YES"].includes(fold(value));
+}
+
 interface MealRow {
   business_date: string;
   mnv: string;
@@ -195,11 +229,14 @@ async function commitAttendanceExit(db:D1Database, auth:AuthContext, req:Canonic
   const checks=await db.batch([
     db.prepare("SELECT session_id,mnv,business_date,shift,work_choice,state,pda_serial,user_pick,pack_table,user_pack,pda_enter_status,pda_exit_status,resource_note,version FROM attendance_sessions WHERE mnv=?1 AND business_date=?2").bind(mnv,req.business_date),
     db.prepare("SELECT COUNT(*) AS n FROM labor_sessions WHERE mnv=?1 AND business_date=?2 AND state='OPEN'").bind(mnv,req.business_date),
+    db.prepare("SELECT MAX(end_at) AS max_end FROM labor_sessions WHERE mnv=?1 AND business_date=?2 AND state='COMPLETED'").bind(mnv,req.business_date),
   ]);
   const current=(checks[0]?.results?.[0]??null) as AttendanceRow|null;
   if(!current||current.state!=="ACTIVE") throw new CoreError("ATTENDANCE_NOT_ACTIVE","CONFLICT",409);
   if(current.version!==req.base_version) throw new CoreError("STALE_BASE_VERSION","CONFLICT",409,false,{current_version:current.version});
   const open=(checks[1]?.results?.[0]??null) as {n?:number}|null;if((open?.n??0)>0) throw new CoreError("OPEN_LABOR_BLOCKS_EXIT","CONFLICT",409);
+  const maxEnd=String(((checks[2]?.results?.[0]??null) as {max_end?:string|null}|null)?.max_end||"");
+  if(maxEnd&&!Number.isNaN(Date.parse(maxEnd))&&Date.parse(maxEnd)>Date.now()+60_000)throw new CoreError("FUTURE_LABOR_BLOCKS_EXIT","CONFLICT",409,false,{max_labor_end:maxEnd});
   const pdaExitStatus=text(p,"pda_exit_status",180);
   const event=await buildEvent(req,auth,a,current.version+1),stmts=eventStatements(db,event,a.authority_seq);
   stmts.push(db.prepare("UPDATE attendance_sessions SET state='ENDED',exit_at=?1,exited_by=?2,version=?3,updated_at=?1 WHERE session_id=?4 AND version=?5 AND state='ACTIVE'").bind(event.committed_at,auth.login_id,event.new_version,current.session_id,current.version));
@@ -231,14 +268,14 @@ async function commitLaborStart(db:D1Database, auth:AuthContext, req:CanonicalMu
   if(!selectedStart||Number.isNaN(Date.parse(selectedStart)))throw new CoreError("LABOR_START_TIME_INVALID","VALIDATION",400);
   const checks=await db.batch([
     db.prepare("SELECT labor_id,mnv,business_date,state,version FROM labor_sessions WHERE labor_id=?1").bind(req.entity_id),
-    db.prepare("SELECT state,enter_at,exit_at FROM attendance_sessions WHERE mnv=?1 AND business_date=?2 AND (?3='' OR session_id=?3)").bind(mnv,req.business_date,sessionId),
+    db.prepare("SELECT state,shift,enter_at,exit_at FROM attendance_sessions WHERE mnv=?1 AND business_date=?2 AND (?3='' OR session_id=?3)").bind(mnv,req.business_date,sessionId),
     db.prepare("SELECT labor_id FROM labor_sessions WHERE mnv=?1 AND business_date=?2 AND state='OPEN' AND labor_id<>?3 LIMIT 1").bind(mnv,req.business_date,req.entity_id),
     db.prepare("SELECT MAX(end_at) last_end FROM labor_sessions WHERE mnv=?1 AND business_date=?2 AND state='COMPLETED' AND labor_id<>?3").bind(mnv,req.business_date,req.entity_id),
   ]);
   const current=(checks[0]?.results?.[0]??null) as LaborRow|null,v=current?.version??0;
   if(v!==req.base_version)throw new CoreError("STALE_BASE_VERSION","CONFLICT",409,false,{current_version:v});if(current?.state==="OPEN")throw new CoreError("LABOR_ALREADY_OPEN","CONFLICT",409);
   if((checks[2]?.results?.length??0)>0)throw new CoreError("LABOR_OTHER_INTERVAL_OPEN","CONFLICT",409,false,{open_labor_id:String((checks[2]?.results?.[0] as {labor_id?:string})?.labor_id||"")});
-  const attendance=(checks[1]?.results?.[0]??null) as {state?:string;enter_at?:string|null;exit_at?:string|null}|null;if(attendance?.state!=="ACTIVE")throw new CoreError("ATTENDANCE_NOT_ACTIVE","CONFLICT",409);
+  const attendance=(checks[1]?.results?.[0]??null) as {state?:string;shift?:string;enter_at?:string|null;exit_at?:string|null}|null;if(attendance?.state!=="ACTIVE")throw new CoreError("ATTENDANCE_NOT_ACTIVE","CONFLICT",409);
   if(Date.parse(selectedStart)>Date.now()+60_000)throw new CoreError("LABOR_START_IN_FUTURE","VALIDATION",400);
   if(attendance.enter_at&&!Number.isNaN(Date.parse(attendance.enter_at))&&Date.parse(selectedStart)<Date.parse(attendance.enter_at))throw new CoreError("LABOR_START_BEFORE_ATTENDANCE","VALIDATION",400);
   const lastEnd=String((checks[3]?.results?.[0] as {last_end?:string|null}|undefined)?.last_end||"");
@@ -246,7 +283,7 @@ async function commitLaborStart(db:D1Database, auth:AuthContext, req:CanonicalMu
   const event=await buildEvent(req,auth,a,v+1),stmts=eventStatements(db,event,a.authority_seq);
   stmts.push(db.prepare(`INSERT INTO labor_sessions(labor_id,mnv,business_date,shift,labor_type,time_marker,state,start_at,note,deduct_staff,start_event_id,version,updated_at)
     VALUES(?1,?2,?3,?4,?5,?6,'OPEN',?7,?8,?9,?10,?11,?12)`)
-    .bind(req.entity_id,mnv,req.business_date,shift,laborType,marker,selectedStart,text(p,"note",500),fold(p.deduct_staff)==="CO"?1:0,event.event_id,event.new_version,event.committed_at));
+    .bind(req.entity_id,mnv,req.business_date,shift,laborType,marker,selectedStart,text(p,"note",500),deductStaffEnabled(p.deduct_staff)?1:0,event.event_id,event.new_version,event.committed_at));
   await db.batch(stmts);return event;
 }
 
@@ -260,15 +297,15 @@ async function commitLaborFinish(db:D1Database, auth:AuthContext, req:CanonicalM
   if(!selectedStart||Number.isNaN(Date.parse(selectedStart)))throw new CoreError("LABOR_START_TIME_INVALID","VALIDATION",400);
   if(!selectedEnd||Number.isNaN(Date.parse(selectedEnd)))throw new CoreError("LABOR_END_TIME_INVALID","VALIDATION",400);
   if(Date.parse(selectedEnd)<Date.parse(selectedStart))throw new CoreError("LABOR_END_BEFORE_START","VALIDATION",400);
-  if(Date.parse(selectedEnd)>Date.now()+60_000)throw new CoreError("LABOR_END_IN_FUTURE","VALIDATION",400);
   const checks=await db.batch([
-    db.prepare("SELECT state,enter_at,exit_at FROM attendance_sessions WHERE mnv=?1 AND business_date=?2 AND (?3='' OR session_id=?3)").bind(current.mnv,current.business_date,sessionId),
+    db.prepare("SELECT state,shift,enter_at,exit_at FROM attendance_sessions WHERE mnv=?1 AND business_date=?2 AND (?3='' OR session_id=?3)").bind(current.mnv,current.business_date,sessionId),
     db.prepare("SELECT labor_id FROM labor_sessions WHERE mnv=?1 AND business_date=?2 AND labor_id<>?3 AND state='COMPLETED' AND start_at<?4 AND end_at>?5 LIMIT 1").bind(current.mnv,current.business_date,current.labor_id,selectedEnd,selectedStart),
   ]);
-  const attendance=(checks[0]?.results?.[0]??null) as {state?:string;enter_at?:string|null;exit_at?:string|null}|null;
+  const attendance=(checks[0]?.results?.[0]??null) as {state?:string;shift?:string;enter_at?:string|null;exit_at?:string|null}|null;
   if(!attendance)throw new CoreError("ATTENDANCE_SESSION_NOT_FOUND","CONFLICT",409);
   if(attendance.enter_at&&!Number.isNaN(Date.parse(attendance.enter_at))&&Date.parse(selectedStart)<Date.parse(attendance.enter_at))throw new CoreError("LABOR_START_BEFORE_ATTENDANCE","VALIDATION",400);
-  if(attendance.exit_at&&!Number.isNaN(Date.parse(attendance.exit_at))&&Date.parse(selectedEnd)>Date.parse(attendance.exit_at))throw new CoreError("LABOR_END_AFTER_ATTENDANCE","VALIDATION",400);
+  const endCap=laborEndCapMs(current.business_date,attendance);
+  if(Date.parse(selectedEnd)>endCap)throw new CoreError("LABOR_END_AFTER_SHIFT_OR_EXIT","VALIDATION",400,false,{max_end:new Date(endCap).toISOString(),shift:String(attendance.shift||""),attendance_state:String(attendance.state||"")});
   if((checks[1]?.results?.length??0)>0)throw new CoreError("LABOR_INTERVAL_OVERLAP","CONFLICT",409,false,{conflict_labor_id:String((checks[1]?.results?.[0] as {labor_id?:string})?.labor_id||"")});
   const event=await buildEvent(req,auth,a,current.version+1),stmts=eventStatements(db,event,a.authority_seq);
   stmts.push(db.prepare("UPDATE labor_sessions SET state='COMPLETED',start_at=?1,end_at=?2,finish_event_id=?3,note=CASE WHEN ?4<>'' THEN ?4 ELSE note END,version=?5,updated_at=?6 WHERE labor_id=?7 AND version=?8 AND state IN ('OPEN','COMPLETED')").bind(selectedStart,selectedEnd,event.event_id,text(req.payload,"note",500),event.new_version,event.committed_at,current.labor_id,current.version));
