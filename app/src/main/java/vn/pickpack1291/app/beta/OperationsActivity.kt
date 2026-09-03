@@ -444,81 +444,56 @@ class OperationsActivity : Activity() {
         fun chip(label:String,count:Int,key:String):TextView{
             val selected=filter==key
             return txt("$label ($count)",9.3f,if(selected)Color.WHITE else navy,true).apply{
-                gravity=Gravity.CENTER
-                setPadding(dp(4),0,dp(4),0)
+                gravity=Gravity.CENTER;setPadding(dp(4),0,dp(4),0)
                 background=if(selected)round(teal,12) else outlineBg(surface,12)
-                isClickable=true;isFocusable=true
-                setOnClickListener{if(filter!=key)showCurrentDayShiftStaff(date,shift,rows,key)}
+                isClickable=true;isFocusable=true;setOnClickListener{if(filter!=key)showCurrentDayShiftStaff(date,shift,rows,key)}
             }
         }
         listOf(Triple("Tất cả",clean.size,"ALL"),Triple("Trong ca",activeCount,"ACTIVE"),Triple("Đã ra ca",endedCount,"ENDED")).forEachIndexed{i,(label,count,key)->
-            filters.addView(chip(label,count,key),LinearLayout.LayoutParams(0,dp(40),1f).apply{
-                if(i>0)marginStart=dp(3)
-                if(i<2)marginEnd=dp(3)
-            })
+            filters.addView(chip(label,count,key),LinearLayout.LayoutParams(0,dp(38),1f).apply{if(i>0)marginStart=dp(3);if(i<2)marginEnd=dp(3)})
         }
         body.addView(filters,matchWrap());body.addView(gap(8))
-
-        val visible=when(filter){
-            "ACTIVE"->clean.filterNot{shiftStaffEnded(it)}
-            "ENDED"->clean.filter{shiftStaffEnded(it)}
-            else->clean
-        }
-        if(visible.isEmpty()){
-            body.addView(info("Không có nhân sự phù hợp bộ lọc trong $shift ngày ${businessDateVi(date)}."))
-            attach(root,body);return
-        }
+        val visible=when(filter){"ACTIVE"->clean.filterNot{shiftStaffEnded(it)};"ENDED"->clean.filter{shiftStaffEnded(it)};else->clean}
+        if(visible.isEmpty()){body.addView(info("Không có nhân sự phù hợp bộ lọc trong $shift ngày ${businessDateVi(date)}."));attach(root,body);return}
 
         fun supplierKey(ses:JSONObject)=shiftStaffIdentity(ses).supplier.ifBlank{"Chưa xác định NCC"}
         val allGroups=clean.groupBy{supplierKey(it)}
-        val visibleGroups=visible.groupBy{supplierKey(it)}
-        visibleGroups.forEach{(supplier,groupRows)->
-            val allGroup=allGroups[supplier].orEmpty()
-            val groupEnded=allGroup.count{shiftStaffEnded(it)}
-            val groupActive=(allGroup.size-groupEnded).coerceAtLeast(0)
+        val groups=visible.groupBy{supplierKey(it)}.entries.toList()
+        attach(root,body)
+        var renderGeneration=System.nanoTime()
+        val myGeneration=renderGeneration
+        fun renderGroup(groupIndex:Int){
+            if(renderGeneration!=myGeneration||screenState!="SHIFT_STAFF_LIST"||groupIndex>=groups.size)return
+            val (supplier,groupRows)=groups[groupIndex]
+            val allGroup=allGroups[supplier].orEmpty();val groupEnded=allGroup.count{shiftStaffEnded(it)};val groupActive=(allGroup.size-groupEnded).coerceAtLeast(0)
             val box=column(surface).apply{background=outlineBg(surface,10)}
             val header=column(teal).apply{setPadding(dp(10),dp(7),dp(10),dp(7));background=round(teal,10)}
             val headerTop=row(teal).apply{gravity=Gravity.CENTER_VERTICAL}
-            headerTop.addView(txt(supplier,12f,Color.WHITE,true),LinearLayout.LayoutParams(0,-2,1f))
-            headerTop.addView(txt("${allGroup.size} người",9.4f,Color.WHITE,true))
-            header.addView(headerTop,matchWrap())
-            header.addView(txt("Trong ca $groupActive  •  Đã ra ca $groupEnded",8.8f,Color.WHITE,false))
-            box.addView(header,matchWrap())
-
-            groupRows.forEachIndexed{index,ses->
-                val identity=shiftStaffIdentity(ses)
-                val ended=shiftStaffEnded(ses)
-                val item=row(surface).apply{
-                    gravity=Gravity.CENTER_VERTICAL
-                    setPadding(dp(8),dp(8),dp(8),dp(8))
-                    isClickable=true;isFocusable=true
-                    contentDescription="Mở quét QR vào ra ${dash(identity.fullName)}"
-                    setOnClickListener{if(identity.mnv.isNotBlank())loadEmployee(identity.mnv)}
+            headerTop.addView(txt(supplier,12f,Color.WHITE,true),LinearLayout.LayoutParams(0,-2,1f));headerTop.addView(txt("${allGroup.size} người",9.4f,Color.WHITE,true))
+            header.addView(headerTop,matchWrap());header.addView(txt("Trong ca $groupActive  •  Đã ra ca $groupEnded",8.8f,Color.WHITE,false));box.addView(header,matchWrap())
+            body.addView(box,matchWrap())
+            fun addRows(from:Int){
+                if(renderGeneration!=myGeneration||screenState!="SHIFT_STAFF_LIST")return
+                val to=minOf(from+18,groupRows.size)
+                for(index in from until to){
+                    val ses=groupRows[index];val identity=shiftStaffIdentity(ses);val ended=shiftStaffEnded(ses)
+                    val item=row(surface).apply{
+                        gravity=Gravity.CENTER_VERTICAL;setPadding(dp(8),dp(8),dp(8),dp(8));isClickable=true;isFocusable=true
+                        contentDescription="Mở quét QR vào ra ${dash(identity.fullName)}";setOnClickListener{if(identity.mnv.isNotBlank())loadEmployee(identity.mnv)}
+                    }
+                    val initials=txt(staffInitials(identity.fullName,identity.mnv),10.5f,teal,true).apply{gravity=Gravity.CENTER;background=GradientDrawable().apply{shape=GradientDrawable.OVAL;setColor(Color.rgb(232,247,238))}}
+                    item.addView(initials,LinearLayout.LayoutParams(dp(36),dp(36)).apply{marginEnd=dp(8)})
+                    val infoCol=column(surface);infoCol.addView(txt(dash(identity.fullName),11.4f,ink,true));infoCol.addView(txt("MNV: ${dash(identity.mnv)} • ${dash(identity.position)}",9.2f,muted,false));infoCol.addView(txt("Vào ${compactAttendanceTime(ses.optString("enter_at"))} • Ra ${if(ended)compactAttendanceTime(ses.optString("exit_at")) else "-"}",9.2f,muted,false))
+                    item.addView(infoCol,LinearLayout.LayoutParams(0,-2,1f))
+                    val statusText=if(ended)"Đã ra ca" else "Trong ca";val statusFg=if(ended)Color.rgb(82,93,103) else green;val statusBg=if(ended)Color.rgb(244,246,248) else Color.rgb(235,248,239)
+                    item.addView(txt(statusText,8.8f,statusFg,true).apply{gravity=Gravity.CENTER;setPadding(dp(5),0,dp(5),0);background=round(statusBg,10)},LinearLayout.LayoutParams(dp(72),dp(30)).apply{marginStart=dp(6)})
+                    box.addView(item,matchWrap());if(index<groupRows.lastIndex)box.addView(View(this).apply{setBackgroundColor(line)},LinearLayout.LayoutParams(-1,dp(1)).apply{marginStart=dp(52)})
                 }
-                val initials=txt(staffInitials(identity.fullName,identity.mnv),10.5f,teal,true).apply{
-                    gravity=Gravity.CENTER
-                    background=GradientDrawable().apply{shape=GradientDrawable.OVAL;setColor(Color.rgb(232,247,238))}
-                }
-                item.addView(initials,LinearLayout.LayoutParams(dp(36),dp(36)).apply{marginEnd=dp(8)})
-                val infoCol=column(surface)
-                infoCol.addView(txt(dash(identity.fullName),11.4f,ink,true))
-                infoCol.addView(txt("MNV: ${dash(identity.mnv)} • ${dash(identity.position)}",9.2f,muted,false))
-                infoCol.addView(txt("Vào ${compactAttendanceTime(ses.optString("enter_at"))} • Ra ${if(ended)compactAttendanceTime(ses.optString("exit_at")) else "-"}",9.2f,muted,false))
-                item.addView(infoCol,LinearLayout.LayoutParams(0,-2,1f))
-                val statusText=if(ended)"Đã ra ca" else "Trong ca"
-                val statusFg=if(ended)Color.rgb(82,93,103) else green
-                val statusBg=if(ended)Color.rgb(244,246,248) else Color.rgb(235,248,239)
-                item.addView(txt(statusText,8.8f,statusFg,true).apply{
-                    gravity=Gravity.CENTER
-                    setPadding(dp(5),0,dp(5),0)
-                    background=round(statusBg,10)
-                },LinearLayout.LayoutParams(dp(72),dp(30)).apply{marginStart=dp(6)})
-                box.addView(item,matchWrap())
-                if(index<groupRows.lastIndex)box.addView(View(this).apply{setBackgroundColor(line)},LinearLayout.LayoutParams(-1,dp(1)).apply{marginStart=dp(52)})
+                if(to<groupRows.size)box.post{addRows(to)}else{body.addView(gap(8));body.post{renderGroup(groupIndex+1)}}
             }
-            body.addView(box,matchWrap());body.addView(gap(8))
+            box.post{addRows(0)}
         }
-        attach(root,body)
+        body.post{renderGroup(0)}
     }
     private fun addBusinessShiftReconciliation(body:LinearLayout){
         val currentDate=operationalStore.businessDate()
@@ -1762,40 +1737,63 @@ class OperationsActivity : Activity() {
 
         var currentRows=emptyList<JSONObject>()
         var filterSync=false
+        var laborFilterSignature=""
+        var laborRenderGeneration=0L
         fun setOptions(sp:Spinner,values:List<String>){
             val old=sp.selectedItem?.toString().orEmpty()
-            sp.adapter=ArrayAdapter(this,android.R.layout.simple_spinner_dropdown_item,values)
-            sp.setSelection(values.indexOf(old).takeIf{it>=0}?:0)
+            sp.adapter=object:ArrayAdapter<String>(this,android.R.layout.simple_spinner_item,values){
+                override fun getView(position:Int,convertView:View?,parent:ViewGroup):View{
+                    val v=super.getView(position,convertView,parent) as TextView
+                    v.textSize=11.2f;v.setTextColor(navy);v.typeface=Typeface.DEFAULT_BOLD;v.gravity=Gravity.CENTER_VERTICAL;v.setPadding(dp(8),0,dp(22),0);v.minHeight=dp(36);return v
+                }
+                override fun getDropDownView(position:Int,convertView:View?,parent:ViewGroup):View{
+                    val v=super.getDropDownView(position,convertView,parent) as TextView
+                    v.textSize=11.2f;v.setTextColor(ink);v.gravity=Gravity.CENTER_VERTICAL;v.minHeight=dp(38);v.setPadding(dp(10),dp(5),dp(10),dp(5));return v
+                }
+            }
+            sp.setSelection(values.indexOf(old).takeIf{it>=0}?:0,false)
         }
         fun rowPosition(x:JSONObject)=MasterDataCache.employee(this,x.optString("mnv"))?.optString("main_position").orEmpty().ifBlank{x.optString("position")}
         fun renderRows(rows:List<JSONObject>){
             currentRows=rows
-            filterSync=true
-            setOptions(shiftSp,listOf("Tất cả ca")+rows.map{it.optString("shift")}.filter{it.isNotBlank()}.distinct())
-            setOptions(supplierSp,listOf("Tất cả NCC")+rows.map{it.optString("supplier")}.filter{it.isNotBlank()}.distinct().sortedWith(Comparator{p,q->naturalUserCompare(p,q)}))
-            setOptions(positionSp,listOf("Tất cả vị trí")+rows.map{rowPosition(it)}.filter{it.isNotBlank()}.distinct().sortedWith(Comparator{p,q->naturalUserCompare(p,q)}))
-            filterSync=false
+            val shifts=listOf("Tất cả ca")+rows.map{it.optString("shift")}.filter{it.isNotBlank()}.distinct()
+            val suppliers=listOf("Tất cả NCC")+rows.map{it.optString("supplier")}.filter{it.isNotBlank()}.distinct().sortedWith(Comparator{p,q->naturalUserCompare(p,q)})
+            val positions=listOf("Tất cả vị trí")+rows.map{rowPosition(it)}.filter{it.isNotBlank()}.distinct().sortedWith(Comparator{p,q->naturalUserCompare(p,q)})
+            val signature=(shifts+listOf("|")+suppliers+listOf("|")+positions).joinToString("\u001f")
+            if(signature!=laborFilterSignature){
+                laborFilterSignature=signature;filterSync=true
+                setOptions(shiftSp,shifts);setOptions(supplierSp,suppliers);setOptions(positionSp,positions)
+                filterSync=false
+            }
             val shift=shiftSp.selectedItem?.toString().orEmpty();val sup=supplierSp.selectedItem?.toString().orEmpty();val pos=positionSp.selectedItem?.toString().orEmpty()
             val visible=rows.filter{x->(shift=="Tất cả ca"||x.optString("shift")==shift)&&(sup=="Tất cả NCC"||x.optString("supplier")==sup)&&(pos=="Tất cả vị trí"||rowPosition(x)==pos)}
+            val generation=++laborRenderGeneration
             openBox.removeAllViews()
             val groups=visible.groupBy{x->"${x.optString("mnv")}|${x.optString("attendance_session_id")}"}
                 .values.sortedWith(compareByDescending<List<JSONObject>>{g->g.any{it.optString("state").equals("OPEN",true)}}.thenBy{g->foldLocal(g.firstOrNull()?.optString("supplier").orEmpty())}.thenBy{g->g.firstOrNull()?.optString("mnv").orEmpty()})
             val allGroups=rows.groupBy{x->"${x.optString("mnv")}|${x.optString("attendance_session_id")}"}
             laborCount.text="Nhân sự: ${allGroups.size} • Đang làm: ${allGroups.values.count{g->g.any{it.optString("state").equals("OPEN",true)}}} • Tổng khoảng: ${rows.size}"
             if(groups.isEmpty()){openBox.addView(txt(if(rows.isEmpty())"Chưa có công nhật trong ngày." else "Không có công nhật phù hợp bộ lọc.",9.8f,muted,false));return}
-            groups.forEach{intervals->
-                val first=intervals.first();val id=first.optString("mnv");val sid=first.optString("attendance_session_id");val anyOpen=intervals.any{it.optString("state").equals("OPEN",true)}
-                val fill=if(anyOpen)Color.rgb(255,247,237) else Color.rgb(240,253,250)
-                val summaries=intervals.sortedBy{it.optString("start_at")}.map{x->"${compactAttendanceTime(x.optString("start_at"))}–${if(x.optString("state").equals("OPEN",true))"…" else compactAttendanceTime(x.optString("end_at"))}"}
-                val card=column(fill).apply{
-                    setPadding(dp(9),dp(7),dp(9),dp(7));background=outlineBg(fill,12)
-                    val top=row(fill);top.addView(txt("$id • ${dash(first.optString("full_name"))}",10.5f,navy,true),LinearLayout.LayoutParams(0,-2,1f));top.addView(txt(if(anyOpen)"ĐANG LÀM" else "HOÀN THÀNH",8.8f,if(anyOpen)Color.rgb(194,65,12) else green,true));addView(top)
-                    addView(txt("${dash(first.optString("supplier"))} • ${dash(rowPosition(first))} • ${intervals.size} khoảng",9.2f,ink,false))
-                    addView(txt(summaries.joinToString(" • "),9.2f,muted,false).apply{maxLines=2})
-                    setOnClickListener{tapFeedback(this);openLaborExact(id,sid)}
+            fun addChunk(from:Int){
+                if(generation!=laborRenderGeneration||!openBox.isAttachedToWindow)return
+                val to=minOf(from+16,groups.size)
+                for(i in from until to){
+                    val intervals=groups[i]
+                    val first=intervals.first();val id=first.optString("mnv");val sid=first.optString("attendance_session_id");val anyOpen=intervals.any{it.optString("state").equals("OPEN",true)}
+                    val fill=if(anyOpen)Color.rgb(255,247,237) else Color.rgb(240,253,250)
+                    val summaries=intervals.sortedBy{it.optString("start_at")}.map{x->"${compactAttendanceTime(x.optString("start_at"))}–${if(x.optString("state").equals("OPEN",true))"…" else compactAttendanceTime(x.optString("end_at"))}"}
+                    val card=column(fill).apply{
+                        setPadding(dp(9),dp(7),dp(9),dp(7));background=outlineBg(fill,12)
+                        val top=row(fill);top.addView(txt("$id • ${dash(first.optString("full_name"))}",10.5f,navy,true),LinearLayout.LayoutParams(0,-2,1f));top.addView(txt(if(anyOpen)"ĐANG LÀM" else "HOÀN THÀNH",8.8f,if(anyOpen)Color.rgb(194,65,12) else green,true));addView(top)
+                        addView(txt("${dash(first.optString("supplier"))} • ${dash(rowPosition(first))} • ${intervals.size} khoảng",9.2f,ink,false))
+                        addView(txt(summaries.joinToString(" • "),9.2f,muted,false).apply{maxLines=2})
+                        setOnClickListener{tapFeedback(this);openLaborExact(id,sid)}
+                    }
+                    openBox.addView(card,matchWrap());openBox.addView(gap(5))
                 }
-                openBox.addView(card,matchWrap());openBox.addView(gap(5))
+                if(to<groups.size)openBox.post{addChunk(to)}
             }
+            openBox.post{addChunk(0)}
         }
 
         fun localRows(date:String):List<JSONObject>{
