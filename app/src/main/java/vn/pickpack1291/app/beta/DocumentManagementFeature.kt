@@ -810,7 +810,7 @@ object DocumentManagementFeature {
             var loadGeneration=0L
             fun renderMeta(){
                 val item=sequence[index]
-                page.text="Ảnh ${index+1}/${sequence.size} • ${item.optString("category_name").ifBlank{"-"}"
+                page.text="Ảnh ${index+1}/${sequence.size} • ${item.optString("category_name").ifBlank{"-"}}"
                 val ci=categoryIds.indexOf(item.optString("category_id")).takeIf{it>=0}?:0
                 if(categoryIds.isNotEmpty()&&category.selectedItemPosition!=ci)category.setSelection(ci)
                 note.setText(item.optString("note"))
