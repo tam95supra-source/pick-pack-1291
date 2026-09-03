@@ -30,6 +30,9 @@ internal class LanCoordinator private constructor(context:Context):LanSocketTran
     @Volatile private var masterId=prefs.getString("master_device_id","").orEmpty()
     @Volatile private var backupId=prefs.getString("backup_device_id","").orEmpty()
     @Volatile private var lastMasterHeartbeat=0L
+    @Volatile private var testModeEnabled=prefs.getBoolean("test_mode_enabled",false)
+    @Volatile private var testModeEpoch=prefs.getLong("test_mode_epoch",0L)
+    @Volatile private var testModeEnabledBy=prefs.getString("test_mode_enabled_by","").orEmpty()
     private var serverPort=0
     private var unavailableTask:ScheduledFuture<*>?=null
     private var heartbeatTask:ScheduledFuture<*>?=null
@@ -43,7 +46,11 @@ internal class LanCoordinator private constructor(context:Context):LanSocketTran
             if(connected){
                 outageStartedAt=0L
                 unavailableTask?.cancel(false);unavailableTask=null
-                if(isLanActive()){
+                if(testModeEnabled){
+                    recovering=false
+                    if(!isLanActive())startPeerPresence()
+                    notifyState()
+                }else if(isLanActive()){
                     recovering=true
                     M2ImmediateOutbox.kick(app)
                     notifyState()
@@ -69,7 +76,9 @@ internal class LanCoordinator private constructor(context:Context):LanSocketTran
 
     fun onNetworkChanged(){
         synchronized(stateLock){
-            if(!cloudConnected&&outageAgeMs()>=LanAuthorityPolicy.SERVICE_UNAVAILABLE_AFTER_MS){
+            if(testModeEnabled){
+                if(!isLanActive())discovery.restartDiscovery(M2DeviceIdentity.id(app),::peerObserved)
+            }else if(!cloudConnected&&outageAgeMs()>=LanAuthorityPolicy.SERVICE_UNAVAILABLE_AFTER_MS){
                 discovery.restartDiscovery(M2DeviceIdentity.id(app),::peerObserved)
             }
         }
@@ -101,6 +110,46 @@ internal class LanCoordinator private constructor(context:Context):LanSocketTran
         .put("outage_ms",outageAgeMs())
         .put("peer_count",discovery.snapshot().size)
         .put("fixed_voter_count",fixedVoters().size)
+        .put("test_mode_enabled",testModeEnabled)
+        .put("test_mode_epoch",testModeEpoch)
+        .put("test_mode_enabled_by",testModeEnabledBy)
+
+    fun applyGlobalTestMode(enabled:Boolean,epoch:Long,enabledBy:String){
+        synchronized(stateLock){
+            if(epoch<testModeEpoch)return
+            testModeEnabled=enabled;testModeEpoch=epoch;testModeEnabledBy=enabledBy
+            prefs.edit().putBoolean("test_mode_enabled",enabled).putLong("test_mode_epoch",epoch).putString("test_mode_enabled_by",enabledBy).apply()
+            if(!enabled){
+                if(cloudConnected)stopLan()
+                notifyState()
+                return
+            }
+            val selfLogin=BetaApiClient(app).restoredAccount()?.optString("login_id").orEmpty()
+            if(!isLanActive())startPeerPresence()
+            if(accountRole()=="SUPERADMIN"&&selfLogin.isNotBlank()&&selfLogin==enabledBy&&nodeRole!=NodeRole.MASTER){
+                val generation=maxOf(currentGeneration+1,System.currentTimeMillis())
+                becomeMaster(generation,maxOf(lanEpoch+1,epoch),Long.MAX_VALUE)
+            }else if(nodeRole !in setOf(NodeRole.MASTER,NodeRole.BACKUP,NodeRole.CLIENT)){
+                discovery.restartDiscovery(M2DeviceIdentity.id(app),::peerObserved)
+            }
+            notifyState()
+        }
+    }
+
+    fun globalTestModeEnabled():Boolean=testModeEnabled
+    fun canRouteForTest():Boolean{
+        if(!testModeEnabled||recovering||!isLanActive())return false
+        return when(nodeRole){
+            NodeRole.MASTER->backupId.isNotBlank()&&socket.hasConnection(backupId)
+            NodeRole.BACKUP,NodeRole.CLIENT->masterId.isNotBlank()
+            else->false
+        }
+    }
+    fun submitTest(event:JSONObject):Result{
+        if(!canRouteForTest())return Result(false,false,currentGeneration,"LAN_TEST_NOT_READY")
+        val ack=socket.submit(event)
+        return Result(true,ack.ok,ack.generation,ack.error)
+    }
 
     fun requestActivation(userRole:String,callback:(Boolean,String?)->Unit){
         io.execute{
@@ -187,12 +236,12 @@ internal class LanCoordinator private constructor(context:Context):LanSocketTran
         discovery.discover(M2DeviceIdentity.id(app),::peerObserved)
         sendPresence()
         if(presenceTask==null||presenceTask?.isCancelled==true){
-            presenceTask=timer.scheduleAtFixedRate({if(!cloudConnected)sendPresence()},45,45,TimeUnit.SECONDS)
+            presenceTask=timer.scheduleAtFixedRate({if(!cloudConnected||testModeEnabled)sendPresence()},45,45,TimeUnit.SECONDS)
         }
     }
 
     private fun stopPeerPresence(){
-        if(isLanActive())return
+        if(isLanActive()||testModeEnabled)return
         presenceTask?.cancel(false);presenceTask=null
         discovery.close();socket.close();serverPort=0
         nodeRole=NodeRole.NONE
