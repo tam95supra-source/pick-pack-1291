@@ -1,59 +1,60 @@
 # CURRENT STATE — PICK PACK 1291
 
-- updated_at: 2026-09-03T16:44:55Z
-- status: BETA116_PASS_LIVE
+- updated_at: 2026-09-03T23:53:00Z
+- status: BETA116_PASS_LIVE__BETA117_PRE_OTA_BLOCKED_PROTECTED_STABLE_GAS
 - owner_acceptance: PARTIAL_BETA116_9_OF_11_ACCEPTED
-- continuity_branch: release/beta116-owner-scope-20260903
-- source_sha: cf01dab16e1c62091561ca008a355a8f49326581
+- continuity_branch: release/beta117-owner-followup-performance-20260904
+
+## LIVE authority
 - beta_live: 0.4.2-beta.116 (versionCode 122)
+- live_source_sha: cf01dab16e1c62091561ca008a355a8f49326581
 - package: vn.pickpack1291.app.beta.publicbeta
-- candidate_run: 33767353642
-- candidate_artifact: 9898290631
-- service_run: 33767353642
-- service_artifact: 9898616640
-- verify_run: 33774026289
-- verify_artifact: 9901071098
-- beta_auth_run: 33776285435
-- beta_auth_artifact: 9902148937
-- device_regression_run: 33778316587
-- device_regression_artifact: 9902571477
-- runtime_dod_run: 33778605857
-- runtime_dod_artifact: 9902663700
-- domain_run: 33778957345
-- domain_artifact: 9902758766
-- publish_run: 33780057070
-- publish_artifact: 9903236359
-- ota_install_readback_run: 33780057070
-- ota_install_readback_artifact: 9903336912
-- fast_check_post_harness_fix: 33780103022 PASS
-- apk_sha256: a346d4554e07fc37552c9d8876179860677fc93923a3bd42f9b3f97f5e11f235
-- apk_size: 14347253
+- live_candidate_run: 33767353642
+- live_candidate_artifact: 9898290631
+- live_apk_sha256: a346d4554e07fc37552c9d8876179860677fc93923a3bd42f9b3f97f5e11f235
+- live_apk_size: 14347253
 - signer_sha256: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
-- visual_matrix: PASS 320x568 / 360x640 / 480x800
-- human_visual: PASS (43 screenshots)
-- pda_functional_pre_ota: PASS
-- beta_ota: exact 0.4.2-beta.116 PASS via GitHub Release
-- beta_ota_url: https://github.com/tam95supra-source/pick-pack-1291/releases/download/v0.4.2-beta.116-publicbeta/pick-pack-1291-public-beta-0.4.2-beta.116.apk
+- authority: SERVICE_PRIMARY / PRODUCTION / generation m2-prod-reset-20260823-001
 - apk_transport: GITHUB_RELEASE_ONLY
 - google_drive_apk: FORBIDDEN
-- stable: unchanged / unavailable public
-- main_sha: 021dac5c6932b3ac5c60ce8fdba562ddf3d9688f
-- authority: SERVICE_PRIMARY / PRODUCTION / epoch 9 / generation m2-prod-reset-20260823-001
-- finalization_recovery: canonical state reconstructed from PASS publish/PDA receipts after finalize rebase conflict; no APK rebuild/resign/republish.
-- pass_live_validation_run: 33783284600 PASS
-- final_tree_targeted_verification: PASS
-- technical_receipt: ops/beta116-technical-pass.json
-- next_action: IMPLEMENT_BETA117_OWNER_FOLLOWUP_AND_PERFORMANCE_SCOPE
+- stable_public: false / READY_NOT_LIVE
+- Stable/main/signer/authority: unchanged
 
-- ota_service_incident_recovery: ACTIVE_PASS
-- ota_service_recovery_receipt: ops/beta116-ota-service-recovery.json
-- service_recovery_run: 33784753619 / 9905201718 PASS
-- beta115_update_readback_run: 33788505404 / 9906368570 PASS
-- beta115_update_readback: HTTP 200 available=true -> Beta116 exact GitHub Release
+## Beta117 exact candidate — PRE OTA
+- version: 0.4.2-beta.117 / versionCode 123
+- candidate_source_sha: d8ea2c2f31549647e8676b40dc536d2b1b80e6e5
+- candidate_run: 33800745880
+- candidate_artifact: 9911117214
+- apk_sha256: b3454574547eece69ea44c51b2f88da93dd142eb5d1afb82e7fbd0f293cc0d87
+- apk_size: 14396405
+- candidate_locked: true
+- rebuild: false
+- resign: false
+- live: false
 
-- ota_service_owner_acceptance: OK_REAL_DEVICE_BETA115_TO_BETA116_OTA
+## Beta117 gates
+- service: PASS inherited exact unchanged Service bytes from run 33797938890 / artifact 9910299408
+- visual_matrix: PASS run 33816769626 / artifact 9916961610
+- human_visual: PASS 43 screenshots at 320x568 / 360x640 / 480x800; receipt ops/beta117-human-visual-receipt.json
+- pda_functional_pre_ota: PASS
+- back_api36: PASS
+- beta_auth: PASS run 33817394774 / artifact 9917295154; Stable auth state unchanged
+- service_discovery_device_regression: PASS run 33818941214 / artifact 9917593203
+- fast_check: PASS run 33819263208
+- runtime_dod: BLOCKED — Stable private GAS primary deployment metadata/policy/url readback is valid but live GET returns HTTP 404 twice; failed run 33819263277, latest failed artifact 9917714789
+- beta_domain: PENDING
+- release_lock_final: PENDING
+- beta_ota: NOT_PUBLISHED
 
-- beta116_owner_partial_receipt: ops/beta116-owner-acceptance-partial.json
-- beta116_accepted_items: 1,2,3,5,7,8,9,10,11
-- beta116_pending_items: 4,6
-- beta117_followup: REQUIRED_BY_OWNER
+## Protected blocker
+- Beta116 historical runtime DoD 33778605857 / 9902663700 PASS showed Stable primary/outbound/dr GAS all HTTP 200.
+- Beta117 auth PASS proves Stable D1 and Stable Sheet hashes unchanged during Beta auth migration.
+- Current Runtime DoD calls Apps Script deployment readback before GET; deployment ID, exact web URL, access=ANYONE_ANONYMOUS and executeAs=USER_DEPLOYING validate, then Stable primary GET returns HTTP 404 on original run and exact retry.
+- Unchanged retry is exhausted. Fix/redeploy of Stable private GAS is a protected Stable action and was not performed automatically.
+
+## OWNER acceptance carry-over
+- Beta116 accepted: 1,2,3,5,7,8,9,10,11.
+- Beta116 pending: 4,6.
+- Do not promote pending items to ACTIVE_PASS without OWNER confirmation.
+
+- next_action: OWNER_AUTHORIZE_STABLE_PRIVATE_GAS_PRIMARY_RECOVERY_THEN_RERUN_RUNTIME_DOD
