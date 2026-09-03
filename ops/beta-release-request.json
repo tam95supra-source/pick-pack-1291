@@ -1,6 +1,6 @@
 {
-  "stage": "SERVICE_DISCOVERY_ONLY",
-  "mode": "SERVICE_DISCOVERY_DEVICE_REGRESSION_BETA114_EXACT_CANDIDATE",
+  "stage": "RUNTIME_DOD_VERIFY",
+  "mode": "PRE_OTA_RUNTIME_DOD_BETA114_EXACT_CANDIDATE",
   "version_name": "0.4.2-beta.114",
   "version_code": 120,
   "base_version": "0.4.2-beta.112",
@@ -46,11 +46,11 @@
   "visual_matrix": "PASS",
   "pda_functional_pre_ota": "PASS",
   "back_api36": "PASS",
-  "device_regression_status": "PENDING",
+  "device_regression_status": "PASS",
   "runtime_dod_status": "PENDING",
   "regression_case": "qa/beta113_owner_scope_regression.md + tools/beta113_owner_scope_contract.py; preserve ACTIVE_PASS SHIFT-STAFF-DOWNLOAD-QR-001, UI-EMPLOYEE-SCAN-ROSTER-001, UI-REVIEW-WARNING-001, NAV-HISTORY-BACK-001, LABOR-EXACT-SESSION-002, HISTORY-DELETE-CANONICAL-001, DOCUMENT-BATCH-MODE-TICK-002 and all existing ACTIVE_PASS invariants",
-  "execution_nonce": "beta114-service-discovery-20260903-07",
-  "next_action": "PASS_DEVICE_DISCOVERY_THEN_RUNTIME_DOD_EXACT_CANDIDATE",
+  "execution_nonce": "beta114-runtime-dod-20260903-08",
+  "next_action": "PASS_RUNTIME_DOD_THEN_RELEASE_LOCK_AND_PUBLISH_EXACT_BYTES",
   "superseded_pre_ota_candidate": {
     "version_name": "0.4.2-beta.113",
     "version_code": 119,
@@ -86,5 +86,17 @@
   "verify_artifact_name": "beta-verify-33694668738",
   "visual_matrix_evidence": "RUN_33694668738_EXACT_BETA114_VISUAL_PASS_42_SCREENSHOTS",
   "pda_functional_pre_ota_evidence": "RUN_33694668738_EXACT_BETA114_DIRECT_PDA_PASS",
-  "back_api36_evidence": "RUN_33694668738_EXACT_BETA114_API36_PASS"
+  "back_api36_evidence": "RUN_33694668738_EXACT_BETA114_API36_PASS",
+  "device_regression_run_id": 33697808957,
+  "device_regression_artifact_id": 9872457667,
+  "device_regression_artifact_name": "beta-service-discovery-33697808957",
+  "device_regression_evidence": "EXACT_APK_SHA_AND_STALE_SERVICE_DISCOVERY_CACHE_REGRESSION_PASS",
+  "beta_auth_status": "PASS",
+  "beta_auth_run_id": 33612548361,
+  "beta_auth_artifact_id": 9839580952,
+  "beta_auth_basis": "INHERITED_BETA112_AUTH_PARITY_SERVICE_AUTH_INPUTS_UNCHANGED_RUNTIME_FRESH_REVERIFY_REQUIRED",
+  "stable_gas_repair_status": "PASS",
+  "stable_gas_repair_run_id": 33359199067,
+  "beta_domain_status": "PASS",
+  "beta_domain_run_id": 33361499619
 }
