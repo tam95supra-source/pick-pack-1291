@@ -8,7 +8,7 @@
   "apk_url": "https://github.com/tam95supra-source/pick-pack-1291/releases/download/v0.4.2-beta.116-publicbeta/pick-pack-1291-public-beta-0.4.2-beta.116.apk",
   "sha256": "a346d4554e07fc37552c9d8876179860677fc93923a3bd42f9b3f97f5e11f235",
   "size": 14347253,
-  "published_at": "2026-09-03T16:41:35Z",
+  "published_at": "2026-09-03T17:40:36Z",
   "notes": "Quản lý biên bản: icon CRUD, chọn/xóa ảnh trước tải, chọn tất cả, chú thích từng ảnh/trang, vuốt trang và pinch zoom. Tài nguyên PDA tự lấy 5 số cuối Seri từ mã/tên; không nhập tay và không khoảng trắng. Báo cáo nhân sự giữ Tổng trước khấu trừ, tách Khấu trừ công nhật và Picker/Packer thực tế. Nhận hàng rớt có icon CRUD, DO/Số kiện cùng dòng, danh sách chi tiết và xóa chọn bằng mật khẩu thời gian thực. Đổi/Trả PDA và Công nhật hiển thị local trước, reconcile nền; chi tiết Công nhật vẫn theo exact Service session. Điểm danh và QR vào/ra có bộ lọc Ca/NCC/Vị trí; Điểm danh thêm tìm MNV/họ tên và ô scan nổi bật. Công nhật thêm cảnh báo kiểm tra Tổ trưởng/Kéo hàng/5S, không tự sinh công nhật; cân lại nút tạo/kết thúc nhanh. SUPERADMIN đổi mật khẩu từng user sau xác nhận quyền; LAN test toàn cục có epoch và cô lập khỏi traffic nghiệp vụ. Thêm phản hồi bấm nhẹ transform-only; giữ nguyên toàn bộ Beta115 ACTIVE_PASS.",
   "mandatory": false,
   "retention": 10,
