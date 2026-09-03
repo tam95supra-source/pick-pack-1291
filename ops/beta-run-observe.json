@@ -1,8 +1,8 @@
 {
-  "run_id": 33785062984,
-  "run_sha": "04df342c3ab78b7c7b5a3977319bbc3d28cfd64a",
+  "run_id": 33788251684,
+  "run_sha": "aa2b7d71971ee833d03d366dc0ad11cf736d8ae4",
   "ref": "release/beta116-runtime-live-diagnostic-20260904",
-  "execution_nonce": "beta116-runtime-live-diagnostic-20260904-03",
+  "execution_nonce": "beta116-runtime-live-diagnostic-after-service-pass-20260904-04",
   "stage": "RUNTIME_DOD_VERIFY",
-  "observed_at": "2026-09-03T17:31:39Z"
+  "observed_at": "2026-09-03T18:03:49Z"
 }
