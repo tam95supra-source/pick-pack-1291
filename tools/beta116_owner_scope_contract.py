@@ -81,9 +81,10 @@ for token in ['refreshGlobalLanTestMode','setGlobalLanTestMode','resilienceLanMo
     assert token in ops, token
 assert ('BẬT LAN TEST TOÀN CỤC' in ops) or ('BẬT LAN TEST CÔ LẬP' in ops), "global isolated LAN test control must remain visible"
 
-# Lightweight tap feedback must be transform-only, not layout animation.
+# Lightweight tap feedback must stay transform-only; OWNER Beta117 refined the strength.
 assert 'private fun tapFeedback(v:View)' in ops
-for token in ['scaleX(.96f)','scaleY(.96f)','setDuration(70L)','setDuration(90L)']:
-    assert token in ops, token
+feedback=ops[ops.index("private fun tapFeedback(v:View)"):ops.index("private fun iconActionButton")]
+assert (('scaleX(.96f)' in feedback and 'scaleY(.96f)' in feedback) or ('scaleX(.95f)' in feedback and 'scaleY(.95f)' in feedback))
+assert 'layoutParams' not in feedback and 'requestLayout' not in feedback
 
 print("beta116_owner_scope_contract=PASS document=PASS report=PASS resource=PASS dropped=PASS attendance=PASS labor=PASS qr=PASS admin_password=PASS lan_global=PASS tap_feedback=PASS")
