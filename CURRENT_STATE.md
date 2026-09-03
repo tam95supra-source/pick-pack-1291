@@ -1,36 +1,29 @@
 # CURRENT STATE — PICK PACK 1291
 
-- updated_at: 2026-09-03T00:36:00Z
-- status: BETA114_LIVE_TECHNICAL_PASS_AWAITING_OWNER
+- updated_at: 2026-09-03T02:53:33Z
+- status: BETA115_PASS_LIVE
 - continuity_branch: release/beta113-owner-scope-20260902
-- source_sha: 5686da2cc6fdb2bf845456bda9e703eb68e9f1f0
-- beta_live: 0.4.2-beta.114 (versionCode 120)
+- source_sha: 429c39f82aacba19351351234f7f66a8d3b655f1
+- beta_live: 0.4.2-beta.115 (versionCode 121)
 - package: vn.pickpack1291.app.beta.publicbeta
-- candidate_run: 33691947969
-- candidate_artifact: 9870515268
-- apk_sha256: cc611efc72a3cd0af413f316b6182adb281d398c189f5bb9d613235722b296bd
-- apk_size: 14232565
+- candidate_run: 33703823187
+- candidate_artifact: 9874569505
+- verify_run: 33705116149
+- verify_artifact: 9875061341
+- apk_sha256: af2c267e2101223387fdf4feb86b6ae315fe17b44c09d89c9f6166a8a73d49e5
+- apk_size: 14281717
 - signer_sha256: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
-- fast_check: 33698830085 PASS
-- service_live: 33655832542 / 9856893379 PASS inherited; service bytes unchanged
-- visual_pda_api36: 33698830042 / 9872907916 PASS
-- human_visual: PASS inherited on exact APK bytes / 43 screenshots / 320x568, 360x640, 480x800
-- device_regression: 33697808957 / 9872457667 PASS
-- runtime_dod: 33698019451 / 9872504979 PASS / backup_restore PASS / Stable not public
-- terminal_run: 33699803398 PASS
-- publish_artifact: 9873117701
-- ota_install_readback_artifact: 9873169722
-- final_artifact: 9873176752
-- handoff_artifact: 9873180650
-- github_release_id: 381651070
-- github_release_asset_id: 541964779
-- beta_ota: exact 0.4.2-beta.114 PASS via GitHub Release
+- terminal_run: 33709045943
+- fast_check: PASS
+- service_gate: PASS_EXACT_SERVICE_SOURCE_429c39f82aacba19351351234f7f66a8d3b655f1
+- visual_matrix: PASS 320x568 / 360x640 / 480x800
+- human_visual: PASS
+- pda_functional_pre_ota: PASS
+- beta_ota: exact 0.4.2-beta.115 PASS via GitHub Release
+- beta_ota_url: https://github.com/tam95supra-source/pick-pack-1291/releases/download/v0.4.2-beta.115-publicbeta/pick-pack-1291-public-beta-0.4.2-beta.115.apk
 - apk_transport: GITHUB_RELEASE_ONLY
 - google_drive_apk: FORBIDDEN
-- stable: unchanged / not public
+- stable: unchanged
 - main_sha: 021dac5c6932b3ac5c60ce8fdba562ddf3d9688f
-- authority_change: NONE
-- technical_receipt: ops/beta114-technical-pass.json
-- owner_acceptance: PENDING
-- awaiting_owner_invariants: CHANGELOG-CURRENT-VERSION-001, ADMIN-AUDIT-PASSWORD-001, HISTORY-SUPERADMIN-CLEANUP-002, LABOR-MULTI-INTERVAL-003, UI-DATA-DATE-SELECT-001, UI-EMPLOYEE-SCAN-ROSTER-001, UI-FORM-CONSISTENCY-002
-- next_action: WAIT_FOR_OWNER_ACCEPTANCE_BETA114_CHECKLIST
+- authority: SERVICE_PRIMARY / PRODUCTION / epoch 9 / generation m2-prod-reset-20260823-001
+- next_action: WAIT_FOR_OWNER_NEW_SCOPE

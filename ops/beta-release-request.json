@@ -1,6 +1,6 @@
 {
-  "stage": "PUBLISH",
-  "mode": "PUBLISH_EXACT_LOCKED_BETA115_AFTER_PROVENANCE_HARNESS_FIX",
+  "stage": "pass_live",
+  "mode": "PASS_LIVE_EXACT_BYTES_GITHUB_RELEASE_ONLY",
   "version_name": "0.4.2-beta.115",
   "version_code": 121,
   "base_version": "0.4.2-beta.114",
@@ -16,7 +16,7 @@
   "candidate_locked": true,
   "rebuild": false,
   "resign": false,
-  "live": false,
+  "live": true,
   "scope": "beta115-owner-revised-labor-select-today-calendar",
   "owner": "Nguyen Van Tam",
   "owner_acceptance_baseline": "BETA114_PARTIAL_ACCEPTANCE_ITEMS_1_2_3_4_5_9_10_ACTIVE_PASS",
@@ -53,7 +53,7 @@
   "beta_domain_status": "PASS",
   "regression_case": "qa/beta115_owner_scope_regression.md + tools/beta113_owner_scope_contract.py; preserve all ACTIVE_PASS including LABOR-SCAN-PINNED-004, UI-FORM-BASE-CONSISTENCY-003, UI-EMPLOYEE-SCAN-ROSTER-001, UI-REVIEW-WARNING-001, NAV-HISTORY-BACK-001, LABOR-EXACT-SESSION-002, HISTORY-DELETE-CANONICAL-001, DOCUMENT-BATCH-MODE-TICK-002, SHIFT-STAFF-DOWNLOAD-QR-001",
   "execution_nonce": "beta115-publish-exact-locked-20260903-12",
-  "next_action": "RETRY_PUBLISH_EXACT_LOCKED_BYTES_AFTER_PROVENANCE_HARNESS_PASS",
+  "next_action": "WAIT_FOR_OWNER_NEW_SCOPE",
   "candidate_source_sha": "3f343ea1be0dbace5df995e4c81e1cdca9defd24",
   "candidate_run_id": 33703823187,
   "candidate_artifact_id": 9874569505,
@@ -88,5 +88,6 @@
   "release_lock_at": "2026-09-03T02:39:16Z",
   "failed_publish_run_id": 33708509523,
   "publish_failure_class": "HARNESS_PROVENANCE_SOURCE_SHA_CONFLATION_PRE_NETWORK",
-  "publish_partial_activation": false
+  "publish_partial_activation": false,
+  "publish_run_id": "33709045943"
 }
