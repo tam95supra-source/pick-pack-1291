@@ -46,7 +46,18 @@
   },
   "owner_acceptance": "PENDING",
   "owner_checklist_count": 11,
-  "pass_live_validation_run_id": null,
+  "pass_live_validation_run_id": 33783284600,
   "post_finalize_fast_check_run_id": null,
-  "next_action": "WAIT_FOR_OWNER_ACCEPTANCE_BETA116_CHECKLIST_1_TO_11"
+  "next_action": "WAIT_FOR_OWNER_ACCEPTANCE_BETA116_CHECKLIST_1_TO_11",
+  "pass_live_validation": "PASS",
+  "product_fast_check_run_id": 33780103022,
+  "final_tree_targeted_verification": "PASS",
+  "final_tree_targeted_checks": [
+    "finalizer_precommit_rebase",
+    "finalizer_technical_owner_state",
+    "request_pass_live",
+    "ota_exact",
+    "handoff_ready",
+    "registry_11_pending"
+  ]
 }

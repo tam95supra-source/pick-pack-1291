@@ -40,5 +40,7 @@
 - main_sha: 021dac5c6932b3ac5c60ce8fdba562ddf3d9688f
 - authority: SERVICE_PRIMARY / PRODUCTION / epoch 9 / generation m2-prod-reset-20260823-001
 - finalization_recovery: canonical state reconstructed from PASS publish/PDA receipts after finalize rebase conflict; no APK rebuild/resign/republish.
+- pass_live_validation_run: 33783284600 PASS
+- final_tree_targeted_verification: PASS
 - technical_receipt: ops/beta116-technical-pass.json
 - next_action: WAIT_FOR_OWNER_ACCEPTANCE_BETA116_CHECKLIST_1_TO_11

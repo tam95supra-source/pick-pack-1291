@@ -24,6 +24,8 @@ Beta116 đã Technical PASS/LIVE trên exact locked APK. Toàn bộ candidate/se
 - Fast Check sau harness fix: 33780103022 PASS.
 - Publish: 33780057070 / 9903236359 PASS.
 - OTA Beta115 → Beta116 / install / open / exact readback: 33780057070 / 9903336912 PASS.
+- Pass-live validation: 33783284600 PASS.
+- Final tree targeted release-state/finalizer/registry verification: PASS.
 - SHA256: a346d4554e07fc37552c9d8876179860677fc93923a3bd42f9b3f97f5e11f235 / size 14347253.
 - Signer: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e.
 - Stable/main/authority: unchanged.
