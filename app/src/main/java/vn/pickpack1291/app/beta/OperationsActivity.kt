@@ -306,7 +306,7 @@ class OperationsActivity : Activity() {
         module="BUSINESS"
         screenState="DROP_RECEIVE"
         val root=baseRoot("NHẬN HÀNG RỚT")
-        root.addView(DropReceiveFeature.build(this,api,login,name,role){businessHome()},LinearLayout.LayoutParams(-1,0,1f))
+        root.addView(DropReceiveFeature.build(this,api,login,name,role,{label,after->verifyActionPassword(label,after)}){businessHome()},LinearLayout.LayoutParams(-1,0,1f))
         setScreen(root)
     }
 
