@@ -163,6 +163,21 @@ async function sharedHistory(env:Env,body:Record<string,unknown>):Promise<Respon
   return json({ok:true,source:"SERVICE_D1",history_engine:"M2_CANONICAL_D1",business_date:date,total:items.length,active_count:items.filter(x=>x.state==="ACTIVE").length,ended_count:items.filter(x=>x.state==="ENDED").length,items});
 }
 
+async function lanTestMode(env:Env,auth:{login_id:string;role:string},body:Record<string,unknown>):Promise<Response>{
+  const action=String(body.action||"");
+  if(action==="lan_test_mode_set"){
+    if(auth.role!=="SUPERADMIN")return apiError("SUPERADMIN_REQUIRED","PERMISSION",403);
+    const enabled=body.enabled===true;
+    const at=nowIso();
+    await env.DB.prepare(`INSERT INTO lan_test_mode(singleton_id,enabled,epoch,enabled_by,updated_at)
+      VALUES(1,?1,1,?2,?3)
+      ON CONFLICT(singleton_id) DO UPDATE SET enabled=excluded.enabled,epoch=lan_test_mode.epoch+1,enabled_by=excluded.enabled_by,updated_at=excluded.updated_at`)
+      .bind(enabled?1:0,auth.login_id,at).run();
+  }
+  const row=await env.DB.prepare("SELECT enabled,epoch,enabled_by,updated_at FROM lan_test_mode WHERE singleton_id=1").first<{enabled:number;epoch:number;enabled_by:string;updated_at:string}>();
+  return json({ok:true,test_mode:{enabled:Number(row?.enabled||0)===1,epoch:Number(row?.epoch||0),enabled_by:String(row?.enabled_by||""),updated_at:String(row?.updated_at||"")}});
+}
+
 export async function mobileRead(request:Request,env:Env):Promise<Response>{
   const auth=await authenticate(env.DB,env,request);if(!auth)return apiError("UNAUTHORIZED","AUTH",401);
   const body=await readJsonBody<Record<string,unknown>>(request,256_000),action=String(body.action||"");
@@ -175,6 +190,7 @@ export async function mobileRead(request:Request,env:Env):Promise<Response>{
   if(action==="meal_attendance_dates")return mealAttendanceDates(env);
   if(action==="labor_list")return laborList(env,body);
   if(action==="labor_dates")return laborDates(env);
+  if(action==="lan_test_mode_get"||action==="lan_test_mode_set")return lanTestMode(env,auth,body);
   if(action.startsWith("outbound_"))return outboundAction(env,auth,action,body);
   if(action==="runtime_status")return json({ok:true,source:"SERVICE_D1",authority:await currentAuthority(env.DB),service_generation:env.SERVICE_GENERATION});
   return apiError("MOBILE_READ_ACTION_UNSUPPORTED","VALIDATION",400);
