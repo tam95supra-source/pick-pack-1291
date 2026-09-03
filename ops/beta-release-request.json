@@ -1,6 +1,6 @@
 {
-  "stage": "BETA_DOMAIN_PREPARE",
-  "mode": "BETA116_DOMAIN_READBACK_EXACT_CANDIDATE",
+  "stage": "PUBLISH",
+  "mode": "BETA116_PUBLISH_EXACT_LOCKED_BYTES_GITHUB_RELEASE_ONLY",
   "version_name": "0.4.2-beta.116",
   "version_code": 122,
   "base_version": "0.4.2-beta.115",
@@ -51,10 +51,10 @@
   "runtime_dod_status": "PASS",
   "beta_auth_status": "PASS",
   "stable_gas_repair_status": "PASS",
-  "beta_domain_status": "PENDING",
+  "beta_domain_status": "PASS",
   "regression_case": "tools/beta116_owner_scope_contract.py + preserve Beta115 ACTIVE_PASS including LABOR-EXACT-SESSION-002, DOCUMENT-BATCH-MODE-TICK-002, UI-REVIEW-WARNING-001, NAV-HISTORY-BACK-001, PDA-EXIT-001, ENV-ISOLATION-001",
-  "execution_nonce": "beta116-domain-readback-20260903-13",
-  "next_action": "RUN_BETA_DOMAIN_PREPARE_WITH_STABLE_PRIVATE_GUARD",
+  "execution_nonce": "beta116-publish-exact-locked-20260903-14",
+  "next_action": "PUBLISH_EXACT_LOCKED_BYTES_AND_VERIFY_OTA_READBACK",
   "service_gate_status": "PASS",
   "service_gate_run_id": 33767353642,
   "service_gate_artifact_id": 9898616640,
@@ -90,5 +90,12 @@
   "device_regression_artifact_name": "beta-service-discovery-33778316587",
   "runtime_dod_run_id": 33778605857,
   "runtime_dod_artifact_id": 9902663700,
-  "runtime_dod_artifact_name": "beta-stable-runtime-33778605857"
+  "runtime_dod_artifact_name": "beta-stable-runtime-33778605857",
+  "beta_domain_run_id": 33778957345,
+  "beta_domain_artifact_id": 9902758766,
+  "beta_domain_artifact_name": "beta-domain-prepare-33778957345",
+  "release_lock_status": "LOCKED",
+  "release_lock_receipt": "ops/beta116-release-lock.json",
+  "release_lock_at": "2026-09-03T16:31:03Z",
+  "technical_pass_status": "PENDING_OTA_READBACK"
 }
