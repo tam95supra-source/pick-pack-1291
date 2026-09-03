@@ -1,8 +1,8 @@
 {
-  "run_id": 33783284600,
-  "run_sha": "b27aca6028306f804131a7debf96afcfe8bedc34",
-  "ref": "release/beta116-owner-scope-20260903",
-  "execution_nonce": "beta116-pass-live-post-finalize-ci-20260904-18",
-  "stage": "pass_live",
-  "observed_at": "2026-09-03T17:13:39Z"
+  "run_id": 33797938890,
+  "run_sha": "5f63613c58ba3eb3862cab72ec35f1826ac71b6c",
+  "ref": "release/beta117-owner-followup-performance-20260904",
+  "execution_nonce": "beta117-build-verify-20260904-01",
+  "stage": "BUILD_VERIFY",
+  "observed_at": "2026-09-03T19:41:55Z"
 }
