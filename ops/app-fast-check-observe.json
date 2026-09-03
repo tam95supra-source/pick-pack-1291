@@ -1,8 +1,8 @@
 {
-  "run_id": 33796854980,
-  "run_sha": "94358702ed73617546c425cc2d98ad068f1e4ee0",
+  "run_id": 33797193858,
+  "run_sha": "33a87af613a25ba6432b380059aad3ff4abd5728",
   "ref": "release/beta117-owner-followup-performance-20260904",
   "execution_nonce": "beta116-pass-live-post-finalize-ci-20260904-18",
   "stage": "pass_live",
-  "observed_at": "2026-09-03T19:30:51Z"
+  "observed_at": "2026-09-03T19:34:19Z"
 }
