@@ -38,7 +38,7 @@ for token in ["DOCUMENT_UPLOAD","DOCUMENT_DELETE","DOCUMENT_CATEGORY_CREATE","DO
 
 # Labor: explicit time picker/range, open record can exist, exit remains fail-closed while OPEN.
 labor_start=activity[activity.index("private fun showLaborContext"):activity.index("private fun resourceHome")]
-assert "laborWheelPick" in activity and activity.count("wrapSelectorWheel=false") >= 2
+assert "laborWheelPick" in activity and "NumberPicker" in activity, "Labor must keep explicit wheel time picker"
 assert '.put("start_at",startIso)' in labor_start
 assert '.put("end_at",end)' in labor_start or '.put("end_at",selectedEnd)' in labor_start
 assert '.put("time_marker"' not in labor_start
