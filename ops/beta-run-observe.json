@@ -1,8 +1,8 @@
 {
-  "run_id": 33705116149,
-  "run_sha": "a0f732ef0e8cab2d181a5209e7e6653a12b87b4f",
+  "run_id": 33705707420,
+  "run_sha": "14a02a1ee64608d45c4314208d9b6654e67e38dd",
   "ref": "release/beta113-owner-scope-20260902",
-  "execution_nonce": "beta115-verify-exact-20260903-03",
-  "stage": "VERIFY_ONLY",
-  "observed_at": "2026-09-03T01:48:17Z"
+  "execution_nonce": "beta115-device-discovery-20260903-04",
+  "stage": "SERVICE_DISCOVERY_ONLY",
+  "observed_at": "2026-09-03T01:57:11Z"
 }
