@@ -21,6 +21,8 @@ must("BASE_CANDIDATE_SOURCE=$(jq -r '.base_candidate_source_sha // .base_source_
 must('ensure_beta_github_release.sh "$PREV" "$BASE_CANDIDATE_SOURCE"' in publish,"BETA_BASE_RELEASE_USES_CANDIDATE_SOURCE_MISSING")
 must('ensure_beta_github_release.sh "$PREV" "$BASE_SOURCE"' not in publish,"BETA_BASE_RELEASE_SERVICE_SOURCE_CONFLATION")
 must('--arg source "$BASE_SOURCE"' in publish,"BETA_BASE_FINAL_SERVICE_SOURCE_GUARD_MISSING")
+must("base_live_final_repo_receipt" in beta and "base_live_final_repo_receipt" in publish,"BETA_BASE_FINAL_REPO_RECEIPT_FALLBACK_MISSING")
+must("REPO_TECHNICAL_PASS" in publish and "ota_readback_run_id" in publish and "ota_readback_artifact_id" in publish,"BETA_BASE_FINAL_REPO_RECEIPT_NOT_FAIL_CLOSED")
 finalize=read("tools/finalize_beta83.sh")
 must('.technical_pass_status="PASS"' in finalize and '.owner_acceptance="PENDING"' in finalize,"BETA_FINALIZER_TECHNICAL_OWNER_STATE_MISSING")
 must('WAIT_FOR_OWNER_ACCEPTANCE_NUMBERED_CHECKLIST' in finalize,"BETA_FINALIZER_OWNER_NEXT_ACTION_MISSING")
