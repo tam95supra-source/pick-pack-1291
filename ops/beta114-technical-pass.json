@@ -1,0 +1,120 @@
+{
+  "status": "TECHNICAL_PASS_AWAITING_OWNER",
+  "task_state": "TECHNICAL_PASS_AWAITING_OWNER",
+  "channel": "BETA",
+  "live": true,
+  "version_name": "0.4.2-beta.114",
+  "version_code": 120,
+  "package": "vn.pickpack1291.app.beta.publicbeta",
+  "source_sha": "5686da2cc6fdb2bf845456bda9e703eb68e9f1f0",
+  "candidate": {
+    "run_id": 33691947969,
+    "artifact_id": 9870515268,
+    "sha256": "cc611efc72a3cd0af413f316b6182adb281d398c189f5bb9d613235722b296bd",
+    "size": 14232565,
+    "signer_sha256": "d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e"
+  },
+  "gates": {
+    "fast_check": {
+      "status": "PASS",
+      "run_id": 33698830085
+    },
+    "service": {
+      "status": "PASS_INHERITED_SERVICE_BYTES_UNCHANGED",
+      "run_id": 33655832542,
+      "artifact_id": 9856893379
+    },
+    "visual_pda_api36": {
+      "status": "PASS",
+      "run_id": 33698830042,
+      "artifact_id": 9872907916,
+      "screenshot_count": 43,
+      "viewports": [
+        "320x568",
+        "360x640",
+        "480x800"
+      ],
+      "human_visual": "PASS_INHERITED_EXACT_APK_BYTES"
+    },
+    "device_discovery": {
+      "status": "PASS",
+      "run_id": 33697808957,
+      "artifact_id": 9872457667
+    },
+    "runtime_dod": {
+      "status": "PASS",
+      "run_id": 33698019451,
+      "artifact_id": 9872504979,
+      "backup_restore": "PASS",
+      "stable_public": false
+    },
+    "terminal": {
+      "status": "PASS",
+      "run_id": 33699803398,
+      "publish_artifact_id": 9873117701,
+      "ota_artifact_id": 9873169722,
+      "final_artifact_id": 9873176752,
+      "handoff_artifact_id": 9873180650
+    },
+    "github_release": {
+      "status": "PASS",
+      "release_id": 381651070,
+      "asset_id": 541964779,
+      "asset_size": 14232565,
+      "tag": "v0.4.2-beta.114-publicbeta"
+    }
+  },
+  "release_lock": "ops/beta114-release-lock-v2.json",
+  "human_visual_receipt": "ops/beta114-human-visual-receipt-v2.json",
+  "apk_transport": "GITHUB_RELEASE_ONLY",
+  "google_drive_apk": "FORBIDDEN",
+  "stable": "UNCHANGED_NOT_PUBLIC",
+  "main_sha": "021dac5c6932b3ac5c60ce8fdba562ddf3d9688f",
+  "authority_change": "NONE",
+  "owner_acceptance": "PENDING",
+  "awaiting_owner_invariants": [
+    "CHANGELOG-CURRENT-VERSION-001",
+    "ADMIN-AUDIT-PASSWORD-001",
+    "HISTORY-SUPERADMIN-CLEANUP-002",
+    "LABOR-MULTI-INTERVAL-003",
+    "UI-DATA-DATE-SELECT-001",
+    "UI-EMPLOYEE-SCAN-ROSTER-001",
+    "UI-FORM-CONSISTENCY-002"
+  ],
+  "preserved_active_pass": [
+    "UI-STATUS-001",
+    "QR-LOCAL-001",
+    "MEAL-DATE-001",
+    "MEAL-WARN-001",
+    "ROLE-HISTORY-001",
+    "OTA-BETA-001",
+    "PDA-EXIT-001",
+    "ENV-ISOLATION-001",
+    "SERVICE-DISCOVERY-001",
+    "SHIFT-STAFF-DOWNLOAD-QR-001",
+    "DOCUMENT-MANAGEMENT-001",
+    "DOCUMENT-BATCH-001",
+    "LABOR-TIME-RANGE-001",
+    "MEAL-UI-NULL-001",
+    "UI-COPY-DENSITY-001",
+    "NAV-HISTORY-BACK-001",
+    "UI-REVIEW-WARNING-001",
+    "LABOR-EXACT-SESSION-002",
+    "HISTORY-DELETE-CANONICAL-001",
+    "DOCUMENT-BATCH-MODE-TICK-002"
+  ],
+  "owner_checklist": [
+    "Changelog trong Cài đặt hiển thị đúng nội dung Beta114, không còn nội dung bản cũ.",
+    "Đổi mật khẩu thành công và Lịch sử ghi đúng change_password; không còn báo lỗi đồng bộ giả.",
+    "SUPERADMIN xóa được lịch sử canonical/lịch sử lỗi theo xác nhận bảo mật; thao tác pending nghiệp vụ không bị hủy ngầm.",
+    "Ô quét MNV giữ kích thước nhưng nổi bật, dễ nhận biết hơn.",
+    "Công nhật: ô quét/nhập nằm trên danh sách, danh sách nhiều không đẩy ô quét xuống dưới.",
+    "Một phiên có nhiều khoảng công nhật; tối đa một khoảng đang mở, không chồng giờ, sửa/kết thúc đúng khoảng.",
+    "Các ô chọn có phân cấp rõ tiêu đề và giá trị; giá trị đang chọn nổi bật hơn danh sách lựa chọn.",
+    "Lịch chỉ để xem dữ liệu: chỉ ngày có dữ liệu được chọn; lịch chỉnh sửa ngày/giờ nghiệp vụ vẫn chọn bình thường.",
+    "Danh sách nhân sự hôm nay hiện trực tiếp dưới scan; sau scan thông tin nhân viên/phiên ở trước danh sách; rà soát ca chỉ tập trung vào vào/ra và người chưa ra.",
+    "Bố cục form đồng nhất; ReviewAlertUi đã chốt ở Beta112 không bị thay đổi."
+  ],
+  "next_action": "WAIT_FOR_OWNER_ACCEPTANCE_BETA114_CHECKLIST",
+  "recorded_at": "2026-09-03T07:35:00+07:00"
+}
