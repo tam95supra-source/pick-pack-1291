@@ -1,8 +1,8 @@
 {
-  "run_id": 33896047850,
-  "run_sha": "98146103529b4e77faf4945175b88b76d0b868f7",
+  "run_id": 33896192267,
+  "run_sha": "a13d6b041b5c1bdc09aacdeb4a3560efee76ae7c",
   "ref": "release/beta120-bulk-exit-reset200-20260904",
-  "execution_nonce": "beta120-beta-domain-20260904-01",
-  "stage": "BETA_DOMAIN_PREPARE",
-  "observed_at": "2026-09-04T16:36:13Z"
+  "execution_nonce": "beta120-publish-20260904-01",
+  "stage": "PUBLISH",
+  "observed_at": "2026-09-04T16:37:46Z"
 }
