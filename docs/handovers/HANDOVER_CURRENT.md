@@ -2,11 +2,11 @@
 
 - schema_version: 2
 - status: READY
-- time_utc: 2026-09-04T11:52:00Z
+- time_utc: 2026-09-04T12:00:00Z
 - owner: Nguyễn Văn Tâm
 - continuity_branch: beta/current
 - release_branch: release/beta119-superadmin-auth-control-plane-20260904
-- archive_file: docs/handovers/HANDOVER_20260904-115200_beta119-auth-control-technical-pass.md
+- archive_file: docs/handovers/HANDOVER_20260904-120000_beta119-technical-pass-awaiting-owner.md
 
 ## Mục tiêu + DoD
 Scope OWNER_20260904_CURRENT_AUTH_ACCEPTANCE_SECURITY đã Technical PASS trên Beta119 LIVE. Chỉ còn OWNER nghiệm thu checklist BETA119_OWNER_ACCEPTANCE_20260904_R1 revision 1.
@@ -18,20 +18,23 @@ Scope OWNER_20260904_CURRENT_AUTH_ACCEPTANCE_SECURITY đã Technical PASS trên 
 - Stable/main/signer/authority: unchanged.
 
 ## Evidence
-- Service gate: PASS run 33864111135 / artifact 9933578937.
-- Visual/PDA/API36 + human 320x568 / 360x640 / 480x800: PASS run 33864111135 / artifact 9933765361.
-- Live SUPERADMIN auth: PASS run 33865867111.
-- Fast Check: PASS run 33867108883.
-- Auth convergence: PASS run 33867109026 / artifact 9934703912.
-- Service discovery stale-cache regression: PASS run 33868129220 / artifact 9934840799.
-- Runtime DoD: PASS run 33868400852 / artifact 9934904448.
-- Beta domain fresh readback: PASS run 33868581526 / artifact 9934943749.
-- GitHub Release exact bytes + OTA Beta118 -> Beta119 + install/open/readback/finalize: PASS terminal run 33868929441; publish artifact 9935113268; OTA artifact 9935194064; final artifact 9935202498.
-- Invariant finalizer + valid YAML registry: PASS run 33869859593.
-- Secret/ledger/current-sync control-plane guards: PASS run 33869859518.
+- Service gate: PASS 33864111135 / 9933578937.
+- Visual/PDA/API36 + human 320x568 / 360x640 / 480x800: PASS 33864111135 / 9933765361.
+- Live SUPERADMIN auth: PASS 33865867111.
+- Fast Check: PASS 33867108883.
+- Auth convergence: PASS 33867109026 / 9934703912.
+- Service discovery stale-cache regression: PASS 33868129220 / 9934840799.
+- Runtime DoD: PASS 33868400852 / 9934904448.
+- Beta domain fresh readback: PASS 33868581526 / 9934943749.
+- GitHub Release exact bytes + OTA Beta118 -> Beta119 + install/open/readback/finalize: PASS terminal 33868929441; publish 9935113268; OTA 9935194064; final 9935202498.
+- Invariant finalizer/YAML registry: PASS 33869859593.
+- Secret/ledger/current-sync contract guard: PASS 33869859518.
+- pass_live: PASS 33870526120; rebuild/resign/publish jobs skipped đúng stage.
+- beta/current auto-sync: PASS 33870545799; fast-forward-only + post-sync readback PASS.
 
 ## OWNER acceptance ledger
 - Canonical: ops/owner-acceptance-current.json.
+- State epoch: 202609041845.
 - Checklist: BETA119_OWNER_ACCEPTANCE_20260904_R1 / revision 1.
 - CURRENT_PUBLIC_BETA_001: TECHNICAL_PASS_AWAITING_OWNER.
 - SUPERADMIN_AUTH_002: TECHNICAL_PASS_AWAITING_OWNER.
