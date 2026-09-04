@@ -1,0 +1,122 @@
+name: Beta118 verify repaired owner 100 sessions
+
+on:
+  push:
+    branches:
+      - release/beta118-owner-realtime-bulk-exit-20260904
+    paths:
+      - .github/workflows/beta118-owner-100-sessions-postfix-verify.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      D1_NAME: pick-pack-1291-service-prod
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.4.1'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Resolve Android SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -n "${ANDROID_HOME:-}" && -f "$ANDROID_HOME/platforms/android-36/android.jar" ]]; then
+            echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> "$GITHUB_ENV"
+          else
+            SDK="$RUNNER_TEMP/android-sdk"; ZIP="$RUNNER_TEMP/commandlinetools.zip"
+            curl -fsSL https://dl.google.com/android/repository/commandlinetools-linux-15859902_latest.zip -o "$ZIP"
+            echo "4e4c464f145a7512b57d088ac6c278c03c9eea610886b35a5e0804e74eedf583  $ZIP" | sha256sum -c -
+            mkdir -p "$SDK/cmdline-tools"; unzip -q "$ZIP" -d "$RUNNER_TEMP/android-cmdline"
+            mv "$RUNNER_TEMP/android-cmdline/cmdline-tools" "$SDK/cmdline-tools/latest"
+            echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"; echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
+            yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
+            "$SDK/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-36' 'build-tools;36.0.0'
+          fi
+      - name: Compile fixed app and regression contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/beta118_owner_100_sessions_contract.py
+          python3 tools/beta116_owner_scope_contract.py
+          python3 tools/beta117_owner_followup_contract.py
+          python3 tools/beta118_owner_followup_contract.py
+          gradle --no-daemon --build-cache :app:testBetaDebugUnitTest :app:assembleBetaDebug
+      - name: Exact live set readback after fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm --prefix service install --ignore-scripts --no-audit --no-fund
+          TODAY=$(python3 -c 'import json;print(json.load(open("ops/beta118-owner-seed-100-sessions-receipt.json"))["business_date"])')
+          npx --prefix service wrangler d1 execute "$D1_NAME" --remote --json --command "SELECT s.session_id,s.mnv,s.business_date,s.shift,s.state,s.enter_at,s.exit_at,s.entered_by,e.main_position FROM attendance_sessions s LEFT JOIN employees e ON e.mnv=s.mnv WHERE s.business_date='$TODAY' AND s.entered_by='OWNER_TEST_SEED' ORDER BY s.session_id;" > /tmp/canonical.json
+          npx --prefix service wrangler d1 execute "$D1_NAME" --remote --json --command "SELECT event_id FROM events WHERE idempotency_key LIKE 'OWNER_TEST_SEED|$TODAY|%' ORDER BY authority_seq;" > /tmp/events.json
+          python3 - <<'PY'
+          import json,hashlib,pathlib,sys
+          receipt=json.load(open('ops/beta118-owner-seed-100-sessions-receipt.json',encoding='utf-8'))
+          def rows(path):
+              raw=json.load(open(path,encoding='utf-8')); out=[]
+              def walk(x):
+                  if isinstance(x,dict):
+                      if isinstance(x.get('results'),list): out.extend(v for v in x['results'] if isinstance(v,dict))
+                      for v in x.values(): walk(v)
+                  elif isinstance(x,list):
+                      for v in x: walk(v)
+              walk(raw); seen=set(); unique=[]
+              for r in out:
+                  k=json.dumps(r,sort_keys=True,ensure_ascii=False)
+                  if k not in seen: seen.add(k); unique.append(r)
+              return unique
+          expected=receipt['items']; canonical=rows('/tmp/canonical.json'); events=rows('/tmp/events.json')
+          exp_sid={str(x['session_id']) for x in expected}; exp_mnv={str(x['mnv']) for x in expected}; exp_evt={str(x['event_id']) for x in expected}
+          can_sid={str(x.get('session_id','')) for x in canonical}; can_mnv={str(x.get('mnv','')) for x in canonical}; evt={str(x.get('event_id','')) for x in events}
+          keys=['Ca 1','Ca HC','Ca 2']
+          def shift(v):
+              raw=str(v or '').strip(); return next((k for k in keys if k.casefold()==raw.casefold()),raw)
+          ui={str(x.get('session_id','')) for x in canonical if shift(x.get('shift')) in keys}
+          by_sid={str(x.get('session_id','')):x for x in canonical}; invalid=[]
+          for item in expected:
+              r=by_sid.get(str(item['session_id']))
+              if not r: continue
+              if str(r.get('mnv',''))!=str(item['mnv']): invalid.append([item['session_id'],'mnv'])
+              if str(r.get('business_date',''))!=receipt['business_date']: invalid.append([item['session_id'],'date'])
+              if str(r.get('state','')).upper()!='ACTIVE': invalid.append([item['session_id'],'state'])
+              if r.get('exit_at') not in (None,''): invalid.append([item['session_id'],'exit'])
+              if str(r.get('main_position',''))!=str(item['position']): invalid.append([item['session_id'],'position'])
+          report={
+            'source_sha':__import__('os').environ.get('GITHUB_SHA',''),
+            'business_date':receipt['business_date'],
+            'expected_count':len(expected),'expected_unique_mnv':len(exp_mnv),'expected_unique_session_id':len(exp_sid),
+            'canonical_count':len(canonical),'canonical_unique_mnv':len(can_mnv),'canonical_unique_session_id':len(can_sid),
+            'event_count':len(evt),'ui_review_set_count':len(ui),
+            'expected_minus_canonical_count':len(exp_sid-can_sid),'expected_minus_events_count':len(exp_evt-evt),'expected_minus_ui_count':len(exp_sid-ui),
+            'canonical_minus_expected_count':len(can_sid-exp_sid),'invalid_count':len(invalid),
+            'shift_values':sorted({str(x.get('shift','')) for x in canonical}),
+            'seed_set_sha256':hashlib.sha256('\n'.join(sorted(exp_sid)).encode()).hexdigest(),
+          }
+          report['status']='PASS' if all(report[k]==0 for k in ['expected_minus_canonical_count','expected_minus_events_count','expected_minus_ui_count','canonical_minus_expected_count','invalid_count']) and len(exp_sid)==len(exp_mnv)==len(can_sid)==len(can_mnv)==100 else 'FAIL'
+          pathlib.Path('ops/beta118-owner-100-sessions-postfix-verify.json').write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding='utf-8')
+          print(json.dumps(report,ensure_ascii=False,indent=2))
+          if report['status']!='PASS': sys.exit(1)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: beta118-owner-100-sessions-postfix-verify
+          path: |
+            ops/beta118-owner-100-sessions-postfix-verify.json
+            app/build/outputs/apk/beta/debug/app-beta-debug.apk
+          if-no-files-found: error
+          retention-days: 14
