@@ -1,0 +1,44 @@
+name: Beta120 bulk old-session exit fix r3
+
+on:
+  push:
+    branches: [release/beta120-bulk-exit-reset200-20260904]
+    paths: [.github/workflows/beta120-bulk-exit-fix-r3.yml]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: beta120-bulk-exit-fix-r3
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - uses: actions/setup-node@v4
+        with: {node-version: '24'}
+      - name: Apply deterministic patch
+        run: python3 tools/beta120_apply_bulk_fix.py
+      - name: Verify focused contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/beta120_bulk_exit_contract.py
+          npm --prefix service install --ignore-scripts --no-audit --no-fund
+          npm --prefix service run check
+          git diff --check
+      - name: Commit implementation
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf service/node_modules tools/__pycache__ app/build
+          rm -f service/package-lock.json service/worker-configuration.d.ts
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/build.gradle.kts app/src/main/java/vn/pickpack1291/app/beta/ReleaseNotes.kt app/src/main/java/vn/pickpack1291/app/beta/M2RuntimeBridge.kt app/src/main/java/vn/pickpack1291/app/beta/OldSessionWarningFeature.kt service/src/mobile_hotfix.ts tools/beta120_bulk_exit_contract.py
+          git commit -m "fix(beta120): route and chunk bulk old-session exit"
+          git push origin HEAD:release/beta120-bulk-exit-reset200-20260904
