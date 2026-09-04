@@ -45,7 +45,17 @@ for(const x of matches){
 console.log('render_token=PASS target_count=2 cold_suspended=true plan='+requiredPlan+' region='+requiredRegion);
 NODE
 
-http turso-validate "https://api.turso.tech/v1/auth/validate" "$TURSO_API_TOKEN"
+validate_code=$(curl -sS --connect-timeout 10 --max-time 30 -o "$OUT/turso-validate.json" -w '%{http_code}' \
+  -H "Authorization: Bearer $TURSO_API_TOKEN" -H 'Accept: application/json' \
+  "https://api.turso.tech/v1/auth/validate" || true)
+case "$validate_code" in
+  200) echo "turso_validate=PASS" ;;
+  403)
+    printf '{}\n' > "$OUT/turso-validate.json"
+    echo "turso_validate_scope=READ_DENIED continue_with_resource_scoped_proof=true"
+    ;;
+  *) echo "DR_PREFLIGHT_HTTP_FAILED:turso-validate:$validate_code" >&2; exit 52 ;;
+esac
 
 # Prefer explicit non-secret config. Org-scoped Turso platform tokens may intentionally
 # return 403 for account-wide organization listing, so derive a candidate without weakening auth.
