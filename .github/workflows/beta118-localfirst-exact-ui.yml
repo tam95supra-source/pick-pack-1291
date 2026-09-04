@@ -1,6 +1,6 @@
 name: Beta118 exact local-first UI gate
 
-# Harness revision: lifecycle/readback/latency-v3
+# Harness revision: isolated-warning-fixture-v4
 on:
   push:
     branches:
@@ -63,6 +63,7 @@ jobs:
           grep -Fq 'stale_service_did_not_erase_two=PASS' /tmp/localfirst118/instrument.txt
           grep -Fq 'realtime_local_callback=PASS' /tmp/localfirst118/instrument.txt
           grep -Fq 'warning_local_callback=PASS' /tmp/localfirst118/instrument.txt
+          grep -Fq 'warning_fixture_isolated=PASS' /tmp/localfirst118/instrument.txt
           EOF
           chmod +x /tmp/beta118-localfirst.sh
       - name: Enable KVM
