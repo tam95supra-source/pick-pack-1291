@@ -1,8 +1,8 @@
 {
-  "run_id": 33833810807,
-  "run_sha": "1a02085e2d301058ba583663697e8e712d921db8",
+  "run_id": 33834871204,
+  "run_sha": "6851225f79bc280c170e84b12c75c0deb63fd90e",
   "ref": "release/beta118-owner-realtime-bulk-exit-20260904",
-  "execution_nonce": "beta118-build-verify-owner-realtime-localfirst-20260904-02",
-  "stage": "BUILD_VERIFY",
-  "observed_at": "2026-09-04T03:36:25Z"
+  "execution_nonce": "beta118-visual-pda-exact-retry-20260904-03",
+  "stage": "VISUAL_ONLY",
+  "observed_at": "2026-09-04T03:54:27Z"
 }
