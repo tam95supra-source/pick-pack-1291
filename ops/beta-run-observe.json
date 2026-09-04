@@ -1,8 +1,8 @@
 {
-  "run_id": 33839187150,
-  "run_sha": "1eb2810411ad9c083e31fcb2a29e73152f949a71",
+  "run_id": 33841489651,
+  "run_sha": "658f3a298d345460f138a89d397f3a821afb6a98",
   "ref": "release/beta118-owner-realtime-bulk-exit-20260904",
-  "execution_nonce": "beta118-owner100-accepted-beta-auth-20260904-02",
-  "stage": "BETA_AUTH_MIGRATE",
-  "observed_at": "2026-09-04T05:05:26Z"
+  "execution_nonce": "beta118-service-discovery-20260904-01",
+  "stage": "SERVICE_DISCOVERY_ONLY",
+  "observed_at": "2026-09-04T05:42:35Z"
 }
