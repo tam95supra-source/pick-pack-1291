@@ -6,6 +6,7 @@ on:
       - release/beta118-owner-realtime-bulk-exit-20260904
     paths:
       - .github/workflows/beta118-owner-100-sessions-fix.yml
+      - tools/beta118_owner_100_sessions_fix.py
   workflow_dispatch:
 
 permissions:
@@ -33,7 +34,7 @@ jobs:
           python3 tools/beta117_owner_followup_contract.py
           python3 tools/beta118_owner_followup_contract.py
           git diff --check
-      - name: Commit fix only
+      - name: Commit product fix and regression guard
         shell: bash
         run: |
           set -euo pipefail
@@ -41,10 +42,9 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add \
             app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt \
-            .github/workflows/beta118-owner-seed-100-sessions.yml \
             tools/beta118_owner_100_sessions_contract.py \
             qa/beta118_owner_100_sessions_regression.md
           git diff --cached --name-only
-          test "$(git diff --cached --name-only | wc -l)" -eq 4
+          test "$(git diff --cached --name-only | wc -l)" -eq 3
           git commit -m "fix(beta118): keep exact owner seed set in reconciliation"
           git push origin HEAD:release/beta118-owner-realtime-bulk-exit-20260904
