@@ -1,6 +1,6 @@
 {
-  "stage": "BUILD_VERIFY",
-  "mode": "BETA118_BUILD_VERIFY_PRE_OTA",
+  "stage": "VISUAL_ONLY",
+  "mode": "BETA118_EXACT_CANDIDATE_VISUAL_PDA_RETRY",
   "version_name": "0.4.2-beta.118",
   "version_code": 124,
   "base_version": "0.4.2-beta.117",
@@ -9,24 +9,26 @@
   "source_sha": "81944b8519cfb7995d78a5c1070c4af3ee2150be",
   "candidate_source_sha": "81944b8519cfb7995d78a5c1070c4af3ee2150be",
   "package": "vn.pickpack1291.app.beta.publicbeta",
-  "service_gate_required": true,
+  "service_gate_required": false,
   "human_visual_pass": false,
   "stable_publish": "FORBIDDEN",
   "authority_change": "NONE",
-  "candidate_locked": false,
-  "rebuild": true,
-  "resign": true,
+  "candidate_locked": true,
+  "rebuild": false,
+  "resign": false,
   "live": false,
   "scope": "beta118-owner-followup-document-drop-realtime-localfirst-bulk-old-exit-and-owner100-review-qr",
   "owner": "Nguyen Van Tam",
   "release_notes": [
-    "Owner follow-up: document actions compact/refresh icon/draft delete confirmation and helper text removal; drop receive compact pagination/selected-delete layout.",
-    "Fix labor local-first UI so optimistic rows render in place and stale Service snapshots cannot erase freshly confirmed rows; remove full labor screen reload after successful mutations.",
-    "Route realtime DAY_CHANGED by event type so only relevant warnings/modules refresh; update labor and old-session warnings from local projection without redundant Service reloads.",
-    "SUPERADMIN bulk exit for eligible old sessions uses canonical time-password gate, skips labor sessions and auto-confirms PDA exit.",
-    "Preserve exact 100 seeded-session review and QR visibility regression plus Beta116/Beta117 accepted semantics."
+    "Retry only visual/PDA/API36 verification against the exact locked Beta118 candidate after repairing a stale harness assertion.",
+    "No APK rebuild, no resign, no service redeploy; service live regression from run 33833810807 is inherited because exact service source is unchanged."
   ],
   "signer_sha256": "d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e",
+  "candidate_run_id": 33833810807,
+  "candidate_artifact_id": 9922669910,
+  "candidate_artifact_name": "beta-candidate-33833810807",
+  "apk_sha256": "5216f0eb09f187aed9cb71dcc21cd145fdc3ba7ea7852c74ffe6f85dea2b478f",
+  "apk_size": 14429173,
   "base_candidate_run_id": 33800745880,
   "base_candidate_artifact_id": 9911117214,
   "base_candidate_artifact_name": "beta-candidate-33800745880",
@@ -35,6 +37,6 @@
   "apk_transport": "GITHUB_RELEASE_ONLY",
   "google_drive_apk": "FORBIDDEN",
   "regression_case": "tools/beta118_realtime_localfirst_contract.py + qa/beta118_realtime_localfirst_regression.md + tools/beta118_owner_followup_contract.py + tools/beta118_owner_100_sessions_contract.py + Beta116/Beta117 regression suites",
-  "execution_nonce": "beta118-build-verify-owner-realtime-localfirst-20260904-02",
-  "next_action": "BUILD_SIGN_EXACT_FINAL_BETA118_AND_RUN_FRESH_SERVICE_VISUAL_PDA_PRE_OTA_GATES"
+  "execution_nonce": "beta118-visual-pda-exact-retry-20260904-03",
+  "next_action": "VERIFY_EXACT_LOCKED_CANDIDATE_VISUAL_PDA_API36_WITH_REPAIRED_HARNESS"
 }
