@@ -1,0 +1,832 @@
+{
+  "status": "PASS",
+  "business_date": "2026-09-04",
+  "authority_epoch": 9,
+  "authority_seq_before": 1439,
+  "authority_seq_after": 1539,
+  "count": 100,
+  "positions": [
+    "5S",
+    "Chuyên viên",
+    "Kéo hàng",
+    "Pack",
+    "Phúc Long",
+    "Pick",
+    "Trưởng kho",
+    "Trưởng nhóm",
+    "Tổ trưởng",
+    "Điều phối"
+  ],
+  "items": [
+    {
+      "mnv": "30135",
+      "position": "Pack",
+      "shift": "CA 1",
+      "session_id": "owner-test-20260904-001-30135",
+      "event_id": "owner-seed-enter-20260904-001-30135",
+      "authority_seq": 1440
+    },
+    {
+      "mnv": "30124",
+      "position": "Điều phối",
+      "shift": "CA HC",
+      "session_id": "owner-test-20260904-002-30124",
+      "event_id": "owner-seed-enter-20260904-002-30124",
+      "authority_seq": 1441
+    },
+    {
+      "mnv": "30216",
+      "position": "Tổ trưởng",
+      "shift": "CA 2",
+      "session_id": "owner-test-20260904-003-30216",
+      "event_id": "owner-seed-enter-20260904-003-30216",
+      "authority_seq": 1442
+    },
+    {
+      "mnv": "30298",
+      "position": "Trưởng nhóm",
+      "shift": "CA 1",
+      "session_id": "owner-test-20260904-004-30298",
+      "event_id": "owner-seed-enter-20260904-004-30298",
+      "authority_seq": 1443
+    },
+    {
+      "mnv": "30348",
+      "position": "Trưởng kho",
+      "shift": "CA HC",
+      "session_id": "owner-test-20260904-005-30348",
+      "event_id": "owner-seed-enter-20260904-005-30348",
+      "authority_seq": 1444
+    },
+    {
+      "mnv": "30305",
+      "position": "Pick",
+      "shift": "CA 2",
+      "session_id": "owner-test-20260904-006-30305",
+      "event_id": "owner-seed-enter-20260904-006-30305",
+      "authority_seq": 1445
+    },
+    {
+      "mnv": "30459",
+      "position": "Phúc Long",
+      "shift": "CA 1",
+      "session_id": "owner-test-20260904-007-30459",
+      "event_id": "owner-seed-enter-20260904-007-30459",
+      "authority_seq": 1446
+    },
+    {
+      "mnv": "30495",
+      "position": "Chuyên viên",
+      "shift": "CA HC",
+      "session_id": "owner-test-20260904-008-30495",
+      "event_id": "owner-seed-enter-20260904-008-30495",
+      "authority_seq": 1447
+    },
+    {
+      "mnv": "30099",
+      "position": "5S",
+      "shift": "CA 2",
+      "session_id": "owner-test-20260904-009-30099",
+      "event_id": "owner-seed-enter-20260904-009-30099",
+      "authority_seq": 1448
+    },
+    {
+      "mnv": "30468",
+      "position": "Kéo hàng",
+      "shift": "CA 1",
+      "session_id": "owner-test-20260904-010-30468",
+      "event_id": "owner-seed-enter-20260904-010-30468",
+      "authority_seq": 1449
+    },
+    {
+      "mnv": "30493",
+      "position": "Pack",
+      "shift": "CA HC",
+      "session_id": "owner-test-20260904-011-30493",
+      "event_id": "owner-seed-enter-20260904-011-30493",
+      "authority_seq": 1450
+    },
+    {
+      "mnv": "30232",
+      "position": "Điều phối",
+      "shift": "CA 2",
+      "session_id": "owner-test-20260904-012-30232",
+      "event_id": "owner-seed-enter-20260904-012-30232",
+      "authority_seq": 1451
+    },
+    {
+      "mnv": "30052",
+      "position": "Tổ trưởng",
+      "shift": "CA 1",
+      "session_id": "owner-test-20260904-013-30052",
+      "event_id": "owner-seed-enter-20260904-013-30052",
+      "authority_seq": 1452
+    },
+    {
+      "mnv": "30237",
+      "position": "Trưởng nhóm",
+      "shift": "CA HC",
+      "session_id": "owner-test-20260904-014-30237",
+      "event_id": "owner-seed-enter-20260904-014-30237",
+      "authority_seq": 1453
+    },
+    {
+      "mnv": "30079",
+      "position": "Trưởng kho",
+      "shift": "CA 2",
+      "session_id": "owner-test-20260904-015-30079",
+      "event_id": "owner-seed-enter-20260904-015-30079",
+      "authority_seq": 1454
+    },
+    {
+      "mnv": "30453",
+      "position": "Pick",
+      "shift": "CA 1",
+      "session_id": "owner-test-20260904-016-30453",
+      "event_id": "owner-seed-enter-20260904-016-30453",
+      "authority_seq": 1455
+    },
+    {
+      "mnv": "30178",
+      "position": "Phúc Long",
+      "shift": "CA HC",
+      "session_id": "owner-test-20260904-017-30178",
+      "event_id": "owner-seed-enter-20260904-017-30178",
+      "authority_seq": 1456
+    },
+    {
+      "mnv": "30355",
+      "position": "Chuyên viên",
+      "shift": "CA 2",
+      "session_id": "owner-test-20260904-018-30355",
+      "event_id": "owner-seed-enter-20260904-018-30355",
+      "authority_seq": 1457
+    },
+    {
+      "mnv": "30461",
+      "position": "5S",
+      "shift": "CA 1",
+      "session_id": "owner-test-20260904-019-30461",
+      "event_id": "owner-seed-enter-20260904-019-30461",
+      "authority_seq": 1458
+    },
+    {
+      "mnv": "30089",
+      "position": "Kéo hàng",
+      "shift": "CA HC",
+      "session_id": "owner-test-20260904-020-30089",
+      "event_id": "owner-seed-enter-20260904-020-30089",
+      "authority_seq": 1459
+    },
+    {
+      "mnv": "30353",
+      "position": "Pack",
+      "shift": "CA 2",
+      "session_id": "owner-test-20260904-021-30353",
+      "event_id": "owner-seed-enter-20260904-021-30353",
+      "authority_seq": 1460
+    },
+    {
+      "mnv": "30418",
+      "position": "Điều phối",
+      "shift": "CA 1",
+      "session_id": "owner-test-20260904-022-30418",
+      "event_id": "owner-seed-enter-20260904-022-30418",
+      "authority_seq": 1461
+    },
+    {
+      "mnv": "30449",
+      "position": "Tổ trưởng",
+      "shift": "CA HC",
+      "session_id": "owner-test-20260904-023-30449",
+      "event_id": "owner-seed-enter-20260904-023-30449",
+      "authority_seq": 1462
+    },
+    {
+      "mnv": "30397",
+      "position": "Trưởng nhóm",
+      "shift": "CA 2",
+      "session_id": "owner-test-20260904-024-30397",
+      "event_id": "owner-seed-enter-20260904-024-30397",
+      "authority_seq": 1463
+    },
+    {
+      "mnv": "30341",
+      "position": "Trưởng kho",
+      "shift": "CA 1",
+      "session_id": "owner-test-20260904-025-30341",
+      "event_id": "owner-seed-enter-20260904-025-30341",
+      "authority_seq": 1464
+    },
+    {
+      "mnv": "30283",
+      "position": "Pick",
+      "shift": "CA HC",
+      "session_id": "owner-test-20260904-026-30283",
+      "event_id": "owner-seed-enter-20260904-026-30283",
+      "authority_seq": 1465
+    },
+    {
+      "mnv": "30166",
+      "position": "Phúc Long",
+      "shift": "CA 2",
+      "session_id": "owner-test-20260904-027-30166",
+      "event_id": "owner-seed-enter-20260904-027-30166",
+      "authority_seq": 1466
+    },
+    {
+      "mnv": "30165",
+      "position": "Chuyên viên",
+      "shift": "CA 1",
+      "session_id": "owner-test-20260904-028-30165",
+      "event_id": "owner-seed-enter-20260904-028-30165",
+      "authority_seq": 1467
+    },
+    {
+      "mnv": "30030",
+      "position": "5S",
+      "shift": "CA HC",
+      "session_id": "owner-test-20260904-029-30030",
+      "event_id": "owner-seed-enter-20260904-029-30030",
+      "authority_seq": 1468
+    },
+    {
+      "mnv": "30066",
+      "position": "Kéo hàng",
+      "shift": "CA 2",
+      "session_id": "owner-test-20260904-030-30066",
+      "event_id": "owner-seed-enter-20260904-030-30066",
+      "authority_seq": 1469
+    },
+    {
+      "mnv": "30402",
+      "position": "Pack",
+      "shift": "CA 1",
+      "session_id": "owner-test-20260904-031-30402",
+      "event_id": "owner-seed-enter-20260904-031-30402",
+      "authority_seq": 1470
+    },
+    {
+      "mnv": "30256",
+      "position": "Điều phối",
+      "shift": "CA HC",
+      "session_id": "owner-test-20260904-032-30256",
+      "event_id": "owner-seed-enter-20260904-032-30256",
+      "authority_seq": 1471
+    },
+    {
+      "mnv": "30142",
+      "position": "Tổ trưởng",
+      "shift": "CA 2",
+      "session_id": "owner-test-20260904-033-30142",
+      "event_id": "owner-seed-enter-20260904-033-30142",
+      "authority_seq": 1472
+    },
+    {
+      "mnv": "30404",
+      "position": "Trưởng nhóm",
+      "shift": "CA 1",
+      "session_id": "owner-test-20260904-034-30404",
+      "event_id": "owner-seed-enter-20260904-034-30404",
+      "authority_seq": 1473
+    },
+    {
+      "mnv": "30104",
+      "position": "Trưởng kho",
+      "shift": "CA HC",
+      "session_id": "owner-test-20260904-035-30104",
+      "event_id": "owner-seed-enter-20260904-035-30104",
+      "authority_seq": 1474
+    },
+    {
+      "mnv": "30007",
+      "position": "Pick",
+      "shift": "CA 2",
+      "session_id": "owner-test-20260904-036-30007",
+      "event_id": "owner-seed-enter-20260904-036-30007",
+      "authority_seq": 1475
+    },
+    {
+      "mnv": "30319",
+      "position": "Phúc Long",
+      "shift": "CA 1",
+      "session_id": "owner-test-20260904-037-30319",
+      "event_id": "owner-seed-enter-20260904-037-30319",
+      "authority_seq": 1476
+    },
+    {
+      "mnv": "30209",
+      "position": "Chuyên viên",
+      "shift": "CA HC",
+      "session_id": "owner-test-20260904-038-30209",
+      "event_id": "owner-seed-enter-20260904-038-30209",
+      "authority_seq": 1477
+    },
+    {
+      "mnv": "30224",
+      "position": "5S",
+      "shift": "CA 2",
+      "session_id": "owner-test-20260904-039-30224",
+      "event_id": "owner-seed-enter-20260904-039-30224",
+      "authority_seq": 1478
+    },
+    {
+      "mnv": "30450",
+      "position": "Kéo hàng",
+      "shift": "CA 1",
+      "session_id": "owner-test-20260904-040-30450",
+      "event_id": "owner-seed-enter-20260904-040-30450",
+      "authority_seq": 1479
+    },
+    {
+      "mnv": "30116",
+      "position": "Pack",
+      "shift": "CA HC",
+      "session_id": "owner-test-20260904-041-30116",
+      "event_id": "owner-seed-enter-20260904-041-30116",
+      "authority_seq": 1480
+    },
+    {
+      "mnv": "30335",
+      "position": "Điều phối",
+      "shift": "CA 2",
+      "session_id": "owner-test-20260904-042-30335",
+      "event_id": "owner-seed-enter-20260904-042-30335",
+      "authority_seq": 1481
+    },
+    {
+      "mnv": "30172",
+      "position": "Tổ trưởng",
+      "shift": "CA 1",
+      "session_id": "owner-test-20260904-043-30172",
+      "event_id": "owner-seed-enter-20260904-043-30172",
+      "authority_seq": 1482
+    },
+    {
+      "mnv": "30035",
+      "position": "Trưởng nhóm",
+      "shift": "CA HC",
+      "session_id": "owner-test-20260904-044-30035",
+      "event_id": "owner-seed-enter-20260904-044-30035",
+      "authority_seq": 1483
+    },
+    {
+      "mnv": "30302",
+      "position": "Trưởng kho",
+      "shift": "CA 2",
+      "session_id": "owner-test-20260904-045-30302",
+      "event_id": "owner-seed-enter-20260904-045-30302",
+      "authority_seq": 1484
+    },
+    {
+      "mnv": "30163",
+      "position": "Pick",
+      "shift": "CA 1",
+      "session_id": "owner-test-20260904-046-30163",
+      "event_id": "owner-seed-enter-20260904-046-30163",
+      "authority_seq": 1485
+    },
+    {
+      "mnv": "30151",
+      "position": "Phúc Long",
+      "shift": "CA HC",
+      "session_id": "owner-test-20260904-047-30151",
+      "event_id": "owner-seed-enter-20260904-047-30151",
+      "authority_seq": 1486
+    },
+    {
+      "mnv": "30433",
+      "position": "Chuyên viên",
+      "shift": "CA 2",
+      "session_id": "owner-test-20260904-048-30433",
+      "event_id": "owner-seed-enter-20260904-048-30433",
+      "authority_seq": 1487
+    },
+    {
+      "mnv": "30261",
+      "position": "5S",
+      "shift": "CA 1",
+      "session_id": "owner-test-20260904-049-30261",
+      "event_id": "owner-seed-enter-20260904-049-30261",
+      "authority_seq": 1488
+    },
+    {
+      "mnv": "30046",
+      "position": "Kéo hàng",
+      "shift": "CA HC",
+      "session_id": "owner-test-20260904-050-30046",
+      "event_id": "owner-seed-enter-20260904-050-30046",
+      "authority_seq": 1489
+    },
+    {
+      "mnv": "30500",
+      "position": "Pack",
+      "shift": "CA 2",
+      "session_id": "owner-test-20260904-051-30500",
+      "event_id": "owner-seed-enter-20260904-051-30500",
+      "authority_seq": 1490
+    },
+    {
+      "mnv": "30016",
+      "position": "Điều phối",
+      "shift": "CA 1",
+      "session_id": "owner-test-20260904-052-30016",
+      "event_id": "owner-seed-enter-20260904-052-30016",
+      "authority_seq": 1491
+    },
+    {
+      "mnv": "30238",
+      "position": "Tổ trưởng",
+      "shift": "CA HC",
+      "session_id": "owner-test-20260904-053-30238",
+      "event_id": "owner-seed-enter-20260904-053-30238",
+      "authority_seq": 1492
+    },
+    {
+      "mnv": "30321",
+      "position": "Trưởng nhóm",
+      "shift": "CA 2",
+      "session_id": "owner-test-20260904-054-30321",
+      "event_id": "owner-seed-enter-20260904-054-30321",
+      "authority_seq": 1493
+    },
+    {
+      "mnv": "30121",
+      "position": "Trưởng kho",
+      "shift": "CA 1",
+      "session_id": "owner-test-20260904-055-30121",
+      "event_id": "owner-seed-enter-20260904-055-30121",
+      "authority_seq": 1494
+    },
+    {
+      "mnv": "30477",
+      "position": "Pick",
+      "shift": "CA HC",
+      "session_id": "owner-test-20260904-056-30477",
+      "event_id": "owner-seed-enter-20260904-056-30477",
+      "authority_seq": 1495
+    },
+    {
+      "mnv": "30342",
+      "position": "Phúc Long",
+      "shift": "CA 2",
+      "session_id": "owner-test-20260904-057-30342",
+      "event_id": "owner-seed-enter-20260904-057-30342",
+      "authority_seq": 1496
+    },
+    {
+      "mnv": "30285",
+      "position": "Chuyên viên",
+      "shift": "CA 1",
+      "session_id": "owner-test-20260904-058-30285",
+      "event_id": "owner-seed-enter-20260904-058-30285",
+      "authority_seq": 1497
+    },
+    {
+      "mnv": "30158",
+      "position": "5S",
+      "shift": "CA HC",
+      "session_id": "owner-test-20260904-059-30158",
+      "event_id": "owner-seed-enter-20260904-059-30158",
+      "authority_seq": 1498
+    },
+    {
+      "mnv": "30201",
+      "position": "Kéo hàng",
+      "shift": "CA 2",
+      "session_id": "owner-test-20260904-060-30201",
+      "event_id": "owner-seed-enter-20260904-060-30201",
+      "authority_seq": 1499
+    },
+    {
+      "mnv": "30252",
+      "position": "Pack",
+      "shift": "CA 1",
+      "session_id": "owner-test-20260904-061-30252",
+      "event_id": "owner-seed-enter-20260904-061-30252",
+      "authority_seq": 1500
+    },
+    {
+      "mnv": "30482",
+      "position": "Điều phối",
+      "shift": "CA HC",
+      "session_id": "owner-test-20260904-062-30482",
+      "event_id": "owner-seed-enter-20260904-062-30482",
+      "authority_seq": 1501
+    },
+    {
+      "mnv": "30296",
+      "position": "Tổ trưởng",
+      "shift": "CA 2",
+      "session_id": "owner-test-20260904-063-30296",
+      "event_id": "owner-seed-enter-20260904-063-30296",
+      "authority_seq": 1502
+    },
+    {
+      "mnv": "30356",
+      "position": "Trưởng nhóm",
+      "shift": "CA 1",
+      "session_id": "owner-test-20260904-064-30356",
+      "event_id": "owner-seed-enter-20260904-064-30356",
+      "authority_seq": 1503
+    },
+    {
+      "mnv": "30184",
+      "position": "Trưởng kho",
+      "shift": "CA HC",
+      "session_id": "owner-test-20260904-065-30184",
+      "event_id": "owner-seed-enter-20260904-065-30184",
+      "authority_seq": 1504
+    },
+    {
+      "mnv": "30386",
+      "position": "Pick",
+      "shift": "CA 2",
+      "session_id": "owner-test-20260904-066-30386",
+      "event_id": "owner-seed-enter-20260904-066-30386",
+      "authority_seq": 1505
+    },
+    {
+      "mnv": "30070",
+      "position": "Phúc Long",
+      "shift": "CA 1",
+      "session_id": "owner-test-20260904-067-30070",
+      "event_id": "owner-seed-enter-20260904-067-30070",
+      "authority_seq": 1506
+    },
+    {
+      "mnv": "30173",
+      "position": "Chuyên viên",
+      "shift": "CA HC",
+      "session_id": "owner-test-20260904-068-30173",
+      "event_id": "owner-seed-enter-20260904-068-30173",
+      "authority_seq": 1507
+    },
+    {
+      "mnv": "30487",
+      "position": "5S",
+      "shift": "CA 2",
+      "session_id": "owner-test-20260904-069-30487",
+      "event_id": "owner-seed-enter-20260904-069-30487",
+      "authority_seq": 1508
+    },
+    {
+      "mnv": "30013",
+      "position": "Kéo hàng",
+      "shift": "CA 1",
+      "session_id": "owner-test-20260904-070-30013",
+      "event_id": "owner-seed-enter-20260904-070-30013",
+      "authority_seq": 1509
+    },
+    {
+      "mnv": "30437",
+      "position": "Pack",
+      "shift": "CA HC",
+      "session_id": "owner-test-20260904-071-30437",
+      "event_id": "owner-seed-enter-20260904-071-30437",
+      "authority_seq": 1510
+    },
+    {
+      "mnv": "30443",
+      "position": "Điều phối",
+      "shift": "CA 2",
+      "session_id": "owner-test-20260904-072-30443",
+      "event_id": "owner-seed-enter-20260904-072-30443",
+      "authority_seq": 1511
+    },
+    {
+      "mnv": "30467",
+      "position": "Tổ trưởng",
+      "shift": "CA 1",
+      "session_id": "owner-test-20260904-073-30467",
+      "event_id": "owner-seed-enter-20260904-073-30467",
+      "authority_seq": 1512
+    },
+    {
+      "mnv": "30273",
+      "position": "Trưởng nhóm",
+      "shift": "CA HC",
+      "session_id": "owner-test-20260904-074-30273",
+      "event_id": "owner-seed-enter-20260904-074-30273",
+      "authority_seq": 1513
+    },
+    {
+      "mnv": "30220",
+      "position": "Trưởng kho",
+      "shift": "CA 2",
+      "session_id": "owner-test-20260904-075-30220",
+      "event_id": "owner-seed-enter-20260904-075-30220",
+      "authority_seq": 1514
+    },
+    {
+      "mnv": "30428",
+      "position": "Pick",
+      "shift": "CA 1",
+      "session_id": "owner-test-20260904-076-30428",
+      "event_id": "owner-seed-enter-20260904-076-30428",
+      "authority_seq": 1515
+    },
+    {
+      "mnv": "30221",
+      "position": "Phúc Long",
+      "shift": "CA HC",
+      "session_id": "owner-test-20260904-077-30221",
+      "event_id": "owner-seed-enter-20260904-077-30221",
+      "authority_seq": 1516
+    },
+    {
+      "mnv": "30214",
+      "position": "Chuyên viên",
+      "shift": "CA 2",
+      "session_id": "owner-test-20260904-078-30214",
+      "event_id": "owner-seed-enter-20260904-078-30214",
+      "authority_seq": 1517
+    },
+    {
+      "mnv": "30447",
+      "position": "5S",
+      "shift": "CA 1",
+      "session_id": "owner-test-20260904-079-30447",
+      "event_id": "owner-seed-enter-20260904-079-30447",
+      "authority_seq": 1518
+    },
+    {
+      "mnv": "30272",
+      "position": "Kéo hàng",
+      "shift": "CA HC",
+      "session_id": "owner-test-20260904-080-30272",
+      "event_id": "owner-seed-enter-20260904-080-30272",
+      "authority_seq": 1519
+    },
+    {
+      "mnv": "30351",
+      "position": "Pack",
+      "shift": "CA 2",
+      "session_id": "owner-test-20260904-081-30351",
+      "event_id": "owner-seed-enter-20260904-081-30351",
+      "authority_seq": 1520
+    },
+    {
+      "mnv": "30281",
+      "position": "Điều phối",
+      "shift": "CA 1",
+      "session_id": "owner-test-20260904-082-30281",
+      "event_id": "owner-seed-enter-20260904-082-30281",
+      "authority_seq": 1521
+    },
+    {
+      "mnv": "30245",
+      "position": "Tổ trưởng",
+      "shift": "CA HC",
+      "session_id": "owner-test-20260904-083-30245",
+      "event_id": "owner-seed-enter-20260904-083-30245",
+      "authority_seq": 1522
+    },
+    {
+      "mnv": "30188",
+      "position": "Trưởng nhóm",
+      "shift": "CA 2",
+      "session_id": "owner-test-20260904-084-30188",
+      "event_id": "owner-seed-enter-20260904-084-30188",
+      "authority_seq": 1523
+    },
+    {
+      "mnv": "30458",
+      "position": "Trưởng kho",
+      "shift": "CA 1",
+      "session_id": "owner-test-20260904-085-30458",
+      "event_id": "owner-seed-enter-20260904-085-30458",
+      "authority_seq": 1524
+    },
+    {
+      "mnv": "30081",
+      "position": "Pick",
+      "shift": "CA HC",
+      "session_id": "owner-test-20260904-086-30081",
+      "event_id": "owner-seed-enter-20260904-086-30081",
+      "authority_seq": 1525
+    },
+    {
+      "mnv": "30159",
+      "position": "Phúc Long",
+      "shift": "CA 2",
+      "session_id": "owner-test-20260904-087-30159",
+      "event_id": "owner-seed-enter-20260904-087-30159",
+      "authority_seq": 1526
+    },
+    {
+      "mnv": "30028",
+      "position": "Chuyên viên",
+      "shift": "CA 1",
+      "session_id": "owner-test-20260904-088-30028",
+      "event_id": "owner-seed-enter-20260904-088-30028",
+      "authority_seq": 1527
+    },
+    {
+      "mnv": "30427",
+      "position": "5S",
+      "shift": "CA HC",
+      "session_id": "owner-test-20260904-089-30427",
+      "event_id": "owner-seed-enter-20260904-089-30427",
+      "authority_seq": 1528
+    },
+    {
+      "mnv": "30136",
+      "position": "Kéo hàng",
+      "shift": "CA 2",
+      "session_id": "owner-test-20260904-090-30136",
+      "event_id": "owner-seed-enter-20260904-090-30136",
+      "authority_seq": 1529
+    },
+    {
+      "mnv": "30179",
+      "position": "Pack",
+      "shift": "CA 1",
+      "session_id": "owner-test-20260904-091-30179",
+      "event_id": "owner-seed-enter-20260904-091-30179",
+      "authority_seq": 1530
+    },
+    {
+      "mnv": "30138",
+      "position": "Điều phối",
+      "shift": "CA HC",
+      "session_id": "owner-test-20260904-092-30138",
+      "event_id": "owner-seed-enter-20260904-092-30138",
+      "authority_seq": 1531
+    },
+    {
+      "mnv": "30107",
+      "position": "Tổ trưởng",
+      "shift": "CA 2",
+      "session_id": "owner-test-20260904-093-30107",
+      "event_id": "owner-seed-enter-20260904-093-30107",
+      "authority_seq": 1532
+    },
+    {
+      "mnv": "30036",
+      "position": "Trưởng nhóm",
+      "shift": "CA 1",
+      "session_id": "owner-test-20260904-094-30036",
+      "event_id": "owner-seed-enter-20260904-094-30036",
+      "authority_seq": 1533
+    },
+    {
+      "mnv": "30368",
+      "position": "Trưởng kho",
+      "shift": "CA HC",
+      "session_id": "owner-test-20260904-095-30368",
+      "event_id": "owner-seed-enter-20260904-095-30368",
+      "authority_seq": 1534
+    },
+    {
+      "mnv": "30472",
+      "position": "Pick",
+      "shift": "CA 2",
+      "session_id": "owner-test-20260904-096-30472",
+      "event_id": "owner-seed-enter-20260904-096-30472",
+      "authority_seq": 1535
+    },
+    {
+      "mnv": "30041",
+      "position": "Phúc Long",
+      "shift": "CA 1",
+      "session_id": "owner-test-20260904-097-30041",
+      "event_id": "owner-seed-enter-20260904-097-30041",
+      "authority_seq": 1536
+    },
+    {
+      "mnv": "30317",
+      "position": "Chuyên viên",
+      "shift": "CA HC",
+      "session_id": "owner-test-20260904-098-30317",
+      "event_id": "owner-seed-enter-20260904-098-30317",
+      "authority_seq": 1537
+    },
+    {
+      "mnv": "30269",
+      "position": "5S",
+      "shift": "CA 2",
+      "session_id": "owner-test-20260904-099-30269",
+      "event_id": "owner-seed-enter-20260904-099-30269",
+      "authority_seq": 1538
+    },
+    {
+      "mnv": "30374",
+      "position": "Kéo hàng",
+      "shift": "CA 1",
+      "session_id": "owner-test-20260904-100-30374",
+      "event_id": "owner-seed-enter-20260904-100-30374",
+      "authority_seq": 1539
+    }
+  ],
+  "active_seed_count": 100,
+  "distinct_positions": 10,
+  "authority_readback": {
+    "authority_epoch": 9,
+    "authority_seq": 1539,
+    "mode": "SERVICE_PRIMARY",
+    "scope": "PRODUCTION"
+  },
+  "stable_unchanged": true,
+  "authority_change": "NONE"
+}
