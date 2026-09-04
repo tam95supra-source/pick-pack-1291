@@ -1,8 +1,8 @@
 {
-  "run_id": 33831648524,
-  "run_sha": "61374ced89d968f245081235875ab3e81afce30a",
+  "run_id": 33833810807,
+  "run_sha": "1a02085e2d301058ba583663697e8e712d921db8",
   "ref": "release/beta118-owner-realtime-bulk-exit-20260904",
-  "execution_nonce": "beta118-build-verify-owner100-20260904-01",
+  "execution_nonce": "beta118-build-verify-owner-realtime-localfirst-20260904-02",
   "stage": "BUILD_VERIFY",
-  "observed_at": "2026-09-04T03:01:13Z"
+  "observed_at": "2026-09-04T03:36:25Z"
 }
