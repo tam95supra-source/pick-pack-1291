@@ -1,5 +1,5 @@
 {
-  "stage": "SERVICE_DISCOVERY_ONLY",
+  "stage": "RUNTIME_DOD_VERIFY",
   "mode": "BETA119_EXACT_LOCKED_PRE_OTA_CONTINUATION",
   "version_name": "0.4.2-beta.119",
   "version_code": 125,
@@ -47,6 +47,14 @@
   "beta_auth_artifact_name": "beta-auth-33867109026",
   "live_superadmin_auth_status": "PASS",
   "live_superadmin_auth_run_id": 33865867111,
+  "device_regression_status": "PASS",
+  "device_regression_run_id": 33868129220,
+  "device_regression_artifact_id": 9934840799,
+  "device_regression_artifact_name": "beta-service-discovery-33868129220",
+  "service_discovery_status": "PASS",
+  "service_discovery_run_id": 33868129220,
+  "service_discovery_artifact_id": 9934840799,
+  "service_discovery_artifact_name": "beta-service-discovery-33868129220",
   "stable_gas_repair_status": "PASS",
   "stable_gas_repair_run_id": 33821666160,
   "stable_gas_repair_artifact_id": 9918483812,
@@ -55,7 +63,7 @@
   "base_candidate_artifact_id": 9922669910,
   "base_candidate_artifact_name": "beta-candidate-33833810807",
   "base_live_final_repo_receipt": "ops/beta118-technical-pass.json",
-  "execution_nonce": "beta119-service-discovery-20260904-01",
-  "next_action": "RUN_SERVICE_DISCOVERY_EXACT_CANDIDATE_THEN_RUNTIME_DOD",
+  "execution_nonce": "beta119-runtime-dod-20260904-01",
+  "next_action": "RUN_RUNTIME_DOD_THEN_BETA_DOMAIN_PREPARE",
   "owner_scope": "SUPERADMIN_AUTH_002"
 }
