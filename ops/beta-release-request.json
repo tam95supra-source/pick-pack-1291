@@ -6,8 +6,8 @@
   "base_version": "0.4.2-beta.117",
   "base_version_code": 123,
   "base_source_sha": "415c217cc874906013007a438e80896baf58b241",
-  "source_sha": "0e6b2bf77134b2e7983129dda3a06d7d6770c336",
-  "candidate_source_sha": "0e6b2bf77134b2e7983129dda3a06d7d6770c336",
+  "source_sha": "81944b8519cfb7995d78a5c1070c4af3ee2150be",
+  "candidate_source_sha": "81944b8519cfb7995d78a5c1070c4af3ee2150be",
   "package": "vn.pickpack1291.app.beta.publicbeta",
   "service_gate_required": true,
   "human_visual_pass": false,
@@ -17,10 +17,14 @@
   "rebuild": true,
   "resign": true,
   "live": false,
-  "scope": "beta118-owner-realtime-bulk-exit-and-exact-100-session-review-qr-projection",
+  "scope": "beta118-owner-followup-document-drop-realtime-localfirst-bulk-old-exit-and-owner100-review-qr",
   "owner": "Nguyen Van Tam",
   "release_notes": [
-    "Beta118 owner follow-up; fixes exact 100 seeded sessions visibility in reconciliation and QR in/out list by canonical shift normalization; preserves Beta117 accepted semantics."
+    "Owner follow-up: document actions compact/refresh icon/draft delete confirmation and helper text removal; drop receive compact pagination/selected-delete layout.",
+    "Fix labor local-first UI so optimistic rows render in place and stale Service snapshots cannot erase freshly confirmed rows; remove full labor screen reload after successful mutations.",
+    "Route realtime DAY_CHANGED by event type so only relevant warnings/modules refresh; update labor and old-session warnings from local projection without redundant Service reloads.",
+    "SUPERADMIN bulk exit for eligible old sessions uses canonical time-password gate, skips labor sessions and auto-confirms PDA exit.",
+    "Preserve exact 100 seeded-session review and QR visibility regression plus Beta116/Beta117 accepted semantics."
   ],
   "signer_sha256": "d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e",
   "base_candidate_run_id": 33800745880,
@@ -30,7 +34,7 @@
   "base_apk_size": 14396405,
   "apk_transport": "GITHUB_RELEASE_ONLY",
   "google_drive_apk": "FORBIDDEN",
-  "regression_case": "tools/beta118_owner_100_sessions_contract.py + owner_100_sessions_projection_beta118 emulator functional + Beta116/Beta117/Beta118 regression suites",
-  "execution_nonce": "beta118-build-verify-owner100-20260904-01",
-  "next_action": "BUILD_SIGN_EXACT_BETA118_AND_RUN_SERVICE_VISUAL_PDA_PRE_OTA_GATES"
+  "regression_case": "tools/beta118_realtime_localfirst_contract.py + qa/beta118_realtime_localfirst_regression.md + tools/beta118_owner_followup_contract.py + tools/beta118_owner_100_sessions_contract.py + Beta116/Beta117 regression suites",
+  "execution_nonce": "beta118-build-verify-owner-realtime-localfirst-20260904-02",
+  "next_action": "BUILD_SIGN_EXACT_FINAL_BETA118_AND_RUN_FRESH_SERVICE_VISUAL_PDA_PRE_OTA_GATES"
 }
