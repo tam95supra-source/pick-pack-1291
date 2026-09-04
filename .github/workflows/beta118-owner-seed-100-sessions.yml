@@ -1,0 +1,145 @@
+name: Beta118 owner seed 100 sessions
+
+on:
+  push:
+    branches:
+      - release/beta118-owner-realtime-bulk-exit-20260904
+    paths:
+      - .github/workflows/beta118-owner-seed-100-sessions.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: beta118-owner-seed-100
+  cancel-in-progress: false
+
+jobs:
+  seed:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      D1_NAME: pick-pack-1291-service-prod
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install wrangler
+        run: npm --prefix service install --ignore-scripts --no-audit --no-fund
+      - name: Read Beta authority and eligible employees
+        shell: bash
+        run: |
+          set -euo pipefail
+          TODAY=$(TZ=Asia/Bangkok date +%F)
+          echo "$TODAY" > /tmp/beta118_today.txt
+          npx --prefix service wrangler d1 execute "$D1_NAME" --remote --json --command "SELECT authority_epoch,authority_seq,mode,scope,service_generation FROM authority_state WHERE singleton_id=1;" > /tmp/authority.json
+          npx --prefix service wrangler d1 execute "$D1_NAME" --remote --json --command "SELECT e.mnv,e.full_name,e.main_position,e.supplier FROM employees e LEFT JOIN attendance_sessions a ON a.mnv=e.mnv AND a.business_date='$TODAY' WHERE a.session_id IS NULL ORDER BY e.main_position,e.mnv;" > /tmp/employees.json
+      - name: Generate fenced canonical owner-test seed SQL
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json,hashlib,random,datetime,pathlib
+          def rows(path):
+              data=json.load(open(path,encoding='utf-8'))
+              out=[]
+              def walk(x):
+                  if isinstance(x,dict):
+                      if isinstance(x.get('results'),list): out.extend(x['results'])
+                      for v in x.values(): walk(v)
+                  elif isinstance(x,list):
+                      for v in x: walk(v)
+              walk(data);return out
+          auth=rows('/tmp/authority.json')
+          if len(auth)!=1: raise SystemExit(f'AUTHORITY_READ_INVALID:{len(auth)}')
+          a=auth[0]
+          if a.get('mode')!='SERVICE_PRIMARY' or a.get('scope')!='PRODUCTION': raise SystemExit('BETA_AUTHORITY_NOT_SERVICE_PRIMARY_PRODUCTION')
+          emp=rows('/tmp/employees.json')
+          if len(emp)<100: raise SystemExit(f'NOT_ENOUGH_ELIGIBLE_EMPLOYEES:{len(emp)}')
+          groups={}
+          for e in emp:
+              groups.setdefault((e.get('main_position') or 'KHAC').strip() or 'KHAC',[]).append(e)
+          seed=202609040817
+          rnd=random.Random(seed)
+          for v in groups.values(): rnd.shuffle(v)
+          picked=[]
+          keys=list(groups)
+          rnd.shuffle(keys)
+          while len(picked)<100:
+              progressed=False
+              for k in list(keys):
+                  if groups[k]: picked.append(groups[k].pop());progressed=True
+                  if len(picked)>=100: break
+              if not progressed: break
+          if len(picked)!=100: raise SystemExit('STRATIFIED_PICK_FAILED')
+          today=pathlib.Path('/tmp/beta118_today.txt').read_text().strip()
+          epoch=int(a['authority_epoch']); seq=int(a['authority_seq']); gen=str(a['service_generation'])
+          now=datetime.datetime.now(datetime.timezone.utc)
+          def iso(dt): return dt.isoformat(timespec='milliseconds').replace('+00:00','Z')
+          def q(s): return "'"+str(s).replace("'","''")+"'"
+          lines=[]; receipt=[]
+          shifts=['CA 1','CA HC','CA 2']
+          for i,e in enumerate(picked,1):
+              mnv=str(e['mnv']).strip(); position=str(e.get('main_position') or '').strip(); shift=shifts[(i-1)%len(shifts)]
+              sid=f'owner-test-{today.replace("-","")}-{i:03d}-{mnv}'
+              event_id=f'owner-seed-enter-{today.replace("-","")}-{i:03d}-{mnv}'
+              idem=f'OWNER_TEST_SEED|{today}|{mnv}|{sid}'
+              committed=iso(now+datetime.timedelta(milliseconds=i))
+              payload={'mnv':mnv,'shift':shift,'work_choice':'KHONG','owner_test_seed':True,'main_position_snapshot':position}
+              base={
+                  'event_id':event_id,'event_type':'ATTENDANCE_ENTER','entity_type':'ATTENDANCE_SESSION','entity_id':sid,'business_date':today,
+                  'authority_epoch':epoch,'authority_seq':seq+i,'service_generation':gen,'base_version':0,'new_version':1,
+                  'actor_id':'OWNER_TEST_SEED','actor_role':'SUPERADMIN','device_id':'CI_OWNER_TEST_SEED','occurred_at':committed,'committed_at':committed,
+                  'payload_json':json.dumps(payload,separators=(',',':'),ensure_ascii=False),'idempotency_key':idem,'origin':'SERVICE','schema_version':1,
+              }
+              checksum=hashlib.sha256(json.dumps(base,separators=(',',':'),ensure_ascii=False).encode()).hexdigest()
+              cols=['event_id','event_type','entity_type','entity_id','business_date','authority_epoch','authority_seq','service_generation','base_version','new_version','actor_id','actor_role','device_id','occurred_at','committed_at','payload_json','idempotency_key','origin','schema_version','checksum']
+              vals=[event_id,'ATTENDANCE_ENTER','ATTENDANCE_SESSION',sid,today,epoch,seq+i,gen,0,1,'OWNER_TEST_SEED','SUPERADMIN','CI_OWNER_TEST_SEED',committed,committed,base['payload_json'],idem,'SERVICE',1,checksum]
+              vsql=','.join(str(v) if isinstance(v,int) else q(v) for v in vals)
+              lines.append(f"INSERT INTO events({','.join(cols)}) VALUES({vsql});")
+              lines.append(f"INSERT INTO attendance_sessions(session_id,mnv,business_date,shift,work_choice,state,pda_serial,user_pick,pack_table,user_pack,enter_at,entered_by,version,source_last_row,updated_at) VALUES({q(sid)},{q(mnv)},{q(today)},{q(shift)},'KHONG','ACTIVE',NULL,NULL,NULL,NULL,{q(committed)},'OWNER_TEST_SEED',1,0,{q(committed)});")
+              lines.append(f"INSERT INTO sheet_replication_outbox(event_id,status,next_attempt_at) VALUES({q(event_id)},'PENDING',{q(committed)});")
+              lines.append(f"INSERT INTO mutation_assertions(event_id,ok) VALUES({q(event_id)},1);")
+              receipt.append({'mnv':mnv,'position':position,'shift':shift,'session_id':sid,'event_id':event_id,'authority_seq':seq+i})
+          lines.append(f"UPDATE authority_state SET authority_seq={seq+100},updated_at={q(iso(now+datetime.timedelta(milliseconds=101)))} WHERE singleton_id=1 AND authority_epoch={epoch} AND authority_seq={seq};")
+          pathlib.Path('/tmp/seed.sql').write_text('\n'.join(lines)+'\n',encoding='utf-8')
+          pathlib.Path('/tmp/seed-plan.json').write_text(json.dumps({'status':'PLANNED','business_date':today,'authority_epoch':epoch,'authority_seq_before':seq,'authority_seq_after':seq+100,'count':100,'positions':sorted(set(x['position'] for x in receipt)),'items':receipt},ensure_ascii=False,indent=2),encoding='utf-8')
+          PY
+      - name: Apply Beta-only seed and verify
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx --prefix service wrangler d1 execute "$D1_NAME" --remote --file /tmp/seed.sql >/tmp/seed-apply.txt
+          TODAY=$(cat /tmp/beta118_today.txt)
+          npx --prefix service wrangler d1 execute "$D1_NAME" --remote --json --command "SELECT COUNT(*) n,COUNT(DISTINCT e.main_position) positions FROM attendance_sessions a JOIN employees e ON e.mnv=a.mnv WHERE a.business_date='$TODAY' AND a.entered_by='OWNER_TEST_SEED' AND a.state='ACTIVE'; SELECT authority_epoch,authority_seq,mode,scope FROM authority_state WHERE singleton_id=1;" > /tmp/seed-readback.json
+          python3 - <<'PY'
+          import json,pathlib
+          plan=json.load(open('/tmp/seed-plan.json',encoding='utf-8')); raw=json.load(open('/tmp/seed-readback.json',encoding='utf-8'))
+          rows=[]
+          def walk(x):
+              if isinstance(x,dict):
+                  if isinstance(x.get('results'),list): rows.extend(x['results'])
+                  for v in x.values(): walk(v)
+              elif isinstance(x,list):
+                  for v in x: walk(v)
+          walk(raw)
+          count=next((r for r in rows if 'n' in r),None); auth=next((r for r in rows if 'authority_seq' in r),None)
+          if not count or int(count['n'])!=100: raise SystemExit(f'SEED_COUNT_MISMATCH:{count}')
+          if not auth or int(auth['authority_seq'])!=int(plan['authority_seq_after']) or auth.get('mode')!='SERVICE_PRIMARY' or auth.get('scope')!='PRODUCTION': raise SystemExit(f'AUTHORITY_READBACK_MISMATCH:{auth}')
+          receipt={**plan,'status':'PASS','active_seed_count':int(count['n']),'distinct_positions':int(count.get('positions') or 0),'authority_readback':auth,'stable_unchanged':True,'authority_change':'NONE'}
+          pathlib.Path('ops/beta118-owner-seed-100-sessions-receipt.json').write_text(json.dumps(receipt,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+          PY
+      - name: Commit receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add ops/beta118-owner-seed-100-sessions-receipt.json
+          git commit -m "ops(beta118): record 100 Beta owner test sessions" || true
+          git push origin HEAD:release/beta118-owner-realtime-bulk-exit-20260904
