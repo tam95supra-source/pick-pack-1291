@@ -1,0 +1,116 @@
+name: Beta119 seed200 replication drain
+
+on:
+  push:
+    branches:
+      - ops/beta119-seed200-replication-drain-20260904
+    paths:
+      - .github/workflows/ops-beta119-seed200-replication-drain.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: beta119-seed200-replication-drain
+  cancel-in-progress: false
+
+jobs:
+  fix-deploy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      D1_NAME: pick-pack-1291-service-prod
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+      GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+      GOOGLE_OAUTH_REFRESH_TOKEN: ${{ secrets.GOOGLE_OAUTH_REFRESH_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Fence exact Beta119 live source
+        shell: bash
+        run: |
+          set -euo pipefail
+          LIVE_REF=release/beta119-superadmin-auth-control-plane-20260904
+          git fetch origin "$LIVE_REF"
+          BASE_SHA=$(git rev-parse "origin/$LIVE_REF")
+          test "$(git rev-parse HEAD^)" = "$BASE_SHA" || test "$(git merge-base HEAD "$BASE_SHA")" = "$BASE_SHA"
+          echo "BASE_SHA=$BASE_SHA" >> "$GITHUB_ENV"
+          python3 - <<'PY'
+          import json,subprocess
+          cfg=json.load(open('config/environment_contracts.json',encoding='utf-8'))
+          b=cfg['environments']['BETA'];s=cfg['environments']['STABLE']
+          assert b['lifecycle']=='LIVE' and b['current_service']['worker']=='pickpack'
+          assert b['current_service']['d1_database']=='pick-pack-1291-service-prod'
+          assert s['lifecycle']!='LIVE' and s['stable_publish_allowed'] is False
+          PY
+          npm --prefix service install --ignore-scripts --no-audit --no-fund
+          npx --prefix service wrangler d1 execute "$D1_NAME" --remote --json --command "SELECT mode,scope,service_generation FROM authority_state WHERE singleton_id=1; SELECT COUNT(*) n FROM attendance_sessions WHERE business_date='2026-09-04' AND state='ACTIVE' AND exit_at IS NULL; SELECT COUNT(*) n FROM labor_sessions WHERE business_date='2026-09-04';" > /tmp/pre.json
+          python3 - <<'PY'
+          import json,sys
+          j=json.load(open('/tmp/pre.json')); rows=[]
+          for x in j:
+            rows.extend(x.get('results') or [])
+          a=next((x for x in rows if 'mode' in x),{})
+          nums=[int(x['n']) for x in rows if 'n' in x]
+          assert a.get('mode')=='SERVICE_PRIMARY' and a.get('scope')=='PRODUCTION'
+          assert nums[:2]==[200,0],nums
+          PY
+      - name: Apply smallest writer throughput fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('service/src/index.ts');s=p.read_text(encoding='utf-8')
+          old='replicatePending(env.DB,env),flushPushOutbox(env.DB,env)'
+          new='replicatePending(env.DB,env,5),flushPushOutbox(env.DB,env)'
+          if s.count(old)!=1: raise SystemExit(f'SCHEDULER_ANCHOR_COUNT:{s.count(old)}')
+          p.write_text(s.replace(old,new,1),encoding='utf-8')
+          Path('tools/beta119_replication_drain_contract.py').write_text('''#!/usr/bin/env python3\nfrom pathlib import Path\ns=Path("service/src/index.ts").read_text(encoding="utf-8")\nr=Path("service/src/replication.ts").read_text(encoding="utf-8")\nassert "replicatePending(env.DB,env,5),flushPushOutbox(env.DB,env)" in s\nassert "limit=50" in r\nassert "STALE_INFLIGHT_RECOVERY_V1" in r\nassert "status=\\\'INFLIGHT\\\'" in r or "status='INFLIGHT'" in r\nassert "status='SYNCED'" in r\nprint("beta119_replication_drain_contract=PASS cron_batch=5 official_writer=UNCHANGED stale_recovery=PASS")\n''',encoding='utf-8')
+          PY
+          python3 tools/beta119_replication_drain_contract.py
+          npm --prefix service run check
+          git diff --check
+      - name: Commit exact service fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf service/node_modules
+          rm -f service/package-lock.json service/worker-configuration.d.ts
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add service/src/index.ts tools/beta119_replication_drain_contract.py
+          test "$(git diff --cached --name-only | wc -l)" -eq 2
+          git commit -m "fix(beta119): bound scheduled sheet replication batch"
+          NEW_SHA=$(git rev-parse HEAD)
+          git push origin HEAD:ops/beta119-seed200-replication-drain-20260904
+          echo "NEW_SHA=$NEW_SHA" >> "$GITHUB_ENV"
+      - name: Deploy exact Beta service and verify with automatic recovery
+        shell: bash
+        run: |
+          set +e
+          set -uo pipefail
+          SERVICE_SOURCE_SHA="$NEW_SHA" bash tools/beta89_service_live_gate.sh
+          rc=$?
+          set -e
+          if [[ "$rc" != 0 ]]; then
+            echo "Service gate failed; restore exact Beta119 live service" >&2
+            git checkout "$BASE_SHA" -- service
+            git clean -fd -- service
+            npm --prefix service install --ignore-scripts --no-audit --no-fund
+            SERVICE_SOURCE_SHA="$BASE_SHA" bash tools/beta78_service_live_gate.sh || exit 97
+            exit "$rc"
+          fi
+      - name: Post-deploy seed200 authority readback
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx --prefix service wrangler d1 execute "$D1_NAME" --remote --json --command "SELECT mode,scope,service_generation FROM authority_state WHERE singleton_id=1; SELECT shift,COUNT(*) n FROM attendance_sessions WHERE business_date='2026-09-04' AND state='ACTIVE' AND exit_at IS NULL GROUP BY shift ORDER BY shift; SELECT work_choice,COUNT(*) n FROM attendance_sessions WHERE business_date='2026-09-04' GROUP BY work_choice ORDER BY work_choice; SELECT status,COUNT(*) n FROM sheet_replication_outbox o JOIN events e ON e.event_id=o.event_id WHERE e.business_date='2026-09-04' AND e.event_id LIKE 'OWNER_SEED200_20260904_%' GROUP BY status ORDER BY status;" > /tmp/post.json
+          cat /tmp/post.json | jq -c '[.[]|.results]'
