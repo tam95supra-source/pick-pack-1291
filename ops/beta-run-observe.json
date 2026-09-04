@@ -1,8 +1,8 @@
 {
-  "run_id": 33896192267,
-  "run_sha": "a13d6b041b5c1bdc09aacdeb4a3560efee76ae7c",
-  "ref": "release/beta120-bulk-exit-reset200-20260904",
-  "execution_nonce": "beta120-publish-20260904-01",
-  "stage": "PUBLISH",
-  "observed_at": "2026-09-04T16:37:46Z"
+  "run_id": 33929647208,
+  "run_sha": "98b3b6d1c5f895fb6db4860244c5c48bec7bae6e",
+  "ref": "release/beta121-owner-ui-pda-source-20260905",
+  "execution_nonce": "beta121-build-verify-20260905-01",
+  "stage": "BUILD_VERIFY",
+  "observed_at": "2026-09-04T23:30:20Z"
 }
