@@ -1,8 +1,8 @@
 {
-  "run_id": 33874332753,
-  "run_sha": "b8f548d5717156554b8599955f62ab23f9973fc9",
-  "ref": "release/beta120-bulk-exit-reset200-20260904",
-  "execution_nonce": "beta119-pass-live-current-sync-20260904-01",
+  "run_id": 33925535569,
+  "run_sha": "b6edf91307039ecc55a410e168ea3c614ffdd2e5",
+  "ref": "release/beta121-owner-ui-pda-source-20260905",
+  "execution_nonce": "beta120-publish-20260904-01",
   "stage": "pass_live",
-  "observed_at": "2026-09-04T12:44:56Z"
+  "observed_at": "2026-09-04T22:26:54Z"
 }
