@@ -8,6 +8,7 @@ notes=(ROOT/"app/src/main/java/vn/pickpack1291/app/beta/ReleaseNotes.kt").read_t
 gas=(ROOT/"google-apps-script/PICK_PACK_API.gs").read_text(encoding="utf-8")
 service=(ROOT/"service/src/mobile_hotfix.ts").read_text(encoding="utf-8")
 dr=(ROOT/"tools/cloud_dr_provider_preflight.sh").read_text(encoding="utf-8")
+visual=(ROOT/"tools/Beta83UiChecksInstrumentation.java").read_text(encoding="utf-8")
 
 assert 'versionCode = 127' in gradle and 'versionName = "0.4.2-beta.121"' in gradle
 assert 'const val VERSION_NAME = "0.4.2-beta.121"' in notes
@@ -17,6 +18,8 @@ for label in ("Mạng","Đồng bộ","Dịch vụ"):
 for kind in ('"NETWORK"','"SYNC"','"SERVICE"'):
     assert kind in ops
 assert "Thông tin mạng" in ops and "Thông tin đồng bộ" in ops and "Thông tin dịch vụ" in ops
+assert '"Kiểu kết nối" to net.transport' in ops
+assert '"Dịch vụ đang dùng" to provider' in ops and '"Chế độ quyền hiện tại" to roleText(effectiveRole)' in ops
 assert 'setNeutralButton("ĐỒNG BỘ NGAY")' in ops and 'manualRefreshFromHeader(syncStatusText?:host)' in ops
 
 assert 'Triple(R.drawable.ic_pp_account,"Quyền","ROLE_MODE")' not in ops
@@ -46,6 +49,12 @@ assert 'source:String(m["Nguồn"]||m["source"]||"")' in service
 for name in ("ic_pp_network.xml","ic_pp_sync.xml","ic_pp_service.xml"):
     x=(ROOT/"app/src/main/res/drawable"/name).read_text(encoding="utf-8")
     assert "<vector" in x and x.count("<path") >= 2
+
+# Visual harness must follow the current user-facing Vietnamese status vocabulary.
+assert 'waitText("Kiểu kết nối",false,false,10000L);' in visual
+assert 'waitText("Dịch vụ đang dùng",false,false,10000L);waitText("Chế độ quyền hiện tại",false,false,10000L);' in visual
+assert 'waitText("Loại kết nối",false,false,10000L);' not in visual
+assert 'waitText("Authority",false,false,10000L);' not in visual
 
 # A 403 on Turso account-wide auth metadata is not sufficient for PASS and must not
 # be treated as an expired token by itself. It may continue only to the existing
