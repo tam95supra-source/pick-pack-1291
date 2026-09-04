@@ -1,0 +1,43 @@
+name: Beta119 fix release marker race
+
+on:
+  push:
+    branches:
+      - release/beta119-superadmin-auth-control-plane-20260904
+    paths:
+      - .github/workflows/beta119-fix-release-marker-race.yml
+      - tools/beta119_fix_release_marker_race.py
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: beta119-fix-release-marker-race
+  cancel-in-progress: false
+
+jobs:
+  patch:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply deterministic marker race patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/beta119_fix_release_marker_race.py
+          git diff --check
+          grep -q 'RUN_MARKER_SKIPPED_BRANCH_ADVANCED' .github/workflows/beta-release.yml
+      - name: Commit harness-only repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/workflows/beta-release.yml
+          git diff --cached --quiet && exit 0
+          git commit -m "fix(ci): tolerate observer marker writer race"
+          git pull --rebase origin "${GITHUB_REF_NAME}"
+          git push origin HEAD:"${GITHUB_REF_NAME}"
