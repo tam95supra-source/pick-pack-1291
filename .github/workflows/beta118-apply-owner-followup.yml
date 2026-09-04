@@ -1,0 +1,57 @@
+name: Beta118 apply owner follow-up
+
+on:
+  push:
+    branches:
+      - release/beta118-owner-realtime-bulk-exit-20260904
+    paths:
+      - .github/workflows/beta118-apply-owner-followup.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: beta118-apply-owner-followup
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.4.1'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Apply deterministic Beta118 patch
+        run: python3 tools/beta118_apply_owner_followup.py
+      - name: Verify contracts and service typecheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/beta116_owner_scope_contract.py
+          python3 tools/beta117_owner_followup_contract.py
+          python3 tools/beta118_owner_followup_contract.py
+          pushd service
+          npm install --ignore-scripts --no-audit --no-fund
+          npm run check
+          popd
+          git diff --check
+      - name: Commit implementation
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app service tools .github/workflows/app-fast-check.yml
+          git commit -m "feat(beta118): bulk exit and realtime owner follow-up"
+          git push origin HEAD:release/beta118-owner-realtime-bulk-exit-20260904
