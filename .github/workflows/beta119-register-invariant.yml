@@ -1,0 +1,43 @@
+name: Beta119 register invariant
+
+on:
+  push:
+    branches:
+      - release/beta119-superadmin-auth-control-plane-20260904
+    paths:
+      - tools/beta119_register_invariant.py
+      - .github/workflows/beta119-register-invariant.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: beta119-register-invariant
+  cancel-in-progress: false
+
+jobs:
+  register:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: release/beta119-superadmin-auth-control-plane-20260904
+          fetch-depth: 0
+      - name: Register pending invariant
+        run: python3 tools/beta119_register_invariant.py
+      - name: Check diff
+        run: git diff --check
+      - name: Commit registry
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet; then
+            echo "Registry already current"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add qa/stable_invariants.yml docs/STABLE_INVARIANTS.md
+          git commit -m "test(beta119): lock superadmin auth regression invariant"
+          git push origin HEAD:release/beta119-superadmin-auth-control-plane-20260904
