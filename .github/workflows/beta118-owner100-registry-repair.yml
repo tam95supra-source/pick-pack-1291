@@ -1,0 +1,52 @@
+name: Beta118 owner100 registry repair
+
+on:
+  push:
+    branches:
+      - release/beta118-owner-realtime-bulk-exit-20260904
+    paths:
+      - .github/workflows/beta118-owner100-registry-repair.yml
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Repair YAML indentation and impact mapping
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('qa/stable_invariants.yml')
+          lines=p.read_text(encoding='utf-8').splitlines()
+          start=next(i for i,x in enumerate(lines) if x=='  - id: REVIEW-100-SESSIONS-001')
+          end=next(i for i in range(start+1,len(lines)) if lines[i]=='impact_map:')
+          for i in range(start+1,end):
+              if lines[i].startswith('  ') and lines[i].strip():
+                  lines[i]='  '+lines[i]
+          app=next(i for i,x in enumerate(lines) if x.startswith('  "app/**": ['))
+          if 'REVIEW-100-SESSIONS-001' not in lines[app]:
+              lines[app]=lines[app][:-1]+', REVIEW-100-SESSIONS-001]'
+          p.write_text('\n'.join(lines)+'\n',encoding='utf-8')
+          PY
+          ruby -e "require 'yaml'; d=YAML.load_file('qa/stable_invariants.yml'); x=d['invariants'].find{|i| i['id']=='REVIEW-100-SESSIONS-001'}; abort 'missing' unless x; abort 'bad_status' unless x['status']=='TECHNICAL_PASS_AWAITING_OWNER'; abort 'active_bad' unless x['active_pass']==false; abort 'impact_missing' unless d['impact_map']['app/**'].include?('REVIEW-100-SESSIONS-001'); puts 'OWNER100_REGISTRY_PARSE_PASS'"
+          git diff --quiet 81944b8519cfb7995d78a5c1070c4af3ee2150be HEAD -- app service google-apps-script
+      - name: Commit and push
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add qa/stable_invariants.yml
+          git commit -m 'docs(beta118): fix owner100 registry yaml'
+          for i in 1 2 3; do
+            git fetch origin "$GITHUB_REF_NAME"
+            git rebase "origin/$GITHUB_REF_NAME"
+            if git push origin HEAD:"$GITHUB_REF_NAME"; then exit 0; fi
+            sleep 2
+          done
+          exit 1
