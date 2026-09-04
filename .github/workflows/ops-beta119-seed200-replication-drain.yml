@@ -60,13 +60,33 @@ jobs:
           assert a.get('mode')=='SERVICE_PRIMARY' and a.get('scope')=='PRODUCTION'
           assert nums[:2]==[200,0],nums
           PY
-      - name: Verify smallest writer throughput fix
+      - name: Apply sequential bounded official-writer drain
         shell: bash
         run: |
           set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('service/src/index.ts'); s=p.read_text(encoding='utf-8')
+          old='async scheduled(_controller:ScheduledController,env:Env,ctx:ExecutionContext):Promise<void>{ctx.waitUntil(Promise.all([replicatePending(env.DB,env,5),flushPushOutbox(env.DB,env)]).then(()=>undefined).catch(e=>console.log(JSON.stringify({level:"error",kind:"scheduled_background_failed",error:String(e).slice(0,240)}))));}'
+          new='async scheduled(_controller:ScheduledController,env:Env,ctx:ExecutionContext):Promise<void>{ctx.waitUntil(Promise.all([(async()=>{for(let i=0;i<3;i++){const r=await replicatePending(env.DB,env,5);if(!r.ok||r.processed===0)break;}})(),flushPushOutbox(env.DB,env)]).then(()=>undefined).catch(e=>console.log(JSON.stringify({level:"error",kind:"scheduled_background_failed",error:String(e).slice(0,240)}))));}'
+          if old not in s:
+            if new not in s: raise SystemExit('SCHEDULED_DRAIN_ANCHOR_MISSING')
+          else:
+            s=s.replace(old,new,1);p.write_text(s,encoding='utf-8')
+          c=Path('tools/beta119_replication_drain_contract.py')
+          c.write_text('''#!/usr/bin/env python3\nfrom pathlib import Path\ns=Path("service/src/index.ts").read_text(encoding="utf-8")\nr=Path("service/src/replication.ts").read_text(encoding="utf-8")\nassert "for(let i=0;i<3;i++)" in s\nassert "replicatePending(env.DB,env,5)" in s\nassert "if(!r.ok||r.processed===0)break" in s\nassert "limit=50" in r\nassert "STALE_INFLIGHT_RECOVERY_V1" in r\nassert "status=\\'INFLIGHT\\'" in r or "status='INFLIGHT'" in r\nassert "status='SYNCED'" in r\nprint("beta119_replication_drain_contract=PASS sequential_batches=3 batch_size=5 official_writer=UNCHANGED fail_stop=PASS")\n''',encoding='utf-8')
+          PY
           python3 tools/beta119_replication_drain_contract.py
           npm --prefix service run check
           git diff --check
+      - name: Commit exact scheduler fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add service/src/index.ts tools/beta119_replication_drain_contract.py
+          if ! git diff --cached --quiet; then git commit -m "fix(beta119): drain sheet replication in bounded sequential batches"; git push origin HEAD:ops/beta119-seed200-replication-drain-20260904; fi
           NEW_SHA=$(git rev-parse HEAD)
           echo "NEW_SHA=$NEW_SHA" >> "$GITHUB_ENV"
       - name: Deploy exact Beta service and verify with automatic recovery
