@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "project": "APK PICK PACK 1291",
+  "owner": "Nguyễn Văn Tâm",
+  "recorded_at": "2026-09-04T23:59:30+07:00",
+  "status": "OWNER_ACCEPTANCE_COMPLETE",
+  "public_beta": {
+    "version_name": "0.4.2-beta.120",
+    "version_code": 126,
+    "source_sha": "b8f548d5717156554b8599955f62ab23f9973fc9",
+    "candidate_run_id": 33874862142,
+    "candidate_artifact_id": 9937580926,
+    "apk_sha256": "04d9f4b88e6ff038766357402f7f5831de67649087c839f922897042120b8ef8",
+    "apk_size": 14429173,
+    "terminal_run_id": 33896192267
+  },
+  "owner_acceptance": {
+    "data_scope_items_1_2_3": "OWNER_OK",
+    "old_session_bulk_exit": "OWNER_OK"
+  },
+  "invariant": {
+    "id": "OLD-SESSION-BULK-EXIT-001",
+    "status": "ACTIVE_PASS",
+    "regression_case": "tools/beta120_bulk_exit_contract.py"
+  },
+  "technical_evidence": {
+    "fast_check_run_id": 33874862122,
+    "service_visual_pda_run_id": 33876606829,
+    "device_discovery_run_id": 33895538590,
+    "runtime_dod_run_id": 33895822870,
+    "beta_domain_run_id": 33896047850,
+    "terminal_run_id": 33896192267
+  },
+  "stable_main_signer_authority": "UNCHANGED"
+}
