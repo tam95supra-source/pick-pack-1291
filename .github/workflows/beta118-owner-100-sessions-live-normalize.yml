@@ -29,16 +29,15 @@ jobs:
           node-version: '24'
       - name: Install wrangler
         run: npm --prefix service install --ignore-scripts --no-audit --no-fund
-      - name: Normalize exact owner seed and emit one fenced invalidation event
+      - name: Verify and normalize exact 100 owner sessions
         shell: bash
         run: |
           set -euo pipefail
           DATE=$(python3 -c 'import json;print(json.load(open("ops/beta118-owner-seed-100-sessions-receipt.json"))["business_date"])')
           npx --prefix service wrangler d1 execute "$D1_NAME" --remote --json --command "SELECT authority_epoch,authority_seq,mode,scope,service_generation FROM authority_state WHERE singleton_id=1; SELECT session_id,mnv,shift,state,entered_by FROM attendance_sessions WHERE business_date='$DATE' AND entered_by='OWNER_TEST_SEED' ORDER BY session_id;" > /tmp/before.json
           python3 - <<'PY'
-          import json,hashlib,datetime,pathlib
-          receipt=json.load(open('ops/beta118-owner-seed-100-sessions-receipt.json',encoding='utf-8'))
-          raw=json.load(open('/tmp/before.json',encoding='utf-8'))
+          import json,sys
+          receipt=json.load(open('ops/beta118-owner-seed-100-sessions-receipt.json',encoding='utf-8')); raw=json.load(open('/tmp/before.json',encoding='utf-8'))
           rows=[]
           def walk(x):
             if isinstance(x,dict):
@@ -47,33 +46,60 @@ jobs:
             elif isinstance(x,list):
               for v in x: walk(v)
           walk(raw)
-          auth=next((r for r in rows if 'authority_seq' in r and 'authority_epoch' in r),None)
-          sessions=[r for r in rows if 'session_id' in r]
-          expected={x['session_id'] for x in receipt['items']}
-          actual={x['session_id'] for x in sessions}
-          if auth is None or auth.get('mode')!='SERVICE_PRIMARY' or auth.get('scope')!='PRODUCTION': raise SystemExit('AUTHORITY_FENCE_FAILED')
-          if len(sessions)!=100 or actual!=expected: raise SystemExit(f'EXACT_SET_MISMATCH:{len(sessions)}:{len(expected-actual)}:{len(actual-expected)}')
-          allowed={'CA 1':'Ca 1','CA HC':'Ca HC','CA 2':'Ca 2','Ca 1':'Ca 1','Ca HC':'Ca HC','Ca 2':'Ca 2'}
-          if any(str(x.get('shift')) not in allowed for x in sessions): raise SystemExit('UNEXPECTED_SHIFT_VALUE')
-          epoch=int(auth['authority_epoch']); seq=int(auth['authority_seq']); gen=str(auth['service_generation']); newseq=seq+1
-          committed=datetime.datetime.now(datetime.timezone.utc).isoformat(timespec='milliseconds').replace('+00:00','Z')
-          event_id=f'owner-seed-normalize-{receipt["business_date"].replace("-","")}-{newseq}'
-          idem=f'OWNER_TEST_SEED_NORMALIZE|{receipt["business_date"]}|{newseq}'
-          payload={'business_date':receipt['business_date'],'normalized_owner_seed_sessions':100,'from':['CA 1','CA HC','CA 2'],'to':['Ca 1','Ca HC','Ca 2'],'reason':'OWNER_TEST_UI_COMPAT'}
-          base={'event_id':event_id,'event_type':'M1_SHADOW_PROBE','entity_type':'SYSTEM','entity_id':'OWNER_TEST_SEED_NORMALIZE','business_date':receipt['business_date'],'authority_epoch':epoch,'authority_seq':newseq,'service_generation':gen,'base_version':0,'new_version':1,'actor_id':'OWNER_TEST_REPAIR','actor_role':'SUPERADMIN','device_id':'CI_OWNER_TEST_REPAIR','occurred_at':committed,'committed_at':committed,'payload_json':json.dumps(payload,separators=(',',':'),ensure_ascii=False),'idempotency_key':idem,'origin':'SERVICE','schema_version':1}
-          checksum=hashlib.sha256(json.dumps(base,separators=(',',':'),ensure_ascii=False).encode()).hexdigest()
-          def q(v): return "'"+str(v).replace("'","''")+"'"
-          sql=[
-               f"UPDATE attendance_sessions SET shift=CASE shift WHEN 'CA 1' THEN 'Ca 1' WHEN 'CA HC' THEN 'Ca HC' WHEN 'CA 2' THEN 'Ca 2' ELSE shift END, updated_at={q(committed)} WHERE business_date={q(receipt['business_date'])} AND entered_by='OWNER_TEST_SEED';",
-               "INSERT INTO events(event_id,event_type,entity_type,entity_id,business_date,authority_epoch,authority_seq,service_generation,base_version,new_version,actor_id,actor_role,device_id,occurred_at,committed_at,payload_json,idempotency_key,origin,schema_version,checksum) SELECT "+','.join(q(base[k]) if not isinstance(base[k],int) else str(base[k]) for k in ['event_id','event_type','entity_type','entity_id','business_date','authority_epoch','authority_seq','service_generation','base_version','new_version','actor_id','actor_role','device_id','occurred_at','committed_at','payload_json','idempotency_key','origin','schema_version'])+f",{q(checksum)} FROM authority_state WHERE singleton_id=1 AND authority_epoch={epoch} AND authority_seq={seq};",
-               f"UPDATE authority_state SET authority_seq={newseq},updated_at={q(committed)} WHERE singleton_id=1 AND authority_epoch={epoch} AND authority_seq={seq};",
-               f"INSERT INTO sheet_replication_outbox(event_id,status,next_attempt_at) SELECT {q(event_id)},'PENDING',{q(committed)} WHERE EXISTS(SELECT 1 FROM events WHERE event_id={q(event_id)});",
-               f"INSERT INTO mutation_assertions(event_id,ok) SELECT {q(event_id)},1 WHERE EXISTS(SELECT 1 FROM events WHERE event_id={q(event_id)});"
-          ]
-          pathlib.Path('/tmp/repair.sql').write_text('\n'.join(sql)+'\n',encoding='utf-8')
-          pathlib.Path('/tmp/repair-plan.json').write_text(json.dumps({'date':receipt['business_date'],'event_id':event_id,'event_seq':newseq,'epoch':epoch},indent=2),encoding='utf-8')
+          auth=next((r for r in rows if 'authority_seq' in r and 'authority_epoch' in r),None); sessions=[r for r in rows if 'session_id' in r]
+          expected={x['session_id'] for x in receipt['items']}; actual={x['session_id'] for x in sessions}
+          if auth is None or auth.get('mode')!='SERVICE_PRIMARY' or auth.get('scope')!='PRODUCTION': sys.exit('AUTHORITY_FENCE_FAILED')
+          if len(sessions)!=100 or actual!=expected: sys.exit(f'EXACT_SET_MISMATCH:{len(sessions)}:{len(expected-actual)}:{len(actual-expected)}')
+          allowed={'CA 1','CA HC','CA 2','Ca 1','Ca HC','Ca 2'}
+          if any(str(x.get('shift')) not in allowed for x in sessions): sys.exit('UNEXPECTED_SHIFT_VALUE')
           PY
-          npx --prefix service wrangler d1 execute "$D1_NAME" --remote --file /tmp/repair.sql > /tmp/apply.txt
+          NOW=$(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)
+          npx --prefix service wrangler d1 execute "$D1_NAME" --remote --command "UPDATE attendance_sessions SET shift=CASE shift WHEN 'CA 1' THEN 'Ca 1' WHEN 'CA HC' THEN 'Ca HC' WHEN 'CA 2' THEN 'Ca 2' ELSE shift END, updated_at='$NOW' WHERE business_date='$DATE' AND entered_by='OWNER_TEST_SEED';" >/tmp/normalize.txt
+      - name: Emit fenced invalidation with retry
+        shell: bash
+        run: |
+          set -euo pipefail
+          DATE=$(python3 -c 'import json;print(json.load(open("ops/beta118-owner-seed-100-sessions-receipt.json"))["business_date"])')
+          SUCCESS=0
+          for ATTEMPT in 1 2 3 4 5; do
+            npx --prefix service wrangler d1 execute "$D1_NAME" --remote --json --command "SELECT authority_epoch,authority_seq,mode,scope,service_generation FROM authority_state WHERE singleton_id=1;" > /tmp/auth.json
+            python3 - "$ATTEMPT" <<'PY'
+          import json,hashlib,datetime,pathlib,sys
+          attempt=int(sys.argv[1]); raw=json.load(open('/tmp/auth.json',encoding='utf-8')); rows=[]
+          def walk(x):
+            if isinstance(x,dict):
+              if isinstance(x.get('results'),list): rows.extend(v for v in x['results'] if isinstance(v,dict))
+              for v in x.values(): walk(v)
+            elif isinstance(x,list):
+              for v in x: walk(v)
+          walk(raw); a=next((r for r in rows if 'authority_seq' in r),None)
+          if not a or a.get('mode')!='SERVICE_PRIMARY' or a.get('scope')!='PRODUCTION': raise SystemExit('AUTHORITY_FENCE_FAILED')
+          date=json.load(open('ops/beta118-owner-seed-100-sessions-receipt.json'))['business_date']; epoch=int(a['authority_epoch']); seq=int(a['authority_seq']); newseq=seq+1; gen=str(a['service_generation'])
+          committed=datetime.datetime.now(datetime.timezone.utc).isoformat(timespec='milliseconds').replace('+00:00','Z'); event_id=f'owner-seed-normalize-{date.replace("-","")}-{newseq}-a{attempt}'; idem=f'OWNER_TEST_SEED_NORMALIZE|{date}|{newseq}|{attempt}'
+          payload={'business_date':date,'normalized_owner_seed_sessions':100,'reason':'OWNER_TEST_UI_COMPAT','invalidation_only':True}
+          base={'event_id':event_id,'event_type':'M1_SHADOW_PROBE','entity_type':'SYSTEM','entity_id':'OWNER_TEST_SEED_NORMALIZE','business_date':date,'authority_epoch':epoch,'authority_seq':newseq,'service_generation':gen,'base_version':0,'new_version':1,'actor_id':'OWNER_TEST_REPAIR','actor_role':'SUPERADMIN','device_id':'CI_OWNER_TEST_REPAIR','occurred_at':committed,'committed_at':committed,'payload_json':json.dumps(payload,separators=(',',':'),ensure_ascii=False),'idempotency_key':idem,'origin':'SERVICE','schema_version':1}
+          checksum=hashlib.sha256(json.dumps(base,separators=(',',':'),ensure_ascii=False).encode()).hexdigest(); q=lambda v:"'"+str(v).replace("'","''")+"'"
+          vals=','.join(q(base[k]) if not isinstance(base[k],int) else str(base[k]) for k in ['event_id','event_type','entity_type','entity_id','business_date','authority_epoch','authority_seq','service_generation','base_version','new_version','actor_id','actor_role','device_id','occurred_at','committed_at','payload_json','idempotency_key','origin','schema_version'])
+          sql=[f"INSERT INTO events(event_id,event_type,entity_type,entity_id,business_date,authority_epoch,authority_seq,service_generation,base_version,new_version,actor_id,actor_role,device_id,occurred_at,committed_at,payload_json,idempotency_key,origin,schema_version,checksum) SELECT {vals},{q(checksum)} FROM authority_state WHERE singleton_id=1 AND authority_epoch={epoch} AND authority_seq={seq};",f"UPDATE authority_state SET authority_seq={newseq},updated_at={q(committed)} WHERE singleton_id=1 AND authority_epoch={epoch} AND authority_seq={seq} AND EXISTS(SELECT 1 FROM events WHERE event_id={q(event_id)});",f"INSERT OR IGNORE INTO sheet_replication_outbox(event_id,status,next_attempt_at) SELECT {q(event_id)},'PENDING',{q(committed)} WHERE EXISTS(SELECT 1 FROM events WHERE event_id={q(event_id)});",f"INSERT OR IGNORE INTO mutation_assertions(event_id,ok) SELECT {q(event_id)},1 WHERE EXISTS(SELECT 1 FROM events WHERE event_id={q(event_id)});"]
+          pathlib.Path('/tmp/invalidate.sql').write_text('\n'.join(sql)+'\n',encoding='utf-8'); pathlib.Path('/tmp/attempt.json').write_text(json.dumps({'event_id':event_id,'event_seq':newseq,'date':date}),encoding='utf-8')
+          PY
+            npx --prefix service wrangler d1 execute "$D1_NAME" --remote --file /tmp/invalidate.sql >/tmp/invalidate.txt || true
+            EVENT=$(python3 -c 'import json;print(json.load(open("/tmp/attempt.json"))["event_id"])')
+            npx --prefix service wrangler d1 execute "$D1_NAME" --remote --json --command "SELECT COUNT(*) n FROM events WHERE event_id='$EVENT';" >/tmp/event-check.json
+            if python3 - <<'PY'
+          import json,sys
+          x=json.load(open('/tmp/event-check.json')); rows=[]
+          def w(v):
+            if isinstance(v,dict):
+              if isinstance(v.get('results'),list): rows.extend(v['results'])
+              for z in v.values(): w(z)
+            elif isinstance(v,list):
+              for z in v:w(z)
+          w(x); sys.exit(0 if any(int(r.get('n',0))==1 for r in rows if isinstance(r,dict)) else 1)
+          PY
+            then SUCCESS=1; cp /tmp/attempt.json /tmp/repair-plan.json; break; fi
+          done
+          test "$SUCCESS" = 1
       - name: Exact readback
         shell: bash
         run: |
@@ -83,21 +109,14 @@ jobs:
           npx --prefix service wrangler d1 execute "$D1_NAME" --remote --json --command "SELECT shift,COUNT(*) n FROM attendance_sessions WHERE business_date='$DATE' AND entered_by='OWNER_TEST_SEED' GROUP BY shift ORDER BY shift; SELECT COUNT(*) n FROM attendance_sessions WHERE business_date='$DATE' AND entered_by='OWNER_TEST_SEED'; SELECT COUNT(*) n FROM events WHERE event_id='$EVENT'; SELECT MAX(authority_seq) day_revision FROM events WHERE business_date='$DATE'; SELECT authority_seq,mode,scope FROM authority_state WHERE singleton_id=1;" > /tmp/after.json
           python3 - <<'PY'
           import json,sys
-          raw=json.load(open('/tmp/after.json',encoding='utf-8')); plan=json.load(open('/tmp/repair-plan.json'))
-          rows=[]
+          raw=json.load(open('/tmp/after.json',encoding='utf-8')); plan=json.load(open('/tmp/repair-plan.json')); rows=[]
           def walk(x):
             if isinstance(x,dict):
               if isinstance(x.get('results'),list): rows.extend(v for v in x['results'] if isinstance(v,dict))
               for v in x.values(): walk(v)
             elif isinstance(x,list):
               for v in x: walk(v)
-          walk(raw)
-          groups={r['shift']:int(r['n']) for r in rows if 'shift' in r and 'n' in r}
-          counts=[int(r['n']) for r in rows if set(r.keys())=={'n'}]
-          rev=next((int(r['day_revision']) for r in rows if 'day_revision' in r),0)
-          auth=next((r for r in rows if 'authority_seq' in r and 'mode' in r),{})
+          walk(raw); groups={r['shift']:int(r['n']) for r in rows if 'shift' in r and 'n' in r}; counts=[int(r['n']) for r in rows if set(r.keys())=={'n'}]; rev=next((int(r['day_revision']) for r in rows if 'day_revision' in r),0); auth=next((r for r in rows if 'authority_seq' in r and 'mode' in r),{})
           ok=(groups=={'Ca 1':34,'Ca 2':33,'Ca HC':33} and counts[:2]==[100,1] and rev>=int(plan['event_seq']) and int(auth.get('authority_seq',0))>=int(plan['event_seq']) and auth.get('mode')=='SERVICE_PRIMARY' and auth.get('scope')=='PRODUCTION')
-          report={'status':'PASS' if ok else 'FAIL','groups':groups,'total':counts[0] if counts else None,'invalidation_event_count':counts[1] if len(counts)>1 else None,'day_revision':rev,'event_seq':plan['event_seq'],'authority_seq':auth.get('authority_seq'),'stable_unchanged':True}
-          print(json.dumps(report,ensure_ascii=False,indent=2))
-          if not ok: sys.exit(1)
+          report={'status':'PASS' if ok else 'FAIL','groups':groups,'total':counts[0] if counts else None,'invalidation_event_count':counts[1] if len(counts)>1 else None,'day_revision':rev,'event_seq':plan['event_seq'],'authority_seq':auth.get('authority_seq'),'stable_unchanged':True}; print(json.dumps(report,ensure_ascii=False,indent=2)); sys.exit(0 if ok else 1)
           PY
