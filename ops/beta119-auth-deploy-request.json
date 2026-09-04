@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "channel": "BETA",
+  "version_name": "0.4.2-beta.119",
+  "version_code": 125,
+  "source_sha": "eeb45df6deae267d93a5fb15701a0a394885a549",
+  "base_source_sha": "81944b8519cfb7995d78a5c1070c4af3ee2150be",
+  "candidate_status": "PASS",
+  "candidate_run_id": 33864111135,
+  "candidate_artifact_id": 9933396813,
+  "candidate_artifact_name": "beta-candidate-33864111135",
+  "apk_sha256": "73c072187fb13bab635f27009fda500d0745fced4244a8d8276bc9117f350697",
+  "apk_size": 14429173,
+  "signer_sha256": "d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e",
+  "stable_write": false,
+  "authority_change": "NONE",
+  "owner_scope": "SUPERADMIN_AUTH_002",
+  "execution_nonce": "beta119-gas-auth-deploy-20260904-01"
+}
