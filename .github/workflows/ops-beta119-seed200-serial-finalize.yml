@@ -1,0 +1,140 @@
+name: Beta119 seed200 serial finalize
+
+on:
+  push:
+    branches:
+      - ops/beta119-seed200-replication-drain-20260904
+    paths:
+      - .github/workflows/ops-beta119-seed200-serial-finalize.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: beta119-seed200-serial-finalize
+  cancel-in-progress: false
+
+jobs:
+  finalize:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      D1_NAME: pick-pack-1291-service-prod
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+      GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+      GOOGLE_OAUTH_REFRESH_TOKEN: ${{ secrets.GOOGLE_OAUTH_REFRESH_TOKEN }}
+      GOOGLE_SOURCE_SHEET_ID: 1E7ZWz-4eMcBliQxDYBVoogIoeSYyiaXGwj0I6mbMm78
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install CLI and fence exact Beta state
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm --prefix service install --ignore-scripts --no-audit --no-fund
+          python3 - <<'PY'
+          import json
+          cfg=json.load(open('config/environment_contracts.json',encoding='utf-8'))
+          b=cfg['environments']['BETA'];s=cfg['environments']['STABLE']
+          assert b['lifecycle']=='LIVE' and b['current_service']['d1_database']=='pick-pack-1291-service-prod'
+          assert s['lifecycle']!='LIVE' and s['stable_publish_allowed'] is False
+          PY
+          npx --prefix service wrangler d1 execute "$D1_NAME" --remote --json --command "SELECT mode,scope FROM authority_state WHERE singleton_id=1; SELECT shift,COUNT(*) n FROM attendance_sessions WHERE business_date='2026-09-04' AND state='ACTIVE' AND exit_at IS NULL GROUP BY shift ORDER BY shift; SELECT work_choice,COUNT(*) n FROM attendance_sessions WHERE business_date='2026-09-04' GROUP BY work_choice ORDER BY work_choice; SELECT COUNT(*) n FROM labor_sessions WHERE business_date='2026-09-04'; SELECT COALESCE((SELECT config_value FROM runtime_config WHERE config_key='REPLICATION_RECOVERY_ENABLED'),'0') recovery_enabled;" > /tmp/pre.json
+          python3 - <<'PY'
+          import json
+          j=json.load(open('/tmp/pre.json'))
+          assert j[0]['results']==[{'mode':'SERVICE_PRIMARY','scope':'PRODUCTION'}]
+          assert j[1]['results']==[{'shift':'Ca 1','n':80},{'shift':'Ca 2','n':80},{'shift':'Ca HC','n':40}]
+          assert j[2]['results']==[{'work_choice':'KHONG','n':194},{'work_choice':'PACK','n':3},{'work_choice':'PICK','n':3}]
+          assert j[3]['results']==[{'n':0}]
+          assert j[4]['results']==[{'recovery_enabled':'0'}]
+          print('beta_seed200_preflight=PASS')
+          PY
+      - name: Recover stale seed outbox strictly one event at a time
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx --prefix service wrangler d1 execute "$D1_NAME" --remote --json --command "SELECT event_id FROM sheet_replication_outbox WHERE event_id LIKE 'OWNER_SEED200_20260904_%' AND status='INFLIGHT' ORDER BY outbox_id;" > /tmp/list.json
+          python3 - <<'PY' > /tmp/events.txt
+          import json
+          j=json.load(open('/tmp/list.json'))
+          for r in j[0].get('results',[]): print(r['event_id'])
+          PY
+          TOTAL=$(wc -l < /tmp/events.txt | tr -d ' ')
+          echo "stale_seed_events=$TOTAL"
+          test "$TOTAL" -le 20
+          while IFS= read -r EVENT_ID; do
+            test -n "$EVENT_ID" || continue
+            # Requeue exactly one stale seed row. All other stuck rows remain INFLIGHT,
+            # so the official scheduled writer can claim at most this one row.
+            npx --prefix service wrangler d1 execute "$D1_NAME" --remote --json --command "UPDATE sheet_replication_outbox SET status='RETRY',claim_token=NULL,claimed_at=NULL,next_attempt_at=datetime('now'),last_error_class='SERIAL_STALE_RECOVERY',last_error='Single-event stale recovery under official scheduled writer' WHERE event_id='$EVENT_ID' AND status='INFLIGHT'; SELECT changes() changed;" > /tmp/requeue.json
+            CHANGED=$(python3 - <<'PY'
+          import json
+          j=json.load(open('/tmp/requeue.json'))
+          vals=[int(r['changed']) for x in j for r in x.get('results',[]) if 'changed' in r]
+          print(vals[-1] if vals else 0)
+          PY
+            )
+            if [[ "$CHANGED" == "0" ]]; then
+              STATUS=$(npx --prefix service wrangler d1 execute "$D1_NAME" --remote --json --command "SELECT status FROM sheet_replication_outbox WHERE event_id='$EVENT_ID';" | jq -r '.[0].results[0].status')
+              [[ "$STATUS" == "SYNCED" ]] && continue
+              echo "unexpected_status event=$EVENT_ID status=$STATUS" >&2
+              exit 11
+            fi
+            DONE=0
+            for n in $(seq 1 18); do
+              STATUS=$(npx --prefix service wrangler d1 execute "$D1_NAME" --remote --json --command "SELECT status FROM sheet_replication_outbox WHERE event_id='$EVENT_ID';" | jq -r '.[0].results[0].status')
+              if [[ "$STATUS" == "SYNCED" ]]; then
+                echo "serial_sync=PASS event=$EVENT_ID"
+                DONE=1
+                break
+              fi
+              sleep 10
+            done
+            [[ "$DONE" == "1" ]] || { echo "serial_sync_timeout event=$EVENT_ID" >&2; exit 12; }
+          done < /tmp/events.txt
+      - name: Verify exact 200 outbox and business structure
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx --prefix service wrangler d1 execute "$D1_NAME" --remote --json --command "SELECT status,COUNT(*) n FROM sheet_replication_outbox WHERE event_id LIKE 'OWNER_SEED200_20260904_%' GROUP BY status ORDER BY status; SELECT mode,scope FROM authority_state WHERE singleton_id=1; SELECT shift,COUNT(*) n FROM attendance_sessions WHERE business_date='2026-09-04' AND state='ACTIVE' AND exit_at IS NULL GROUP BY shift ORDER BY shift; SELECT work_choice,COUNT(*) n FROM attendance_sessions WHERE business_date='2026-09-04' GROUP BY work_choice ORDER BY work_choice; SELECT COUNT(*) n FROM labor_sessions WHERE business_date='2026-09-04';" > /tmp/final-d1.json
+          python3 - <<'PY'
+          import json
+          j=json.load(open('/tmp/final-d1.json'))
+          assert j[0]['results']==[{'status':'SYNCED','n':200}],j[0]['results']
+          assert j[1]['results']==[{'mode':'SERVICE_PRIMARY','scope':'PRODUCTION'}]
+          assert j[2]['results']==[{'shift':'Ca 1','n':80},{'shift':'Ca 2','n':80},{'shift':'Ca HC','n':40}]
+          assert j[3]['results']==[{'work_choice':'KHONG','n':194},{'work_choice':'PACK','n':3},{'work_choice':'PICK','n':3}]
+          assert j[4]['results']==[{'n':0}]
+          print('seed200_d1_final=PASS synced=200 structure=80/80/40')
+          PY
+      - name: Verify Google Sheet exact 200 unique events
+        shell: bash
+        run: |
+          set -euo pipefail
+          ACCESS=$(curl -fsS https://oauth2.googleapis.com/token -d client_id="$GOOGLE_OAUTH_CLIENT_ID" -d client_secret="$GOOGLE_OAUTH_CLIENT_SECRET" -d refresh_token="$GOOGLE_OAUTH_REFRESH_TOKEN" -d grant_type=refresh_token | jq -er '.access_token')
+          echo "::add-mask::$ACCESS"
+          RANGE=$(python3 - <<'PY'
+          import urllib.parse
+          print(urllib.parse.quote("'RA - VÀO TRONG CA'!T2:T",safe=''))
+          PY
+          )
+          curl -fsS -H "Authorization: Bearer $ACCESS" "https://sheets.googleapis.com/v4/spreadsheets/$GOOGLE_SOURCE_SHEET_ID/values/$RANGE?valueRenderOption=FORMATTED_VALUE" > /tmp/sheet.json
+          python3 - <<'PY'
+          import json,re
+          vals=[str(r[0]) for r in json.load(open('/tmp/sheet.json')).get('values',[]) if r]
+          ids=[v for v in vals if v.startswith('OWNER_SEED200_20260904_')]
+          seq=[]
+          for v in ids:
+            m=re.match(r'OWNER_SEED200_20260904_(\d{3})_',v)
+            if m: seq.append(int(m.group(1)))
+          assert len(ids)==200,(len(ids),len(set(ids)))
+          assert len(set(ids))==200
+          assert sorted(seq)==list(range(1,201)),sorted(set(range(1,201))-set(seq))
+          print('seed200_sheet_final=PASS rows=200 unique=200 seq=001..200')
+          PY
