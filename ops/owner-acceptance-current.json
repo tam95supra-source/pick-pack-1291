@@ -43,6 +43,10 @@
     "publish_artifact_id": 9935113268,
     "ota_readback_artifact_id": 9935194064,
     "final_artifact_id": 9935202498,
+    "invariant_finalizer_run_id": 33869859593,
+    "control_plane_guard_run_id": 33869859518,
+    "pass_live_run_id": 33870526120,
+    "beta_current_sync_run_id": 33870545799,
     "release_lock_receipt": "ops/beta119-release-lock.json",
     "human_visual_receipt": "ops/beta119-human-visual-receipt.json"
   },
