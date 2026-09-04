@@ -76,4 +76,22 @@ elif new_validate not in u:
     raise SystemExit('turso validate harness marker missing')
 dr.write_text(u,encoding='utf-8')
 
-print('BETA121_SETTINGS_SYNC_DR_HARNESS_FIX_APPLIED')
+# Beta121 intentionally renamed status detail labels to user-facing Vietnamese.
+# Keep the visual/functional harness aligned with the approved semantics rather than
+# forcing production UI back to legacy labels ("Loại kết nối" / "Authority").
+h=Path('tools/Beta83UiChecksInstrumentation.java')
+v=h.read_text(encoding='utf-8')
+harness_pairs=[
+    ('network detail label','waitText("Loại kết nối",false,false,10000L);','waitText("Kiểu kết nối",false,false,10000L);'),
+    ('service detail label','waitText("Authority",false,false,10000L);','waitText("Dịch vụ đang dùng",false,false,10000L);waitText("Chế độ quyền hiện tại",false,false,10000L);'),
+]
+for label,old,new in harness_pairs:
+    if old in v:
+        if v.count(old)!=1:
+            raise SystemExit(f'{label}: expected 1 old marker, got {v.count(old)}')
+        v=v.replace(old,new,1)
+    elif new not in v:
+        raise SystemExit(f'{label}: neither old nor new marker found')
+h.write_text(v,encoding='utf-8')
+
+print('BETA121_SETTINGS_SYNC_DR_VISUAL_HARNESS_FIX_APPLIED')
