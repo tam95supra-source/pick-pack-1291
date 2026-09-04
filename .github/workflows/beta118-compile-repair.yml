@@ -1,0 +1,42 @@
+name: Beta118 compile repair
+
+on:
+  push:
+    branches:
+      - release/beta118-owner-realtime-bulk-exit-20260904
+    paths:
+      - .github/workflows/beta118-compile-repair.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply exact compile repair
+        run: python3 tools/beta118_compile_repair.py
+      - name: Guard affected contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/beta118_owner_100_sessions_contract.py
+          python3 tools/beta118_owner_followup_contract.py
+          grep -q 'OldSessionWarningFeature.build(this,api,role,{label,after->verifyTimePasswordOnly(label,after)})' app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt
+          ! grep -q 'OldSessionWarningFeature.build(this,api){' app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt
+          git diff --check
+      - name: Commit repair only
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt
+          test "$(git diff --cached --name-only | wc -l)" -eq 1
+          git commit -m "fix(beta118): update old-session warning call signature"
+          git push origin HEAD:release/beta118-owner-realtime-bulk-exit-20260904
