@@ -666,7 +666,7 @@ class OperationsActivity : Activity() {
         screenState = "SCAN"; liveEmployeeMnv = ""
         val root=column(bg);root.addView(appBar("QUÉT QR NHÂN SỰ"))
         val body=column(bg).apply{setPadding(dp(10),dp(8),dp(10),dp(84))}
-        body.addView(OldSessionWarningFeature.build(this,api){raw->openHistoricalSession(raw)},matchWrap())
+        body.addView(OldSessionWarningFeature.build(this,api,role,{label,after->verifyTimePasswordOnly(label,after)}){raw->openHistoricalSession(raw)},matchWrap())
         addBusinessShiftReconciliation(body)
         val mnv=mnvInput("Scan / Nhập mã nhân viên")
         body.addView(mnv,matchWrap());body.addView(gap(4))
