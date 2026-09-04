@@ -6,6 +6,9 @@
   "base_version": "0.4.2-beta.117",
   "base_version_code": 123,
   "base_source_sha": "415c217cc874906013007a438e80896baf58b241",
+  "base_candidate_source_sha": "d8ea2c2f31549647e8676b40dc536d2b1b80e6e5",
+  "base_apk_sha256": "b3454574547eece69ea44c51b2f88da93dd142eb5d1afb82e7fbd0f293cc0d87",
+  "base_apk_size": 14396405,
   "source_sha": "81944b8519cfb7995d78a5c1070c4af3ee2150be",
   "candidate_source_sha": "81944b8519cfb7995d78a5c1070c4af3ee2150be",
   "package": "vn.pickpack1291.app.beta.publicbeta",
@@ -17,6 +20,11 @@
   "live": false,
   "stable_publish": "FORBIDDEN",
   "authority_change": "NONE",
+  "release_notes": [
+    "Beta118: hoàn thiện cập nhật realtime giao diện nghiệp vụ và thao tác ra ca hàng loạt theo quyền Superadmin.",
+    "Khắc phục rà soát 100 phiên seeded theo canonical shift; giữ nguyên exact candidate đã qua toàn bộ pre-OTA gates.",
+    "Giữ các chỉnh sửa giao diện Biên bản, Nhận hàng rớt, Điểm danh và các invariant OWNER đã khóa."
+  ],
   "candidate_run_id": 33833810807,
   "candidate_artifact_id": 9922669910,
   "candidate_artifact_name": "beta-candidate-33833810807",
@@ -73,6 +81,6 @@
   "base_live_final_repo_receipt": "ops/beta117-technical-pass.json",
   "owner100_blocker_acceptance": "COMPLETE",
   "owner100_acceptance_receipt": "ops/beta118-owner100-owner-acceptance.json",
-  "execution_nonce": "beta118-publish-exact-lock-20260904-01",
+  "execution_nonce": "beta118-publish-exact-lock-20260904-02",
   "next_action": "PUBLISH_EXACT_LOCKED_BYTES_THEN_OTA_INSTALL_OPEN_READBACK"
 }
