@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "channel": "BETA",
+  "version_name": "0.4.2-beta.119",
+  "version_code": 125,
+  "source_sha": "eeb45df6deae267d93a5fb15701a0a394885a549",
+  "candidate_run_id": 33864111135,
+  "candidate_artifact_id": 9933396813,
+  "verify_run_id": 33864111135,
+  "verify_artifact_id": 9933765361,
+  "verify_artifact_name": "beta-verify-33864111135",
+  "apk_sha256": "73c072187fb13bab635f27009fda500d0745fced4244a8d8276bc9117f350697",
+  "apk_size": 14429173,
+  "sizes": ["320x568", "360x640", "480x800"],
+  "screenshot_count": 43,
+  "inspection": {
+    "status": "PASS",
+    "overlap_or_clipping": "NOT_OBSERVED",
+    "broken_layout": "NOT_OBSERVED",
+    "navigation_and_status_header_geometry": "PASS",
+    "document_staff_report_resilience_views": "PASS",
+    "beta119_version_visible_in_settings_matrix": "PASS"
+  },
+  "inspected_from_exact_artifact": true,
+  "rebuild": false,
+  "resign": false,
+  "stable_change": "NONE",
+  "authority_change": "NONE",
+  "inspected_at": "2026-09-04T18:07:00+07:00"
+}
