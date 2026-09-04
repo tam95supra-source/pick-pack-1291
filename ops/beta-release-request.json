@@ -1,6 +1,6 @@
 {
-  "stage": "RUNTIME_DOD_VERIFY",
-  "mode": "BETA117_RUNTIME_DOD_FRESH_SERVICE_AFTER_STABLE_CANARY_RESTORE",
+  "stage": "BETA_DOMAIN_PREPARE",
+  "mode": "BETA117_DOMAIN_AFTER_RUNTIME_DOD_PASS",
   "version_name": "0.4.2-beta.117",
   "version_code": 123,
   "base_version": "0.4.2-beta.116",
@@ -60,7 +60,10 @@
   "service_discovery_run_id": 33818941214,
   "service_discovery_artifact_id": 9917593203,
   "service_discovery_artifact_name": "beta-service-discovery-33818941214",
-  "runtime_dod_status": "PENDING",
+  "runtime_dod_status": "PASS",
+  "runtime_dod_run_id": 33822369696,
+  "runtime_dod_artifact_id": 9918733617,
+  "runtime_dod_artifact_name": "beta-stable-runtime-33822369696",
   "runtime_dod_failed_run_id": 33821370234,
   "runtime_dod_failed_artifact_id": 9918384683,
   "runtime_failure_class": "RESOLVED_STABLE_PRIMARY_CANARY_FUNCTION_AND_PREAUTH_ROUTE_RESTORED",
@@ -81,6 +84,6 @@
   "superseded_candidate_run_id": 33797938890,
   "superseded_candidate_artifact_id": 9910080784,
   "superseded_apk_sha256": "10f4289890c6198481a5e393a08dcc025f7ab8aa348bb44513fe6020e1c78149",
-  "execution_nonce": "beta117-runtime-after-fresh-service-pass-20260904-16",
-  "next_action": "VERIFY_RUNTIME_DOD_EXACT_LOCKED_CANDIDATE_AFTER_FRESH_SERVICE_PASS"
+  "execution_nonce": "beta117-domain-after-runtime-pass-20260904-17",
+  "next_action": "VERIFY_BETA_DOMAIN_THEN_RELEASE_LOCK_EXACT_CANDIDATE"
 }
