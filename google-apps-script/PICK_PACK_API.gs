@@ -429,7 +429,7 @@ function ppMasterSnapshotData_() {
     mnv:r['Mã nhân viên']||'',full_name:r['Họ và tên']||'',phone:r['Số điện thoại']||'',main_position:r['Vị trí chính']||'',
     supplier:r['Nhà cung cấp']||'',department:r['Bộ phận']||'',site:r['Site']||'',warehouse:r['Kho']||'',start_date:r['Ngày bắt đầu làm việc']||'',note:r['Ghi chú']||''
   };}).filter(function(x){return !!x.mnv;});
-  const pdas=ppObjects_(PP.PDA).filter(function(r){return ppAvailable_(r['Tình trạng']);}).map(function(r){return {serial:r['Seri PDA'],last5:r['5 số cuối Seri']||'',status:r['Tình trạng']||''};}).filter(function(x){return !!x.serial;});
+  const pdas=ppObjects_(PP.PDA).filter(function(r){return ppAvailable_(r['Tình trạng']);}).map(function(r){return {serial:r['Seri PDA'],last5:r['5 số cuối Seri']||'',source:r['Nguồn']||'',status:r['Tình trạng']||''};}).filter(function(x){return !!x.serial;});
   const userPicks=ppObjects_(PP.PICK).filter(function(r){return ppAvailable_(r['Tình trạng']);}).map(function(r){return r['User Pick'];}).filter(Boolean);
   const tables=ppObjects_(PP.TABLE).filter(function(r){return ppAvailable_(r['Tình trạng']);}).map(function(r){return r['Tên bàn pack'];}).filter(Boolean);
   const tableSet=new Set(tables), warnings=[], packs=[], seen={};

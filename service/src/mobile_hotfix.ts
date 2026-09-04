@@ -79,7 +79,7 @@ async function resourceOptions(db:D1Database,date:string,mnv:string):Promise<Rec
   const pdas=pdasRaw.filter(x=>{
     const isCurrent=x.resource_id===current?.pda_serial;
     return isCurrent||(Number(x.available)===1&&!busy.has(`PDA|${x.resource_id}`));
-  }).map(x=>{let m:Record<string,unknown>={};try{m=JSON.parse(x.metadata_json) as Record<string,unknown>;}catch{}return{serial:x.resource_id,last5:String(m["5 số cuối Seri"]||x.resource_id.slice(-5)),status:x.status_label};});
+  }).map(x=>{let m:Record<string,unknown>={};try{m=JSON.parse(x.metadata_json) as Record<string,unknown>;}catch{}return{serial:x.resource_id,last5:String(m["5 số cuối Seri"]||x.resource_id.slice(-5)),source:String(m["Nguồn"]||m["source"]||""),status:x.status_label};});
 
   const picksRaw=(await db.prepare("SELECT resource_id,available FROM resources WHERE resource_type='USER_PICK' ORDER BY resource_id").all<{resource_id:string;available:number}>()).results??[];
   const user_picks:string[]=[];

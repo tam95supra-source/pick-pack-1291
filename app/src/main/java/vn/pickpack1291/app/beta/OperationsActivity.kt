@@ -85,6 +85,7 @@ class OperationsActivity : Activity() {
     private lateinit var login: String
     private lateinit var name: String
     private lateinit var role: String
+    private lateinit var actualRole: String
     private var effectiveRole = "" // S47_BETA41_OWNER_FIVE_FIXES
     // S47B_BETA41_COMPILE_HOTFIX
     private var position = ""
@@ -215,6 +216,7 @@ class OperationsActivity : Activity() {
         login = intent.getStringExtra("login") ?: ""
         name = intent.getStringExtra("name") ?: login
         role = intent.getStringExtra("role") ?: "USER"
+        actualRole = role
         effectiveRole = role
         position = intent.getStringExtra("position") ?: ""
         email = intent.getStringExtra("email") ?: api.restoredAccount()?.optString("email").orEmpty()
@@ -263,7 +265,7 @@ class OperationsActivity : Activity() {
     private fun isAdmin() = effectiveRole == "ADMIN" || effectiveRole == "SUPERADMIN"
 
     private fun isSuper() = effectiveRole == "SUPERADMIN"
-    private fun isActualSuper() = role == "SUPERADMIN"
+    private fun isActualSuper() = actualRole == "SUPERADMIN"
 
     private fun businessHome(){
         documentController?.dispose();documentController=null
@@ -296,6 +298,7 @@ class OperationsActivity : Activity() {
             businessCard(R.drawable.ic_pp_drop_receive,"Nhận hàng Rớt","",true){dropReceiveScreen()},
             businessCard(R.drawable.ic_pp_report,"Báo cáo nhân sự","",isAdmin()){reportScreen()},
             businessCard(R.drawable.ic_pp_task,"Công nhật","",isAdmin()){laborHome()},
+            businessCard(R.drawable.ic_pp_task,"Bảng công Inhouse","Chờ phát triển",false){TopNotice.show(this,"Bảng công Inhouse đang chờ phát triển.",TopNotice.Kind.INFO)},
             businessCard(R.drawable.ic_pp_resource,"Tài nguyên","",isAdmin()){resourceHome()},
             businessCard(R.drawable.ic_pp_ccdc,"Quản lý CCDC","",isAdmin()){TopNotice.show(this,"Quản lý CCDC đang được chuẩn bị.",TopNotice.Kind.INFO)},
             businessCard(R.drawable.ic_pp_document,"Quản lý biên bản","",isAdmin()){documentManagementScreen()}
@@ -304,7 +307,7 @@ class OperationsActivity : Activity() {
         body.addView(businessRow(cards[2],cards[3]));body.addView(gap(4))
         body.addView(businessRow(cards[4],cards[5]));body.addView(gap(4))
         body.addView(businessRow(cards[6],cards[7]));body.addView(gap(4))
-        body.addView(businessSingleRow(cards[8]))
+        body.addView(businessRow(cards[8],cards[9]))
         attach(root,body)
     }
 
@@ -3180,68 +3183,88 @@ class OperationsActivity : Activity() {
         }}
     }
 
+    private fun settingsRegionBanner(title:String,subtitle:String):View=column(Color.rgb(240,245,248)).apply{
+        setPadding(dp(10),dp(9),dp(10),dp(9))
+        background=GradientDrawable().apply{setColor(Color.rgb(240,245,248));cornerRadius=dp(12).toFloat()}
+        addView(txt(title,10.7f,navy,true))
+        addView(txt(subtitle,8.8f,muted,false))
+    }
+
     private fun settingsScreen(){
         module="SETTINGS"
         screenState="SETTINGS"
         val root=baseRoot("CÀI ĐẶT")
         val body=body()
-        body.addView(section("Tài khoản"))
-        body.addView(listCard("$name • ${roleText(effectiveRole)}","$login${if(position.isBlank())"" else "  •  $position"}\nMail: ${email.ifBlank{"Chưa cấu hình"}}"))
-        body.addView(gap(7))
+        fun region(title:String,subtitle:String):LinearLayout=column(Color.rgb(248,250,252)).apply{
+            setPadding(dp(10),dp(9),dp(10),dp(10))
+            background=GradientDrawable().apply{setColor(Color.rgb(248,250,252));cornerRadius=dp(14).toFloat()}
+            addView(txt(title,11.2f,navy,true))
+            if(subtitle.isNotBlank())addView(txt(subtitle,8.9f,muted,false))
+            addView(gap(7))
+        }
+        val accountRegion=region("TÀI KHOẢN & QUYỀN","Thông tin đăng nhập và các công cụ được phép theo chế độ quyền hiện tại.")
+        body.addView(accountRegion,matchWrap());body.addView(gap(10))
+        accountRegion.addView(listCard("$name • ${roleText(effectiveRole)}","$login${if(position.isBlank())"" else "  •  $position"}\nMail: ${email.ifBlank{"Chưa cấu hình"}}"))
+        accountRegion.addView(gap(7))
         val accountButtons=row(bg)
         val passBtn=primary("ĐỔI MẬT KHẨU",navy){changePasswordDialog()}.apply{textSize=9.6f;setSingleLine(true)}
         val mailBtn=primary("ĐỔI MAIL",teal){changeEmailDialog()}.apply{textSize=9.6f;setSingleLine(true)}
         accountButtons.addView(passBtn,LinearLayout.LayoutParams(0,dp(38),1f).apply{marginEnd=dp(3)})
         accountButtons.addView(mailBtn,LinearLayout.LayoutParams(0,dp(38),1f).apply{marginStart=dp(3)})
-        body.addView(accountButtons,matchWrap())
+        accountRegion.addView(accountButtons,matchWrap())
         if(isAdmin()){
-            body.addView(gap(7))
-            body.addView(primary("QUẢN LÝ TÀI KHOẢN",blue){accountManager()},matchWrap())
+            accountRegion.addView(gap(7))
+            accountRegion.addView(primary("QUẢN LÝ TÀI KHOẢN",blue){accountManager()},matchWrap())
         }
         // S23_PDA_IMPORT_UI_APPLIED: SUPERADMIN uses the shared Service Import Engine.
         if(isSuper()){
-            body.addView(gap(7))
-            body.addView(primary("IMPORT EXCEL",teal){
+            accountRegion.addView(gap(7))
+            accountRegion.addView(primary("IMPORT EXCEL",teal){
                 startActivity(android.content.Intent(this,PdaImportActivity::class.java))
             },matchWrap())
         }
-        body.addView(section("Giao diện"))
-        body.addView(themePicker(),matchWrap())
-        body.addView(section("THÔNG TIN ỨNG DỤNG"))
+        val appearanceRegion=region("GIAO DIỆN","Màu sắc hiển thị áp dụng thống nhất trong toàn ứng dụng.")
+        appearanceRegion.addView(themePicker(),matchWrap())
+        body.addView(appearanceRegion,matchWrap());body.addView(gap(10))
+        val appRegion=region("ỨNG DỤNG & CẬP NHẬT","Phiên bản, dung lượng, cập nhật và QR tải ứng dụng.")
+        body.addView(appRegion,matchWrap());body.addView(gap(10))
+        appRegion.addView(section("THÔNG TIN ỨNG DỤNG"))
         val storageUsage=appStorageUsage()
-        body.addView(details(listOf(
+        appRegion.addView(details(listOf(
             "Phiên bản" to BuildConfig.VERSION_NAME,
             "Kênh phát hành" to if(BuildConfig.CHANNEL=="BETA")"Bản thử nghiệm" else "Bản ổn định",
             "Dung lượng ứng dụng" to humanBytes(appBinaryBytes()),
             "Dữ liệu ứng dụng" to humanBytes(storageUsage.userDataBytes),
             "Bộ nhớ đệm (cache)" to humanBytes(storageUsage.cacheBytes)
         )))
-        body.addView(section("CẬP NHẬT PHIÊN BẢN"))
+        appRegion.addView(section("CẬP NHẬT PHIÊN BẢN"))
         val pendingUpdate=UpdateManager.pendingInfo(this)
         val latestRelease=UpdateManager.latestInfo(this)
         val latestVersion=pendingUpdate?.version?:latestRelease?.version?.takeIf{it.isNotBlank()}?:BuildConfig.VERSION_NAME
-        body.addView(details(listOf(
+        appRegion.addView(details(listOf(
             "Trạng thái" to if(pendingUpdate==null&&latestVersion==BuildConfig.VERSION_NAME)"Đang dùng bản mới nhất: ${BuildConfig.VERSION_NAME}" else "Bản mới nhất: $latestVersion\nĐang dùng: ${BuildConfig.VERSION_NAME}"
         )))
-        body.addView(gap(7))
+        appRegion.addView(gap(7))
         if(pendingUpdate!=null)addVersionChangelog(body,"THAY ĐỔI BẢN MỚI",pendingUpdate.version,pendingUpdate.notes)
         addVersionChangelog(body,"THAY ĐỔI BẢN HIỆN TẠI",BuildConfig.VERSION_NAME,ReleaseNotes.currentText())
-        body.addView(primary(if(pendingUpdate!=null)"TIẾP TỤC CẬP NHẬT" else "KIỂM TRA CẬP NHẬT",teal){UpdateManager.openManual(this)},matchWrap())
-        body.addView(gap(10))
-        body.addView(section("QR TẢI ỨNG DỤNG"))
-        body.addView(info("Tạo QR tải trực tiếp APK mới nhất theo từng kênh phát hành."))
-        body.addView(gap(6))
-        body.addView(primary("MỞ QR TẢI ỨNG DỤNG",teal){appDownloadQrScreen()},matchWrap())
-        body.addView(gap(10))
-        body.addView(section("NHẬT KÝ"))
+        appRegion.addView(primary(if(pendingUpdate!=null)"TIẾP TỤC CẬP NHẬT" else "KIỂM TRA CẬP NHẬT",teal){UpdateManager.openManual(this)},matchWrap())
+        appRegion.addView(gap(10))
+        appRegion.addView(section("QR TẢI ỨNG DỤNG"))
+        appRegion.addView(info("Tạo QR tải trực tiếp APK mới nhất theo từng kênh phát hành."))
+        appRegion.addView(gap(6))
+        appRegion.addView(primary("MỞ QR TẢI ỨNG DỤNG",teal){appDownloadQrScreen()},matchWrap())
+        appRegion.addView(gap(10))
+        val supportRegion=region("HỖ TRỢ & NHẬT KÝ","Thông tin nhật ký cơ bản và thao tác gửi báo lỗi.")
+        body.addView(supportRegion,matchWrap());body.addView(gap(10))
+        supportRegion.addView(section("NHẬT KÝ"))
         val basicLogRows=LocalLogManager.detailRows(this).filter{it.first in setOf("Tên tệp nhật ký","Dung lượng tệp","Thời gian cập nhật mới nhất","Trạng thái tải lên / đồng bộ")}
-        body.addView(details(basicLogRows))
-        body.addView(gap(7))
-        body.addView(primary("GỬI BÁO LỖI",teal){sendDiagnostic()},matchWrap())
-        if(role=="ADMIN"||role=="SUPERADMIN"){
+        supportRegion.addView(details(basicLogRows))
+        supportRegion.addView(gap(7))
+        supportRegion.addView(primary("GỬI BÁO LỖI",teal){sendDiagnostic()},matchWrap())
+        if(isAdmin()){
             val lan=LanCoordinator.get(this)
             val ls=lan.status()
-            body.addView(gap(10));body.addView(section("LAN DỰ PHÒNG"))
+            body.addView(gap(10));body.addView(settingsRegionBanner("KẾT NỐI DỰ PHÒNG","LAN dự phòng và trạng thái thiết bị khi quyền hiện tại cho phép."))
             body.addView(details(listOf(
                 "Trạng thái" to ls.optString("health_state"),
                 "Vai trò PDA" to ls.optString("node_role"),
@@ -3251,7 +3274,7 @@ class OperationsActivity : Activity() {
                 "LAN epoch" to ls.optLong("lan_epoch").toString(),
                 "PDA LAN đang thấy" to ls.optInt("peer_count").toString()
             )))
-            if(isActualSuper()){
+            if(isSuper()){
                 body.addView(gap(7))
                 val manual=ls.optBoolean("manual_mode_enabled",false)
                 body.addView(details(listOf(
@@ -3277,8 +3300,8 @@ class OperationsActivity : Activity() {
                 },matchWrap())
             }
         }
-        if(isActualSuper()){
-            body.addView(gap(10));body.addView(section("TRUNG TÂM KIỂM THỬ RESILIENCE"))
+        if(isSuper()){
+            body.addView(gap(10));body.addView(settingsRegionBanner("KIỂM THỬ KỸ THUẬT","Công cụ kiểm thử cô lập dành cho chế độ SUPERADMIN."))
             val test=ResilienceTestCenter.latest(this)
             val testSpec=test?.optString("scenario")?.let{ResilienceTestScenario.fromCode(it)}
             val lanTestStatus=LanCoordinator.get(this).status()
@@ -3709,55 +3732,95 @@ class OperationsActivity : Activity() {
         val u=java.net.URI(raw.trim());val host=u.host.orEmpty();if(host.isBlank())"Chưa có" else host
     }.getOrDefault("Chưa có")
     private fun showHeaderStatusDetail(kind:String){
-        val runtime=api.runtimeStatus()
-        val counts=runCatching{operationalStore.mutationStatusCounts()}.getOrDefault(OperationalDataStore.MutationStatusCounts(0,0,0,0))
         val flow=SyncDirectionTracker.snapshot()
-        val provider=serviceProviderFromRuntime()
         val net=DeviceNetworkStatus.snapshot(this)
-        val lanState=LanCoordinator.get(this).healthState()
-        val latestTest=ResilienceTestCenter.latest(this)
-        val latestSpec=latestTest?.optString("scenario")?.let{ResilienceTestScenario.fromCode(it)}
-        val title=when(kind){"NETWORK"->"Thông tin Mạng";"SYNC"->"Thông tin Đồng bộ";else->"Thông tin Dịch vụ"}
-        val rows=when(kind){
-            "NETWORK"->listOf(
-                "Loại kết nối" to transportViHeader(net.transport),
-                "Internet" to when{!net.hasInternet->"Không có kết nối Internet";net.validated->"Đã kết nối / đã xác thực";else->"Có kết nối / chưa xác thực"},
-                "Mạng tính theo dung lượng" to if(net.metered)"Có" else "Không",
-                "Độ trễ tới Service" to (lastSyncLatencyMs?.let{"$it ms"}?:"Chưa có số đo"),
-                "Chất lượng kết nối" to latencyQualityViHeader(lastSyncLatencyMs),
-                "Lần kiểm tra" to statusTimeVi(lastStatusUpdateAt)
-            )
-            "SYNC"->listOf(
-                "Trạng thái" to when{flow.active->"Đang đồng bộ";counts.pending>0->"Đang chờ gửi dữ liệu";lastConnected==true->"Đã đồng bộ";else->"Chờ kết nối"},
-                "Bản ghi chờ gửi" to counts.pending.toString(),
-                "Cần kiểm tra thủ công" to counts.review.toString(),
-                "Bị từ chối" to counts.rejected.toString(),
-                "Đã Service xác nhận" to counts.confirmed.toString(),
-                "Google Sheets chờ sao chép" to lastReplicationPending.toString(),
-                "Google Sheets replica" to replicaViHeader(lastReplicationState),
-                "Sao chép thành công gần nhất" to if(lastReplicationSuccessAt.isBlank())"Chưa có" else formatIso(lastReplicationSuccessAt),
-                "Đã gửi" to bytesVi(flow.uploadedBytes),
-                "Đã nhận" to bytesVi(flow.downloadedBytes)
-            )
-            else->listOf(
-                "Service hiện dùng" to when(provider){"Cloudflare"->"Cloudflare Service";"Google Drive"->"Google/GAS dự phòng";"OFFLINE"->"Ngoại tuyến";else->provider},
-                "Authority" to authorityViHeader(runtime.optString("authority_mode")),
-                "Route dữ liệu" to routeViHeader(runtime.optString("route")),
-                "Phiên Service" to if(runtime.optBoolean("service_session",false))"Sẵn sàng" else "Chưa sẵn sàng",
-                "LAN / DR" to lanHealthViHeader(lanState),
-                "Google Sheets replica" to replicaViHeader(lastReplicationState),
-                "Replication pending" to lastReplicationPending.toString(),
-                "Sự cố gần nhất" to runtimeErrorVi(runtime.optString("last_error")),
-                "Độ trễ Service" to (lastSyncLatencyMs?.let{"$it ms • ${latencyQualityViHeader(it)}"}?:"Chưa đo"),
-                "Endpoint" to serviceEndpointSummary(runtime.optString("service_url")),
-                "Test resilience gần nhất" to if(latestTest==null)"Chưa chạy" else "${latestSpec?.label?:latestTest.optString("scenario")} • ${ResilienceTestCenter.resultVi(latestTest.optString("status"))}",
-                "Lần kiểm tra" to statusTimeVi(lastStatusUpdateAt)
-            )
+        val pending=runCatching{operationalStore.pendingMutationCount()}.getOrDefault(0)
+        val provider=serviceProviderFromRuntime().ifBlank{"Chưa xác định"}
+        fun yesNo(v:Boolean)=if(v)"Có" else "Không"
+        fun latency()=lastSyncLatencyMs?.takeIf{it>=0L}?.let{"${it} ms"}?:"Chưa đo"
+        val normalized=kind.uppercase()
+        val title:String
+        val rows:List<Pair<String,String>>
+        val note:String
+        when(normalized){
+            "NETWORK"->{
+                title="Thông tin mạng"
+                rows=listOf(
+                    "Kết nối Internet" to if(net.hasInternet)"Đang có mạng" else "Mất mạng",
+                    "Kiểu kết nối" to net.transport,
+                    "Internet sử dụng được" to yesNo(net.validated),
+                    "Mạng tính phí dữ liệu" to yesNo(net.metered),
+                    "Độ trễ tới dịch vụ" to latency()
+                )
+                note="Mạng cho biết thiết bị có thể truy cập Internet hay không. Khi mất mạng, dữ liệu cần gửi sẽ được giữ lại theo cơ chế đồng bộ của ứng dụng."
+            }
+            "SYNC"->{
+                title="Thông tin đồng bộ"
+                rows=listOf(
+                    "Trạng thái" to flow.label,
+                    "Dữ liệu chờ gửi" to "$pending mục",
+                    "Đang gửi dữ liệu" to yesNo(flow.uploading),
+                    "Đang nhận dữ liệu" to yesNo(flow.downloading),
+                    "Đã gửi trong phiên" to humanBytes(flow.uploadedBytes),
+                    "Đã nhận trong phiên" to humanBytes(flow.downloadedBytes)
+                )
+                note="Đồng bộ cho biết dữ liệu trên thiết bị đang được gửi lên hoặc nhận về. Dữ liệu chờ gửi sẽ giảm về 0 sau khi hệ thống xác nhận thành công."
+            }
+            else->{
+                title="Thông tin dịch vụ"
+                rows=listOf(
+                    "Trạng thái" to when(lastConnected){true->"Đang hoạt động";false->"Đang gián đoạn";null->"Đang kiểm tra"},
+                    "Dịch vụ đang dùng" to provider,
+                    "Độ trễ gần nhất" to latency(),
+                    "Dữ liệu chờ xử lý" to "${(lastProjectionPending+lastReplicationPending).coerceAtLeast(0)} mục",
+                    "Chế độ quyền hiện tại" to roleText(effectiveRole)
+                )
+                note="Dịch vụ là nơi ứng dụng gửi và nhận dữ liệu nghiệp vụ. Nếu dịch vụ gián đoạn, ứng dụng sẽ hiển thị trạng thái để người dùng biết và dùng cơ chế dự phòng đã cấu hình."
+            }
         }
-        val box=column(surface).apply{setPadding(dp(14),dp(10),dp(14),dp(8));addView(details(rows),matchWrap())}
-        val builder=AlertDialog.Builder(this).setTitle(title).setView(ScrollView(this).apply{addView(box)}).setPositiveButton("ĐÓNG",null)
-        if(kind=="SYNC")builder.setNeutralButton("ĐỒNG BỘ NGAY"){_,_->manualRefreshFromHeader(syncStatusText?:box)}
-        builder.show()
+        val host=column(surface).apply{
+            setPadding(dp(10),dp(6),dp(10),dp(8))
+            addView(details(rows),matchWrap())
+            addView(gap(7))
+            addView(txt(note,9.4f,muted,false).apply{setPadding(dp(2),dp(2),dp(2),dp(2))},matchWrap())
+        }
+        var dialog:AlertDialog?=null
+        if(normalized=="SERVICE"&&isActualSuper()){
+            host.addView(gap(10))
+            val roleZone=column(Color.rgb(244,247,250)).apply{
+                setPadding(dp(10),dp(9),dp(10),dp(10))
+                background=GradientDrawable().apply{setColor(Color.rgb(244,247,250));cornerRadius=dp(12).toFloat()}
+                addView(txt("CHẾ ĐỘ QUYỀN TRẢI NGHIỆM",9.5f,navy,true))
+                addView(txt("Chỉ SUPERADMIN thật được thấy 3 nút này. Các màn và thao tác khác sẽ hạ đúng theo chế độ đang chọn.",8.9f,muted,false))
+                addView(gap(7))
+            }
+            val buttons=row(Color.TRANSPARENT)
+            listOf("USER" to "USER","ADMIN" to "ADMIN","SUPERADMIN" to "SUPERADMIN").forEachIndexed{i,(label,value)->
+                val selected=effectiveRole==value
+                val b=smallButton(label,if(selected)teal else Color.rgb(100,116,139)).apply{
+                    textSize=8.8f
+                    alpha=if(selected)1f else .72f
+                    setOnClickListener{
+                        if(!isActualSuper())return@setOnClickListener
+                        role=value
+                        effectiveRole=value
+                        dialog?.dismiss()
+                        TopNotice.show(this@OperationsActivity,"Đã chuyển sang chế độ ${roleText(value)}.",TopNotice.Kind.SUCCESS)
+                        when(module){
+                            "SETTINGS"->settingsScreen()
+                            "STAFF"->staffScreen()
+                            "HISTORY"->if(isAdmin())historyScreen() else businessHome()
+                            else->businessHome()
+                        }
+                    }
+                }
+                buttons.addView(b,LinearLayout.LayoutParams(0,dp(40),1f).apply{if(i>0)marginStart=dp(3);if(i<2)marginEnd=dp(3)})
+            }
+            roleZone.addView(buttons,matchWrap())
+            host.addView(roleZone,matchWrap())
+        }
+        dialog=AlertDialog.Builder(this).setTitle(title).setView(host).setPositiveButton("ĐÓNG",null).create()
+        dialog?.show()
     }
     private fun manualRefreshFromHeader(icon:View){
         if(manualRefreshInFlight)return
@@ -3844,7 +3907,7 @@ class OperationsActivity : Activity() {
         statuses.addView(headerStatusChip(R.drawable.ic_pp_service,"Dịch vụ",svc){showHeaderStatusDetail("SERVICE")},LinearLayout.LayoutParams(0,dp(38),1f).apply{marginStart=dp(2)})
         addView(statuses,matchWrap());refreshHeaderConnection()
     }
-    private fun activeTab()=when(module){"STAFF"->"STAFF";"HISTORY"->"HISTORY";"SYNC"->"SYNC";"SETTINGS"->"SETTINGS";"ROLE_MODE"->"ROLE_MODE";else->"BUSINESS"}
+    private fun activeTab()=when(module){"STAFF"->"STAFF";"HISTORY"->"HISTORY";"SYNC"->"SYNC";"SETTINGS"->"SETTINGS";else->"BUSINESS"}
 
     private fun bottomNav():LinearLayout=row(surface).apply{
         gravity=Gravity.CENTER;setPadding(dp(3),dp(5),dp(3),dp(5));background=outlineBg(surface,16);elevation=dp(8).toFloat();navRefs.clear()
@@ -3854,7 +3917,6 @@ class OperationsActivity : Activity() {
         )
         if(isAdmin())items.add(Triple(R.drawable.ic_pp_history,"Lịch sử","HISTORY"))
         items.add(Triple(R.drawable.ic_pp_settings,"Cài đặt","SETTINGS"))
-        if(isActualSuper())items.add(Triple(R.drawable.ic_pp_account,"Quyền","ROLE_MODE"))
         items.forEach{item->
             val iconView=ImageView(this@OperationsActivity).apply{setImageResource(item.first);setPadding(dp(4),dp(4),dp(4),dp(2))}
             val labelView=txt(item.second,7.2f,muted,item.third==activeTab()).apply{gravity=Gravity.CENTER;maxLines=1;setAutoSizeTextTypeUniformWithConfiguration(6,9,1,android.util.TypedValue.COMPLEX_UNIT_SP)}
