@@ -20,7 +20,7 @@
   "scope": "beta118-owner-followup-document-drop-realtime-localfirst-bulk-old-exit-and-owner100-review-qr",
   "owner": "Nguyen Van Tam",
   "release_notes": [
-    "Retry only visual/PDA/API36 verification against the exact locked Beta118 candidate after repairing a stale harness assertion.",
+    "Retry only visual/PDA/API36 verification against the exact locked Beta118 candidate after repairing stale harness assertions for the compact attendance UI.",
     "No APK rebuild, no resign, no service redeploy; service live regression from run 33833810807 is inherited because exact service source is unchanged."
   ],
   "signer_sha256": "d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e",
@@ -37,6 +37,6 @@
   "apk_transport": "GITHUB_RELEASE_ONLY",
   "google_drive_apk": "FORBIDDEN",
   "regression_case": "tools/beta118_realtime_localfirst_contract.py + qa/beta118_realtime_localfirst_regression.md + tools/beta118_owner_followup_contract.py + tools/beta118_owner_100_sessions_contract.py + Beta116/Beta117 regression suites",
-  "execution_nonce": "beta118-visual-pda-exact-retry-20260904-03",
-  "next_action": "VERIFY_EXACT_LOCKED_CANDIDATE_VISUAL_PDA_API36_WITH_REPAIRED_HARNESS"
+  "execution_nonce": "beta118-visual-pda-exact-retry-20260904-04",
+  "next_action": "VERIFY_EXACT_LOCKED_CANDIDATE_VISUAL_PDA_API36_WITH_COMPACT_UI_HARNESS"
 }
