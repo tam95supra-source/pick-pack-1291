@@ -1,8 +1,9 @@
 # CURRENT STATE — PICK PACK 1291
 
-- updated_at: 2026-09-04T06:00:57Z
-- status: BETA118_PASS_LIVE
-- continuity_branch: release/beta118-owner-realtime-bulk-exit-20260904
+- updated_at: 2026-09-04T08:21:17Z
+- status: BETA118_PASS_LIVE_OWNER_SCOPE_PENDING
+- continuity_branch: beta/current
+- live_release_branch: release/beta118-owner-realtime-bulk-exit-20260904
 - source_sha: 81944b8519cfb7995d78a5c1070c4af3ee2150be
 - beta_live: 0.4.2-beta.118 (versionCode 124)
 - package: vn.pickpack1291.app.beta.publicbeta
@@ -26,4 +27,20 @@
 - stable: unchanged
 - main_sha: 021dac5c6932b3ac5c60ce8fdba562ddf3d9688f
 - authority: SERVICE_PRIMARY / PRODUCTION / epoch 9 / generation m2-prod-reset-20260823-001
-- next_action: WAIT_FOR_OWNER_ACCEPTANCE_NUMBERED_CHECKLIST
+
+## OWNER scope 2026-09-04
+- scope_id: OWNER_20260904_CURRENT_AUTH_ACCEPTANCE_SECURITY
+- scope_status: LOCKED_REQUIREMENT_PENDING_FIX
+- current_public_beta_fix: beta/current fast-forwarded to Beta118; automatic monotonic current-sync installed
+- superadmin_logout_root_cause: app startup login path clears persisted auth token before restore
+- superadmin_auth_target: preserve valid session across app updates; trusted-device HHmm substring ±5 minutes, max 20 chars; 8-digit single-use Gmail OTP for login/recovery
+- universal_time_only_login: FORBIDDEN_SECURITY_WEAKNESS
+- owner_acceptance_ledger: ops/owner-acceptance-current.json
+- control_plane_security_policy: docs/CONTROL_PLANE_AUTH_SECURITY_POLICY.md
+- current_sync_workflow: .github/workflows/beta-current-sync.yml
+- security_guard_workflow: .github/workflows/control-plane-security-guard.yml
+- plaintext_password_or_otp_in_public_repo: FORBIDDEN
+- secret_runtime_storage: PRIVATE_SECRET_STORE_ONLY
+- android_source_changed_for_this_scope: NO
+- stable_main_signer_authority: unchanged
+- next_action: IMPLEMENT_SUPERADMIN_AUTH_AND_OWNER_ACCEPTANCE_FENCING_WITH_REGRESSION_IN_BETA119
