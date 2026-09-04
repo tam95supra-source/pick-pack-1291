@@ -31,8 +31,8 @@ jobs:
           node-version: '24'
       - name: Install pinned Service tooling
         run: npm --prefix service install --ignore-scripts --no-audit --no-fund
-      - name: Read-only diagnose partial owner seed
-        run: python3 tools/ops_beta_seed200_diagnose.py
+      - name: Resume exact owner seed idempotently to 200
+        run: python3 tools/ops_beta_seed200_after_clean.py
       - name: Upload redacted receipt
         if: always()
         uses: actions/upload-artifact@v4
