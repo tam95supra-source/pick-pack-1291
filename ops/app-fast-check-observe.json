@@ -1,8 +1,8 @@
 {
-  "run_id": 33821787225,
-  "run_sha": "c7cac88e76dec16927fb122c787d8c7386fd8984",
-  "ref": "release/beta117-owner-followup-performance-20260904",
-  "execution_nonce": "beta117-runtime-after-primary-canary-source-restore-20260904-14",
-  "stage": "RUNTIME_DOD_VERIFY",
-  "observed_at": "2026-09-04T00:26:25Z"
+  "run_id": 33833297371,
+  "run_sha": "732d096f5d98935555c09c9caa2d658402987117",
+  "ref": "release/beta118-owner-realtime-bulk-exit-20260904",
+  "execution_nonce": "beta118-build-verify-owner100-20260904-01",
+  "stage": "BUILD_VERIFY",
+  "observed_at": "2026-09-04T03:28:08Z"
 }
