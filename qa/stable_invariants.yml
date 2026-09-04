@@ -413,9 +413,9 @@ invariants:
     regression_minimum: [gross_total_preserved, labor_deduction_separate, picker_actual, packer_actual]
     regression_case: "qa/beta116_owner_scope_regression.md + tools/beta116_owner_scope_contract.py"
     technical_candidate: "0.4.2-beta.116 LIVE / source cf01dab16e1c62091561ca008a355a8f49326581"
-    technical_evidence: "0.4.2-beta.116 Technical PASS/LIVE; candidate source cf01dab16e1c62091561ca008a355a8f49326581; candidate 33767353642/9898290631; Service 33767353642/9898616640; visual+PDA/API36 33774026289/9901071098 + human PASS 43 screenshots 320x568/360x640/480x800; Beta Auth 33776285435/9902148937; device 33778316587/9902571477; runtime 33778605857/9902663700; domain 33778957345/9902758766; Fast Check 33780103022 PASS; publish 33780057070/9903236359; OTA install/open/readback 33780057070/9903336912; SHA256 a346d4554e07fc37552c9d8876179860677fc93923a3bd42f9b3f97f5e11f235; size 14347253; signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged."
-    technical_receipt: "ops/beta116-technical-pass.json"
-    owner_acceptance: "PENDING_BETA116_ITEM_4_OF_11"
+    technical_evidence: "Beta117 re-verification: 0.4.2-beta.117 Technical PASS/LIVE; candidate source d8ea2c2f31549647e8676b40dc536d2b1b80e6e5; candidate 33800745880/9911117214; fresh Service 33821884023/9918676363; visual/PDA/API36 33816769626/9916961610 + human PASS 43 screenshots 320x568/360x640/480x800; Beta Auth 33817394774/9917295154; device/discovery 33818941214/9917593203; Stable private primary recovery 33821666160/9918483812; runtime 33822369696/9918733617; domain 33822700732/9918901726; Fast Check 33821883976 PASS; terminal 33822875354; publish 9918907009; OTA install/open/readback 9918960606; final 9918965646; SHA256 b3454574547eece69ea44c51b2f88da93dd142eb5d1afb82e7fbd0f293cc0d87; size 14396405; signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged. | 0.4.2-beta.116 Technical PASS/LIVE; candidate source cf01dab16e1c62091561ca008a355a8f49326581; candidate 33767353642/9898290631; Service 33767353642/9898616640; visual+PDA/API36 33774026289/9901071098 + human PASS 43 screenshots 320x568/360x640/480x800; Beta Auth 33776285435/9902148937; device 33778316587/9902571477; runtime 33778605857/9902663700; domain 33778957345/9902758766; Fast Check 33780103022 PASS; publish 33780057070/9903236359; OTA install/open/readback 33780057070/9903336912; SHA256 a346d4554e07fc37552c9d8876179860677fc93923a3bd42f9b3f97f5e11f235; size 14347253; signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged."
+    technical_receipt: "ops/beta117-technical-pass.json"
+    owner_acceptance: "PENDING_BETA117_ITEM_7_OF_8"
     active_pass: false
 
   - id: DROP-RECEIVE-CRUD-001
@@ -437,9 +437,9 @@ invariants:
     regression_minimum: [local_first_render, background_reconcile, exact_service_session, no_local_authority_override]
     regression_case: "qa/beta116_owner_scope_regression.md + tools/beta116_owner_scope_contract.py"
     technical_candidate: "0.4.2-beta.116 LIVE / source cf01dab16e1c62091561ca008a355a8f49326581"
-    technical_evidence: "0.4.2-beta.116 Technical PASS/LIVE; candidate source cf01dab16e1c62091561ca008a355a8f49326581; candidate 33767353642/9898290631; Service 33767353642/9898616640; visual+PDA/API36 33774026289/9901071098 + human PASS 43 screenshots 320x568/360x640/480x800; Beta Auth 33776285435/9902148937; device 33778316587/9902571477; runtime 33778605857/9902663700; domain 33778957345/9902758766; Fast Check 33780103022 PASS; publish 33780057070/9903236359; OTA install/open/readback 33780057070/9903336912; SHA256 a346d4554e07fc37552c9d8876179860677fc93923a3bd42f9b3f97f5e11f235; size 14347253; signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged."
-    technical_receipt: "ops/beta116-technical-pass.json"
-    owner_acceptance: "PENDING_BETA116_ITEM_6_OF_11"
+    technical_evidence: "Beta117 re-verification: 0.4.2-beta.117 Technical PASS/LIVE; candidate source d8ea2c2f31549647e8676b40dc536d2b1b80e6e5; candidate 33800745880/9911117214; fresh Service 33821884023/9918676363; visual/PDA/API36 33816769626/9916961610 + human PASS 43 screenshots 320x568/360x640/480x800; Beta Auth 33817394774/9917295154; device/discovery 33818941214/9917593203; Stable private primary recovery 33821666160/9918483812; runtime 33822369696/9918733617; domain 33822700732/9918901726; Fast Check 33821883976 PASS; terminal 33822875354; publish 9918907009; OTA install/open/readback 9918960606; final 9918965646; SHA256 b3454574547eece69ea44c51b2f88da93dd142eb5d1afb82e7fbd0f293cc0d87; size 14396405; signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged. | 0.4.2-beta.116 Technical PASS/LIVE; candidate source cf01dab16e1c62091561ca008a355a8f49326581; candidate 33767353642/9898290631; Service 33767353642/9898616640; visual+PDA/API36 33774026289/9901071098 + human PASS 43 screenshots 320x568/360x640/480x800; Beta Auth 33776285435/9902148937; device 33778316587/9902571477; runtime 33778605857/9902663700; domain 33778957345/9902758766; Fast Check 33780103022 PASS; publish 33780057070/9903236359; OTA install/open/readback 33780057070/9903336912; SHA256 a346d4554e07fc37552c9d8876179860677fc93923a3bd42f9b3f97f5e11f235; size 14347253; signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged."
+    technical_receipt: "ops/beta117-technical-pass.json"
+    owner_acceptance: "PENDING_BETA117_ITEM_8_OF_8"
     active_pass: false
 
   - id: ATTENDANCE-QR-FILTER-002
@@ -513,9 +513,81 @@ invariants:
     owner_acceptance: "OK_REAL_DEVICE_BETA115_TO_BETA116_OTA"
     active_pass: true
 
+  - id: DOCUMENT-COMPACT-MULTI-EDIT-005
+    status: TECHNICAL_PASS_AWAITING_OWNER
+    scope: document-compact-multi-edit
+    parent_invariant: DOCUMENT-DRAFT-NOTE-UX-003
+    rule: "0/1 draft hides one/many mode; empty pending box hidden; 2+ enables multi-select; compact select-all/delete/upload row; fullscreen; edit category/note; delete one/many within canonical document group."
+    regression_minimum: [empty_pending_hidden, mode_hidden_zero_one, mode_multi_two_plus, compact_action_row, fullscreen, edit_category_note, delete_one_many, canonical_document_group]
+    regression_case: "tools/beta117_owner_followup_contract.py"
+    technical_evidence: "0.4.2-beta.117 Technical PASS/LIVE; candidate source d8ea2c2f31549647e8676b40dc536d2b1b80e6e5; candidate 33800745880/9911117214; fresh Service 33821884023/9918676363; visual/PDA/API36 33816769626/9916961610 + human PASS 43 screenshots 320x568/360x640/480x800; Beta Auth 33817394774/9917295154; device/discovery 33818941214/9917593203; Stable private primary recovery 33821666160/9918483812; runtime 33822369696/9918733617; domain 33822700732/9918901726; Fast Check 33821883976 PASS; terminal 33822875354; publish 9918907009; OTA install/open/readback 9918960606; final 9918965646; SHA256 b3454574547eece69ea44c51b2f88da93dd142eb5d1afb82e7fbd0f293cc0d87; size 14396405; signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged."
+    technical_receipt: "ops/beta117-technical-pass.json"
+    owner_acceptance: "PENDING_BETA117_ITEM_1_OF_8"
+    active_pass: false
+
+  - id: DOCUMENT-CROSS-GROUP-VIEWER-005
+    status: TECHNICAL_PASS_AWAITING_OWNER
+    scope: document-cross-group-viewer
+    parent_invariant: DOCUMENT-GROUP-VIEWER-004
+    rule: "Viewer swipes continuously across current image/document set with pinch zoom and pan X/Y while reusing adapter and preserving exact group metadata."
+    regression_minimum: [cross_group_swipe, pinch, pan_xy, adapter_reuse, exact_group_metadata]
+    regression_case: "tools/beta117_owner_followup_contract.py"
+    technical_evidence: "0.4.2-beta.117 Technical PASS/LIVE; candidate source d8ea2c2f31549647e8676b40dc536d2b1b80e6e5; candidate 33800745880/9911117214; fresh Service 33821884023/9918676363; visual/PDA/API36 33816769626/9916961610 + human PASS 43 screenshots 320x568/360x640/480x800; Beta Auth 33817394774/9917295154; device/discovery 33818941214/9917593203; Stable private primary recovery 33821666160/9918483812; runtime 33822369696/9918733617; domain 33822700732/9918901726; Fast Check 33821883976 PASS; terminal 33822875354; publish 9918907009; OTA install/open/readback 9918960606; final 9918965646; SHA256 b3454574547eece69ea44c51b2f88da93dd142eb5d1afb82e7fbd0f293cc0d87; size 14396405; signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged."
+    technical_receipt: "ops/beta117-technical-pass.json"
+    owner_acceptance: "PENDING_BETA117_ITEM_2_OF_8"
+    active_pass: false
+
+  - id: DROP-RECEIVE-COMPACT-LIST-002
+    status: TECHNICAL_PASS_AWAITING_OWNER
+    scope: drop-receive-compact-list
+    parent_invariant: DROP-RECEIVE-CRUD-001
+    rule: "Drop receive list is newest-first and compact HH:mm dd/MM/yyyy | location | DO | package count; ADMIN/SUPERADMIN delete through canonical auth; USER forbidden."
+    regression_minimum: [newest_first, compact_row, admin_delete, superadmin_delete, user_forbidden]
+    regression_case: "tools/beta117_owner_followup_contract.py"
+    technical_evidence: "0.4.2-beta.117 Technical PASS/LIVE; candidate source d8ea2c2f31549647e8676b40dc536d2b1b80e6e5; candidate 33800745880/9911117214; fresh Service 33821884023/9918676363; visual/PDA/API36 33816769626/9916961610 + human PASS 43 screenshots 320x568/360x640/480x800; Beta Auth 33817394774/9917295154; device/discovery 33818941214/9917593203; Stable private primary recovery 33821666160/9918483812; runtime 33822369696/9918733617; domain 33822700732/9918901726; Fast Check 33821883976 PASS; terminal 33822875354; publish 9918907009; OTA install/open/readback 9918960606; final 9918965646; SHA256 b3454574547eece69ea44c51b2f88da93dd142eb5d1afb82e7fbd0f293cc0d87; size 14396405; signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged."
+    technical_receipt: "ops/beta117-technical-pass.json"
+    owner_acceptance: "PENDING_BETA117_ITEM_3_OF_8"
+    active_pass: false
+
+  - id: UI-PERFORMANCE-COMPACT-005
+    status: TECHNICAL_PASS_AWAITING_OWNER
+    scope: ui-performance-compact
+    parent_invariant: UI-TAP-FEEDBACK-004
+    rule: "Large lists render chunked with generation cancellation/search debounce; selects remain compact/readable; tap feedback 0.95 to 1.01 is transform-only and never changes layout geometry."
+    regression_minimum: [chunked_render, generation_cancel, search_debounce, compact_select, transform_only, no_layout_animation]
+    regression_case: "tools/beta117_owner_followup_contract.py"
+    technical_evidence: "0.4.2-beta.117 Technical PASS/LIVE; candidate source d8ea2c2f31549647e8676b40dc536d2b1b80e6e5; candidate 33800745880/9911117214; fresh Service 33821884023/9918676363; visual/PDA/API36 33816769626/9916961610 + human PASS 43 screenshots 320x568/360x640/480x800; Beta Auth 33817394774/9917295154; device/discovery 33818941214/9917593203; Stable private primary recovery 33821666160/9918483812; runtime 33822369696/9918733617; domain 33822700732/9918901726; Fast Check 33821883976 PASS; terminal 33822875354; publish 9918907009; OTA install/open/readback 9918960606; final 9918965646; SHA256 b3454574547eece69ea44c51b2f88da93dd142eb5d1afb82e7fbd0f293cc0d87; size 14396405; signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged."
+    technical_receipt: "ops/beta117-technical-pass.json"
+    owner_acceptance: "PENDING_BETA117_ITEM_4_OF_8"
+    active_pass: false
+
+  - id: LABOR-FIXED-ROLE-BULK-006
+    status: TECHNICAL_PASS_AWAITING_OWNER
+    scope: labor-fixed-role-bulk
+    parent_invariant: LABOR-FIXED-ROLE-REVIEW-005
+    rule: "Fixed roles Tổ trưởng/Kéo hàng/5S support multi/select-all, one batch time range and per-employee/session ACK; no auto labor and exact-session authority stays canonical."
+    regression_minimum: [fixed_role_candidates, select_many, select_all, batch_time, per_employee_ack, no_auto_labor, exact_session_authority]
+    regression_case: "tools/beta117_owner_followup_contract.py"
+    technical_evidence: "0.4.2-beta.117 Technical PASS/LIVE; candidate source d8ea2c2f31549647e8676b40dc536d2b1b80e6e5; candidate 33800745880/9911117214; fresh Service 33821884023/9918676363; visual/PDA/API36 33816769626/9916961610 + human PASS 43 screenshots 320x568/360x640/480x800; Beta Auth 33817394774/9917295154; device/discovery 33818941214/9917593203; Stable private primary recovery 33821666160/9918483812; runtime 33822369696/9918733617; domain 33822700732/9918901726; Fast Check 33821883976 PASS; terminal 33822875354; publish 9918907009; OTA install/open/readback 9918960606; final 9918965646; SHA256 b3454574547eece69ea44c51b2f88da93dd142eb5d1afb82e7fbd0f293cc0d87; size 14396405; signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged."
+    technical_receipt: "ops/beta117-technical-pass.json"
+    owner_acceptance: "PENDING_BETA117_ITEM_5_OF_8"
+    active_pass: false
+
+  - id: LAN-MANUAL-REAL-003
+    status: TECHNICAL_PASS_AWAITING_OWNER
+    scope: lan-manual-real
+    parent_invariant: LAN-GLOBAL-TEST-002
+    rule: "Real manual LAN is isolated from LAN test; SUPERADMIN-only global toggle with pending/not-ready states; safe reconcile preserves fencing/idempotency and does not change authority/provider."
+    regression_minimum: [manual_vs_test_isolation, superadmin_only, global_state, pending_not_ready, safe_reconcile, authority_unchanged]
+    regression_case: "tools/beta117_owner_followup_contract.py"
+    technical_evidence: "0.4.2-beta.117 Technical PASS/LIVE; candidate source d8ea2c2f31549647e8676b40dc536d2b1b80e6e5; candidate 33800745880/9911117214; fresh Service 33821884023/9918676363; visual/PDA/API36 33816769626/9916961610 + human PASS 43 screenshots 320x568/360x640/480x800; Beta Auth 33817394774/9917295154; device/discovery 33818941214/9917593203; Stable private primary recovery 33821666160/9918483812; runtime 33822369696/9918733617; domain 33822700732/9918901726; Fast Check 33821883976 PASS; terminal 33822875354; publish 9918907009; OTA install/open/readback 9918960606; final 9918965646; SHA256 b3454574547eece69ea44c51b2f88da93dd142eb5d1afb82e7fbd0f293cc0d87; size 14396405; signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged."
+    technical_receipt: "ops/beta117-technical-pass.json"
+    owner_acceptance: "PENDING_BETA117_ITEM_6_OF_8"
+    active_pass: false
+
 impact_map:
-  "app/**": [DOCUMENT-DRAFT-NOTE-UX-003, DOCUMENT-GROUP-VIEWER-004, PDA-SERIAL-DERIVE-002, REPORT-LABOR-DEDUCTION-002, DROP-RECEIVE-CRUD-001, LOCAL-FIRST-RECONCILE-002, ATTENDANCE-QR-FILTER-002, LABOR-FIXED-ROLE-REVIEW-005, ADMIN-OTHER-PASSWORD-003, LAN-GLOBAL-TEST-002, UI-TAP-FEEDBACK-004, LABOR-SCAN-PINNED-004, UI-FORM-BASE-CONSISTENCY-003, UI-STATUS-001, QR-LOCAL-001, MEAL-DATE-001, MEAL-WARN-001, ROLE-HISTORY-001, OTA-BETA-001, PDA-EXIT-001, ENV-ISOLATION-001, SERVICE-DISCOVERY-001, SHIFT-STAFF-DOWNLOAD-QR-001, DOCUMENT-MANAGEMENT-001, DOCUMENT-BATCH-001, LABOR-TIME-RANGE-001, MEAL-UI-NULL-001, UI-COPY-DENSITY-001, NAV-HISTORY-BACK-001, UI-REVIEW-WARNING-001, LABOR-EXACT-SESSION-002, HISTORY-DELETE-CANONICAL-001, DOCUMENT-BATCH-MODE-TICK-002, INFRA-RESILIENCE-001, CHANGELOG-CURRENT-VERSION-001, ADMIN-AUDIT-PASSWORD-001, HISTORY-SUPERADMIN-CLEANUP-002, LABOR-MULTI-INTERVAL-003, UI-DATA-DATE-SELECT-001, UI-EMPLOYEE-SCAN-ROSTER-001, UI-FORM-CONSISTENCY-002]
-  "service/**": [DOCUMENT-DRAFT-NOTE-UX-003, DROP-RECEIVE-CRUD-001, LOCAL-FIRST-RECONCILE-002, ADMIN-OTHER-PASSWORD-003, LAN-GLOBAL-TEST-002, QR-LOCAL-001, MEAL-DATE-001, PDA-EXIT-001, ENV-ISOLATION-001, DOCUMENT-MANAGEMENT-001, DOCUMENT-BATCH-001, LABOR-TIME-RANGE-001, LABOR-EXACT-SESSION-002, INFRA-RESILIENCE-001, ADMIN-AUDIT-PASSWORD-001, LABOR-MULTI-INTERVAL-003, UI-DATA-DATE-SELECT-001]
+  "app/**": [DOCUMENT-DRAFT-NOTE-UX-003, DOCUMENT-GROUP-VIEWER-004, PDA-SERIAL-DERIVE-002, REPORT-LABOR-DEDUCTION-002, DROP-RECEIVE-CRUD-001, LOCAL-FIRST-RECONCILE-002, ATTENDANCE-QR-FILTER-002, LABOR-FIXED-ROLE-REVIEW-005, ADMIN-OTHER-PASSWORD-003, LAN-GLOBAL-TEST-002, UI-TAP-FEEDBACK-004, LABOR-SCAN-PINNED-004, UI-FORM-BASE-CONSISTENCY-003, UI-STATUS-001, QR-LOCAL-001, MEAL-DATE-001, MEAL-WARN-001, ROLE-HISTORY-001, OTA-BETA-001, PDA-EXIT-001, ENV-ISOLATION-001, SERVICE-DISCOVERY-001, SHIFT-STAFF-DOWNLOAD-QR-001, DOCUMENT-MANAGEMENT-001, DOCUMENT-BATCH-001, LABOR-TIME-RANGE-001, MEAL-UI-NULL-001, UI-COPY-DENSITY-001, NAV-HISTORY-BACK-001, UI-REVIEW-WARNING-001, LABOR-EXACT-SESSION-002, HISTORY-DELETE-CANONICAL-001, DOCUMENT-BATCH-MODE-TICK-002, INFRA-RESILIENCE-001, CHANGELOG-CURRENT-VERSION-001, ADMIN-AUDIT-PASSWORD-001, HISTORY-SUPERADMIN-CLEANUP-002, LABOR-MULTI-INTERVAL-003, UI-DATA-DATE-SELECT-001, UI-EMPLOYEE-SCAN-ROSTER-001, UI-FORM-CONSISTENCY-002, DOCUMENT-COMPACT-MULTI-EDIT-005, DOCUMENT-CROSS-GROUP-VIEWER-005, DROP-RECEIVE-COMPACT-LIST-002, UI-PERFORMANCE-COMPACT-005, LABOR-FIXED-ROLE-BULK-006, LAN-MANUAL-REAL-003]
+  "service/**": [DOCUMENT-DRAFT-NOTE-UX-003, DROP-RECEIVE-CRUD-001, LOCAL-FIRST-RECONCILE-002, ADMIN-OTHER-PASSWORD-003, LAN-GLOBAL-TEST-002, QR-LOCAL-001, MEAL-DATE-001, PDA-EXIT-001, ENV-ISOLATION-001, DOCUMENT-MANAGEMENT-001, DOCUMENT-BATCH-001, LABOR-TIME-RANGE-001, LABOR-EXACT-SESSION-002, INFRA-RESILIENCE-001, ADMIN-AUDIT-PASSWORD-001, LABOR-MULTI-INTERVAL-003, UI-DATA-DATE-SELECT-001, DOCUMENT-COMPACT-MULTI-EDIT-005, DOCUMENT-CROSS-GROUP-VIEWER-005, DROP-RECEIVE-COMPACT-LIST-002, UI-PERFORMANCE-COMPACT-005, LABOR-FIXED-ROLE-BULK-006, LAN-MANUAL-REAL-003]
   "services/**": [ENV-ISOLATION-001, INFRA-RESILIENCE-001, BETA-STABLE-AUDIT-001]
   "google-apps-script/**": [ENV-ISOLATION-001, INFRA-RESILIENCE-001, OTA-BETA-001]
   ".github/workflows/**": [OTA-BETA-001, ENV-ISOLATION-001, INFRA-RESILIENCE-001, BETA-STABLE-AUDIT-001, CHANGELOG-CURRENT-VERSION-001]
