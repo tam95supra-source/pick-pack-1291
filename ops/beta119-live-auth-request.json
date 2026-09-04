@@ -13,5 +13,5 @@
   "authority_change": "NONE",
   "owner_scope": "SUPERADMIN_AUTH_002",
   "secret_output": "FORBIDDEN",
-  "execution_nonce": "beta119-live-auth-regression-20260904-01"
+  "execution_nonce": "beta119-live-auth-regression-20260904-02"
 }
