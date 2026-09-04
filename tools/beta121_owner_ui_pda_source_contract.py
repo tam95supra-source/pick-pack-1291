@@ -7,6 +7,7 @@ gradle=(ROOT/"app/build.gradle.kts").read_text(encoding="utf-8")
 notes=(ROOT/"app/src/main/java/vn/pickpack1291/app/beta/ReleaseNotes.kt").read_text(encoding="utf-8")
 gas=(ROOT/"google-apps-script/PICK_PACK_API.gs").read_text(encoding="utf-8")
 service=(ROOT/"service/src/mobile_hotfix.ts").read_text(encoding="utf-8")
+dr=(ROOT/"tools/cloud_dr_provider_preflight.sh").read_text(encoding="utf-8")
 
 assert 'versionCode = 127' in gradle and 'versionName = "0.4.2-beta.121"' in gradle
 assert 'const val VERSION_NAME = "0.4.2-beta.121"' in notes
@@ -45,5 +46,14 @@ assert 'source:String(m["Nguồn"]||m["source"]||"")' in service
 for name in ("ic_pp_network.xml","ic_pp_sync.xml","ic_pp_service.xml"):
     x=(ROOT/"app/src/main/res/drawable"/name).read_text(encoding="utf-8")
     assert "<vector" in x and x.count("<path") >= 2
+
+# A 403 on Turso account-wide auth metadata is not sufficient for PASS and must not
+# be treated as an expired token by itself. It may continue only to the existing
+# resource-scoped org/database/capacity proofs, which still fail closed.
+assert 'case "$validate_code" in' in dr
+assert '403)' in dr and 'continue_with_resource_scoped_proof=true' in dr
+assert 'DR_PREFLIGHT_HTTP_FAILED:turso-validate:$validate_code' in dr
+assert 'TURSO_DATABASE_AUTH_READBACK_FAILED' in dr
+assert 'TURSO_ZERO_COST_CAPACITY_METADATA_UNAVAILABLE' in dr or 'TURSO_EXISTING_RESOURCE_ONLY' in dr
 
 print("BETA121_OWNER_UI_PDA_SOURCE_CONTRACT_PASS")
