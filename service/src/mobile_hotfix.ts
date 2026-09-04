@@ -150,7 +150,7 @@ async function oldActiveSessions(env:Env):Promise<Response>{
   return json({ok:true,source:"SERVICE_D1",business_date:date,count:items.length,items});
 }
 
-async function oldActiveSessionsBulkExit(env:Env,auth:AuthContext):Promise<Response>{
+async function oldActiveSessionsBulkExit(env:Env,auth:AuthContext,body:Record<string,unknown>):Promise<Response>{
   if(auth.role!=="SUPERADMIN")return apiError("SUPERADMIN_REQUIRED","PERMISSION",403);
   const date=await businessDate(env.DB);
   const items=(await env.DB.prepare(`SELECT s.session_id,s.mnv,s.business_date,s.shift,s.pda_serial,s.version,
@@ -158,10 +158,14 @@ async function oldActiveSessionsBulkExit(env:Env,auth:AuthContext):Promise<Respo
     FROM attendance_sessions s
     WHERE s.state='ACTIVE' AND s.business_date<?1
     ORDER BY s.business_date ASC,s.enter_at ASC,s.mnv ASC`).bind(date).all<Record<string,unknown>>()).results??[];
-  let exited=0;const skippedLabor:Array<Record<string,unknown>>=[];const failed:Array<Record<string,unknown>>=[];
-  for(const row of items){
+  const excludedRaw=Array.isArray(body.exclude_session_ids)?body.exclude_session_ids:[];
+  const excluded=new Set(excludedRaw.map(x=>String(x||"").trim()).filter(Boolean).slice(0,500));
+  const skippedLabor=items.filter(row=>Number(row.labor_count||0)>0).map(row=>({session_id:String(row.session_id||""),mnv:String(row.mnv||""),business_date:String(row.business_date||""),reason:"HAS_LABOR"}));
+  const eligible=items.filter(row=>Number(row.labor_count||0)===0&&!excluded.has(String(row.session_id||"")));
+  const batch=eligible.slice(0,5);
+  let exited=0;const failed:Array<Record<string,unknown>>=[];
+  for(const row of batch){
     const sessionId=String(row.session_id||""),mnv=String(row.mnv||""),businessDateValue=String(row.business_date||"");
-    if(Number(row.labor_count||0)>0){skippedLabor.push({session_id:sessionId,mnv,business_date:businessDateValue,reason:"HAS_LABOR"});continue;}
     try{
       await commitMutation(env.DB,env,auth,{
         event_id:crypto.randomUUID(),event_type:"ATTENDANCE_EXIT",entity_type:"ATTENDANCE_SESSION",entity_id:sessionId,
@@ -173,7 +177,7 @@ async function oldActiveSessionsBulkExit(env:Env,auth:AuthContext):Promise<Respo
     }catch(error){failed.push({session_id:sessionId,mnv,business_date:businessDateValue,error:String(error instanceof Error?error.message:error).slice(0,160)});}
   }
   const remaining=(await env.DB.prepare("SELECT s.session_id,s.mnv,s.business_date,s.shift,s.work_choice,s.state,s.pda_serial,s.user_pick,s.pack_table,s.user_pack,s.enter_at,s.version,COALESCE(e.full_name,'') full_name FROM attendance_sessions s LEFT JOIN employees e ON e.mnv=s.mnv WHERE s.state='ACTIVE' AND s.business_date<?1 ORDER BY s.business_date ASC,s.enter_at ASC,s.mnv ASC").bind(date).all<Record<string,unknown>>()).results??[];
-  return json({ok:true,source:"SERVICE_D1",business_date:date,exited,skipped_labor:skippedLabor.length,failed_count:failed.length,skipped_labor_items:skippedLabor,failed,remaining_count:remaining.length,items:remaining});
+  return json({ok:true,source:"SERVICE_D1",business_date:date,exited,skipped_labor:skippedLabor.length,failed_count:failed.length,skipped_labor_items:skippedLabor,failed,processed_count:batch.length,batch_limit:5,has_more:eligible.length>batch.length,eligible_remaining:Math.max(0,eligible.length-batch.length),remaining_count:remaining.length,items:remaining});
 }
 
 function eventLabel(type:string):string{return type==="ATTENDANCE_ENTER"?"Vào ca":type==="ATTENDANCE_EXIT"?"Ra ca":type==="RESOURCE_CHANGE"?"Đổi tài nguyên":type==="LABOR_START"?"Bắt đầu công nhật":type==="LABOR_FINISH"?"Hoàn thành công nhật":type;}
@@ -227,7 +231,7 @@ export async function mobileRead(request:Request,env:Env):Promise<Response>{
   if(action==="master_options")return json(await resourceOptions(env.DB,await businessDate(env.DB),String(body.mnv||"")));
   if(action==="history_shared")return sharedHistory(env,body);
   if(action==="old_active_sessions")return oldActiveSessions(env);
-  if(action==="old_active_sessions_bulk_exit")return oldActiveSessionsBulkExit(env,auth);
+  if(action==="old_active_sessions_bulk_exit")return oldActiveSessionsBulkExit(env,auth,body);
   if(action==="historical_session_detail")return historicalSessionDetail(env,body);
   if(action==="meal_attendance_list")return mealAttendanceList(env,{business_date:String(body.business_date||"")});
   if(action==="meal_attendance_dates")return mealAttendanceDates(env);

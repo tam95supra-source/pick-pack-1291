@@ -140,7 +140,7 @@ class M2RuntimeBridge(context: Context) {
         var connection:HttpURLConnection?=null
         return try{
             connection=(URL(endpoint).openConnection() as HttpURLConnection).apply{
-                requestMethod="POST";connectTimeout=1_500;readTimeout=3_000;doOutput=true;instanceFollowRedirects=true
+                requestMethod="POST";connectTimeout=1_500;readTimeout=if(payload.optString("action")=="old_active_sessions_bulk_exit")12_000 else 3_000;doOutput=true;instanceFollowRedirects=true
                 setRequestProperty("Content-Type","application/json; charset=utf-8");setRequestProperty("Accept","application/json");setRequestProperty("User-Agent","PickPack1291-M2Runtime/${BuildConfig.VERSION_NAME}");setRequestProperty("X-Pick-Pack-Environment",BuildConfig.ENVIRONMENT_ID);setRequestProperty("X-Pick-Pack-Audience",BuildConfig.SERVICE_AUDIENCE)
                 if(!bearer.isNullOrBlank())setRequestProperty("Authorization","Bearer $bearer")
             }
@@ -161,7 +161,7 @@ class M2RuntimeBridge(context: Context) {
         private const val KEY_LAST_ROUTE="runtime_last_route"
         private const val KEY_LAST_ERROR="runtime_last_error"
         val DIRECT_READS=setOf(
-            "employee_context","master_options","history_shared","old_active_sessions","historical_session_detail",
+            "employee_context","master_options","history_shared","old_active_sessions","old_active_sessions_bulk_exit","historical_session_detail",
             "outbound_location_list","outbound_location_mutate","outbound_drop_append","outbound_drop_list","outbound_drop_delete","outbound_drop_clear","meal_attendance_list","meal_attendance_dates","labor_list","labor_dates","lan_test_mode_get","lan_test_mode_set","lan_manual_mode_get","lan_manual_mode_set"
         )
     }

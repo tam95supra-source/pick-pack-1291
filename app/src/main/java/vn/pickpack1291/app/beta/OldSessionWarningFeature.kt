@@ -100,13 +100,21 @@ object OldSessionWarningFeature {
                         dialog?.dismiss()
                         confirmTime("ra ca tất cả phiên cũ hợp lệ"){
                             isEnabled=false
-                            api.call("old_active_sessions_bulk_exit",JSONObject().put("idempotency_key",UUID.randomUUID().toString())){r->activity.runOnUiThread{
-                                isEnabled=true
-                                if(!r.ok){TopNotice.show(activity,r.error?:"Không ra ca hàng loạt được.",TopNotice.Kind.ERROR);reload();return@runOnUiThread}
-                                val exited=r.json?.optInt("exited",0)?:0;val skipped=r.json?.optInt("skipped_labor",0)?:0;val failed=r.json?.optInt("failed_count",0)?:0
-                                TopNotice.show(activity,"Đã ra ca $exited phiên • bỏ qua công nhật $skipped${if(failed>0)" • lỗi $failed" else ""}.",if(failed>0)TopNotice.Kind.WARNING else TopNotice.Kind.SUCCESS)
-                                val remaining=r.json?.optJSONArray("items")?:JSONArray();apply(parse(remaining))
-                            }}
+                            val rootKey=UUID.randomUUID().toString();val failedIds=linkedSetOf<String>();var totalExited=0
+                            fun runChunk(){
+                                val payload=JSONObject().put("idempotency_key",rootKey).put("exclude_session_ids",JSONArray(failedIds.toList()))
+                                api.call("old_active_sessions_bulk_exit",payload){r->activity.runOnUiThread{
+                                    if(!r.ok){isEnabled=true;TopNotice.show(activity,r.error?:"Không ra ca hàng loạt được.",TopNotice.Kind.ERROR);reload();return@runOnUiThread}
+                                    totalExited+=r.json?.optInt("exited",0)?:0
+                                    val failedBatch=r.json?.optJSONArray("failed")?:JSONArray();for(i in 0 until failedBatch.length()){failedBatch.optJSONObject(i)?.optString("session_id")?.takeIf{it.isNotBlank()}?.let{failedIds.add(it)}}
+                                    if(r.json?.optBoolean("has_more",false)==true){runChunk();return@runOnUiThread}
+                                    isEnabled=true
+                                    val skipped=r.json?.optInt("skipped_labor",0)?:0;val failed=failedIds.size
+                                    TopNotice.show(activity,"Đã ra ca $totalExited phiên • bỏ qua công nhật $skipped${if(failed>0)" • lỗi $failed" else ""}.",if(failed>0)TopNotice.Kind.WARNING else TopNotice.Kind.SUCCESS)
+                                    val remaining=r.json?.optJSONArray("items")?:JSONArray();apply(parse(remaining))
+                                }}
+                            }
+                            runChunk()
                         }
                     }
                 }
