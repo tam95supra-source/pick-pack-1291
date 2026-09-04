@@ -72,9 +72,8 @@ jobs:
             app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt \
             service/src/mobile_hotfix.ts \
             tools/beta117_owner_followup_contract.py \
-            tools/beta118_owner_followup_contract.py \
-            .github/workflows/app-fast-check.yml
+            tools/beta118_owner_followup_contract.py
           git diff --cached --name-only
-          if git diff --cached --name-only | grep -E '(^|/)node_modules/|__pycache__|package-lock.json|worker-configuration.d.ts'; then exit 91; fi
+          if git diff --cached --name-only | grep -E '(^|/)node_modules/|__pycache__|package-lock.json|worker-configuration.d.ts|\.github/workflows/'; then exit 91; fi
           git commit -m "feat(beta118): bulk exit and realtime owner follow-up"
           git push origin HEAD:release/beta118-owner-realtime-bulk-exit-20260904
