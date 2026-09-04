@@ -1,0 +1,107 @@
+name: Beta118 owner100 accept and resume
+
+on:
+  push:
+    branches:
+      - release/beta118-owner-realtime-bulk-exit-20260904
+    paths:
+      - .github/workflows/beta118-owner100-accept-and-resume.yml
+
+permissions:
+  contents: write
+
+env:
+  BRANCH: release/beta118-owner-realtime-bulk-exit-20260904
+  CANDIDATE_SOURCE: 81944b8519cfb7995d78a5c1070c4af3ee2150be
+
+jobs:
+  accept-resume:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Fence product bytes and record OWNER acceptance
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${GITHUB_REF_NAME}" = "$BRANCH"
+          git diff --quiet "$CANDIDATE_SOURCE" HEAD -- app service google-apps-script
+          python3 - <<'PY'
+          from pathlib import Path
+          import json, datetime
+
+          p=Path('qa/stable_invariants.yml')
+          s=p.read_text(encoding='utf-8')
+          marker='  - id: REVIEW-100-SESSIONS-001\n'
+          start=s.index(marker)
+          end=s.index('\n\nimpact_map:', start)
+          block=s[start:end]
+          assert 'status: TECHNICAL_PASS_AWAITING_OWNER' in block
+          assert 'owner_acceptance: "PENDING_OWNER_CHECKLIST_1_TO_3"' in block
+          assert 'active_pass: false' in block
+          block=block.replace('status: TECHNICAL_PASS_AWAITING_OWNER','status: ACTIVE_PASS',1)
+          block=block.replace('owner_acceptance: "PENDING_OWNER_CHECKLIST_1_TO_3"','owner_acceptance: "OWNER_OK_2026-09-04_CHECKLIST_1_TO_3"',1)
+          block=block.replace('active_pass: false','active_pass: true',1)
+          s=s[:start]+block+s[end:]
+          p.write_text(s,encoding='utf-8')
+
+          md=Path('docs/STABLE_INVARIANTS.md')
+          m=md.read_text(encoding='utf-8')
+          if '### REVIEW-100-SESSIONS-001' not in m:
+              m += '''\n\n### REVIEW-100-SESSIONS-001\n- Status: ACTIVE_PASS\n- Scope: review-session-projection.\n- Rule: Rà soát ngày hiện tại phải chiếu chính xác tập session ACTIVE/in-only canonical theo business_date; nhãn ca tương đương không phân biệt hoa/thường hội tụ về Ca 1/Ca HC/Ca 2; expected/actual MNV và session_id bằng nhau hai chiều, không extra/duplicate/missing/wrong-source, giữ đúng vị trí.\n- Technical evidence: diagnosis 33829110432/9921008888; exact Android UI 33836246626/9923402264; local-first/realtime 33837587706/9923826221; API36 Back 33835843259/9923339401; exact candidate 33833810807/9922669910, APK SHA256 5216f0eb09f187aed9cb71dcc21cd145fdc3ba7ea7852c74ffe6f85dea2b478f.\n- OWNER acceptance: checklist 1 OK, 2 OK, 3 OK — 2026-09-04.\n'''
+              md.write_text(m,encoding='utf-8')
+
+          receipt={
+            'project':'APK PICK PACK 1291',
+            'invariant':'REVIEW-100-SESSIONS-001',
+            'status':'ACTIVE_PASS',
+            'owner':'Nguyễn Văn Tâm',
+            'owner_acceptance':{'1':'OK','2':'OK','3':'OK'},
+            'accepted_date':'2026-09-04',
+            'candidate_run_id':33833810807,
+            'candidate_artifact_id':9922669910,
+            'apk_sha256':'5216f0eb09f187aed9cb71dcc21cd145fdc3ba7ea7852c74ffe6f85dea2b478f',
+            'exact_ui_run_id':33836246626,
+            'localfirst_run_id':33837587706,
+            'back36_run_id':33835843259,
+            'beta118_publish_ota':'NOT_YET',
+            'stable_main_signer_authority':'UNCHANGED'
+          }
+          Path('ops/beta118-owner100-owner-acceptance.json').write_text(json.dumps(receipt,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+
+          r=Path('ops/beta-release-request.json')
+          j=json.loads(r.read_text(encoding='utf-8'))
+          assert j['stage']=='BACK36_ONLY'
+          assert j['candidate_locked'] is True
+          assert j['candidate_run_id']==33833810807
+          assert j['apk_sha256']=='5216f0eb09f187aed9cb71dcc21cd145fdc3ba7ea7852c74ffe6f85dea2b478f'
+          j['stage']='BETA_AUTH_MIGRATE'
+          j['owner100_blocker_acceptance']='COMPLETE'
+          j['owner100_acceptance_receipt']='ops/beta118-owner100-owner-acceptance.json'
+          j['next_action']='BETA118_BETA_AUTH_MIGRATE_THEN_CONTINUE_MISSING_PRE_OTA_GATES'
+          r.write_text(json.dumps(j,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+
+          h=Path('docs/handovers/HANDOVER_CURRENT.md')
+          hs=h.read_text(encoding='utf-8')
+          hs=hs.replace('- REVIEW-100-SESSIONS-001 = TECHNICAL_PASS_AWAITING_OWNER.','- REVIEW-100-SESSIONS-001 = ACTIVE_PASS (OWNER checklist 1/2/3 OK on 2026-09-04).')
+          hs=hs.replace('- Do NOT mark ACTIVE_PASS until Nguyễn Văn Tâm explicitly accepts all three checklist items.\n- Do NOT resume Beta118 publish/OTA before that OWNER acceptance.','- OWNER acceptance completed for blocker 100 sessions.\n- Resume only the remaining Beta118 gated release chain from exact locked candidate; do not rebuild/resign.')
+          hs=hs.replace('## NEXT_ACTION\nOWNER_CHECKLIST_1_TO_3','## NEXT_ACTION\nBETA118_BETA_AUTH_MIGRATE_THEN_CONTINUE_MISSING_PRE_OTA_GATES')
+          h.write_text(hs,encoding='utf-8')
+          PY
+          python3 - <<'PY'
+          import yaml
+          d=yaml.safe_load(open('qa/stable_invariants.yml',encoding='utf-8'))
+          x=[i for i in d['invariants'] if i['id']=='REVIEW-100-SESSIONS-001']
+          assert len(x)==1 and x[0]['status']=='ACTIVE_PASS' and x[0]['active_pass'] is True
+          print('OWNER100_ACTIVE_PASS_REGISTRY_OK')
+          PY
+      - name: Commit and push fenced state
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add qa/stable_invariants.yml docs/STABLE_INVARIANTS.md docs/handovers/HANDOVER_CURRENT.md ops/beta118-owner100-owner-acceptance.json ops/beta-release-request.json
+          git commit -m 'chore(beta118): lock owner100 acceptance and resume gates'
+          git push origin HEAD:"$BRANCH"
