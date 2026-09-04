@@ -1,6 +1,6 @@
 # CURRENT STATE — PICK PACK 1291
 
-- updated_at: 2026-09-04T11:52:00Z
+- updated_at: 2026-09-04T12:00:00Z
 - status: BETA119_PASS_LIVE_TECHNICAL_PASS_AWAITING_OWNER
 - continuity_branch: beta/current
 - release_branch: release/beta119-superadmin-auth-control-plane-20260904
@@ -33,6 +33,8 @@
 - apk_transport: GITHUB_RELEASE_ONLY
 - google_drive_apk: FORBIDDEN
 - release_lock: PASS / ops/beta119-release-lock.json
+- pass_live: PASS run 33870526120
+- beta_current_sync: PASS run 33870545799 / fast-forward-only / post-sync readback PASS
 - owner_scope: OWNER_20260904_CURRENT_AUTH_ACCEPTANCE_SECURITY
 - owner_acceptance_ledger: ops/owner-acceptance-current.json
 - owner_checklist: BETA119_OWNER_ACCEPTANCE_20260904_R1 / revision 1 / TECHNICAL_PASS_AWAITING_OWNER
