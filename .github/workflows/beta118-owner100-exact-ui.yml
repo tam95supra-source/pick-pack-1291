@@ -15,10 +15,10 @@ jobs:
   owner100-exact-ui:
     runs-on: ubuntu-24.04
     env:
-      SIGNING_KEY_B64: ${{ secrets.SIGNING_KEY_B64 }}
-      SIGNING_STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
-      SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
-      SIGNING_ALIAS: ${{ secrets.SIGNING_ALIAS }}
+      SIGNING_KEY_B64: ${{ secrets.ANDROID_SIGNING_KEY_B64 }}
+      SIGNING_STORE_PASSWORD: ${{ secrets.ANDROID_SIGNING_STORE_PASSWORD }}
+      SIGNING_KEY_PASSWORD: ${{ secrets.ANDROID_SIGNING_KEY_PASSWORD }}
+      SIGNING_ALIAS: ${{ secrets.ANDROID_SIGNING_ALIAS }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
