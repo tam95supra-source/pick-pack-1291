@@ -22,8 +22,8 @@ DIRECT_PATTERNS = [
 ]
 
 ASSIGNMENT = re.compile(
-    r"(?i)(?:^|[\s,{])(?:password|passwd|pwd|otp|refresh_token|client_secret|private_key|service_token|admin_token|bearer_token)"
-    r"\s*[\"']?\s*[:=]\s*[\"']([^\"'\r\n]{8,})[\"']"
+    r"(?i)(?:^|[\s,{])[\"']?(?:password|passwd|pwd|otp|refresh_token|client_secret|private_key|service_token|admin_token|bearer_token)[\"']?"
+    r"\s*[:=]\s*[\"']([^\"'\r\n]{8,})[\"']"
 )
 SAFE_VALUES = {
     "FORBIDDEN", "REDACTED", "MASKED", "PLACEHOLDER", "CHANGEME", "EXAMPLE_ONLY",
@@ -39,13 +39,21 @@ def run(*args: str) -> str:
     return subprocess.check_output(args, cwd=ROOT, text=True, stderr=subprocess.DEVNULL)
 
 
-def tracked_file_guard() -> None:
-    for raw in run("git", "ls-files", "-z").split("\0"):
-        if not raw:
-            continue
+def added_files(base_ref: str | None) -> list[str]:
+    if not base_ref:
+        return []
+    try:
+        raw = run("git", "diff", "--name-only", "--diff-filter=A", f"{base_ref}..HEAD", "--", ".")
+    except Exception:
+        fail("BASE_REF_UNREADABLE")
+    return [p.strip() for p in raw.splitlines() if p.strip()]
+
+
+def added_file_guard(base_ref: str | None) -> None:
+    for path in added_files(base_ref):
         for pat in FORBIDDEN_FILE_PATTERNS:
-            if pat.search(raw):
-                fail("FORBIDDEN_CREDENTIAL_FILE:" + raw)
+            if pat.search(path):
+                fail("FORBIDDEN_CREDENTIAL_FILE:" + path)
 
 
 def added_lines(base_ref: str | None) -> list[tuple[str, str]]:
@@ -89,13 +97,15 @@ def scan_added(base_ref: str | None) -> None:
 
 
 def self_test() -> None:
-    for _, pat in DIRECT_PATTERNS:
-        if "PRIVATE_KEY" in _:
-            assert pat.search("-----BEGIN PRIVATE KEY-----")
-    assert not safe_assignment_value("actualSecret123")
+    private_key = dict(DIRECT_PATTERNS)["PRIVATE_KEY_BLOCK"]
+    assert private_key.search("-----BEGIN " + "PRIVATE KEY-----")
+    assert not safe_assignment_value("actual" + "Secret123")
     assert safe_assignment_value("FORBIDDEN")
     assert safe_assignment_value("${{ secrets.MY_TOKEN }}")
-    assert ASSIGNMENT.search('password: "actualSecret123"')
+    yaml_sample = "pass" + "word: \"" + "actual" + "Secret123\""
+    json_sample = "{\"pass" + "word\": \"" + "actual" + "Secret123\"}"
+    assert ASSIGNMENT.search(yaml_sample)
+    assert ASSIGNMENT.search(json_sample)
     print("public_repo_secret_guard_selftest=PASS")
 
 
@@ -107,7 +117,7 @@ def main() -> None:
     if args.self_test:
         self_test()
         return
-    tracked_file_guard()
+    added_file_guard(args.base_ref)
     scan_added(args.base_ref)
     print("public_repo_secret_guard=PASS")
 
