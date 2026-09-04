@@ -60,7 +60,7 @@ python3 tools/verify_beta_visual_receipt.py \
   --request "$R" > "$E/visual-receipt-verify.json"
 
 if [[ "$BASE_FINAL_KIND" == REPO_TECHNICAL_PASS ]]; then
-  jq -e --arg v "$PREV" --arg source "$BASE_SOURCE" --arg h "$BASE_SHA" --argjson z "$BASE_SIZE" --arg signer "$SIGNER" '
+  jq -e --arg v "$PREV" --arg source "$BASE_CANDIDATE_SOURCE" --arg h "$BASE_SHA" --argjson z "$BASE_SIZE" --arg signer "$SIGNER" '
     .status=="PASS" and .version_name==$v and .candidate_source_sha==$source and .apk_sha256==$h and .apk_size==$z and
     .signer_sha256==$signer and .stable_unchanged==true and .authority_change=="NONE" and
     (.ota_readback_run_id|type=="number") and (.ota_readback_artifact_id|type=="number")
