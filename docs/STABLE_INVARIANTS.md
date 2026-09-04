@@ -602,3 +602,29 @@ Technical receipt: `ops/beta117-technical-pass.json`. Regression: `tools/beta117
 - Successful OTP use atomically rotates and emails the next OTP. Time-window login does not rotate/send OTP. Legacy/static SUPERADMIN password login is disabled.
 - Public GitHub/log/artifact/handoff must never contain plaintext password/OTP/session/Gmail OAuth secret or an offline-usable verifier.
 - Regression: `qa/beta119_superadmin_auth_regression.md`, `tools/beta119_superadmin_auth_contract.py`, `.github/workflows/superadmin-auth-regression.yml`.
+
+## Beta119 — Technical PASS awaiting OWNER acceptance
+
+### CURRENT_PUBLIC_BETA_001
+- Status: TECHNICAL_PASS_AWAITING_OWNER
+- Scope: Control plane / Beta current pointer
+- Rule: `beta/current` và `CURRENT_STATE.md` phải nhận diện Beta public LIVE mới nhất; Beta/checklist cũ không được ghi đè trạng thái mới hơn.
+- Regression: `tools/beta_current_sync_contract.py` + `tools/owner_acceptance_ledger_guard.py`; monotonic Beta/version/checklist fence; fast-forward only; post-sync readback.
+- Technical evidence: Beta119 LIVE 0.4.2-beta.119 / source `eeb45df6deae267d93a5fb15701a0a394885a549`; terminal run `33868929441`; release/OTA/finalize PASS; acceptance ledger `BETA119_OWNER_ACCEPTANCE_20260904_R1` revision 1.
+- OWNER acceptance: PENDING.
+
+### SUPERADMIN_AUTH_002
+- Status: TECHNICAL_PASS_AWAITING_OWNER
+- Scope: Auth / SUPERADMIN / Android + GAS
+- Rule: phiên đăng nhập hợp lệ phải được giữ qua update/process restart; SUPERADMIN chỉ có 2 credential method: chuỗi 1..20 ký tự chứa `HHmm` thời gian server trong ±5 phút, hoặc OTP Gmail đúng 8 chữ số dùng một lần; OTP dùng thành công tự cấp/gửi mã kế tiếp; time login không rotate/gửi OTP; static SUPERADMIN password login bị vô hiệu; không lưu credential secret plaintext trong GitHub public.
+- Regression: `tools/beta119_superadmin_auth_contract.py`; live SUPERADMIN auth run `33865867111`; auth convergence run `33867109026` đồng thời chứng minh ADMIN thường vẫn password/challenge PASS và Stable isolation PASS.
+- Technical evidence: Beta119 exact candidate `33864111135/9933396813`; Fast Check `33867108883`; terminal publish/OTA/install/open/readback/finalize `33868929441`; SHA256 `73c072187fb13bab635f27009fda500d0745fced4244a8d8276bc9117f350697`.
+- OWNER acceptance: PENDING.
+
+### OWNER_ACCEPTANCE_LEDGER_001
+- Status: TECHNICAL_PASS_AWAITING_OWNER
+- Scope: Control plane / OWNER acceptance continuity
+- Rule: checklist/acceptance phải lưu bền trong GitHub, monotonic theo state epoch + Beta version + checklist revision; chat/memory/handoff chỉ dùng để điều hướng, không được làm authority và không được hồi quy về checklist Beta cũ.
+- Regression: `tools/owner_acceptance_ledger_guard.py`; `ops/owner-acceptance-current.json`; lower epoch/Beta/revision rejected; OWNER silence không phải acceptance.
+- Technical evidence: Beta119 ledger state epoch `202609041845`, checklist `BETA119_OWNER_ACCEPTANCE_20260904_R1`, revision 1, technical status PASS_LIVE / awaiting OWNER.
+- OWNER acceptance: PENDING.

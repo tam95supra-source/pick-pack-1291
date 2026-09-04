@@ -596,15 +596,6 @@ invariants:
     owner_acceptance: "OWNER_OK_2026-09-04_CHECKLIST_1_TO_3"
     active_pass: true
 
-
-impact_map:
-  "app/**": [DOCUMENT-DRAFT-NOTE-UX-003, DOCUMENT-GROUP-VIEWER-004, PDA-SERIAL-DERIVE-002, REPORT-LABOR-DEDUCTION-002, DROP-RECEIVE-CRUD-001, LOCAL-FIRST-RECONCILE-002, ATTENDANCE-QR-FILTER-002, LABOR-FIXED-ROLE-REVIEW-005, ADMIN-OTHER-PASSWORD-003, LAN-GLOBAL-TEST-002, UI-TAP-FEEDBACK-004, LABOR-SCAN-PINNED-004, UI-FORM-BASE-CONSISTENCY-003, UI-STATUS-001, QR-LOCAL-001, MEAL-DATE-001, MEAL-WARN-001, ROLE-HISTORY-001, OTA-BETA-001, PDA-EXIT-001, ENV-ISOLATION-001, SERVICE-DISCOVERY-001, SHIFT-STAFF-DOWNLOAD-QR-001, DOCUMENT-MANAGEMENT-001, DOCUMENT-BATCH-001, LABOR-TIME-RANGE-001, MEAL-UI-NULL-001, UI-COPY-DENSITY-001, NAV-HISTORY-BACK-001, UI-REVIEW-WARNING-001, LABOR-EXACT-SESSION-002, HISTORY-DELETE-CANONICAL-001, DOCUMENT-BATCH-MODE-TICK-002, INFRA-RESILIENCE-001, CHANGELOG-CURRENT-VERSION-001, ADMIN-AUDIT-PASSWORD-001, HISTORY-SUPERADMIN-CLEANUP-002, LABOR-MULTI-INTERVAL-003, UI-DATA-DATE-SELECT-001, UI-EMPLOYEE-SCAN-ROSTER-001, UI-FORM-CONSISTENCY-002, DOCUMENT-COMPACT-MULTI-EDIT-005, DOCUMENT-CROSS-GROUP-VIEWER-005, DROP-RECEIVE-COMPACT-LIST-002, UI-PERFORMANCE-COMPACT-005, LABOR-FIXED-ROLE-BULK-006, LAN-MANUAL-REAL-003, REVIEW-100-SESSIONS-001]
-  "service/**": [DOCUMENT-DRAFT-NOTE-UX-003, DROP-RECEIVE-CRUD-001, LOCAL-FIRST-RECONCILE-002, ADMIN-OTHER-PASSWORD-003, LAN-GLOBAL-TEST-002, QR-LOCAL-001, MEAL-DATE-001, PDA-EXIT-001, ENV-ISOLATION-001, DOCUMENT-MANAGEMENT-001, DOCUMENT-BATCH-001, LABOR-TIME-RANGE-001, LABOR-EXACT-SESSION-002, INFRA-RESILIENCE-001, ADMIN-AUDIT-PASSWORD-001, LABOR-MULTI-INTERVAL-003, UI-DATA-DATE-SELECT-001, DOCUMENT-COMPACT-MULTI-EDIT-005, DOCUMENT-CROSS-GROUP-VIEWER-005, DROP-RECEIVE-COMPACT-LIST-002, UI-PERFORMANCE-COMPACT-005, LABOR-FIXED-ROLE-BULK-006, LAN-MANUAL-REAL-003]
-  "services/**": [ENV-ISOLATION-001, INFRA-RESILIENCE-001, BETA-STABLE-AUDIT-001]
-  "google-apps-script/**": [ENV-ISOLATION-001, INFRA-RESILIENCE-001, OTA-BETA-001]
-  ".github/workflows/**": [OTA-BETA-001, ENV-ISOLATION-001, INFRA-RESILIENCE-001, BETA-STABLE-AUDIT-001, CHANGELOG-CURRENT-VERSION-001]
-  "config/environment_contracts.json": [ENV-ISOLATION-001, BETA-STABLE-AUDIT-001]
-
   - id: SUPERADMIN-AUTH-002
     status: LOCKED_REQUIREMENT_PENDING_FIX
     scope: superadmin-auth
@@ -613,3 +604,41 @@ impact_map:
     regression_minimum: [session_update_persistence, time_hhmm_plus_minus_5, arbitrary_prefix_suffix_max20, midnight_wrap, no_device_binding, legacy_superadmin_password_rejected, otp_exact_8_digits, otp_single_use_replay_rejected, otp_rotate_and_email_next, time_login_no_otp_rotation, non_superadmin_password_unchanged, public_secret_fence]
     regression_case: "qa/beta119_superadmin_auth_regression.md + tools/beta119_superadmin_auth_contract.py + .github/workflows/superadmin-auth-regression.yml"
     owner_acceptance: "PENDING"
+
+  - id: CURRENT_PUBLIC_BETA_001
+    status: TECHNICAL_PASS_AWAITING_OWNER
+    scope: control-plane-current
+    rule: "beta/current and CURRENT_STATE identify the newest public LIVE Beta; older Beta/checklist state cannot overwrite newer state."
+    technical_candidate: "0.4.2-beta.119 / eeb45df6deae267d93a5fb15701a0a394885a549"
+    regression_minimum: [monotonic_beta, fast_forward_only, no_force, current_ota_readback, stale_beta_rejected]
+    regression_case: "tools/beta_current_sync_contract.py + tools/owner_acceptance_ledger_guard.py"
+    technical_evidence: "terminal 33868929441 PASS; release/OTA/install/open/readback/finalize PASS; checklist BETA119_OWNER_ACCEPTANCE_20260904_R1 rev1"
+    owner_acceptance: "PENDING"
+
+  - id: SUPERADMIN_AUTH_002
+    status: TECHNICAL_PASS_AWAITING_OWNER
+    scope: superadmin-auth
+    rule: "Valid session survives update/process restart; SUPERADMIN credential methods are HHmm +/-5 embedded in 1..20 chars or 8-digit single-use email OTP; successful OTP sends next OTP; time login does not rotate OTP; static SUPERADMIN password disabled; no plaintext credential secret in public repo."
+    technical_candidate: "0.4.2-beta.119 / eeb45df6deae267d93a5fb15701a0a394885a549"
+    regression_minimum: [session_restore, time_input_max20, hhmm_plus_minus_5, arbitrary_surrounding_text, midnight_window, otp_exact8, otp_single_use, otp_next_on_success, time_no_otp_rotate, normal_admin_password_login, stable_auth_isolation, public_secret_guard]
+    regression_case: "tools/beta119_superadmin_auth_contract.py"
+    technical_evidence: "candidate 33864111135/9933396813; live auth 33865867111 PASS; Fast Check 33867108883 PASS; auth convergence 33867109026/9934703912 PASS; terminal 33868929441 PASS; SHA256 73c072187fb13bab635f27009fda500d0745fced4244a8d8276bc9117f350697"
+    owner_acceptance: "PENDING"
+
+  - id: OWNER_ACCEPTANCE_LEDGER_001
+    status: TECHNICAL_PASS_AWAITING_OWNER
+    scope: owner-acceptance-control-plane
+    rule: "OWNER checklist and responses are GitHub-backed and monotonic by epoch, Beta version and checklist revision; stale chat/handoff state cannot override newer acceptance state; silence is not acceptance."
+    technical_candidate: "0.4.2-beta.119"
+    regression_minimum: [epoch_rollback_rejected, beta_rollback_rejected, checklist_revision_rollback_rejected, response_history_not_truncated, owner_silence_false]
+    regression_case: "tools/owner_acceptance_ledger_guard.py"
+    technical_evidence: "ops/owner-acceptance-current.json epoch 202609041845 / BETA119_OWNER_ACCEPTANCE_20260904_R1 rev1"
+    owner_acceptance: "PENDING"
+
+impact_map:
+  "app/**": [DOCUMENT-DRAFT-NOTE-UX-003, DOCUMENT-GROUP-VIEWER-004, PDA-SERIAL-DERIVE-002, REPORT-LABOR-DEDUCTION-002, DROP-RECEIVE-CRUD-001, LOCAL-FIRST-RECONCILE-002, ATTENDANCE-QR-FILTER-002, LABOR-FIXED-ROLE-REVIEW-005, ADMIN-OTHER-PASSWORD-003, LAN-GLOBAL-TEST-002, UI-TAP-FEEDBACK-004, LABOR-SCAN-PINNED-004, UI-FORM-BASE-CONSISTENCY-003, UI-STATUS-001, QR-LOCAL-001, MEAL-DATE-001, MEAL-WARN-001, ROLE-HISTORY-001, OTA-BETA-001, PDA-EXIT-001, ENV-ISOLATION-001, SERVICE-DISCOVERY-001, SHIFT-STAFF-DOWNLOAD-QR-001, DOCUMENT-MANAGEMENT-001, DOCUMENT-BATCH-001, LABOR-TIME-RANGE-001, MEAL-UI-NULL-001, UI-COPY-DENSITY-001, NAV-HISTORY-BACK-001, UI-REVIEW-WARNING-001, LABOR-EXACT-SESSION-002, HISTORY-DELETE-CANONICAL-001, DOCUMENT-BATCH-MODE-TICK-002, INFRA-RESILIENCE-001, CHANGELOG-CURRENT-VERSION-001, ADMIN-AUDIT-PASSWORD-001, HISTORY-SUPERADMIN-CLEANUP-002, LABOR-MULTI-INTERVAL-003, UI-DATA-DATE-SELECT-001, UI-EMPLOYEE-SCAN-ROSTER-001, UI-FORM-CONSISTENCY-002, DOCUMENT-COMPACT-MULTI-EDIT-005, DOCUMENT-CROSS-GROUP-VIEWER-005, DROP-RECEIVE-COMPACT-LIST-002, UI-PERFORMANCE-COMPACT-005, LABOR-FIXED-ROLE-BULK-006, LAN-MANUAL-REAL-003, REVIEW-100-SESSIONS-001]
+  "service/**": [DOCUMENT-DRAFT-NOTE-UX-003, DROP-RECEIVE-CRUD-001, LOCAL-FIRST-RECONCILE-002, ADMIN-OTHER-PASSWORD-003, LAN-GLOBAL-TEST-002, QR-LOCAL-001, MEAL-DATE-001, PDA-EXIT-001, ENV-ISOLATION-001, DOCUMENT-MANAGEMENT-001, DOCUMENT-BATCH-001, LABOR-TIME-RANGE-001, LABOR-EXACT-SESSION-002, INFRA-RESILIENCE-001, ADMIN-AUDIT-PASSWORD-001, LABOR-MULTI-INTERVAL-003, UI-DATA-DATE-SELECT-001, DOCUMENT-COMPACT-MULTI-EDIT-005, DOCUMENT-CROSS-GROUP-VIEWER-005, DROP-RECEIVE-COMPACT-LIST-002, UI-PERFORMANCE-COMPACT-005, LABOR-FIXED-ROLE-BULK-006, LAN-MANUAL-REAL-003]
+  "services/**": [ENV-ISOLATION-001, INFRA-RESILIENCE-001, BETA-STABLE-AUDIT-001]
+  "google-apps-script/**": [ENV-ISOLATION-001, INFRA-RESILIENCE-001, OTA-BETA-001]
+  ".github/workflows/**": [OTA-BETA-001, ENV-ISOLATION-001, INFRA-RESILIENCE-001, BETA-STABLE-AUDIT-001, CHANGELOG-CURRENT-VERSION-001]
+  "config/environment_contracts.json": [ENV-ISOLATION-001, BETA-STABLE-AUDIT-001]
