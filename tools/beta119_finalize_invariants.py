@@ -76,8 +76,6 @@ def repair_registry(text: str) -> tuple[str, bool]:
     if "\nimpact_map:\n" in after:
         raise SystemExit("REGISTRY_MULTIPLE_IMPACT_MAP")
     changed = False
-    # Historical corruption: invariant entries were appended after the top-level impact_map.
-    # Move any such two-space '- id:' blocks back under invariants, before impact_map.
     misplaced_at = after.find("\n  - id:")
     if misplaced_at >= 0:
         impact_body = after[:misplaced_at].rstrip()
@@ -93,7 +91,7 @@ def append_doc_once() -> bool:
     text = DOC.read_text()
     if DOC_MARK in text:
         return False
-    DOC.write_text(text.rstrip() + DOC_APPEND + "\n")
+    DOC.write_text(text.rstrip() + DOC_APPEND.rstrip() + "\n")
     return True
 
 
