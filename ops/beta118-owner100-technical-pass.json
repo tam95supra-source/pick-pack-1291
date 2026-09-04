@@ -1,0 +1,47 @@
+{
+  "project": "APK PICK PACK 1291",
+  "owner": "Nguyễn Văn Tâm",
+  "status": "TECHNICAL_PASS_AWAITING_OWNER",
+  "scope": "REVIEW-100-SESSIONS-001",
+  "beta118_live": false,
+  "live_beta": "0.4.2-beta.117",
+  "candidate": {
+    "version": "0.4.2-beta.118",
+    "version_code": 124,
+    "source_sha": "81944b8519cfb7995d78a5c1070c4af3ee2150be",
+    "run_id": 33833810807,
+    "artifact_id": 9922669910,
+    "apk_sha256": "5216f0eb09f187aed9cb71dcc21cd145fdc3ba7ea7852c74ffe6f85dea2b478f",
+    "size": 14429173,
+    "signer_sha256": "d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e"
+  },
+  "evidence": {
+    "diagnosis_run": 33829110432,
+    "diagnosis_artifact": 9921008888,
+    "exact_ui_run": 33836246626,
+    "exact_ui_artifact": 9923402264,
+    "back36_run": 33835843259,
+    "back36_artifact": 9923339401,
+    "visual_pda_run": 33835144144,
+    "visual_pda_artifact": 9923142675,
+    "localfirst_run": 33837587706,
+    "localfirst_artifact": 9923826221
+  },
+  "exact_set": {
+    "expected_minus_actual": 0,
+    "actual_minus_expected": 0,
+    "positions": "PASS",
+    "in_only": "PASS"
+  },
+  "localfirst": {
+    "two_rows_ms": 341,
+    "retained_after_ms": 1800,
+    "three_rows_ms": 41,
+    "warning_initial_ms": 10,
+    "warning_update_ms": 19,
+    "status": "PASS"
+  },
+  "owner_acceptance": "PENDING",
+  "next_action": "OWNER_CHECKLIST_1_TO_3",
+  "ota_forbidden_until_owner_ok": true
+}

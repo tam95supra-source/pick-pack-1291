@@ -582,3 +582,13 @@ Technical receipt: `ops/beta117-technical-pass.json`. Regression: `tools/beta117
 - Beta117 evidence: 0.4.2-beta.117 Technical PASS/LIVE; candidate source d8ea2c2f31549647e8676b40dc536d2b1b80e6e5; candidate 33800745880/9911117214; fresh Service 33821884023/9918676363; visual/PDA/API36 33816769626/9916961610 + human PASS 43 screenshots 320x568/360x640/480x800; Beta Auth 33817394774/9917295154; device/discovery 33818941214/9917593203; Stable private primary recovery 33821666160/9918483812; runtime 33822369696/9918733617; domain 33822700732/9918901726; Fast Check 33821883976 PASS; terminal 33822875354; publish 9918907009; OTA install/open/readback 9918960606; final 9918965646; SHA256 b3454574547eece69ea44c51b2f88da93dd142eb5d1afb82e7fbd0f293cc0d87; size 14396405; signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged.
 - OWNER acceptance: PENDING — checklist Beta117 item 8/8.
 
+
+
+### REVIEW-100-SESSIONS-001
+- Status: TECHNICAL_PASS_AWAITING_OWNER
+- Scope: Rà soát / projection 100 session owner test.
+- Rule: Rà soát phải hiển thị exact canonical ACTIVE/in-only set theo business_date; Ca 1/Ca HC/Ca 2 phải hội tụ không phân biệt hoa/thường; expected/actual MNV + session_id bằng nhau hai chiều, không thừa/trùng/thiếu/sai nguồn và giữ đúng vị trí.
+- Regression: exact 100 unique MNV/session_id / bidirectional set diff zero / case-insensitive shift projection / three shift buckets / positions / in-only / no wrong source / actual Android UI / local-first persistence.
+- Technical evidence: diagnosis 33829110432/9921008888; fix ae80424706de74c72dea460e82bdd429090944cc; exact candidate 33833810807/9922669910 SHA256 5216f0eb09f187aed9cb71dcc21cd145fdc3ba7ea7852c74ffe6f85dea2b478f; visual/PDA API29 33835144144/9923142675; API36 Back 33835843259/9923339401; exact-100 Android UI 33836246626/9923402264 PASS; local-first/realtime 33837587706/9923826221 PASS (2 rows 341ms, retained 1.8s, third 41ms, warning 10/19ms).
+- Release state: Beta118 NOT LIVE / NOT OTA; Beta117 remains LIVE.
+- OWNER acceptance: PENDING — checklist 1–3.
