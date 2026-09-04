@@ -1,0 +1,66 @@
+name: Beta118 owner 100 sessions compat readback
+
+on:
+  push:
+    branches:
+      - release/beta118-owner-realtime-bulk-exit-20260904
+    paths:
+      - .github/workflows/beta118-owner-100-sessions-compat-readback.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    env:
+      D1_NAME: pick-pack-1291-service-prod
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Exact read-only compat source readback
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm --prefix service install --ignore-scripts --no-audit --no-fund
+          DATE=$(python3 -c 'import json;print(json.load(open("ops/beta118-owner-seed-100-sessions-receipt.json"))["business_date"])')
+          npx --prefix service wrangler d1 execute "$D1_NAME" --remote --json --command "SELECT b.business_date,b.sequence_no,MAX(COALESCE(e.authority_seq,0)) day_revision FROM business_dates b LEFT JOIN events e ON e.business_date=b.business_date WHERE b.business_date='$DATE' GROUP BY b.business_date,b.sequence_no; SELECT s.session_id,s.mnv,s.shift,s.state,s.enter_at,s.exit_at,s.entered_by,e.main_position FROM attendance_sessions s LEFT JOIN employees e ON e.mnv=s.mnv WHERE s.business_date='$DATE' AND s.entered_by='OWNER_TEST_SEED' ORDER BY s.session_id;" > /tmp/readback.json
+          python3 - <<'PY'
+          import json,sys
+          receipt=json.load(open('ops/beta118-owner-seed-100-sessions-receipt.json',encoding='utf-8'))
+          raw=json.load(open('/tmp/readback.json',encoding='utf-8'))
+          rows=[]
+          def walk(x):
+            if isinstance(x,dict):
+              if isinstance(x.get('results'),list): rows.extend(v for v in x['results'] if isinstance(v,dict))
+              for v in x.values(): walk(v)
+            elif isinstance(x,list):
+              for v in x: walk(v)
+          walk(raw)
+          rev=next((r for r in rows if 'day_revision' in r),None)
+          sessions=[r for r in rows if 'session_id' in r]
+          expected={x['session_id']:x for x in receipt['items']}
+          actual={r['session_id']:r for r in sessions}
+          keys=['Ca 1','Ca HC','Ca 2']
+          canonical=lambda v: next((k for k in keys if k.casefold()==str(v or '').strip().casefold()),str(v or '').strip())
+          valid=[sid for sid,r in actual.items() if sid in expected and canonical(r.get('shift')) in keys and str(r.get('state','')).upper()=='ACTIVE' and not r.get('exit_at')]
+          report={
+            'date':receipt['business_date'],
+            'day_revision':int((rev or {}).get('day_revision') or 0),
+            'compat_source_seed_count':len(actual),
+            'exact_expected_found':len(set(expected)&set(actual)),
+            'exact_valid_for_ui_after_normalization':len(valid),
+            'missing_count':len(set(expected)-set(actual)),
+            'extra_count':len(set(actual)-set(expected)),
+            'shift_values':sorted({str(r.get('shift','')) for r in sessions}),
+          }
+          report['status']='PASS' if report['day_revision']>=max(x['authority_seq'] for x in receipt['items']) and report['compat_source_seed_count']==report['exact_expected_found']==report['exact_valid_for_ui_after_normalization']==100 and report['missing_count']==report['extra_count']==0 else 'FAIL'
+          print(json.dumps(report,ensure_ascii=False,indent=2))
+          if report['status']!='PASS': sys.exit(1)
+          PY
