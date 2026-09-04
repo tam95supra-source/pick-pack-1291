@@ -632,7 +632,7 @@ invariants:
     technical_candidate: "0.4.2-beta.119"
     regression_minimum: [epoch_rollback_rejected, beta_rollback_rejected, checklist_revision_rollback_rejected, response_history_not_truncated, owner_silence_false]
     regression_case: "tools/owner_acceptance_ledger_guard.py"
-    technical_evidence: "ops/owner-acceptance-current.json epoch 202609041911 / BETA119_OWNER_ACCEPTANCE_20260904_R1 rev2; fresh-read beta/current PASS; monotonic guard 33871649452 PASS"
+    technical_evidence: "ops/owner-acceptance-current.json epoch 202609041911 / BETA119_OWNER_ACCEPTANCE_20260904_R1 rev3; fresh-read beta/current PASS; monotonic guard 33871649452 PASS"
     owner_acceptance: "PENDING_TECHNICAL_SELF_CHECK_PASS_RUN_33871649452"
 
 impact_map:
