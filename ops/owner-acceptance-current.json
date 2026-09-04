@@ -1,92 +1,81 @@
 {
   "schema_version": 1,
-  "state_epoch": 202609041920,
+  "state_epoch": 202609042359,
   "channel": "BETA",
   "public_beta": {
-    "version_name": "0.4.2-beta.119",
-    "version_code": 125,
-    "source_sha": "eeb45df6deae267d93a5fb15701a0a394885a549",
-    "apk_sha256": "73c072187fb13bab635f27009fda500d0745fced4244a8d8276bc9117f350697",
+    "version_name": "0.4.2-beta.120",
+    "version_code": 126,
+    "source_sha": "b8f548d5717156554b8599955f62ab23f9973fc9",
+    "apk_sha256": "04d9f4b88e6ff038766357402f7f5831de67649087c839f922897042120b8ef8",
     "technical_status": "PASS_LIVE"
   },
   "owner_scope": {
-    "scope_id": "OWNER_20260904_CURRENT_AUTH_ACCEPTANCE_SECURITY",
+    "scope_id": "OWNER_20260904_BETA120_BULK_EXIT_RESET200_ACCEPTANCE",
     "status": "ACTIVE_PASS",
     "requirements": [
       {
         "id": "CURRENT_PUBLIC_BETA_001",
         "status": "ACTIVE_PASS",
-        "rule": "beta/current and CURRENT_STATE must identify the newest public LIVE Beta; an older release must never overwrite a newer current state"
+        "rule": "beta/current and CURRENT_STATE identify the newest public LIVE Beta and reject stale rollback"
       },
       {
         "id": "SUPERADMIN_AUTH_002",
         "status": "ACTIVE_PASS",
-        "rule": "preserve authenticated session across app version updates; SUPERADMIN has exactly two login credential methods: a 1..20 character string containing server-current HHmm within +/-5 minutes with no device trust/binding, or an 8-digit single-use email OTP; successful OTP use sends the next OTP; time login does not rotate OTP; legacy/static SUPERADMIN password login is disabled; no plaintext credential secret is stored in public GitHub"
+        "rule": "Beta119 accepted SUPERADMIN authentication semantics remain unchanged on Beta120"
       },
       {
         "id": "OWNER_ACCEPTANCE_LEDGER_001",
         "status": "ACTIVE_PASS",
-        "rule": "owner checklist and acceptance state are repository-backed, monotonic and fenced by release/checklist revision so an older Beta state cannot overwrite a newer current state"
+        "rule": "owner checklist and acceptance state remain repository-backed, monotonic and fenced"
+      },
+      {
+        "id": "OLD-SESSION-BULK-EXIT-001",
+        "status": "ACTIVE_PASS",
+        "rule": "SUPERADMIN Ra ca tất cả hợp lệ routes directly to Service authority with bounded idempotent batches, failure isolation and labor skip"
       }
     ]
   },
   "technical_evidence": {
-    "candidate_run_id": 33864111135,
-    "candidate_artifact_id": 9933396813,
-    "live_superadmin_auth_run_id": 33865867111,
-    "fast_check_run_id": 33867108883,
-    "beta_auth_run_id": 33867109026,
-    "service_discovery_run_id": 33868129220,
-    "runtime_dod_run_id": 33868400852,
-    "beta_domain_run_id": 33868581526,
-    "terminal_run_id": 33868929441,
-    "publish_artifact_id": 9935113268,
-    "ota_readback_artifact_id": 9935194064,
-    "final_artifact_id": 9935202498,
-    "invariant_finalizer_run_id": 33869859593,
-    "control_plane_guard_run_id": 33869859518,
-    "pass_live_run_id": 33870526120,
-    "beta_current_sync_run_id": 33870545799,
-    "owner_response_monotonic_guard_run_id": 33871649452,
-    "owner_acceptance_finalizer_run_id": 33871950689,
-    "item5_finalizer_run_id": 33872018108,
-    "release_lock_receipt": "ops/beta119-release-lock.json",
-    "human_visual_receipt": "ops/beta119-human-visual-receipt.json"
+    "candidate_run_id": 33874862142,
+    "candidate_artifact_id": 9937580926,
+    "fast_check_run_id": 33874862122,
+    "service_visual_pda_run_id": 33876606829,
+    "device_discovery_run_id": 33895538590,
+    "runtime_dod_run_id": 33895822870,
+    "beta_domain_run_id": 33896047850,
+    "terminal_run_id": 33896192267,
+    "release_lock_receipt": "ops/beta120-release-lock.json",
+    "owner_receipt": "ops/beta120-owner-acceptance.json"
   },
   "checklist": {
-    "checklist_id": "BETA119_OWNER_ACCEPTANCE_20260904_R1",
-    "revision": 4,
+    "checklist_id": "BETA120_OWNER_ACCEPTANCE_20260904_R1",
+    "revision": 1,
     "status": "OWNER_ACCEPTANCE_COMPLETE",
     "items": [
-      {"number": 1, "id": "CURRENT_PUBLIC_BETA_001", "status": "OWNER_OK", "test": "Mở luồng cập nhật/phiên chat mới và xác nhận current/LIVE không quay về Beta116/117/118 mà nhận Beta119 hiện hành."},
-      {"number": 2, "id": "SUPERADMIN_SESSION_PERSIST", "status": "OWNER_OK", "test": "Đang đăng nhập SUPERADMIN trên bản cũ rồi cập nhật lên Beta119/đóng mở app; phiên hợp lệ vẫn được giữ, không tự đăng xuất."},
-      {"number": 3, "id": "SUPERADMIN_TIME_LOGIN", "status": "OWNER_OK", "test": "Đăng nhập SUPERADMIN bằng chuỗi tối đa 20 ký tự có chứa HHmm thực tế trong +/-5 phút; có thể kèm chữ/rác; giờ ngoài khoảng phải bị từ chối."},
-      {"number": 4, "id": "SUPERADMIN_OTP_LOGIN", "status": "OWNER_OK", "test": "Yêu cầu OTP Gmail: mã đúng 8 chữ số, dùng một lần; dùng thành công phải nhận mã 8 số kế tiếp; đăng nhập bằng thời gian không được tự đổi/gửi OTP."},
-      {"number": 5, "id": "OWNER_ACCEPTANCE_LEDGER_001", "status": "OWNER_OK", "test": "Sau OWNER response, canonical beta/current fresh-read vẫn là Beta119 và checklist revision mới; monotonic guard PASS và stale lower revision/Beta bị fence."}
+      {"number": 1, "id": "DATA_SCOPE_ITEM_1", "status": "OWNER_OK", "test": "OWNER acceptance recorded from prior numbered checklist."},
+      {"number": 2, "id": "DATA_SCOPE_ITEM_2", "status": "OWNER_OK", "test": "OWNER acceptance recorded from prior numbered checklist."},
+      {"number": 3, "id": "DATA_SCOPE_ITEM_3", "status": "OWNER_OK", "test": "OWNER acceptance recorded from prior numbered checklist."},
+      {"number": 4, "id": "OLD-SESSION-BULK-EXIT-001", "status": "OWNER_OK", "test": "OWNER confirmed phần Ra ca đã OK."}
     ],
     "owner_responses": [
       {
-        "recorded_at": "2026-09-04T19:11:00+07:00",
-        "checklist_revision_before": 1,
-        "response": "1 OK, 2 OK, 3 OK, 4 OK; item 5 delegated to ChatGPT for technical verification",
-        "items": {"1": "OK", "2": "OK", "3": "OK", "4": "OK", "5": "DELEGATED_SELF_CHECK"}
+        "recorded_at": "2026-09-04T23:58:00+07:00",
+        "response": "1 2 3 đều ok",
+        "items": {"1": "OK", "2": "OK", "3": "OK"}
       },
       {
-        "recorded_at": "2026-09-04T19:20:00+07:00",
-        "checklist_revision_before": 3,
-        "response": "5 OK",
-        "items": {"5": "OK"}
+        "recorded_at": "2026-09-04T23:59:30+07:00",
+        "response": "Phần ra ca đã ok. Chốt xong.",
+        "items": {"OLD-SESSION-BULK-EXIT-001": "OK"}
       }
-    ],
-    "item5_self_check": {
-      "status": "PASS",
-      "fresh_read_beta": "0.4.2-beta.119",
-      "fresh_read_checklist_revision_before_final_record": 2,
-      "monotonic_guard_run_id": 33871649452,
-      "acceptance_finalizer_run_id": 33871950689,
-      "stale_acceptance_rejection": "PASS",
-      "authority": "beta/current + ops/owner-acceptance-current.json"
-    }
+    ]
+  },
+  "previous_acceptance": {
+    "version_name": "0.4.2-beta.119",
+    "state_epoch": 202609041920,
+    "checklist_id": "BETA119_OWNER_ACCEPTANCE_20260904_R1",
+    "revision": 4,
+    "status": "OWNER_ACCEPTANCE_COMPLETE"
   },
   "fencing": {
     "reject_lower_state_epoch": true,
