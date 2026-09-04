@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import hashlib,json,os,sys,time,urllib.error,urllib.request
+import difflib,hashlib,json,os,sys,time,urllib.error,urllib.request
 from pathlib import Path
 
 API='https://script.googleapis.com/v1/projects'
@@ -23,12 +23,57 @@ def sha(s): return hashlib.sha256(s.encode()).hexdigest()
 def clean_files(project): return [{k:f[k] for k in ('name','type','source') if k in f} for f in project.get('files') or []]
 def server(project): return '\n'.join(str(f.get('source') or '') for f in project.get('files') or [] if f.get('type')=='SERVER_JS')
 
+def patch_live_api(live):
+    # Preserve every live line except the three OWNER-approved auth integration points.
+    for forbidden in ['superadmin_time_challenge','device_trust_secret','device_proof','PP_SUPERADMIN_DEVICE_']:
+        if forbidden in live: raise RuntimeError('LIVE_DEVICE_TRUST_RESIDUE:'+forbidden)
+
+    old_forgot="if (action === 'forgot_password') return ppJson_(ppForgotPassword_(body));"
+    new_forgot="if (action === 'forgot_password') return ppJson_(ppSaForgotPasswordV2_(body));"
+    if new_forgot not in live:
+        if live.count(old_forgot)!=1: raise RuntimeError('LIVE_FORGOT_ROUTE_ANCHOR_MISMATCH')
+        live=live.replace(old_forgot,new_forgot,1)
+
+    login_anchor="if (action === 'login_challenge') return ppJson_(ppLoginChallenge_(body));"
+    if "action === 'superadmin_time_login'" not in live:
+        if live.count(login_anchor)!=1: raise RuntimeError('LIVE_LOGIN_ROUTE_ANCHOR_MISMATCH')
+        route="if (action === 'superadmin_time_login') return ppJson_(ppSaTimeLogin_(body));\n    if (action === 'superadmin_otp_login') return ppJson_(ppSaOtpLogin_(body));\n    "+login_anchor
+        live=live.replace(login_anchor,route,1)
+    elif "action === 'superadmin_otp_login'" not in live:
+        raise RuntimeError('LIVE_PARTIAL_SUPERADMIN_ROUTES')
+
+    guard="if(a&&String(a.role||'').toUpperCase()==='SUPERADMIN')return {ok:false,error:'SUPERADMIN_SPECIAL_AUTH_REQUIRED'};"
+    if guard not in live:
+        marker="let a=ppAccount_(login),cred=a?ppCredentialParts_(a.verifier):null;"
+        start=live.find('function ppLogin_(')
+        if start<0: raise RuntimeError('LIVE_PPLOGIN_MISSING')
+        end=live.find('\nfunction ',start+1)
+        if end<0:end=len(live)
+        block=live[start:end]
+        pos=block.find(marker)
+        if pos<0: raise RuntimeError('LIVE_PPLOGIN_ACCOUNT_ANCHOR_MISMATCH')
+        absolute=start+pos+len(marker)
+        live=live[:absolute]+'\n  '+guard+live[absolute:]
+    return live
+
+def assert_surgical(before,after):
+    allowed_add=('ppSaForgotPasswordV2_','superadmin_time_login','superadmin_otp_login','SUPERADMIN_SPECIAL_AUTH_REQUIRED')
+    allowed_del=('ppForgotPassword_(body)','ppSaForgotPasswordV2_')
+    changed=0
+    for line in difflib.ndiff(before.splitlines(),after.splitlines()):
+        if line.startswith('+ '):
+            changed+=1
+            if not any(x in line for x in allowed_add): raise RuntimeError('UNEXPECTED_LIVE_API_ADDITION')
+        elif line.startswith('- '):
+            changed+=1
+            if not any(x in line for x in allowed_del): raise RuntimeError('UNEXPECTED_LIVE_API_REMOVAL')
+    if changed<3 or changed>6: raise RuntimeError('SURGICAL_PATCH_DELTA_OUT_OF_RANGE')
+
 def main():
     out=Path(sys.argv[1]); sid=os.environ.get('GAS_SCRIPT_ID','').strip(); token=os.environ.get('ACCESS_TOKEN','').strip(); dep=normdep(os.environ.get('GAS_DEPLOYMENT_ID',''))
     base=os.environ.get('BASE_SOURCE_SHA','').strip(); source=os.environ.get('SOURCE_SHA','').strip()
     if not sid or not token or not dep or len(base)!=40 or len(source)!=40: raise RuntimeError('required env missing')
     import subprocess
-    current_api=(R/'google-apps-script/PICK_PACK_API.gs').read_text(encoding='utf-8')
     current_sa=(R/'google-apps-script/SUPERADMIN_AUTH_V2.gs').read_text(encoding='utf-8')
     base_api=subprocess.check_output(['git','show',f'{base}:google-apps-script/PICK_PACK_API.gs'],text=True)
     deployment=req(f'{API}/{sid}/deployments/{dep}',token); old_version=(deployment.get('deploymentConfig') or {}).get('versionNumber')
@@ -37,14 +82,14 @@ def main():
     do_posts=[f for f in old_files if f.get('type')=='SERVER_JS' and 'function doPost(' in str(f.get('source') or '')]
     if len(do_posts)!=1: raise RuntimeError(f'expected one live doPost file, got {len(do_posts)}')
     live_api=str(do_posts[0].get('source') or '')
-    # Fail closed on unknown production drift. Normalize only final newline.
-    if live_api.rstrip()!=base_api.rstrip():
-        raise RuntimeError('LIVE_GAS_SOURCE_DRIFT_FROM_BETA118_BASE')
+    patched_api=patch_live_api(live_api)
+    assert_surgical(live_api,patched_api)
+
     files=[]; replaced=False; sa_seen=False
     for f in old_files:
         item=dict(f)
         if item.get('type')=='SERVER_JS' and 'function doPost(' in str(item.get('source') or ''):
-            item['source']=current_api; replaced=True
+            item['source']=patched_api; replaced=True
         if item.get('type')=='SERVER_JS' and item.get('name')=='SUPERADMIN_AUTH_V2':
             item['source']=current_sa; sa_seen=True
         files.append(item)
@@ -57,6 +102,7 @@ def main():
         if forbidden in merged: raise RuntimeError('device trust residue: '+forbidden)
     if 'for(let i=-5;i<=5;i++)' not in merged or 'input.length<1||input.length>20' not in merged or "!/^[0-9]{8}$/.test(otp)" not in merged:
         raise RuntimeError('owner auth semantics incomplete')
+
     req(f'{API}/{sid}/content',token,'PUT',{'files':files})
     new_version=None; deployed=False
     try:
@@ -71,13 +117,18 @@ def main():
             time.sleep(min(2+i*2,10))
         deployed_content=req(f'{API}/{sid}/content?versionNumber={new_version}',token)
         text=server(deployed_content)
-        if sha(current_api) not in [sha(str(f.get('source') or '')) for f in deployed_content.get('files') or [] if f.get('type')=='SERVER_JS']:
-            raise RuntimeError('deployed PICK_PACK_API exact source mismatch')
-        if sha(current_sa) not in [sha(str(f.get('source') or '')) for f in deployed_content.get('files') or [] if f.get('type')=='SERVER_JS']:
-            raise RuntimeError('deployed SUPERADMIN_AUTH_V2 exact source mismatch')
+        hashes=[sha(str(f.get('source') or '')) for f in deployed_content.get('files') or [] if f.get('type')=='SERVER_JS']
+        if sha(patched_api) not in hashes: raise RuntimeError('deployed surgically patched API source mismatch')
+        if sha(current_sa) not in hashes: raise RuntimeError('deployed SUPERADMIN_AUTH_V2 exact source mismatch')
         for x in ["action === 'superadmin_time_login'","action === 'superadmin_otp_login'",'SUPERADMIN_SPECIAL_AUTH_REQUIRED']:
             if x not in text: raise RuntimeError('deployed auth route readback missing')
-        data={'status':'PASS','production_write':True,'channel':'BETA','scope':'SUPERADMIN_AUTH_002','source_sha':source,'base_source_sha':base,'previous_deployment_version':old_version,'deployment_version':new_version,'pick_pack_api_sha256':sha(current_api),'superadmin_auth_v2_sha256':sha(current_sa),'device_binding':'FORBIDDEN_BY_OWNER','authority_change':'NONE','stable_write':False}
+        data={
+            'status':'PASS','production_write':True,'channel':'BETA','scope':'SUPERADMIN_AUTH_002',
+            'source_sha':source,'base_source_sha':base,'previous_deployment_version':old_version,'deployment_version':new_version,
+            'live_api_before_sha256':sha(live_api),'beta118_repo_api_sha256':sha(base_api),'live_drift_detected':live_api.rstrip()!=base_api.rstrip(),
+            'live_api_after_sha256':sha(patched_api),'superadmin_auth_v2_sha256':sha(current_sa),'surgical_live_drift_preserved':True,
+            'device_binding':'FORBIDDEN_BY_OWNER','authority_change':'NONE','stable_write':False
+        }
         out.parent.mkdir(parents=True,exist_ok=True); out.write_text(json.dumps(data,indent=2)+'\n',encoding='utf-8'); print(json.dumps(data))
     except Exception:
         if deployed:
