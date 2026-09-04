@@ -1,6 +1,6 @@
 name: Beta118 exact local-first UI gate
 
-# Harness revision: lifecycle/readback-v2
+# Harness revision: lifecycle/readback/latency-v3
 on:
   push:
     branches:
