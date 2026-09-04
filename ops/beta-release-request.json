@@ -1,6 +1,6 @@
 {
-  "stage": "BETA_DOMAIN_PREPARE",
-  "mode": "BETA117_DOMAIN_AFTER_RUNTIME_DOD_PASS",
+  "stage": "PUBLISH",
+  "mode": "BETA117_EXACT_LOCKED_OTA_PUBLISH",
   "version_name": "0.4.2-beta.117",
   "version_code": 123,
   "base_version": "0.4.2-beta.116",
@@ -20,6 +20,8 @@
   "stable_publish": "FORBIDDEN",
   "authority_change": "NONE",
   "candidate_locked": true,
+  "release_lock_status": "PASS",
+  "release_lock_receipt": "ops/beta117-release-lock.json",
   "rebuild": false,
   "resign": false,
   "live": false,
@@ -78,12 +80,15 @@
   "stable_gas_repair_artifact_name": "stable-primary-canary-source-restore-33821666160",
   "stable_gas_repair_source_commit": "415c217cc874906013007a438e80896baf58b241",
   "stable_gas_repair_scope": "PRIMARY_GAS_ONLY_CANARY_SOURCE_AND_ROUTE_RESTORED_SAME_DEPLOYMENT_ID_URL_SHEET_D1_WORKER_AUTHORITY_UNCHANGED_STABLE_NOT_PUBLIC",
-  "beta_domain_status": "PENDING",
+  "beta_domain_status": "PASS",
+  "beta_domain_run_id": 33822700732,
+  "beta_domain_artifact_id": 9918901726,
+  "beta_domain_artifact_name": "beta-domain-33822700732",
   "regression_case": "tools/beta117_owner_followup_contract.py + tools/beta116_owner_scope_contract.py + tools/stable_primary_canary_contract.py + preserve all ACTIVE_PASS Beta115/Beta116; REPORT-LABOR-DEDUCTION-002 and LOCAL-FIRST-RECONCILE-002 remain OWNER-pending",
   "failure_class": "RESOLVED_STABLE_PRIMARY_RUNTIME_CANARY_SOURCE_REGRESSION",
   "superseded_candidate_run_id": 33797938890,
   "superseded_candidate_artifact_id": 9910080784,
   "superseded_apk_sha256": "10f4289890c6198481a5e393a08dcc025f7ab8aa348bb44513fe6020e1c78149",
-  "execution_nonce": "beta117-domain-after-runtime-pass-20260904-17",
-  "next_action": "VERIFY_BETA_DOMAIN_THEN_RELEASE_LOCK_EXACT_CANDIDATE"
+  "execution_nonce": "beta117-publish-exact-lock-20260904-18",
+  "next_action": "PUBLISH_EXACT_LOCKED_BYTES_THEN_OTA_INSTALL_OPEN_READBACK"
 }
