@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 import argparse,json,pathlib,urllib.parse,urllib.request
 
+# Only reset operational projections. History/technical replica are immutable evidence and stay.
 SHEETS={
- 'RA - VÀO TRONG CA':('A:V',(19,)),
- 'CÔNG NHẬT':('A:W',(19,20)),
- 'LỊCH SỬ NGHIỆP VỤ':('A:M',(10,)),
- 'THÔNG TIN USER CỦA NLĐ':('A:K',(10,)),
- '__M1_SERVICE_REPLICA':('A:T',(0,)),
+ 'RA - VÀO TRONG CA':('A:V',(19,),True),
+ 'CÔNG NHẬT':('A:W',(19,20),True),
+ 'THÔNG TIN USER CỦA NLĐ':('A:K',(10,),True),
+ 'LỊCH SỬ NGHIỆP VỤ':('A:M',(10,),False),
+ '__M1_SERVICE_REPLICA':('A:T',(0,),False),
 }
 
 def req(url,token,method='GET',body=None):
@@ -22,32 +23,31 @@ def main():
     meta=req(base+'?fields=sheets.properties(sheetId,title)',a.token)
     props={str(x.get('properties',{}).get('title','')):x.get('properties',{}) for x in meta.get('sheets',[])}
     backup={};delete_requests=[]
-    for title,(rng,cols) in SHEETS.items():
+    for title,(rng,cols,deletable) in SHEETS.items():
         if title not in props: continue
         a1="'%s'!%s"%(title.replace("'","''"),rng)
-        url=base+'/values/'+urllib.parse.quote(a1,safe='')+'?valueRenderOption=FORMATTED_VALUE'
-        vals=req(url,a.token).get('values',[])
+        vals=req(base+'/values/'+urllib.parse.quote(a1,safe='')+'?valueRenderOption=FORMATTED_VALUE',a.token).get('values',[])
         matches=[]
         for i,row in enumerate(vals[1:],start=2):
-            if any((c<len(row) and str(row[c]).strip() in ids) for c in cols):matches.append((i,row))
-        backup[title]={'count':len(matches),'rows':matches}
-        sid=int(props[title]['sheetId'])
-        for rownum,_ in sorted(matches,reverse=True):
-            delete_requests.append({'deleteDimension':{'range':{'sheetId':sid,'dimension':'ROWS','startIndex':rownum-1,'endIndex':rownum}}})
+            if any(c<len(row) and str(row[c]).strip() in ids for c in cols):matches.append((i,row))
+        backup[title]={'count':len(matches),'rows':matches,'deletable_projection':deletable}
+        if deletable:
+            sid=int(props[title]['sheetId'])
+            for rownum,_ in sorted(matches,reverse=True):
+                delete_requests.append({'deleteDimension':{'range':{'sheetId':sid,'dimension':'ROWS','startIndex':rownum-1,'endIndex':rownum}}})
     (out/'sheet-target-rows.json').write_text(json.dumps(backup,ensure_ascii=False,indent=2),encoding='utf-8')
-    if a.delete and delete_requests:
-        req(base+':batchUpdate',a.token,'POST',{'requests':delete_requests})
+    if a.delete and delete_requests:req(base+':batchUpdate',a.token,'POST',{'requests':delete_requests})
     if a.delete:
         leftovers={}
-        for title,(rng,cols) in SHEETS.items():
-            if title not in props: continue
+        for title,(rng,cols,deletable) in SHEETS.items():
+            if not deletable or title not in props: continue
             a1="'%s'!%s"%(title.replace("'","''"),rng)
             vals=req(base+'/values/'+urllib.parse.quote(a1,safe='')+'?valueRenderOption=FORMATTED_VALUE',a.token).get('values',[])
             bad=[]
             for i,row in enumerate(vals[1:],start=2):
-                if any((c<len(row) and str(row[c]).strip() in ids) for c in cols):bad.append(i)
+                if any(c<len(row) and str(row[c]).strip() in ids for c in cols):bad.append(i)
             leftovers[title]=bad
         (out/'sheet-cleanup-readback.json').write_text(json.dumps(leftovers,ensure_ascii=False,indent=2),encoding='utf-8')
         if any(leftovers.values()):raise SystemExit('SHEET_TARGET_EVENT_ROWS_REMAIN:'+repr(leftovers))
-    print(json.dumps({'status':'PASS','target_event_ids':len(ids),'sheet_matches':{k:v['count'] for k,v in backup.items()},'deleted':bool(a.delete)},ensure_ascii=False))
+    print(json.dumps({'status':'PASS','target_event_ids':len(ids),'sheet_matches':{k:v['count'] for k,v in backup.items()},'deleted_operational_only':bool(a.delete)},ensure_ascii=False))
 if __name__=='__main__':main()
