@@ -622,9 +622,9 @@ Technical receipt: `ops/beta117-technical-pass.json`. Regression: `tools/beta117
 - OWNER acceptance: PASS — OWNER checklist items 2, 3, 4 OK, 2026-09-04 19:11 +07:00.
 
 ### OWNER_ACCEPTANCE_LEDGER_001
-- Status: TECHNICAL_PASS_AWAITING_OWNER
+- Status: ACTIVE_PASS
 - Scope: Control plane / OWNER acceptance continuity
 - Rule: checklist/acceptance phải lưu bền trong GitHub, monotonic theo state epoch + Beta version + checklist revision; chat/memory/handoff chỉ dùng để điều hướng, không được làm authority và không được hồi quy về checklist Beta cũ.
 - Regression: `tools/owner_acceptance_ledger_guard.py`; `ops/owner-acceptance-current.json`; lower epoch/Beta/revision rejected; OWNER silence không phải acceptance.
-- Technical evidence: Beta119 ledger state epoch `202609041911`, checklist `BETA119_OWNER_ACCEPTANCE_20260904_R1`, revision 3; fresh-read `beta/current` preserved Beta119/revision; monotonic control-plane guard run `33871649452` PASS including stale acceptance rejection.
-- OWNER acceptance: PENDING — technical self-check PASS; waiting explicit OWNER item 5 OK.
+- Technical evidence: Beta119 ledger state epoch `202609041911`, checklist `BETA119_OWNER_ACCEPTANCE_20260904_R1`, revision 4; fresh-read `beta/current` preserved Beta119/revision; monotonic control-plane guard run `33871649452` PASS including stale acceptance rejection.
+- OWNER acceptance: PASS — OWNER confirmed.
