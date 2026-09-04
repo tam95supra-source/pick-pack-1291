@@ -63,13 +63,13 @@ jobs:
           base={'event_id':event_id,'event_type':'M1_SHADOW_PROBE','entity_type':'SYSTEM','entity_id':'OWNER_TEST_SEED_NORMALIZE','business_date':receipt['business_date'],'authority_epoch':epoch,'authority_seq':newseq,'service_generation':gen,'base_version':0,'new_version':1,'actor_id':'OWNER_TEST_REPAIR','actor_role':'SUPERADMIN','device_id':'CI_OWNER_TEST_REPAIR','occurred_at':committed,'committed_at':committed,'payload_json':json.dumps(payload,separators=(',',':'),ensure_ascii=False),'idempotency_key':idem,'origin':'SERVICE','schema_version':1}
           checksum=hashlib.sha256(json.dumps(base,separators=(',',':'),ensure_ascii=False).encode()).hexdigest()
           def q(v): return "'"+str(v).replace("'","''")+"'"
-          sql=['BEGIN TRANSACTION;',
+          sql=[
                f"UPDATE attendance_sessions SET shift=CASE shift WHEN 'CA 1' THEN 'Ca 1' WHEN 'CA HC' THEN 'Ca HC' WHEN 'CA 2' THEN 'Ca 2' ELSE shift END, updated_at={q(committed)} WHERE business_date={q(receipt['business_date'])} AND entered_by='OWNER_TEST_SEED';",
                "INSERT INTO events(event_id,event_type,entity_type,entity_id,business_date,authority_epoch,authority_seq,service_generation,base_version,new_version,actor_id,actor_role,device_id,occurred_at,committed_at,payload_json,idempotency_key,origin,schema_version,checksum) SELECT "+','.join(q(base[k]) if not isinstance(base[k],int) else str(base[k]) for k in ['event_id','event_type','entity_type','entity_id','business_date','authority_epoch','authority_seq','service_generation','base_version','new_version','actor_id','actor_role','device_id','occurred_at','committed_at','payload_json','idempotency_key','origin','schema_version'])+f",{q(checksum)} FROM authority_state WHERE singleton_id=1 AND authority_epoch={epoch} AND authority_seq={seq};",
                f"UPDATE authority_state SET authority_seq={newseq},updated_at={q(committed)} WHERE singleton_id=1 AND authority_epoch={epoch} AND authority_seq={seq};",
                f"INSERT INTO sheet_replication_outbox(event_id,status,next_attempt_at) SELECT {q(event_id)},'PENDING',{q(committed)} WHERE EXISTS(SELECT 1 FROM events WHERE event_id={q(event_id)});",
-               f"INSERT INTO mutation_assertions(event_id,ok) SELECT {q(event_id)},1 WHERE EXISTS(SELECT 1 FROM events WHERE event_id={q(event_id)});",
-               'COMMIT;']
+               f"INSERT INTO mutation_assertions(event_id,ok) SELECT {q(event_id)},1 WHERE EXISTS(SELECT 1 FROM events WHERE event_id={q(event_id)});"
+          ]
           pathlib.Path('/tmp/repair.sql').write_text('\n'.join(sql)+'\n',encoding='utf-8')
           pathlib.Path('/tmp/repair-plan.json').write_text(json.dumps({'date':receipt['business_date'],'event_id':event_id,'event_seq':newseq,'epoch':epoch},indent=2),encoding='utf-8')
           PY
@@ -80,7 +80,6 @@ jobs:
           set -euo pipefail
           DATE=$(python3 -c 'import json;print(json.load(open("/tmp/repair-plan.json"))["date"])')
           EVENT=$(python3 -c 'import json;print(json.load(open("/tmp/repair-plan.json"))["event_id"])')
-          EVENT_SEQ=$(python3 -c 'import json;print(json.load(open("/tmp/repair-plan.json"))["event_seq"])')
           npx --prefix service wrangler d1 execute "$D1_NAME" --remote --json --command "SELECT shift,COUNT(*) n FROM attendance_sessions WHERE business_date='$DATE' AND entered_by='OWNER_TEST_SEED' GROUP BY shift ORDER BY shift; SELECT COUNT(*) n FROM attendance_sessions WHERE business_date='$DATE' AND entered_by='OWNER_TEST_SEED'; SELECT COUNT(*) n FROM events WHERE event_id='$EVENT'; SELECT MAX(authority_seq) day_revision FROM events WHERE business_date='$DATE'; SELECT authority_seq,mode,scope FROM authority_state WHERE singleton_id=1;" > /tmp/after.json
           python3 - <<'PY'
           import json,sys
