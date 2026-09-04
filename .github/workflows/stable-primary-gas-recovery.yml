@@ -1,0 +1,52 @@
+name: Stable primary GAS recovery
+
+on:
+  push:
+    branches:
+      - 'release/beta117-owner-followup-performance-20260904'
+    paths:
+      - tools/stable_primary_gas_recover.py
+      - .github/workflows/stable-primary-gas-recovery.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: stable-private-provision
+  cancel-in-progress: false
+
+jobs:
+  recover-primary-gas:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+      GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+      GOOGLE_OAUTH_REFRESH_TOKEN: ${{ secrets.GOOGLE_OAUTH_REFRESH_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate scoped recovery
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile tools/stable_private_provision.py tools/stable_primary_gas_recover.py
+          jq -e '.environment=="STABLE" and .lifecycle_target=="READY_NOT_LIVE" and .stable_public_activation==false' ops/stable-private-provision-request.json >/dev/null
+      - name: Recover Stable private primary GAS only
+        shell: bash
+        run: |
+          set -euo pipefail
+          for n in CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID GOOGLE_OAUTH_CLIENT_ID GOOGLE_OAUTH_CLIENT_SECRET GOOGLE_OAUTH_REFRESH_TOKEN; do
+            test -n "${!n:-}" || { echo "MISSING_REQUIRED_SECRET:$n"; exit 2; }
+            echo "::add-mask::${!n}"
+          done
+          python3 tools/stable_primary_gas_recover.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stable-primary-gas-recovery-${{ github.run_id }}
+          path: /tmp/stable-primary-gas-recovery-receipt.json
+          retention-days: 90
+          if-no-files-found: error
