@@ -1,0 +1,100 @@
+name: Beta current sync
+
+on:
+  workflow_run:
+    workflows: ["Beta release"]
+    types: [completed]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: beta-current-sync
+  cancel-in-progress: false
+
+jobs:
+  sync-current:
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      startsWith(github.event.workflow_run.head_branch, 'release/')
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_branch }}
+          fetch-depth: 0
+
+      - name: Verify sync contract
+        run: python3 tools/beta_current_sync_contract.py
+
+      - name: Fast-forward beta/current to exact PASS/LIVE state
+        shell: bash
+        env:
+          RELEASE_BRANCH: ${{ github.event.workflow_run.head_branch }}
+        run: |
+          set -euo pipefail
+          git fetch origin beta/current "$RELEASE_BRANCH" --quiet
+
+          test "$(jq -r '.stage // empty' ops/beta-release-request.json)" = "pass_live" || {
+            echo "CURRENT_SYNC_SKIP_NOT_PASS_LIVE"
+            exit 0
+          }
+          test "$(jq -r '.live // false' ops/beta-release-request.json)" = "true"
+          test "$(jq -r '.technical_pass_status // empty' ops/beta-release-request.json)" = "PASS"
+
+          TARGET_VERSION=$(jq -r '.version_name' ops/beta-release-request.json)
+          TARGET_NO=${TARGET_VERSION##*.}
+          TARGET_NO=${TARGET_NO#beta.}
+          TARGET_NO=${TARGET_VERSION##*beta.}
+          [[ "$TARGET_NO" =~ ^[0-9]+$ ]]
+
+          current_version() {
+            git show origin/beta/current:CURRENT_STATE.md | sed -n 's/^- beta_live: \([^ ]*\).*/\1/p' | head -n1
+          }
+          CURRENT_VERSION=$(current_version)
+          CURRENT_NO=${CURRENT_VERSION##*beta.}
+          [[ "$CURRENT_NO" =~ ^[0-9]+$ ]]
+
+          if (( TARGET_NO < CURRENT_NO )); then
+            echo "CURRENT_SYNC_SKIP_NEWER_CURRENT:$CURRENT_VERSION"
+            exit 0
+          fi
+
+          RELEASE_HEAD=$(git rev-parse "origin/$RELEASE_BRANCH")
+          CURRENT_HEAD=$(git rev-parse origin/beta/current)
+
+          if (( TARGET_NO == CURRENT_NO )); then
+            if [[ "$RELEASE_HEAD" == "$CURRENT_HEAD" ]]; then
+              echo "CURRENT_SYNC_ALREADY_EXACT"
+              exit 0
+            fi
+            if ! git merge-base --is-ancestor "$CURRENT_HEAD" "$RELEASE_HEAD"; then
+              echo "CURRENT_SYNC_FAIL_SAME_VERSION_DIVERGED" >&2
+              exit 1
+            fi
+          else
+            if ! git merge-base --is-ancestor "$CURRENT_HEAD" "$RELEASE_HEAD"; then
+              echo "CURRENT_SYNC_FAIL_NON_FF" >&2
+              exit 1
+            fi
+          fi
+
+          if ! git push origin "$RELEASE_HEAD:refs/heads/beta/current"; then
+            git fetch origin beta/current --quiet
+            RACE_VERSION=$(current_version)
+            RACE_NO=${RACE_VERSION##*beta.}
+            [[ "$RACE_NO" =~ ^[0-9]+$ ]]
+            if (( RACE_NO > TARGET_NO )); then
+              echo "CURRENT_SYNC_RACE_NEWER_CURRENT:$RACE_VERSION"
+              exit 0
+            fi
+            echo "CURRENT_SYNC_PUSH_FAILED" >&2
+            exit 1
+          fi
+
+          git fetch origin beta/current --quiet
+          test "$(git rev-parse origin/beta/current)" = "$RELEASE_HEAD"
+          test "$(git show origin/beta/current:CURRENT_STATE.md | sed -n 's/^- beta_live: \([^ ]*\).*/\1/p' | head -n1)" = "$TARGET_VERSION"
+          test "$(git show origin/beta/current:ops/beta-ota-current.json | jq -r '.version_name')" = "$TARGET_VERSION"
+          test "$(git show origin/beta/current:ops/beta-ota-current.json | jq -r '.source')" = "GITHUB_RELEASE"
+          echo "CURRENT_SYNC_PASS:$TARGET_VERSION:$RELEASE_HEAD"
