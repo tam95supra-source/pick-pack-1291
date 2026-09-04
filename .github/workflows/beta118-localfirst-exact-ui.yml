@@ -38,6 +38,32 @@ jobs:
           python3 tools/beta118_localfirst_exact_ui_patch.py
           bash tools/build_beta83_verify_harness.sh
           git diff -- app service google-apps-script --exit-code
+      - name: Prepare one-process emulator script
+        run: |
+          cat >/tmp/beta118-localfirst.sh <<'EOF'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          PKG=vn.pickpack1291.app.beta.publicbeta
+          APK=/tmp/beta-candidate/pick-pack-1291-public-beta-0.4.2-beta.118.apk
+          test "$(sha256sum "$APK" | awk '{print $1}')" = "5216f0eb09f187aed9cb71dcc21cd145fdc3ba7ea7852c74ffe6f85dea2b478f"
+          adb install -r "$APK" >/dev/null
+          adb install -r "$VERIFY_HARNESS_APK" >/dev/null
+          adb shell pm clear "$PKG" >/dev/null
+          mkdir -p /tmp/localfirst118
+          set +e
+          timeout 180s adb shell am instrument -w -r -e mode localfirst118 vn.pickpack1291.verify/.Beta83UiChecksInstrumentation > /tmp/localfirst118/instrument.txt 2>&1
+          RC=$?
+          set -e
+          cat /tmp/localfirst118/instrument.txt
+          test "$RC" = 0
+          grep -Fq 'INSTRUMENTATION_CODE: 0' /tmp/localfirst118/instrument.txt
+          grep -Fq 'localfirst_exact_ui=PASS' /tmp/localfirst118/instrument.txt
+          grep -Fq 'two_rows_immediate=PASS' /tmp/localfirst118/instrument.txt
+          grep -Fq 'stale_service_did_not_erase_two=PASS' /tmp/localfirst118/instrument.txt
+          grep -Fq 'realtime_local_callback=PASS' /tmp/localfirst118/instrument.txt
+          grep -Fq 'warning_local_callback=PASS' /tmp/localfirst118/instrument.txt
+          EOF
+          chmod +x /tmp/beta118-localfirst.sh
       - name: Enable KVM
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules >/dev/null
@@ -53,27 +79,7 @@ jobs:
           profile: pixel_2
           disable-animations: true
           emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-metrics
-          script: |
-            set -eu
-            PKG=vn.pickpack1291.app.beta.publicbeta
-            APK=/tmp/beta-candidate/pick-pack-1291-public-beta-0.4.2-beta.118.apk
-            test "$(sha256sum "$APK" | awk '{print $1}')" = "5216f0eb09f187aed9cb71dcc21cd145fdc3ba7ea7852c74ffe6f85dea2b478f"
-            adb install -r "$APK" >/dev/null
-            adb install -r "$VERIFY_HARNESS_APK" >/dev/null
-            adb shell pm clear "$PKG" >/dev/null
-            mkdir -p /tmp/localfirst118
-            set +e
-            timeout 180s adb shell am instrument -w -r -e mode localfirst118 vn.pickpack1291.verify/.Beta83UiChecksInstrumentation > /tmp/localfirst118/instrument.txt 2>&1
-            RC=$?
-            set -e
-            cat /tmp/localfirst118/instrument.txt
-            test "$RC" = 0
-            grep -Fq 'INSTRUMENTATION_CODE: 0' /tmp/localfirst118/instrument.txt
-            grep -Fq 'localfirst_exact_ui=PASS' /tmp/localfirst118/instrument.txt
-            grep -Fq 'two_rows_immediate=PASS' /tmp/localfirst118/instrument.txt
-            grep -Fq 'stale_service_did_not_erase_two=PASS' /tmp/localfirst118/instrument.txt
-            grep -Fq 'realtime_local_callback=PASS' /tmp/localfirst118/instrument.txt
-            grep -Fq 'warning_local_callback=PASS' /tmp/localfirst118/instrument.txt
+          script: bash /tmp/beta118-localfirst.sh
       - uses: actions/upload-artifact@v4
         if: always()
         with:
