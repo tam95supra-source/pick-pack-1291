@@ -15,6 +15,8 @@ sed -e 's/Beta80 OTA exact candidate/Beta83 OTA exact candidate/g' -e 's/putInt(
 cp tools/Beta83UiChecksInstrumentation.java "$W/src/vn/pickpack1291/verify/"
 # Beta117 release notes changed legitimately; keep changelog structure checks but do not pin a stale exact sentence.
 sed -i '/waitText("Quản lý biên bản dùng icon gọn",false,false,10000L);/d' "$W/src/vn/pickpack1291/verify/Beta83UiChecksInstrumentation.java"
+# Owner removed redundant screen title/header areas; verify the attendance module by its functional scan control instead.
+sed -i 's/waitText("ĐIỂM DANH",true,false,10000L);/waitText("QUÉT ĐỂ ĐIỂM DANH",true,false,10000L);/g' "$W/src/vn/pickpack1291/verify/Beta83UiChecksInstrumentation.java"
 # Beta117 renamed the document-batch marker while preserving the same guarded behavior.
 sed -i 's/document_batch_controls_beta110/document_batch_controls_beta117/g' tools/beta83_verify_matrix.sh
 javac -encoding UTF-8 -source 8 -target 8 -cp "$SDK/platforms/android-36/android.jar" -d "$W/classes" "$W/src/vn/pickpack1291/verify/"*.java
