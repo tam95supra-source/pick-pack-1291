@@ -1,8 +1,8 @@
 {
-  "run_id": 33866077880,
-  "run_sha": "d3e5be3e8d75dbb3894f8df4864d2ced67a1f347",
-  "ref": "release/beta119-superadmin-auth-control-plane-20260904",
-  "execution_nonce": "beta119-beta-auth-migrate-20260904-01",
-  "stage": "BETA_AUTH_MIGRATE",
-  "observed_at": "2026-09-04T11:02:55Z"
+  "run_id": 33874332753,
+  "run_sha": "b8f548d5717156554b8599955f62ab23f9973fc9",
+  "ref": "release/beta120-bulk-exit-reset200-20260904",
+  "execution_nonce": "beta119-pass-live-current-sync-20260904-01",
+  "stage": "pass_live",
+  "observed_at": "2026-09-04T12:44:56Z"
 }
