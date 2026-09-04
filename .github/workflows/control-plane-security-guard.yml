@@ -1,0 +1,55 @@
+name: Control plane security guard
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: control-plane-security-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  guard:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve comparison base
+        id: base
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PUSH_BEFORE: ${{ github.event.before }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          if [[ "$EVENT_NAME" == "pull_request" ]]; then
+            BASE="$PR_BASE"
+          else
+            BASE="$PUSH_BEFORE"
+          fi
+          if [[ -z "$BASE" || "$BASE" =~ ^0+$ ]]; then
+            BASE=$(git rev-list --max-parents=0 HEAD | tail -n1)
+          fi
+          git cat-file -e "$BASE^{commit}"
+          echo "base=$BASE" >> "$GITHUB_OUTPUT"
+
+      - name: Secret guard self-test
+        run: python3 tools/public_repo_secret_guard.py --self-test
+
+      - name: Reject new public secret material
+        run: python3 tools/public_repo_secret_guard.py --base-ref '${{ steps.base.outputs.base }}'
+
+      - name: Acceptance ledger self-test
+        run: python3 tools/owner_acceptance_ledger_guard.py --self-test
+
+      - name: Reject stale acceptance state
+        run: python3 tools/owner_acceptance_ledger_guard.py --base-ref '${{ steps.base.outputs.base }}'
+
+      - name: Current sync contract
+        run: python3 tools/beta_current_sync_contract.py
