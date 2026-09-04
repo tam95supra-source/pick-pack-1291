@@ -1,8 +1,8 @@
 {
-  "run_id": 33821884023,
-  "run_sha": "05e78735c94dd46d42921eac750d4dcbe4d3205b",
+  "run_id": 33822369696,
+  "run_sha": "7c88239f730b566e3ab619b99090bf53fda824e2",
   "ref": "release/beta117-owner-followup-performance-20260904",
-  "execution_nonce": "beta117-fresh-service-after-stable-canary-source-20260904-15",
-  "stage": "SERVICE_ONLY",
-  "observed_at": "2026-09-04T00:27:49Z"
+  "execution_nonce": "beta117-runtime-after-fresh-service-pass-20260904-16",
+  "stage": "RUNTIME_DOD_VERIFY",
+  "observed_at": "2026-09-04T00:35:04Z"
 }
