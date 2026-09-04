@@ -171,7 +171,7 @@ function retryDelaySeconds(attempt:number):number{return Math.min(900,Math.max(5
 export async function replicatePending(db:D1Database,env:Env,limit=50):Promise<{ok:boolean;processed:number;appended:number;operational:number;pending:number;checkpoint?:string;error?:string}>{
   // STALE_INFLIGHT_RECOVERY_V1: a Worker interruption can leave a claimed row INFLIGHT forever.
   // Requeue only claims older than 15 minutes; preserve event_id/outbox row and never mark SYNCED here.
-  const staleClaimCutoff=new Date(Date.now()-15*60*1000).toISOString(),requeueAt=nowIso();
+  const staleClaimCutoff=new Date(Date.now()-5*60*1000).toISOString(),requeueAt=nowIso();
   await db.prepare("UPDATE sheet_replication_outbox SET status='RETRY',claim_token=NULL,claimed_at=NULL,next_attempt_at=?1,last_error_class=COALESCE(last_error_class,'STALE_INFLIGHT_RECOVERED'),last_error=COALESCE(last_error,'Recovered stale INFLIGHT claim for canonical retry') WHERE status='INFLIGHT' AND (claimed_at IS NULL OR claimed_at<=?2)").bind(requeueAt,staleClaimCutoff).run();
   const rows=await db.prepare("SELECT outbox_id,event_id,attempt_count FROM sheet_replication_outbox WHERE status IN ('PENDING','RETRY') AND next_attempt_at<=?1 ORDER BY outbox_id LIMIT ?2").bind(nowIso(),Math.max(1,Math.min(limit,100))).all<OutboxRow>();
   const due=rows.results??[];

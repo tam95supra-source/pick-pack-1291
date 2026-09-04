@@ -35,6 +35,8 @@ async function ensureConfiguredGeneration(env:Env):Promise<void>{
 }
 async function requireAuth(request:Request,env:Env):Promise<AuthContext>{const a=await authenticate(env.DB,env,request);if(!a)throw new CoreError("UNAUTHORIZED","AUTH",401);return a;}
 async function gasBridgeAuthorized(request:Request,env:Env):Promise<boolean>{const supplied=request.headers.get("x-gas-bridge-secret")||"";if(!supplied)return false;return constantTimeEqual(await sha256Hex(supplied),await sha256Hex(env.GAS_BRIDGE_SHARED_SECRET));}
+async function replicationRecoveryEnabled(db:D1Database):Promise<boolean>{const r=await db.prepare("SELECT config_value FROM runtime_config WHERE config_key='REPLICATION_RECOVERY_ENABLED'").first<{config_value:string}>();return String(r?.config_value||"")==="1";}
+async function replicationRecoveryAuthorized(request:Request,env:Env):Promise<boolean>{const supplied=request.headers.get("x-replication-recovery-token")||"";if(!supplied||!await replicationRecoveryEnabled(env.DB))return false;const r=await env.DB.prepare("SELECT config_value FROM runtime_config WHERE config_key='REPLICATION_RECOVERY_TOKEN_SHA256'").first<{config_value:string}>();return Boolean(r?.config_value)&&constantTimeEqual(await sha256Hex(supplied),String(r?.config_value||""));}
 function eventPublic(e:Record<string,unknown>):Record<string,unknown>{return e;}
 
 async function broadcastEvent(env:Env,e:{event_id:string;event_type:string;entity_type:string;entity_id:string;business_date:string;authority_epoch:number;authority_seq:number;service_generation:string;new_version:number}):Promise<number>{
@@ -227,7 +229,7 @@ async function route(request:Request,env:Env):Promise<Response>{
   if(p==="/internal/legacy-bridge"&&method==="POST")return gasLegacyBridge(request,env);
   if(p==="/internal/fallback/ingest"&&method==="POST")return fallbackIngest(request,env);
   if(p==="/internal/bootstrap-google"&&method==="POST"){if(!await internalAuthorized(request,env))return apiError("INTERNAL_UNAUTHORIZED","AUTH",401);await ensureConfiguredGeneration(env);return json(await bootstrapFromGoogle(env.DB,env));}
-  if(p==="/internal/replicate"&&method==="POST"){if(!await internalAuthorized(request,env))return apiError("INTERNAL_UNAUTHORIZED","AUTH",401);return json(await replicatePending(env.DB,env));}
+  if(p==="/internal/replicate"&&method==="POST"){const ia=await internalAuthorized(request,env),ra=ia?false:await replicationRecoveryAuthorized(request,env);if(!ia&&!ra)return apiError("INTERNAL_UNAUTHORIZED","AUTH",401);return json(await replicatePending(env.DB,env,ra?1:50));}
   if(p==="/internal/push/flush"&&method==="POST"){if(!await internalAuthorized(request,env))return apiError("INTERNAL_UNAUTHORIZED","AUTH",401);return json({ok:true,...await flushPushOutbox(env.DB,env)});}
   if(p==="/internal/test-account"&&method==="POST")return internalTestAccount(request,env);
   if(p==="/internal/dr/manifest"&&method==="POST"){if(!await internalAuthorized(request,env))return apiError("INTERNAL_UNAUTHORIZED","AUTH",401);return json(await drManifest(env));}
@@ -237,5 +239,5 @@ async function route(request:Request,env:Env):Promise<Response>{
 
 export default {
   async fetch(request:Request,env:Env):Promise<Response>{const started=Date.now(),requestId=request.headers.get("x-request-id")?.slice(0,100)||crypto.randomUUID(),path=new URL(request.url).pathname;try{const response=await route(request,env);if(response.status!==101)response.headers.set("x-request-id",requestId);console.log(JSON.stringify({level:"info",kind:"request_complete",request_id:requestId,route:path,method:request.method,status:response.status,wall_ms:Date.now()-started}));return response;}catch(e){if(e instanceof CoreError)return apiError(e.code,e.errorClass,e.status,e.retryable,undefined,e.conflict);console.log(JSON.stringify({level:"error",kind:"request_failed",request_id:requestId,route:path,method:request.method,wall_ms:Date.now()-started,error_class:"INTERNAL",error:String(e).slice(0,240)}));return apiError("INTERNAL_ERROR","INTERNAL",500,true);}},
-  async scheduled(_controller:ScheduledController,env:Env,ctx:ExecutionContext):Promise<void>{ctx.waitUntil(Promise.all([(async()=>{for(let i=0;i<3;i++){const r=await replicatePending(env.DB,env,5);if(!r.ok||r.processed===0)break;}})(),flushPushOutbox(env.DB,env)]).then(()=>undefined).catch(e=>console.log(JSON.stringify({level:"error",kind:"scheduled_background_failed",error:String(e).slice(0,240)}))));},
+  async scheduled(_controller:ScheduledController,env:Env,ctx:ExecutionContext):Promise<void>{const recovering=await replicationRecoveryEnabled(env.DB);ctx.waitUntil(Promise.all([recovering?Promise.resolve({ok:true}):replicatePending(env.DB,env,1),flushPushOutbox(env.DB,env)]).then(()=>undefined).catch(e=>console.log(JSON.stringify({level:"error",kind:"scheduled_background_failed",error:String(e).slice(0,240)}))));},
 } satisfies ExportedHandler<Env>;
