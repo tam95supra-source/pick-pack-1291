@@ -20,7 +20,7 @@ checks={
  'batch_finish_in_place':'patchLaborCacheOptimistic(JSONObject(row.toString()).put("state","COMPLETED").put("end_at",endIso));laborLocalUiRefresh?.invoke()' in ops,
  'labor_warning_local':'laborWarningRealtimeRefresh={if(screenState=="BUSINESS")refreshLocal()}' in ops,
  'old_warning_local':'activeRefresh={activity.runOnUiThread{apply(local())}}' in old,
- 'old_bulk_immediate':'val remaining=j.optJSONArray("items")?:JSONArray();apply(' in old,
+ 'old_bulk_immediate':'val remaining=r.json?.optJSONArray("items")?:JSONArray();apply(parse(remaining))' in old,
  'meal_no_projection_double_reload':'must not fire a second Service-backed warning reload' in meal,
  'pda_exchange_optimistic':'holders.remove(h.serial);holders[next]=Holder(next,h.mnv,h.status)' in ops and 'render(serialField.text.toString());foregroundSync.requestSync()' in ops,
  'bulk_exit_super':'old_active_sessions_bulk_exit' in svc and 'SUPERADMIN_REQUIRED' in svc and 'HAS_LABOR' in svc and 'pda_auto_confirmed' in svc,
