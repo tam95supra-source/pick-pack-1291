@@ -1,0 +1,42 @@
+name: Beta owner backup today before reset
+
+on:
+  push:
+    branches:
+      - ops/beta-live-reset-seed200-20260904
+    paths:
+      - tools/ops_beta_backup_today_before_reset.py
+      - .github/workflows/beta-owner-backup-today-before-reset.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: beta-owner-backup-today-before-reset-20260904
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install pinned Service tooling
+        run: npm --prefix service install --ignore-scripts --no-audit --no-fund
+      - name: Backup exact today rows and isolated restore compare
+        run: python3 tools/ops_beta_backup_today_before_reset.py
+      - name: Upload backup and receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: beta-owner-backup-today-${{ github.run_id }}
+          path: |
+            /tmp/beta-today-backup.json
+            /tmp/beta-today-backup-receipt.json
+          if-no-files-found: error
