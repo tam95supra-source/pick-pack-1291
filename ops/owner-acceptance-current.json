@@ -47,19 +47,21 @@
     "control_plane_guard_run_id": 33869859518,
     "pass_live_run_id": 33870526120,
     "beta_current_sync_run_id": 33870545799,
+    "owner_response_monotonic_guard_run_id": 33871649452,
+    "owner_acceptance_finalizer_run_id": 33871950689,
     "release_lock_receipt": "ops/beta119-release-lock.json",
     "human_visual_receipt": "ops/beta119-human-visual-receipt.json"
   },
   "checklist": {
     "checklist_id": "BETA119_OWNER_ACCEPTANCE_20260904_R1",
-    "revision": 2,
-    "status": "PARTIAL_OWNER_ACCEPTED_ITEM5_SELF_CHECK_PENDING_OWNER_CONFIRMATION",
+    "revision": 3,
+    "status": "ITEM5_TECHNICAL_PASS_AWAITING_OWNER_CONFIRMATION",
     "items": [
       {"number": 1, "id": "CURRENT_PUBLIC_BETA_001", "status": "OWNER_OK", "test": "Mở luồng cập nhật/phiên chat mới và xác nhận current/LIVE không quay về Beta116/117/118 mà nhận Beta119 hiện hành."},
       {"number": 2, "id": "SUPERADMIN_SESSION_PERSIST", "status": "OWNER_OK", "test": "Đang đăng nhập SUPERADMIN trên bản cũ rồi cập nhật lên Beta119/đóng mở app; phiên hợp lệ vẫn được giữ, không tự đăng xuất."},
       {"number": 3, "id": "SUPERADMIN_TIME_LOGIN", "status": "OWNER_OK", "test": "Đăng nhập SUPERADMIN bằng chuỗi tối đa 20 ký tự có chứa HHmm thực tế trong +/-5 phút; có thể kèm chữ/rác; giờ ngoài khoảng phải bị từ chối."},
       {"number": 4, "id": "SUPERADMIN_OTP_LOGIN", "status": "OWNER_OK", "test": "Yêu cầu OTP Gmail: mã đúng 8 chữ số, dùng một lần; dùng thành công phải nhận mã 8 số kế tiếp; đăng nhập bằng thời gian không được tự đổi/gửi OTP."},
-      {"number": 5, "id": "OWNER_ACCEPTANCE_LEDGER_001", "status": "TECHNICAL_SELF_CHECK_IN_PROGRESS", "test": "Sau khi phản hồi checklist, fresh-read canonical beta/current phải tiếp tục đúng Beta119/checklist revision mới; monotonic guard phải reject stale Beta/revision."}
+      {"number": 5, "id": "OWNER_ACCEPTANCE_LEDGER_001", "status": "TECHNICAL_SELF_CHECK_PASS_AWAITING_OWNER", "test": "Sau OWNER response, canonical beta/current fresh-read vẫn là Beta119 và checklist revision mới; monotonic guard PASS và stale lower revision/Beta bị fence."}
     ],
     "owner_responses": [
       {
@@ -68,7 +70,16 @@
         "response": "1 OK, 2 OK, 3 OK, 4 OK; item 5 delegated to ChatGPT for technical verification",
         "items": {"1": "OK", "2": "OK", "3": "OK", "4": "OK", "5": "DELEGATED_SELF_CHECK"}
       }
-    ]
+    ],
+    "item5_self_check": {
+      "status": "PASS",
+      "fresh_read_beta": "0.4.2-beta.119",
+      "fresh_read_checklist_revision_before_final_record": 2,
+      "monotonic_guard_run_id": 33871649452,
+      "acceptance_finalizer_run_id": 33871950689,
+      "stale_acceptance_rejection": "PASS",
+      "authority": "beta/current + ops/owner-acceptance-current.json"
+    }
   },
   "fencing": {
     "reject_lower_state_epoch": true,
@@ -84,5 +95,5 @@
     "gmail_oauth_secret_in_repo": "FORBIDDEN",
     "secret_values_in_logs_artifacts_receipts": "FORBIDDEN"
   },
-  "next_action": "VERIFY_OWNER_ACCEPTANCE_LEDGER_ITEM5_THEN_WAIT_OWNER_CONFIRMATION"
+  "next_action": "WAIT_FOR_OWNER_ITEM5_CONFIRMATION"
 }
