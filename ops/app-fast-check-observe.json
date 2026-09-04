@@ -1,8 +1,8 @@
 {
-  "run_id": 33819637036,
-  "run_sha": "9be610a05dcc5ef258b84132e8ba5dc4e0eace2b",
+  "run_id": 33821787225,
+  "run_sha": "c7cac88e76dec16927fb122c787d8c7386fd8984",
   "ref": "release/beta117-owner-followup-performance-20260904",
-  "execution_nonce": "beta117-protected-stable-gas-blocker-20260904-12",
+  "execution_nonce": "beta117-runtime-after-primary-canary-source-restore-20260904-14",
   "stage": "RUNTIME_DOD_VERIFY",
-  "observed_at": "2026-09-03T23:55:25Z"
+  "observed_at": "2026-09-04T00:26:25Z"
 }
