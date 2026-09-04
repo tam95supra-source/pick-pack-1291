@@ -3819,7 +3819,9 @@ class OperationsActivity : Activity() {
             roleZone.addView(buttons,matchWrap())
             host.addView(roleZone,matchWrap())
         }
-        dialog=AlertDialog.Builder(this).setTitle(title).setView(host).setPositiveButton("ĐÓNG",null).create()
+        val builder=AlertDialog.Builder(this).setTitle(title).setView(host).setPositiveButton("ĐÓNG",null)
+        if(normalized=="SYNC")builder.setNeutralButton("ĐỒNG BỘ NGAY"){_,_->manualRefreshFromHeader(syncStatusText?:host)}
+        dialog=builder.create()
         dialog?.show()
     }
     private fun manualRefreshFromHeader(icon:View){

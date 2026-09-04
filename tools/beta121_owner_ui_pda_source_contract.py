@@ -16,6 +16,7 @@ for label in ("Mạng","Đồng bộ","Dịch vụ"):
 for kind in ('"NETWORK"','"SYNC"','"SERVICE"'):
     assert kind in ops
 assert "Thông tin mạng" in ops and "Thông tin đồng bộ" in ops and "Thông tin dịch vụ" in ops
+assert 'setNeutralButton("ĐỒNG BỘ NGAY")' in ops and 'manualRefreshFromHeader(syncStatusText?:host)' in ops
 
 assert 'Triple(R.drawable.ic_pp_account,"Quyền","ROLE_MODE")' not in ops
 assert 'normalized=="SERVICE"&&isActualSuper()' in ops
