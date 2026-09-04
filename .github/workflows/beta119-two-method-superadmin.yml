@@ -1,0 +1,48 @@
+name: Beta119 two-method SUPERADMIN
+
+on:
+  push:
+    branches:
+      - release/beta119-superadmin-auth-control-plane-20260904
+    paths:
+      - tools/beta119_remove_device_trust.py
+      - .github/workflows/beta119-two-method-superadmin.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: beta119-two-method-superadmin
+  cancel-in-progress: false
+
+jobs:
+  apply-and-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: release/beta119-superadmin-auth-control-plane-20260904
+          fetch-depth: 0
+      - name: Apply OWNER two-method auth decision
+        run: python3 tools/beta119_remove_device_trust.py
+      - name: Verify auth contract
+        run: python3 tools/beta119_superadmin_auth_contract.py
+      - name: Verify public-secret guard self-test
+        run: python3 tools/public_repo_secret_guard.py --self-test
+      - name: Verify diff hygiene
+        run: git diff --check
+      - name: Commit exact implementation
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet && git diff --cached --quiet; then
+            echo "No changes required"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          python3 tools/public_repo_secret_guard.py --base HEAD --head-index
+          git commit -m "fix(beta119): keep exactly two superadmin auth methods"
+          git push origin HEAD:release/beta119-superadmin-auth-control-plane-20260904
