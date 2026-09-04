@@ -2,48 +2,50 @@
 
 - schema_version: 2
 - status: READY
-- time_utc: 2026-09-04T11:43:18Z
+- time_utc: 2026-09-04T11:52:00Z
 - owner: Nguyễn Văn Tâm
-- branch: release/beta119-superadmin-auth-control-plane-20260904
-- release_trigger_sha: 6e2b1621d7cb4f4a1f2caba5b49c8870d9795fed
-- archive_file: docs/handovers/HANDOVER_20260904-114318_beta119-pass-live.md
+- continuity_branch: beta/current
+- release_branch: release/beta119-superadmin-auth-control-plane-20260904
+- archive_file: docs/handovers/HANDOVER_20260904-115200_beta119-auth-control-technical-pass.md
 
 ## Mục tiêu + DoD
-Release 0.4.2-beta.119 Technical PASS/LIVE cho scope null; toàn bộ pre-OTA + GitHub Release exact bytes + OTA install/readback + finalizer PASS; OWNER acceptance còn PENDING.
+Scope OWNER_20260904_CURRENT_AUTH_ACCEPTANCE_SECURITY đã Technical PASS trên Beta119 LIVE. Chỉ còn OWNER nghiệm thu checklist BETA119_OWNER_ACCEPTANCE_20260904_R1 revision 1.
 
 ## LIVE / TARGET / CANDIDATE
 - LIVE BETA: 0.4.2-beta.119 / versionCode 125 / package vn.pickpack1291.app.beta.publicbeta.
-- TARGET: PASS/LIVE.
+- TARGET: TECHNICAL_PASS_AWAITING_OWNER.
 - CANDIDATE LOCKED: run 33864111135; artifact 9933396813; source eeb45df6deae267d93a5fb15701a0a394885a549; SHA256 73c072187fb13bab635f27009fda500d0745fced4244a8d8276bc9117f350697; size 14429173; signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e.
-- Fast Check: PASS run 33867108883.
-- Service: null.
-- Visual/PDA pre-OTA: PASS run 33864111135, artifact 9933765361.
-- Human visual 320x568 / 360x640 / 480x800: PASS.
 - Stable/main/signer/authority: unchanged.
 
 ## Evidence
-- 3 ô Mạng / Đồng bộ / Dịch vụ ghim trên cùng ở mọi màn scope: PASS.
-- QR nhân sự local fast-path giữ nguyên; functional + service regression PASS.
-- Điểm danh chỉ chấp nhận ACTIVE session đúng business_date hiện tại; ACTIVE phiên cũ bị chặn: PASS.
-- Cảnh báo chưa điểm danh ở trên cùng Nghiệp vụ; USER không thấy/deep-link được Lịch sử: PASS.
-- GitHub Release asset exact bytes khớp candidate SHA256/size; OTA tải trực tiếp từ GitHub Release: PASS.
-- OTA 0.4.2-beta.118 → 0.4.2-beta.119: download/install exact SHA/size/version/package/signer và mở app: PASS.
-- Google Drive APK: FORBIDDEN từ Beta97; không backup/staging/mirror/upload/download/rollback/phân phối APK qua Drive.
+- Service gate: PASS run 33864111135 / artifact 9933578937.
+- Visual/PDA/API36 + human 320x568 / 360x640 / 480x800: PASS run 33864111135 / artifact 9933765361.
+- Live SUPERADMIN auth: PASS run 33865867111.
+- Fast Check: PASS run 33867108883.
+- Auth convergence: PASS run 33867109026 / artifact 9934703912.
+- Service discovery stale-cache regression: PASS run 33868129220 / artifact 9934840799.
+- Runtime DoD: PASS run 33868400852 / artifact 9934904448.
+- Beta domain fresh readback: PASS run 33868581526 / artifact 9934943749.
+- GitHub Release exact bytes + OTA Beta118 -> Beta119 + install/open/readback/finalize: PASS terminal run 33868929441; publish artifact 9935113268; OTA artifact 9935194064; final artifact 9935202498.
+- Invariant finalizer + valid YAML registry: PASS run 33869859593.
+- Secret/ledger/current-sync control-plane guards: PASS run 33869859518.
 
-## Lỗi/root cause/PASS path
-- VERIFY_ONLY harness cũ đếm text guard HISTORY cứng; sửa verifier semantics và exact candidate PASS.
-- Publish cũ có luồng Drive APK song song và DriveApp/public APK bị Google chặn; loại bỏ toàn bộ Drive dependency khỏi Beta APK pipeline.
-- Canonical Beta APK path: GitHub Actions exact candidate → GitHub Release exact asset → GAS manifest GitHub URL → OTA install/readback → finalizer.
-- Rollback canonical: exact LIVE baseline GitHub Actions/GitHub Release → atomic Beta manifest restore; không dùng Drive APK.
-- Candidate được build/sign đúng một lần; mọi recovery dùng exact locked bytes, không rebuild/resign.
+## OWNER acceptance ledger
+- Canonical: ops/owner-acceptance-current.json.
+- Checklist: BETA119_OWNER_ACCEPTANCE_20260904_R1 / revision 1.
+- CURRENT_PUBLIC_BETA_001: TECHNICAL_PASS_AWAITING_OWNER.
+- SUPERADMIN_AUTH_002: TECHNICAL_PASS_AWAITING_OWNER.
+- OWNER_ACCEPTANCE_LEDGER_001: TECHNICAL_PASS_AWAITING_OWNER.
+- OWNER silence != acceptance; chưa ACTIVE_PASS cho tới OWNER OK.
 
 ## Blocker
 Không có.
 
 ## Invariants
-- Stable/main/signer/authority không đổi.
-- APK Beta release/OTA/rollback = GITHUB_RELEASE_ONLY.
-- Google Drive không được dùng cho APK; GSheet/GAS nghiệp vụ không bị xóa/thay authority.
+- Beta APK release/OTA/rollback = GITHUB_RELEASE_ONLY; Google Drive APK FORBIDDEN.
+- Exact candidate không rebuild/resign.
+- Acceptance state monotonic; Beta/checklist cũ không ghi đè state mới.
+- Public repo/log/artifact không chứa plaintext credential secret.
 
 ## NEXT_ACTION
 WAIT_FOR_OWNER_ACCEPTANCE_NUMBERED_CHECKLIST
