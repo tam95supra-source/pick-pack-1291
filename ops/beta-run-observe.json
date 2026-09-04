@@ -1,8 +1,8 @@
 {
-  "run_id": 33822875354,
-  "run_sha": "4fdfdb0a82ed22cbfd0b8cf771937ef1c514b0ba",
-  "ref": "release/beta117-owner-followup-performance-20260904",
-  "execution_nonce": "beta117-publish-exact-lock-20260904-18",
-  "stage": "PUBLISH",
-  "observed_at": "2026-09-04T00:42:39Z"
+  "run_id": 33831648524,
+  "run_sha": "61374ced89d968f245081235875ab3e81afce30a",
+  "ref": "release/beta118-owner-realtime-bulk-exit-20260904",
+  "execution_nonce": "beta118-build-verify-owner100-20260904-01",
+  "stage": "BUILD_VERIFY",
+  "observed_at": "2026-09-04T03:01:13Z"
 }
