@@ -48,9 +48,12 @@ for token in ["selectedStart","LABOR_START_TIME_INVALID","selectedEnd","LABOR_EN
     assert token in core, token
 assert "state='OPEN'" in session and "OPEN_LABOR_BLOCKS_EXIT" in session, "OPEN labor must block exit"
 
-# Attendance: compact UI, no literal null, active warning/date semantics preserved.
+# Attendance invariant MEAL-UI-NULL-001: compact layout, no visible null, current-day/date and warning semantics.
+# Do not couple this older invariant to a literal screen title; later OWNER scope may remove redundant headings.
 assert 'fun safe(v:String)=v.trim().takeUnless{it.isBlank()||it.equals("null",true)}?:"-"' in meal
-assert 'header.addView(text("ĐIỂM DANH",15f,Color.WHITE,true))' in meal
+assert 'val controls=column().apply{setPadding(dp(10),dp(8),dp(10),dp(6))}' in meal
+assert 'controls.addView(filterRow,LinearLayout.LayoutParams(-1,dp(36)))' in meal
+assert 'scanBox.addView(text("QUÉT ĐỂ ĐIỂM DANH"' in meal
 assert "Ngày hiện tại có thể cập nhật" not in meal
 assert "MEAL_EMPLOYEE_NOT_ACTIVE" in meal
 assert "buildHomeWarning" in meal
