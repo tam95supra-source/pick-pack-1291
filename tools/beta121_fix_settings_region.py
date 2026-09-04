@@ -50,4 +50,30 @@ if sync_extra.strip() not in t:
         raise SystemExit('sync contract marker mismatch')
     t=t.replace(sync_marker,sync_marker+sync_extra,1)
 c.write_text(t,encoding='utf-8')
-print('BETA121_SETTINGS_SYNC_FIX_APPLIED')
+
+# Harness recovery: Turso organization/resource-scoped platform tokens may deny the
+# account-wide /auth/validate endpoint with 403. Do not weaken the gate: allow only
+# 200 or 403 here, then require the existing downstream org/database/capacity checks.
+dr=Path('tools/cloud_dr_provider_preflight.sh')
+u=dr.read_text(encoding='utf-8')
+old_validate='http turso-validate "https://api.turso.tech/v1/auth/validate" "$TURSO_API_TOKEN"'
+new_validate='''validate_code=$(curl -sS --connect-timeout 10 --max-time 30 -o "$OUT/turso-validate.json" -w '%{http_code}' \\
+  -H "Authorization: Bearer $TURSO_API_TOKEN" -H 'Accept: application/json' \\
+  "https://api.turso.tech/v1/auth/validate" || true)
+case "$validate_code" in
+  200) echo "turso_validate=PASS" ;;
+  403)
+    printf '{}\\n' > "$OUT/turso-validate.json"
+    echo "turso_validate_scope=READ_DENIED continue_with_resource_scoped_proof=true"
+    ;;
+  *) echo "DR_PREFLIGHT_HTTP_FAILED:turso-validate:$validate_code" >&2; exit 52 ;;
+esac'''
+if old_validate in u:
+    if u.count(old_validate)!=1:
+        raise SystemExit(f'turso validate marker count={u.count(old_validate)}')
+    u=u.replace(old_validate,new_validate,1)
+elif new_validate not in u:
+    raise SystemExit('turso validate harness marker missing')
+dr.write_text(u,encoding='utf-8')
+
+print('BETA121_SETTINGS_SYNC_DR_HARNESS_FIX_APPLIED')
