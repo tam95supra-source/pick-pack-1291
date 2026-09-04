@@ -1,4 +1,4 @@
-name: Beta119 seed200 replication drain
+name: Beta119 seed200 final recovery
 
 on:
   push:
@@ -9,105 +9,88 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
-  group: beta119-seed200-replication-drain
+  group: beta119-seed200-final-recovery
   cancel-in-progress: false
 
 jobs:
-  fix-deploy:
+  recover-final-15:
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 12
     env:
       D1_NAME: pick-pack-1291-service-prod
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
-      GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
-      GOOGLE_OAUTH_REFRESH_TOKEN: ${{ secrets.GOOGLE_OAUTH_REFRESH_TOKEN }}
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - name: Fence exact Beta119 live source
+      - name: Fence Beta LIVE and exact seed population
         shell: bash
         run: |
           set -euo pipefail
-          LIVE_REF=release/beta119-superadmin-auth-control-plane-20260904
-          git fetch origin "$LIVE_REF"
-          BASE_SHA=$(git rev-parse "origin/$LIVE_REF")
-          test "$(git merge-base HEAD "$BASE_SHA")" = "$BASE_SHA"
-          echo "BASE_SHA=$BASE_SHA" >> "$GITHUB_ENV"
           python3 - <<'PY'
           import json
           cfg=json.load(open('config/environment_contracts.json',encoding='utf-8'))
-          b=cfg['environments']['BETA'];s=cfg['environments']['STABLE']
+          b=cfg['environments']['BETA']; s=cfg['environments']['STABLE']
           assert b['lifecycle']=='LIVE' and b['current_service']['worker']=='pickpack'
           assert b['current_service']['d1_database']=='pick-pack-1291-service-prod'
           assert s['lifecycle']!='LIVE' and s['stable_publish_allowed'] is False
           PY
           npm --prefix service install --ignore-scripts --no-audit --no-fund
-          npx --prefix service wrangler d1 execute "$D1_NAME" --remote --json --command "SELECT mode,scope,service_generation FROM authority_state WHERE singleton_id=1; SELECT COUNT(*) n FROM attendance_sessions WHERE business_date='2026-09-04' AND state='ACTIVE' AND exit_at IS NULL; SELECT COUNT(*) n FROM labor_sessions WHERE business_date='2026-09-04';" > /tmp/pre.json
+          npx --prefix service wrangler d1 execute "$D1_NAME" --remote --json --command "SELECT mode,scope FROM authority_state WHERE singleton_id=1; SELECT COUNT(*) n FROM attendance_sessions WHERE business_date='2026-09-04' AND state='ACTIVE' AND exit_at IS NULL; SELECT COUNT(*) n FROM labor_sessions WHERE business_date='2026-09-04';" > /tmp/pre.json
           python3 - <<'PY'
           import json
-          j=json.load(open('/tmp/pre.json')); rows=[]
-          for x in j: rows.extend(x.get('results') or [])
-          a=next((x for x in rows if 'mode' in x),{}); nums=[int(x['n']) for x in rows if 'n' in x]
-          assert a.get('mode')=='SERVICE_PRIMARY' and a.get('scope')=='PRODUCTION'
+          rows=[]
+          for x in json.load(open('/tmp/pre.json')): rows += x.get('results') or []
+          a=next(x for x in rows if 'mode' in x); nums=[int(x['n']) for x in rows if 'n' in x]
+          assert a['mode']=='SERVICE_PRIMARY' and a['scope']=='PRODUCTION'
           assert nums[:2]==[200,0],nums
           PY
-      - name: Apply sequential bounded official-writer drain
+      - name: Recover only the 15 Sheet-missing seed outbox rows
         shell: bash
         run: |
           set -euo pipefail
+          SQL="UPDATE sheet_replication_outbox SET status='RETRY',claim_token=NULL,claimed_at=NULL,next_attempt_at=datetime('now'),last_error_class='OWNER_SEED200_FINAL15_RECOVERY',last_error='Exact Sheet-missing seed event requeued after readback' WHERE event_id LIKE 'OWNER_SEED200_20260904_099_%' OR event_id LIKE 'OWNER_SEED200_20260904_100_%' OR event_id LIKE 'OWNER_SEED200_20260904_115_%' OR event_id LIKE 'OWNER_SEED200_20260904_164_%' OR event_id LIKE 'OWNER_SEED200_20260904_165_%' OR event_id LIKE 'OWNER_SEED200_20260904_181_%' OR event_id LIKE 'OWNER_SEED200_20260904_182_%' OR event_id LIKE 'OWNER_SEED200_20260904_183_%' OR event_id LIKE 'OWNER_SEED200_20260904_184_%' OR event_id LIKE 'OWNER_SEED200_20260904_185_%' OR event_id LIKE 'OWNER_SEED200_20260904_191_%' OR event_id LIKE 'OWNER_SEED200_20260904_192_%' OR event_id LIKE 'OWNER_SEED200_20260904_193_%' OR event_id LIKE 'OWNER_SEED200_20260904_194_%' OR event_id LIKE 'OWNER_SEED200_20260904_195_%'; SELECT changes() changed;"
+          npx --prefix service wrangler d1 execute "$D1_NAME" --remote --json --command "$SQL" > /tmp/recover.json
           python3 - <<'PY'
-          from pathlib import Path
-          p=Path('service/src/index.ts'); s=p.read_text(encoding='utf-8')
-          old='async scheduled(_controller:ScheduledController,env:Env,ctx:ExecutionContext):Promise<void>{ctx.waitUntil(Promise.all([replicatePending(env.DB,env,5),flushPushOutbox(env.DB,env)]).then(()=>undefined).catch(e=>console.log(JSON.stringify({level:"error",kind:"scheduled_background_failed",error:String(e).slice(0,240)}))));}'
-          new='async scheduled(_controller:ScheduledController,env:Env,ctx:ExecutionContext):Promise<void>{ctx.waitUntil(Promise.all([(async()=>{for(let i=0;i<3;i++){const r=await replicatePending(env.DB,env,5);if(!r.ok||r.processed===0)break;}})(),flushPushOutbox(env.DB,env)]).then(()=>undefined).catch(e=>console.log(JSON.stringify({level:"error",kind:"scheduled_background_failed",error:String(e).slice(0,240)}))));}'
-          if old not in s:
-            if new not in s: raise SystemExit('SCHEDULED_DRAIN_ANCHOR_MISSING')
-          else:
-            s=s.replace(old,new,1);p.write_text(s,encoding='utf-8')
-          c=Path('tools/beta119_replication_drain_contract.py')
-          c.write_text('''#!/usr/bin/env python3\nfrom pathlib import Path\ns=Path("service/src/index.ts").read_text(encoding="utf-8")\nr=Path("service/src/replication.ts").read_text(encoding="utf-8")\nassert "for(let i=0;i<3;i++)" in s\nassert "replicatePending(env.DB,env,5)" in s\nassert "if(!r.ok||r.processed===0)break" in s\nassert "limit=50" in r\nassert "STALE_INFLIGHT_RECOVERY_V1" in r\nassert "status=\\'INFLIGHT\\'" in r or "status='INFLIGHT'" in r\nassert "status='SYNCED'" in r\nprint("beta119_replication_drain_contract=PASS sequential_batches=3 batch_size=5 official_writer=UNCHANGED fail_stop=PASS")\n''',encoding='utf-8')
+          import json
+          rows=[]
+          for x in json.load(open('/tmp/recover.json')): rows += x.get('results') or []
+          changed=[int(x['changed']) for x in rows if 'changed' in x]
+          assert changed and changed[-1]==15, changed
+          print('final15_requeue=PASS changed=15')
           PY
-          python3 tools/beta119_replication_drain_contract.py
-          npm --prefix service run check
-          git diff --check
-      - name: Commit exact scheduler fix
+      - name: Wait for official cron writer to sync exact final 15
         shell: bash
         run: |
           set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add service/src/index.ts tools/beta119_replication_drain_contract.py
-          if ! git diff --cached --quiet; then git commit -m "fix(beta119): drain sheet replication in bounded sequential batches"; git push origin HEAD:ops/beta119-seed200-replication-drain-20260904; fi
-          NEW_SHA=$(git rev-parse HEAD)
-          echo "NEW_SHA=$NEW_SHA" >> "$GITHUB_ENV"
-      - name: Deploy exact Beta service and verify with automatic recovery
-        shell: bash
-        run: |
-          set +e
-          set -uo pipefail
-          SERVICE_SOURCE_SHA="$NEW_SHA" bash tools/beta89_service_live_gate.sh
-          rc=$?
-          set -e
-          if [[ "$rc" != 0 ]]; then
-            echo "Service gate failed; restore exact Beta119 live service" >&2
-            git checkout "$BASE_SHA" -- service
-            git clean -fd -- service
-            npm --prefix service install --ignore-scripts --no-audit --no-fund
-            SERVICE_SOURCE_SHA="$BASE_SHA" bash tools/beta78_service_live_gate.sh || exit 97
-            exit "$rc"
-          fi
-      - name: Post-deploy seed200 authority readback
+          for i in $(seq 1 12); do
+            npx --prefix service wrangler d1 execute "$D1_NAME" --remote --json --command "SELECT status,COUNT(*) n FROM sheet_replication_outbox WHERE event_id LIKE 'OWNER_SEED200_20260904_%' AND (event_id LIKE 'OWNER_SEED200_20260904_099_%' OR event_id LIKE 'OWNER_SEED200_20260904_100_%' OR event_id LIKE 'OWNER_SEED200_20260904_115_%' OR event_id LIKE 'OWNER_SEED200_20260904_164_%' OR event_id LIKE 'OWNER_SEED200_20260904_165_%' OR event_id LIKE 'OWNER_SEED200_20260904_181_%' OR event_id LIKE 'OWNER_SEED200_20260904_182_%' OR event_id LIKE 'OWNER_SEED200_20260904_183_%' OR event_id LIKE 'OWNER_SEED200_20260904_184_%' OR event_id LIKE 'OWNER_SEED200_20260904_185_%' OR event_id LIKE 'OWNER_SEED200_20260904_191_%' OR event_id LIKE 'OWNER_SEED200_20260904_192_%' OR event_id LIKE 'OWNER_SEED200_20260904_193_%' OR event_id LIKE 'OWNER_SEED200_20260904_194_%' OR event_id LIKE 'OWNER_SEED200_20260904_195_%') GROUP BY status ORDER BY status;" > /tmp/poll.json
+            if python3 - <<'PY'
+          import json,sys
+          rows=[]
+          for x in json.load(open('/tmp/poll.json')): rows += x.get('results') or []
+          sys.exit(0 if rows==[{'status':'SYNCED','n':15}] else 1)
+          PY
+            then echo "final15_outbox=SYNCED_15"; break; fi
+            test "$i" -lt 12 || { cat /tmp/poll.json; exit 9; }
+            sleep 20
+          done
+      - name: Final D1 readback
         shell: bash
         run: |
           set -euo pipefail
-          npx --prefix service wrangler d1 execute "$D1_NAME" --remote --json --command "SELECT mode,scope,service_generation FROM authority_state WHERE singleton_id=1; SELECT shift,COUNT(*) n FROM attendance_sessions WHERE business_date='2026-09-04' AND state='ACTIVE' AND exit_at IS NULL GROUP BY shift ORDER BY shift; SELECT work_choice,COUNT(*) n FROM attendance_sessions WHERE business_date='2026-09-04' GROUP BY work_choice ORDER BY work_choice; SELECT status,COUNT(*) n FROM sheet_replication_outbox o JOIN events e ON e.event_id=o.event_id WHERE e.business_date='2026-09-04' AND e.event_id LIKE 'OWNER_SEED200_20260904_%' GROUP BY status ORDER BY status;" > /tmp/post.json
-          cat /tmp/post.json | jq -c '[.[]|.results]'
+          npx --prefix service wrangler d1 execute "$D1_NAME" --remote --json --command "SELECT shift,COUNT(*) n FROM attendance_sessions WHERE business_date='2026-09-04' AND state='ACTIVE' AND exit_at IS NULL GROUP BY shift ORDER BY shift; SELECT work_choice,COUNT(*) n FROM attendance_sessions WHERE business_date='2026-09-04' GROUP BY work_choice ORDER BY work_choice; SELECT status,COUNT(*) n FROM sheet_replication_outbox WHERE event_id LIKE 'OWNER_SEED200_20260904_%' GROUP BY status ORDER BY status;" > /tmp/final.json
+          cat /tmp/final.json | jq -c '[.[]|.results]'
+          python3 - <<'PY'
+          import json
+          j=json.load(open('/tmp/final.json'))
+          assert j[0]['results']==[{'shift':'Ca 1','n':80},{'shift':'Ca 2','n':80},{'shift':'Ca HC','n':40}]
+          assert j[1]['results']==[{'work_choice':'KHONG','n':194},{'work_choice':'PACK','n':3},{'work_choice':'PICK','n':3}]
+          assert j[2]['results']==[{'status':'SYNCED','n':200}]
+          print('seed200_d1_final=PASS synced=200')
+          PY
