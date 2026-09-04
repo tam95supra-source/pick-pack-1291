@@ -1,0 +1,29 @@
+#!/usr/bin/env python3
+from pathlib import Path
+
+p=Path('.github/workflows/beta-release.yml')
+s=p.read_text(encoding='utf-8')
+old='''          git add ops/beta-run-observe.json
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "ci: observe Beta run $RUN_ID"
+          git push origin HEAD:"$RUN_REF"
+'''
+new='''          git add ops/beta-run-observe.json
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "ci: observe Beta run $RUN_ID"
+          if ! git push --force-with-lease="refs/heads/$RUN_REF:$RUN_SHA" origin HEAD:"$RUN_REF"; then
+            REMOTE_SHA=$(git ls-remote origin "refs/heads/$RUN_REF" | awk '{print $1}')
+            if [[ -n "$REMOTE_SHA" && "$REMOTE_SHA" != "$RUN_SHA" ]]; then
+              echo "BETA_RUN_MARKER_SKIPPED_BRANCH_ADVANCED:$RUN_SHA->$REMOTE_SHA"
+            else
+              echo "BETA_RUN_MARKER_PUSH_FAILED_WITHOUT_REF_ADVANCE" >&2
+              exit 1
+            fi
+          fi
+'''
+if 'BETA_RUN_MARKER_SKIPPED_BRANCH_ADVANCED' in s:
+    print('BETA_RELEASE_MARKER_RACE_ALREADY_REPAIRED')
+else:
+    assert old in s, 'expected release marker block not found'
+    p.write_text(s.replace(old,new,1),encoding='utf-8')
+    print('BETA_RELEASE_MARKER_RACE_PATCHED')
