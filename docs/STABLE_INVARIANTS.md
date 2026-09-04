@@ -155,6 +155,17 @@ Mỗi invariant tối thiểu có:
 - Owner receipt: `ops/beta114-owner-acceptance-partial.json`.
 
 
+### OLD-SESSION-BULK-EXIT-001
+- Status: ACTIVE_PASS
+- Scope: Cảnh báo phiên cũ / SUPERADMIN / Ra ca tất cả hợp lệ
+- Rule: `Ra ca tất cả hợp lệ` phải gọi trực tiếp Service authority; xử lý bounded/idempotent theo lô nhỏ; một phiên lỗi không được làm treo toàn lô; labor OPEN phải skip; canonical commitMutation/audit giữ nguyên.
+- Regression: direct Service route + bounded batch + idempotency + failure isolation + labor skip + remaining readback + Stable/authority unchanged.
+- Regression case: `tools/beta120_bulk_exit_contract.py`.
+- Technical evidence: Beta120 LIVE; candidate 33874862142/9937580926; Fast Check 33874862122 PASS; Service + visual/PDA/API36 33876606829 PASS; device/discovery 33895538590/9945644548 PASS; runtime 33895822870/9945717299 PASS; domain 33896047850/9945767325 PASS; terminal 33896192267 publish exact bytes + OTA install/open/readback + finalize PASS; APK SHA256 04d9f4b88e6ff038766357402f7f5831de67649087c839f922897042120b8ef8 size 14429173 signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged.
+- OWNER acceptance: PASS — OWNER xác nhận phần `Ra ca` đã OK ngày 2026-09-04.
+- Owner receipt: `ops/beta120-owner-acceptance.json`.
+- Last verified: `0.4.2-beta.120` LIVE.
+
 ## 4. LOCKED_REQUIREMENT_PENDING_FIX / AWAITING OWNER / DEFERRED
 
 - Latest Beta110 re-verification: exact source 1faebbf996836d442ec6e99ffba2a589bf3fcbd2; candidate 33554345340/9818862858; Service 33568634524/9824237674; visual/PDA/API36 33569543281/9824551840; Fast Check 33569530461; device 33570127113/9824662041; runtime 33573848594/9825920815; terminal 33574078129; publish 9826016343; OTA/install/readback 9826069523; final 9826075161. Stable/main/signer/authority unchanged.
