@@ -32,8 +32,8 @@ android {
         create("beta") {
             dimension = "channel"
             applicationId = "vn.pickpack1291.app.beta.publicbeta"
-            versionCode = 123
-            versionName = "0.4.2-beta.117"
+            versionCode = 124
+            versionName = "0.4.2-beta.118"
             manifestPlaceholders["appLabel"] = "Pick Pack 1291 Beta"
             buildConfigField("String", "CHANNEL", "\"BETA\"")
             buildConfigField("String", "ENVIRONMENT_ID", "\"BETA\"")
@@ -107,6 +107,7 @@ dependencies {
 // Firebase client identifiers are injected at build time and default blank so source never contains project config.
 // GSHEET_API_URL remains public discovery/fallback configuration and manual update lookup path; no Service URL is compiled into APK.
 // Signing material remains outside this repository and the Android signer is owner-locked.
+// Beta118: SUPERADMIN bulk old-session exit, owner test data, compact document/drop UI follow-up, targeted websocket refresh, and optimistic labor cache; preserves Beta117 accepted semantics. Stable unchanged.
 // Beta117: OWNER follow-up document compact/edit/fullscreen, cross-document viewer, dropped-receiving admin layout, large-data rendering, fixed-role labor bulk/per-person ack, true SUPERADMIN LAN mode, compact selects, and stronger transform-only tap feedback; preserves Beta116 ACTIVE_PASS. Stable unchanged.\n// Beta116: document batch UX/notes/viewer, PDA/drop/attendance/QR/labor/report refinements, SUPERADMIN password reset, global isolated LAN test control, and light tap feedback; preserves Beta115 accepted ACTIVE_PASS behavior. Stable unchanged.
 // Beta115: owner revisions for labor future-end caps/quarter-hour wrap/deduction/bulk operations, canonical selects, and current-day empty calendar selection; preserves Beta114 accepted ACTIVE_PASS behavior. Stable unchanged.
 // Beta114: supersedes locked pre-OTA Beta113; preserves inline roster while restoring ACTIVE_PASS roster filters/drilldown and employee-to-QR tap. Stable unchanged.\n// Beta113: pre-OTA candidate superseded after roster interaction regression; never published.

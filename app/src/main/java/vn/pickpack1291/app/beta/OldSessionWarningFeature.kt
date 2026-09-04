@@ -14,12 +14,15 @@ import android.widget.ScrollView
 import android.widget.TextView
 import org.json.JSONArray
 import org.json.JSONObject
+import java.util.UUID
 
 object OldSessionWarningFeature {
     const val WARNING_TEXT = "CẢNH BÁO: CÓ PHIÊN CŨ CHƯA BẮN RA"
+    @Volatile private var activeRefresh:(()->Unit)?=null
+    fun onRealtime(){activeRefresh?.invoke()}
     private data class Item(val sessionId:String,val mnv:String,val name:String,val date:String,val shift:String,val pda:String,val enterAt:String)
 
-    fun build(activity:Activity,api:BetaApiClient,onOpen:(JSONObject)->Unit):View{
+    fun build(activity:Activity,api:BetaApiClient,actualRole:String,confirmTime:(String,()->Unit)->Unit,onOpen:(JSONObject)->Unit):View{
         val d=activity.resources.displayMetrics.density
         fun dp(v:Int)=(v*d).toInt()
         fun round(color:Int,r:Int)=GradientDrawable().apply{setColor(color);cornerRadius=dp(r).toFloat()}
@@ -83,10 +86,32 @@ object OldSessionWarningFeature {
                 onOpen(j)
             }}
         }
+        fun reload(){
+            api.call("old_active_sessions"){r->activity.runOnUiThread{if(r.ok)apply(parse(r.json?.optJSONArray("items")?:JSONArray()))}}
+        }
         fun showList(){
             if(items.isEmpty())return
             val list=LinearLayout(activity).apply{orientation=LinearLayout.VERTICAL;setPadding(dp(10),dp(8),dp(10),dp(8))}
             var dialog:AlertDialog?=null
+            if(actualRole.uppercase()=="SUPERADMIN"){
+                val bulk=Button(activity).apply{
+                    text="RA CA TẤT CẢ HỢP LỆ";textSize=10f;setTextColor(Color.WHITE);typeface=Typeface.DEFAULT_BOLD;isAllCaps=false;background=round(Color.rgb(180,35,45),9)
+                    setOnClickListener{
+                        dialog?.dismiss()
+                        confirmTime("ra ca tất cả phiên cũ hợp lệ"){
+                            isEnabled=false
+                            api.call("old_active_sessions_bulk_exit",JSONObject().put("idempotency_key",UUID.randomUUID().toString())){r->activity.runOnUiThread{
+                                isEnabled=true
+                                if(!r.ok){TopNotice.show(activity,r.error?:"Không ra ca hàng loạt được.",TopNotice.Kind.ERROR);reload();return@runOnUiThread}
+                                val exited=r.json?.optInt("exited",0)?:0;val skipped=r.json?.optInt("skipped_labor",0)?:0;val failed=r.json?.optInt("failed_count",0)?:0
+                                TopNotice.show(activity,"Đã ra ca $exited phiên • bỏ qua công nhật $skipped${if(failed>0)" • lỗi $failed" else ""}.",if(failed>0)TopNotice.Kind.WARNING else TopNotice.Kind.SUCCESS)
+                                reload()
+                            }}
+                        }
+                    }
+                }
+                list.addView(bulk,LinearLayout.LayoutParams(-1,dp(42)).apply{bottomMargin=dp(7)})
+            }
             items.forEach{item->
                 val open={dialog?.dismiss();showDetail(item)}
                 val card=LinearLayout(activity).apply{orientation=LinearLayout.VERTICAL;setPadding(dp(10),dp(8),dp(10),dp(8));background=GradientDrawable().apply{setColor(Color.WHITE);cornerRadius=dp(10).toFloat();setStroke(dp(1),Color.rgb(220,226,230))};setOnClickListener{open()}}
@@ -100,7 +125,12 @@ object OldSessionWarningFeature {
         }
         button.setOnClickListener{showList()}
         apply(local())
-        api.call("old_active_sessions"){r->activity.runOnUiThread{if(r.ok)apply(parse(r.json?.optJSONArray("items")?:JSONArray()))}}
+        activeRefresh={activity.runOnUiThread{reload()}}
+        root.addOnAttachStateChangeListener(object:View.OnAttachStateChangeListener{
+            override fun onViewAttachedToWindow(v:View)=Unit
+            override fun onViewDetachedFromWindow(v:View){if(activeRefresh!=null)activeRefresh=null}
+        })
+        reload()
         return root
     }
 }

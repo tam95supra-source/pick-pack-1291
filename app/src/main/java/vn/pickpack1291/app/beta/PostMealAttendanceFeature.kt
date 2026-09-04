@@ -27,9 +27,16 @@ object PostMealAttendanceFeature {
     private const val TZ="Asia/Ho_Chi_Minh"
     @Volatile private var activeDate=""
     @Volatile private var activeRefresh:(()->Unit)?=null
+    @Volatile private var homeWarningRefresh:(()->Unit)?=null
 
     fun onRealtime(changedDates:Set<String>){
         if(activeDate.isNotBlank()&&activeDate in changedDates)activeRefresh?.invoke()
+        if(changedDates.isNotEmpty())homeWarningRefresh?.invoke()
+    }
+    fun onRealtimeFast(date:String){
+        if(date.isBlank())return
+        if(activeDate==date)activeRefresh?.invoke()
+        homeWarningRefresh?.invoke()
     }
     fun leave(){activeDate="";activeRefresh=null}
 
@@ -73,12 +80,18 @@ object PostMealAttendanceFeature {
             })
         }
         button.setOnClickListener{onOpen()}
+        fun remoteRefresh(){
+            api.call("meal_attendance_list",JSONObject().put("business_date",today)){r->activity.runOnUiThread{
+                if(r.ok&&r.json!=null){val fresh=JSONObject(r.json.toString());store.save(fresh);apply(fresh)}
+            }}
+        }
         apply(store.load(today))
-        api.call("meal_attendance_list",JSONObject().put("business_date",today)){r->activity.runOnUiThread{
-            if(r.ok&&r.json!=null){
-                val fresh=JSONObject(r.json.toString());store.save(fresh);apply(fresh)
-            }
-        }}
+        homeWarningRefresh={activity.runOnUiThread{remoteRefresh()}}
+        root.addOnAttachStateChangeListener(object:View.OnAttachStateChangeListener{
+            override fun onViewAttachedToWindow(v:View)=Unit
+            override fun onViewDetachedFromWindow(v:View){homeWarningRefresh=null}
+        })
+        remoteRefresh()
         return root
     }
 
@@ -148,10 +161,6 @@ object PostMealAttendanceFeature {
         val store=MealAttendanceLocalStore(activity)
         store.prune()
         val root=column()
-        val header=column().apply{setPadding(dp(12),dp(9),dp(12),dp(8));background=GradientDrawable(GradientDrawable.Orientation.TL_BR,intArrayOf(navy,ThemeManager.accent(activity))).apply{cornerRadius=0f}}
-        header.addView(text("ĐIỂM DANH",15f,Color.WHITE,true))
-        root.addView(header,LinearLayout.LayoutParams(-1,-2))
-
         val controls=column().apply{setPadding(dp(10),dp(8),dp(10),dp(6))}
         val dateBtn=button("",navy).apply{textSize=10.5f}
         val search=input("Tìm MNV / họ tên").apply{textSize=11.5f}

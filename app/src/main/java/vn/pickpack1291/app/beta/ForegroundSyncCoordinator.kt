@@ -44,6 +44,7 @@ class ForegroundSyncCoordinator(
 
     interface Listener {
         fun onStatus(status: Status)
+        fun onDayInvalidation(invalidation: JSONObject) {}
         fun onAuthExpired()
     }
 
@@ -65,6 +66,10 @@ class ForegroundSyncCoordinator(
     private val dayRealtime = M2RealtimeClient(app, M2RealtimeClient.Scope.DAY) { invalidation ->
         main.post {
             if (state != State.ACTIVE) return@post
+            // UI gets the invalidation immediately; canonical correctness still comes from the
+            // subsequent revision/delta reconcile. This removes the extra sync_status RTT from
+            // visible warning/list refresh on another PDA.
+            listener.onDayInvalidation(JSONObject(invalidation.toString()))
             val seq = invalidation.optLong("authority_seq", 0L)
             if (seq > lastSeq || invalidation.optLong("day_revision", 0L) > 0L) requestSync()
         }

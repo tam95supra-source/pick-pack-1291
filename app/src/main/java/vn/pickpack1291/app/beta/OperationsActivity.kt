@@ -117,6 +117,9 @@ class OperationsActivity : Activity() {
     private var reportRealtimeRefresh: ((Set<String>) -> Unit)? = null
     private var historyRealtimeRefresh: ((Set<String>) -> Unit)? = null
     private var employeeTimelineRealtimeRefresh: ((Set<String>) -> Unit)? = null
+    private var businessFastRealtimeRefresh: ((String) -> Unit)? = null
+    private var laborRealtimeRefresh: ((String) -> Unit)? = null
+    private var laborWarningRealtimeRefresh: (() -> Unit)? = null
     private var lastPingMs: Long? = null
     private var lastStatusUpdateAt: Long = 0L
     private var lanSevereWarningShown=false
@@ -179,6 +182,15 @@ class OperationsActivity : Activity() {
                 // Service-backed list can refresh its result box immediately. Local-projection screens
                 // wait for OperationalSyncEngine to commit the new revision, then update in place.
                 if (screenState=="LISTS") listsRealtimeRefresh?.invoke()
+            }
+
+            override fun onDayInvalidation(invalidation:JSONObject) {
+                val date=invalidation.optString("business_date")
+                when(screenState){
+                    "BUSINESS"->businessFastRealtimeRefresh?.invoke(date)
+                    "LABOR_HOME"->laborRealtimeRefresh?.invoke(date)
+                    "MEAL_ATTENDANCE"->PostMealAttendanceFeature.onRealtimeFast(date)
+                }
             }
 
             override fun onAuthExpired() { api.clearSession(); finishAffinity() }
@@ -251,22 +263,24 @@ class OperationsActivity : Activity() {
         module="BUSINESS";screenState="BUSINESS"
         val root=baseRoot("NGHIỆP VỤ");val body=body().apply{setPadding(dp(8),dp(6),dp(8),dp(76))}
         val dynamic=column(bg)
-        fun renderDynamic(){
-            dynamic.suppressLayout(true)
-            try {
-                dynamic.removeAllViews()
-                dynamic.addView(OldSessionWarningFeature.build(this,api){raw->openHistoricalSession(raw)},matchWrap())
-                dynamic.addView(PostMealAttendanceFeature.buildHomeWarning(this,api){postMealAttendanceScreen()},matchWrap())
-                if(isAdmin())dynamic.addView(laborOpenWarning(),matchWrap())
-                addBusinessShiftReconciliation(dynamic)
-            } finally { dynamic.suppressLayout(false) }
-        }
+        val oldWarning=OldSessionWarningFeature.build(this,api,role,{label,after->verifyTimePasswordOnly(label,after)}){raw->openHistoricalSession(raw)}
+        val mealWarning=PostMealAttendanceFeature.buildHomeWarning(this,api){postMealAttendanceScreen()}
+        dynamic.addView(oldWarning,matchWrap());dynamic.addView(mealWarning,matchWrap())
+        if(isAdmin())dynamic.addView(laborOpenWarning(),matchWrap())
+        val reconciliationHost=column(bg);dynamic.addView(reconciliationHost,matchWrap());addBusinessShiftReconciliation(reconciliationHost)
         body.addView(dynamic,matchWrap())
+        businessFastRealtimeRefresh={date->
+            if(screenState=="BUSINESS"){
+                OldSessionWarningFeature.onRealtime();PostMealAttendanceFeature.onRealtimeFast(date);laborWarningRealtimeRefresh?.invoke()
+            }
+        }
         businessRealtimeRefresh={dates->
             val current=operationalStore.businessDate()
-            if(screenState=="BUSINESS"&&(current.isBlank()||current in dates))renderDynamic()
+            if(screenState=="BUSINESS"&&(current.isBlank()||current in dates)){
+                OldSessionWarningFeature.onRealtime();PostMealAttendanceFeature.onRealtime(dates);laborWarningRealtimeRefresh?.invoke()
+                reconciliationHost.removeAllViews();addBusinessShiftReconciliation(reconciliationHost)
+            }
         }
-        renderDynamic()
         val cards=listOf(
             businessCard(R.drawable.ic_pp_scan,"Quét QR nhân sự","",true){employeeScan()},
             businessCard(R.drawable.ic_pp_attendance,"Điểm danh nhân sự","",true){postMealAttendanceScreen()},
@@ -291,13 +305,17 @@ class OperationsActivity : Activity() {
         val host=ReviewAlertUi.warningContainer(this)
         val open=reconciliationButton("",false).apply{visibility=View.GONE;setOnClickListener{laborHome()}}
         host.addView(open,ReviewAlertUi.fixedHeightParams(this))
-        api.call("labor_list",JSONObject().put("business_date",operationalStore.businessDate())){r->runOnUiThread{
-            if(!r.ok)return@runOnUiThread
-            val items=r.json?.optJSONArray("items")?:JSONArray();var count=0
-            for(i in 0 until items.length())if(items.optJSONObject(i)?.optString("state")?.equals("OPEN",true)==true)count++
-            if(count>0){open.text="CẢNH BÁO: $count CÔNG NHẬT CHƯA HOÀN THÀNH";open.visibility=View.VISIBLE;host.visibility=View.VISIBLE}
-        }}
-        return host
+        fun refresh(){
+            api.call("labor_list",JSONObject().put("business_date",operationalStore.businessDate())){r->runOnUiThread{
+                if(!r.ok)return@runOnUiThread
+                val items=r.json?.optJSONArray("items")?:JSONArray();var count=0
+                for(i in 0 until items.length())if(items.optJSONObject(i)?.optString("state")?.equals("OPEN",true)==true)count++
+                if(count>0){open.text="CẢNH BÁO: $count CÔNG NHẬT CHƯA HOÀN THÀNH";open.visibility=View.VISIBLE;host.visibility=View.VISIBLE}
+                else{open.visibility=View.GONE;host.visibility=View.GONE}
+            }}
+        }
+        laborWarningRealtimeRefresh={if(screenState=="BUSINESS")refresh()}
+        refresh();return host
     }
     private fun postMealAttendanceScreen(){
         module="BUSINESS"
@@ -1094,6 +1112,18 @@ class OperationsActivity : Activity() {
         val formatter=DateTimeFormatter.ofPattern("HHmm")
         return (-2L..2L).any{delta->now.plusMinutes(delta).format(formatter)==value}
     }
+    private fun verifyTimePasswordOnly(actionLabel:String,after:()->Unit){
+        if(!isActualSuper()){showError("Chỉ SUPERADMIN được thực hiện thao tác này.");return}
+        val pw=input("Mật khẩu thời gian HHmm",true)
+        val dialog=AlertDialog.Builder(this).setTitle("Xác thực $actionLabel").setView(pw).setNegativeButton("Hủy",null).setPositiveButton("XÁC THỰC",null).create()
+        dialog.setOnShowListener{dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener{
+            val value=pw.text.toString().trim();val now=java.time.ZonedDateTime.now(ZoneId.of("Asia/Ho_Chi_Minh"));val formatter=DateTimeFormatter.ofPattern("HHmm")
+            val ok=Regex("""\d{4}""").matches(value)&&(-2L..2L).any{delta->now.plusMinutes(delta).format(formatter)==value}
+            if(!ok){showError("Mật khẩu thời gian không hợp lệ.");return@setOnClickListener}
+            dialog.dismiss();after()
+        }};dialog.show();pw.requestFocus()
+    }
+
     private fun verifyActionPassword(actionLabel:String,after:()->Unit){
         val pw=input("Mật khẩu xác nhận",true)
         val dialog=AlertDialog.Builder(this).setTitle("Xác thực $actionLabel").setView(pw).setNegativeButton("Hủy",null).setPositiveButton("XÁC THỰC",null).create()
@@ -1515,6 +1545,14 @@ class OperationsActivity : Activity() {
         val posBox=column(bg);posBox.addView(segmentedChoice(positionChoices,posKey){k->posKey=k;posLabel=positionChoices.firstOrNull{it.second==k}?.first?:k;preferredPick="";preferredPackTable="";preferredPackUser="";preferredPackUsed=false;rebuildResources()},matchWrap());body.addView(labelled("Vị trí trong ca",posBox));body.addView(gap(7));body.addView(resource,matchWrap());rebuildResources()
         val enter=primary("VÀO CA",teal){};enter.setOnClickListener{val positions=JSONArray();if(posKey!="NONE")positions.put(JSONObject().put("position_key",posKey).put("position_label",posLabel));val resources=JSONArray();if(posKey=="PICK"){val typed=pdaField?.text?.toString()?.trim().orEmpty();val p=selectedPda?:resolvePdaObject(pdas,typed);val expected=p?.optString("last5").orEmpty().ifBlank{p?.optString("serial").orEmpty().takeLast(5)};if(p==null||typed!=expected){showError("Vị trí Pick bắt buộc chọn PDA bằng đúng 5 số cuối.");return@setOnClickListener};resources.put(JSONObject().put("resource_type","PDA").put("resource_id",p.optString("serial")).put("pda_enter_status",p.optString("status")));val choice=pickChoices.getOrNull(pickSpin?.selectedItemPosition?:0)?:("" to false);if(choice.first.isNotBlank())resources.put(JSONObject().put("resource_type","USER_PICK").put("resource_id",choice.first).put("duplicate_user",choice.second))};if(posKey=="PACK"){val q=packSelection;val table=q?.optString("table").orEmpty().trim();val user=q?.optString("user_pack").orEmpty().trim();if(q==null||table.isBlank()||user.isBlank()){showError("Chọn đủ Bàn Pack và User Pack đúng theo bàn.");return@setOnClickListener};resources.put(JSONObject().put("resource_type","PACK_TABLE").put("resource_id",table));resources.put(JSONObject().put("resource_type","USER_PACK").put("resource_id",user).put("duplicate_user",preferredPackUsed||q.optBoolean("duplicate_user")))};val gen=employeeLookupGeneration;enter.isEnabled=false;enter.text="ĐANG VÀO CA...";api.call("attendance_enter_v2",JSONObject().put("mnv",mnv).put("shift",shiftValue).put("positions",positions).put("resources",resources).put("idempotency_key",UUID.randomUUID().toString())){r->runOnUiThread{enter.isEnabled=true;enter.text="VÀO CA";if(!r.ok){showError(r.error?:"VÀO CA thất bại");return@runOnUiThread};TopNotice.show(this,"Đã ghi nhận vào ca.",TopNotice.Kind.SUCCESS);foregroundSync.requestSync();if(gen==employeeLookupGeneration&&liveEmployeeMnv==mnv)scheduleAttendanceAutoReset(mnv,gen)}}};body.addView(gap(8));body.addView(enter,matchWrap())
     }
+    private fun patchLaborCacheOptimistic(item:JSONObject){
+        val date=item.optString("business_date");val laborId=item.optString("labor_id");if(date.isBlank()||laborId.isBlank())return
+        val cache=getSharedPreferences("pp_labor_list_cache_v116",MODE_PRIVATE);val raw=cache.getString(date,"").orEmpty();val rows=mutableListOf<JSONObject>()
+        if(raw.isNotBlank())runCatching{val a=JSONArray(raw);for(i in 0 until a.length())a.optJSONObject(i)?.let{rows.add(JSONObject(it.toString()))}}
+        val at=rows.indexOfFirst{it.optString("labor_id")==laborId};if(at>=0)rows[at]=JSONObject(item.toString()) else rows.add(0,JSONObject(item.toString()))
+        cache.edit().putString(date,JSONArray(rows).toString()).apply()
+    }
+
     private fun laborBatchCandidateFromSession(s:JSONObject):JSONObject{
         val id=shiftStaffIdentity(s)
         return JSONObject()
@@ -1635,11 +1673,13 @@ class OperationsActivity : Activity() {
                             .put("deduct_staff",deductRequested&&!fixedMain&&!fixedLabor).put("note",noteText)
                         api.call("labor_start",payload){started->runOnUiThread{
                             if(!started.ok){failures.add("$mnv: ${started.error?:"không tạo được"}");next(index+1,ok);return@runOnUiThread}
+                            val optimistic=JSONObject().put("labor_id",laborId).put("mnv",mnv).put("business_date",session.optString("business_date")).put("shift",session.optString("shift")).put("labor_type",type).put("state","OPEN").put("start_at",startIso).put("end_at",JSONObject.NULL).put("note",noteText).put("deduct_staff",deductRequested&&!fixedMain&&!fixedLabor).put("attendance_session_id",session.optString("session_id")).put("full_name",row.optString("full_name")).put("supplier",row.optString("supplier")).put("position",row.optString("position"))
+                            patchLaborCacheOptimistic(optimistic)
                             if(end==null){next(index+1,ok+1);return@runOnUiThread}
                             api.call("labor_finish",JSONObject().put("event_id",UUID.randomUUID().toString()).put("depends_on_event_id",startEvent).put("labor_id",laborId)
                                 .put("mnv",mnv).put("business_date",session.optString("business_date")).put("session_id",session.optString("session_id")).put("start_at",startIso).put("end_at",end).put("note",noteText)){done->runOnUiThread{
                                 if(!done.ok){failures.add("$mnv: đã tạo nhưng chưa kết thúc — ${done.error?:"lỗi"}");next(index+1,ok)}
-                                else next(index+1,ok+1)
+                                else{patchLaborCacheOptimistic(JSONObject(optimistic.toString()).put("state","COMPLETED").put("end_at",end));next(index+1,ok+1)}
                             }}
                         }}
                     }}
@@ -1888,6 +1928,7 @@ class OperationsActivity : Activity() {
                 cache.edit().putString(selectedLaborDate,a.toString()).apply();renderRows(fresh);reviewFixed(fresh)
             }}
         }
+        laborRealtimeRefresh={date->if(screenState=="LABOR_HOME"&&date==selectedLaborDate)loadOpen()}
 
         var busy=false
         fun submit(){

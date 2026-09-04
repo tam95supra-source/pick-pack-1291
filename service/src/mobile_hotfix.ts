@@ -1,10 +1,11 @@
 import { authenticate } from "./auth";
-import { currentAuthority } from "./core";
+import { commitMutation, currentAuthority } from "./core";
 import { bangkokToday, ensureCurrentBangkokBusinessDate } from "./business_date";
 import { historicalSessionDetail } from "./historical_beta78";
 import { outboundAction } from "./outbound_beta78";
 import { mealAttendanceDates, mealAttendanceList } from "./meal_attendance";
 import { apiError, b64u, b64uDecode, hmacB64u, json, nowIso, readJsonBody } from "./util";
+import type { AuthContext } from "./domain";
 
 type GasTokenPayload = { l?:string; r?:string; v?:string; s?:string; d?:string };
 type Employee = { mnv:string; full_name:string; phone:string; main_position:string; supplier:string; department:string; site:string; warehouse:string; start_date:string; note:string };
@@ -149,6 +150,32 @@ async function oldActiveSessions(env:Env):Promise<Response>{
   return json({ok:true,source:"SERVICE_D1",business_date:date,count:items.length,items});
 }
 
+async function oldActiveSessionsBulkExit(env:Env,auth:AuthContext):Promise<Response>{
+  if(auth.role!=="SUPERADMIN")return apiError("SUPERADMIN_REQUIRED","PERMISSION",403);
+  const date=await businessDate(env.DB);
+  const items=(await env.DB.prepare(`SELECT s.session_id,s.mnv,s.business_date,s.shift,s.pda_serial,s.version,
+      (SELECT COUNT(*) FROM labor_sessions l WHERE l.mnv=s.mnv AND l.business_date=s.business_date) labor_count
+    FROM attendance_sessions s
+    WHERE s.state='ACTIVE' AND s.business_date<?1
+    ORDER BY s.business_date ASC,s.enter_at ASC,s.mnv ASC`).bind(date).all<Record<string,unknown>>()).results??[];
+  let exited=0;const skippedLabor:Array<Record<string,unknown>>=[];const failed:Array<Record<string,unknown>>=[];
+  for(const row of items){
+    const sessionId=String(row.session_id||""),mnv=String(row.mnv||""),businessDateValue=String(row.business_date||"");
+    if(Number(row.labor_count||0)>0){skippedLabor.push({session_id:sessionId,mnv,business_date:businessDateValue,reason:"HAS_LABOR"});continue;}
+    try{
+      await commitMutation(env.DB,env,auth,{
+        event_id:crypto.randomUUID(),event_type:"ATTENDANCE_EXIT",entity_type:"ATTENDANCE_SESSION",entity_id:sessionId,
+        business_date:businessDateValue,base_version:Number(row.version||0),timestamp:nowIso(),
+        payload:{mnv,pda_exit_status:"SUPERADMIN_CONFIRMED",resource_note:"SUPERADMIN_BULK_OLD_SESSION_EXIT",superadmin_bulk_exit:true,pda_auto_confirmed:Boolean(String(row.pda_serial||""))},
+        idempotency_key:`OLD_SESSION_BULK_EXIT|${sessionId}|${Number(row.version||0)}`,device_id:auth.device_id||"SUPERADMIN_BULK_EXIT",schema_version:1,client_source:"PDA"
+      });
+      exited++;
+    }catch(error){failed.push({session_id:sessionId,mnv,business_date:businessDateValue,error:String(error instanceof Error?error.message:error).slice(0,160)});}
+  }
+  const remaining=(await env.DB.prepare("SELECT s.session_id,s.mnv,s.business_date,s.shift,s.work_choice,s.state,s.pda_serial,s.user_pick,s.pack_table,s.user_pack,s.enter_at,s.version,COALESCE(e.full_name,'') full_name FROM attendance_sessions s LEFT JOIN employees e ON e.mnv=s.mnv WHERE s.state='ACTIVE' AND s.business_date<?1 ORDER BY s.business_date ASC,s.enter_at ASC,s.mnv ASC").bind(date).all<Record<string,unknown>>()).results??[];
+  return json({ok:true,source:"SERVICE_D1",business_date:date,exited,skipped_labor:skippedLabor.length,failed_count:failed.length,skipped_labor_items:skippedLabor,failed,remaining_count:remaining.length,items:remaining});
+}
+
 function eventLabel(type:string):string{return type==="ATTENDANCE_ENTER"?"Vào ca":type==="ATTENDANCE_EXIT"?"Ra ca":type==="RESOURCE_CHANGE"?"Đổi tài nguyên":type==="LABOR_START"?"Bắt đầu công nhật":type==="LABOR_FINISH"?"Hoàn thành công nhật":type;}
 
 async function sharedHistory(env:Env,body:Record<string,unknown>):Promise<Response>{
@@ -200,6 +227,7 @@ export async function mobileRead(request:Request,env:Env):Promise<Response>{
   if(action==="master_options")return json(await resourceOptions(env.DB,await businessDate(env.DB),String(body.mnv||"")));
   if(action==="history_shared")return sharedHistory(env,body);
   if(action==="old_active_sessions")return oldActiveSessions(env);
+  if(action==="old_active_sessions_bulk_exit")return oldActiveSessionsBulkExit(env,auth);
   if(action==="historical_session_detail")return historicalSessionDetail(env,body);
   if(action==="meal_attendance_list")return mealAttendanceList(env,{business_date:String(body.business_date||"")});
   if(action==="meal_attendance_dates")return mealAttendanceDates(env);

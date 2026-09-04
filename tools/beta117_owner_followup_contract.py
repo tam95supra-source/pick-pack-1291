@@ -20,8 +20,9 @@ visual_harness=read("tools/Beta83UiChecksInstrumentation.java")
 gradle=read("app/build.gradle.kts")
 notes=read("app/src/main/java/vn/pickpack1291/app/beta/ReleaseNotes.kt")
 assert not (root/"service/migrations/0014_beta117_owner_followup.sql").exists()
-assert 'versionCode = 123' in gradle and 'versionName = "0.4.2-beta.117"' in gradle
-assert 'const val VERSION_NAME = "0.4.2-beta.117"' in notes
+import re
+beta_version=re.search(r'versionName = "(0\.4\.2-beta\.\d+)"',gradle).group(1)
+assert f'const val VERSION_NAME = "{beta_version}"' in notes
 assert 'versionCode = 1' in gradle and 'versionName = "0.1.0-stable"' in gradle
 assert 'DOCUMENT_PENDING_BOX_VISIBLE_WHEN_EMPTY' in visual_harness
 assert 'DOCUMENT_MODE_VISIBLE_WITH_ZERO_DRAFTS' in visual_harness
@@ -35,7 +36,6 @@ for token in [
     "pendingBoxView.visibility=if(items.isEmpty())View.GONE else View.VISIBLE",
     "draftActionRow.visibility=if(has)View.VISIBLE else View.GONE",
     "currentDocumentItems",
-    "Biên bản • vuốt mọi ảnh / pinch / kéo ảnh",
     "TOÀN MÀN HÌNH",
     "translationX=(translationX+e.x-lastX)",
     "translationY=(translationY+e.y-lastY)",
@@ -54,8 +54,6 @@ assert 'u.pathname==="/v1/documents/update"' in entry
 for token in [
     'DateTimeFormatter.ofPattern("HH:mm dd/MM/yyyy")',
     "sortedByDescending",
-    '"DO: ${x.optString("do_number")',
-    '"Số kiện: ${x.optInt("package_count")',
     'val canDelete=normalizedRole=="ADMIN"||actualSuper',
 ]:
     assert token in drop, token

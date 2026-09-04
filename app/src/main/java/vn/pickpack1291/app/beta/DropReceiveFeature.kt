@@ -55,11 +55,6 @@ object DropReceiveFeature {
         fun warning(message:String)=TopNotice.show(activity,message,TopNotice.Kind.WARNING)
 
         val root=column()
-        val bar=row().apply{setPadding(dp(10),dp(7),dp(10),dp(7));background=GradientDrawable(GradientDrawable.Orientation.TL_BR,intArrayOf(navy,ThemeManager.accent(activity))).apply{cornerRadius=0f}}
-        bar.addView(ImageView(activity).apply{setImageResource(R.drawable.ic_pp_back);imageTintList=ColorStateList.valueOf(Color.WHITE);setPadding(dp(6),dp(6),dp(6),dp(6));contentDescription="Quay lại";setOnClickListener{onBack()}},LinearLayout.LayoutParams(dp(34),dp(34)))
-        bar.addView(text("NHẬN HÀNG RỚT",15f,Color.WHITE,true),LinearLayout.LayoutParams(0,-2,1f).apply{marginStart=dp(5)})
-        root.addView(bar,LinearLayout.LayoutParams(-1,-2))
-
         val body=column().apply{setPadding(dp(10),dp(8),dp(10),dp(18))}
         val normalizedRole=actualRole.uppercase();val actualSuper=normalizedRole=="SUPERADMIN";val canDelete=normalizedRole=="ADMIN"||actualSuper
         val locationSpinner=Spinner(activity).apply{minimumHeight=dp(38);setPadding(dp(7),dp(1),dp(7),dp(1));background=bg()}
@@ -79,13 +74,11 @@ object DropReceiveFeature {
         doPackage.addView(field("DO",order),LinearLayout.LayoutParams(0,-2,1f).apply{marginEnd=dp(4)})
         doPackage.addView(field("Số kiện",packages),LinearLayout.LayoutParams(0,-2,1f).apply{marginStart=dp(4)})
         body.addView(doPackage,LinearLayout.LayoutParams(-1,-2));body.addView(gap(10))
-        val addBtn=button("Thêm thông tin",teal).apply{textSize=11f};val clearBtn=button("Xóa toàn bộ",red).apply{textSize=11f;isEnabled=canDelete;alpha=if(canDelete)1f else .35f}
-        val actions=row();actions.addView(addBtn,LinearLayout.LayoutParams(0,dp(46),1f).apply{marginEnd=dp(4)});actions.addView(clearBtn,LinearLayout.LayoutParams(0,dp(46),1f).apply{marginStart=dp(4)});body.addView(actions,LinearLayout.LayoutParams(-1,-2))
-        body.addView(gap(10))
-        val listHead=row();listHead.addView(text("Danh sách hàng rớt",11f,navy,true),LinearLayout.LayoutParams(0,-2,1f))
-        val selectAll=button("Chọn tất cả",navy);val deleteSelected=button("Xóa đã chọn",red).apply{isEnabled=false;alpha=.4f;visibility=if(canDelete)View.VISIBLE else View.GONE}
-        listHead.addView(selectAll,LinearLayout.LayoutParams(dp(94),dp(38)).apply{marginEnd=dp(3)});listHead.addView(deleteSelected,LinearLayout.LayoutParams(dp(106),dp(38)))
-        body.addView(listHead,LinearLayout.LayoutParams(-1,-2));body.addView(gap(5))
+        val addBtn=button("Thêm thông tin",teal).apply{textSize=10.2f}
+        val selectAll=button("Chọn tất cả",navy).apply{textSize=9.4f;visibility=if(canDelete)View.VISIBLE else View.GONE}
+        val deleteSelected=button("Xóa đã chọn",red).apply{textSize=9.4f;isEnabled=false;alpha=.4f;visibility=if(canDelete)View.VISIBLE else View.GONE}
+        val actions=row();actions.addView(addBtn,LinearLayout.LayoutParams(0,dp(44),1.15f).apply{marginEnd=dp(3)});actions.addView(selectAll,LinearLayout.LayoutParams(0,dp(44),.9f).apply{marginStart=dp(3);marginEnd=dp(3)});actions.addView(deleteSelected,LinearLayout.LayoutParams(0,dp(44),1f).apply{marginStart=dp(3)});body.addView(actions,LinearLayout.LayoutParams(-1,-2))
+        body.addView(gap(7))
         val dropList=column();body.addView(dropList,LinearLayout.LayoutParams(-1,-2))
         body.addView(gap(8));body.addView(text("Service/D1 xác nhận ngay; Google Sheet được đồng bộ nền qua outbox.",9f,muted,false))
 
@@ -98,6 +91,9 @@ object DropReceiveFeature {
         val selectedDropIds=linkedSetOf<String>()
         var displayedDropIds=listOf<String>()
         var dropRenderGeneration=0L
+        var dropPageStart=0
+        val dropPageSize=50
+        var lastDropItems=listOf<JSONObject>()
         fun selectedLocation():String=if(locationItems.isEmpty())"" else locationItems.getOrNull(locationSpinner.selectedItemPosition).orEmpty()
         fun setLocations(items:List<String>,preferred:String=""){
             val clean=items.map{it.trim()}.filter{it.isNotBlank()}.distinct();locationItems=clean
@@ -117,15 +113,26 @@ object DropReceiveFeature {
         }
         fun renderDropList(items:List<JSONObject>){
             val sorted=items.sortedByDescending{runCatching{java.time.Instant.parse(it.optString("created_at")).toEpochMilli()}.getOrDefault(0L)}
+            lastDropItems=sorted
+            if(dropPageStart>=sorted.size&&dropPageStart>0)dropPageStart=((sorted.size-1).coerceAtLeast(0)/dropPageSize)*dropPageSize
+            val pageItems=sorted.drop(dropPageStart).take(dropPageSize)
             val generation=++dropRenderGeneration
-            dropList.removeAllViews();displayedDropIds=sorted.map{it.optString("record_id")}.filter{it.isNotBlank()}
-            selectedDropIds.retainAll(displayedDropIds.toSet());updateDeleteSelection()
+            dropList.removeAllViews();displayedDropIds=pageItems.map{it.optString("record_id")}.filter{it.isNotBlank()}
+            selectedDropIds.retainAll(sorted.map{it.optString("record_id")}.filter{it.isNotBlank()}.toSet());updateDeleteSelection()
             if(sorted.isEmpty()){dropList.addView(text("Chưa có dữ liệu nhận hàng rớt.",9.7f,muted,false));return}
+            fun addPager(){
+                val from=dropPageStart+1;val to=(dropPageStart+pageItems.size).coerceAtMost(sorted.size)
+                val nav=row();
+                val prev=button("‹ 50 TRƯỚC",navy).apply{visibility=if(dropPageStart>0)View.VISIBLE else View.INVISIBLE;setOnClickListener{dropPageStart=(dropPageStart-dropPageSize).coerceAtLeast(0);renderDropList(lastDropItems)}}
+                val count=text("$from–$to / ${sorted.size}",8.8f,muted,true).apply{gravity=Gravity.CENTER}
+                val next=button("50 TIẾP ›",teal).apply{visibility=if(dropPageStart+dropPageSize<sorted.size)View.VISIBLE else View.INVISIBLE;setOnClickListener{dropPageStart+=dropPageSize;renderDropList(lastDropItems)}}
+                nav.addView(prev,LinearLayout.LayoutParams(0,dp(36),1f).apply{marginEnd=dp(3)});nav.addView(count,LinearLayout.LayoutParams(0,dp(36),.8f));nav.addView(next,LinearLayout.LayoutParams(0,dp(36),1f).apply{marginStart=dp(3)});dropList.addView(nav,LinearLayout.LayoutParams(-1,dp(36)))
+            }
             fun addDropChunk(from:Int){
                 if(generation!=dropRenderGeneration)return
-                val to=minOf(from+20,sorted.size)
+                val to=minOf(from+20,pageItems.size)
                 for(i in from until to){
-                    val x=sorted[i];val id=x.optString("record_id")
+                    val x=pageItems[i];val id=x.optString("record_id")
                     val card=column().apply{setPadding(dp(8),dp(7),dp(8),dp(7));background=bg()}
                     val line=row().apply{gravity=Gravity.CENTER_VERTICAL}
                     val check=CheckBox(activity).apply{visibility=if(canDelete)View.VISIBLE else View.GONE;isChecked=id in selectedDropIds;setOnCheckedChangeListener{_,on->if(on)selectedDropIds.add(id)else selectedDropIds.remove(id);updateDeleteSelection()}}
@@ -133,11 +140,11 @@ object DropReceiveFeature {
                     fun cell(value:String,weight:Float,gravityValue:Int=Gravity.START)=text(value,8.9f,ink,true).apply{gravity=gravityValue;maxLines=2;setPadding(dp(3),0,dp(3),0)}
                     line.addView(cell(fmtDropTime(x.optString("created_at")),1.18f),LinearLayout.LayoutParams(0,-2,1.18f))
                     line.addView(cell(x.optString("location").ifBlank{"-"},.78f),LinearLayout.LayoutParams(0,-2,.78f))
-                    line.addView(cell("DO: ${x.optString("do_number").ifBlank{"-"}}",1.12f),LinearLayout.LayoutParams(0,-2,1.12f))
-                    line.addView(cell("Số kiện: ${x.optInt("package_count")}",.92f,Gravity.END),LinearLayout.LayoutParams(0,-2,.92f))
+                    line.addView(cell(x.optString("do_number").ifBlank{"-"},1.12f),LinearLayout.LayoutParams(0,-2,1.12f))
+                    line.addView(cell(x.optInt("package_count").toString(),.92f,Gravity.END),LinearLayout.LayoutParams(0,-2,.92f))
                     card.addView(line);dropList.addView(card,LinearLayout.LayoutParams(-1,-2).apply{bottomMargin=dp(5)})
                 }
-                if(to<sorted.size)dropList.post{addDropChunk(to)}
+                if(to<pageItems.size)dropList.post{addDropChunk(to)} else addPager()
             }
             dropList.post{addDropChunk(0)}
         }
@@ -149,7 +156,7 @@ object DropReceiveFeature {
             }}
         }
         selectAll.visibility=if(canDelete)View.VISIBLE else View.GONE
-        selectAll.setOnClickListener{if(!canDelete)return@setOnClickListener;selectedDropIds.clear();selectedDropIds.addAll(displayedDropIds);updateDeleteSelection();loadDropList()}
+        selectAll.setOnClickListener{if(!canDelete)return@setOnClickListener;selectedDropIds.clear();selectedDropIds.addAll(displayedDropIds);updateDeleteSelection();renderDropList(lastDropItems)}
         deleteSelected.setOnClickListener{
             if(!canDelete){error("Chỉ ADMIN/SUPERADMIN được xóa hàng rớt.");return@setOnClickListener};val ids=selectedDropIds.toList();if(ids.isEmpty())return@setOnClickListener
             confirmAction("xóa ${ids.size} hàng rớt"){
@@ -203,15 +210,6 @@ object DropReceiveFeature {
                 if(!r.ok){error(r.error?:"Service/D1 chưa xác nhận. Dữ liệu trên form được giữ nguyên để thử lại cùng mã chống trùng.");return@runOnUiThread}
                 pendingRecordId=null;qr.setText("");order.setText("");packages.setText("");success("Service/D1 đã nhận đúng một bản ghi; Google Sheet đồng bộ nền.");loadDropList()
             }}
-        }
-
-        clearBtn.setOnClickListener{
-            if(!canDelete){error("Chỉ ADMIN/SUPERADMIN được xóa hàng rớt.");return@setOnClickListener}
-            AlertDialog.Builder(activity).setTitle("Xóa toàn bộ dữ liệu?").setMessage("Chỉ xóa các dòng nghiệp vụ trong tab Nhận hàng rớt; không xóa header, Vị trí, quyền hoặc protected ranges.").setNegativeButton("Hủy",null).setPositiveButton("TIẾP TỤC"){_,_->
-                val pw=input("Nhập mật khẩu thực tế").apply{inputType=InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD}
-                val authDialog=AlertDialog.Builder(activity).setTitle("Xác thực trước khi xóa").setView(pw).setNegativeButton("Hủy",null).setPositiveButton("XÁC THỰC",null).create()
-                authDialog.setOnShowListener{val b=authDialog.getButton(AlertDialog.BUTTON_POSITIVE);b.setOnClickListener{val password=pw.text.toString();if(password.isBlank()){error("Nhập mật khẩu thực tế.");return@setOnClickListener};b.isEnabled=false;b.text="Đang xác thực...";api.login(login,password){lr->activity.runOnUiThread{b.isEnabled=true;b.text="XÁC THỰC";if(!lr.ok){error("Không thể xác thực mật khẩu.");return@runOnUiThread};authDialog.dismiss();clearBtn.isEnabled=false;api.call("outbound_drop_clear",JSONObject().put("idempotency_key",UUID.randomUUID().toString())){cr->activity.runOnUiThread{clearBtn.isEnabled=true;if(!cr.ok){error(cr.error?:"Service/D1 chưa xác nhận lệnh xóa.");return@runOnUiThread};success("Service/D1 đã xác nhận xóa; Google Sheet đồng bộ nền.")}}}}}};authDialog.show();pw.requestFocus()
-            }.show()
         }
 
         setLocations(cachedLocations());reloadLocations(selectedLocation());loadDropList()

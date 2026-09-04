@@ -1,7 +1,7 @@
 package vn.pickpack1291.app.beta
 
 object ReleaseNotes {
-    const val VERSION_NAME = "0.4.2-beta.117"
+    const val VERSION_NAME = "0.4.2-beta.118"
 
     private val current = listOf(
         "Quản lý biên bản gọn hơn: nút thao tác cùng hàng, tự ẩn vùng rỗng/chế độ không cần thiết, hỗ trợ sửa và xóa từng hoặc nhiều ảnh.",

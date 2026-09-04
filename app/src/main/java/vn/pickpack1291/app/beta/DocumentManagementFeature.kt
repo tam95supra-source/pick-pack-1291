@@ -232,11 +232,7 @@ object DocumentManagementFeature {
             body.addView(pendingBox,LinearLayout.LayoutParams(-1,-2))
             body.addView(gap(12))
 
-            val listHead=row()
-            listHead.addView(text("Biên bản đã tải",11.5f,navy,true),LinearLayout.LayoutParams(0,-2,1f))
-            val refresh=button("Làm mới",navy)
-            listHead.addView(refresh,LinearLayout.LayoutParams(dp(90),dp(38)))
-            body.addView(listHead,LinearLayout.LayoutParams(-1,-2));body.addView(gap(5))
+            body.addView(text("Biên bản đã tải",11.5f,navy,true));body.addView(gap(5))
             filterSpinner=Spinner(activity).apply{minimumHeight=dp(36);setPadding(dp(7),0,dp(7),0);background=bg()}
             filterCategoryIds=listOf("")+categoryIds
             filterSpinner.adapter=ArrayAdapter(activity,android.R.layout.simple_spinner_dropdown_item,listOf("Tất cả loại biên bản")+categoryNames)
@@ -244,9 +240,11 @@ object DocumentManagementFeature {
             selectedDeleteText=text("Đã chọn 0 ảnh",8.8f,muted,true)
             val selectAllUploaded=iconButton(android.R.drawable.ic_menu_agenda,navy,"Chọn tất cả biên bản đang lọc")
             deleteSelectedButton=iconButton(R.drawable.ic_pp_delete,red,"Xóa biên bản đã chọn").apply{isEnabled=false;alpha=.4f}
+            val refresh=iconButton(R.drawable.ic_pp_sync,teal,"Làm mới biên bản")
             selectionRow.addView(filterSpinner,LinearLayout.LayoutParams(0,dp(38),1f).apply{marginEnd=dp(4)})
             selectionRow.addView(selectAllUploaded,LinearLayout.LayoutParams(dp(40),dp(40)).apply{marginEnd=dp(4)})
-            selectionRow.addView(deleteSelectedButton,LinearLayout.LayoutParams(dp(40),dp(40)))
+            selectionRow.addView(deleteSelectedButton,LinearLayout.LayoutParams(dp(40),dp(40)).apply{marginEnd=dp(4)})
+            selectionRow.addView(refresh,LinearLayout.LayoutParams(dp(40),dp(40)))
             body.addView(selectionRow);body.addView(selectedDeleteText);body.addView(gap(5))
             emptyText=text("Đang tải...",9.5f,muted).apply{setPadding(dp(4),dp(8),dp(4),dp(8))}
             body.addView(emptyText)
@@ -263,9 +261,11 @@ object DocumentManagementFeature {
             refresh.setOnClickListener{refreshDocuments();refreshPending()}
             selectAllDraftButton.setOnClickListener{selectedDraftKeys.clear();selectedDraftKeys.addAll(selected.map{it.idempotencyKey});renderSelectedPreview()}
             deleteDraftButton.setOnClickListener{
-                val keys=selectedDraftKeys.toSet();if(keys.isNotEmpty()){
-                    draftStore.removeItems(login,keys);selected.removeAll{it.idempotencyKey in keys};selectedDraftKeys.clear();renderSelectedPreview()
-                }
+                val keys=selectedDraftKeys.toSet();if(keys.isEmpty())return@setOnClickListener
+                AlertDialog.Builder(activity).setTitle("Xóa ảnh chưa tải lên?").setMessage("Xóa ${keys.size} ảnh đã chọn khỏi hàng chờ trên thiết bị?")
+                    .setNegativeButton("HỦY",null).setPositiveButton("XÓA"){_,_->
+                        draftStore.removeItems(login,keys);selected.removeAll{it.idempotencyKey in keys};selectedDraftKeys.clear();renderSelectedPreview()
+                    }.show()
             }
             deleteSelectedButton.setOnClickListener{deleteSelectedRecords()}
             selectAllUploaded.setOnClickListener{
@@ -838,19 +838,24 @@ object DocumentManagementFeature {
             host.addView(full,LinearLayout.LayoutParams(-1,dp(36)));host.addView(gap(5))
             val editRow=row();editRow.addView(category,LinearLayout.LayoutParams(0,dp(38),.42f).apply{marginEnd=dp(4)});editRow.addView(note,LinearLayout.LayoutParams(0,-2,.58f))
             host.addView(editRow,LinearLayout.LayoutParams(-1,-2));host.addView(pick)
-            val dialog=AlertDialog.Builder(activity).setTitle("Biên bản • vuốt mọi ảnh / pinch / kéo ảnh").setView(host).setNegativeButton("Đóng",null)
-                .setNeutralButton("XÓA ẢNH ĐÃ CHỌN",null).setPositiveButton("LƯU",null).create()
-            dialog.setOnShowListener{
-                dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener{
-                    if(categoryIds.isEmpty())return@setOnClickListener
-                    val item=sequence[index];val categoryId=categoryIds.getOrNull(category.selectedItemPosition)?:item.optString("category_id")
-                    confirmAction("sửa ảnh biên bản"){updateDocumentRecord(item,categoryId,note.text.toString().trim()){if(it)loadCurrent()}}
-                }
-                dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener{
-                    val ids=selectedInViewer.toList();if(ids.isEmpty()){warning("Chọn ít nhất một ảnh.");return@setOnClickListener}
-                    confirmAction("xóa ${ids.size} ảnh trong biên bản"){dialog.dismiss();startDeleteRecords(ids)}
-                }
+            lateinit var dialog:AlertDialog
+            val viewerActions=row()
+            val save=button("LƯU",teal);val deletePicked=button("XÓA ĐÃ CHỌN",red);val close=button("ĐÓNG",navy)
+            viewerActions.addView(save,LinearLayout.LayoutParams(0,dp(40),.8f).apply{marginEnd=dp(3)})
+            viewerActions.addView(deletePicked,LinearLayout.LayoutParams(0,dp(40),1.25f).apply{marginStart=dp(3);marginEnd=dp(3)})
+            viewerActions.addView(close,LinearLayout.LayoutParams(0,dp(40),.8f).apply{marginStart=dp(3)})
+            host.addView(gap(5));host.addView(viewerActions,LinearLayout.LayoutParams(-1,dp(40)))
+            dialog=AlertDialog.Builder(activity).setView(host).create()
+            save.setOnClickListener{
+                if(categoryIds.isEmpty())return@setOnClickListener
+                val item=sequence[index];val categoryId=categoryIds.getOrNull(category.selectedItemPosition)?:item.optString("category_id")
+                confirmAction("sửa ảnh biên bản"){updateDocumentRecord(item,categoryId,note.text.toString().trim()){if(it)loadCurrent()}}
             }
+            deletePicked.setOnClickListener{
+                val ids=selectedInViewer.toList();if(ids.isEmpty()){warning("Chọn ít nhất một ảnh.");return@setOnClickListener}
+                confirmAction("xóa ${ids.size} ảnh trong biên bản"){dialog.dismiss();startDeleteRecords(ids)}
+            }
+            close.setOnClickListener{dialog.dismiss()}
             dialog.show();loadCurrent()
         }
         private fun formatTime(value:String):String=runCatching{
