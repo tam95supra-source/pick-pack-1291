@@ -1,0 +1,196 @@
+name: Beta119 fenced replication recovery drain
+
+on:
+  push:
+    branches:
+      - ops/beta119-seed200-replication-drain-20260904
+    paths:
+      - .github/workflows/ops-beta119-replication-fenced-drain.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: beta119-fenced-replication-recovery
+  cancel-in-progress: false
+
+jobs:
+  recover:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      D1_NAME: pick-pack-1291-service-prod
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+      GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+      GOOGLE_OAUTH_REFRESH_TOKEN: ${{ secrets.GOOGLE_OAUTH_REFRESH_TOKEN }}
+      GOOGLE_SOURCE_SHEET_ID: 1E7ZWz-4eMcBliQxDYBVoogIoeSYyiaXGwj0I6mbMm78
+      PREV_SERVICE_SHA: bbb69c9d93a2713cd24e47d82bfdaf0d5e064608
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Fence Beta LIVE exact population
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          cfg=json.load(open('config/environment_contracts.json',encoding='utf-8'))
+          b=cfg['environments']['BETA'];s=cfg['environments']['STABLE']
+          assert b['lifecycle']=='LIVE' and b['current_service']['worker']=='pickpack'
+          assert b['current_service']['d1_database']=='pick-pack-1291-service-prod'
+          assert s['lifecycle']!='LIVE' and s['stable_publish_allowed'] is False
+          PY
+          npm --prefix service install --ignore-scripts --no-audit --no-fund
+          npx --prefix service wrangler d1 execute "$D1_NAME" --remote --json --command "SELECT mode,scope FROM authority_state WHERE singleton_id=1; SELECT COUNT(*) n FROM attendance_sessions WHERE business_date='2026-09-04' AND state='ACTIVE' AND exit_at IS NULL; SELECT COUNT(*) n FROM labor_sessions WHERE business_date='2026-09-04';" > /tmp/pre.json
+          python3 - <<'PY'
+          import json
+          rows=[]
+          for x in json.load(open('/tmp/pre.json')): rows += x.get('results') or []
+          a=next(x for x in rows if 'mode' in x); nums=[int(x['n']) for x in rows if 'n' in x]
+          assert a['mode']=='SERVICE_PRIMARY' and a['scope']=='PRODUCTION'
+          assert nums[:2]==[200,0],nums
+          PY
+      - name: Patch bounded writer and fenced recovery auth
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('service/src/index.ts'); s=p.read_text(encoding='utf-8')
+          anchor='async function gasBridgeAuthorized(request:Request,env:Env):Promise<boolean>{const supplied=request.headers.get("x-gas-bridge-secret")||"";if(!supplied)return false;return constantTimeEqual(await sha256Hex(supplied),await sha256Hex(env.GAS_BRIDGE_SHARED_SECRET));}\nfunction eventPublic'
+          helper='''async function gasBridgeAuthorized(request:Request,env:Env):Promise<boolean>{const supplied=request.headers.get("x-gas-bridge-secret")||"";if(!supplied)return false;return constantTimeEqual(await sha256Hex(supplied),await sha256Hex(env.GAS_BRIDGE_SHARED_SECRET));}\nasync function replicationRecoveryEnabled(db:D1Database):Promise<boolean>{const r=await db.prepare("SELECT config_value FROM runtime_config WHERE config_key=\'REPLICATION_RECOVERY_ENABLED\'").first<{config_value:string}>();return String(r?.config_value||"")==="1";}\nasync function replicationRecoveryAuthorized(request:Request,env:Env):Promise<boolean>{const supplied=request.headers.get("x-replication-recovery-token")||"";if(!supplied||!await replicationRecoveryEnabled(env.DB))return false;const r=await env.DB.prepare("SELECT config_value FROM runtime_config WHERE config_key=\'REPLICATION_RECOVERY_TOKEN_SHA256\'").first<{config_value:string}>();return Boolean(r?.config_value)&&constantTimeEqual(await sha256Hex(supplied),String(r?.config_value||""));}\nfunction eventPublic'''
+          if anchor not in s: raise SystemExit('HELPER_ANCHOR_MISSING')
+          s=s.replace(anchor,helper,1)
+          old='if(p==="/internal/replicate"&&method==="POST"){if(!await internalAuthorized(request,env))return apiError("INTERNAL_UNAUTHORIZED","AUTH",401);return json(await replicatePending(env.DB,env));}'
+          new='if(p==="/internal/replicate"&&method==="POST"){const ia=await internalAuthorized(request,env),ra=ia?false:await replicationRecoveryAuthorized(request,env);if(!ia&&!ra)return apiError("INTERNAL_UNAUTHORIZED","AUTH",401);return json(await replicatePending(env.DB,env,ra?1:50));}'
+          if old not in s: raise SystemExit('ROUTE_ANCHOR_MISSING')
+          s=s.replace(old,new,1)
+          old_sched='async scheduled(_controller:ScheduledController,env:Env,ctx:ExecutionContext):Promise<void>{ctx.waitUntil(Promise.all([(async()=>{for(let i=0;i<3;i++){const r=await replicatePending(env.DB,env,5);if(!r.ok||r.processed===0)break;}})(),flushPushOutbox(env.DB,env)]).then(()=>undefined).catch(e=>console.log(JSON.stringify({level:"error",kind:"scheduled_background_failed",error:String(e).slice(0,240)}))));},'
+          new_sched='async scheduled(_controller:ScheduledController,env:Env,ctx:ExecutionContext):Promise<void>{const recovering=await replicationRecoveryEnabled(env.DB);ctx.waitUntil(Promise.all([recovering?Promise.resolve({ok:true}):replicatePending(env.DB,env,1),flushPushOutbox(env.DB,env)]).then(()=>undefined).catch(e=>console.log(JSON.stringify({level:"error",kind:"scheduled_background_failed",error:String(e).slice(0,240)}))));},'
+          if old_sched not in s: raise SystemExit('SCHEDULE_ANCHOR_MISSING')
+          s=s.replace(old_sched,new_sched,1)
+          p.write_text(s,encoding='utf-8')
+
+          r=Path('service/src/replication.ts'); t=r.read_text(encoding='utf-8')
+          old_cut='const staleClaimCutoff=new Date(Date.now()-15*60*1000).toISOString(),requeueAt=nowIso();'
+          new_cut='const staleClaimCutoff=new Date(Date.now()-5*60*1000).toISOString(),requeueAt=nowIso();'
+          if old_cut not in t: raise SystemExit('STALE_CUTOFF_ANCHOR_MISSING')
+          r.write_text(t.replace(old_cut,new_cut,1),encoding='utf-8')
+
+          Path('tools/beta119_fenced_replication_recovery_contract.py').write_text('''#!/usr/bin/env python3\nfrom pathlib import Path\ns=Path("service/src/index.ts").read_text(encoding="utf-8")\nr=Path("service/src/replication.ts").read_text(encoding="utf-8")\nassert "REPLICATION_RECOVERY_ENABLED" in s\nassert "REPLICATION_RECOVERY_TOKEN_SHA256" in s\nassert "x-replication-recovery-token" in s\nassert "replicatePending(env.DB,env,ra?1:50)" in s\nassert "replicatePending(env.DB,env,1)" in s\nassert "Date.now()-5*60*1000" in r\nassert "status='SYNCED'" in r\nprint("beta119_fenced_recovery_contract=PASS scheduled_batch=1 recovery_limit=1 stale=5m")\n''',encoding='utf-8')
+          PY
+          python3 tools/beta119_fenced_replication_recovery_contract.py
+          npm --prefix service run check
+          git diff --check
+      - name: Commit exact service recovery fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf service/node_modules
+          rm -f service/package-lock.json service/worker-configuration.d.ts
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add service/src/index.ts service/src/replication.ts tools/beta119_fenced_replication_recovery_contract.py
+          git commit -m "fix(beta119): fence and bound sheet replication recovery"
+          NEW_SHA=$(git rev-parse HEAD)
+          git push origin HEAD:ops/beta119-seed200-replication-drain-20260904
+          echo "NEW_SHA=$NEW_SHA" >> "$GITHUB_ENV"
+          npm --prefix service install --ignore-scripts --no-audit --no-fund
+      - name: Deploy exact Beta service with recovery fallback
+        shell: bash
+        run: |
+          set +e
+          set -uo pipefail
+          SERVICE_SOURCE_SHA="$NEW_SHA" bash tools/beta89_service_live_gate.sh
+          rc=$?
+          set -e
+          if [[ "$rc" != 0 ]]; then
+            echo "Service gate failed; restoring prior LIVE service source" >&2
+            git checkout "$PREV_SERVICE_SHA" -- service
+            git clean -fd -- service
+            npm --prefix service install --ignore-scripts --no-audit --no-fund
+            SERVICE_SOURCE_SHA="$PREV_SERVICE_SHA" bash tools/beta78_service_live_gate.sh || exit 97
+            exit "$rc"
+          fi
+      - name: Arm fenced one-writer recovery
+        shell: bash
+        run: |
+          set -euo pipefail
+          TOKEN=$(openssl rand -hex 32)
+          echo "::add-mask::$TOKEN"
+          HASH=$(printf '%s' "$TOKEN" | sha256sum | awk '{print $1}')
+          echo "RECOVERY_TOKEN=$TOKEN" >> "$GITHUB_ENV"
+          SQL="INSERT INTO runtime_config(config_key,config_value,updated_at) VALUES('REPLICATION_RECOVERY_TOKEN_SHA256','$HASH',datetime('now')) ON CONFLICT(config_key) DO UPDATE SET config_value=excluded.config_value,updated_at=excluded.updated_at; INSERT INTO runtime_config(config_key,config_value,updated_at) VALUES('REPLICATION_RECOVERY_ENABLED','1',datetime('now')) ON CONFLICT(config_key) DO UPDATE SET config_value='1',updated_at=excluded.updated_at;"
+          npx --prefix service wrangler d1 execute "$D1_NAME" --remote --json --command "$SQL" >/tmp/arm.json
+          jq -e 'all(.[];.success==true)' /tmp/arm.json >/dev/null
+          echo "replication_recovery_fence=ARMED"
+      - name: Recover stale seed claims and drain through official writer
+        shell: bash
+        run: |
+          set -euo pipefail
+          SERVICE_URL=https://pickpack.1291.workers.dev
+          # The new scheduled handler is fenced while this flag is armed. Requeue only seed claims older than 5 minutes.
+          npx --prefix service wrangler d1 execute "$D1_NAME" --remote --json --command "UPDATE sheet_replication_outbox SET status='RETRY',claim_token=NULL,claimed_at=NULL,next_attempt_at=datetime('now'),last_error_class='FENCED_RECOVERY',last_error='Requeued stale seed claim under single-writer recovery fence' WHERE event_id LIKE 'OWNER_SEED200_20260904_%' AND status='INFLIGHT' AND (claimed_at IS NULL OR claimed_at<=datetime('now','-5 minutes')); SELECT changes() requeued;" | jq -c '[.[]|.results]'
+          for i in $(seq 1 40); do
+            STATUS=$(npx --prefix service wrangler d1 execute "$D1_NAME" --remote --json --command "SELECT status,COUNT(*) n FROM sheet_replication_outbox WHERE event_id LIKE 'OWNER_SEED200_20260904_%' GROUP BY status ORDER BY status;" | jq -c '[.[]|.results[]?]')
+            echo "seed200_status=$STATUS"
+            if node -e 'const a=JSON.parse(process.argv[1]);process.exit(a.length===1&&a[0].status==="SYNCED"&&Number(a[0].n)===200?0:1)' "$STATUS"; then break; fi
+            RESP=$(curl -fsS --connect-timeout 10 --max-time 90 -X POST -H "x-replication-recovery-token: $RECOVERY_TOKEN" "$SERVICE_URL/internal/replicate")
+            echo "$RESP" | jq -c '{ok,processed,appended,operational,pending,error}'
+            echo "$RESP" | jq -e '.ok==true' >/dev/null
+            if [[ "$(echo "$RESP" | jq -r '.processed')" == "0" ]]; then
+              npx --prefix service wrangler d1 execute "$D1_NAME" --remote --json --command "UPDATE sheet_replication_outbox SET status='RETRY',claim_token=NULL,claimed_at=NULL,next_attempt_at=datetime('now'),last_error_class='FENCED_RECOVERY',last_error='Requeued stale seed claim under single-writer recovery fence' WHERE event_id LIKE 'OWNER_SEED200_20260904_%' AND status='INFLIGHT' AND (claimed_at IS NULL OR claimed_at<=datetime('now','-5 minutes'));" >/dev/null
+              sleep 10
+            fi
+            test "$i" -lt 40 || exit 12
+          done
+      - name: Verify D1 and Google Sheet exact 200
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx --prefix service wrangler d1 execute "$D1_NAME" --remote --json --command "SELECT shift,COUNT(*) n FROM attendance_sessions WHERE business_date='2026-09-04' AND state='ACTIVE' AND exit_at IS NULL GROUP BY shift ORDER BY shift; SELECT work_choice,COUNT(*) n FROM attendance_sessions WHERE business_date='2026-09-04' GROUP BY work_choice ORDER BY work_choice; SELECT COUNT(*) n FROM labor_sessions WHERE business_date='2026-09-04'; SELECT status,COUNT(*) n FROM sheet_replication_outbox WHERE event_id LIKE 'OWNER_SEED200_20260904_%' GROUP BY status ORDER BY status;" >/tmp/final-d1.json
+          python3 - <<'PY'
+          import json
+          j=json.load(open('/tmp/final-d1.json'))
+          assert j[0]['results']==[{'shift':'Ca 1','n':80},{'shift':'Ca 2','n':80},{'shift':'Ca HC','n':40}]
+          assert j[1]['results']==[{'work_choice':'KHONG','n':194},{'work_choice':'PACK','n':3},{'work_choice':'PICK','n':3}]
+          assert j[2]['results']==[{'n':0}]
+          assert j[3]['results']==[{'status':'SYNCED','n':200}]
+          print('seed200_d1=PASS synced=200')
+          PY
+          ACCESS=$(curl -fsS https://oauth2.googleapis.com/token -d client_id="$GOOGLE_OAUTH_CLIENT_ID" -d client_secret="$GOOGLE_OAUTH_CLIENT_SECRET" -d refresh_token="$GOOGLE_OAUTH_REFRESH_TOKEN" -d grant_type=refresh_token | jq -er '.access_token')
+          RANGE=$(python3 - <<'PY'
+          import urllib.parse
+          print(urllib.parse.quote("'RA - VÀO TRONG CA'!T2:T",safe=''))
+          PY
+          )
+          curl -fsS -H "Authorization: Bearer $ACCESS" "https://sheets.googleapis.com/v4/spreadsheets/$GOOGLE_SOURCE_SHEET_ID/values/$RANGE?valueRenderOption=FORMATTED_VALUE" >/tmp/sheet.json
+          python3 - <<'PY'
+          import json,re
+          vals=[str(r[0]) for r in json.load(open('/tmp/sheet.json')).get('values',[]) if r]
+          ids=[v for v in vals if v.startswith('OWNER_SEED200_20260904_')]
+          seq=[]
+          for v in ids:
+            m=re.match(r'OWNER_SEED200_20260904_(\d{3})_',v)
+            if m: seq.append(int(m.group(1)))
+          assert len(ids)==200,(len(ids),len(set(ids)))
+          assert len(set(ids))==200
+          assert sorted(seq)==list(range(1,201)),(len(seq),sorted(set(range(1,201))-set(seq)))
+          print('seed200_sheet=PASS rows=200 unique=200 seq=001..200')
+          PY
+      - name: Disarm recovery fence
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm --prefix service install --ignore-scripts --no-audit --no-fund >/dev/null 2>&1 || true
+          npx --prefix service wrangler d1 execute "$D1_NAME" --remote --json --command "INSERT INTO runtime_config(config_key,config_value,updated_at) VALUES('REPLICATION_RECOVERY_ENABLED','0',datetime('now')) ON CONFLICT(config_key) DO UPDATE SET config_value='0',updated_at=excluded.updated_at; DELETE FROM runtime_config WHERE config_key='REPLICATION_RECOVERY_TOKEN_SHA256';" >/tmp/disarm.json
+          jq -e 'all(.[];.success==true)' /tmp/disarm.json >/dev/null
+          echo "replication_recovery_fence=DISARMED"
