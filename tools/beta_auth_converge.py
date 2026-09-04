@@ -286,14 +286,27 @@ ON CONFLICT(login_id) DO UPDATE SET verifier=excluded.verifier,verifier_hash=exc
 
     # GAS auth cache is max 300 seconds and direct Sheets API does not execute onEdit.
     time.sleep(305)
-    login="adminbeta";password=creds[login][0];device="auth-migrate-"+b64u(secrets.token_bytes(8))
-    c=gas_post(beta["gas"],{"action":"login_challenge","login_id":login,"_device_id":device,"_app_channel":"BETA","_environment_id":"BETA","_service_audience":"PICK_PACK_1291_BETA"})
-    if c.get("ok") is not True:raise RuntimeError("ADMINBETA_GAS_CHALLENGE_FAILED:"+str(c.get("error")))
-    pr=proof(password,str(c["salt"]),int(c.get("iterations",120000)),str(c["challenge"]))
-    print("::add-mask::"+pr)
-    g=gas_post(beta["gas"],{"action":"login","login_id":login,"challenge_id":c["challenge_id"],"proof":pr,"_device_id":device,"_device_label":"CI AUTH MIGRATION","_app_channel":"BETA","_environment_id":"BETA","_service_audience":"PICK_PACK_1291_BETA"})
-    if g.get("ok") is not True or (g.get("account") or {}).get("role")!="SUPERADMIN":raise RuntimeError("ADMINBETA_GAS_LOGIN_FAILED")
+    # Beta119: SUPERADMIN has exactly two credential methods. Static password proof is
+    # intentionally forbidden; use the owner-approved server-time HHmm +/-5 method.
+    login="adminbeta";device="auth-migrate-"+b64u(secrets.token_bytes(8))
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+    hhmm=datetime.now(ZoneInfo("Asia/Bangkok")).strftime("%H%M")
+    time_input="ci"+hhmm+"auth"
+    g=gas_post(beta["gas"],{"action":"superadmin_time_login","login_id":login,"time_input":time_input,"_device_id":device,"_device_label":"CI AUTH MIGRATION","_app_channel":"BETA","_environment_id":"BETA","_service_audience":"PICK_PACK_1291_BETA"})
+    if g.get("ok") is not True or (g.get("account") or {}).get("role")!="SUPERADMIN" or g.get("auth_method")!="SUPERADMIN_TIME":
+        raise RuntimeError("ADMINBETA_GAS_TIME_LOGIN_FAILED:"+str(g.get("error") or "UNKNOWN")[:120])
     gas_token=str(g.get("token",""));print("::add-mask::"+gas_token)
+
+    # Preserve regression coverage for ordinary ADMIN password/challenge login.
+    admin_login="admintest";admin_password=creds[admin_login][0];admin_device="auth-admin-"+b64u(secrets.token_bytes(8))
+    c=gas_post(beta["gas"],{"action":"login_challenge","login_id":admin_login,"_device_id":admin_device,"_app_channel":"BETA","_environment_id":"BETA","_service_audience":"PICK_PACK_1291_BETA"})
+    if c.get("ok") is not True:raise RuntimeError("ADMINTEST_GAS_CHALLENGE_FAILED:"+str(c.get("error")))
+    pr=proof(admin_password,str(c["salt"]),int(c.get("iterations",120000)),str(c["challenge"]))
+    print("::add-mask::"+pr)
+    admin_g=gas_post(beta["gas"],{"action":"login","login_id":admin_login,"challenge_id":c["challenge_id"],"proof":pr,"_device_id":admin_device,"_device_label":"CI AUTH MIGRATION ADMIN","_app_channel":"BETA","_environment_id":"BETA","_service_audience":"PICK_PACK_1291_BETA"})
+    if admin_g.get("ok") is not True or (admin_g.get("account") or {}).get("role")!="ADMIN":raise RuntimeError("ADMINTEST_GAS_LOGIN_FAILED")
+    admin_token=str(admin_g.get("token",""));print("::add-mask::"+admin_token)
     # Prove the freshly issued GAS bearer directly before asking Service to exchange it.
     # Service's validator uses the same m2_authority_status call but has a short network timeout,
     # so bounded same-token retries distinguish a transient GAS fetch from bad credentials.
@@ -341,17 +354,17 @@ ON CONFLICT(login_id) DO UPDATE SET verifier=excluded.verifier,verifier_hash=exc
 
     receipt={
       "status":"PASS","environment":"BETA","target_active_accounts":want,
-      "replacement_first":{"adminbeta_gas_login":"PASS","adminbeta_service_exchange":"PASS","legacy_disabled_after_adminbeta_verified":True},
+      "replacement_first":{"adminbeta_gas_time_login":"PASS","admintest_standard_password_login":"PASS","adminbeta_service_exchange":"PASS","legacy_disabled_after_adminbeta_verified":True},
       "cross_environment":{"beta_token_to_stable_http":stable_code,"beta_environment_to_stable_http":stable_env_code,"stable_admin_absent_from_beta_active":True},
       "bindings":{"beta_worker":beta["name"],"stable_worker":stable["name"],"beta_db_separate":beta["db"]!=stable["db"],"beta_sheet_separate":beta["sheet"]!=stable["sheet"],"gas_health_authority_match":True},
       "before":{"beta_active_count":len([x for x in beta_before if x["status"]=="ACTIVE"]),"beta_d1_hash":beta_d1_hash_before,"beta_sheet_hash":beta_sheet_hash_before,"stable_d1_hash":stable_d1_hash_before,"stable_sheet_hash":stable_sheet_hash_before},
       "after":{"beta_active_count":len(active_d1),"beta_d1_hash":beta_d1_hash_after,"beta_sheet_hash":beta_sheet_hash_after,"stable_d1_hash":stable_d1_hash_after,"stable_sheet_hash":stable_sheet_hash_after},
       "legacy_accounts_disabled":sorted(legacy),
       "password_plaintext_in_receipt":False,"credentials_logged":False,
-      "owner_recovery":"Use Forgot Password for adminbeta; generated CI bootstrap passwords are intentionally not persisted."
+      "owner_recovery":"SUPERADMIN uses HHmm +/-5 or 8-digit one-time email OTP; generated CI bootstrap passwords are intentionally not persisted."
     }
     pathlib.Path("/tmp/beta-auth-converge-receipt.json").write_text(json.dumps(receipt,indent=2,ensure_ascii=False)+"\n")
-    print(json.dumps({"status":"PASS","active_accounts":want,"adminbeta_login":"PASS","stable_unchanged":True,"legacy_disabled":len(legacy)}))
+    print(json.dumps({"status":"PASS","active_accounts":want,"adminbeta_time_login":"PASS","admintest_standard_login":"PASS","stable_unchanged":True,"legacy_disabled":len(legacy)}))
 
 if __name__=="__main__":
     if "--self-test" in sys.argv:
