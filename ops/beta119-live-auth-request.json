@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "channel": "BETA",
+  "version_name": "0.4.2-beta.119",
+  "version_code": 125,
+  "source_sha": "eeb45df6deae267d93a5fb15701a0a394885a549",
+  "candidate_run_id": 33864111135,
+  "candidate_artifact_id": 9933396813,
+  "candidate_apk_sha256": "73c072187fb13bab635f27009fda500d0745fced4244a8d8276bc9117f350697",
+  "gas_deploy_run_id": 33864705259,
+  "gas_deploy_status": "PASS_READBACK",
+  "stable_write": false,
+  "authority_change": "NONE",
+  "owner_scope": "SUPERADMIN_AUTH_002",
+  "secret_output": "FORBIDDEN",
+  "execution_nonce": "beta119-live-auth-regression-20260904-01"
+}
