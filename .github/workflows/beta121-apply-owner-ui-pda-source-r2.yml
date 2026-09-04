@@ -1,0 +1,71 @@
+name: Beta121 apply owner UI PDA source r2
+
+on:
+  push:
+    branches:
+      - release/beta121-owner-ui-pda-source-20260905
+    paths:
+      - .github/workflows/beta121-apply-owner-ui-pda-source-r2.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: beta121-apply-owner-ui-pda-source-r2
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Apply deterministic Beta121 patch
+        run: |
+          set -euo pipefail
+          python3 -m py_compile tools/beta121_apply_owner_ui_pda_source.py
+          python3 tools/beta121_apply_owner_ui_pda_source.py
+      - name: Verify owner contract and GAS syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/beta121_owner_ui_pda_source_contract.py
+          cp google-apps-script/PICK_PACK_API.gs "$RUNNER_TEMP/pick-pack-api.js"
+          node --check "$RUNNER_TEMP/pick-pack-api.js"
+      - name: Verify Service typecheck and patch hygiene
+        shell: bash
+        run: |
+          set -euo pipefail
+          pushd service
+          npm install --ignore-scripts --no-audit --no-fund
+          npm run check
+          popd
+          git diff --check
+      - name: Commit implementation only
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf service/node_modules tools/__pycache__
+          rm -f service/package-lock.json service/worker-configuration.d.ts
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            app/build.gradle.kts \
+            app/src/main/java/vn/pickpack1291/app/beta/ReleaseNotes.kt \
+            app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt \
+            app/src/main/java/vn/pickpack1291/app/beta/DropReceiveFeature.kt \
+            app/src/main/res/drawable/ic_pp_network.xml \
+            app/src/main/res/drawable/ic_pp_sync.xml \
+            app/src/main/res/drawable/ic_pp_service.xml \
+            google-apps-script/PICK_PACK_API.gs \
+            service/src/mobile_hotfix.ts \
+            tools/beta121_owner_ui_pda_source_contract.py
+          git diff --cached --name-only
+          if git diff --cached --name-only | grep -E '(^|/)node_modules/|__pycache__|package-lock.json|worker-configuration.d.ts|\.github/workflows/'; then exit 91; fi
+          git commit -m "feat(beta121): owner UI and PDA source"
+          git push origin HEAD:release/beta121-owner-ui-pda-source-20260905
