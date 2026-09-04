@@ -611,7 +611,7 @@ Technical receipt: `ops/beta117-technical-pass.json`. Regression: `tools/beta117
 - Rule: `beta/current` và `CURRENT_STATE.md` phải nhận diện Beta public LIVE mới nhất; Beta/checklist cũ không được ghi đè trạng thái mới hơn.
 - Regression: `tools/beta_current_sync_contract.py` + `tools/owner_acceptance_ledger_guard.py`; monotonic Beta/version/checklist fence; fast-forward only; post-sync readback.
 - Technical evidence: Beta119 LIVE 0.4.2-beta.119 / source `eeb45df6deae267d93a5fb15701a0a394885a549`; terminal run `33868929441`; release/OTA/finalize PASS; acceptance ledger `BETA119_OWNER_ACCEPTANCE_20260904_R1` revision 1.
-- OWNER acceptance: PENDING.
+- OWNER acceptance: PASS — OWNER checklist item 1 OK, 2026-09-04 19:11 +07:00.
 
 ### SUPERADMIN_AUTH_002
 - Status: ACTIVE_PASS
@@ -619,7 +619,7 @@ Technical receipt: `ops/beta117-technical-pass.json`. Regression: `tools/beta117
 - Rule: phiên đăng nhập hợp lệ phải được giữ qua update/process restart; SUPERADMIN chỉ có 2 credential method: chuỗi 1..20 ký tự chứa `HHmm` thời gian server trong ±5 phút, hoặc OTP Gmail đúng 8 chữ số dùng một lần; OTP dùng thành công tự cấp/gửi mã kế tiếp; time login không rotate/gửi OTP; static SUPERADMIN password login bị vô hiệu; không lưu credential secret plaintext trong GitHub public.
 - Regression: `tools/beta119_superadmin_auth_contract.py`; live SUPERADMIN auth run `33865867111`; auth convergence run `33867109026` đồng thời chứng minh ADMIN thường vẫn password/challenge PASS và Stable isolation PASS.
 - Technical evidence: Beta119 exact candidate `33864111135/9933396813`; Fast Check `33867108883`; terminal publish/OTA/install/open/readback/finalize `33868929441`; SHA256 `73c072187fb13bab635f27009fda500d0745fced4244a8d8276bc9117f350697`.
-- OWNER acceptance: PENDING.
+- OWNER acceptance: PASS — OWNER checklist items 2, 3, 4 OK, 2026-09-04 19:11 +07:00.
 
 ### OWNER_ACCEPTANCE_LEDGER_001
 - Status: TECHNICAL_PASS_AWAITING_OWNER
