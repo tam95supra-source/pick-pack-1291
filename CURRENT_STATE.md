@@ -1,6 +1,6 @@
 # CURRENT STATE — PICK PACK 1291
 
-- updated_at: 2026-09-04T16:45:24Z
+- updated_at: 2026-09-04T17:01:37Z
 - status: BETA120_PASS_LIVE
 - continuity_branch: release/beta120-bulk-exit-reset200-20260904
 - source_sha: b8f548d5717156554b8599955f62ab23f9973fc9
@@ -26,4 +26,7 @@
 - stable: unchanged
 - main_sha: 021dac5c6932b3ac5c60ce8fdba562ddf3d9688f
 - authority: SERVICE_PRIMARY / PRODUCTION / epoch 9 / generation m2-prod-reset-20260823-001
-- next_action: WAIT_FOR_OWNER_ACCEPTANCE_NUMBERED_CHECKLIST
+- owner_acceptance: COMPLETE / OLD-SESSION-BULK-EXIT-001=ACTIVE_PASS / data checklist 1-2-3 OWNER_OK
+- owner_acceptance_receipt: ops/beta120-owner-acceptance.json
+- owner_acceptance_finalizer_run: 33898227143 PASS
+- next_action: OWNER_ACCEPTANCE_COMPLETE
