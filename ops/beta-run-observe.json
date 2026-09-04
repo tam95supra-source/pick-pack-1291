@@ -1,8 +1,8 @@
 {
-  "run_id": 33822700732,
-  "run_sha": "f5b7e8470eba823ef8f225a490ce614f8173b2b0",
+  "run_id": 33822875354,
+  "run_sha": "4fdfdb0a82ed22cbfd0b8cf771937ef1c514b0ba",
   "ref": "release/beta117-owner-followup-performance-20260904",
-  "execution_nonce": "beta117-domain-after-runtime-pass-20260904-17",
-  "stage": "BETA_DOMAIN_PREPARE",
-  "observed_at": "2026-09-04T00:40:01Z"
+  "execution_nonce": "beta117-publish-exact-lock-20260904-18",
+  "stage": "PUBLISH",
+  "observed_at": "2026-09-04T00:42:39Z"
 }
