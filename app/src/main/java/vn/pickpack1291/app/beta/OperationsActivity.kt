@@ -513,6 +513,11 @@ class OperationsActivity : Activity() {
         }
         body.post{renderGroup(0)}
     }
+    private fun canonicalBusinessShift(raw:String):String{
+        val value=raw.trim()
+        return listOf("Ca 1","Ca HC","Ca 2").firstOrNull{it.equals(value,ignoreCase=true)}?:value
+    }
+
     private fun addBusinessShiftReconciliation(body:LinearLayout){
         val currentDate=operationalStore.businessDate()
         val day=operationalStore.loadDay(currentDate)
@@ -522,9 +527,8 @@ class OperationsActivity : Activity() {
         for(i in 0 until sessions.length()){
             val ses=sessions.optJSONObject(i)?:continue
             if(ses.optString("business_date").trim().let{it.isNotBlank()&&it!=currentDate})continue
-            val rawShift=ses.optString("shift").trim()
-            val shift=byShift.keys.firstOrNull { it.equals(rawShift,ignoreCase=true) } ?: rawShift
-            if(shift in byShift.keys)byShift.getValue(shift).add(JSONObject(ses.toString()))
+            val shift=canonicalBusinessShift(ses.optString("shift"))
+            if(shift in byShift.keys)byShift.getValue(shift).add(JSONObject(ses.toString()).put("shift",shift))
         }
         val bar=row(bg).apply{gravity=Gravity.CENTER_VERTICAL}
         byShift.forEach{(shift,raw)->
@@ -569,7 +573,8 @@ class OperationsActivity : Activity() {
             val d=x.optString("business_date").trim()
             if(d.isNotBlank()&&d!=currentDate)continue
             if(dash(x.optString("enter_at"))=="-")continue
-            rows.add(JSONObject(x.toString()))
+            val shift=canonicalBusinessShift(x.optString("shift"))
+            rows.add(JSONObject(x.toString()).put("shift",shift))
         }
         if(rows.isEmpty())return
         body.addView(gap(14))
