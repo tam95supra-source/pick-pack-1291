@@ -604,3 +604,12 @@ impact_map:
   "google-apps-script/**": [ENV-ISOLATION-001, INFRA-RESILIENCE-001, OTA-BETA-001]
   ".github/workflows/**": [OTA-BETA-001, ENV-ISOLATION-001, INFRA-RESILIENCE-001, BETA-STABLE-AUDIT-001, CHANGELOG-CURRENT-VERSION-001]
   "config/environment_contracts.json": [ENV-ISOLATION-001, BETA-STABLE-AUDIT-001]
+
+  - id: SUPERADMIN-AUTH-002
+    status: LOCKED_REQUIREMENT_PENDING_FIX
+    scope: superadmin-auth
+    rule: "SUPERADMIN preserves valid session across app update/restart and has exactly two credential methods: a 1..20 character string containing server-current HHmm within +/-5 minutes with no device binding, or an exactly 8-digit single-use email OTP; successful OTP use sends the next OTP; time login does not rotate OTP; legacy/static SUPERADMIN password login is forbidden."
+    technical_candidate: "0.4.2-beta.119"
+    regression_minimum: [session_update_persistence, time_hhmm_plus_minus_5, arbitrary_prefix_suffix_max20, midnight_wrap, no_device_binding, legacy_superadmin_password_rejected, otp_exact_8_digits, otp_single_use_replay_rejected, otp_rotate_and_email_next, time_login_no_otp_rotation, non_superadmin_password_unchanged, public_secret_fence]
+    regression_case: "qa/beta119_superadmin_auth_regression.md + tools/beta119_superadmin_auth_contract.py + .github/workflows/superadmin-auth-regression.yml"
+    owner_acceptance: "PENDING"

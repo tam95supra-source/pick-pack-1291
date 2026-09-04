@@ -592,3 +592,13 @@ Technical receipt: `ops/beta117-technical-pass.json`. Regression: `tools/beta117
 - Technical evidence: diagnosis 33829110432/9921008888; fix ae80424706de74c72dea460e82bdd429090944cc; exact candidate 33833810807/9922669910 SHA256 5216f0eb09f187aed9cb71dcc21cd145fdc3ba7ea7852c74ffe6f85dea2b478f; visual/PDA API29 33835144144/9923142675; API36 Back 33835843259/9923339401; exact-100 Android UI 33836246626/9923402264 PASS; local-first/realtime 33837587706/9923826221 PASS (2 rows 341ms, retained 1.8s, third 41ms, warning 10/19ms).
 - Release state: Beta118 NOT LIVE / NOT OTA; Beta117 remains LIVE.
 - OWNER acceptance: PENDING — checklist 1–3.
+
+
+## SUPERADMIN-AUTH-002 — PENDING OWNER ACCEPTANCE
+
+- Status: `LOCKED_REQUIREMENT_PENDING_FIX` until Beta119 Technical DoD PASS; then `TECHNICAL_PASS_AWAITING_OWNER` until OWNER explicitly accepts.
+- Preserve a valid SUPERADMIN session across in-place app update/restart; explicit logout/revocation/401 remains authoritative.
+- Exactly two SUPERADMIN credential methods: (1) input 1..20 characters containing server-current `HHmm` within ±5 minutes, arbitrary prefix/suffix and no device binding; (2) exactly 8 random decimal digits delivered by email and single-use.
+- Successful OTP use atomically rotates and emails the next OTP. Time-window login does not rotate/send OTP. Legacy/static SUPERADMIN password login is disabled.
+- Public GitHub/log/artifact/handoff must never contain plaintext password/OTP/session/Gmail OAuth secret or an offline-usable verifier.
+- Regression: `qa/beta119_superadmin_auth_regression.md`, `tools/beta119_superadmin_auth_contract.py`, `.github/workflows/superadmin-auth-regression.yml`.
