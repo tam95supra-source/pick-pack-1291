@@ -1,0 +1,61 @@
+name: SUPERADMIN auth regression
+
+on:
+  push:
+    branches:
+      - 'beta/current'
+      - 'release/**'
+    paths:
+      - app/src/main/java/vn/pickpack1291/app/beta/BetaApiClient.kt
+      - app/src/main/java/vn/pickpack1291/app/beta/MainActivity.kt
+      - app/src/main/java/vn/pickpack1291/app/beta/ReleaseNotes.kt
+      - app/build.gradle.kts
+      - google-apps-script/PICK_PACK_API.gs
+      - google-apps-script/SUPERADMIN_AUTH_V2.gs
+      - tools/beta119_superadmin_auth_contract.py
+      - docs/CONTROL_PLANE_AUTH_SECURITY_POLICY.md
+      - ops/owner-acceptance-current.json
+      - qa/beta119_superadmin_auth_regression.md
+      - .github/workflows/superadmin-auth-regression.yml
+  pull_request:
+    paths:
+      - app/src/main/java/vn/pickpack1291/app/beta/BetaApiClient.kt
+      - app/src/main/java/vn/pickpack1291/app/beta/MainActivity.kt
+      - google-apps-script/PICK_PACK_API.gs
+      - google-apps-script/SUPERADMIN_AUTH_V2.gs
+      - tools/beta119_superadmin_auth_contract.py
+      - docs/CONTROL_PLANE_AUTH_SECURITY_POLICY.md
+      - ops/owner-acceptance-current.json
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: superadmin-auth-regression-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  contract:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Exact two-method auth contract
+        run: python3 tools/beta119_superadmin_auth_contract.py
+      - name: Public repository secret fence self-test
+        run: python3 tools/public_repo_secret_guard.py --self-test
+      - name: GAS syntax including SUPERADMIN auth module
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat google-apps-script/PICK_PACK_API.gs google-apps-script/SUPERADMIN_AUTH_V2.gs > /tmp/pick-pack-auth.js
+          node --check /tmp/pick-pack-auth.js
+      - name: No device-trust implementation may return
+        shell: bash
+        run: |
+          set -euo pipefail
+          test ! -e app/src/main/java/vn/pickpack1291/app/beta/SuperadminDeviceTrust.kt
+          ! grep -R -E 'device_trust_secret|superadmin_time_challenge|device_proof|PP_SUPERADMIN_DEVICE_' \
+            app/src/main/java/vn/pickpack1291/app/beta/BetaApiClient.kt google-apps-script/SUPERADMIN_AUTH_V2.gs google-apps-script/PICK_PACK_API.gs
