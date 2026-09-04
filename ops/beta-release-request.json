@@ -1,5 +1,5 @@
 {
-  "stage": "RUNTIME_DOD_VERIFY",
+  "stage": "BETA_DOMAIN_PREPARE",
   "mode": "BETA119_EXACT_LOCKED_PRE_OTA_CONTINUATION",
   "version_name": "0.4.2-beta.119",
   "version_code": 125,
@@ -55,6 +55,10 @@
   "service_discovery_run_id": 33868129220,
   "service_discovery_artifact_id": 9934840799,
   "service_discovery_artifact_name": "beta-service-discovery-33868129220",
+  "runtime_dod_status": "PASS",
+  "runtime_dod_run_id": 33868400852,
+  "runtime_dod_artifact_id": 9934904448,
+  "runtime_dod_artifact_name": "beta-stable-runtime-33868400852",
   "stable_gas_repair_status": "PASS",
   "stable_gas_repair_run_id": 33821666160,
   "stable_gas_repair_artifact_id": 9918483812,
@@ -63,7 +67,7 @@
   "base_candidate_artifact_id": 9922669910,
   "base_candidate_artifact_name": "beta-candidate-33833810807",
   "base_live_final_repo_receipt": "ops/beta118-technical-pass.json",
-  "execution_nonce": "beta119-runtime-dod-20260904-01",
-  "next_action": "RUN_RUNTIME_DOD_THEN_BETA_DOMAIN_PREPARE",
+  "execution_nonce": "beta119-beta-domain-20260904-01",
+  "next_action": "RUN_BETA_DOMAIN_FRESH_READ_THEN_RELEASE_LOCK",
   "owner_scope": "SUPERADMIN_AUTH_002"
 }
