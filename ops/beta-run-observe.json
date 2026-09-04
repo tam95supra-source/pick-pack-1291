@@ -1,8 +1,8 @@
 {
-  "run_id": 33819637047,
-  "run_sha": "9be610a05dcc5ef258b84132e8ba5dc4e0eace2b",
+  "run_id": 33821370234,
+  "run_sha": "c79fc4e4160f912d0f75593a4c57b4f3d9f693cd",
   "ref": "release/beta117-owner-followup-performance-20260904",
-  "execution_nonce": "beta117-protected-stable-gas-blocker-20260904-12",
+  "execution_nonce": "beta117-runtime-after-stable-primary-recovery-20260904-13",
   "stage": "RUNTIME_DOD_VERIFY",
-  "observed_at": "2026-09-03T23:55:28Z"
+  "observed_at": "2026-09-04T00:20:18Z"
 }
