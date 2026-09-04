@@ -1,0 +1,53 @@
+name: Beta119 owner acceptance finalizer
+
+on:
+  push:
+    branches:
+      - beta/current
+    paths:
+      - ops/owner-acceptance-current.json
+      - tools/beta119_owner_acceptance_apply.py
+      - .github/workflows/beta119-owner-acceptance-finalizer.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: beta119-owner-acceptance-finalizer
+  cancel-in-progress: false
+
+jobs:
+  finalize:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply OWNER acceptance to canonical invariants
+        run: |
+          set -euo pipefail
+          python3 tools/owner_acceptance_ledger_guard.py --self-test
+          python3 tools/owner_acceptance_ledger_guard.py
+          python3 tools/beta119_owner_acceptance_apply.py
+          python3 - <<'PY'
+          import yaml
+          d=yaml.safe_load(open('qa/stable_invariants.yml'))
+          assert isinstance(d,dict) and isinstance(d.get('invariants'),list) and isinstance(d.get('impact_map'),dict)
+          ids=[x.get('id') for x in d['invariants'] if isinstance(x,dict)]
+          for k in ('CURRENT_PUBLIC_BETA_001','SUPERADMIN_AUTH_002','OWNER_ACCEPTANCE_LEDGER_001'):
+              assert ids.count(k)==1, (k,ids.count(k))
+          print('owner_acceptance_registry_yaml=PASS')
+          PY
+          git diff --check
+      - name: Commit canonical acceptance state
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- docs/STABLE_INVARIANTS.md qa/stable_invariants.yml; then
+            echo "No acceptance invariant changes"
+            exit 0
+          fi
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add docs/STABLE_INVARIANTS.md qa/stable_invariants.yml
+          git commit -m "owner(beta119): sync accepted invariants from ledger"
+          git push origin HEAD:beta/current
