@@ -1,51 +1,29 @@
 # CURRENT STATE — PICK PACK 1291
 
-- updated_at: 2026-09-04T12:21:31Z
-- status: BETA119_PASS_LIVE_OWNER_ACCEPTANCE_COMPLETE
-- continuity_branch: beta/current
-- release_branch: release/beta119-superadmin-auth-control-plane-20260904
-- source_sha: eeb45df6deae267d93a5fb15701a0a394885a549
-- beta_live: 0.4.2-beta.119 (versionCode 125)
+- updated_at: 2026-09-04T16:45:24Z
+- status: BETA120_PASS_LIVE
+- continuity_branch: release/beta120-bulk-exit-reset200-20260904
+- source_sha: b8f548d5717156554b8599955f62ab23f9973fc9
+- beta_live: 0.4.2-beta.120 (versionCode 126)
 - package: vn.pickpack1291.app.beta.publicbeta
-- candidate_run: 33864111135
-- candidate_artifact: 9933396813
-- service_gate: PASS run 33864111135 / artifact 9933578937
-- verify_run: 33864111135
-- verify_artifact: 9933765361
-- fast_check: PASS run 33867108883
-- live_superadmin_auth: PASS run 33865867111
-- beta_auth_convergence: PASS run 33867109026 / artifact 9934703912
-- service_discovery: PASS run 33868129220 / artifact 9934840799
-- runtime_dod: PASS run 33868400852 / artifact 9934904448
-- beta_domain_readback: PASS run 33868581526 / artifact 9934943749
-- terminal_run: 33868929441
-- publish_ota_finalize: PASS
-- publish_artifact: 9935113268
-- ota_readback_artifact: 9935194064
-- final_artifact: 9935202498
+- candidate_run: 33874862142
+- candidate_artifact: 9937580926
+- verify_run: 33876606829
+- verify_artifact: 9939139135
+- apk_sha256: 04d9f4b88e6ff038766357402f7f5831de67649087c839f922897042120b8ef8
+- apk_size: 14429173
+- signer_sha256: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
+- terminal_run: 33896192267
+- fast_check: PASS
+- service_gate: null
 - visual_matrix: PASS 320x568 / 360x640 / 480x800
 - human_visual: PASS
 - pda_functional_pre_ota: PASS
-- beta_ota: exact 0.4.2-beta.118 -> 0.4.2-beta.119 PASS via GitHub Release
-- apk_sha256: 73c072187fb13bab635f27009fda500d0745fced4244a8d8276bc9117f350697
-- apk_size: 14429173
-- signer_sha256: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
+- beta_ota: exact 0.4.2-beta.120 PASS via GitHub Release
+- beta_ota_url: https://github.com/tam95supra-source/pick-pack-1291/releases/download/v0.4.2-beta.120-publicbeta/pick-pack-1291-public-beta-0.4.2-beta.120.apk
 - apk_transport: GITHUB_RELEASE_ONLY
 - google_drive_apk: FORBIDDEN
-- release_lock: PASS / ops/beta119-release-lock.json
-- pass_live: PASS run 33870526120
-- beta_current_sync: PASS run 33870545799 / fast-forward-only / post-sync readback PASS
-- owner_scope: OWNER_20260904_CURRENT_AUTH_ACCEPTANCE_SECURITY / ACTIVE_PASS
-- owner_acceptance_ledger: ops/owner-acceptance-current.json
-- owner_checklist: BETA119_OWNER_ACCEPTANCE_20260904_R1 / revision 4 / OWNER_ACCEPTANCE_COMPLETE
-- current_public_beta_001: ACTIVE_PASS / OWNER item 1 OK
-- superadmin_auth_002: ACTIVE_PASS / OWNER items 2,3,4 OK
-- owner_acceptance_ledger_001: ACTIVE_PASS / item 5 technical self-check PASS + OWNER OK
-- item5_monotonic_guard: PASS run 33871649452 / stale acceptance rejected
-- owner_acceptance_finalizer: PASS run 33872342043
-- owner_acceptance_complete_guard: PASS run 33872342025
-- invariant_finalizer: PASS run 33869859593
 - stable: unchanged
 - main_sha: 021dac5c6932b3ac5c60ce8fdba562ddf3d9688f
 - authority: SERVICE_PRIMARY / PRODUCTION / epoch 9 / generation m2-prod-reset-20260823-001
-- next_action: WAIT_FOR_OWNER_NEW_TASK
+- next_action: WAIT_FOR_OWNER_ACCEPTANCE_NUMBERED_CHECKLIST

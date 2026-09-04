@@ -1,6 +1,6 @@
 {
-  "stage": "PUBLISH",
-  "mode": "PUBLISH_EXACT_LOCKED_CANDIDATE",
+  "stage": "pass_live",
+  "mode": "PASS_LIVE_EXACT_BYTES_GITHUB_RELEASE_ONLY",
   "version_name": "0.4.2-beta.120",
   "version_code": 126,
   "base_version": "0.4.2-beta.119",
@@ -23,7 +23,7 @@
   "release_lock_receipt": "ops/beta120-release-lock.json",
   "rebuild": false,
   "resign": false,
-  "live": false,
+  "live": true,
   "stable_publish": "FORBIDDEN",
   "authority_change": "NONE",
   "release_notes": [
@@ -45,7 +45,11 @@
   "fast_check_run_id": 33874862122,
   "human_visual_pass": true,
   "human_visual_receipt": "ops/beta120-human-visual-receipt.json",
-  "human_visual_sizes": ["320x568", "360x640", "480x800"],
+  "human_visual_sizes": [
+    "320x568",
+    "360x640",
+    "480x800"
+  ],
   "visual_matrix": "PASS",
   "pda_functional_pre_ota": "PASS",
   "verify_run_id": 33876606829,
@@ -79,11 +83,13 @@
   "apk_transport": "GITHUB_RELEASE_ONLY",
   "google_drive_apk": "FORBIDDEN",
   "execution_nonce": "beta120-publish-20260904-01",
-  "next_action": "PUBLISH_EXACT_LOCKED_BETA120",
+  "next_action": "WAIT_FOR_OWNER_ACCEPTANCE_NUMBERED_CHECKLIST",
   "owner_scope": "OWNER_20260904_BULK_EXIT_FIX_RESET200",
   "owner_checklist_id": "BETA120_OWNER_ACCEPTANCE_20260904_R1",
   "owner_checklist_revision": 1,
-  "technical_pass_status": "PENDING",
+  "technical_pass_status": "PASS",
   "owner_acceptance": "PENDING",
-  "ota_readback_status": "PENDING"
+  "ota_readback_status": "PASS",
+  "publish_run_id": "33896192267",
+  "ota_readback_run_id": 33896192267
 }
