@@ -1,0 +1,66 @@
+name: Beta119 apply superadmin auth
+
+on:
+  push:
+    branches:
+      - release/beta119-superadmin-auth-control-plane-20260904
+    paths:
+      - .github/workflows/beta119-apply-superadmin-auth.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: beta119-apply-superadmin-auth
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Patch harness self-check
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile tools/beta119_apply_superadmin_auth.py tools/beta119_superadmin_auth_contract.py
+          cp google-apps-script/SUPERADMIN_AUTH_V2.gs /tmp/superadmin-auth-v2.js
+          node --check /tmp/superadmin-auth-v2.js
+
+      - name: Apply deterministic Beta119 auth patch
+        run: python3 tools/beta119_apply_superadmin_auth.py
+
+      - name: Verify auth contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/beta119_superadmin_auth_contract.py
+          cp google-apps-script/SUPERADMIN_AUTH_V2.gs /tmp/superadmin-auth-v2.js
+          node --check /tmp/superadmin-auth-v2.js
+          git diff --check
+
+      - name: Commit implementation only
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf tools/__pycache__
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            app/build.gradle.kts \
+            app/src/main/java/vn/pickpack1291/app/beta/ReleaseNotes.kt \
+            app/src/main/java/vn/pickpack1291/app/beta/MainActivity.kt \
+            app/src/main/java/vn/pickpack1291/app/beta/BetaApiClient.kt \
+            google-apps-script/PICK_PACK_API.gs
+          test -n "$(git diff --cached --name-only)"
+          if git diff --cached --name-only | grep -E '(^|/)node_modules/|__pycache__|package-lock.json|worker-configuration.d.ts|\.github/workflows/'; then exit 91; fi
+          git commit -m "feat(beta119): persist session and secure superadmin one-time auth"
+          git push origin HEAD:release/beta119-superadmin-auth-control-plane-20260904
