@@ -1,0 +1,44 @@
+name: Beta118 wire 100-session emulator regression
+
+on:
+  push:
+    branches:
+      - release/beta118-owner-realtime-bulk-exit-20260904
+    paths:
+      - .github/workflows/beta118-owner-100-sessions-ui-harness.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  wire:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply harness patch
+        run: python3 tools/beta118_owner_100_sessions_ui_harness_patch.py
+      - name: Verify harness source
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'verifyOwner100SessionProjection' tools/Beta83UiChecksInstrumentation.java
+          grep -q 'owner_100_sessions_projection_beta118' tools/Beta83UiChecksInstrumentation.java
+          grep -q 'owner_100_sessions_projection_beta118' tools/beta83_verify_matrix.sh
+          grep -q 'Ca 1 – 34/0' tools/Beta83UiChecksInstrumentation.java
+          grep -q 'waitTextScrolling("70100"' tools/Beta83UiChecksInstrumentation.java
+          bash -n tools/beta83_verify_matrix.sh
+          git diff --check
+      - name: Commit harness only
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tools/Beta83UiChecksInstrumentation.java tools/beta83_verify_matrix.sh
+          test "$(git diff --cached --name-only | wc -l)" -eq 2
+          git commit -m "test(beta118): verify 100 sessions in review and QR UI"
+          git push origin HEAD:release/beta118-owner-realtime-bulk-exit-20260904
