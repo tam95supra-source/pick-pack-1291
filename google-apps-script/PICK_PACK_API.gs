@@ -241,7 +241,6 @@ function doPost(e) {
     if (action === 'update_check') return ppJson_(ppUpdateCheck_(body));
     if (action === 'forgot_password_preview') return ppJson_(ppForgotPasswordPreview_(body));
     if (action === 'forgot_password') return ppJson_(ppSaForgotPasswordV2_(body));
-    if (action === 'superadmin_time_challenge') return ppJson_(ppSaTimeChallenge_(body));
     if (action === 'superadmin_time_login') return ppJson_(ppSaTimeLogin_(body));
     if (action === 'superadmin_otp_login') return ppJson_(ppSaOtpLogin_(body));
     if (action === 'login_challenge') return ppJson_(ppLoginChallenge_(body));
@@ -791,6 +790,7 @@ function ppLoginChallenge_(body) {
 }
 function ppLogin_(body) {
   const login=String(body.login_id||'').trim(), id=String(body.challenge_id||''), proof=String(body.proof||''), c=ppTakeChallenge_(id,'LOGIN',login);let a=ppAccount_(login),cred=a?ppCredentialParts_(a.verifier):null;
+  if(a&&String(a.role||'').toUpperCase()==='SUPERADMIN')return {ok:false,error:'SUPERADMIN_SPECIAL_AUTH_REQUIRED'};
   if(!c||!a||a.status!=='ACTIVE'||!cred||(cred.algorithm==='reset_sha256'&&cred.expires_at<=Date.now())||!ppVerifyProof_(cred.key,c.challenge,proof))return {ok:false,error:'INVALID_CREDENTIALS'};
   if(cred.algorithm==='reset_sha256'){
     const upgrade=String(body.upgrade_verifier||'');if(!ppVerifierParts_(upgrade))return {ok:false,error:'RESET_UPGRADE_REQUIRED'};

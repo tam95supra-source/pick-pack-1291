@@ -666,7 +666,7 @@ class MainActivity : Activity() {
 
     private fun showApiError(raw: String) {
         val msg = when {
-            raw.contains("SUPERADMIN_OTP_REQUIRED") -> "Thiết bị này chưa được tin cậy. Hãy dùng mật khẩu một lần gửi qua email để đăng nhập và liên kết thiết bị."
+            raw.contains("SUPERADMIN_SPECIAL_AUTH_REQUIRED") -> "SUPERADMIN chỉ dùng mật khẩu theo giờ hoặc mật khẩu một lần 8 số."
             raw.contains("INVALID_CREDENTIALS") -> "Sai tài khoản hoặc mật khẩu."
             raw.contains("LOGIN_TEMP_LOCKED") -> "Đăng nhập sai nhiều lần. Tài khoản đang tạm khóa 15 phút."
             raw.contains("EMPLOYEE_NOT_FOUND") -> "Không tìm thấy MNV trong danh sách nhân sự."

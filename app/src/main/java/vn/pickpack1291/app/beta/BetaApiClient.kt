@@ -42,7 +42,6 @@ class BetaApiClient(context: Context) {
     private val m2Transport = M2ServiceTransport(appContext)
     // S19_M2_RUNTIME_FIX_APPLIED: honest runtime route + inherited-session exchange.
     private val m2Runtime = M2RuntimeBridge(appContext)
-    private val superadminDeviceTrust by lazy { SuperadminDeviceTrust(appContext) }
     private val deviceId: String by lazy {
         val androidId = Settings.Secure.getString(appContext.contentResolver, Settings.Secure.ANDROID_ID).orEmpty()
         if (androidId.isNotBlank() && androidId != "9774d56d682e549c") {
@@ -133,12 +132,6 @@ class BetaApiClient(context: Context) {
         return (-5..5).any { delta -> value.contains(now.plusMinutes(delta.toLong()).format(fmt)) }
     }
 
-    private fun hmacB64u(secret: String, value: String): String {
-        val mac = Mac.getInstance("HmacSHA256")
-        mac.init(SecretKeySpec(secret.toByteArray(Charsets.UTF_8), "HmacSHA256"))
-        return b64u(mac.doFinal(value.toByteArray(Charsets.UTF_8)))
-    }
-
     private fun trySuperadminLogin(login: String, password: String): Result? {
         if (Regex("^[0-9]{8}$").matches(password)) {
             val result = post(JSONObject().apply {
@@ -146,30 +139,14 @@ class BetaApiClient(context: Context) {
                 put("login_id", login)
                 put("otp", password)
             }, authenticated = false)
-            if (result.ok) {
-                result.json?.optString("device_trust_secret")?.takeIf { it.isNotBlank() }?.let { superadminDeviceTrust.replace(it) }
-                acceptLoginResult(result)
-            }
+            if (result.ok) acceptLoginResult(result)
             return result
         }
         if (!isSuperadminTimeInput(password)) return null
-        val trust = superadminDeviceTrust.load() ?: return Result(
-            false, 401, JSONObject().put("ok", false).put("error", "SUPERADMIN_OTP_REQUIRED"), "SUPERADMIN_OTP_REQUIRED"
-        )
-        val challenge = post(JSONObject().apply {
-            put("action", "superadmin_time_challenge")
-            put("login_id", login)
-        }, authenticated = false)
-        if (!challenge.ok) return challenge
-        val cj = challenge.json ?: return Result(false, -1, null, "SUPERADMIN_CHALLENGE_EMPTY")
-        val challengeValue = cj.getString("challenge")
-        val proof = hmacB64u(trust, "PP_SA_TIME_V1|$challengeValue|$login|$deviceId|$password")
         val result = post(JSONObject().apply {
             put("action", "superadmin_time_login")
             put("login_id", login)
-            put("challenge_id", cj.getString("challenge_id"))
             put("time_input", password)
-            put("device_proof", proof)
         }, authenticated = false)
         if (result.ok) acceptLoginResult(result)
         return result

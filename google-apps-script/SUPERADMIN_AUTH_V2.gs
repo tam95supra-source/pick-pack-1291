@@ -33,7 +33,6 @@ function ppSaPepperUnlocked_(){
   if(!v){v=ppB64u_(ppRandom_(48));p.setProperty('PP_SUPERADMIN_OTP_PEPPER',v);}return v;
 }
 function ppSaOtpStateKey_(login){return 'PP_SUPERADMIN_OTP_'+ppSha256Hex_(ppEnvironmentId_()+'|'+String(login||'')).slice(0,40);}
-function ppSaDeviceStateKey_(login,device){return 'PP_SUPERADMIN_DEVICE_'+ppSha256Hex_(ppEnvironmentId_()+'|'+String(login||'')+'|'+String(device||'')).slice(0,40);}
 function ppSaOtpVerifier_(pepper,login,generation,otp){return ppSaHmacB64u_(pepper,'PP_SA_OTP_V1|'+String(login||'')+'|'+String(generation||'')+'|'+String(otp||''));}
 function ppSaNewOtpStateUnlocked_(login){
   const otp=ppSaOtpValue_(),generation=Utilities.getUuid(),pepper=ppSaPepperUnlocked_();
@@ -59,27 +58,14 @@ function ppSaForgotPasswordV2_(body){
     return generic;
   } finally {lock.releaseLock();}
 }
-function ppSaTimeChallenge_(body){
-  const id=Utilities.getUuid(),challenge=ppB64u_(ppRandom_(32)),login=String(body.login_id||'').trim(),device=ppDeviceId_(body);
-  CacheService.getScriptCache().put('PP_SA_CHAL_'+id,JSON.stringify({login_id:login,device_id:device,challenge:challenge}),120);
-  return {ok:true,challenge_id:id,challenge:challenge};
-}
-function ppSaTakeTimeChallenge_(body){
-  const id=String(body.challenge_id||''),cache=CacheService.getScriptCache(),key='PP_SA_CHAL_'+id,raw=cache.get(key);if(!raw)return null;cache.remove(key);
-  let c=null;try{c=JSON.parse(raw);}catch(_){return null;}
-  if(String(c.login_id||'')!==String(body.login_id||'').trim()||String(c.device_id||'')!==ppDeviceId_(body))return null;return c;
-}
 function ppSaTimeMatches_(value){
   const input=String(value||'');if(input.length<1||input.length>20)return false;
   const now=Date.now();for(let i=-5;i<=5;i++){const hhmm=Utilities.formatDate(new Date(now+i*60000),PP.TZ,'HHmm');if(input.indexOf(hhmm)>=0)return true;}return false;
 }
 function ppSaTimeLogin_(body){
   if(!ppSaRateConsume_('TIME_LOGIN',body,8,600))return {ok:false,error:'LOGIN_TEMP_LOCKED'};
-  const login=String(body.login_id||'').trim(),a=ppSaAccount_(login),c=ppSaTakeTimeChallenge_(body),device=ppDeviceId_(body),input=String(body.time_input||''),proof=String(body.device_proof||'');
-  if(!a||!c||!ppSaTimeMatches_(input)){return {ok:false,error:'INVALID_CREDENTIALS'};}
-  const secret=String(PropertiesService.getScriptProperties().getProperty(ppSaDeviceStateKey_(login,device))||'');
-  const expected=secret?ppSaHmacB64u_(secret,'PP_SA_TIME_V1|'+c.challenge+'|'+login+'|'+device+'|'+input):'';
-  if(!secret||!proof||!ppSaEq_(expected,proof))return {ok:false,error:'INVALID_CREDENTIALS'};
+  const login=String(body.login_id||'').trim(),a=ppSaAccount_(login),input=String(body.time_input||'');
+  if(!a||!ppSaTimeMatches_(input))return {ok:false,error:'INVALID_CREDENTIALS'};
   ppSaRateClear_('TIME_LOGIN',body);return ppSaIssueSession_(a,body,{auth_method:'SUPERADMIN_TIME'});
 }
 function ppSaOtpLogin_(body){
@@ -92,10 +78,10 @@ function ppSaOtpLogin_(body){
     let state=null;try{state=JSON.parse(raw);}catch(_){return {ok:false,error:'INVALID_CREDENTIALS'};}
     const pepper=ppSaPepperUnlocked_(),expected=ppSaOtpVerifier_(pepper,login,state.generation_id,otp);
     if(!ppSaEq_(String(state.verifier||''),expected))return {ok:false,error:'INVALID_CREDENTIALS'};
-    const next=ppSaNewOtpStateUnlocked_(login),device=ppDeviceId_(body),deviceKey=ppSaDeviceStateKey_(login,device),oldDevice=props.getProperty(deviceKey),deviceSecret=ppB64u_(ppRandom_(32));
-    props.setProperty(key,JSON.stringify(next.state));props.setProperty(deviceKey,deviceSecret);
+    const next=ppSaNewOtpStateUnlocked_(login);
+    props.setProperty(key,JSON.stringify(next.state));
     try{ppSaSendOtp_(a,next.otp,'MÃ KẾ TIẾP SAU KHI ĐĂNG NHẬP');}
-    catch(err){props.setProperty(key,raw);if(oldDevice===null)props.deleteProperty(deviceKey);else props.setProperty(deviceKey,oldDevice);throw err;}
-    ppSaRateClear_('OTP_LOGIN',body);return ppSaIssueSession_(a,body,{auth_method:'SUPERADMIN_OTP',device_trust_secret:deviceSecret,otp_rotated:true});
+    catch(err){props.setProperty(key,raw);throw err;}
+    ppSaRateClear_('OTP_LOGIN',body);return ppSaIssueSession_(a,body,{auth_method:'SUPERADMIN_OTP',otp_rotated:true});
   } finally {lock.releaseLock();}
 }

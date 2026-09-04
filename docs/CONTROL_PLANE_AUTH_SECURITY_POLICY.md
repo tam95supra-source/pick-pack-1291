@@ -38,28 +38,25 @@ Implementation contract:
 
 ## 4. SUPERADMIN login methods
 
-### 4.1 Trusted-device time-window method
+### 4.1 Time-window method (no device binding)
 
-OWNER usability target: password input accepts at most 20 characters and may contain a current `HHmm` value within ±5 minutes.
+OWNER requirement updated 2026-09-04: SUPERADMIN has exactly two credential methods; device trust/binding is not used.
 
-Security requirement: `HHmm` alone is public information and therefore must NOT be a standalone universal SUPERADMIN credential.
+- Method 1 accepts an input of 1..20 characters when the string contains at least one exact `HHmm` value in the server's current time window ±5 minutes. Arbitrary prefix/suffix characters are allowed.
+- Validation is server-side using the configured Vietnam business timezone and must handle midnight wrap correctly. Client-side matching is only a routing hint, never authority.
+- No device binding, device secret, trusted-device state or Android Keystore dependency is part of this method.
+- Successful time-window login does not rotate or send the email OTP.
+- Failed attempts are rate-limited server-side; the submitted time string must not be logged or persisted.
+- Legacy/static SUPERADMIN password login is disabled so SUPERADMIN has exactly the two OWNER-approved methods.
 
-Safe implementation:
-- Time-window login is available only on an already trusted/bound SUPERADMIN device.
-- Device trust is proven with a server challenge signed by a device-bound key; the private key stays in Android Keystore and survives normal app updates.
-- Server validates the input length (1..20), searches for at least one exact `HHmm` candidate in the ±5-minute window, and validates the device challenge.
-- Timezone authority is the configured Vietnam business timezone; validation must handle midnight wrap correctly.
-- Validation is server-side. APK/UI must never be the authority for accepting SUPERADMIN login.
-- Successful trusted-device time login does not rotate or send the email OTP.
-
-Reason: without device binding, any person who knows the rule can enter the current time and obtain SUPERADMIN access; hiding the algorithm in a public/private repository would not fix that.
+Security note: current time is not secret. This method therefore provides materially less authentication secrecy than a device-bound credential. OWNER explicitly selected this tradeoff; public GitHub must still contain no actual password/OTP/token/secret values.
 
 ### 4.2 Email one-time password
 
 - OTP is exactly 8 decimal digits generated with a cryptographically secure random source.
 - OTP is single-use.
 - On successful OTP login, atomically mark the used OTP consumed, generate the next OTP, store only its protected verifier, and send the new plaintext OTP to the configured SUPERADMIN recovery Gmail address.
-- Login by trusted-device time method does not rotate/send OTP.
+- Login by time-window method does not rotate/send OTP.
 - Manual resend/recovery rotates the previous unused OTP and invalidates it.
 - Rate-limit failed OTP attempts and login attempts server-side.
 - Plaintext OTP exists only transiently during generation/email delivery and is never persisted in repo, logs, receipts or artifacts.
@@ -101,11 +98,11 @@ At minimum:
 3. New chat/session reading `beta/current` obtains latest public Beta identity.
 4. OWNER checklist revision N+1 cannot be overwritten by N; older Beta acceptance cannot overwrite newer release state.
 5. In-place APK update preserves valid SUPERADMIN session.
-6. Trusted device: arbitrary string length <=20 containing valid ±5-minute `HHmm` + valid device challenge succeeds.
-7. Same time string from an untrusted device fails.
-8. Time outside ±5 minutes fails, including midnight-boundary cases.
+6. Arbitrary string length <=20 containing valid ±5-minute `HHmm` succeeds for active SUPERADMIN without device binding.
+7. Time outside ±5 minutes fails, including midnight-boundary cases; inputs over 20 characters fail.
+8. Legacy/static SUPERADMIN password login fails, proving exactly two SUPERADMIN methods remain.
 9. Valid 8-digit OTP succeeds once; replay fails.
-10. Successful OTP use creates/sends a new OTP; trusted-time login does not.
+10. Successful OTP use creates/sends a new OTP; time-window login does not.
 11. Secret-bearing fields never appear in audit/log/receipt/public repo output.
 
 This policy changes only by explicit OWNER instruction. Security implementation may strengthen authentication without weakening the OWNER usability targets above.
