@@ -1,0 +1,32 @@
+name: Beta119 seed200 final15 diag
+
+on:
+  push:
+    branches:
+      - ops/beta119-seed200-replication-drain-20260904
+    paths:
+      - .github/workflows/ops-beta119-seed200-final15-diag.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diag:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      D1_NAME: pick-pack-1291-service-prod
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Read exact final15 outbox
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm --prefix service install --ignore-scripts --no-audit --no-fund
+          npx --prefix service wrangler d1 execute "$D1_NAME" --remote --json --command "SELECT event_id,status,attempt_count,claimed_at,next_attempt_at,last_error_class,last_error FROM sheet_replication_outbox WHERE event_id LIKE 'OWNER_SEED200_20260904_099_%' OR event_id LIKE 'OWNER_SEED200_20260904_100_%' OR event_id LIKE 'OWNER_SEED200_20260904_115_%' OR event_id LIKE 'OWNER_SEED200_20260904_164_%' OR event_id LIKE 'OWNER_SEED200_20260904_165_%' OR event_id LIKE 'OWNER_SEED200_20260904_181_%' OR event_id LIKE 'OWNER_SEED200_20260904_182_%' OR event_id LIKE 'OWNER_SEED200_20260904_183_%' OR event_id LIKE 'OWNER_SEED200_20260904_184_%' OR event_id LIKE 'OWNER_SEED200_20260904_185_%' OR event_id LIKE 'OWNER_SEED200_20260904_191_%' OR event_id LIKE 'OWNER_SEED200_20260904_192_%' OR event_id LIKE 'OWNER_SEED200_20260904_193_%' OR event_id LIKE 'OWNER_SEED200_20260904_194_%' OR event_id LIKE 'OWNER_SEED200_20260904_195_%' ORDER BY event_id; SELECT status,COUNT(*) n FROM sheet_replication_outbox WHERE event_id LIKE 'OWNER_SEED200_20260904_%' GROUP BY status ORDER BY status;" | jq -c '[.[]|.results]'
