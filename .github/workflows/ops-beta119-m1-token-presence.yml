@@ -1,0 +1,23 @@
+name: Beta119 internal maintenance token check
+on:
+  push:
+    branches:
+      - ops/beta119-seed200-replication-drain-20260904
+    paths:
+      - .github/workflows/ops-beta119-m1-token-presence.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    env:
+      M1_ADMIN_TOKEN: ${{ secrets.M1_ADMIN_TOKEN }}
+    steps:
+      - name: Check presence only
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${M1_ADMIN_TOKEN:-}"
+          echo "m1_admin_token_available=PASS"
