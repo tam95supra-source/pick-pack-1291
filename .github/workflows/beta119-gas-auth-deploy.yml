@@ -1,0 +1,64 @@
+name: Beta119 GAS auth deploy
+
+on:
+  push:
+    branches:
+      - release/beta119-superadmin-auth-control-plane-20260904
+    paths:
+      - ops/beta119-auth-deploy-request.json
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: beta119-gas-auth-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+      GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+      GOOGLE_OAUTH_REFRESH_TOKEN: ${{ secrets.GOOGLE_OAUTH_REFRESH_TOKEN }}
+      GAS_SCRIPT_ID: ${{ secrets.GAS_SCRIPT_ID }}
+      GAS_DEPLOYMENT_ID: ${{ secrets.GAS_DEPLOYMENT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Fence request to exact Beta119 source
+        shell: bash
+        run: |
+          set -euo pipefail
+          R=ops/beta119-auth-deploy-request.json
+          jq -e '.channel=="BETA" and .version_name=="0.4.2-beta.119" and .version_code==125 and .source_sha=="eeb45df6deae267d93a5fb15701a0a394885a549" and .base_source_sha=="81944b8519cfb7995d78a5c1070c4af3ee2150be" and .stable_write==false and .authority_change=="NONE" and .candidate_status=="PASS"' "$R" >/dev/null
+          git diff --quiet "$(jq -r .source_sha "$R")" HEAD -- google-apps-script
+          echo "SOURCE_SHA=$(jq -r .source_sha "$R")" >> "$GITHUB_ENV"
+          echo "BASE_SOURCE_SHA=$(jq -r .base_source_sha "$R")" >> "$GITHUB_ENV"
+          python3 tools/beta119_superadmin_auth_contract.py
+      - name: Get Apps Script access token
+        shell: bash
+        run: |
+          set -euo pipefail
+          TOKEN_JSON=$(curl -fsS --connect-timeout 15 --max-time 30 https://oauth2.googleapis.com/token \
+            -H 'Content-Type: application/x-www-form-urlencoded' \
+            --data-urlencode "client_id=$GOOGLE_OAUTH_CLIENT_ID" \
+            --data-urlencode "client_secret=$GOOGLE_OAUTH_CLIENT_SECRET" \
+            --data-urlencode "refresh_token=$GOOGLE_OAUTH_REFRESH_TOKEN" \
+            --data-urlencode grant_type=refresh_token)
+          ACCESS_TOKEN=$(jq -r '.access_token//empty' <<<"$TOKEN_JSON")
+          test -n "$ACCESS_TOKEN"
+          echo "::add-mask::$ACCESS_TOKEN"
+          printf 'ACCESS_TOKEN=%s\n' "$ACCESS_TOKEN" >> "$GITHUB_ENV"
+      - name: Deploy exact Beta119 SUPERADMIN auth with rollback and readback
+        run: python3 tools/beta119_deploy_superadmin_auth.py /tmp/beta119-gas-auth-deploy.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: beta119-gas-auth-deploy-${{ github.run_id }}
+          path: /tmp/beta119-gas-auth-deploy.json
+          retention-days: 30
+          if-no-files-found: error
