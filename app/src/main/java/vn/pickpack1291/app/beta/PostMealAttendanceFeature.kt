@@ -30,8 +30,9 @@ object PostMealAttendanceFeature {
     @Volatile private var homeWarningRefresh:(()->Unit)?=null
 
     fun onRealtime(changedDates:Set<String>){
+        // Foreground websocket already performs the relevant fast refresh. Projection completion
+        // must not fire a second Service-backed warning reload.
         if(activeDate.isNotBlank()&&activeDate in changedDates)activeRefresh?.invoke()
-        if(changedDates.isNotEmpty())homeWarningRefresh?.invoke()
     }
     fun onRealtimeFast(date:String){
         if(date.isBlank())return

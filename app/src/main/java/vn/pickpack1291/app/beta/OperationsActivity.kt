@@ -74,6 +74,7 @@ class OperationsActivity : Activity() {
                     "REPORT" -> reportRealtimeRefresh?.invoke(changedDates)
                     "HISTORY" -> historyRealtimeRefresh?.invoke(changedDates)
                     "EMPLOYEE" -> employeeTimelineRealtimeRefresh?.invoke(changedDates) // Timeline only; never rebuild the interactive employee form.
+                    "LABOR_HOME" -> changedDates.forEach { laborRealtimeRefresh?.invoke(it) }
                     "MEAL_ATTENDANCE" -> PostMealAttendanceFeature.onRealtime(changedDates)
                     "EMPLOYEE_LOADING", "PDA_EXCHANGE" -> Unit
                 }
@@ -119,6 +120,7 @@ class OperationsActivity : Activity() {
     private var employeeTimelineRealtimeRefresh: ((Set<String>) -> Unit)? = null
     private var businessFastRealtimeRefresh: ((String) -> Unit)? = null
     private var laborRealtimeRefresh: ((String) -> Unit)? = null
+    private var laborLocalUiRefresh: (() -> Unit)? = null
     private var laborWarningRealtimeRefresh: (() -> Unit)? = null
     private var lastPingMs: Long? = null
     private var lastStatusUpdateAt: Long = 0L
@@ -186,10 +188,16 @@ class OperationsActivity : Activity() {
 
             override fun onDayInvalidation(invalidation:JSONObject) {
                 val date=invalidation.optString("business_date")
+                val eventType=invalidation.optString("event_type").uppercase()
                 when(screenState){
-                    "BUSINESS"->businessFastRealtimeRefresh?.invoke(date)
-                    "LABOR_HOME"->laborRealtimeRefresh?.invoke(date)
-                    "MEAL_ATTENDANCE"->PostMealAttendanceFeature.onRealtimeFast(date)
+                    "BUSINESS"->when{
+                        eventType in setOf("ATTENDANCE_ENTER","ATTENDANCE_EXIT","ATTENDANCE_TIME_CORRECTED","ATTENDANCE_EXIT_DELETED")->OldSessionWarningFeature.onRealtime()
+                        eventType.startsWith("MEAL_")->PostMealAttendanceFeature.onRealtimeFast(date)
+                        eventType in setOf("LABOR_START","LABOR_FINISH")->laborWarningRealtimeRefresh?.invoke()
+                        eventType.isBlank()->businessFastRealtimeRefresh?.invoke(date) // compatibility with older invalidation payloads
+                    }
+                    "LABOR_HOME"->if(eventType.isBlank()||eventType in setOf("LABOR_START","LABOR_FINISH"))laborLocalUiRefresh?.invoke()
+                    "MEAL_ATTENDANCE"->if(eventType.isBlank()||eventType.startsWith("MEAL_"))PostMealAttendanceFeature.onRealtimeFast(date)
                 }
             }
 
@@ -277,7 +285,7 @@ class OperationsActivity : Activity() {
         businessRealtimeRefresh={dates->
             val current=operationalStore.businessDate()
             if(screenState=="BUSINESS"&&(current.isBlank()||current in dates)){
-                OldSessionWarningFeature.onRealtime();PostMealAttendanceFeature.onRealtime(dates);laborWarningRealtimeRefresh?.invoke()
+                OldSessionWarningFeature.onRealtime();laborWarningRealtimeRefresh?.invoke()
                 reconciliationHost.removeAllViews();addBusinessShiftReconciliation(reconciliationHost)
             }
         }
@@ -305,17 +313,37 @@ class OperationsActivity : Activity() {
         val host=ReviewAlertUi.warningContainer(this)
         val open=reconciliationButton("",false).apply{visibility=View.GONE;setOnClickListener{laborHome()}}
         host.addView(open,ReviewAlertUi.fixedHeightParams(this))
-        fun refresh(){
-            api.call("labor_list",JSONObject().put("business_date",operationalStore.businessDate())){r->runOnUiThread{
-                if(!r.ok)return@runOnUiThread
-                val items=r.json?.optJSONArray("items")?:JSONArray();var count=0
-                for(i in 0 until items.length())if(items.optJSONObject(i)?.optString("state")?.equals("OPEN",true)==true)count++
-                if(count>0){open.text="CẢNH BÁO: $count CÔNG NHẬT CHƯA HOÀN THÀNH";open.visibility=View.VISIBLE;host.visibility=View.VISIBLE}
-                else{open.visibility=View.GONE;host.visibility=View.GONE}
-            }}
+        fun applyCount(count:Int){
+            if(count>0){open.text="CẢNH BÁO: $count CÔNG NHẬT CHƯA HOÀN THÀNH";open.visibility=View.VISIBLE;host.visibility=View.VISIBLE}
+            else{open.visibility=View.GONE;host.visibility=View.GONE}
         }
-        laborWarningRealtimeRefresh={if(screenState=="BUSINESS")refresh()}
-        refresh();return host
+        fun localCount():Int{
+            val date=operationalStore.businessDate();val states=linkedMapOf<String,Boolean>()
+            val day=operationalStore.loadDay(date);val events=day?.optJSONArray("events")?:JSONArray()
+            for(i in 0 until events.length()){
+                val ev=events.optJSONObject(i)?:continue;val type=ev.optString("event_type").uppercase()
+                if(type !in setOf("LABOR_START","LABOR_FINISH"))continue
+                val p=runCatching{JSONObject(ev.optString("payload_json","{}"))}.getOrDefault(JSONObject());val after=p.optJSONObject("after")?:JSONObject()
+                val id=ev.optString("labor_id").ifBlank{p.optString("labor_id")}.ifBlank{after.optString("labor_id")}.ifBlank{ev.optString("entity_id")};if(id.isBlank())continue
+                states[id]=type=="LABOR_START"
+            }
+            val raw=getSharedPreferences("pp_labor_list_cache_v116",MODE_PRIVATE).getString(date,"").orEmpty()
+            if(raw.isNotBlank())runCatching{val a=JSONArray(raw);for(i in 0 until a.length()){val x=a.optJSONObject(i)?:continue;val id=x.optString("labor_id");if(id.isNotBlank()&&x.optLong("_local_pending_until",0L)>System.currentTimeMillis())states[id]=x.optString("state").equals("OPEN",true)}}
+            return states.values.count{it}
+        }
+        fun refreshLocal(){applyCount(localCount())}
+        laborWarningRealtimeRefresh={if(screenState=="BUSINESS")refreshLocal()}
+        refreshLocal()
+        api.call("labor_list",JSONObject().put("business_date",operationalStore.businessDate())){r->runOnUiThread{
+            if(!r.ok||screenState!="BUSINESS")return@runOnUiThread
+            val raw=getSharedPreferences("pp_labor_list_cache_v116",MODE_PRIVATE).getString(operationalStore.businessDate(),"").orEmpty()
+            val hasPending=raw.isNotBlank()&&runCatching{val a=JSONArray(raw);(0 until a.length()).any{i->a.optJSONObject(i)?.optLong("_local_pending_until",0L)?.let{it>System.currentTimeMillis()}==true}}.getOrDefault(false)
+            if(hasPending)return@runOnUiThread
+            val items=r.json?.optJSONArray("items")?:JSONArray();var count=0
+            for(i in 0 until items.length())if(items.optJSONObject(i)?.optString("state")?.equals("OPEN",true)==true)count++
+            applyCount(count)
+        }}
+        return host
     }
     private fun postMealAttendanceScreen(){
         module="BUSINESS"
@@ -1555,7 +1583,8 @@ class OperationsActivity : Activity() {
         val date=item.optString("business_date");val laborId=item.optString("labor_id");if(date.isBlank()||laborId.isBlank())return
         val cache=getSharedPreferences("pp_labor_list_cache_v116",MODE_PRIVATE);val raw=cache.getString(date,"").orEmpty();val rows=mutableListOf<JSONObject>()
         if(raw.isNotBlank())runCatching{val a=JSONArray(raw);for(i in 0 until a.length())a.optJSONObject(i)?.let{rows.add(JSONObject(it.toString()))}}
-        val at=rows.indexOfFirst{it.optString("labor_id")==laborId};if(at>=0)rows[at]=JSONObject(item.toString()) else rows.add(0,JSONObject(item.toString()))
+        val optimistic=JSONObject(item.toString()).put("_local_pending_until",System.currentTimeMillis()+5_000L)
+        val at=rows.indexOfFirst{it.optString("labor_id")==laborId};if(at>=0)rows[at]=optimistic else rows.add(0,optimistic)
         cache.edit().putString(date,JSONArray(rows).toString()).apply()
     }
 
@@ -1615,11 +1644,11 @@ class OperationsActivity : Activity() {
     }
 
     private fun laborBatchResult(title:String,success:Int,failures:List<String>){
-        foregroundSync.requestSync()
+        laborLocalUiRefresh?.invoke();foregroundSync.requestSync()
         if(failures.isEmpty()){
-            TopNotice.show(this,"$title: thành công $success nhân sự.",TopNotice.Kind.SUCCESS);laborHome();return
+            TopNotice.show(this,"$title: thành công $success nhân sự.",TopNotice.Kind.SUCCESS);return
         }
-        AlertDialog.Builder(this).setTitle(title).setMessage("Thành công: $success\nLỗi: ${failures.size}\n\n${failures.take(12).joinToString("\n")}").setPositiveButton("Đóng"){_,_->laborHome()}.show()
+        AlertDialog.Builder(this).setTitle(title).setMessage("Thành công: $success\nLỗi: ${failures.size}\n\n${failures.take(12).joinToString("\n")}").setPositiveButton("Đóng"){_,_->laborLocalUiRefresh?.invoke()}.show()
     }
 
     private fun showLaborBatchCreate(){
@@ -1680,12 +1709,12 @@ class OperationsActivity : Activity() {
                         api.call("labor_start",payload){started->runOnUiThread{
                             if(!started.ok){failures.add("$mnv: ${started.error?:"không tạo được"}");next(index+1,ok);return@runOnUiThread}
                             val optimistic=JSONObject().put("labor_id",laborId).put("mnv",mnv).put("business_date",session.optString("business_date")).put("shift",session.optString("shift")).put("labor_type",type).put("state","OPEN").put("start_at",startIso).put("end_at",JSONObject.NULL).put("note",noteText).put("deduct_staff",deductRequested&&!fixedMain&&!fixedLabor).put("attendance_session_id",session.optString("session_id")).put("full_name",row.optString("full_name")).put("supplier",row.optString("supplier")).put("position",row.optString("position"))
-                            patchLaborCacheOptimistic(optimistic)
+                            patchLaborCacheOptimistic(optimistic);laborLocalUiRefresh?.invoke()
                             if(end==null){next(index+1,ok+1);return@runOnUiThread}
                             api.call("labor_finish",JSONObject().put("event_id",UUID.randomUUID().toString()).put("depends_on_event_id",startEvent).put("labor_id",laborId)
                                 .put("mnv",mnv).put("business_date",session.optString("business_date")).put("session_id",session.optString("session_id")).put("start_at",startIso).put("end_at",end).put("note",noteText)){done->runOnUiThread{
                                 if(!done.ok){failures.add("$mnv: đã tạo nhưng chưa kết thúc — ${done.error?:"lỗi"}");next(index+1,ok)}
-                                else{patchLaborCacheOptimistic(JSONObject(optimistic.toString()).put("state","COMPLETED").put("end_at",end));next(index+1,ok+1)}
+                                else{patchLaborCacheOptimistic(JSONObject(optimistic.toString()).put("state","COMPLETED").put("end_at",end));laborLocalUiRefresh?.invoke();next(index+1,ok+1)}
                             }}
                         }}
                     }}
@@ -1733,7 +1762,7 @@ class OperationsActivity : Activity() {
                         api.call("labor_finish",JSONObject().put("event_id",UUID.randomUUID().toString()).put("labor_id",laborId).put("mnv",mnv)
                             .put("business_date",row.optString("business_date")).put("session_id",sid).put("start_at",active.optString("start_at")).put("end_at",endIso).put("note",noteText)){done->runOnUiThread{
                             if(!done.ok){failures.add("$mnv: ${done.error?:"không kết thúc được"}");next(index+1,ok)}
-                            else next(index+1,ok+1)
+                            else{patchLaborCacheOptimistic(JSONObject(row.toString()).put("state","COMPLETED").put("end_at",endIso));laborLocalUiRefresh?.invoke();next(index+1,ok+1)}
                         }}
                     }}
                 }
@@ -1922,19 +1951,39 @@ class OperationsActivity : Activity() {
             fixedWarningHost.addView(warn,ReviewAlertUi.fixedHeightParams(this))
         }
 
+        fun cachedRows(date:String):List<JSONObject>{
+            val raw=cache.getString(date,"").orEmpty();if(raw.isBlank())return emptyList()
+            return runCatching{val a=JSONArray(raw);(0 until a.length()).mapNotNull{a.optJSONObject(it)?.let{j->JSONObject(j.toString())}}}.getOrDefault(emptyList())
+        }
+        fun mergedLocalRows(date:String):List<JSONObject>{
+            val cached=cachedRows(date);val canonical=localRows(date);if(canonical.isEmpty())return cached
+            val map=linkedMapOf<String,JSONObject>();cached.forEach{x->x.optString("labor_id").takeIf{it.isNotBlank()}?.let{map[it]=JSONObject(x.toString())}}
+            val now=System.currentTimeMillis()
+            canonical.forEach{x->val id=x.optString("labor_id");val current=map[id];if(id.isNotBlank()&&(current==null||current.optLong("_local_pending_until",0L)<=now))map[id]=JSONObject(x.toString())}
+            return map.values.toList()
+        }
+        fun renderLocalOnly(){
+            val local=mergedLocalRows(selectedLaborDate);renderRows(local);reviewFixed(local)
+        }
+        fun mergeRemote(fresh:List<JSONObject>,local:List<JSONObject>):List<JSONObject>{
+            val map=linkedMapOf<String,JSONObject>();fresh.forEach{x->x.optString("labor_id").takeIf{it.isNotBlank()}?.let{map[it]=JSONObject(x.toString())}}
+            val now=System.currentTimeMillis()
+            local.forEach{x->val id=x.optString("labor_id");val pending=x.optLong("_local_pending_until",0L)>now;if(id.isNotBlank()&&(pending||id !in map))map[id]=JSONObject(x.toString())}
+            return map.values.toList()
+        }
         fun loadOpen(){
-            val cached=cache.getString(selectedLaborDate,"").orEmpty()
-            val local=if(cached.isNotBlank())runCatching{val a=JSONArray(cached);(0 until a.length()).mapNotNull{a.optJSONObject(it)?.let{j->JSONObject(j.toString())}}}.getOrDefault(emptyList()) else localRows(selectedLaborDate)
+            val local=mergedLocalRows(selectedLaborDate)
             renderRows(local);reviewFixed(local)
             api.call("labor_list",JSONObject().put("business_date",selectedLaborDate)){r->runOnUiThread{
                 if(screenState!="LABOR_HOME")return@runOnUiThread
                 if(handleAuth(r))return@runOnUiThread
                 if(!r.ok){if(local.isEmpty())openBox.addView(txt("Chưa tải được dữ liệu; sẽ tự cập nhật khi Service sẵn sàng.",9.3f,muted,false));return@runOnUiThread}
                 val a=r.json?.optJSONArray("items")?:JSONArray();val fresh=(0 until a.length()).mapNotNull{a.optJSONObject(it)?.let{j->JSONObject(j.toString())}}
-                cache.edit().putString(selectedLaborDate,a.toString()).apply();renderRows(fresh);reviewFixed(fresh)
+                val merged=mergeRemote(fresh,mergedLocalRows(selectedLaborDate));cache.edit().putString(selectedLaborDate,JSONArray(merged).toString()).apply();renderRows(merged);reviewFixed(merged)
             }}
         }
-        laborRealtimeRefresh={date->if(screenState=="LABOR_HOME"&&date==selectedLaborDate)loadOpen()}
+        laborLocalUiRefresh={if(screenState=="LABOR_HOME")renderLocalOnly()}
+        laborRealtimeRefresh={date->if(screenState=="LABOR_HOME"&&date==selectedLaborDate)renderLocalOnly()}
 
         var busy=false
         fun submit(){

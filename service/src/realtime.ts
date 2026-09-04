@@ -18,7 +18,7 @@ export class RealtimeHub extends DurableObject<Env> {
   }
 
   async broadcast(event: Pick<EventRow, "event_id" | "event_type" | "entity_type" | "entity_id" | "business_date" | "authority_epoch" | "authority_seq" | "service_generation" | "new_version">): Promise<number> {
-    return this.invalidate({type:"DAY_CHANGED",business_date:event.business_date,day_revision:event.authority_seq,authority_epoch:event.authority_epoch,authority_seq:event.authority_seq,service_generation:event.service_generation,event_id:event.event_id,entity_type:event.entity_type,entity_id:event.entity_id,new_version:event.new_version});
+    return this.invalidate({type:"DAY_CHANGED",business_date:event.business_date,day_revision:event.authority_seq,authority_epoch:event.authority_epoch,authority_seq:event.authority_seq,service_generation:event.service_generation,event_id:event.event_id,event_type:event.event_type,entity_type:event.entity_type,entity_id:event.entity_id,new_version:event.new_version});
   }
 
   async invalidate(message: Record<string, unknown>): Promise<number> {

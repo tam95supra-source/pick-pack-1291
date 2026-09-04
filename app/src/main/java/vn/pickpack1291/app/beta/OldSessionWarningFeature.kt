@@ -105,7 +105,7 @@ object OldSessionWarningFeature {
                                 if(!r.ok){TopNotice.show(activity,r.error?:"Không ra ca hàng loạt được.",TopNotice.Kind.ERROR);reload();return@runOnUiThread}
                                 val exited=r.json?.optInt("exited",0)?:0;val skipped=r.json?.optInt("skipped_labor",0)?:0;val failed=r.json?.optInt("failed_count",0)?:0
                                 TopNotice.show(activity,"Đã ra ca $exited phiên • bỏ qua công nhật $skipped${if(failed>0)" • lỗi $failed" else ""}.",if(failed>0)TopNotice.Kind.WARNING else TopNotice.Kind.SUCCESS)
-                                reload()
+                                val remaining=r.json?.optJSONArray("items")?:JSONArray();apply(parse(remaining))
                             }}
                         }
                     }
@@ -125,7 +125,7 @@ object OldSessionWarningFeature {
         }
         button.setOnClickListener{showList()}
         apply(local())
-        activeRefresh={activity.runOnUiThread{reload()}}
+        activeRefresh={activity.runOnUiThread{apply(local())}}
         root.addOnAttachStateChangeListener(object:View.OnAttachStateChangeListener{
             override fun onViewAttachedToWindow(v:View)=Unit
             override fun onViewDetachedFromWindow(v:View){if(activeRefresh!=null)activeRefresh=null}
