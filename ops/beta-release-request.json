@@ -6,6 +6,9 @@
   "base_version": "0.4.2-beta.118",
   "base_version_code": 124,
   "base_source_sha": "81944b8519cfb7995d78a5c1070c4af3ee2150be",
+  "base_candidate_source_sha": "81944b8519cfb7995d78a5c1070c4af3ee2150be",
+  "base_apk_sha256": "5216f0eb09f187aed9cb71dcc21cd145fdc3ba7ea7852c74ffe6f85dea2b478f",
+  "base_apk_size": 14429173,
   "source_sha": "eeb45df6deae267d93a5fb15701a0a394885a549",
   "candidate_source_sha": "eeb45df6deae267d93a5fb15701a0a394885a549",
   "package": "vn.pickpack1291.app.beta.publicbeta",
@@ -80,7 +83,7 @@
   "base_live_final_run_id": 33842367960,
   "base_live_final_artifact_id": 9925415732,
   "base_live_final_artifact_name": "beta-final-33842367960",
-  "execution_nonce": "beta119-publish-exact-lock-20260904-01",
+  "execution_nonce": "beta119-publish-exact-lock-20260904-02",
   "next_action": "PUBLISH_EXACT_LOCKED_BYTES_THEN_OTA_INSTALL_OPEN_READBACK",
   "owner_scope": "SUPERADMIN_AUTH_002"
 }
