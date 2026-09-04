@@ -1,9 +1,9 @@
-name: Beta118 owner reset 200 preflight
+name: Beta120 owner reset 200 preflight
 
 on:
   push:
     branches:
-      - release/beta118-owner-realtime-bulk-exit-20260904
+      - release/beta120-bulk-exit-reset200-20260904
     paths:
       - .github/workflows/beta118-owner-reset-200-preflight.yml
   workflow_dispatch:
@@ -26,17 +26,15 @@ jobs:
           node-version: '24'
       - name: Install wrangler
         run: npm --prefix service install --ignore-scripts --no-audit --no-fund
-      - name: Fresh-read authority, schema and exact cleanup scope
+      - name: Fresh-read authority, today-only scope and role capacity
         shell: bash
         run: |
           set -euo pipefail
           TODAY=$(TZ=Asia/Bangkok date +%F)
           test "$TODAY" = "2026-09-04"
-          YDAY=$(TZ=Asia/Bangkok date -d 'yesterday' +%F)
-          test "$YDAY" = "2026-09-03"
-          npx --prefix service wrangler d1 execute "$D1_NAME" --remote --json --command "SELECT authority_epoch,authority_seq,mode,scope,service_generation FROM authority_state WHERE singleton_id=1; SELECT business_date,COUNT(*) n FROM attendance_sessions WHERE business_date IN ('$YDAY','$TODAY') GROUP BY business_date ORDER BY business_date; SELECT business_date,COUNT(*) n FROM labor_sessions WHERE business_date IN ('$YDAY','$TODAY') GROUP BY business_date ORDER BY business_date; SELECT business_date,COUNT(*) n FROM post_meal_attendance WHERE business_date IN ('$YDAY','$TODAY') GROUP BY business_date ORDER BY business_date; SELECT business_date,COUNT(*) n FROM post_meal_attendance_audit WHERE business_date IN ('$YDAY','$TODAY') GROUP BY business_date ORDER BY business_date; SELECT business_date,COUNT(*) n FROM resource_daily_consumption WHERE business_date IN ('$YDAY','$TODAY') GROUP BY business_date ORDER BY business_date; SELECT business_date,COUNT(*) n FROM resource_leases WHERE business_date IN ('$YDAY','$TODAY') GROUP BY business_date ORDER BY business_date; SELECT business_date,COUNT(*) n FROM events WHERE business_date IN ('$YDAY','$TODAY') GROUP BY business_date ORDER BY business_date; SELECT COUNT(*) n FROM employees; SELECT COUNT(*) n FROM employees e WHERE NOT EXISTS(SELECT 1 FROM attendance_sessions s WHERE s.mnv=e.mnv AND s.state='ACTIVE' AND s.business_date NOT IN ('$YDAY','$TODAY'));" > /tmp/preflight.json
+          npx --prefix service wrangler d1 execute "$D1_NAME" --remote --json --command "SELECT authority_epoch,authority_seq,mode,scope,service_generation FROM authority_state WHERE singleton_id=1; SELECT state,shift,COUNT(*) n FROM attendance_sessions WHERE business_date='$TODAY' GROUP BY state,shift ORDER BY state,shift; SELECT state,COUNT(*) n FROM labor_sessions WHERE business_date='$TODAY' GROUP BY state ORDER BY state; SELECT COUNT(*) eligible_no_other_active FROM employees e WHERE COALESCE(e.site,'')='1291' AND NOT EXISTS(SELECT 1 FROM attendance_sessions s WHERE s.mnv=e.mnv AND s.state='ACTIVE' AND s.business_date<> '$TODAY'); SELECT UPPER(TRIM(COALESCE(main_position,''))) position,COUNT(*) n FROM employees WHERE COALESCE(site,'')='1291' GROUP BY UPPER(TRIM(COALESCE(main_position,''))) ORDER BY n DESC,position; SELECT COUNT(*) pending_today_outbox FROM sheet_replication_outbox o JOIN events e ON e.event_id=o.event_id WHERE e.business_date='$TODAY' AND e.entity_type IN ('ATTENDANCE_SESSION','LABOR_SESSION','POST_MEAL_ATTENDANCE') AND o.status<>'SYNCED';" > /tmp/preflight.json
           python3 - <<'PY'
-          import json,sys
+          import json
           raw=json.load(open('/tmp/preflight.json'))
           rows=[]
           def walk(x):
@@ -46,16 +44,16 @@ jobs:
             elif isinstance(x,list):
               for v in x: walk(v)
           walk(raw)
-          auth=next((r for r in rows if 'authority_epoch' in r and 'authority_seq' in r),None)
+          auth=next((r for r in rows if 'authority_epoch' in r),None)
           if not auth or auth.get('mode')!='SERVICE_PRIMARY' or auth.get('scope')!='PRODUCTION' or int(auth.get('authority_epoch',0))!=9:
             raise SystemExit('AUTHORITY_FENCE_FAILED:'+repr(auth))
-          eligible=[r for r in rows if set(r.keys())=={'n'}]
-          if not eligible or int(eligible[-1]['n'])<200: raise SystemExit('NOT_ENOUGH_ELIGIBLE_EMPLOYEES')
-          print('PREFLIGHT_PASS authority=',auth,'eligible_no_other_active=',eligible[-1]['n'])
-          for r in rows: print(r)
+          eligible=next((r for r in rows if 'eligible_no_other_active' in r),None)
+          if not eligible or int(eligible['eligible_no_other_active'])<200:
+            raise SystemExit('NOT_ENOUGH_ELIGIBLE_EMPLOYEES:'+repr(eligible))
+          pending=next((r for r in rows if 'pending_today_outbox' in r),None)
+          if pending is None: raise SystemExit('OUTBOX_READBACK_MISSING')
+          print('PREFLIGHT_PASS authority=',auth,'eligible=',eligible['eligible_no_other_active'],'pending_today_outbox=',pending['pending_today_outbox'])
+          print('TODAY_AND_POSITION_ROWS')
+          for r in rows:
+            if r is not auth and r is not eligible and r is not pending: print(r)
           PY
-      - name: Show pending owner acceptance markers
-        shell: bash
-        run: |
-          set -euo pipefail
-          grep -nE 'PENDING_BETA117_ITEM_[1-8]_OF_8|PENDING_BETA118|TECHNICAL_PASS_AWAITING_OWNER' qa/stable_invariants.yml | tail -n 80 || true
