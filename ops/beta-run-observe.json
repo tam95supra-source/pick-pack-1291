@@ -1,8 +1,8 @@
 {
-  "run_id": 33835843259,
-  "run_sha": "0dab8d86023397504688498b3e81259e34294fb7",
+  "run_id": 33839187150,
+  "run_sha": "1eb2810411ad9c083e31fcb2a29e73152f949a71",
   "ref": "release/beta118-owner-realtime-bulk-exit-20260904",
-  "execution_nonce": "beta118-back36-exact-harness-recovery-20260904-01",
-  "stage": "BACK36_ONLY",
-  "observed_at": "2026-09-04T04:13:55Z"
+  "execution_nonce": "beta118-owner100-accepted-beta-auth-20260904-02",
+  "stage": "BETA_AUTH_MIGRATE",
+  "observed_at": "2026-09-04T05:05:26Z"
 }
