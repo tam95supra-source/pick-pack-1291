@@ -1,0 +1,30 @@
+{
+  "status": "PASS",
+  "phase": "STABLE_PRIVATE_PRIMARY_GAS_RECOVERY",
+  "owner_authorized": true,
+  "recovery_run_id": 33821255810,
+  "recovery_artifact_id": 9918331314,
+  "recovery_artifact_name": "stable-primary-gas-recovery-33821255810",
+  "recovery_head_sha": "8d8e5f2aea5757d0b79e3616f30711cf92ff3c50",
+  "stable_public_activation": false,
+  "lifecycle": "READY_NOT_LIVE",
+  "script_id_unchanged": true,
+  "deployment_id_unchanged": true,
+  "web_url_unchanged": true,
+  "webapp_policy": "ANYONE_ANONYMOUS/USER_DEPLOYING",
+  "new_gas_version": 3,
+  "canonical_source_hash": "42861c5d19e1c2322921d6c85efbcd92ce748c8a15a4a4f3a211406f9b9b9dc4",
+  "live_get": {
+    "http": 200,
+    "attempt": 1,
+    "environment_id": "STABLE",
+    "ok": true
+  },
+  "sheet_contract_changed": false,
+  "d1_changed": false,
+  "worker_changed": false,
+  "authority_changed": false,
+  "beta_touched": false,
+  "stable_public": false,
+  "next_action": "RERUN_BETA117_RUNTIME_DOD_EXACT_LOCKED_CANDIDATE"
+}
