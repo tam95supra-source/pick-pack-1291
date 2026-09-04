@@ -1,5 +1,5 @@
 {
-  "stage": "RUNTIME_DOD_VERIFY",
+  "stage": "BETA_DOMAIN_PREPARE",
   "mode": "BETA118_EXACT_LOCKED_PRE_OTA_CONTINUATION",
   "version_name": "0.4.2-beta.118",
   "version_code": 124,
@@ -48,6 +48,10 @@
   "service_discovery_run_id": 33841489651,
   "service_discovery_artifact_id": 9925094736,
   "service_discovery_artifact_name": "beta-service-discovery-33841489651",
+  "runtime_dod_status": "PASS",
+  "runtime_dod_run_id": 33841694703,
+  "runtime_dod_artifact_id": 9925144635,
+  "runtime_dod_artifact_name": "beta-stable-runtime-33841694703",
   "base_candidate_run_id": 33800745880,
   "base_candidate_artifact_id": 9911117214,
   "base_candidate_artifact_name": "beta-candidate-33800745880",
@@ -58,6 +62,6 @@
   "stable_gas_repair_artifact_name": "stable-primary-canary-source-restore-33821666160",
   "owner100_blocker_acceptance": "COMPLETE",
   "owner100_acceptance_receipt": "ops/beta118-owner100-owner-acceptance.json",
-  "execution_nonce": "beta118-runtime-dod-20260904-01",
-  "next_action": "RUN_RUNTIME_DOD_THEN_BETA_DOMAIN_PREPARE"
+  "execution_nonce": "beta118-beta-domain-20260904-01",
+  "next_action": "RUN_BETA_DOMAIN_FRESH_READ_THEN_RELEASE_LOCK"
 }
