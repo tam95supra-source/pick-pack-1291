@@ -1,8 +1,8 @@
 {
-  "run_id": 33863888041,
-  "run_sha": "f06a4d95d5ee037941717dd9a758c38ad8b9f4c7",
+  "run_id": 33866077880,
+  "run_sha": "d3e5be3e8d75dbb3894f8df4864d2ced67a1f347",
   "ref": "release/beta119-superadmin-auth-control-plane-20260904",
-  "execution_nonce": "beta118-publish-exact-lock-20260904-02",
-  "stage": "pass_live",
-  "observed_at": "2026-09-04T10:34:49Z"
+  "execution_nonce": "beta119-beta-auth-migrate-20260904-01",
+  "stage": "BETA_AUTH_MIGRATE",
+  "observed_at": "2026-09-04T11:02:55Z"
 }
