@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "state_epoch": 202609041508,
+  "channel": "BETA",
+  "public_beta": {
+    "version_name": "0.4.2-beta.118",
+    "version_code": 124,
+    "source_sha": "81944b8519cfb7995d78a5c1070c4af3ee2150be",
+    "apk_sha256": "5216f0eb09f187aed9cb71dcc21cd145fdc3ba7ea7852c74ffe6f85dea2b478f",
+    "technical_status": "PASS_LIVE"
+  },
+  "owner_scope": {
+    "scope_id": "OWNER_20260904_CURRENT_AUTH_ACCEPTANCE_SECURITY",
+    "status": "LOCKED_REQUIREMENT_PENDING_FIX",
+    "requirements": [
+      {
+        "id": "CURRENT_PUBLIC_BETA_001",
+        "status": "IMPLEMENTATION_STARTED",
+        "rule": "beta/current and CURRENT_STATE must identify the newest public LIVE Beta; an older release must never overwrite a newer current state"
+      },
+      {
+        "id": "SUPERADMIN_AUTH_002",
+        "status": "LOCKED_REQUIREMENT_PENDING_FIX",
+        "rule": "preserve authenticated session across app version updates; support trusted-device time-window login plus 8-digit single-use email OTP without storing plaintext credentials in GitHub"
+      },
+      {
+        "id": "OWNER_ACCEPTANCE_LEDGER_001",
+        "status": "IMPLEMENTATION_STARTED",
+        "rule": "owner checklist and acceptance state are repository-backed, monotonic and fenced by release/checklist revision so a Beta116/117 state cannot overwrite a newer Beta118+ state"
+      }
+    ]
+  },
+  "checklist": {
+    "checklist_id": null,
+    "revision": 0,
+    "status": "NOT_YET_TECHNICAL_PASS_FOR_CURRENT_OWNER_SCOPE",
+    "items": [],
+    "owner_responses": []
+  },
+  "fencing": {
+    "reject_lower_state_epoch": true,
+    "reject_older_beta_version": true,
+    "reject_lower_checklist_revision": true,
+    "owner_silence_is_acceptance": false
+  },
+  "security": {
+    "plaintext_password_in_repo": "FORBIDDEN",
+    "plaintext_otp_in_repo": "FORBIDDEN",
+    "password_verifier_in_public_repo": "FORBIDDEN",
+    "session_token_in_repo": "FORBIDDEN",
+    "gmail_oauth_secret_in_repo": "FORBIDDEN",
+    "secret_values_in_logs_artifacts_receipts": "FORBIDDEN"
+  },
+  "next_action": "IMPLEMENT_SUPERADMIN_AUTH_AND_OWNER_ACCEPTANCE_FENCING_WITH_REGRESSION"
+}
