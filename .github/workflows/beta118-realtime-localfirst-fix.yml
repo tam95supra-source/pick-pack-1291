@@ -7,6 +7,7 @@ on:
     paths:
       - .github/workflows/beta118-realtime-localfirst-fix.yml
       - tools/beta118_realtime_localfirst_fix.py
+      - tools/beta118_realtime_localfirst_fix_v2.py
       - tools/beta118_realtime_localfirst_contract.py
       - qa/beta118_realtime_localfirst_regression.md
   workflow_dispatch:
@@ -40,7 +41,7 @@ jobs:
         with:
           node-version: '22'
       - name: Apply deterministic local-first repair
-        run: python3 tools/beta118_realtime_localfirst_fix.py
+        run: python3 tools/beta118_realtime_localfirst_fix_v2.py
       - name: Owner and regression contracts
         shell: bash
         run: |
