@@ -1,0 +1,27 @@
+name: Beta119 replication backlog summary
+on:
+  push:
+    branches:
+      - ops/beta119-seed200-replication-drain-20260904
+    paths:
+      - .github/workflows/ops-beta119-outbox-summary.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  summary:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 4
+    env:
+      D1_NAME: pick-pack-1291-service-prod
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm --prefix service install --ignore-scripts --no-audit --no-fund
+      - name: Read backlog
+        run: |
+          npx --prefix service wrangler d1 execute "$D1_NAME" --remote --json --command "SELECT status,COUNT(*) n FROM sheet_replication_outbox GROUP BY status ORDER BY status; SELECT CASE WHEN event_id LIKE 'OWNER_SEED200_20260904_%' THEN 'SEED200' ELSE 'OTHER' END grp,status,COUNT(*) n FROM sheet_replication_outbox WHERE status IN ('PENDING','RETRY','INFLIGHT') GROUP BY grp,status ORDER BY grp,status; SELECT mode,scope,service_generation FROM authority_state WHERE singleton_id=1;" | jq -c '[.[]|.results]'
