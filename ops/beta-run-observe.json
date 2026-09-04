@@ -1,8 +1,8 @@
 {
-  "run_id": 33835144144,
-  "run_sha": "9a203b580e7d4c5294ac515a1d4d94e8aaa003fa",
+  "run_id": 33835843259,
+  "run_sha": "0dab8d86023397504688498b3e81259e34294fb7",
   "ref": "release/beta118-owner-realtime-bulk-exit-20260904",
-  "execution_nonce": "beta118-visual-pda-exact-retry-20260904-04",
-  "stage": "VISUAL_ONLY",
-  "observed_at": "2026-09-04T03:59:18Z"
+  "execution_nonce": "beta118-back36-exact-harness-recovery-20260904-01",
+  "stage": "BACK36_ONLY",
+  "observed_at": "2026-09-04T04:13:55Z"
 }
