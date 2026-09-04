@@ -1,0 +1,64 @@
+name: Beta118 apply owner follow-up r2
+
+on:
+  push:
+    branches:
+      - release/beta118-owner-realtime-bulk-exit-20260904
+    paths:
+      - .github/workflows/beta118-apply-owner-followup-r2.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: beta118-apply-owner-followup
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Repair patch harness self-check
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('tools/beta118_apply_owner_followup.py')
+          s=p.read_text(encoding='utf-8')
+          start=s.index("# 9) Make Beta117 regression version-generic")
+          mid=s.index("contract='''#!/usr/bin/env python3",start)
+          replacement='''# 9) Make Beta117 regression version-generic and add Beta118 regression contract.\np='tools/beta117_owner_followup_contract.py';s=read(p)\nold_version="""assert 'versionCode = 123' in gradle and 'versionName = \\"0.4.2-beta.117\\"' in gradle\nassert 'const val VERSION_NAME = \\"0.4.2-beta.117\\"' in notes"""\nnew_version="""import re\nbeta_version=re.search(r'versionName = \\"(0\\\\.4\\\\.2-beta\\\\.\\\\d+)\\"',gradle).group(1)\nassert f'const val VERSION_NAME = \\"{beta_version}\\"' in notes"""\ns=replace_once(s,old_version,new_version,'beta117 generic version')\ns=s.replace('    \\"Biên bản • vuốt mọi ảnh / pinch / kéo ảnh\\",\\n','',1)\nwrite(p,s)\n'''
+          s=s[:start]+replacement+s[mid:]
+          p.write_text(s,encoding='utf-8')
+          PY
+          python3 -m py_compile tools/beta118_apply_owner_followup.py
+      - name: Apply deterministic Beta118 patch
+        run: python3 tools/beta118_apply_owner_followup.py
+      - name: Verify contracts and service typecheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/beta116_owner_scope_contract.py
+          python3 tools/beta117_owner_followup_contract.py
+          python3 tools/beta118_owner_followup_contract.py
+          pushd service
+          npm install --ignore-scripts --no-audit --no-fund
+          npm run check
+          popd
+          git diff --check
+      - name: Commit implementation
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app service tools .github/workflows/app-fast-check.yml
+          git commit -m "feat(beta118): bulk exit and realtime owner follow-up"
+          git push origin HEAD:release/beta118-owner-realtime-bulk-exit-20260904
