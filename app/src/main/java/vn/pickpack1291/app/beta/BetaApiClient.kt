@@ -10,6 +10,9 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.security.MessageDigest
 import java.security.SecureRandom
+import java.time.ZoneId
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
 import javax.crypto.Mac
 import javax.crypto.SecretKeyFactory
 import javax.crypto.spec.PBEKeySpec
@@ -22,7 +25,8 @@ import java.util.UUID
  * Android App <-> Google Apps Script <-> Google Sheets.
  *
  * Google Apps Script is the only API endpoint used by this transport.
- * Password plaintext never leaves the Android process: authentication uses PBKDF2 + challenge/HMAC proof.
+ * Standard password plaintext never leaves the Android process: PBKDF2 + challenge/HMAC proof is preserved.
+ * SUPERADMIN time-window/OTP credentials are short-lived TLS inputs, validated server-side and never persisted/logged.
  */
 class BetaApiClient(context: Context) {
     // S31A_NORMALIZED_API_CALL_ANCHOR
@@ -38,6 +42,7 @@ class BetaApiClient(context: Context) {
     private val m2Transport = M2ServiceTransport(appContext)
     // S19_M2_RUNTIME_FIX_APPLIED: honest runtime route + inherited-session exchange.
     private val m2Runtime = M2RuntimeBridge(appContext)
+    private val superadminDeviceTrust by lazy { SuperadminDeviceTrust(appContext) }
     private val deviceId: String by lazy {
         val androidId = Settings.Secure.getString(appContext.contentResolver, Settings.Secure.ANDROID_ID).orEmpty()
         if (androidId.isNotBlank() && androidId != "9774d56d682e549c") {
@@ -114,10 +119,68 @@ class BetaApiClient(context: Context) {
     private fun sha256Text(value: String): String = MessageDigest.getInstance("SHA-256")
         .digest(value.toByteArray(Charsets.UTF_8)).joinToString("") { (it.toInt() and 0xff).toString(16).padStart(2, '0') }
 
+    private fun acceptLoginResult(result: Result) {
+        if (!result.ok) return
+        val newToken = result.json?.optString("token")?.takeIf { it.isNotBlank() } ?: return
+        persistSession(newToken, result.json.optJSONObject("account"))
+        localExecutor.execute { runCatching { m2Runtime.ensureServiceSession(newToken, force = false) } }
+    }
+
+    private fun isSuperadminTimeInput(value: String): Boolean {
+        if (value.length !in 1..20) return false
+        val now = ZonedDateTime.now(ZoneId.of("Asia/Bangkok"))
+        val fmt = DateTimeFormatter.ofPattern("HHmm")
+        return (-5..5).any { delta -> value.contains(now.plusMinutes(delta.toLong()).format(fmt)) }
+    }
+
+    private fun hmacB64u(secret: String, value: String): String {
+        val mac = Mac.getInstance("HmacSHA256")
+        mac.init(SecretKeySpec(secret.toByteArray(Charsets.UTF_8), "HmacSHA256"))
+        return b64u(mac.doFinal(value.toByteArray(Charsets.UTF_8)))
+    }
+
+    private fun trySuperadminLogin(login: String, password: String): Result? {
+        if (Regex("^[0-9]{8}$").matches(password)) {
+            val result = post(JSONObject().apply {
+                put("action", "superadmin_otp_login")
+                put("login_id", login)
+                put("otp", password)
+            }, authenticated = false)
+            if (result.ok) {
+                result.json?.optString("device_trust_secret")?.takeIf { it.isNotBlank() }?.let { superadminDeviceTrust.replace(it) }
+                acceptLoginResult(result)
+            }
+            return result
+        }
+        if (!isSuperadminTimeInput(password)) return null
+        val trust = superadminDeviceTrust.load() ?: return Result(
+            false, 401, JSONObject().put("ok", false).put("error", "SUPERADMIN_OTP_REQUIRED"), "SUPERADMIN_OTP_REQUIRED"
+        )
+        val challenge = post(JSONObject().apply {
+            put("action", "superadmin_time_challenge")
+            put("login_id", login)
+        }, authenticated = false)
+        if (!challenge.ok) return challenge
+        val cj = challenge.json ?: return Result(false, -1, null, "SUPERADMIN_CHALLENGE_EMPTY")
+        val challengeValue = cj.getString("challenge")
+        val proof = hmacB64u(trust, "PP_SA_TIME_V1|$challengeValue|$login|$deviceId|$password")
+        val result = post(JSONObject().apply {
+            put("action", "superadmin_time_login")
+            put("login_id", login)
+            put("challenge_id", cj.getString("challenge_id"))
+            put("time_input", password)
+            put("device_proof", proof)
+        }, authenticated = false)
+        if (result.ok) acceptLoginResult(result)
+        return result
+    }
+
     fun login(loginId: String, password: String, callback: (Result) -> Unit) {
         authExecutor.execute {
             try {
                 val login = loginId.trim()
+                val special = trySuperadminLogin(login, password)
+                if (special?.ok == true) { callback(special); return@execute }
                 val challenge = post(JSONObject().apply {
                     put("action", "login_challenge")
                     put("login_id", login)
@@ -141,16 +204,9 @@ class BetaApiClient(context: Context) {
                     if (algorithm == "reset_sha256") put("upgrade_verifier", makeVerifier(password))
                 }
                 val result = post(request, authenticated = false)
-                if (result.ok) {
-                    val newToken = result.json?.optString("token")?.takeIf { it.isNotBlank() }
-                    if (newToken != null) {
-                        persistSession(newToken, result.json.optJSONObject("account"))
-                        // Beta63: UI success is not blocked by a second PBKDF2/password login to Service.
-                        // Warm the Service bearer asynchronously via inherited GAS-session exchange.
-                        localExecutor.execute { runCatching { m2Runtime.ensureServiceSession(newToken, force = false) } }
-                    }
-                }
-                callback(result)
+                acceptLoginResult(result)
+                val preferred = if (!result.ok && special != null && special.error != "INVALID_CREDENTIALS") special else result
+                callback(preferred)
             } catch (t: Throwable) {
                 callback(failure(t))
             }

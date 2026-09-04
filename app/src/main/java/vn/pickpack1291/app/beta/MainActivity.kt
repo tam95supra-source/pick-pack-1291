@@ -49,7 +49,15 @@ class MainActivity : Activity() {
         window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR or View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
         LocalLogManager.installCrashHandler(this)
         LocalLogManager.createDailyIfNeeded(this)
-        login()
+        val restored = api.restoredAccount()
+        if (restored != null) {
+            accountLogin = restored.optString("login_id")
+            accountName = restored.optString("display_name", accountLogin)
+            accountRole = restored.optString("role", "USER")
+            dashboard()
+        } else {
+            login()
+        }
     }
 
     private fun login() {
@@ -57,7 +65,6 @@ class MainActivity : Activity() {
         accountLogin = ""
         accountName = ""
         accountRole = ""
-        api.clearToken()
 
         val body = column(bg).apply {
             gravity = Gravity.CENTER_HORIZONTAL
@@ -117,6 +124,23 @@ class MainActivity : Activity() {
             if (actionId == EditorInfo.IME_ACTION_DONE) { submit(); true } else false
         }
         body.addView(loginButton, matchWrap())
+        body.addView(gap(8))
+        val otpButton = primaryButton("GỬI MẬT KHẨU MỘT LẦN / KHÔI PHỤC", blue) { }
+        otpButton.setOnClickListener {
+            val loginId = user.text.toString().trim()
+            if (loginId.isBlank()) { toast("Nhập tài khoản trước."); return@setOnClickListener }
+            otpButton.isEnabled = false
+            otpButton.text = "ĐANG GỬI..."
+            api.forgotPassword(loginId) { result ->
+                runOnUiThread {
+                    otpButton.isEnabled = true
+                    otpButton.text = "GỬI MẬT KHẨU MỘT LẦN / KHÔI PHỤC"
+                    if (result.ok) toast("Nếu tài khoản hợp lệ, thông tin đăng nhập mới đã được gửi tới email đã cấu hình.")
+                    else showApiError(result.error ?: "Không gửi được thông tin đăng nhập")
+                }
+            }
+        }
+        body.addView(otpButton, matchWrap())
         body.addView(gap(10))
         body.addView(txt("PUBLIC BETA • dữ liệu nghiệp vụ thật", 10.5f, blue, true).center())
         body.addView(txt("Đăng nhập được xác thực phía server; APK không chứa mật khẩu hoặc khóa Google.", 9.5f, muted, false).center())
@@ -642,6 +666,7 @@ class MainActivity : Activity() {
 
     private fun showApiError(raw: String) {
         val msg = when {
+            raw.contains("SUPERADMIN_OTP_REQUIRED") -> "Thiết bị này chưa được tin cậy. Hãy dùng mật khẩu một lần gửi qua email để đăng nhập và liên kết thiết bị."
             raw.contains("INVALID_CREDENTIALS") -> "Sai tài khoản hoặc mật khẩu."
             raw.contains("LOGIN_TEMP_LOCKED") -> "Đăng nhập sai nhiều lần. Tài khoản đang tạm khóa 15 phút."
             raw.contains("EMPLOYEE_NOT_FOUND") -> "Không tìm thấy MNV trong danh sách nhân sự."

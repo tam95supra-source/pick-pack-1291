@@ -240,7 +240,10 @@ function doPost(e) {
     if (action === 'health') return ppJson_(ppHealth_());
     if (action === 'update_check') return ppJson_(ppUpdateCheck_(body));
     if (action === 'forgot_password_preview') return ppJson_(ppForgotPasswordPreview_(body));
-    if (action === 'forgot_password') return ppJson_(ppForgotPassword_(body));
+    if (action === 'forgot_password') return ppJson_(ppSaForgotPasswordV2_(body));
+    if (action === 'superadmin_time_challenge') return ppJson_(ppSaTimeChallenge_(body));
+    if (action === 'superadmin_time_login') return ppJson_(ppSaTimeLogin_(body));
+    if (action === 'superadmin_otp_login') return ppJson_(ppSaOtpLogin_(body));
     if (action === 'login_challenge') return ppJson_(ppLoginChallenge_(body));
     if (action === 'login') return ppJson_(ppLogin_(body));
 
