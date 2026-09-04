@@ -1,0 +1,44 @@
+name: Beta118 visual harness repair
+
+on:
+  push:
+    branches:
+      - release/beta118-owner-realtime-bulk-exit-20260904
+    paths:
+      - .github/workflows/beta118-harness-repair.yml
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Repair only stale meal-warning harness assertion
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('tools/beta83_verify_matrix.sh')
+          s=p.read_text()
+          old="grep -Fq 'dynamic.addView(PostMealAttendanceFeature.buildHomeWarning(this,api){postMealAttendanceScreen()},matchWrap())' \"$OPS\""
+          new="grep -Fq 'val mealWarning=PostMealAttendanceFeature.buildHomeWarning(this,api){postMealAttendanceScreen()}' \"$OPS\"\ngrep -Fq 'dynamic.addView(oldWarning,matchWrap());dynamic.addView(mealWarning,matchWrap())' \"$OPS\""
+          assert s.count(old)==1, 'stale assertion shape changed'
+          p.write_text(s.replace(old,new))
+          PY
+          bash -n tools/beta83_verify_matrix.sh
+          git diff -- app service google-apps-script --exit-code
+      - name: Commit harness-only repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add tools/beta83_verify_matrix.sh
+          git diff --cached --quiet && exit 0
+          git commit -m 'test(beta118): align meal warning visual assertion'
+          git push origin HEAD:${GITHUB_REF_NAME}
