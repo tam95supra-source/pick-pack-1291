@@ -1,0 +1,112 @@
+name: Beta118 diagnose owner 100 sessions
+
+on:
+  push:
+    branches:
+      - release/beta118-owner-realtime-bulk-exit-20260904
+    paths:
+      - .github/workflows/beta118-owner-100-sessions-diagnose.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      D1_NAME: pick-pack-1291-service-prod
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install wrangler
+        run: npm --prefix service install --ignore-scripts --no-audit --no-fund
+      - name: Read exact Beta seed set from live D1
+        shell: bash
+        run: |
+          set -euo pipefail
+          RECEIPT=ops/beta118-owner-seed-100-sessions-receipt.json
+          test -f "$RECEIPT"
+          TODAY=$(python3 -c 'import json;print(json.load(open("ops/beta118-owner-seed-100-sessions-receipt.json"))["business_date"])')
+          npx --prefix service wrangler d1 execute "$D1_NAME" --remote --json --command "SELECT s.session_id,s.mnv,s.business_date,s.shift,s.state,s.entered_by,s.entered_at,s.exit_at,s.work_choice,e.main_position FROM attendance_sessions s LEFT JOIN employees e ON e.mnv=s.mnv WHERE s.business_date='$TODAY' AND s.entered_by='OWNER_TEST_SEED' ORDER BY s.session_id;" > /tmp/canonical.json
+          npx --prefix service wrangler d1 execute "$D1_NAME" --remote --json --command "SELECT event_id,entity_id,business_date,event_type,payload_json,authority_seq,idempotency_key FROM events WHERE idempotency_key LIKE 'OWNER_TEST_SEED|$TODAY|%' ORDER BY authority_seq;" > /tmp/events.json
+          npx --prefix service wrangler d1 execute "$D1_NAME" --remote --json --command "SELECT o.event_id,o.status FROM sheet_replication_outbox o JOIN events e ON e.event_id=o.event_id WHERE e.idempotency_key LIKE 'OWNER_TEST_SEED|$TODAY|%' ORDER BY o.event_id;" > /tmp/outbox.json
+      - name: Exact set-diff and current Rà soát projection proof
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, hashlib, pathlib, sys
+          receipt=json.load(open('ops/beta118-owner-seed-100-sessions-receipt.json',encoding='utf-8'))
+          def rows(path):
+              raw=json.load(open(path,encoding='utf-8'))
+              out=[]
+              def walk(x):
+                  if isinstance(x,dict):
+                      r=x.get('results')
+                      if isinstance(r,list): out.extend([v for v in r if isinstance(v,dict)])
+                      for v in x.values(): walk(v)
+                  elif isinstance(x,list):
+                      for v in x: walk(v)
+              walk(raw)
+              # wrangler JSON contains each result set once under a results key; de-dupe exact objects defensively.
+              seen=set(); unique=[]
+              for r in out:
+                  k=json.dumps(r,sort_keys=True,ensure_ascii=False)
+                  if k not in seen: seen.add(k); unique.append(r)
+              return unique
+          expected=receipt['items']
+          canonical=rows('/tmp/canonical.json')
+          events=rows('/tmp/events.json')
+          outbox=rows('/tmp/outbox.json')
+          exp_sid={str(x['session_id']) for x in expected}; exp_mnv={str(x['mnv']) for x in expected}; exp_eid={str(x['event_id']) for x in expected}
+          can_sid={str(x.get('session_id','')) for x in canonical}; can_mnv={str(x.get('mnv','')) for x in canonical}
+          event_ids={str(x.get('event_id','')) for x in events}; outbox_ids={str(x.get('event_id','')) for x in outbox}
+          ui_keys={'Ca 1','Ca HC','Ca 2'}
+          current_ui={str(x.get('session_id','')) for x in canonical if str(x.get('shift','')).strip() in ui_keys}
+          def canonical_shift(v):
+              u=' '.join(str(v or '').strip().upper().split())
+              return {'CA 1':'Ca 1','CA HC':'Ca HC','CA 2':'Ca 2'}.get(u,'')
+          normalized_ui={str(x.get('session_id','')) for x in canonical if canonical_shift(x.get('shift')) in ui_keys}
+          bad=[]
+          by_sid={str(x.get('session_id','')):x for x in canonical}
+          for x in expected:
+              r=by_sid.get(str(x['session_id']))
+              if not r: continue
+              if str(r.get('mnv','')) != str(x['mnv']): bad.append([x['session_id'],'mnv'])
+              if str(r.get('business_date','')) != str(receipt['business_date']): bad.append([x['session_id'],'business_date'])
+              if str(r.get('state','')).upper() != 'ACTIVE': bad.append([x['session_id'],'state'])
+              if r.get('exit_at') not in (None,''): bad.append([x['session_id'],'exit_at'])
+              if str(r.get('main_position','')) != str(x['position']): bad.append([x['session_id'],'position'])
+          report={
+              'status':'PASS' if not (exp_sid-can_sid or can_sid-exp_sid or exp_eid-event_ids or exp_eid-outbox_ids or bad) else 'FAIL',
+              'business_date':receipt['business_date'],
+              'expected_count':len(expected),'expected_unique_mnv':len(exp_mnv),'expected_unique_session_id':len(exp_sid),
+              'canonical_count':len(canonical),'canonical_unique_mnv':len(can_mnv),'canonical_unique_session_id':len(can_sid),
+              'expected_minus_canonical':sorted(exp_sid-can_sid),'canonical_minus_expected':sorted(can_sid-exp_sid),
+              'event_count':len(event_ids),'expected_minus_events':sorted(exp_eid-event_ids),
+              'outbox_count':len(outbox_ids),'expected_minus_outbox':sorted(exp_eid-outbox_ids),
+              'invalid_canonical_rows':bad,
+              'current_ui_review_count':len(current_ui),'expected_minus_current_ui_count':len(exp_sid-current_ui),
+              'normalized_ui_review_count':len(normalized_ui),'expected_minus_normalized_ui_count':len(exp_sid-normalized_ui),
+              'shift_values':sorted({str(x.get('shift','')) for x in canonical}),
+              'seed_set_sha256':hashlib.sha256('\n'.join(sorted(exp_sid)).encode()).hexdigest(),
+          }
+          pathlib.Path('ops').mkdir(exist_ok=True)
+          json.dump(report,open('ops/beta118-owner-100-sessions-diagnosis.json','w',encoding='utf-8'),ensure_ascii=False,indent=2)
+          print(json.dumps({k:v for k,v in report.items() if k not in ('expected_minus_canonical','canonical_minus_expected','expected_minus_events','expected_minus_outbox','invalid_canonical_rows')},ensure_ascii=False,indent=2))
+          if report['status']!='PASS': sys.exit('canonical exact-set readback failed')
+          if report['expected_minus_current_ui_count']==0: sys.exit('expected pre-fix UI mismatch was not reproduced')
+          if report['expected_minus_normalized_ui_count']!=0: sys.exit('proposed canonical shift normalization does not recover exact set')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: beta118-owner-100-sessions-diagnosis
+          path: ops/beta118-owner-100-sessions-diagnosis.json
+          if-no-files-found: error
+          retention-days: 14
