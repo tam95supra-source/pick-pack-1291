@@ -1,0 +1,231 @@
+name: Beta118 owner reset 200 canonical sessions
+
+on:
+  push:
+    branches: [release/beta118-owner-realtime-bulk-exit-20260904]
+    paths: [.github/workflows/beta118-owner-reset-200-d1.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: beta118-owner-reset-200-d1
+  cancel-in-progress: false
+
+jobs:
+  execute:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      D1_NAME: pick-pack-1291-service-prod
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      SEED_LOGIN: __OWNER_SEED_USER_200_20260904
+      ADMIN_LOGIN: __OWNER_RESET_ADMIN_20260904
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '24'}
+      - name: Install wrangler
+        run: npm --prefix service install --ignore-scripts --no-audit --no-fund
+
+      - name: Fresh fence and recovery export
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/reset200/recovery /tmp/reset200/evidence
+          TODAY=$(TZ=Asia/Bangkok date +%F); YDAY=$(TZ=Asia/Bangkok date -d yesterday +%F)
+          test "$TODAY" = 2026-09-04; test "$YDAY" = 2026-09-03
+          jq -e '.version_name=="0.4.2-beta.118" and .version_code==124 and .sha256=="5216f0eb09f187aed9cb71dcc21cd145fdc3ba7ea7852c74ffe6f85dea2b478f"' ops/beta-ota-current.json >/dev/null
+          npx --prefix service wrangler d1 execute "$D1_NAME" --remote --json --command "SELECT authority_epoch,authority_seq,mode,scope,service_generation FROM authority_state WHERE singleton_id=1; SELECT * FROM attendance_sessions WHERE business_date IN ('$YDAY','$TODAY') ORDER BY business_date,mnv; SELECT * FROM labor_sessions WHERE business_date IN ('$YDAY','$TODAY') ORDER BY business_date,mnv,start_at; SELECT * FROM post_meal_attendance WHERE business_date IN ('$YDAY','$TODAY') ORDER BY business_date,mnv; SELECT * FROM post_meal_attendance_audit WHERE business_date IN ('$YDAY','$TODAY') ORDER BY business_date,mnv; SELECT * FROM resource_daily_consumption WHERE business_date IN ('$YDAY','$TODAY'); SELECT * FROM resource_leases WHERE business_date IN ('$YDAY','$TODAY');" > /tmp/reset200/recovery/d1-projections-before.json
+          npx --prefix service wrangler d1 execute "$D1_NAME" --remote --json --command "SELECT event_id,business_date,event_type,entity_type,entity_id,authority_seq FROM events WHERE business_date IN ('$YDAY','$TODAY') AND entity_type IN ('ATTENDANCE_SESSION','LABOR_SESSION','POST_MEAL_ATTENDANCE') AND actor_id<>'$SEED_LOGIN' ORDER BY authority_seq;" > /tmp/reset200/recovery/old-events.json
+          npx --prefix service wrangler d1 execute "$D1_NAME" --remote --json --command "SELECT COUNT(*) n FROM sheet_replication_outbox WHERE event_id IN (SELECT event_id FROM events WHERE business_date IN ('$YDAY','$TODAY') AND entity_type IN ('ATTENDANCE_SESSION','LABOR_SESSION','POST_MEAL_ATTENDANCE') AND actor_id<>'$SEED_LOGIN') AND status<>'SYNCED';" > /tmp/reset200/recovery/outbox-old.json
+          python3 - <<'PY'
+          import json,sys
+          def rows(path):
+            x=json.load(open(path));o=[]
+            def w(v):
+              if isinstance(v,dict):
+                if isinstance(v.get('results'),list):o.extend(r for r in v['results'] if isinstance(r,dict))
+                for z in v.values():w(z)
+              elif isinstance(v,list):
+                for z in v:w(z)
+            w(x);return o
+          a=next(r for r in rows('/tmp/reset200/recovery/d1-projections-before.json') if 'authority_epoch' in r)
+          assert a['mode']=='SERVICE_PRIMARY' and a['scope']=='PRODUCTION' and int(a['authority_epoch'])==9,a
+          n=next(int(r['n']) for r in rows('/tmp/reset200/recovery/outbox-old.json') if 'n' in r)
+          if n: raise SystemExit(f'OLD_OUTBOX_NOT_SYNCED:{n}')
+          ev=rows('/tmp/reset200/recovery/old-events.json');assert ev,'NO_OLD_TARGET_EVENTS'
+          open('/tmp/reset200/old-event-ids.txt','w').write('\n'.join(str(r['event_id']) for r in ev)+'\n')
+          open('/tmp/reset200/generation','w').write(str(a['service_generation']))
+          print('RESET_PREFLIGHT_PASS old_events=',len(ev),'authority_seq=',a['authority_seq'])
+          PY
+          sha256sum /tmp/reset200/recovery/* > /tmp/reset200/recovery/SHA256SUMS.txt
+
+      - name: Resolve exact live Beta service
+        shell: bash
+        run: |
+          set -euo pipefail
+          GEN=$(cat /tmp/reset200/generation)
+          curl -fsS -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts" > /tmp/reset200/scripts.json
+          curl -fsS -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/subdomain" > /tmp/reset200/subdomain.json
+          SUB=$(jq -er .result.subdomain /tmp/reset200/subdomain.json); : > /tmp/reset200/healthy.tsv
+          while IFS= read -r name; do
+            [[ "$name" == pick-pack-1291* || "$name" == pickpack* ]] || continue
+            url="https://${name}.${SUB}.workers.dev"
+            code=$(curl -sS --connect-timeout 8 --max-time 15 -o /tmp/reset200/health.json -w '%{http_code}' "$url/health" || printf 000)
+            if [[ "$code" =~ ^2 ]] && jq -e --arg gen "$GEN" '.ok==true and .environment=="production" and (.generation|tostring)==$gen and .authority.mode=="SERVICE_PRIMARY" and .authority.scope=="PRODUCTION"' /tmp/reset200/health.json >/dev/null; then printf '%s\t%s\n' "$name" "$url" >> /tmp/reset200/healthy.tsv; fi
+          done < <(jq -r '.result[]?.id // empty' /tmp/reset200/scripts.json)
+          test "$(wc -l < /tmp/reset200/healthy.tsv)" -eq 1
+          cut -f2 /tmp/reset200/healthy.tsv > /tmp/reset200/service-url
+          echo "LIVE_SERVICE_RESOLUTION_PASS"
+
+      - name: Create isolated test accounts and authenticate normally
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os,hashlib,base64,secrets
+          def b64(b):return base64.urlsafe_b64encode(b).decode().rstrip('=')
+          for name in ('admin','user'):
+            password='owner-reset-200-'+name
+            salt=hashlib.sha256(('pp1291-'+name+'-20260904').encode()).digest()[:16]
+            key=hashlib.pbkdf2_hmac('sha256',password.encode(),salt,120000,32)
+            verifier=f'pbkdf2_sha256$120000${b64(salt)}${b64(key)}'
+            vh=hashlib.sha256(verifier.encode()).hexdigest()
+            open(f'/tmp/reset200/{name}-password','w').write(password)
+            open(f'/tmp/reset200/{name}-verifier','w').write(verifier)
+            open(f'/tmp/reset200/{name}-vh','w').write(vh)
+          PY
+          AV=$(cat /tmp/reset200/admin-verifier); AH=$(cat /tmp/reset200/admin-vh); UV=$(cat /tmp/reset200/user-verifier); UH=$(cat /tmp/reset200/user-vh)
+          NOW=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          npx --prefix service wrangler d1 execute "$D1_NAME" --remote --command "DELETE FROM auth_sessions WHERE login_id IN ('$ADMIN_LOGIN','$SEED_LOGIN'); DELETE FROM accounts WHERE login_id IN ('$ADMIN_LOGIN','$SEED_LOGIN'); INSERT INTO accounts(login_id,verifier,verifier_hash,role,display_name,position,email,status,source_row,source_checksum,is_shadow_test) VALUES('$ADMIN_LOGIN','$AV','$AH','SUPERADMIN','Owner reset 200','TEST','tam95.supra@gmail.com','ACTIVE',-200,'owner-reset-200',1),('$SEED_LOGIN','$UV','$UH','USER','Owner seed 200','TEST','','ACTIVE',-201,'owner-seed-200',1);" >/dev/null
+          URL=$(cat /tmp/reset200/service-url)
+          login(){
+            local login=$1 password_file=$2 out=$3 device=$4
+            curl -fsS -H 'Content-Type: application/json' --data-binary "{\"login_id\":\"$login\"}" "$URL/v1/auth/challenge" > /tmp/reset200/challenge.json
+            python3 - "$password_file" <<'PY' > /tmp/reset200/login.json
+          import json,sys,hashlib,hmac,base64
+          c=json.load(open('/tmp/reset200/challenge.json'));pwd=open(sys.argv[1]).read().encode();pad=lambda s:s+'='*((4-len(s)%4)%4)
+          salt=base64.urlsafe_b64decode(pad(c['salt']));key=hashlib.pbkdf2_hmac('sha256',pwd,salt,int(c['iterations']),32);sig=hmac.new(key,c['challenge'].encode(),hashlib.sha256).digest();proof=base64.urlsafe_b64encode(sig).decode().rstrip('=')
+          print(json.dumps({'challenge_id':c['challenge_id'],'proof':proof}))
+          PY
+            CH=$(jq -r .challenge_id /tmp/reset200/login.json); PR=$(jq -r .proof /tmp/reset200/login.json)
+            curl -fsS -H 'Content-Type: application/json' --data-binary "{\"login_id\":\"$login\",\"challenge_id\":\"$CH\",\"proof\":\"$PR\",\"device_id\":\"$device\"}" "$URL/v1/auth/login" > "$out"
+            jq -e '.ok==true and (.token|length)>20' "$out" >/dev/null
+          }
+          login "$ADMIN_LOGIN" /tmp/reset200/admin-password /tmp/reset200/admin-auth.json owner-reset-admin-device
+          login "$SEED_LOGIN" /tmp/reset200/user-password /tmp/reset200/user-auth.json owner-seed-user-device
+          jq -r .token /tmp/reset200/admin-auth.json > /tmp/reset200/admin-token; jq -r .token /tmp/reset200/user-auth.json > /tmp/reset200/user-token
+          echo "::add-mask::$(cat /tmp/reset200/admin-token)"; echo "::add-mask::$(cat /tmp/reset200/user-token)"
+          echo "NORMAL_AUTH_PASS"
+
+      - name: Tombstone old History and reset only operational projections
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL=$(cat /tmp/reset200/service-url); TOKEN=$(cat /tmp/reset200/admin-token)
+          split -l 100 -d -a 2 /tmp/reset200/old-event-ids.txt /tmp/reset200/chunk-
+          for f in /tmp/reset200/chunk-*; do
+            idx=${f##*-}
+            python3 - "$f" "$idx" <<'PY' > /tmp/reset200/delete-body.json
+          import json,sys
+          ids=[x.strip() for x in open(sys.argv[1]) if x.strip()]
+          print(json.dumps({'event_ids':ids,'idempotency_key':'owner-reset-200-20260904-'+sys.argv[2],'reason':'OWNER approved reset old test attendance/labor 2026-09-03 and 2026-09-04'},ensure_ascii=False))
+          PY
+            curl -fsS --retry 3 --retry-all-errors --connect-timeout 10 --max-time 40 -H "Authorization: Bearer $TOKEN" -H 'x-pick-pack-environment: BETA' -H 'x-pick-pack-audience: PICK_PACK_1291_BETA' -H 'Content-Type: application/json' --data-binary @/tmp/reset200/delete-body.json "$URL/v1/history/delete" | tee "/tmp/reset200/evidence/history-delete-$idx.json" | jq -e '.ok==true' >/dev/null
+          done
+          npx --prefix service wrangler d1 execute "$D1_NAME" --remote --command "DELETE FROM post_meal_attendance_audit WHERE business_date IN ('2026-09-03','2026-09-04'); DELETE FROM post_meal_attendance WHERE business_date IN ('2026-09-03','2026-09-04'); DELETE FROM resource_daily_consumption WHERE business_date IN ('2026-09-03','2026-09-04'); DELETE FROM resource_leases WHERE business_date IN ('2026-09-03','2026-09-04'); DELETE FROM labor_sessions WHERE business_date IN ('2026-09-03','2026-09-04'); DELETE FROM attendance_sessions WHERE business_date IN ('2026-09-03','2026-09-04') AND entered_by<>'$SEED_LOGIN';" > /tmp/reset200/evidence/projection-delete.txt
+          npx --prefix service wrangler d1 execute "$D1_NAME" --remote --json --command "SELECT COUNT(*) n FROM attendance_sessions WHERE business_date IN ('2026-09-03','2026-09-04') AND entered_by<>'$SEED_LOGIN'; SELECT COUNT(*) n FROM labor_sessions WHERE business_date IN ('2026-09-03','2026-09-04'); SELECT COUNT(*) n FROM post_meal_attendance WHERE business_date IN ('2026-09-03','2026-09-04'); SELECT COUNT(*) n FROM resource_daily_consumption WHERE business_date IN ('2026-09-03','2026-09-04'); SELECT COUNT(*) n FROM resource_leases WHERE business_date IN ('2026-09-03','2026-09-04');" > /tmp/reset200/evidence/post-reset.json
+          python3 - <<'PY'
+          import json
+          x=json.load(open('/tmp/reset200/evidence/post-reset.json'));nums=[]
+          def w(v):
+            if isinstance(v,dict):
+              if isinstance(v.get('results'),list):
+                for r in v['results']: nums += [int(z) for z in r.values() if isinstance(z,(int,float))]
+              for z in v.values():w(z)
+            elif isinstance(v,list):
+              for z in v:w(z)
+          w(x);assert nums and all(v==0 for v in nums),nums;print('D1_RESET_PASS',nums)
+          PY
+
+      - name: Enter exactly 200 people through normal app endpoint
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx --prefix service wrangler d1 execute "$D1_NAME" --remote --json --command "SELECT mnv,full_name,main_position,supplier,site FROM employees WHERE COALESCE(site,'')='1291' AND mnv NOT LIKE '__%' ORDER BY mnv;" > /tmp/reset200/eligible.json
+          python3 - <<'PY'
+          import json,random
+          x=json.load(open('/tmp/reset200/eligible.json'));rows=[]
+          def w(v):
+            if isinstance(v,dict):
+              if isinstance(v.get('results'),list):rows.extend(r for r in v['results'] if isinstance(r,dict) and r.get('mnv'))
+              for z in v.values():w(z)
+            elif isinstance(v,list):
+              for z in v:w(z)
+          w(x);pool=list({str(r['mnv']):r for r in rows}.values());assert len(pool)>=200,len(pool)
+          rnd=random.Random(1291200);rnd.shuffle(pool);chosen=pool[:200];shifts=['Ca 1']*80+['Ca HC']*40+['Ca 2']*80;rnd.shuffle(shifts)
+          plan=[{**r,'shift':s,'idempotency_key':'owner-reset200-20260904-'+str(r['mnv'])} for r,s in zip(chosen,shifts)]
+          json.dump({'business_date':'2026-09-04','count':200,'distribution':{'Ca 1':80,'Ca HC':40,'Ca 2':80},'items':plan},open('/tmp/reset200/evidence/seed-plan.json','w'),ensure_ascii=False,indent=2)
+          with open('/tmp/reset200/calls.tsv','w') as f:
+            for r in plan:f.write(str(r['mnv'])+'\t'+json.dumps({'mnv':str(r['mnv']),'shift':r['shift'],'positions':[],'resources':[],'idempotency_key':r['idempotency_key']},ensure_ascii=False,separators=(',',':'))+'\n')
+          PY
+          URL=$(cat /tmp/reset200/service-url); TOKEN=$(cat /tmp/reset200/user-token); : > /tmp/reset200/evidence/seed-results.jsonl
+          while IFS=$'\t' read -r mnv body; do
+            ok=0
+            for a in 1 2 3; do
+              if curl -fsS --connect-timeout 10 --max-time 30 -H "Authorization: Bearer $TOKEN" -H 'x-pick-pack-environment: BETA' -H 'x-pick-pack-audience: PICK_PACK_1291_BETA' -H 'Content-Type: application/json' --data-binary "$body" "$URL/v1/session/enter-v2" > /tmp/reset200/one.json && jq -e '.ok==true and .session.state=="ACTIVE"' /tmp/reset200/one.json >/dev/null; then ok=1; break; fi
+              sleep 1
+            done
+            test "$ok" -eq 1 || { echo "ENTER_FAILED:$mnv" >&2; cat /tmp/reset200/one.json >&2; exit 21; }
+            jq -c --arg mnv "$mnv" '{mnv:$mnv,event_id:.result.event_id,revision:.result.revision,session_id:.session.session_id,shift:.session.shift,state:.session.state}' /tmp/reset200/one.json >> /tmp/reset200/evidence/seed-results.jsonl
+          done < /tmp/reset200/calls.tsv
+          test "$(wc -l < /tmp/reset200/evidence/seed-results.jsonl)" -eq 200
+          echo "CANONICAL_ENTER_200_PASS"
+
+      - name: Materialize attendance and exact readback
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL=$(cat /tmp/reset200/service-url); TOKEN=$(cat /tmp/reset200/user-token)
+          curl -fsS -H "Authorization: Bearer $TOKEN" -H 'x-pick-pack-environment: BETA' -H 'x-pick-pack-audience: PICK_PACK_1291_BETA' -H 'Content-Type: application/json' --data-binary '{"action":"meal_attendance_list","business_date":"2026-09-04"}' "$URL/v1/mobile/read" > /tmp/reset200/evidence/meal-list.json
+          curl -fsS -H "Authorization: Bearer $TOKEN" -H 'x-pick-pack-environment: BETA' -H 'x-pick-pack-audience: PICK_PACK_1291_BETA' -H 'Content-Type: application/json' --data-binary '{"action":"sync_day","business_date":"2026-09-04"}' "$URL/v1/mobile/read" > /tmp/reset200/evidence/sync-day.json
+          npx --prefix service wrangler d1 execute "$D1_NAME" --remote --json --command "SELECT business_date,shift,state,COUNT(*) n FROM attendance_sessions WHERE business_date IN ('2026-09-03','2026-09-04') GROUP BY business_date,shift,state ORDER BY business_date,shift,state; SELECT COUNT(*) n FROM attendance_sessions WHERE business_date='2026-09-04' AND entered_by='$SEED_LOGIN' AND state='ACTIVE' AND exit_at IS NULL; SELECT COUNT(DISTINCT mnv) n FROM attendance_sessions WHERE business_date='2026-09-04' AND entered_by='$SEED_LOGIN'; SELECT COUNT(DISTINCT session_id) n FROM attendance_sessions WHERE business_date='2026-09-04' AND entered_by='$SEED_LOGIN'; SELECT COUNT(*) n FROM labor_sessions WHERE business_date IN ('2026-09-03','2026-09-04'); SELECT business_date,status,COUNT(*) n FROM post_meal_attendance WHERE business_date IN ('2026-09-03','2026-09-04') GROUP BY business_date,status; SELECT COUNT(*) n FROM resource_daily_consumption WHERE business_date IN ('2026-09-03','2026-09-04'); SELECT COUNT(*) n FROM resource_leases WHERE business_date IN ('2026-09-03','2026-09-04'); SELECT authority_epoch,authority_seq,mode,scope,service_generation FROM authority_state WHERE singleton_id=1;" > /tmp/reset200/evidence/d1-final.json
+          python3 - <<'PY'
+          import json,collections
+          plan=json.load(open('/tmp/reset200/evidence/seed-plan.json'));want={str(x['mnv']):x['shift'] for x in plan['items']}
+          meal=json.load(open('/tmp/reset200/evidence/meal-list.json'));items=meal.get('items',[]);assert meal.get('ok') is True and len(items)==200;assert set(str(x.get('mnv')) for x in items)==set(want);assert all(str(x.get('status'))=='PENDING' for x in items)
+          sync=json.load(open('/tmp/reset200/evidence/sync-day.json'));assert sync.get('ok') is True;day=sync.get('day') or sync.get('result',{}).get('day') or {};ss=[x for x in day.get('sessions',[]) if str(x.get('mnv')) in want];assert len(ss)==200 and len({str(x.get('session_id')) for x in ss})==200;assert set(str(x.get('mnv')) for x in ss)==set(want);assert collections.Counter(str(x.get('shift')) for x in ss)==collections.Counter({'Ca 1':80,'Ca HC':40,'Ca 2':80});assert all(str(x.get('state'))=='ACTIVE' and not str(x.get('exit_at') or '').strip() for x in ss)
+          x=json.load(open('/tmp/reset200/evidence/d1-final.json'));sets=[]
+          def w(v):
+            if isinstance(v,dict):
+              if isinstance(v.get('results'),list):sets.append(v['results'])
+              for z in v.values():w(z)
+            elif isinstance(v,list):
+              for z in v:w(z)
+          w(x);rows=[r for s in sets for r in s if isinstance(r,dict)];att=[r for r in rows if 'business_date' in r and 'shift' in r and 'state' in r];assert att==[{'business_date':'2026-09-04','shift':'Ca 1','state':'ACTIVE','n':80},{'business_date':'2026-09-04','shift':'Ca 2','state':'ACTIVE','n':80},{'business_date':'2026-09-04','shift':'Ca HC','state':'ACTIVE','n':40}],att
+          scal=[int(r['n']) for r in rows if set(r)=={'n'}];assert scal[:6]==[200,200,200,0,0,0],scal
+          meals=[r for r in rows if 'business_date' in r and 'status' in r];assert meals==[{'business_date':'2026-09-04','status':'PENDING','n':200}],meals
+          a=next(r for r in rows if 'authority_epoch' in r);assert a['mode']=='SERVICE_PRIMARY' and a['scope']=='PRODUCTION' and int(a['authority_epoch'])==9
+          print('RESET_200_TECHNICAL_PASS distribution=80/40/80 meal_pending=200 authority_seq=',a['authority_seq'])
+          PY
+
+      - name: Cleanup temporary auth
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          npx --prefix service wrangler d1 execute "$D1_NAME" --remote --command "DELETE FROM auth_sessions WHERE login_id IN ('$ADMIN_LOGIN','$SEED_LOGIN'); DELETE FROM accounts WHERE login_id IN ('$ADMIN_LOGIN','$SEED_LOGIN');" > /tmp/reset200/evidence/auth-cleanup.txt 2>&1
+          sha256sum /tmp/reset200/evidence/* > /tmp/reset200/evidence/SHA256SUMS.txt 2>/dev/null || true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: beta118-owner-reset-200-${{ github.run_id }}
+          path: |
+            /tmp/reset200/recovery
+            /tmp/reset200/evidence
+          retention-days: 30
+          if-no-files-found: error
