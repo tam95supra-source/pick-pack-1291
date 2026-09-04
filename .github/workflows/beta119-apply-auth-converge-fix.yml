@@ -1,0 +1,43 @@
+name: Beta119 apply auth convergence fix
+
+on:
+  push:
+    branches:
+      - release/beta119-superadmin-auth-control-plane-20260904
+    paths:
+      - tools/beta119_fix_auth_converge.py
+      - .github/workflows/beta119-apply-auth-converge-fix.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: beta119-apply-auth-converge-fix
+  cancel-in-progress: false
+
+jobs:
+  patch:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply deterministic Beta119 convergence patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/beta119_fix_auth_converge.py
+          python3 -m py_compile tools/beta_auth_converge.py
+          git diff --check
+      - name: Commit harness-only fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tools/beta_auth_converge.py
+          git diff --cached --quiet && exit 0
+          git commit -m "fix(beta119): align auth convergence with two-method superadmin"
+          git pull --rebase origin "${GITHUB_REF_NAME}"
+          git push origin HEAD:"${GITHUB_REF_NAME}"
