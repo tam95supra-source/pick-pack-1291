@@ -1,0 +1,41 @@
+name: Beta owner seed 200 after clean
+
+on:
+  push:
+    branches:
+      - ops/beta-live-reset-seed200-20260904
+    paths:
+      - tools/ops_beta_seed200_after_clean.py
+      - .github/workflows/beta-owner-seed200-after-clean.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: beta-owner-seed200-after-clean-20260904
+  cancel-in-progress: false
+
+jobs:
+  seed:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install pinned Service tooling
+        run: npm --prefix service install --ignore-scripts --no-audit --no-fund
+      - name: Verify clean precondition and seed exact 200
+        run: python3 tools/ops_beta_seed200_after_clean.py
+      - name: Upload redacted receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: beta-owner-seed200-${{ github.run_id }}
+          path: /tmp/beta-seed200-receipt.json
+          if-no-files-found: error
