@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 from pathlib import Path
+import yaml
 
 DOC = Path("docs/STABLE_INVARIANTS.md")
 REG = Path("qa/stable_invariants.yml")
@@ -34,8 +35,7 @@ DOC_APPEND = r'''
 - OWNER acceptance: PENDING.
 '''
 
-REG_APPEND = r'''
-
+REG_ENTRIES = r'''
   - id: CURRENT_PUBLIC_BETA_001
     status: TECHNICAL_PASS_AWAITING_OWNER
     scope: control-plane-current
@@ -68,30 +68,62 @@ REG_APPEND = r'''
 '''
 
 
-def append_once(path: Path, marker: str, addition: str):
-    text = path.read_text()
-    if marker in text:
+def repair_registry(text: str) -> tuple[str, bool]:
+    marker = "\nimpact_map:\n"
+    if marker not in text:
+        raise SystemExit("REGISTRY_IMPACT_MAP_MISSING")
+    before, after = text.split(marker, 1)
+    if "\nimpact_map:\n" in after:
+        raise SystemExit("REGISTRY_MULTIPLE_IMPACT_MAP")
+    changed = False
+    # Historical corruption: invariant entries were appended after the top-level impact_map.
+    # Move any such two-space '- id:' blocks back under invariants, before impact_map.
+    misplaced_at = after.find("\n  - id:")
+    if misplaced_at >= 0:
+        impact_body = after[:misplaced_at].rstrip()
+        misplaced = after[misplaced_at + 1:].strip("\n")
+        before = before.rstrip() + "\n\n" + misplaced.rstrip()
+        after = impact_body + "\n"
+        changed = True
+    text = before.rstrip() + "\n\nimpact_map:\n" + after.lstrip("\n")
+    return text, changed
+
+
+def append_doc_once() -> bool:
+    text = DOC.read_text()
+    if DOC_MARK in text:
         return False
-    path.write_text(text.rstrip() + addition + "\n")
+    DOC.write_text(text.rstrip() + DOC_APPEND + "\n")
     return True
 
-changed_doc = append_once(DOC, DOC_MARK, DOC_APPEND)
-changed_reg = append_once(REG, "- id: CURRENT_PUBLIC_BETA_001", REG_APPEND)
 
-# Fail closed on malformed registry. PyYAML is available on the GitHub runner through repo tooling;
-# if not, the structural checks below still prevent an unindented/top-level accidental append.
-text = REG.read_text()
-for marker in ("  - id: CURRENT_PUBLIC_BETA_001", "  - id: SUPERADMIN_AUTH_002", "  - id: OWNER_ACCEPTANCE_LEDGER_001"):
-    if marker not in text:
-        raise SystemExit("MISSING_REGISTRY_MARKER:" + marker)
-try:
-    import yaml
+def finalize_registry() -> tuple[bool, bool]:
+    text, repaired = repair_registry(REG.read_text())
     data = yaml.safe_load(text)
-    ids = [x.get("id") for x in data.get("invariants", [])]
-    for need in ("CURRENT_PUBLIC_BETA_001", "SUPERADMIN_AUTH_002", "OWNER_ACCEPTANCE_LEDGER_001"):
-        if ids.count(need) != 1:
-            raise SystemExit("INVARIANT_ID_COUNT:" + need + ":" + str(ids.count(need)))
-except ModuleNotFoundError:
-    pass
+    if not isinstance(data, dict) or not isinstance(data.get("invariants"), list) or not isinstance(data.get("impact_map"), dict):
+        raise SystemExit("REGISTRY_BASE_STRUCTURE_INVALID")
+    ids = [x.get("id") for x in data["invariants"] if isinstance(x, dict)]
+    wanted = ("CURRENT_PUBLIC_BETA_001", "SUPERADMIN_AUTH_002", "OWNER_ACCEPTANCE_LEDGER_001")
+    if any(ids.count(x) > 1 for x in wanted):
+        raise SystemExit("REGISTRY_DUPLICATE_TARGET_ID")
+    added = False
+    if not all(x in ids for x in wanted):
+        impact_marker = "\nimpact_map:\n"
+        head, tail = text.split(impact_marker, 1)
+        head = head.rstrip() + "\n\n" + REG_ENTRIES.strip("\n") + "\n"
+        text = head + impact_marker + tail
+        added = True
+    parsed = yaml.safe_load(text)
+    ids2 = [x.get("id") for x in parsed.get("invariants", []) if isinstance(x, dict)]
+    for need in wanted:
+        if ids2.count(need) != 1:
+            raise SystemExit("INVARIANT_ID_COUNT:" + need + ":" + str(ids2.count(need)))
+    if not isinstance(parsed.get("impact_map"), dict):
+        raise SystemExit("IMPACT_MAP_INVALID_POST")
+    REG.write_text(text.rstrip() + "\n")
+    return repaired, added
 
-print(f"beta119_finalize_invariants=PASS doc_changed={changed_doc} registry_changed={changed_reg}")
+
+doc_changed = append_doc_once()
+registry_repaired, registry_added = finalize_registry()
+print(f"beta119_finalize_invariants=PASS doc_changed={doc_changed} registry_repaired={registry_repaired} registry_added={registry_added}")
