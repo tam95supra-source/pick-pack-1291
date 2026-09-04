@@ -32,12 +32,12 @@ jobs:
           node-version: '24'
       - name: Install pinned Service tooling
         run: npm --prefix service install --ignore-scripts --no-audit --no-fund
-      - name: Recover exact stale seed200 replication claims
-        run: python3 tools/ops_beta_seed200_recover_outbox.py
+      - name: Final read-only verification of owner seed
+        run: python3 tools/ops_beta_seed200_diagnose.py
       - name: Upload redacted receipt
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: beta-owner-seed200-recovery-${{ github.run_id }}
-          path: /tmp/beta-seed200-recovery.json
+          name: beta-owner-seed200-${{ github.run_id }}
+          path: /tmp/beta-seed200-receipt.json
           if-no-files-found: error
