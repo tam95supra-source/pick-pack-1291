@@ -1,26 +1,26 @@
 # CURRENT STATE — PICK PACK 1291
 
-- updated_at: 2026-09-04T00:46:28Z
-- status: BETA117_PASS_LIVE
-- continuity_branch: release/beta117-owner-followup-performance-20260904
-- source_sha: 415c217cc874906013007a438e80896baf58b241
-- beta_live: 0.4.2-beta.117 (versionCode 123)
+- updated_at: 2026-09-04T06:00:57Z
+- status: BETA118_PASS_LIVE
+- continuity_branch: release/beta118-owner-realtime-bulk-exit-20260904
+- source_sha: 81944b8519cfb7995d78a5c1070c4af3ee2150be
+- beta_live: 0.4.2-beta.118 (versionCode 124)
 - package: vn.pickpack1291.app.beta.publicbeta
-- candidate_run: 33800745880
-- candidate_artifact: 9911117214
-- verify_run: 33816769626
-- verify_artifact: 9916961610
-- apk_sha256: b3454574547eece69ea44c51b2f88da93dd142eb5d1afb82e7fbd0f293cc0d87
-- apk_size: 14396405
+- candidate_run: 33833810807
+- candidate_artifact: 9922669910
+- verify_run: 33835144144
+- verify_artifact: 9923142675
+- apk_sha256: 5216f0eb09f187aed9cb71dcc21cd145fdc3ba7ea7852c74ffe6f85dea2b478f
+- apk_size: 14429173
 - signer_sha256: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
-- terminal_run: 33822875354
+- terminal_run: 33842367960
 - fast_check: PASS
-- service_gate: PASS_FRESH_CURRENT_SERVICE_GAS_SOURCE_RUN_33821884023_ARTIFACT_9918676363
+- service_gate: null
 - visual_matrix: PASS 320x568 / 360x640 / 480x800
 - human_visual: PASS
 - pda_functional_pre_ota: PASS
-- beta_ota: exact 0.4.2-beta.117 PASS via GitHub Release
-- beta_ota_url: https://github.com/tam95supra-source/pick-pack-1291/releases/download/v0.4.2-beta.117-publicbeta/pick-pack-1291-public-beta-0.4.2-beta.117.apk
+- beta_ota: exact 0.4.2-beta.118 PASS via GitHub Release
+- beta_ota_url: https://github.com/tam95supra-source/pick-pack-1291/releases/download/v0.4.2-beta.118-publicbeta/pick-pack-1291-public-beta-0.4.2-beta.118.apk
 - apk_transport: GITHUB_RELEASE_ONLY
 - google_drive_apk: FORBIDDEN
 - stable: unchanged

@@ -1,6 +1,6 @@
 {
-  "stage": "PUBLISH",
-  "mode": "BETA118_EXACT_LOCKED_OTA_PUBLISH",
+  "stage": "pass_live",
+  "mode": "PASS_LIVE_EXACT_BYTES_GITHUB_RELEASE_ONLY",
   "version_name": "0.4.2-beta.118",
   "version_code": 124,
   "base_version": "0.4.2-beta.117",
@@ -17,7 +17,7 @@
   "release_lock_receipt": "ops/beta118-release-lock.json",
   "rebuild": false,
   "resign": false,
-  "live": false,
+  "live": true,
   "stable_publish": "FORBIDDEN",
   "authority_change": "NONE",
   "release_notes": [
@@ -50,7 +50,11 @@
   "back_api36_artifact_id": 9923339401,
   "human_visual_pass": true,
   "human_visual_receipt": "ops/beta118-human-visual-receipt.json",
-  "human_visual_sizes": ["320x568", "360x640", "480x800"],
+  "human_visual_sizes": [
+    "320x568",
+    "360x640",
+    "480x800"
+  ],
   "beta_auth_status": "PASS",
   "beta_auth_run_id": 33839187150,
   "beta_auth_artifact_id": 9924522980,
@@ -82,5 +86,10 @@
   "owner100_blocker_acceptance": "COMPLETE",
   "owner100_acceptance_receipt": "ops/beta118-owner100-owner-acceptance.json",
   "execution_nonce": "beta118-publish-exact-lock-20260904-02",
-  "next_action": "PUBLISH_EXACT_LOCKED_BYTES_THEN_OTA_INSTALL_OPEN_READBACK"
+  "next_action": "WAIT_FOR_OWNER_ACCEPTANCE_NUMBERED_CHECKLIST",
+  "publish_run_id": "33842367960",
+  "technical_pass_status": "PASS",
+  "owner_acceptance": "PENDING",
+  "ota_readback_status": "PASS",
+  "ota_readback_run_id": 33842367960
 }
