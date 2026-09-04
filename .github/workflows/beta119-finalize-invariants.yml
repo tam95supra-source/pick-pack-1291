@@ -1,0 +1,43 @@
+name: Beta119 finalize technical-pass invariants
+
+on:
+  push:
+    branches:
+      - release/beta119-superadmin-auth-control-plane-20260904
+    paths:
+      - .github/workflows/beta119-finalize-invariants.yml
+      - tools/beta119_finalize_invariants.py
+
+permissions:
+  contents: write
+
+concurrency:
+  group: beta119-finalize-invariants
+  cancel-in-progress: false
+
+jobs:
+  finalize:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply invariant registry updates
+        run: |
+          set -euo pipefail
+          python3 tools/beta119_finalize_invariants.py
+          python3 tools/owner_acceptance_ledger_guard.py --self-test
+          python3 tools/owner_acceptance_ledger_guard.py
+          git diff --check
+      - name: Commit technical-pass invariants
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- docs/STABLE_INVARIANTS.md qa/stable_invariants.yml; then
+            echo "No invariant changes"
+            exit 0
+          fi
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add docs/STABLE_INVARIANTS.md qa/stable_invariants.yml
+          git commit -m "docs(beta119): record technical-pass invariants awaiting owner"
+          git push origin HEAD:${GITHUB_REF_NAME}
