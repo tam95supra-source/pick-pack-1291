@@ -1,8 +1,8 @@
 {
-  "run_id": 33876606829,
-  "run_sha": "71977719a66c4c40e022e768d4c247fff39a4b96",
+  "run_id": 33895538590,
+  "run_sha": "58db10937022cfd7edd2cb96ef8c53940a2db051",
   "ref": "release/beta120-bulk-exit-reset200-20260904",
-  "execution_nonce": "beta120-verify-only-20260904-01",
-  "stage": "VERIFY_ONLY",
-  "observed_at": "2026-09-04T13:10:41Z"
+  "execution_nonce": "beta120-service-discovery-20260904-01",
+  "stage": "SERVICE_DISCOVERY_ONLY",
+  "observed_at": "2026-09-04T16:30:45Z"
 }
