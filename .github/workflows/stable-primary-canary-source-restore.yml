@@ -1,0 +1,66 @@
+name: Stable primary canary source restore
+
+on:
+  push:
+    branches:
+      - 'release/beta117-owner-followup-performance-20260904'
+    paths:
+      - .github/workflows/stable-primary-canary-source-restore.yml
+      - tools/restore_stable_primary_canary_source.py
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: stable-private-provision
+  cancel-in-progress: false
+
+jobs:
+  restore-and-recover:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+      GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+      GOOGLE_OAUTH_REFRESH_TOKEN: ${{ secrets.GOOGLE_OAUTH_REFRESH_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: release/beta117-owner-followup-performance-20260904
+          fetch-depth: 0
+      - name: Restore exact historical Stable canary source
+        run: |
+          set -euo pipefail
+          python3 tools/restore_stable_primary_canary_source.py
+          python3 tools/stable_primary_canary_contract.py
+      - name: Recover Stable private primary GAS from restored canonical source
+        run: |
+          set -euo pipefail
+          for n in CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID GOOGLE_OAUTH_CLIENT_ID GOOGLE_OAUTH_CLIENT_SECRET GOOGLE_OAUTH_REFRESH_TOKEN; do
+            test -n "${!n:-}" || { echo "MISSING_REQUIRED_SECRET:$n"; exit 2; }
+            echo "::add-mask::${!n}"
+          done
+          python3 tools/stable_primary_gas_recover.py
+      - name: Commit canonical source repair
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- google-apps-script/PICK_PACK_API.gs; then
+            echo CANONICAL_SOURCE_ALREADY_REPAIRED
+            exit 0
+          fi
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add google-apps-script/PICK_PACK_API.gs
+          git commit -m 'fix(stable): restore primary runtime canary route'
+          git pull --rebase origin release/beta117-owner-followup-performance-20260904
+          git push origin HEAD:release/beta117-owner-followup-performance-20260904
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stable-primary-canary-source-restore-${{ github.run_id }}
+          path: /tmp/stable-primary-gas-recovery-receipt.json
+          retention-days: 90
+          if-no-files-found: error
