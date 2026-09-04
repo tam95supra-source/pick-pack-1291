@@ -119,7 +119,7 @@ jobs:
           echo "::add-mask::$ACCESS"
           RANGE=$(python3 - <<'PY'
           import urllib.parse
-          print(urllib.parse.quote("'RA - VÀO TRONG CA'!U2:U",safe=''))
+          print(urllib.parse.quote("'RA - VÀO TRONG CA'!T2:T",safe=''))
           PY
           )
           curl -fsS -H "Authorization: Bearer $ACCESS" "https://sheets.googleapis.com/v4/spreadsheets/$GOOGLE_SOURCE_SHEET_ID/values/$RANGE?valueRenderOption=FORMATTED_VALUE" > /tmp/sheet.json
