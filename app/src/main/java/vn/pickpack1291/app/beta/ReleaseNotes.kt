@@ -12,7 +12,7 @@ object ReleaseNotes {
         "Đăng nhập bằng giờ không phát sinh email OTP mới; kiểm tra HHmm ±5 phút và giới hạn độ dài được thực hiện lại phía server.",
         "beta/current, checklist OWNER và guard bảo mật được khóa theo trạng thái monotonic để phiên chat cũ không ghi đè Beta/checklist mới.",
         "Không lưu mật khẩu, OTP, session token hoặc Gmail OAuth secret trong GitHub public/log/artifact/handoff.",
-        "Giữ nguyên Stable/main/signer/authority và toàn bộ hành vi Beta118 ngoài scope xác thực/control-plane."
+        "Giữ nguyên Stable/main/signer/authority và toàn bộ hành vi Beta119 ngoài phạm vi sửa Ra ca hàng loạt."
     )
 
     fun currentItems():List<String> = current.toList()
