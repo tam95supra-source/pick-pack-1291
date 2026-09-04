@@ -26,7 +26,7 @@ def cat(p):
  return 'OTHER'
 def b64u(b):return base64.urlsafe_b64encode(b).rstrip(b'=').decode()
 def http(url,method='GET',token=None,body=None,timeout=45):
- h={'Accept':'application/json','X-Pick-Pack-Environment':'BETA','X-Pick-Pack-Audience':'PICK_PACK_1291_BETA'}
+ h={'Accept':'application/json','User-Agent':'PickPack1291-M2/0.4.2-beta.120','X-Pick-Pack-Environment':'BETA','X-Pick-Pack-Audience':'PICK_PACK_1291_BETA'}
  if token:h['Authorization']='Bearer '+token
  data=None
  if body is not None:h['Content-Type']='application/json';data=json.dumps(body,ensure_ascii=False,separators=(',',':')).encode()
@@ -57,7 +57,6 @@ try:
  D1=b['current_service']['d1_database'];url=b['current_service']['url'].rstrip('/')
  a=d1('SELECT authority_epoch,mode,scope,service_generation FROM authority_state WHERE singleton_id=1;')[0]
  if a['mode']!='SERVICE_PRIMARY' or a['scope']!='PRODUCTION':raise RuntimeError('AUTHORITY_GUARD')
- # Hard precondition: owner-requested cleanup must already be complete before any seed write.
  for t in ('attendance_sessions','labor_sessions','post_meal_attendance'):
   if int(d1('SELECT COUNT(*) n FROM '+t+' WHERE business_date='+q(TODAY))[0]['n'])!=0:raise RuntimeError('CLEANUP_REQUIRED:'+t)
  rows=d1('SELECT mnv,full_name,main_position,supplier FROM employees ORDER BY mnv');rows=[dict(x,cat=cat(x.get('main_position'))) for x in rows if str(x.get('mnv') or '').strip() and not str(x.get('mnv')).startswith('__')]
@@ -82,7 +81,6 @@ try:
    work='PICK' if x['mnv']==pick[0]['mnv'] else ('PACK' if x['mnv']==pack[0]['mnv'] else 'KHONG')
    plan.append(dict(x,shift=shift,work_choice=work))
  if len(plan)!=200 or len({x['mnv'] for x in plan})!=200:raise RuntimeError('PLAN_NOT_200')
- # Give the designated PICK/PACK employees real unique resources for each shift.
  pdas=[x['resource_id'] for x in d1("SELECT resource_id FROM resources WHERE resource_type='PDA' AND available=1 ORDER BY resource_id")]
  picks=[x['resource_id'] for x in d1("SELECT resource_id FROM resources WHERE resource_type='USER_PICK' AND available=1 ORDER BY resource_id")]
  packs=d1("SELECT rpm.shift,rpm.pack_table,rpm.user_pack FROM resource_pack_map rpm JOIN resources t ON t.resource_type='PACK_TABLE' AND t.resource_id=rpm.pack_table AND t.available=1 JOIN resources p ON p.resource_type='USER_PACK' AND p.resource_id=rpm.user_pack AND p.available=1 WHERE rpm.available=1 ORDER BY rpm.shift,rpm.pack_table")
