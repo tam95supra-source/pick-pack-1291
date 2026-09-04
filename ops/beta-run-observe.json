@@ -1,8 +1,8 @@
 {
-  "run_id": 33868400852,
-  "run_sha": "a01edb82d79ae65176070516147a51228a937094",
+  "run_id": 33868581526,
+  "run_sha": "cf5bca5c2da0e0badd68eb247ac869374da36b27",
   "ref": "release/beta119-superadmin-auth-control-plane-20260904",
-  "execution_nonce": "beta119-runtime-dod-20260904-01",
-  "stage": "RUNTIME_DOD_VERIFY",
-  "observed_at": "2026-09-04T11:32:11Z"
+  "execution_nonce": "beta119-beta-domain-20260904-01",
+  "stage": "BETA_DOMAIN_PREPARE",
+  "observed_at": "2026-09-04T11:34:28Z"
 }
