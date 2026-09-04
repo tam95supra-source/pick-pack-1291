@@ -1,0 +1,18 @@
+{
+  "status": "STARTED",
+  "base_live": "0.4.2-beta.117",
+  "base_branch": "release/beta117-owner-followup-performance-20260904",
+  "base_sha": "af28f6c74a1beb8753eecbf82078c4656113e459",
+  "scope": [
+    "superadmin_bulk_exit_old_sessions_skip_any_labor_time_password",
+    "seed_100_today_sessions_for_owner_test",
+    "document_refresh_icon_inline_and_compact_viewer_actions_confirm_delete_draft",
+    "drop_receive_compact_remove_labels_remove_delete_all_pagination50_inline_actions",
+    "remove_redundant_inner_titles_consistently",
+    "local_first_immediate_realtime_warning_cross_pda"
+  ],
+  "owner": "Nguyen Van Tam",
+  "stable_publish": "FORBIDDEN",
+  "authority_change": "NONE",
+  "next_action": "IMPLEMENT_AND_VERIFY_BETA118"
+}
