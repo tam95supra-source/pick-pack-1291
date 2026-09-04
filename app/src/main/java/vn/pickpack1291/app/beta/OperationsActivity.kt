@@ -3245,8 +3245,8 @@ class OperationsActivity : Activity() {
             "Trạng thái" to if(pendingUpdate==null&&latestVersion==BuildConfig.VERSION_NAME)"Đang dùng bản mới nhất: ${BuildConfig.VERSION_NAME}" else "Bản mới nhất: $latestVersion\nĐang dùng: ${BuildConfig.VERSION_NAME}"
         )))
         appRegion.addView(gap(7))
-        if(pendingUpdate!=null)addVersionChangelog(body,"THAY ĐỔI BẢN MỚI",pendingUpdate.version,pendingUpdate.notes)
-        addVersionChangelog(body,"THAY ĐỔI BẢN HIỆN TẠI",BuildConfig.VERSION_NAME,ReleaseNotes.currentText())
+        if(pendingUpdate!=null)addVersionChangelog(appRegion,"THAY ĐỔI BẢN MỚI",pendingUpdate.version,pendingUpdate.notes)
+        addVersionChangelog(appRegion,"THAY ĐỔI BẢN HIỆN TẠI",BuildConfig.VERSION_NAME,ReleaseNotes.currentText())
         appRegion.addView(primary(if(pendingUpdate!=null)"TIẾP TỤC CẬP NHẬT" else "KIỂM TRA CẬP NHẬT",teal){UpdateManager.openManual(this)},matchWrap())
         appRegion.addView(gap(10))
         appRegion.addView(section("QR TẢI ỨNG DỤNG"))

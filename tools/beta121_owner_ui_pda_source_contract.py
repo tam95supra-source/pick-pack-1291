@@ -27,6 +27,8 @@ assert 'listOf("USER" to "USER","ADMIN" to "ADMIN","SUPERADMIN" to "SUPERADMIN")
 for label in ("TÀI KHOẢN & QUYỀN","GIAO DIỆN","ỨNG DỤNG & CẬP NHẬT","HỖ TRỢ & NHẬT KÝ"):
     assert label in ops
 assert 'background=GradientDrawable().apply{setColor(Color.rgb(248,250,252))' in ops
+assert ops.count('addVersionChangelog(appRegion,') >= 2
+assert 'addVersionChangelog(body,"THAY ĐỔI BẢN HIỆN TẠI"' not in ops
 
 assert 'businessCard(R.drawable.ic_pp_task,"Bảng công Inhouse","Chờ phát triển",false)' in ops
 
