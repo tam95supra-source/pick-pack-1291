@@ -1,0 +1,20 @@
+{
+  "project": "APK PICK PACK 1291",
+  "invariant": "REVIEW-100-SESSIONS-001",
+  "status": "ACTIVE_PASS",
+  "owner": "Nguyễn Văn Tâm",
+  "owner_acceptance": {
+    "1": "OK",
+    "2": "OK",
+    "3": "OK"
+  },
+  "accepted_date": "2026-09-04",
+  "candidate_run_id": 33833810807,
+  "candidate_artifact_id": 9922669910,
+  "apk_sha256": "5216f0eb09f187aed9cb71dcc21cd145fdc3ba7ea7852c74ffe6f85dea2b478f",
+  "exact_ui_run_id": 33836246626,
+  "localfirst_run_id": 33837587706,
+  "back36_run_id": 33835843259,
+  "beta118_publish_ota": "NOT_YET",
+  "stable_main_signer_authority": "UNCHANGED"
+}

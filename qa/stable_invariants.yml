@@ -586,15 +586,15 @@ invariants:
     active_pass: false
 
   - id: REVIEW-100-SESSIONS-001
-    status: TECHNICAL_PASS_AWAITING_OWNER
+    status: ACTIVE_PASS
     scope: review-session-projection
     rule: "Rà soát ngày hiện tại phải chiếu chính xác tập session ACTIVE/in-only canonical theo business_date; nhãn ca tương đương không phân biệt hoa/thường phải hội tụ về Ca 1/Ca HC/Ca 2; expected/actual MNV và session_id phải bằng nhau hai chiều, không extra/duplicate/missing/wrong-source, giữ đúng vị trí."
     regression_minimum: [exact_100_unique_mnv, exact_100_unique_session_id, bidirectional_set_diff_zero, case_insensitive_shift_projection, three_shift_buckets, position_preserved, active_in_only, no_wrong_source, local_cache_to_actual_ui]
     regression_case: "qa/beta118_owner_100_sessions_regression.md + tools/beta118_owner_100_sessions_contract.py + exact Android UI run 33836246626 + local-first UI run 33837587706"
     technical_candidate: "0.4.2-beta.118 LOCKED CANDIDATE / source 81944b8519cfb7995d78a5c1070c4af3ee2150be"
     technical_evidence: "Diagnosis 33829110432/9921008888: canonical/event/outbox=100, raw pre-fix UI=0, normalized=100, exact-set diffs zero, seed-set SHA256 cc5c5dabfdf2cbf4a89cfef74d8fbe2a9274769582ead27fb6391fcb35f303e6. Product fix ae80424706de74c72dea460e82bdd429090944cc. Exact candidate 33833810807/9922669910 APK SHA256 5216f0eb09f187aed9cb71dcc21cd145fdc3ba7ea7852c74ffe6f85dea2b478f size 14429173 signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; candidate + Service PASS. Visual/PDA API29 step PASS 33835144144/9923142675; API36 Back PASS 33835843259/9923339401. Exact actual Android UI 33836246626/9923402264: expected_minus_actual=0, actual_minus_expected=0, positions=PASS, in_only=PASS. Local-first/realtime 33837587706/9923826221: two rows 341ms and retained after 1.8s, third row 41ms, warning initial 10ms/update 19ms, all PASS. No Beta118 OTA/publish; Beta117 remains LIVE."
-    owner_acceptance: "PENDING_OWNER_CHECKLIST_1_TO_3"
-    active_pass: false
+    owner_acceptance: "OWNER_OK_2026-09-04_CHECKLIST_1_TO_3"
+    active_pass: true
 
 
 impact_map:

@@ -1,5 +1,5 @@
 {
-  "stage": "BACK36_ONLY",
+  "stage": "BETA_AUTH_MIGRATE",
   "mode": "BETA118_EXACT_CANDIDATE_BACK36_HARNESS_RECOVERY",
   "version_name": "0.4.2-beta.118",
   "version_code": 124,
@@ -28,5 +28,7 @@
   "apk_transport": "GITHUB_RELEASE_ONLY",
   "google_drive_apk": "FORBIDDEN",
   "execution_nonce": "beta118-back36-exact-harness-recovery-20260904-01",
-  "next_action": "RUN_ONLY_API36_BACK_AGAINST_EXACT_LOCKED_CANDIDATE"
+  "next_action": "BETA118_BETA_AUTH_MIGRATE_THEN_CONTINUE_MISSING_PRE_OTA_GATES",
+  "owner100_blocker_acceptance": "COMPLETE",
+  "owner100_acceptance_receipt": "ops/beta118-owner100-owner-acceptance.json"
 }

@@ -27,9 +27,9 @@
 - Candidate + exact Service source: PASS run 33833810807.
 
 ## Invariant state
-- REVIEW-100-SESSIONS-001 = TECHNICAL_PASS_AWAITING_OWNER.
-- Do NOT mark ACTIVE_PASS until Nguyễn Văn Tâm explicitly accepts all three checklist items.
-- Do NOT resume Beta118 publish/OTA before that OWNER acceptance.
+- REVIEW-100-SESSIONS-001 = ACTIVE_PASS (OWNER checklist 1/2/3 OK on 2026-09-04).
+- OWNER acceptance completed for blocker 100 sessions.
+- Resume only the remaining Beta118 gated release chain from exact locked candidate; do not rebuild/resign.
 
 ## OWNER checklist
 1. Rà soát hiển thị đúng chính xác 100 người expected.
@@ -37,4 +37,4 @@
 3. Không extra/duplicate/missing/wrong-source.
 
 ## NEXT_ACTION
-OWNER_CHECKLIST_1_TO_3
+BETA118_BETA_AUTH_MIGRATE_THEN_CONTINUE_MISSING_PRE_OTA_GATES
