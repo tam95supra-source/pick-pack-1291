@@ -70,8 +70,6 @@ jobs:
           test "$TOTAL" -le 20
           while IFS= read -r EVENT_ID; do
             test -n "$EVENT_ID" || continue
-            # Requeue exactly one stale seed row. All other stuck rows remain INFLIGHT,
-            # so the official scheduled writer can claim at most this one row.
             npx --prefix service wrangler d1 execute "$D1_NAME" --remote --json --command "UPDATE sheet_replication_outbox SET status='RETRY',claim_token=NULL,claimed_at=NULL,next_attempt_at=datetime('now'),last_error_class='SERIAL_STALE_RECOVERY',last_error='Single-event stale recovery under official scheduled writer' WHERE event_id='$EVENT_ID' AND status='INFLIGHT'; SELECT changes() changed;" > /tmp/requeue.json
             CHANGED=$(python3 - <<'PY'
           import json
@@ -121,7 +119,7 @@ jobs:
           echo "::add-mask::$ACCESS"
           RANGE=$(python3 - <<'PY'
           import urllib.parse
-          print(urllib.parse.quote("'RA - VÀO TRONG CA'!T2:T",safe=''))
+          print(urllib.parse.quote("'RA - VÀO TRONG CA'!U2:U",safe=''))
           PY
           )
           curl -fsS -H "Authorization: Bearer $ACCESS" "https://sheets.googleapis.com/v4/spreadsheets/$GOOGLE_SOURCE_SHEET_ID/values/$RANGE?valueRenderOption=FORMATTED_VALUE" > /tmp/sheet.json
