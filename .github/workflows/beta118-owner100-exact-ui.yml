@@ -54,7 +54,7 @@ jobs:
           disable-animations: true
           emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-metrics
           script: |
-            set -euo pipefail
+            set -eu
             PKG=vn.pickpack1291.app.beta.publicbeta
             APK=/tmp/beta-candidate/pick-pack-1291-public-beta-0.4.2-beta.118.apk
             test "$(sha256sum "$APK" | awk '{print $1}')" = "5216f0eb09f187aed9cb71dcc21cd145fdc3ba7ea7852c74ffe6f85dea2b478f"
