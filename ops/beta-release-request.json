@@ -27,7 +27,7 @@
   "signer_sha256": "d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e",
   "apk_transport": "GITHUB_RELEASE_ONLY",
   "google_drive_apk": "FORBIDDEN",
-  "execution_nonce": "beta118-back36-exact-harness-recovery-20260904-01",
+  "execution_nonce": "beta118-owner100-accepted-beta-auth-20260904-01",
   "next_action": "BETA118_BETA_AUTH_MIGRATE_THEN_CONTINUE_MISSING_PRE_OTA_GATES",
   "owner100_blocker_acceptance": "COMPLETE",
   "owner100_acceptance_receipt": "ops/beta118-owner100-owner-acceptance.json"
