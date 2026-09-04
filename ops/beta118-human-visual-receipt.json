@@ -1,0 +1,29 @@
+{
+  "project": "APK PICK PACK 1291",
+  "version_name": "0.4.2-beta.118",
+  "candidate_source_sha": "81944b8519cfb7995d78a5c1070c4af3ee2150be",
+  "candidate_run_id": 33833810807,
+  "candidate_artifact_id": 9922669910,
+  "apk_sha256": "5216f0eb09f187aed9cb71dcc21cd145fdc3ba7ea7852c74ffe6f85dea2b478f",
+  "visual_run_id": 33835144144,
+  "visual_artifact_id": 9923142675,
+  "visual_artifact_name": "beta-verify-33835144144",
+  "human_visual_pass": true,
+  "human_visual_sizes": ["320x568", "360x640", "480x800"],
+  "screenshots_inspected": 43,
+  "inspection": {
+    "functional_text_clipping": "PASS",
+    "control_overlap": "PASS",
+    "broken_geometry": "PASS",
+    "business_review": "PASS",
+    "meal_attendance_compact": "PASS",
+    "labor_compact": "PASS",
+    "document_management": "PASS"
+  },
+  "visual_matrix": "PASS",
+  "pda_functional_pre_ota": "PASS",
+  "back_api36": "PASS_SEPARATE_RUN_33835843259",
+  "rebuild": false,
+  "resign": false,
+  "stable_main_signer_authority": "UNCHANGED"
+}
