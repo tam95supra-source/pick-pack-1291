@@ -63,7 +63,7 @@ try:
  rows=d1('SELECT mnv,full_name,main_position,supplier FROM employees ORDER BY mnv');rows=[dict(x,cat=cat(x.get('main_position'))) for x in rows if str(x.get('mnv') or '').strip() and not str(x.get('mnv')).startswith('__')]
  if len(rows)<200:raise RuntimeError('EMPLOYEE_LT_200')
  rng=random.Random('OWNER_200|'+TODAY);rng.shuffle(rows);used=set();plan=[]
- pools={k:[x for x in rows if x['cat']==k] for k in ('SPECIALIST','LEADER','PULL')}
+ pools={k:[x for x in rows if x['cat']==k] for k in ('SPECIALIST','LEADER','PULL','PICK','PACK')}
  for v in pools.values():rng.shuffle(v)
  def take(k,n):
   out=[]
@@ -73,28 +73,33 @@ try:
   if len(out)!=n:raise RuntimeError('POSITION_SHORT:'+k)
   return out
  for shift,n in TARGET.items():
-  crew=take('SPECIALIST',1)+take('LEADER',1)+take('PULL',3)
-  fill=[x for x in rows if x['mnv'] not in used];rng.shuffle(fill);fill=fill[:n-5]
-  if len(fill)!=n-5:raise RuntimeError('FILL_SHORT')
+  specialist=take('SPECIALIST',1);leader=take('LEADER',1);pull=take('PULL',3);pick=take('PICK',1);pack=take('PACK',1)
+  crew=specialist+leader+pull+pick+pack
+  fill=[x for x in rows if x['mnv'] not in used and x['cat'] not in ('SPECIALIST','LEADER','PULL')];rng.shuffle(fill);fill=fill[:n-7]
+  if len(fill)!=n-7:raise RuntimeError('FILL_SHORT')
   for x in fill:used.add(x['mnv'])
-  for x in crew+fill:plan.append(dict(x,shift=shift,work_choice='KHONG'))
+  for x in crew+fill:
+   work='PICK' if x['mnv']==pick[0]['mnv'] else ('PACK' if x['mnv']==pack[0]['mnv'] else 'KHONG')
+   plan.append(dict(x,shift=shift,work_choice=work))
  if len(plan)!=200 or len({x['mnv'] for x in plan})!=200:raise RuntimeError('PLAN_NOT_200')
- # Give one real PICK and one real PACK per shift using unique available resources; all others are normal no-resource entries.
+ # Give the designated PICK/PACK employees real unique resources for each shift.
  pdas=[x['resource_id'] for x in d1("SELECT resource_id FROM resources WHERE resource_type='PDA' AND available=1 ORDER BY resource_id")]
+ picks=[x['resource_id'] for x in d1("SELECT resource_id FROM resources WHERE resource_type='USER_PICK' AND available=1 ORDER BY resource_id")]
  packs=d1("SELECT rpm.shift,rpm.pack_table,rpm.user_pack FROM resource_pack_map rpm JOIN resources t ON t.resource_type='PACK_TABLE' AND t.resource_id=rpm.pack_table AND t.available=1 JOIN resources p ON p.resource_type='USER_PACK' AND p.resource_id=rpm.user_pack AND p.available=1 WHERE rpm.available=1 ORDER BY rpm.shift,rpm.pack_table")
  by={k:[x for x in packs if str(x.get('shift'))==k] for k in TARGET}
- if len(pdas)<3 or any(not by[k] for k in TARGET):raise RuntimeError('RESOURCE_CAPACITY')
+ if len(pdas)<3 or len(picks)<3 or any(not by[k] for k in TARGET):raise RuntimeError('RESOURCE_CAPACITY')
+ resource_used={'PDA':[],'USER_PICK':[],'PACK_PAIR':[]}
  for shift in TARGET:
-  eligible=[x for x in plan if x['shift']==shift and x['cat'] not in ('SPECIALIST','LEADER','PULL')];rng.shuffle(eligible)
-  eligible[0]['work_choice']='PICK';eligible[0]['pda_serial']=pdas.pop(0)
-  eligible[1]['work_choice']='PACK';pair=by[shift][0];eligible[1]['pack_table']=pair['pack_table'];eligible[1]['user_pack']=pair['user_pack']
+  pick_emp=next(x for x in plan if x['shift']==shift and x['work_choice']=='PICK');pack_emp=next(x for x in plan if x['shift']==shift and x['work_choice']=='PACK')
+  pick_emp['pda_serial']=pdas.pop(0);pick_emp['user_pick']=picks.pop(0);pair=by[shift][0];pack_emp['pack_table']=pair['pack_table'];pack_emp['user_pack']=pair['user_pack']
+  resource_used['PDA'].append(pick_emp['pda_serial']);resource_used['USER_PICK'].append(pick_emp['user_pick']);resource_used['PACK_PAIR'].append({'shift':shift,'pack_table':pack_emp['pack_table'],'user_pack':pack_emp['user_pack']})
  suffix=hashlib.sha256((os.environ.get('GITHUB_RUN_ID','run')+os.environ.get('GITHUB_RUN_ATTEMPT','1')).encode()).hexdigest()[:12];LOGIN='__OWNER_SEED200_'+suffix;dev='__OWNER_SEED200_DEV_'+suffix;sess='__OWNER_SEED200_AUTH_'+suffix;vh='owner_seed200_'+suffix;now=datetime.now(timezone.utc).isoformat().replace('+00:00','Z')
  d1("INSERT INTO accounts(login_id,verifier,verifier_hash,role,display_name,position,email,status,source_row,source_checksum,is_shadow_test) VALUES("+q(LOGIN)+",'fixture',"+q(vh)+",'SUPERADMIN','OWNER seed200','TEST','','ACTIVE',-32001,'seed200',1); INSERT INTO auth_sessions(login_id,session_id,device_id,issued_at) VALUES("+q(LOGIN)+","+q(sess)+","+q(dev)+","+q(now)+");")
  sec=hashlib.sha256((account+'|'+secret2+'|pick-pack-1291-m2-service-token-v1').encode()).hexdigest();payload={'l':LOGIN,'r':'SUPERADMIN','v':vh,'s':sess,'d':dev,'c':'PDA'};enc=b64u(json.dumps(payload,separators=(',',':')).encode());token=enc+'.'+b64u(hmac.new(sec.encode(),enc.encode(),hashlib.sha256).digest())
  ev=[]
  for i,x in enumerate(plan,1):
   p={'mnv':x['mnv'],'shift':x['shift'],'work_choice':x['work_choice'],'note':'OWNER TEST 200'}
-  for k in ('pda_serial','pack_table','user_pack'):
+  for k in ('pda_serial','user_pick','pack_table','user_pack'):
    if x.get(k):p[k]=x[k]
   ev.append({'action':'enter','event_id':f'OWNER_SEED200_{TODAY.replace("-","")}_{i:03d}_{x["mnv"]}','device_id':'OWNER_SEED200','business_date':TODAY,'payload':p})
  confirmed=0
@@ -105,11 +110,11 @@ try:
  final=d1('SELECT a.mnv,a.shift,a.work_choice,a.state,a.exit_at,e.main_position FROM attendance_sessions a JOIN employees e ON e.mnv=a.mnv WHERE a.business_date='+q(TODAY))
  if len(final)!=200 or any(x['state']!='ACTIVE' or x.get('exit_at') not in (None,'') for x in final):raise RuntimeError('READBACK_200_FAIL')
  shifts={k:sum(1 for x in final if x['shift']==k) for k in TARGET};works={k:sum(1 for x in final if x['work_choice']==k) for k in ('PICK','PACK','KHONG')}
- if shifts!=TARGET or works['PICK']<3 or works['PACK']<3:raise RuntimeError('DISTRIBUTION_FAIL')
+ if shifts!=TARGET or works!={'PICK':3,'PACK':3,'KHONG':194}:raise RuntimeError('DISTRIBUTION_FAIL')
  core={}
  for sh in TARGET:
-  cats=[cat(x['main_position']) for x in final if x['shift']==sh];core[sh]={'SPECIALIST':cats.count('SPECIALIST'),'LEADER':cats.count('LEADER'),'PULL':cats.count('PULL')}
-  if core[sh]['SPECIALIST']<1 or core[sh]['LEADER']<1 or core[sh]['PULL']<3:raise RuntimeError('CORE_FAIL:'+sh)
- cleanup();rec('PASS',confirmed=confirmed,active=200,shift_distribution=shifts,work_choice_distribution=works,core_composition=core,d1_readback='PASS',stable_unchanged=True);print(json.dumps({'status':'PASS','active':200,'shift':shifts,'work':works,'core':core},ensure_ascii=False))
+  cats=[cat(x['main_position']) for x in final if x['shift']==sh];core[sh]={'SPECIALIST':cats.count('SPECIALIST'),'LEADER':cats.count('LEADER'),'PULL':cats.count('PULL'),'PICK_ROLE':cats.count('PICK'),'PACK_ROLE':cats.count('PACK')}
+  if core[sh]['SPECIALIST']!=1 or core[sh]['LEADER']!=1 or core[sh]['PULL']!=3 or core[sh]['PICK_ROLE']<1 or core[sh]['PACK_ROLE']<1:raise RuntimeError('CORE_FAIL:'+sh)
+ cleanup();rec('PASS',confirmed=confirmed,active=200,shift_distribution=shifts,work_choice_distribution=works,core_composition=core,resource_used=resource_used,d1_readback='PASS',stable_unchanged=True);print(json.dumps({'status':'PASS','active':200,'shift':shifts,'work':works,'core':core},ensure_ascii=False))
 except Exception as e:
  cleanup();rec('FAIL',error=str(e)[:1200],stable_unchanged=True);print('SEED200_ERROR:'+str(e),file=sys.stderr);sys.exit(1)
