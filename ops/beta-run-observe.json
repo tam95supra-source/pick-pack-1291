@@ -1,8 +1,8 @@
 {
-  "run_id": 33841848171,
-  "run_sha": "7881136e8e0b36c9997b8644ab0099053c82adc5",
+  "run_id": 33842078801,
+  "run_sha": "c4b475e9444ed36c3eed8cced6d64ddd1f613e54",
   "ref": "release/beta118-owner-realtime-bulk-exit-20260904",
-  "execution_nonce": "beta118-beta-domain-20260904-01",
-  "stage": "BETA_DOMAIN_PREPARE",
-  "observed_at": "2026-09-04T05:48:16Z"
+  "execution_nonce": "beta118-publish-exact-lock-20260904-01",
+  "stage": "PUBLISH",
+  "observed_at": "2026-09-04T05:52:00Z"
 }
