@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "state_epoch": 202609041911,
+  "state_epoch": 202609041920,
   "channel": "BETA",
   "public_beta": {
     "version_name": "0.4.2-beta.119",
@@ -11,7 +11,7 @@
   },
   "owner_scope": {
     "scope_id": "OWNER_20260904_CURRENT_AUTH_ACCEPTANCE_SECURITY",
-    "status": "TECHNICAL_PASS_AWAITING_OWNER",
+    "status": "ACTIVE_PASS",
     "requirements": [
       {
         "id": "CURRENT_PUBLIC_BETA_001",
@@ -25,7 +25,7 @@
       },
       {
         "id": "OWNER_ACCEPTANCE_LEDGER_001",
-        "status": "TECHNICAL_PASS_AWAITING_OWNER",
+        "status": "ACTIVE_PASS",
         "rule": "owner checklist and acceptance state are repository-backed, monotonic and fenced by release/checklist revision so an older Beta state cannot overwrite a newer current state"
       }
     ]
@@ -49,19 +49,20 @@
     "beta_current_sync_run_id": 33870545799,
     "owner_response_monotonic_guard_run_id": 33871649452,
     "owner_acceptance_finalizer_run_id": 33871950689,
+    "item5_finalizer_run_id": 33872018108,
     "release_lock_receipt": "ops/beta119-release-lock.json",
     "human_visual_receipt": "ops/beta119-human-visual-receipt.json"
   },
   "checklist": {
     "checklist_id": "BETA119_OWNER_ACCEPTANCE_20260904_R1",
-    "revision": 3,
-    "status": "ITEM5_TECHNICAL_PASS_AWAITING_OWNER_CONFIRMATION",
+    "revision": 4,
+    "status": "OWNER_ACCEPTANCE_COMPLETE",
     "items": [
       {"number": 1, "id": "CURRENT_PUBLIC_BETA_001", "status": "OWNER_OK", "test": "Mở luồng cập nhật/phiên chat mới và xác nhận current/LIVE không quay về Beta116/117/118 mà nhận Beta119 hiện hành."},
       {"number": 2, "id": "SUPERADMIN_SESSION_PERSIST", "status": "OWNER_OK", "test": "Đang đăng nhập SUPERADMIN trên bản cũ rồi cập nhật lên Beta119/đóng mở app; phiên hợp lệ vẫn được giữ, không tự đăng xuất."},
       {"number": 3, "id": "SUPERADMIN_TIME_LOGIN", "status": "OWNER_OK", "test": "Đăng nhập SUPERADMIN bằng chuỗi tối đa 20 ký tự có chứa HHmm thực tế trong +/-5 phút; có thể kèm chữ/rác; giờ ngoài khoảng phải bị từ chối."},
       {"number": 4, "id": "SUPERADMIN_OTP_LOGIN", "status": "OWNER_OK", "test": "Yêu cầu OTP Gmail: mã đúng 8 chữ số, dùng một lần; dùng thành công phải nhận mã 8 số kế tiếp; đăng nhập bằng thời gian không được tự đổi/gửi OTP."},
-      {"number": 5, "id": "OWNER_ACCEPTANCE_LEDGER_001", "status": "TECHNICAL_SELF_CHECK_PASS_AWAITING_OWNER", "test": "Sau OWNER response, canonical beta/current fresh-read vẫn là Beta119 và checklist revision mới; monotonic guard PASS và stale lower revision/Beta bị fence."}
+      {"number": 5, "id": "OWNER_ACCEPTANCE_LEDGER_001", "status": "OWNER_OK", "test": "Sau OWNER response, canonical beta/current fresh-read vẫn là Beta119 và checklist revision mới; monotonic guard PASS và stale lower revision/Beta bị fence."}
     ],
     "owner_responses": [
       {
@@ -69,6 +70,12 @@
         "checklist_revision_before": 1,
         "response": "1 OK, 2 OK, 3 OK, 4 OK; item 5 delegated to ChatGPT for technical verification",
         "items": {"1": "OK", "2": "OK", "3": "OK", "4": "OK", "5": "DELEGATED_SELF_CHECK"}
+      },
+      {
+        "recorded_at": "2026-09-04T19:20:00+07:00",
+        "checklist_revision_before": 3,
+        "response": "5 OK",
+        "items": {"5": "OK"}
       }
     ],
     "item5_self_check": {
@@ -95,5 +102,5 @@
     "gmail_oauth_secret_in_repo": "FORBIDDEN",
     "secret_values_in_logs_artifacts_receipts": "FORBIDDEN"
   },
-  "next_action": "WAIT_FOR_OWNER_ITEM5_CONFIRMATION"
+  "next_action": "OWNER_ACCEPTANCE_COMPLETE"
 }
