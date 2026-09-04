@@ -1,8 +1,8 @@
 {
-  "run_id": 33842367960,
-  "run_sha": "7b8335c223243abd4948eb1923d06bcd085e88e1",
-  "ref": "release/beta118-owner-realtime-bulk-exit-20260904",
-  "execution_nonce": "beta118-publish-exact-lock-20260904-02",
-  "stage": "PUBLISH",
-  "observed_at": "2026-09-04T05:56:40Z"
+  "run_id": 33864111135,
+  "run_sha": "2eed1af1ddffdd491325f92439b8e4630bfaf33e",
+  "ref": "release/beta119-superadmin-auth-control-plane-20260904",
+  "execution_nonce": "beta119-build-verify-auth2-20260904-01",
+  "stage": "BUILD_VERIFY",
+  "observed_at": "2026-09-04T10:37:37Z"
 }
