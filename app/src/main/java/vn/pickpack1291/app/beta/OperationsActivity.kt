@@ -522,7 +522,8 @@ class OperationsActivity : Activity() {
         for(i in 0 until sessions.length()){
             val ses=sessions.optJSONObject(i)?:continue
             if(ses.optString("business_date").trim().let{it.isNotBlank()&&it!=currentDate})continue
-            val shift=ses.optString("shift").trim()
+            val rawShift=ses.optString("shift").trim()
+            val shift=byShift.keys.firstOrNull { it.equals(rawShift,ignoreCase=true) } ?: rawShift
             if(shift in byShift.keys)byShift.getValue(shift).add(JSONObject(ses.toString()))
         }
         val bar=row(bg).apply{gravity=Gravity.CENTER_VERTICAL}
