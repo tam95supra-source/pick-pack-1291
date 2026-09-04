@@ -1,4 +1,4 @@
-name: Beta121 fix settings region
+name: Beta121 fix settings and sync detail
 
 on:
   push:
@@ -18,18 +18,18 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Apply fix and contract
+      - name: Apply settings and sync fixes
         run: |
           set -euo pipefail
           python3 tools/beta121_fix_settings_region.py
           python3 tools/beta121_owner_ui_pda_source_contract.py
           git diff --check
-      - name: Commit fix
+      - name: Commit implementation fix
         shell: bash
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt tools/beta121_owner_ui_pda_source_contract.py
-          git commit -m "fix(beta121): keep changelog inside settings region"
+          git commit -m "fix(beta121): restore sync action and settings grouping"
           git push origin HEAD:release/beta121-owner-ui-pda-source-20260905
