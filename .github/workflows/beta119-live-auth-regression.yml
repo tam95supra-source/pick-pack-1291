@@ -56,8 +56,23 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          jq -e '.status=="PASS" and .secret_values_recorded==false and .time_login=="PASS" and .legacy_static_superadmin_password=="REJECTED" and .otp_delivery=="PASS_NO_SECRET_IN_RESPONSE"' "$RESULT_PATH" >/dev/null
-          ! grep -Eqi 'login_id|@|[0-9]{8}|token|password|otp_value|challenge' "$RESULT_PATH"
+          jq -e '
+            .status=="PASS" and
+            .secret_values_recorded==false and
+            .time_login=="PASS" and
+            .legacy_static_superadmin_password=="REJECTED" and
+            .otp_delivery=="PASS_NO_SECRET_IN_RESPONSE" and
+            (keys == ["arbitrary_prefix_suffix","device_binding","legacy_static_superadmin_password","max20_server_fence","otp_consumption_rotation","otp_delivery","outside_window_rejected","secret_values_recorded","status","time_login","transient_session_cleanup","version"]) and
+            ([.. | strings] | all(
+              .=="PASS" or
+              .=="0.4.2-beta.119" or
+              .=="NONE" or
+              .=="REJECTED" or
+              .=="PASS_NO_SECRET_IN_RESPONSE" or
+              .=="OWNER_FUNCTIONAL_ACCEPTANCE_REQUIRED" or
+              .=="ATTEMPTED"
+            ))
+          ' "$RESULT_PATH" >/dev/null
       - uses: actions/upload-artifact@v4
         if: success()
         with:
