@@ -1,8 +1,8 @@
 {
-  "run_id": 33929647208,
-  "run_sha": "98b3b6d1c5f895fb6db4860244c5c48bec7bae6e",
+  "run_id": 33929895214,
+  "run_sha": "c9d92f7b8a82b6da0902b76a1975ee105b7ad62c",
   "ref": "release/beta121-owner-ui-pda-source-20260905",
-  "execution_nonce": "beta121-build-verify-20260905-01",
+  "execution_nonce": "beta121-build-verify-20260905-02",
   "stage": "BUILD_VERIFY",
-  "observed_at": "2026-09-04T23:30:20Z"
+  "observed_at": "2026-09-04T23:32:48Z"
 }
