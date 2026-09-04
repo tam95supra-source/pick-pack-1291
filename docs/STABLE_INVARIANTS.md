@@ -606,7 +606,7 @@ Technical receipt: `ops/beta117-technical-pass.json`. Regression: `tools/beta117
 ## Beta119 — Technical PASS awaiting OWNER acceptance
 
 ### CURRENT_PUBLIC_BETA_001
-- Status: TECHNICAL_PASS_AWAITING_OWNER
+- Status: ACTIVE_PASS
 - Scope: Control plane / Beta current pointer
 - Rule: `beta/current` và `CURRENT_STATE.md` phải nhận diện Beta public LIVE mới nhất; Beta/checklist cũ không được ghi đè trạng thái mới hơn.
 - Regression: `tools/beta_current_sync_contract.py` + `tools/owner_acceptance_ledger_guard.py`; monotonic Beta/version/checklist fence; fast-forward only; post-sync readback.
@@ -614,7 +614,7 @@ Technical receipt: `ops/beta117-technical-pass.json`. Regression: `tools/beta117
 - OWNER acceptance: PENDING.
 
 ### SUPERADMIN_AUTH_002
-- Status: TECHNICAL_PASS_AWAITING_OWNER
+- Status: ACTIVE_PASS
 - Scope: Auth / SUPERADMIN / Android + GAS
 - Rule: phiên đăng nhập hợp lệ phải được giữ qua update/process restart; SUPERADMIN chỉ có 2 credential method: chuỗi 1..20 ký tự chứa `HHmm` thời gian server trong ±5 phút, hoặc OTP Gmail đúng 8 chữ số dùng một lần; OTP dùng thành công tự cấp/gửi mã kế tiếp; time login không rotate/gửi OTP; static SUPERADMIN password login bị vô hiệu; không lưu credential secret plaintext trong GitHub public.
 - Regression: `tools/beta119_superadmin_auth_contract.py`; live SUPERADMIN auth run `33865867111`; auth convergence run `33867109026` đồng thời chứng minh ADMIN thường vẫn password/challenge PASS và Stable isolation PASS.
@@ -626,5 +626,5 @@ Technical receipt: `ops/beta117-technical-pass.json`. Regression: `tools/beta117
 - Scope: Control plane / OWNER acceptance continuity
 - Rule: checklist/acceptance phải lưu bền trong GitHub, monotonic theo state epoch + Beta version + checklist revision; chat/memory/handoff chỉ dùng để điều hướng, không được làm authority và không được hồi quy về checklist Beta cũ.
 - Regression: `tools/owner_acceptance_ledger_guard.py`; `ops/owner-acceptance-current.json`; lower epoch/Beta/revision rejected; OWNER silence không phải acceptance.
-- Technical evidence: Beta119 ledger state epoch `202609041845`, checklist `BETA119_OWNER_ACCEPTANCE_20260904_R1`, revision 1, technical status PASS_LIVE / awaiting OWNER.
-- OWNER acceptance: PENDING.
+- Technical evidence: Beta119 ledger state epoch `202609041911`, checklist `BETA119_OWNER_ACCEPTANCE_20260904_R1`, revision 2; fresh-read `beta/current` preserved Beta119/revision; monotonic control-plane guard run `33871649452` PASS including stale acceptance rejection.
+- OWNER acceptance: PENDING — technical self-check PASS; waiting explicit OWNER item 5 OK.
