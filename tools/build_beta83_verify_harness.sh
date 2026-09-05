@@ -24,13 +24,13 @@ sed -i 's/document_batch_controls_beta110/document_batch_controls_beta117/g' too
 sed -i 's/waitText("Loại kết nối",false,false,10000L);/waitText("Kiểu kết nối",false,false,10000L);/g' "$W/src/vn/pickpack1291/verify/Beta83UiChecksInstrumentation.java"
 sed -i 's/waitText("Authority",false,false,10000L);/waitText("Chế độ quyền hiện tại",false,false,10000L);/g' "$W/src/vn/pickpack1291/verify/Beta83UiChecksInstrumentation.java"
 # Beta121 settings regrouped the former resilience center under a compact technical-test region.
-sed -i 's/waitText("TRUNG TÂM KIỂM THỬ RESILIENCE",false,false,10000L);/waitText("KIỂM THỬ KỸ THUẬT",false,false,10000L);/g' "$W/src/vn/pickpack1291/verify/Beta83UiChecksInstrumentation.java"
+sed -i 's/TRUNG TÂM KIỂM THỬ RESILIENCE/KIỂM THỬ KỸ THUẬT/g' "$W/src/vn/pickpack1291/verify/Beta83UiChecksInstrumentation.java"
 ! grep -Fq 'waitText("Loại kết nối"' "$W/src/vn/pickpack1291/verify/Beta83UiChecksInstrumentation.java"
 ! grep -Fq 'waitText("Authority"' "$W/src/vn/pickpack1291/verify/Beta83UiChecksInstrumentation.java"
-! grep -Fq 'waitText("TRUNG TÂM KIỂM THỬ RESILIENCE"' "$W/src/vn/pickpack1291/verify/Beta83UiChecksInstrumentation.java"
+! grep -Fq 'TRUNG TÂM KIỂM THỬ RESILIENCE' "$W/src/vn/pickpack1291/verify/Beta83UiChecksInstrumentation.java"
 grep -Fq 'waitText("Kiểu kết nối"' "$W/src/vn/pickpack1291/verify/Beta83UiChecksInstrumentation.java"
 grep -Fq 'waitText("Chế độ quyền hiện tại"' "$W/src/vn/pickpack1291/verify/Beta83UiChecksInstrumentation.java"
-grep -Fq 'waitText("KIỂM THỬ KỸ THUẬT"' "$W/src/vn/pickpack1291/verify/Beta83UiChecksInstrumentation.java"
+grep -Fq 'KIỂM THỬ KỸ THUẬT' "$W/src/vn/pickpack1291/verify/Beta83UiChecksInstrumentation.java"
 javac -encoding UTF-8 -source 8 -target 8 -cp "$SDK/platforms/android-36/android.jar" -d "$W/classes" "$W/src/vn/pickpack1291/verify/"*.java
 mapfile -t CLASSES < <(find "$W/classes" -type f -name '*.class' -print | sort)
 test "${#CLASSES[@]}" -ge 3
