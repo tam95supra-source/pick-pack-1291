@@ -34,8 +34,10 @@ jobs:
         run: |
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git stash push --include-untracked -m beta123-projection-recovery || true
           git fetch origin work/beta123-owner-ui-realtime-20260905
           git pull --rebase origin work/beta123-owner-ui-realtime-20260905
+          if git stash list | grep -q beta123-projection-recovery; then git stash pop; fi
           python3 tools/beta123_replication_projection_recovery_patch.py
           python3 tools/beta123_replication_projection_recovery_contract.py
           git add service/src/replication.ts tools/beta123_replication_projection_recovery_patch.py tools/beta123_replication_projection_recovery_contract.py
