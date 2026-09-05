@@ -83,8 +83,11 @@ def sync_release_request(root: Path, scope: dict) -> None:
     req = json.loads(path.read_text())
     req["owner_scope"] = scope["scope_id"]
     req["owner_checklist_revision"] = scope["revision"]
+    req["owner_scope_semantics_sha256"] = scope["semantics_sha256"]
+    req["owner_scope_sha256"] = scope["scope_sha256"]
+    req["owner_command_ledger_head"] = scope["ledger_head_event_sha256"]
     by_number = {x["checklist_number"]: x for x in scope["requirements"]}
-    for item in req["owner_checklist"]:
+    for item in req.get("owner_checklist", []):
         scoped = by_number[item["id"]]
         item["title"] = scoped["title"]
         item["acceptance"] = scoped["acceptance"]
