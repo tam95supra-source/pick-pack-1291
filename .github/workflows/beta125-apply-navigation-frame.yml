@@ -1,0 +1,50 @@
+name: Beta125 apply navigation frame fix
+on:
+  push:
+    branches: [work/beta125-navigation-frame-20260905]
+    paths:
+      - '.github/workflows/beta125-apply-navigation-frame.yml'
+      - 'tools/beta125_apply_navigation_frame_fix.py'
+      - 'tools/beta125_navigation_frame_contract.py'
+      - 'qa/beta125_qr_navigation_regression.md'
+permissions:
+  contents: write
+concurrency:
+  group: beta125-navigation-frame
+  cancel-in-progress: false
+jobs:
+  apply-verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.4.1'
+      - name: Apply deterministic Beta125 patch
+        run: python3 tools/beta125_apply_navigation_frame_fix.py
+      - name: Verify owner and regression contracts
+        run: |
+          set -euo pipefail
+          python3 tools/beta113_owner_scope_contract.py
+          python3 tools/beta116_owner_scope_contract.py
+          python3 tools/beta117_owner_followup_contract.py
+          python3 tools/beta123_owner_scope_contract.py
+          python3 tools/beta125_navigation_frame_contract.py
+          git diff --check
+      - name: Compile and unit test exact source
+        run: gradle --no-daemon --build-cache --parallel :app:testBetaDebugUnitTest :app:assembleBetaDebug :app:assembleStableDebug
+      - name: Commit verified source
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/build.gradle.kts app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt app/src/main/java/vn/pickpack1291/app/beta/ReleaseNotes.kt
+          git commit -m 'fix(beta125): keep employee loading states in one navigation frame'
+          git pull --rebase origin work/beta125-navigation-frame-20260905
+          git push origin HEAD:work/beta125-navigation-frame-20260905
