@@ -1,0 +1,118 @@
+name: Beta128 finalize recovery
+
+on:
+  push:
+    branches:
+      - release/beta128-owner-r3-drop-realtime-20260905
+    paths:
+      - .github/workflows/beta128-finalize-recovery.yml
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: beta128-finalize-recovery
+  cancel-in-progress: false
+
+jobs:
+  recover:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Bootstrap canonical OWNER scope before recovery
+        run: |
+          set -euo pipefail
+          python3 tools/owner_scope_guard.py --bootstrap
+          python3 tools/beta128_owner_r3_contract.py
+
+      - name: Resolve exact prior publish and OTA receipts dynamically
+        id: resolve
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/actions/artifacts?per_page=100" > /tmp/artifacts.json
+          RELEASE_RUN=$(jq -r --arg branch "$GITHUB_REF_NAME" '[.artifacts[] | select(.expired==false and .workflow_run.head_branch==$branch and (.name|startswith("beta-pda-")))] | first | .workflow_run.id // empty' /tmp/artifacts.json)
+          test -n "$RELEASE_RUN"
+          PDA_ARTIFACT=$(jq -r --arg branch "$GITHUB_REF_NAME" --argjson run "$RELEASE_RUN" '[.artifacts[] | select(.expired==false and .workflow_run.head_branch==$branch and .workflow_run.id==$run and (.name|startswith("beta-pda-")))] | first | .id // empty' /tmp/artifacts.json)
+          PUBLISH_ARTIFACT=$(jq -r --arg branch "$GITHUB_REF_NAME" --argjson run "$RELEASE_RUN" '[.artifacts[] | select(.expired==false and .workflow_run.head_branch==$branch and .workflow_run.id==$run and (.name|startswith("beta-publish-")))] | first | .id // empty' /tmp/artifacts.json)
+          test -n "$PDA_ARTIFACT" -a -n "$PUBLISH_ARTIFACT"
+          FAST_CHECK_RUN=$(jq -r '.fast_check_run_id' ops/beta-release-request.json)
+          test "$FAST_CHECK_RUN" != null -a -n "$FAST_CHECK_RUN"
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs?branch=$GITHUB_REF_NAME&per_page=100" > /tmp/runs.json
+          CONTROL_RUN=$(jq -r '[.workflow_runs[] | select(.name=="Control plane security guard" and .conclusion=="success")] | first | .id // empty' /tmp/runs.json)
+          test -n "$CONTROL_RUN"
+          echo "release_run=$RELEASE_RUN" >> "$GITHUB_OUTPUT"
+          echo "pda_artifact=$PDA_ARTIFACT" >> "$GITHUB_OUTPUT"
+          echo "publish_artifact=$PUBLISH_ARTIFACT" >> "$GITHUB_OUTPUT"
+          echo "fast_check_run=$FAST_CHECK_RUN" >> "$GITHUB_OUTPUT"
+          echo "control_run=$CONTROL_RUN" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: beta-publish-${{ steps.resolve.outputs.release_run }}
+          path: /tmp/beta-publish-final
+          repository: ${{ github.repository }}
+          run-id: ${{ steps.resolve.outputs.release_run }}
+          github-token: ${{ github.token }}
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: beta-pda-${{ steps.resolve.outputs.release_run }}
+          path: /tmp/beta-pda-final
+          repository: ${{ github.repository }}
+          run-id: ${{ steps.resolve.outputs.release_run }}
+          github-token: ${{ github.token }}
+
+      - name: Finalize exact Beta128 LIVE from existing PASS receipts
+        run: |
+          set -euo pipefail
+          bash tools/finalize_beta83.sh
+
+      - name: Transition only reopened R3 requirements to Technical PASS
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/beta128_finalize_recovery.py \
+            --release-run '${{ steps.resolve.outputs.release_run }}' \
+            --publish-artifact '${{ steps.resolve.outputs.publish_artifact }}' \
+            --pda-artifact '${{ steps.resolve.outputs.pda_artifact }}' \
+            --fast-check-run '${{ steps.resolve.outputs.fast_check_run }}' \
+            --control-plane-run '${{ steps.resolve.outputs.control_run }}' \
+            --recovery-run "$GITHUB_RUN_ID"
+
+      - name: Verify technical transition fail-closed
+        run: |
+          set -euo pipefail
+          python3 tools/beta128_owner_r3_contract.py
+          python3 tools/owner_scope_guard_v2.py --base-ref HEAD
+          python3 tools/owner_scope_guard.py --bootstrap
+          git diff --check
+          test "$(jq -r '.scope_status' ops/OWNER_SCOPE_CURRENT.json)" = TECHNICAL_PASS_AWAITING_OWNER
+          test "$(jq -r '[.requirements[]|select(.state=="TECHNICAL_PASS_AWAITING_OWNER")|.checklist_number]|join(",")' ops/OWNER_SCOPE_CURRENT.json)" = '7,9,10,11,12'
+          test "$(jq -r '.stage' ops/beta-release-request.json)" = pass_live
+          test "$(jq -r '.ota_readback_status' ops/beta-release-request.json)" = PASS
+          grep -Fq -- '- beta_live: 0.4.2-beta.128 (versionCode 134)' CURRENT_STATE.md
+
+      - name: Commit and read back canonical Technical PASS
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add ops/OWNER_SCOPE_CURRENT.json ops/beta-release-request.json qa/stable_invariants.yml docs/STABLE_INVARIANTS.md CURRENT_STATE.md docs/handovers/HANDOVER_CURRENT.md docs/handovers ops/beta-ota-current.json
+          git diff --cached --check
+          git commit -m '[skip ci] technical(beta128): finalize LIVE and await OWNER acceptance'
+          FINAL=$(git rev-parse HEAD)
+          git push origin "HEAD:$GITHUB_REF_NAME"
+          git fetch origin "$GITHUB_REF_NAME" --quiet
+          test "$(git rev-parse "origin/$GITHUB_REF_NAME")" = "$FINAL"
+          git show "origin/$GITHUB_REF_NAME:ops/OWNER_SCOPE_CURRENT.json" | jq -e '.scope_status=="TECHNICAL_PASS_AWAITING_OWNER" and ([.requirements[]|select(.state=="TECHNICAL_PASS_AWAITING_OWNER")|.checklist_number]==[7,9,10,11,12])' >/dev/null
+          git show "origin/$GITHUB_REF_NAME:CURRENT_STATE.md" | grep -Fq -- '- beta_live: 0.4.2-beta.128 (versionCode 134)'
+          git show "origin/$GITHUB_REF_NAME:docs/handovers/HANDOVER_CURRENT.md" | grep -Fq 'WAIT_FOR_OWNER_ACCEPTANCE_REQUIREMENTS_7_9_10_11_12'
