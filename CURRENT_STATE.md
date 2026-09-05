@@ -29,7 +29,8 @@
 - owner_scope_file: ops/OWNER_SCOPE_CURRENT.json
 - owner_scope_id: OWNER_20260905_CHAT_ORIGINAL_10_PLUS_GLOBAL_REALTIME_BETA127
 - owner_scope_revision: 2
-- owner_scope_sha256: 09988e6963eb033702e073e9a0f4a76302d598f09702d97bc5ce3cfbe5f22cba
+- owner_scope_semantics_sha256: 3a52ab482e3a6baddcca5e61f6d9aa1b719ccf6648639dfa901d33b98990c626
+- owner_scope_sha256: 9292b93190229dc584f76c3034dc4554dc46c16c642aa9d51fdc4274b44a77e2
 - owner_command_ledger: ops/owner-command-ledger.jsonl
 - owner_command_ledger_head: db93d50eba8cf91406e2afbf6d44ce56a1e49a660b3621af1ddc82c2eb822655
 - owner_checklist_id: BETA127_OWNER_ACCEPTANCE_20260905_R2
@@ -37,5 +38,5 @@
 - owner_acceptance_receipt: ops/beta127-owner-acceptance.json
 - owner_acceptance_at: 2026-09-05T21:14:36+07:00
 - owner_acceptance: COMPLETE (11/11 OWNER OK)
-- owner_scope_continuity_policy: OWNER_SCOPE_CONTINUITY_001 / implementation in progress
+- owner_scope_continuity_policy: OWNER_SCOPE_CONTINUITY_001 / TECHNICAL_PASS_AWAITING_OWNER
 - next_action: VERIFY_OWNER_SCOPE_CONTINUITY_CONTROL_PLANE
