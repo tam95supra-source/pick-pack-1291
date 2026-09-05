@@ -22,10 +22,12 @@ notes=txt('app/src/main/java/vn/pickpack1291/app/beta/ReleaseNotes.kt')
 qa=txt('qa/beta123_owner_scope_regression.md')
 qa127=txt('qa/beta127_owner_r2_regression.md')
 
-# Exact Beta127 identity. Stable remains outside this patch scope.
-assert 'versionCode = 133' in gradle
-assert 'versionName = "0.4.2-beta.127"' in gradle
-assert 'VERSION_NAME = "0.4.2-beta.127"' in notes
+# Current Beta identity must stay internally consistent; do not hardcode a prior Beta.
+version_code=re.search(r'versionCode\s*=\s*(\d+)',gradle)
+version_name=re.search(r'versionName\s*=\s*"([^"]+)"',gradle)
+assert version_code and int(version_code.group(1))>0
+assert version_name and re.fullmatch(r'0\.4\.2-beta\.\d+',version_name.group(1))
+assert f'VERSION_NAME = "{version_name.group(1)}"' in notes
 
 # 1 Settings: visually distinct groups + user-safe local cache/data reset semantics.
 settings=fn(ops,'settingsScreen')
