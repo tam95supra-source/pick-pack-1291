@@ -168,12 +168,12 @@ async function replicateOperational(db:D1Database,env:Env,token:string,events:Ev
 
 function retryDelaySeconds(attempt:number):number{return Math.min(900,Math.max(5,Math.pow(2,Math.min(8,attempt))*5));}
 
-export async function replicatePending(db:D1Database,env:Env,limit=50):Promise<{ok:boolean;processed:number;appended:number;operational:number;pending:number;checkpoint?:string;error?:string}>{
+export async function replicatePending(db:D1Database,env:Env,limit=10):Promise<{ok:boolean;processed:number;appended:number;operational:number;pending:number;checkpoint?:string;error?:string}>{
   // STALE_INFLIGHT_RECOVERY_V1: a Worker interruption can leave a claimed row INFLIGHT forever.
   // Requeue only claims older than 15 minutes; preserve event_id/outbox row and never mark SYNCED here.
   const staleClaimCutoff=new Date(Date.now()-15*60*1000).toISOString(),requeueAt=nowIso();
   await db.prepare("UPDATE sheet_replication_outbox SET status='RETRY',claim_token=NULL,claimed_at=NULL,next_attempt_at=?1,last_error_class=COALESCE(last_error_class,'STALE_INFLIGHT_RECOVERED'),last_error=COALESCE(last_error,'Recovered stale INFLIGHT claim for canonical retry') WHERE status='INFLIGHT' AND (claimed_at IS NULL OR claimed_at<=?2)").bind(requeueAt,staleClaimCutoff).run();
-  const rows=await db.prepare("SELECT outbox_id,event_id,attempt_count FROM sheet_replication_outbox WHERE status IN ('PENDING','RETRY') AND next_attempt_at<=?1 ORDER BY outbox_id LIMIT ?2").bind(nowIso(),Math.max(1,Math.min(limit,100))).all<OutboxRow>();
+  const rows=await db.prepare("SELECT outbox_id,event_id,attempt_count FROM sheet_replication_outbox WHERE status IN ('PENDING','RETRY') AND next_attempt_at<=?1 ORDER BY outbox_id LIMIT ?2").bind(nowIso(),Math.max(1,Math.min(limit,10))).all<OutboxRow>();
   const due=rows.results??[];
   if(!due.length){const p=await db.prepare("SELECT COUNT(*) n FROM sheet_replication_outbox WHERE status IN ('PENDING','RETRY','INFLIGHT')").first<{n:number}>();return{ok:true,processed:0,appended:0,operational:0,pending:p?.n??0};}
   const claim=crypto.randomUUID(),claimAt=nowIso();
@@ -202,8 +202,19 @@ export async function replicatePending(db:D1Database,env:Env,limit=50):Promise<{
     await assertOwnership();
     const checkpoint=await appendTechnicalRows(env,token,technical);
     await assertOwnership();
-    const operational=await replicateOperational(db,env,token,allEvents),doneAt=nowIso();
+    const operational=await replicateOperational(db,env,token,allEvents);
     await assertOwnership();
+    // OPERATIONAL_PROJECTION_ACK_GUARD_V1: attendance events are terminal only when both user-facing projections exist.
+    // This makes stale-claim recovery idempotent: existing Event IDs are skipped, missing projections are repaired, and ACK cannot hide a partial write.
+    const verifyIndex=await loadOperationalIndex(env,token);
+    for(const e of allEvents){
+      if(e.event_type==="ATTENDANCE_ENTER"||e.event_type==="ATTENDANCE_EXIT"){
+        const raOk=verifyIndex.raEvents.has(e.event_id),historyOk=verifyIndex.historyEvents.has(e.event_id);
+        if(!raOk||!historyOk)throw new Error(`REPLICATION_OPERATIONAL_INCOMPLETE:${e.event_id}:RA=${raOk?1:0}:HISTORY=${historyOk?1:0}`);
+      }
+    }
+    await assertOwnership();
+    const doneAt=nowIso();
     await db.batch(claimed.map(x=>db.prepare("UPDATE sheet_replication_outbox SET status='SYNCED',claim_token=NULL,claimed_at=NULL,replicated_at=?1,google_checkpoint=?2,last_error_class=NULL,last_error=NULL WHERE outbox_id=?3 AND status='INFLIGHT' AND claim_token=?4").bind(doneAt,checkpoint,x.outbox_id,claim)));
     const ackMarks=claimed.map(()=>"?").join(","),acked=await db.prepare(`SELECT COUNT(*) n FROM sheet_replication_outbox WHERE outbox_id IN (${ackMarks}) AND status='SYNCED'`).bind(...claimed.map(x=>x.outbox_id)).first<{n:number}>();
     if((acked?.n??0)!==claimed.length)throw new Error(`REPLICATION_ACK_FENCE_FAILED:${claim}`);
