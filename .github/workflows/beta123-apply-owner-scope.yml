@@ -26,7 +26,9 @@ jobs:
         with:
           gradle-version: '9.4.1'
       - name: Apply deterministic Beta126 patch
-        run: python3 tools/beta123_apply_owner_scope.py
+        run: |
+          python3 tools/beta123_apply_owner_scope.py
+          python3 tools/beta123_compile_fix.py
       - name: Contracts and source guards
         run: |
           python3 tools/beta123_owner_scope_contract.py
