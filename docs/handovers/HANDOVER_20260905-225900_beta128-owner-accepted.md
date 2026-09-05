@@ -38,7 +38,7 @@
 - Realtime UI: Service reconcile nền không được xóa/dựng lại UI nếu revision hoặc state không đổi.
 - GitHub Release asset exact bytes khớp candidate SHA256/size; OTA tải trực tiếp từ GitHub Release: PASS.
 - OTA 0.4.2-beta.127 → 0.4.2-beta.128: download/install exact SHA/size/version/package/signer và mở app: PASS.
-- Canonical OWNER checklist: ops/OWNER_SCOPE_CURRENT.json, revision 3, SHA256 d0124805ffd1dcf386295828e9d998083a45274bd0eeba8c360308f92c69f2e1, 12 requirement(s).
+- Canonical OWNER checklist: ops/OWNER_SCOPE_CURRENT.json, revision 3, SHA256 72b55f9c0f6eba3b6c6da4c2f612ae3fdfe02008f0c9400cfe7dd67c0872069c, 12 requirement(s).
 
 ## Blocker
 Không có blocker kỹ thuật. OWNER acceptance COMPLETE; canonical scope đã khóa ACTIVE_PASS.
