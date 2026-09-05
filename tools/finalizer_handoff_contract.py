@@ -18,6 +18,12 @@ assert 'FINALIZER_BLOCKED_LOCKED_REQUIREMENTS_${OWNER_LOCKED_NUMBERS}' in finali
 assert 'OWNER_PENDING_NUMBERS=' in finalizer
 assert 'select(.state=="TECHNICAL_PASS_AWAITING_OWNER")' in finalizer
 assert 'WAIT_FOR_OWNER_ACCEPTANCE_REQUIREMENTS_${OWNER_PENDING_NUMBERS}' in finalizer
+assert 'refs/heads/beta/current' in finalizer
+assert 'FINALIZER_CURRENT_SYNC_PASS' in finalizer
+assert 'FINALIZER_CURRENT_SYNC_SKIP_NEWER_CURRENT' in finalizer
+assert 'FINALIZER_CURRENT_SYNC_FAIL_NON_FF' in finalizer
+assert 'git merge-base --is-ancestor' in finalizer
+assert '--force' not in finalizer
 
 sid=scope['scope_id']; rev=scope['revision']; sem=scope['semantics_sha256']; sha=scope['scope_sha256']; ledger=scope['ledger_head_event_sha256']; count=len(scope['requirements'])
 locked=[str(x['checklist_number']) for x in scope['requirements'] if x.get('state')=='LOCKED_REQUIREMENT_PENDING_FIX']

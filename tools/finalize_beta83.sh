@@ -211,6 +211,26 @@ FINAL=$(git rev-parse HEAD)
 git push origin "HEAD:$BRANCH"
 git fetch origin "$BRANCH" --quiet
 test "$(git rev-parse "origin/$BRANCH")" = "$FINAL"
+
+# Same-job convergence is mandatory because commits pushed by GITHUB_TOKEN do not recursively trigger push workflows.
+git fetch origin beta/current --quiet
+CURRENT_HEAD=$(git rev-parse origin/beta/current)
+CURRENT_VERSION=$(git show origin/beta/current:CURRENT_STATE.md | sed -n 's/^- beta_live: \([^ ]*\).*/\1/p' | head -n1)
+CURRENT_NO="${CURRENT_VERSION##*beta.}"
+[[ "$CURRENT_NO" =~ ^[0-9]+$ ]]
+if (( CURRENT_NO > BETA_NO )); then
+  echo "FINALIZER_CURRENT_SYNC_SKIP_NEWER_CURRENT:$CURRENT_VERSION"
+else
+  if [[ "$CURRENT_HEAD" != "$FINAL" ]]; then
+    git merge-base --is-ancestor "$CURRENT_HEAD" "$FINAL" || { echo "FINALIZER_CURRENT_SYNC_FAIL_NON_FF" >&2; exit 1; }
+    git push origin "$FINAL:refs/heads/beta/current"
+  fi
+  git fetch origin beta/current --quiet
+  test "$(git rev-parse origin/beta/current)" = "$FINAL"
+  test "$(git show origin/beta/current:CURRENT_STATE.md | sed -n 's/^- beta_live: \([^ ]*\).*/\1/p' | head -n1)" = "$VERSION"
+  test "$(git show origin/beta/current:ops/beta-ota-current.json | jq -r '.version_name')" = "$VERSION"
+  echo "FINALIZER_CURRENT_SYNC_PASS:$VERSION:$FINAL"
+fi
 test "$(git show "origin/$BRANCH:CURRENT_STATE.md"|grep -c "$BETA_STATUS")" = 1
 test "$(git show "origin/$BRANCH:CURRENT_STATE.md"|grep -c -- "- owner_scope_semantics_sha256: $OWNER_SCOPE_SEMANTICS_SHA")" = 1
 test "$(git show "origin/$BRANCH:CURRENT_STATE.md"|grep -c -- "- owner_scope_sha256: $OWNER_SCOPE_SHA")" = 1
