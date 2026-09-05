@@ -1,32 +1,29 @@
 # CURRENT STATE — PICK PACK 1291
 
-- updated_at: 2026-09-04T17:01:37Z
-- status: BETA120_PASS_LIVE
-- continuity_branch: release/beta120-bulk-exit-reset200-20260904
-- source_sha: b8f548d5717156554b8599955f62ab23f9973fc9
-- beta_live: 0.4.2-beta.120 (versionCode 126)
+- updated_at: 2026-09-05T00:59:40Z
+- status: BETA121_PASS_LIVE
+- continuity_branch: release/beta121-owner-ui-pda-source-20260905
+- source_sha: ee482efb41565eee797b9b6c11fe54557c2b67f8
+- beta_live: 0.4.2-beta.121 (versionCode 127)
 - package: vn.pickpack1291.app.beta.publicbeta
-- candidate_run: 33874862142
-- candidate_artifact: 9937580926
-- verify_run: 33876606829
-- verify_artifact: 9939139135
-- apk_sha256: 04d9f4b88e6ff038766357402f7f5831de67649087c839f922897042120b8ef8
+- candidate_run: 33929895214
+- candidate_artifact: 9958252319
+- verify_run: 33932137068
+- verify_artifact: 9959024622
+- apk_sha256: 5b042c8e1f6d288ef19efe9abc773562c204fb3defd91396e4101adcedc8cc57
 - apk_size: 14429173
 - signer_sha256: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
-- terminal_run: 33896192267
+- terminal_run: 33934142254
 - fast_check: PASS
 - service_gate: null
 - visual_matrix: PASS 320x568 / 360x640 / 480x800
 - human_visual: PASS
 - pda_functional_pre_ota: PASS
-- beta_ota: exact 0.4.2-beta.120 PASS via GitHub Release
-- beta_ota_url: https://github.com/tam95supra-source/pick-pack-1291/releases/download/v0.4.2-beta.120-publicbeta/pick-pack-1291-public-beta-0.4.2-beta.120.apk
+- beta_ota: exact 0.4.2-beta.121 PASS via GitHub Release
+- beta_ota_url: https://github.com/tam95supra-source/pick-pack-1291/releases/download/v0.4.2-beta.121-publicbeta/pick-pack-1291-public-beta-0.4.2-beta.121.apk
 - apk_transport: GITHUB_RELEASE_ONLY
 - google_drive_apk: FORBIDDEN
 - stable: unchanged
 - main_sha: 021dac5c6932b3ac5c60ce8fdba562ddf3d9688f
 - authority: SERVICE_PRIMARY / PRODUCTION / epoch 9 / generation m2-prod-reset-20260823-001
-- owner_acceptance: COMPLETE / OLD-SESSION-BULK-EXIT-001=ACTIVE_PASS / data checklist 1-2-3 OWNER_OK
-- owner_acceptance_receipt: ops/beta120-owner-acceptance.json
-- owner_acceptance_finalizer_run: 33898227143 PASS
-- next_action: OWNER_ACCEPTANCE_COMPLETE
+- next_action: WAIT_FOR_OWNER_ACCEPTANCE_NUMBERED_CHECKLIST
