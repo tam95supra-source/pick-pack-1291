@@ -1,5 +1,6 @@
 name: Beta122 apply effective-role PDA source UI
 
+# Retrigger after semantic PDA-source contract update.
 on:
   push:
     branches:
