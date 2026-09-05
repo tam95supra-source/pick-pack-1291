@@ -1,37 +1,29 @@
 # CURRENT STATE — PICK PACK 1291
 
-- updated_at: 2026-09-05T02:37:19Z
-- status: BETA122_OWNER_ACCEPTED_LIVE
-- continuity_branch: release/beta122-effective-role-pda-source-ui-20260905
-- source_sha: fd26d18b0ae81cbc919824141f3670a3fe3b276e
-- beta_live: 0.4.2-beta.122 (versionCode 128)
+- updated_at: 2026-09-05T10:43:04Z
+- status: BETA125_PASS_LIVE
+- continuity_branch: release/beta125-navigation-frame-20260905
+- source_sha: eac95af57d1bdb7d16547e99b0b269a9d3a32456
+- beta_live: 0.4.2-beta.125 (versionCode 131)
 - package: vn.pickpack1291.app.beta.publicbeta
-- candidate_run: 33937101147
-- candidate_artifact: 9960620587
-- verify_run: 33937614831
-- verify_artifact: 9960788555
-- apk_sha256: b06d1cf470fa840f53c9641397bf16cdfa3ce5d20651349f4ac3bb6e0ef4b54b
-- apk_size: 14429173
+- candidate_run: 33955316061
+- candidate_artifact: 9966233235
+- verify_run: 33960305554
+- verify_artifact: 9967776375
+- apk_sha256: ee4040086c7683776c3b1713f7a024ee9daf73d977c05b24983e5cdc7c04f878
+- apk_size: 14445557
 - signer_sha256: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
-- terminal_run: 33938535151
-- publish_artifact: 9960999680
-- ota_device_artifact: 9961036406
-- final_artifact: 9961041181
-- fast_check: PASS run 33937614821
-- service_gate: PASS inherited run 33929895214 artifact 9958376646; service/GAS bytes unchanged
+- terminal_run: 33961204941
+- fast_check: PASS
+- service_gate: null
 - visual_matrix: PASS 320x568 / 360x640 / 480x800
 - human_visual: PASS
 - pda_functional_pre_ota: PASS
-- device_regression: PASS run 33938053451 artifact 9960858682
-- runtime_dod: PASS run 33938184655 artifact 9960886189
-- beta_ota: exact 0.4.2-beta.122 PASS via GitHub Release
+- beta_ota: exact 0.4.2-beta.125 PASS via GitHub Release
+- beta_ota_url: https://github.com/tam95supra-source/pick-pack-1291/releases/download/v0.4.2-beta.125-publicbeta/pick-pack-1291-public-beta-0.4.2-beta.125.apk
 - apk_transport: GITHUB_RELEASE_ONLY
 - google_drive_apk: FORBIDDEN
-- stable: unchanged / not public
+- stable: unchanged
 - main_sha: 021dac5c6932b3ac5c60ce8fdba562ddf3d9688f
 - authority: SERVICE_PRIMARY / PRODUCTION / epoch 9 / generation m2-prod-reset-20260823-001
-- owner_acceptance: COMPLETE
-- active_pass: UI-STATUS-DETAIL-VI-003; SUPERADMIN-EFFECTIVE-ROLE-003; SETTINGS-REGION-INHOUSE-DROP-001; PDA-SOURCE-MASTER-001
-- technical_receipt: ops/beta122-technical-pass.json
-- owner_receipt: ops/beta122-owner-acceptance.json
-- next_action: OWNER_ACCEPTANCE_COMPLETE
+- next_action: WAIT_FOR_OWNER_ACCEPTANCE_NUMBERED_CHECKLIST

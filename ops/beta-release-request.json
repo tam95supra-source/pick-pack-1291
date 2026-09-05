@@ -1,6 +1,6 @@
 {
-  "stage": "PUBLISH",
-  "mode": "PUBLISH_EXACT_BETA125_AFTER_ALL_PRE_OTA_GATES_PASS",
+  "stage": "pass_live",
+  "mode": "PASS_LIVE_EXACT_BYTES_GITHUB_RELEASE_ONLY",
   "version_name": "0.4.2-beta.125",
   "version_code": 131,
   "base_version": "0.4.2-beta.122",
@@ -31,7 +31,7 @@
   "release_lock_signer_sha256": "d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e",
   "rebuild": false,
   "resign": false,
-  "live": false,
+  "live": true,
   "stable_publish": "FORBIDDEN",
   "authority_change": "NONE",
   "release_notes": [
@@ -58,7 +58,11 @@
   "verify_artifact_id": 9967776375,
   "verify_artifact_name": "beta125-exact-nav-visual-33960305554",
   "human_visual_pass": true,
-  "human_visual_sizes": ["320x568", "360x640", "480x800"],
+  "human_visual_sizes": [
+    "320x568",
+    "360x640",
+    "480x800"
+  ],
   "human_visual_screenshot_count": 44,
   "human_visual_evidence": "run 33960305554 / artifact 9967776375 / human inspected all 44 screenshots; Beta125 post-Back screenshot shows SCAN, no EMPLOYEE/LOADING, no roster reopen",
   "visual_matrix": "PASS",
@@ -94,11 +98,13 @@
   "apk_transport": "GITHUB_RELEASE_ONLY",
   "google_drive_apk": "FORBIDDEN",
   "execution_nonce": "beta125-publish-exact-20260905-01",
-  "next_action": "PUBLISH_EXACT_BETA125_AND_COMPLETE_OTA_INSTALL_READBACK",
+  "next_action": "WAIT_FOR_OWNER_ACCEPTANCE_NUMBERED_CHECKLIST",
   "owner_scope": "OWNER_20260905_BETA125_QR_NAVIGATION_PLUS_BETA123_SCOPE",
   "owner_checklist_id": "BETA125_OWNER_ACCEPTANCE_20260905_R1",
   "owner_checklist_revision": 1,
-  "technical_pass_status": "PENDING",
-  "owner_acceptance": "PENDING_FIX",
-  "ota_readback_status": "PENDING"
+  "technical_pass_status": "PASS",
+  "owner_acceptance": "PENDING",
+  "ota_readback_status": "PASS",
+  "publish_run_id": "33961204941",
+  "ota_readback_run_id": 33961204941
 }
