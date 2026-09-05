@@ -30,8 +30,12 @@ OWNER_LEDGER_HEAD=$(jq -r '.ledger_head_event_sha256' "$SCOPE")
 OWNER_CHECKLIST_ID=$(jq -r '.owner_checklist_id // "UNSPECIFIED"' "$R")
 OWNER_CHECKLIST_COUNT=$(jq -r '.requirements|length' "$SCOPE")
 test "$OWNER_CHECKLIST_COUNT" -gt 0
-OWNER_PENDING_NUMBERS=$(jq -r '[.requirements[] | select(.state!="ACTIVE_PASS" and .state!="SUPERSEDED") | .checklist_number] | map(tostring) | join("_")' "$SCOPE")
-if [[ -n "$OWNER_PENDING_NUMBERS" ]]; then
+OWNER_LOCKED_NUMBERS=$(jq -r '[.requirements[] | select(.state=="LOCKED_REQUIREMENT_PENDING_FIX") | .checklist_number] | map(tostring) | join("_")' "$SCOPE")
+OWNER_PENDING_NUMBERS=$(jq -r '[.requirements[] | select(.state=="TECHNICAL_PASS_AWAITING_OWNER") | .checklist_number] | map(tostring) | join("_")' "$SCOPE")
+if [[ -n "$OWNER_LOCKED_NUMBERS" ]]; then
+  echo "FINALIZER_BLOCKED_LOCKED_REQUIREMENTS_${OWNER_LOCKED_NUMBERS}" >&2
+  exit 1
+elif [[ -n "$OWNER_PENDING_NUMBERS" ]]; then
   OWNER_NEXT_ACTION="WAIT_FOR_OWNER_ACCEPTANCE_REQUIREMENTS_${OWNER_PENDING_NUMBERS}"
 else
   OWNER_NEXT_ACTION="OWNER_ACCEPTANCE_COMPLETE"
