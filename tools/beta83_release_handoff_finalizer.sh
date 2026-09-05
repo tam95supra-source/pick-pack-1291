@@ -8,7 +8,15 @@ PUB=$(jq -r '.jobs[]?|select(.name=="publish")|.conclusion' <<<"$JOBS"|head -n1)
 PDA=$(jq -r '.jobs[]?|select(.name=="pda-verify")|.conclusion' <<<"$JOBS"|head -n1)
 FIN=$(jq -r '.jobs[]?|select(.name=="finalize")|.conclusion' <<<"$JOBS"|head -n1)
 ROLL=$(jq -r '.jobs[]?|select(.name=="rollback-beta")|.conclusion' <<<"$JOBS"|head -n1)
-if [[ "$FIN" == success ]]; then NEXT=WAIT_FOR_OWNER_NEW_SCOPE
+if [[ "$FIN" == success ]]; then
+  ACCEPT=$(jq -r '.owner_acceptance // "PENDING"' "$R")
+  if [[ "$ACCEPT" == "COMPLETE" ]]; then
+    NEXT=WAIT_FOR_OWNER_NEW_SCOPE
+  else
+    COUNT=$(jq -r 'if (.owner_checklist|type)=="array" then (.owner_checklist|length) else 0 end' "$R")
+    test "$COUNT" -gt 0
+    NEXT="WAIT_FOR_OWNER_ACCEPTANCE_NUMBERED_CHECKLIST_1_TO_${COUNT}"
+  fi
 elif [[ "$ROLL" == success ]]; then NEXT=FIX_POST_PUBLISH_FAILURE_WITH_PREVIOUS_BETA_RESTORED
 elif [[ "$PUB" != success ]]; then NEXT=FIX_PUBLISH_FAILURE_KEEP_EXACT_LOCKED_CANDIDATE
 else NEXT=FIX_POST_PUBLISH_OTA_VERIFY_KEEP_EXACT_LOCKED_CANDIDATE

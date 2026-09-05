@@ -19,7 +19,9 @@ SIGNER=$(jq -r '.signer_sha256' "$R")
 OWNER_SCOPE=$(jq -r '.owner_scope // .scope // "UNSPECIFIED"' "$R")
 OWNER_CHECKLIST_ID=$(jq -r '.owner_checklist_id // "UNSPECIFIED"' "$R")
 OWNER_CHECKLIST_REVISION=$(jq -r '.owner_checklist_revision // 0' "$R")
-OWNER_NEXT_ACTION=$(jq -r '.next_action // "WAIT_FOR_OWNER_ACCEPTANCE_NUMBERED_CHECKLIST"' "$R")
+OWNER_CHECKLIST_COUNT=$(jq -r 'if (.owner_checklist|type)=="array" then (.owner_checklist|length) else 0 end' "$R")
+test "$OWNER_CHECKLIST_COUNT" -gt 0
+OWNER_NEXT_ACTION="WAIT_FOR_OWNER_ACCEPTANCE_NUMBERED_CHECKLIST_1_TO_${OWNER_CHECKLIST_COUNT}"
 
 jq -e --arg v "$VERSION" --arg p "$PKG" --arg h "$SHA" --argjson z "$SIZE" '
   .status=="PASS" and .version_name==$v and .package==$p and .apk_sha256==$h and .apk_size==$z and
@@ -63,11 +65,11 @@ NOW=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
 STAMP=$(date -u '+%Y%m%d-%H%M%S')
 ARCH="docs/handovers/HANDOVER_${STAMP}_beta${BETA_NO}-pass-live.md"
 
-jq '.stage="pass_live" | .mode="PASS_LIVE_EXACT_BYTES_GITHUB_RELEASE_ONLY" | .publish_run_id=env.GITHUB_RUN_ID |
+jq --arg next "$OWNER_NEXT_ACTION" '.stage="pass_live" | .mode="PASS_LIVE_EXACT_BYTES_GITHUB_RELEASE_ONLY" | .publish_run_id=env.GITHUB_RUN_ID |
     .live=true | .technical_pass_status="PASS" | .owner_acceptance="PENDING" |
     .ota_readback_status="PASS" | .ota_readback_run_id=(env.GITHUB_RUN_ID|tonumber) |
     .apk_transport="GITHUB_RELEASE_ONLY" | .google_drive_apk="FORBIDDEN" |
-    .next_action=(.next_action // "WAIT_FOR_OWNER_ACCEPTANCE_NUMBERED_CHECKLIST")' "$R" > /tmp/request.json
+    .next_action=$next' "$R" > /tmp/request.json
 mv /tmp/request.json ops/beta-release-request.json
 
 cat > CURRENT_STATE.md <<EOF
@@ -195,6 +197,9 @@ test "$(git show "origin/$BRANCH:docs/handovers/HANDOVER_CURRENT.md"|grep -c 'st
 test "$(git show "origin/$BRANCH:docs/handovers/HANDOVER_CURRENT.md"|grep -c "$OWNER_SCOPE")" -ge 1
 test "$(git show "origin/$BRANCH:ops/beta-ota-current.json"|jq -r '.source')" = "GITHUB_RELEASE"
 test "$(git show "origin/$BRANCH:ops/beta-ota-current.json"|jq -r '.google_drive_apk')" = "FORBIDDEN"
+test "$(git show "origin/$BRANCH:ops/beta-release-request.json"|jq -r '.next_action')" = "$OWNER_NEXT_ACTION"
+test "$(git show "origin/$BRANCH:CURRENT_STATE.md"|grep -c -- "- next_action: $OWNER_NEXT_ACTION")" = 1
+test "$(git show "origin/$BRANCH:docs/handovers/HANDOVER_CURRENT.md"|grep -c -x "$OWNER_NEXT_ACTION")" = 1
 
 mkdir -p /tmp/beta-final
 jq -n --arg status PASS --arg version "$VERSION" --argjson code "$CODE" --arg package "$PKG" \

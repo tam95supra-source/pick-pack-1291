@@ -87,7 +87,7 @@
   "apk_transport": "GITHUB_RELEASE_ONLY",
   "google_drive_apk": "FORBIDDEN",
   "execution_nonce": "beta127-publish-owner-r2-20260905-01",
-  "next_action": "PUBLISH_EXACT_LOCKED_CANDIDATE_THEN_OTA_READBACK",
+  "next_action": "WAIT_FOR_OWNER_ACCEPTANCE_NUMBERED_CHECKLIST_1_TO_11",
   "owner_scope": "OWNER_20260905_CHAT_ORIGINAL_10_PLUS_GLOBAL_REALTIME_BETA127",
   "owner_scope_source": "OWNER yêu cầu xử lý triệt để đủ checklist R2 1-11; Beta126 false-positive đã được phát hiện bằng exact visual audit",
   "owner_checklist_id": "BETA127_OWNER_ACCEPTANCE_20260905_R2",

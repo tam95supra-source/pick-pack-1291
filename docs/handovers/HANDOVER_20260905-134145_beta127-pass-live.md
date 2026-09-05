@@ -86,6 +86,7 @@ Release 0.4.2-beta.127 Technical PASS/LIVE cho scope OWNER_20260905_CHAT_ORIGINA
    - Service xử lý/reconcile nền vào state hiện tại; Service chậm không làm UI khựng, reload hoặc chớp giật.
    - Rà soát toàn app: các màn bị tác động giữ realtime UI update mượt và đúng canonical state.
 
+- Regression finalizer NEXT_ACTION: PASS; pass_live + OWNER PENDING luôn chuyển sang checklist OWNER, không giữ lệnh PUBLISH cũ.
 ## Blocker
 Không có blocker kỹ thuật. Technical DoD PASS; đang chờ OWNER nghiệm thu đúng checklist phía trên.
 
@@ -96,4 +97,4 @@ Không có blocker kỹ thuật. Technical DoD PASS; đang chờ OWNER nghiệm 
 - OWNER silence không phải acceptance; chỉ mục OWNER xác nhận OK mới được khóa ACTIVE_PASS.
 
 ## NEXT_ACTION
-PUBLISH_EXACT_LOCKED_CANDIDATE_THEN_OTA_READBACK
+WAIT_FOR_OWNER_ACCEPTANCE_NUMBERED_CHECKLIST_1_TO_11
