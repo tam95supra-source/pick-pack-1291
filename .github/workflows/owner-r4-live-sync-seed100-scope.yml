@@ -1,0 +1,94 @@
+name: Owner R4 live sync and seed100 scope
+
+on:
+  push:
+    branches:
+      - release/beta128-live-sync-seed100-20260906
+    paths:
+      - .github/workflows/owner-r4-live-sync-seed100-scope.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: owner-r4-live-sync-seed100-scope
+  cancel-in-progress: false
+
+jobs:
+  scope-transaction:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Append OWNER commands and update canonical scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin beta/current --quiet
+          python3 tools/owner_scope_guard.py --bootstrap
+          python3 tools/owner_scope_admin.py append-command \
+            --command-id CMD-20260906-005 \
+            --event-type OWNER_REQUIREMENT \
+            --related R4-14 \
+            --raw-text $'Xử lí tạo cho anh 100 phiên vào, trong đó ngẫu nhiên số lượng ca 1 95ng, ca hc chỉ chiếm khoảng 5ng\nCho dùng kịch sl bàn pack, pda, user hy1.outbound.\nPhiên vào hợp lệ, có lịch sử, có hiển thị rà soát phiên, điểm danh bình thường như người dùng xử lí\nMục đích để anh test số lượng quota đã dùng, mức chịu tải service, khả năng hiển thị của app.\nHoàn thành cho anh trước 7:00 sáng'
+          python3 tools/owner_scope_admin.py append-command \
+            --command-id CMD-20260906-006 \
+            --event-type OWNER_REQUIREMENT_CHANGE \
+            --related R4-13,R4-14 \
+            --raw-text $'1. Kiểm tra lại cơ chế và fix ngay vấn đề ghi nhận live không đúng mới nhất\n2. Tiếp tục xử lí tạo 100 phiên theo yc'
+          python3 - <<'PY'
+          import json,re
+          from pathlib import Path
+          p=Path('ops/OWNER_SCOPE_CURRENT.json')
+          s=json.loads(p.read_text(encoding='utf-8'))
+          s['scope_id']='OWNER_20260906_R4_LIVE_SYNC_SEED100'
+          s['revision']=4
+          s['scope_status']='LOCKED_REQUIREMENT_PENDING_FIX'
+          s['migration_source']='OWNER CMD-20260906-005 + CMD-20260906-006 over Beta128 accepted baseline'
+          ids={x['requirement_id'] for x in s['requirements']}
+          if 'R4-13' not in ids:
+              s['requirements'].append({
+                  'requirement_id':'R4-13','checklist_number':13,'title':'LIVE Beta/current luôn đúng bản public PASS mới nhất',
+                  'acceptance':[
+                      'beta/current và CURRENT_STATE/HANDOVER/owner scope phải phản ánh Beta public PASS/LIVE mới nhất, không được tiếp tục trỏ Beta cũ sau khi release/finalizer có commit hợp lệ.',
+                      'Cơ chế sync phải tự xử lý cả commit control-plane/finalizer hợp lệ sau Beta release, chỉ fast-forward và fail-closed khi diverged/rollback; không force, không đụng Stable/main/signer/authority.',
+                      'Có regression chứng minh post-release commit hợp lệ vẫn hội tụ beta/current về exact LIVE mới nhất.'
+                  ],
+                  'invariant_id':'LIVE-CURRENT-SYNC-001','state':'LOCKED_REQUIREMENT_PENDING_FIX','source_command_ids':['CMD-20260906-006']
+              })
+          if 'R4-14' not in ids:
+              s['requirements'].append({
+                  'requirement_id':'R4-14','checklist_number':14,'title':'100 phiên vào kiểm thử tải/quota/UI',
+                  'acceptance':[
+                      'Tạo đúng 100 phiên vào hợp lệ cho ngày hiện hành trên Beta; đúng 95 Ca 1 và 5 Ca HC, không tạo phiên ra.',
+                      'Dùng dữ liệu hợp lệ và phân bổ ngẫu nhiên/thực tế cho bàn pack, PDA và user thuộc hy1.outbound theo canonical hiện hành; không hardcode dữ liệu động ngoài writer/runtime.',
+                      'Mỗi phiên có canonical event/lịch sử, durable outbox/idempotency/audit và hiển thị bình thường ở rà soát phiên, điểm danh như thao tác người dùng.',
+                      'Readback xác minh đủ exact 100 phiên, không trùng, đúng phân bố ca, không có exit; kiểm tra bounded để phục vụ đo quota/mức chịu tải mà không tự tạo tải đọc bất thường.'
+                  ],
+                  'invariant_id':'OWNER-LOAD-SEED-100-001','state':'LOCKED_REQUIREMENT_PENDING_FIX','source_command_ids':['CMD-20260906-005','CMD-20260906-006']
+              })
+          s.setdefault('release_binding',{})['mode']='CONTROL_PLANE_ONLY'
+          p.write_text(json.dumps(s,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+          cp=Path('CURRENT_STATE.md')
+          t=cp.read_text(encoding='utf-8')
+          t=re.sub(r'(?m)^- next_action:.*$','- next_action: FIX_LIVE_CURRENT_SYNC_THEN_SEED_100_SESSIONS',t)
+          cp.write_text(t,encoding='utf-8')
+          hp=Path('docs/handovers/HANDOVER_CURRENT.md')
+          h=hp.read_text(encoding='utf-8')
+          h=re.sub(r'(?ms)(## NEXT_ACTION\n).*?\Z',r'\1FIX_LIVE_CURRENT_SYNC_THEN_SEED_100_SESSIONS\n',h)
+          hp.write_text(h,encoding='utf-8')
+          PY
+          python3 tools/owner_scope_admin.py refresh
+          python3 tools/owner_scope_guard.py --base-ref origin/beta/current
+          python3 tools/owner_scope_guard.py --bootstrap
+      - name: Commit canonical OWNER scope transaction
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add ops/owner-command-ledger.jsonl ops/OWNER_SCOPE_CURRENT.json CURRENT_STATE.md docs/handovers/HANDOVER_CURRENT.md
+          git commit -m "ops(scope): register R4 live sync and seed100"
+          git push origin HEAD:release/beta128-live-sync-seed100-20260906
