@@ -1,6 +1,6 @@
 # CURRENT STATE — PICK PACK 1291
 
-- updated_at: 2026-09-05T12:02:14Z
+- updated_at: 2026-09-05T12:14:00Z
 - status: BETA126_PASS_LIVE
 - continuity_branch: release/beta126-owner-scope-20260905
 - source_sha: 9bfcad4bb218d5865fe6ae220352c44cd4bd8cf0
@@ -15,10 +15,11 @@
 - signer_sha256: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
 - terminal_run: 33964725581
 - fast_check: PASS
-- service_gate: null
 - visual_matrix: PASS 320x568 / 360x640 / 480x800
 - human_visual: PASS
 - pda_functional_pre_ota: PASS
+- fresh_discovery_device: PASS run 33964502604 artifact 9969005524
+- runtime_dod: PASS run 33964635091 artifact 9969035647
 - beta_ota: exact 0.4.2-beta.126 PASS via GitHub Release
 - beta_ota_url: https://github.com/tam95supra-source/pick-pack-1291/releases/download/v0.4.2-beta.126-publicbeta/pick-pack-1291-public-beta-0.4.2-beta.126.apk
 - apk_transport: GITHUB_RELEASE_ONLY
@@ -26,4 +27,9 @@
 - stable: unchanged
 - main_sha: 021dac5c6932b3ac5c60ce8fdba562ddf3d9688f
 - authority: SERVICE_PRIMARY / PRODUCTION / epoch 9 / generation m2-prod-reset-20260823-001
-- next_action: WAIT_FOR_OWNER_ACCEPTANCE_NUMBERED_CHECKLIST
+- owner_scope: OWNER_20260905_CHAT_ORIGINAL_10_PLUS_GLOBAL_REALTIME_BETA126
+- owner_checklist_id: BETA126_OWNER_ACCEPTANCE_20260905_R2
+- owner_checklist_revision: 2
+- technical_pass_status: PASS
+- owner_acceptance: PENDING
+- next_action: WAIT_FOR_OWNER_ACCEPTANCE_NUMBERED_CHECKLIST_1_TO_11
