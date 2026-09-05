@@ -54,6 +54,9 @@ jobs:
       - name: OWNER scope guard self-test
         run: python3 tools/owner_scope_guard.py --self-test
 
+      - name: OWNER scope negative regression
+        run: python3 tools/owner_scope_guard_regression.py
+
       - name: Reject OWNER scope loss or drift
         run: python3 tools/owner_scope_guard.py --base-ref '${{ steps.base.outputs.base }}'
 
