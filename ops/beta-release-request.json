@@ -1,6 +1,6 @@
 {
-  "stage": "PUBLISH",
-  "mode": "BETA126_OWNER_DOCX_SCOPE_REMEDIATION",
+  "stage": "pass_live",
+  "mode": "PASS_LIVE_EXACT_BYTES_GITHUB_RELEASE_ONLY",
   "version_name": "0.4.2-beta.126",
   "version_code": 132,
   "base_version": "0.4.2-beta.125",
@@ -31,7 +31,7 @@
   "release_lock_signer_sha256": "d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e",
   "rebuild": false,
   "resign": false,
-  "live": false,
+  "live": true,
   "stable_publish": "FORBIDDEN",
   "authority_change": "NONE",
   "release_notes": [
@@ -59,7 +59,11 @@
   "verify_artifact_id": 9968868014,
   "verify_artifact_name": "beta-verify-33963619992",
   "human_visual_pass": true,
-  "human_visual_sizes": ["320x568", "360x640", "480x800"],
+  "human_visual_sizes": [
+    "320x568",
+    "360x640",
+    "480x800"
+  ],
   "human_visual_screenshot_count": 44,
   "human_visual_evidence": "run 33963619992 / artifact 9968868014 / all 44 screenshots inspected at 320x568, 360x640, 480x800; no clipping/overlay regression observed",
   "visual_matrix": "PASS",
@@ -97,11 +101,13 @@
   "apk_transport": "GITHUB_RELEASE_ONLY",
   "google_drive_apk": "FORBIDDEN",
   "execution_nonce": "beta126-publish-exact-20260905-01",
-  "next_action": "PUBLISH_EXACT_BETA126_THEN_OTA_READBACK",
+  "next_action": "WAIT_FOR_OWNER_ACCEPTANCE_NUMBERED_CHECKLIST",
   "owner_scope": "OWNER_20260905_DOCX_FULL_SCOPE_BETA126",
   "owner_checklist_id": "BETA126_OWNER_ACCEPTANCE_20260905_R1",
   "owner_checklist_revision": 1,
-  "technical_pass_status": "PENDING",
+  "technical_pass_status": "PASS",
   "owner_acceptance": "PENDING",
-  "ota_readback_status": "PENDING"
+  "ota_readback_status": "PASS",
+  "publish_run_id": "33964725581",
+  "ota_readback_run_id": 33964725581
 }

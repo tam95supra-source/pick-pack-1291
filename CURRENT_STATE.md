@@ -1,26 +1,26 @@
 # CURRENT STATE — PICK PACK 1291
 
-- updated_at: 2026-09-05T10:43:04Z
-- status: BETA125_PASS_LIVE
-- continuity_branch: release/beta125-navigation-frame-20260905
-- source_sha: eac95af57d1bdb7d16547e99b0b269a9d3a32456
-- beta_live: 0.4.2-beta.125 (versionCode 131)
+- updated_at: 2026-09-05T12:02:14Z
+- status: BETA126_PASS_LIVE
+- continuity_branch: release/beta126-owner-scope-20260905
+- source_sha: 9bfcad4bb218d5865fe6ae220352c44cd4bd8cf0
+- beta_live: 0.4.2-beta.126 (versionCode 132)
 - package: vn.pickpack1291.app.beta.publicbeta
-- candidate_run: 33955316061
-- candidate_artifact: 9966233235
-- verify_run: 33960305554
-- verify_artifact: 9967776375
-- apk_sha256: ee4040086c7683776c3b1713f7a024ee9daf73d977c05b24983e5cdc7c04f878
-- apk_size: 14445557
+- candidate_run: 33963619992
+- candidate_artifact: 9968783758
+- verify_run: 33963619992
+- verify_artifact: 9968868014
+- apk_sha256: 211229dff3bcabc8151b4753914a3439185b5bbfe69fcad9f3faecbfa4fac4bb
+- apk_size: 14461941
 - signer_sha256: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
-- terminal_run: 33961204941
+- terminal_run: 33964725581
 - fast_check: PASS
 - service_gate: null
 - visual_matrix: PASS 320x568 / 360x640 / 480x800
 - human_visual: PASS
 - pda_functional_pre_ota: PASS
-- beta_ota: exact 0.4.2-beta.125 PASS via GitHub Release
-- beta_ota_url: https://github.com/tam95supra-source/pick-pack-1291/releases/download/v0.4.2-beta.125-publicbeta/pick-pack-1291-public-beta-0.4.2-beta.125.apk
+- beta_ota: exact 0.4.2-beta.126 PASS via GitHub Release
+- beta_ota_url: https://github.com/tam95supra-source/pick-pack-1291/releases/download/v0.4.2-beta.126-publicbeta/pick-pack-1291-public-beta-0.4.2-beta.126.apk
 - apk_transport: GITHUB_RELEASE_ONLY
 - google_drive_apk: FORBIDDEN
 - stable: unchanged
