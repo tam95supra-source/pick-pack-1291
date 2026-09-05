@@ -44,35 +44,42 @@ jobs:
                               break
                       i+=1
           extract('app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt',[
-            'settingsScreen','historyScreen','staffScreen','reportScreen','laborHome','pdaExchangeScreen','employeeScan','syncScreen','statusDetailDialog'
+            'refreshHeaderConnection','showConnectionDetail','deleteHistoryBulk','historyTimeline',
+            'showLaborBatchCreate','showLaborBatchFinish','openLaborExact','loadEmployee'
           ])
           PY
-      - name: Fresh-read service authority and backlog
+      - name: Fresh-read production authority and backlog schema
         shell: bash
         run: |
           set -euo pipefail
           npm --prefix service install --ignore-scripts --no-audit --no-fund >/dev/null
           DB_NAME=$(python3 - <<'PY'
           import re, pathlib
-          for p in [pathlib.Path('service/wrangler.toml'),pathlib.Path('service/wrangler.jsonc'),pathlib.Path('wrangler.toml')]:
-              if p.exists():
-                  t=p.read_text(encoding='utf-8')
-                  m=re.search(r'database_name\s*=\s*["\']([^"\']+)',t)
-                  if m: print(m.group(1)); break
+          p=pathlib.Path('.github/workflows/beta118-owner-reset-200-preflight.yml')
+          t=p.read_text(encoding='utf-8')
+          m=re.search(r'^\s*D1_NAME:\s*([^\s#]+)',t,re.M)
+          if not m: raise SystemExit('PRODUCTION_D1_RUNBOOK_NAME_MISSING')
+          print(m.group(1).strip('"\''))
           PY
           )
-          test -n "$DB_NAME"
-          SQL="SELECT authority_epoch,authority_seq,mode,scope,service_generation FROM authority_state WHERE singleton_id=1; SELECT name FROM sqlite_master WHERE type='table' AND (name LIKE '%outbox%' OR name LIKE '%queue%' OR name LIKE '%projection%') ORDER BY name; SELECT status,COUNT(*) n,MIN(created_at) oldest,MAX(updated_at) newest FROM sheet_replication_outbox GROUP BY status ORDER BY status;"
-          npx --prefix service wrangler d1 execute "$DB_NAME" --remote --json --command "$SQL" > /tmp/readback.json
+          echo "Production D1 selected from canonical runbook: $DB_NAME"
+          npx --prefix service wrangler d1 execute "$DB_NAME" --remote --json --command "SELECT authority_epoch,authority_seq,mode,scope,service_generation FROM authority_state WHERE singleton_id=1; SELECT name FROM sqlite_master WHERE type='table' AND (name LIKE '%outbox%' OR name LIKE '%queue%' OR name LIKE '%projection%' OR name LIKE '%projector%') ORDER BY name; PRAGMA table_info(sheet_replication_outbox); SELECT status,COUNT(*) n FROM sheet_replication_outbox GROUP BY status ORDER BY status;" > /tmp/readback.json
           python3 - <<'PY'
           import json
           x=json.load(open('/tmp/readback.json'))
+          rows=[]
           def walk(v):
               if isinstance(v,dict):
-                  if isinstance(v.get('results'),list):
-                      for r in v['results']: print(r)
+                  if isinstance(v.get('results'),list): rows.extend(r for r in v['results'] if isinstance(r,dict))
                   for z in v.values(): walk(z)
               elif isinstance(v,list):
                   for z in v: walk(z)
           walk(x)
+          auth=next((r for r in rows if 'authority_epoch' in r),None)
+          print('AUTHORITY',auth)
+          if not auth or auth.get('mode')!='SERVICE_PRIMARY' or auth.get('scope')!='PRODUCTION':
+              raise SystemExit('AUTHORITY_FENCE_FAILED')
+          print('READONLY_ROWS')
+          for r in rows:
+              if r is not auth: print(r)
           PY
