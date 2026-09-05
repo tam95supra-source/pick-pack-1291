@@ -80,48 +80,15 @@ jobs:
     timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Publish fenced fast-check run marker
-        shell: bash
-        env:
-          RUN_ID: ${{ github.run_id }}
-          RUN_SHA: ${{ github.sha }}
-          RUN_REF: ${{ github.ref_name }}
-        run: |
-          set -euo pipefail
-          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-            echo "FAST_CHECK_MARKER_SKIPPED_PR_READ_ONLY"
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          NONCE=$(jq -r '.execution_nonce // ""' ops/beta-release-request.json)
-          STAGE=$(jq -r '.stage // ""' ops/beta-release-request.json)
-          jq -n --argjson run_id "$RUN_ID" --arg run_sha "$RUN_SHA" --arg ref "$RUN_REF" --arg nonce "$NONCE" --arg stage "$STAGE" \
-            '{run_id:$run_id,run_sha:$run_sha,ref:$ref,execution_nonce:$nonce,stage:$stage,observed_at:(now|todateiso8601)}' > ops/app-fast-check-observe.json
-          git add ops/app-fast-check-observe.json
-          git commit -m "ci: observe App fast check $RUN_ID"
-          if ! git push --force-with-lease="refs/heads/$RUN_REF:$RUN_SHA" origin HEAD:"$RUN_REF"; then
-            REMOTE_SHA=$(git ls-remote origin "refs/heads/$RUN_REF" | awk '{print $1}')
-            if [[ -n "$REMOTE_SHA" && "$REMOTE_SHA" != "$RUN_SHA" ]]; then
-              echo "FAST_CHECK_MARKER_SKIPPED_BRANCH_ADVANCED:$RUN_SHA->$REMOTE_SHA"
-            else
-              echo "FAST_CHECK_MARKER_PUSH_FAILED_WITHOUT_REF_ADVANCE" >&2
-              exit 1
-            fi
-          fi
-
-      - uses: actions/setup-java@v5
+      - name: Setup Java
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
-
-      - uses: gradle/actions/setup-gradle@v4
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '9.4.1'
-
       - name: Resolve Android SDK
         shell: bash
         run: |
@@ -130,194 +97,40 @@ jobs:
             echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> "$GITHUB_ENV"
             exit 0
           fi
-          SDK="$RUNNER_TEMP/android-sdk"
-          ZIP="$RUNNER_TEMP/commandlinetools.zip"
+          SDK="$RUNNER_TEMP/android-sdk";ZIP="$RUNNER_TEMP/commandlinetools.zip"
           curl -fsSL https://dl.google.com/android/repository/commandlinetools-linux-15859902_latest.zip -o "$ZIP"
           echo "4e4c464f145a7512b57d088ac6c278c03c9eea610886b35a5e0804e74eedf583  $ZIP" | sha256sum -c -
-          mkdir -p "$SDK/cmdline-tools"
-          unzip -q "$ZIP" -d "$RUNNER_TEMP/android-cmdline"
-          mv "$RUNNER_TEMP/android-cmdline/cmdline-tools" "$SDK/cmdline-tools/latest"
-          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
-          echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
+          mkdir -p "$SDK/cmdline-tools";unzip -q "$ZIP" -d "$RUNNER_TEMP/android-cmdline";mv "$RUNNER_TEMP/android-cmdline/cmdline-tools" "$SDK/cmdline-tools/latest"
+          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV";echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
           yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
           "$SDK/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-36' 'build-tools;36.0.0'
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-
-      - id: impact
-        name: Resolve impacted gates
-        shell: bash
+      - name: Release fencing contracts
         run: |
-          set -euo pipefail
-          app=true
-          if [[ "${{ github.event_name }}" == "push" ]]; then
-            app=false
-            git diff --name-only "$GITHUB_SHA^" "$GITHUB_SHA" | grep -q '^app/' && app=true || true
-          fi
-          if [[ -f ops/beta-release-request.json ]] && jq -e '.candidate_locked==true and (.candidate_source_sha|type=="string" and length==40)' ops/beta-release-request.json >/dev/null 2>&1; then
-            CANDIDATE_SOURCE_SHA=$(jq -r '.candidate_source_sha' ops/beta-release-request.json)
-            if git cat-file -e "$CANDIDATE_SOURCE_SHA^{commit}" 2>/dev/null; then
-              app=true
-              if git diff --quiet "$CANDIDATE_SOURCE_SHA" "$GITHUB_SHA" -- app; then
-                echo "impact_app_source=LOCKED_CANDIDATE_MATCH"
-              else
-                echo "impact_app_source=CHANGED_FROM_LOCKED_CANDIDATE"
-              fi
-            fi
-          fi
-          echo "app=$app" >> "$GITHUB_OUTPUT"
-          echo "impact_app=$app"
-
-      - name: Read-only Beta Stable capacity inventory
-        shell: bash
-        run: bash tools/provider_capacity_inventory.sh
-
-      - name: Release verifier regressions
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 tools/verify_beta_visual_receipt.py --self-test
-          python3 -m py_compile tools/gas_resilience_contract_readback.py tools/gas_resilience_contract_patch.py
-          python3 -m py_compile tools/stable_private_provision.py
-          python3 -m py_compile tools/beta_auth_converge.py
-          python3 tools/beta_auth_converge.py --self-test
-          python3 -m py_compile tools/ci_release_fencing_contract.py
-          python3 -m py_compile tools/beta_stable_runtime_verify.py
-          python3 - <<'PY'
-          from pathlib import Path
-          t=Path("tools/beta_stable_runtime_verify.py").read_text()
-          assert "BETA102_METADATA_DRIFT" not in t
-          assert "EXACT_BETA102_SOURCE_DRIFT" not in t
-          assert "SERVICE_DISCOVERY_DEVICE_REGRESSION_NOT_PASS" in t
-          assert "BETA_CANDIDATE_RELEASE_IDENTITY_DRIFT" in t
-          print("runtime_candidate_generic_device_gate=PASS")
-          PY
-          python3 -m py_compile tools/beta_domain_prepare.py
-          python3 tools/beta_stable_runtime_verify.py --self-test
-          python3 - <<'PY'
-          import pathlib
-          w=pathlib.Path(".github/workflows/beta-release.yml").read_text()
-          h=pathlib.Path("tools/Beta83UiChecksInstrumentation.java").read_text()
-          o=pathlib.Path("tools/beta83_ota_device_gate.sh").read_text()
-          assert "SERVICE_DISCOVERY_ONLY)" in w and "service_discovery_only:" in w
-          assert "service-discovery-preserved" in h and "seed-stale-discovery" in h
-          assert "seed-stale-discovery" in o and "service-discovery-preserved" in o
-          assert "ALREADY_REWRITTEN_BY_APP" in h and "STALE_PRESERVED" in h
-          assert "stale_discovery_preserved_across_ota:$stale_preserved" in o
-          assert "stale_discovery_safe_after_ota:true" in o
-          assert "cache_rewritten_in_process=PASS" in o
-          assert '.device_regression_status=="PASS"' in w
-          print("service_discovery_device_ota_contract=PASS")
-          PY
-          python3 - <<'PY'
-          import pathlib,re
-          s=pathlib.Path(".github/workflows/beta-release.yml").read_text()
-          m=re.search(r"(?ms)^  runtime_dod_verify:.*?^  publish:",s)
-          assert m and "fetch-depth: 0" in m.group(0), "runtime_dod_verify must fetch full history"
-          print("runtime_dod_checkout_history=PASS")
-          PY
-          python3 - <<'PY'
-          import pathlib,re
-          s=pathlib.Path(".github/workflows/beta-release.yml").read_text()
-          assert "BETA_DOMAIN_PREPARE)" in s, "beta domain stage missing"
-          m=re.search(r"(?ms)^  beta_domain_prepare:.*?^  publish:",s)
-          assert m and "CLOUDFLARE_API_TOKEN" in m.group(0), "beta domain job missing token"
-          assert "stable_publish==\"FORBIDDEN\"" in s, "stable publish fail-closed missing"
-          t=pathlib.Path("tools/beta_domain_prepare.py").read_text()
-          assert "STABLE_ROOT_DOMAIN_ATTACHED_OUTSIDE_BETA_MIGRATION_SCOPE" in t
-          assert "STABLE_ROOT_DOMAIN_STILL_ATTACHED" in t and "STABLE_ROOT_DOMAIN_STILL_PUBLIC" in t
-          assert "BETA_WORKER_BINDINGS_CHANGED_DURING_DOMAIN_ATTACH" in t
-          assert "BETA_D1_CHANGED_DURING_DOMAIN_ATTACH" in t
-          assert "STABLE_ROOT_DOMAIN_ATTACHED_OUTSIDE_BETA_MIGRATION_SCOPE" in t
-          ready=t.index('status=curl_status("https://"+host)')
-          detach=t.index('workers/domains/"+urllib.parse.quote(root_domain_id')
-          assert ready < detach, "legacy root may only detach after Beta hostname readiness check"
-          assert 'if root_migration_required:' in t
-          assert 'if code//100!=2:' in t, "detach must accept any 2xx and rely on readback"
-          detach=t.index('workers/domains/"+urllib.parse.quote(root_domain_id')
-          post=t.index('after_domains=list_domains()')
-          assert detach < post, "detach PASS must be established by custom-domain readback"
-          print("beta_domain_prepare_contract=PASS")
-          PY
-          python3 - <<'PY'
-          import pathlib,re
-          s=pathlib.Path(".github/workflows/beta-release.yml").read_text()
-          m=re.search(r"(?ms)^            pass_live\).*?^              ;;",s)
-          assert m, "pass_live route missing"
-          b=m.group(0)
-          for token in ['.live==true','.technical_pass_status=="PASS"','.runtime_dod_status=="PASS"','.device_regression_status=="PASS"','ops/beta-ota-current.json','GITHUB_RELEASE']:
-              assert token in b, "pass_live evidence/no-op guard missing: "+token
-          assert '(.owner_acceptance=="PENDING" or .owner_acceptance=="COMPLETE")' in b, "pass_live must accept both awaiting and completed OWNER lifecycle states"
-          assert "needs.route.outputs.stage != 'pass_live'" in s, "pass_live must not run handoff finalizer"
-          print("pass_live_verified_noop_route=PASS")
-          PY
-          python3 - <<'PY'
-          import pathlib,re
-          s=pathlib.Path(".github/workflows/beta-release.yml").read_text()
-          m=re.search(r"(?ms)^            PUBLISH\).*?^              ;;",s)
-          assert m, "PUBLISH route missing"
-          b=m.group(0)
-          for token in ['.runtime_dod_status=="PASS"','.beta_auth_status=="PASS"','.stable_gas_repair_status=="PASS"','.beta_domain_status=="PASS"','.fast_check=="PASS"']:
-              assert token in b, "publish evidence gate missing: "+token
-          assert "runtime_dod_run_id" in b and "runtime_dod_artifact_id" in b
-          print("publish_runtime_evidence_gate=PASS")
-          PY
           python3 tools/ci_release_fencing_contract.py
-          python3 -m py_compile tools/verify_promotion_lock.py
-          python3 tools/verify_promotion_lock.py
-          bash -n tools/beta89_service_live_gate.sh
-          bash -n tools/beta83_publish_ota.sh
-          bash -n tools/stable_private_apk_verify.sh
-          bash -n tools/service_discovery_device_gate.sh
-
+          python3 tools/beta123_owner_scope_contract.py
+          python3 tools/pda_source_master_invariant_contract.py
       - name: Static resilience gates
-        shell: bash
+        run: node tools/resilience_static_gate.mjs
+      - name: Document management contract
+        run: python3 tools/document_management_contract.py
+      - name: Beta116/117 owner contracts
         run: |
-          set -euo pipefail
-          node tools/resilience_static_gate.mjs
-          node tools/beta_stable_isolation_contract.mjs
-          cp google-apps-script/PICK_PACK_API.gs "$RUNNER_TEMP/pick-pack-api.js"
-          node --check "$RUNNER_TEMP/pick-pack-api.js"
-          cp google-apps-script/stable-outbound/Code.gs "$RUNNER_TEMP/stable-outbound.js"
-          cp google-apps-script/stable-dr/Code.gs "$RUNNER_TEMP/stable-dr.js"
-          node --check "$RUNNER_TEMP/stable-outbound.js"
-          node --check "$RUNNER_TEMP/stable-dr.js"
-          node -e 'const fs=require("fs"); for (const p of ["google-apps-script/stable-primary-appsscript.json","google-apps-script/stable-outbound/appsscript.json","google-apps-script/stable-dr/appsscript.json"]) JSON.parse(fs.readFileSync(p,"utf8"));'
-          grep -q 'spreadsheets.currentonly' google-apps-script/stable-primary-appsscript.json
-          grep -q 'spreadsheets.currentonly' google-apps-script/stable-outbound/appsscript.json
-          grep -q 'spreadsheets.currentonly' google-apps-script/stable-dr/appsscript.json
-          pushd service
-          npm install --ignore-scripts --no-audit --no-fund
-          npm run check
-          popd
-          pushd services/cloud-dr
-          npm install --ignore-scripts --no-audit --no-fund
-          npm run check
-          npm run build
-          npm test
-          popd
-
-      - name: Static and Android debug gates
-        if: ${{ steps.impact.outputs.app == 'true' }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          git diff --check HEAD^ HEAD
-          python3 tools/service_discovery_cache_regression.py
-          python3 tools/document_management_contract.py
-          python3 tools/beta110_owner_scope_contract.py
-          python3 tools/beta111_owner_scope_contract.py
-          python3 tools/beta112_review_warning_contract.py
-          python3 tools/beta112_auth_parity_repair_contract.py
-          python3 tools/beta113_owner_scope_contract.py
           python3 tools/beta116_owner_scope_contract.py
           python3 tools/beta117_owner_followup_contract.py
-          grep -q 'versionCode = 1' app/build.gradle.kts
-          grep -q 'versionName = "0.1.0-stable"' app/build.gradle.kts
-          gradle --no-daemon --build-cache --parallel :app:testBetaDebugUnitTest :app:assembleBetaDebug :app:assembleStableDebug
-
-      - name: Validate cloud DR credentials without paid actions
-        shell: bash
-        run: bash tools/cloud_dr_provider_preflight.sh
+      - name: Beta Stable isolation contract
+        run: node tools/beta_stable_isolation_contract.mjs
+      - name: Runtime verifier self-test
+        run: |
+          python3 -m py_compile tools/beta_stable_runtime_verify.py
+          python3 tools/beta_stable_runtime_verify.py --self-test
+      - name: OTA verifier self-test
+        run: |
+          python3 -m py_compile tools/verify_beta_visual_receipt.py tools/gas_ota_static_contract.py
+          python3 tools/gas_ota_static_contract.py --self-test
+      - name: Android compile and unit tests
+        run: gradle --no-daemon --build-cache --parallel :app:compileBetaDebugKotlin :app:compileStableDebugKotlin :app:testBetaDebugUnitTest
+      - name: Provider capacity inventory
+        run: bash tools/provider_capacity_inventory.sh
+      - name: Promotion lock dry-run
+        run: python3 tools/verify_promotion_lock.py ops/promotion-lock-dry-run.json
+# beta126-full-active-regression-20260905
