@@ -1,8 +1,8 @@
 {
-  "run_id": 33963619992,
-  "run_sha": "c2f0eaed5a8ea320f578d56de6801d1b70911f59",
+  "run_id": 33964502604,
+  "run_sha": "16830be6497170e3012cf500223eeb83a77771d7",
   "ref": "release/beta126-owner-scope-20260905",
-  "execution_nonce": "beta126-build-verify-owner-docx-20260905-01",
-  "stage": "BUILD_VERIFY",
-  "observed_at": "2026-09-05T11:32:59Z"
+  "execution_nonce": "beta126-service-discovery-20260905-01",
+  "stage": "SERVICE_DISCOVERY_ONLY",
+  "observed_at": "2026-09-05T11:52:55Z"
 }
