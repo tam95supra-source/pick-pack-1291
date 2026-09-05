@@ -65,3 +65,6 @@ jobs:
 
       - name: Current sync contract
         run: python3 tools/beta_current_sync_contract.py
+
+      - name: Finalizer handoff canonical contract
+        run: python3 tools/finalizer_handoff_contract.py
