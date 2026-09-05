@@ -1,8 +1,8 @@
 {
-  "run_id": 33960990350,
-  "run_sha": "c58c67bef144474a4ba7d92c3207b20ebdb02d47",
+  "run_id": 33961204941,
+  "run_sha": "a0a7bb6773bf540d41798cf544f221972094ca14",
   "ref": "release/beta125-navigation-frame-20260905",
-  "execution_nonce": "beta125-runtime-dod-exact-20260905-01",
-  "stage": "RUNTIME_DOD_VERIFY",
-  "observed_at": "2026-09-05T10:33:47Z"
+  "execution_nonce": "beta125-publish-exact-20260905-01",
+  "stage": "PUBLISH",
+  "observed_at": "2026-09-05T10:38:35Z"
 }
