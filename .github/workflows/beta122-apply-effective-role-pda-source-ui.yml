@@ -34,8 +34,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python3 -m py_compile tools/beta122_apply_effective_role_pda_source_ui.py tools/beta122_owner_followup_contract.py
-          python3 tools/beta122_apply_effective_role_pda_source_ui.py
+          python3 -m py_compile tools/beta122_apply_effective_role_pda_source_ui.py tools/beta122_apply_effective_role_pda_source_ui_r2.py tools/beta122_owner_followup_contract.py
+          python3 tools/beta122_apply_effective_role_pda_source_ui_r2.py
       - name: Verify OWNER regression contract
         shell: bash
         run: |
