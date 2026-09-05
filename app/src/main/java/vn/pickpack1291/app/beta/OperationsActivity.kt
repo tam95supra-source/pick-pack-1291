@@ -3780,7 +3780,9 @@ class OperationsActivity : Activity() {
         val frame=contentHost
         if(frame==null){setContentView(host(content));displayedModule=module;displayedScreenState=screenState;displayedInitialMnv=initialMnv;displayedLiveEmployeeMnv=liveEmployeeMnv;return}
         val current=frame.getChildAt(0)
-        if(current!=null&&displayedScreenState.isNotBlank()&&(displayedScreenState!=screenState||displayedModule!=module)){
+        val employeeFrameStates=setOf("EMPLOYEE_LOADING","EMPLOYEE","EMPLOYEE_LOOKUP_ERROR")
+        val sameEmployeeFrame=displayedModule==module&&displayedScreenState in employeeFrameStates&&screenState in employeeFrameStates
+        if(current!=null&&displayedScreenState.isNotBlank()&&!sameEmployeeFrame&&(displayedScreenState!=screenState||displayedModule!=module)){
             screenBackStack.addLast(ScreenSnapshot(current,displayedModule,displayedScreenState,displayedInitialMnv,displayedLiveEmployeeMnv))
             while(screenBackStack.size>40)screenBackStack.removeFirst()
         }
