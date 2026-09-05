@@ -1,7 +1,7 @@
 # CURRENT STATE — PICK PACK 1291
 
-- updated_at: 2026-09-05T02:18:32Z
-- status: BETA122_PASS_LIVE
+- updated_at: 2026-09-05T02:22:13Z
+- status: BETA122_TECHNICAL_PASS_LIVE_AWAITING_OWNER_2_4
 - continuity_branch: release/beta122-effective-role-pda-source-ui-20260905
 - source_sha: fd26d18b0ae81cbc919824141f3670a3fe3b276e
 - beta_live: 0.4.2-beta.122 (versionCode 128)
@@ -14,16 +14,25 @@
 - apk_size: 14429173
 - signer_sha256: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
 - terminal_run: 33938535151
-- fast_check: PASS
-- service_gate: null
+- publish_artifact: 9960999680
+- ota_device_artifact: 9961036406
+- final_artifact: 9961041181
+- handoff_artifact: 9961043898
+- fast_check: PASS run 33937614821
+- service_gate: PASS inherited run 33929895214 artifact 9958376646; service/GAS bytes unchanged
 - visual_matrix: PASS 320x568 / 360x640 / 480x800
 - human_visual: PASS
 - pda_functional_pre_ota: PASS
+- device_regression: PASS run 33938053451 artifact 9960858682
+- runtime_dod: PASS run 33938184655 artifact 9960886189
 - beta_ota: exact 0.4.2-beta.122 PASS via GitHub Release
 - beta_ota_url: https://github.com/tam95supra-source/pick-pack-1291/releases/download/v0.4.2-beta.122-publicbeta/pick-pack-1291-public-beta-0.4.2-beta.122.apk
 - apk_transport: GITHUB_RELEASE_ONLY
 - google_drive_apk: FORBIDDEN
-- stable: unchanged
+- stable: unchanged / not public
 - main_sha: 021dac5c6932b3ac5c60ce8fdba562ddf3d9688f
 - authority: SERVICE_PRIMARY / PRODUCTION / epoch 9 / generation m2-prod-reset-20260823-001
-- next_action: WAIT_FOR_OWNER_ACCEPTANCE_NUMBERED_CHECKLIST
+- preserved_owner_acceptance: item 1 UI-STATUS-DETAIL-VI-003 ACTIVE_PASS; item 3 SETTINGS-REGION-INHOUSE-DROP-001 ACTIVE_PASS
+- awaiting_owner_acceptance: item 2 SUPERADMIN-EFFECTIVE-ROLE-003 TECHNICAL_PASS_AWAITING_OWNER; item 4 PDA-SOURCE-MASTER-001 TECHNICAL_PASS_AWAITING_OWNER
+- technical_receipt: ops/beta122-technical-pass.json
+- next_action: WAIT_FOR_OWNER_ACCEPTANCE_ITEMS_2_4
