@@ -90,12 +90,7 @@ jobs:
             --notes-file "$E/base-notes.txt" --receipt "$E/gas-contract.json" \
             --description "Pick Pack 1291 recover exact LIVE $PREV OTA baseline"
 
-          BASE_PROBE=$(python3 - "$PREV" <<'PY'
-import re,sys
-m=re.search(r'^(.*beta\.)(\d+)$',sys.argv[1]); assert m and int(m.group(2))>0
-print(m.group(1)+str(int(m.group(2))-1))
-PY
-)
+          BASE_PROBE=$(python3 -c 'import re,sys; m=re.search(r"^(.*beta\.)(\d+)$",sys.argv[1]); assert m and int(m.group(2))>0; print(m.group(1)+str(int(m.group(2))-1))' "$PREV")
           PASS=0
           for a in 0 1 2 3 4 5 6 7; do
             post "$(jq -nc '{action:"update_check",channel:"STABLE",current_version:"0.1.0-stable"}')" > "$E/stable.json" || true
