@@ -32,9 +32,13 @@ assert '.put("note",item.note)' in upload
 assert 'note:r.note||""' in doc_service
 assert 'ADD COLUMN note TEXT NOT NULL DEFAULT' in migration
 
-# Report + PDA resource rules.
-for token in ['val main=selected','"Tổng nhân sự"','"Khấu trừ công nhật"','"Picker thực tế"','"Packer thực tế"']:
+# Report + PDA resource rules. OWNER Beta126 supersedes the old redundant
+# "Tổng nhân sự" / "Khấu trừ công nhật" summary rows; retain the actual
+# Pick/Pack-after-support semantics instead of pinning removed labels.
+for token in ['val main=selected','NHÂN SỰ PICK & PACK THỰC TẾ SAU KHI LOẠI TRỪ HỖ TRỢ','CHI TIẾT CÔNG NHẬT','Công nhật theo vị trí']:
     assert token in ops, token
+assert '"Tổng nhân sự" to' not in ops
+assert '"Khấu trừ công nhật" to' not in ops
 assert 'if(type=="PDA"&&key.any{it.isWhitespace()})' in ops
 assert 'val last=key.takeLast(5)' in ops
 
