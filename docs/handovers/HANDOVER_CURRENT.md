@@ -2,17 +2,17 @@
 
 - schema_version: 3
 - status: READY
-- time_utc: 2026-09-05T15:08:42Z
+- time_utc: 2026-09-05T16:07:00Z
 - owner: Nguyễn Văn Tâm
-- branch: release/beta127-owner-r2-complete-20260905
+- branch: release/beta128-owner-r3-drop-realtime-20260905
 - archive_file: docs/handovers/HANDOVER_20260905-150842_owner-scope-continuity-tech-pass.md
 - owner_scope_file: ops/OWNER_SCOPE_CURRENT.json
-- owner_scope_id: OWNER_20260905_CHAT_ORIGINAL_10_PLUS_GLOBAL_REALTIME_BETA127
-- owner_scope_revision: 2
-- owner_scope_semantics_sha256: 3a52ab482e3a6baddcca5e61f6d9aa1b719ccf6648639dfa901d33b98990c626
-- owner_scope_sha256: adb35b434007021b42f4c26e41de1931a1c8edfa64eb9923a12daf90ea741eac
+- owner_scope_id: OWNER_20260905_R3_DROP_REALTIME_BETA128
+- owner_scope_revision: 3
+- owner_scope_semantics_sha256: 4ba607f61fd8877c1bbf0a86a69ac947e0fa0912e039e9f1085fb6d2e179eb90
+- owner_scope_sha256: 6058c3463d6d7191f8ea5d829d4bf011b6c227047f23631479aa9a69352b146c
 - owner_command_ledger: ops/owner-command-ledger.jsonl
-- owner_command_ledger_head: db93d50eba8cf91406e2afbf6d44ce56a1e49a660b3621af1ddc82c2eb822655
+- owner_command_ledger_head: bbe7cd9e91e587f8fed342d18582077561cc43accc92a110303ee404ccdd3eab
 - governance_policy: docs/OWNER_SCOPE_PROTOCOL.md
 
 ## Authority
@@ -29,7 +29,7 @@
 - Stable/main/signer/authority unchanged.
 
 ## Control-plane scope continuity
-Policy `OWNER_SCOPE_CONTINUITY_001` đang ở `TECHNICAL_PASS_AWAITING_OWNER`.
+Policy `OWNER_SCOPE_CONTINUITY_001` đang ở `LOCKED_REQUIREMENT_PENDING_FIX`.
 
 Đã triển khai:
 - append-only OWNER command ledger + hash-chain;
@@ -46,4 +46,4 @@ Policy `OWNER_SCOPE_CONTINUITY_001` đang ở `TECHNICAL_PASS_AWAITING_OWNER`.
 Không có blocker kỹ thuật. Control-plane-only; app/service/APK bytes không đổi, không cần Beta mới.
 
 ## NEXT_ACTION
-WAIT_FOR_OWNER_ACCEPTANCE_OWNER_SCOPE_CONTINUITY_001
+VERIFY_BETA128_OWNER_R3_SOURCE_AND_RUN_REQUIRED_GATES

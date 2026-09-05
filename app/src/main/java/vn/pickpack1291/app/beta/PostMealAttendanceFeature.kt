@@ -28,18 +28,25 @@ object PostMealAttendanceFeature {
     @Volatile private var activeDate=""
     @Volatile private var activeRefresh:(()->Unit)?=null
     @Volatile private var homeWarningRefresh:(()->Unit)?=null
+    @Volatile private var lastFastRefreshDate=""
+    @Volatile private var lastFastRefreshAt=0L
 
     fun onRealtime(changedDates:Set<String>){
-        // Foreground websocket already performs the relevant fast refresh. Projection completion
-        // must not fire a second Service-backed warning reload.
-        if(activeDate.isNotBlank()&&activeDate in changedDates)activeRefresh?.invoke()
+        if(activeDate.isBlank()||activeDate !in changedDates)return
+        val now=android.os.SystemClock.elapsedRealtime()
+        if(lastFastRefreshDate==activeDate&&now-lastFastRefreshAt<1_500L)return
+        activeRefresh?.invoke()
     }
     fun onRealtimeFast(date:String){
         if(date.isBlank())return
-        if(activeDate==date)activeRefresh?.invoke()
+        if(activeDate==date){
+            lastFastRefreshDate=date
+            lastFastRefreshAt=android.os.SystemClock.elapsedRealtime()
+            activeRefresh?.invoke()
+        }
         homeWarningRefresh?.invoke()
     }
-    fun leave(){activeDate="";activeRefresh=null}
+    fun leave(){activeDate="";activeRefresh=null;lastFastRefreshDate="";lastFastRefreshAt=0L}
 
     fun buildHomeWarning(activity:Activity,api:BetaApiClient,onOpen:()->Unit):View{
         val density=activity.resources.displayMetrics.density
@@ -196,6 +203,7 @@ object PostMealAttendanceFeature {
         var filterSync=false
         var filterSignature=""
         var renderGeneration=0L
+        var lastRenderSignature=""
         var searchRenderRunnable:Runnable?=null
         lateinit var showReasonDialog:(JSONObject)->Unit
 
@@ -265,8 +273,11 @@ object PostMealAttendanceFeature {
         }
 
         fun render(){
-            val generation=++renderGeneration
             val source=payload
+            val signature=buildString{append(selected.toString()).append('\u001f').append(search.text?.toString().orEmpty()).append('\u001f').append(shiftFilter.selectedItem?.toString().orEmpty()).append('\u001f').append(supplierFilter.selectedItem?.toString().orEmpty()).append('\u001f').append(positionFilter.selectedItem?.toString().orEmpty()).append('\u001f').append(source?.toString().orEmpty())}
+            if(signature==lastRenderSignature)return
+            lastRenderSignature=signature
+            val generation=++renderGeneration
             contentBox.removeAllViews()
             if(source==null){contentBox.addView(text("Đang tải dữ liệu điểm danh…",11f,muted,false));return}
             val alert=localAlert(source);val severity=alert.optString("severity");val unresolved=alert.optInt("unresolved_count",0)
@@ -306,7 +317,7 @@ object PostMealAttendanceFeature {
                 }
                 if(endIndex<rows.size)contentBox.post{addChunk(endIndex)}
             }
-            contentBox.post{addChunk(0)}
+            addChunk(0)
         }
 
         fun remoteLoad(){
@@ -447,6 +458,7 @@ object PostMealAttendanceFeature {
             val delay=java.time.Duration.between(z,next).toMillis().coerceAtLeast(1_000L)
             main.postDelayed({
                 val nowDay=today()
+                lastRenderSignature=""
                 if(selected.isBefore(nowDay))load(nowDay) else {render();remoteLoad()}
                 scheduleBoundary()
             },delay)

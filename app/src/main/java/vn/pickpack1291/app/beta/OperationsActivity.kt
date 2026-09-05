@@ -1121,7 +1121,11 @@ class OperationsActivity : Activity() {
     private fun addRealtimeSessionTimeline(body:LinearLayout,mnv:String,ses:JSONObject){
         val host=column(bg)
         val date=ses.optString("business_date").ifBlank{operationalStore.businessDate()}
+        var renderedTimelineRevision:Long?=null
         fun renderTimeline(){
+            val revision=date.takeIf{it.isNotBlank()}?.let{operationalStore.revision(it)}
+            if(renderedTimelineRevision!=null&&revision==renderedTimelineRevision)return
+            renderedTimelineRevision=revision
             host.suppressLayout(true)
             try{host.removeAllViews();addSessionTimeline(host,mnv,ses)}finally{host.suppressLayout(false)}
         }
@@ -1892,6 +1896,8 @@ class OperationsActivity : Activity() {
         var filterSync=false
         var laborFilterSignature=""
         var laborRenderGeneration=0L
+        var laborRenderSignature=""
+        var laborWarningSignature=""
         fun setOptions(sp:Spinner,values:List<String>){
             val old=sp.selectedItem?.toString().orEmpty()
             sp.adapter=object:ArrayAdapter<String>(this,android.R.layout.simple_spinner_item,values){
@@ -1920,6 +1926,9 @@ class OperationsActivity : Activity() {
             }
             val shift=shiftSp.selectedItem?.toString().orEmpty();val sup=supplierSp.selectedItem?.toString().orEmpty();val pos=positionSp.selectedItem?.toString().orEmpty()
             val visible=rows.filter{x->(shift=="Tất cả ca"||x.optString("shift")==shift)&&(sup=="Tất cả NCC"||x.optString("supplier")==sup)&&(pos=="Tất cả vị trí"||rowPosition(x)==pos)}
+            val renderSignature=buildString{append(selectedLaborDate).append('\u001f').append(shift).append('\u001f').append(sup).append('\u001f').append(pos);rows.forEach{append('\u001e').append(it.toString())}}
+            if(renderSignature==laborRenderSignature)return
+            laborRenderSignature=renderSignature
             val generation=++laborRenderGeneration
             openBox.removeAllViews()
             val groups=visible.groupBy{x->"${x.optString("mnv")}|${x.optString("attendance_session_id")}"}
@@ -1946,7 +1955,7 @@ class OperationsActivity : Activity() {
                 }
                 if(to<groups.size)openBox.post{addChunk(to)}
             }
-            openBox.post{addChunk(0)}
+            addChunk(0)
         }
 
         fun localRows(date:String):List<JSONObject>{
@@ -1967,6 +1976,9 @@ class OperationsActivity : Activity() {
         }
 
         fun reviewFixed(rows:List<JSONObject>){
+            val warningSignature=buildString{append(selectedLaborDate).append('\u001f').append(operationalStore.revision(currentDate)).append('\u001f').append((reviewPrefs.getStringSet("ack_$currentDate",emptySet())?:emptySet()).sorted().joinToString(","));rows.forEach{append('\u001e').append(it.toString())}}
+            if(warningSignature==laborWarningSignature)return
+            laborWarningSignature=warningSignature
             fixedWarningHost.removeAllViews()
             if(selectedLaborDate!=currentDate)return
             val day=operationalStore.loadDay(currentDate)?:return

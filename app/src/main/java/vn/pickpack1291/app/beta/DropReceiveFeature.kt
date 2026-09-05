@@ -47,7 +47,7 @@ object DropReceiveFeature {
         fun column()=LinearLayout(activity).apply{orientation=LinearLayout.VERTICAL;setBackgroundColor(Color.WHITE)}
         fun row()=LinearLayout(activity).apply{orientation=LinearLayout.HORIZONTAL;setBackgroundColor(Color.WHITE);gravity=Gravity.CENTER_VERTICAL}
         fun gap(v:Int)=Space(activity).apply{layoutParams=ViewGroup.LayoutParams(1,dp(v))}
-        fun input(hintText:String,numeric:Boolean=false)=EditText(activity).apply{hint=hintText;textSize=13f;setTextColor(ink);setHintTextColor(Color.rgb(148,163,184));setPadding(dp(11),dp(8),dp(11),dp(8));minHeight=dp(46);background=bg();setSingleLine(true);if(numeric){inputType=InputType.TYPE_CLASS_NUMBER;keyListener=DigitsKeyListener.getInstance("0123456789")}else inputType=InputType.TYPE_CLASS_TEXT}
+        fun input(hintText:String,numeric:Boolean=false)=EditText(activity).apply{hint=hintText;textSize=13f;setTextColor(ink);setHintTextColor(Color.rgb(100,116,139));setPadding(dp(11),dp(8),dp(11),dp(8));minHeight=dp(48);background=GradientDrawable().apply{setColor(Color.rgb(247,253,252));cornerRadius=dp(12).toFloat();setStroke(dp(2),teal)};setSingleLine(true);if(numeric){inputType=InputType.TYPE_CLASS_NUMBER;keyListener=DigitsKeyListener.getInstance("0123456789")}else inputType=InputType.TYPE_CLASS_TEXT}
         fun button(label:String,color:Int)=Button(activity).apply{text=label;textSize=9.4f;setTextColor(Color.WHITE);typeface=Typeface.DEFAULT_BOLD;isAllCaps=false;setPadding(dp(3),0,dp(3),0);background=GradientDrawable().apply{setColor(color);cornerRadius=dp(10).toFloat()}}
         fun field(label:String,view:View)=column().apply{addView(text(label,9.7f,muted,true));addView(gap(3));addView(view,LinearLayout.LayoutParams(-1,-2))}
         fun error(message:String)=TopNotice.show(activity,message,TopNotice.Kind.ERROR)
@@ -69,10 +69,10 @@ object DropReceiveFeature {
 
         val qr=input("Scan QR").apply{imeOptions=EditorInfo.IME_ACTION_DONE}
         val order=input("DO");val packages=input("Số kiện",true)
-        body.addView(field("Scan QR",qr));body.addView(gap(8))
+        body.addView(qr,LinearLayout.LayoutParams(-1,dp(48)));body.addView(gap(8))
         val doPackage=row()
-        doPackage.addView(field("DO",order),LinearLayout.LayoutParams(0,-2,1f).apply{marginEnd=dp(4)})
-        doPackage.addView(field("Số kiện",packages),LinearLayout.LayoutParams(0,-2,1f).apply{marginStart=dp(4)})
+        doPackage.addView(order,LinearLayout.LayoutParams(0,dp(48),1.25f).apply{marginEnd=dp(4)})
+        doPackage.addView(packages,LinearLayout.LayoutParams(0,dp(48),.75f).apply{marginStart=dp(4)})
         body.addView(doPackage,LinearLayout.LayoutParams(-1,-2));body.addView(gap(10))
         val addBtn=button("Thêm thông tin",teal).apply{textSize=10.2f}
         val selectAll=button("Chọn tất cả",navy).apply{textSize=9.4f;visibility=if(canDelete)View.VISIBLE else View.GONE}
@@ -132,11 +132,11 @@ object DropReceiveFeature {
             }
             fun addTableHeader(){
                 val header=row().apply{gravity=Gravity.CENTER_VERTICAL}
-                if(canDelete)header.addView(tableCell("Chọn",true,Gravity.CENTER),LinearLayout.LayoutParams(0,dp(38),.58f))
-                header.addView(tableCell("Thời gian",true),LinearLayout.LayoutParams(0,dp(38),1.22f))
-                header.addView(tableCell("Vị trí",true),LinearLayout.LayoutParams(0,dp(38),.82f))
+                if(canDelete)header.addView(tableCell("Chọn",true,Gravity.CENTER),LinearLayout.LayoutParams(0,dp(38),.50f))
+                header.addView(tableCell("Thời gian",true),LinearLayout.LayoutParams(0,dp(38),1.52f))
+                header.addView(tableCell("Vị trí",true),LinearLayout.LayoutParams(0,dp(38),.70f))
                 header.addView(tableCell("DO",true),LinearLayout.LayoutParams(0,dp(38),1.08f))
-                header.addView(tableCell("Số kiện",true,Gravity.CENTER),LinearLayout.LayoutParams(0,dp(38),.78f))
+                header.addView(tableCell("Số kiện",true,Gravity.CENTER),LinearLayout.LayoutParams(0,dp(38),.68f))
                 dropList.addView(header,LinearLayout.LayoutParams(-1,dp(38)))
             }
             fun addPager(){
@@ -162,14 +162,15 @@ object DropReceiveFeature {
                                 isChecked=id in selectedDropIds
                                 setOnCheckedChangeListener{_,on->if(on)selectedDropIds.add(id)else selectedDropIds.remove(id);updateDeleteSelection()}
                             }
-                            addView(check,FrameLayout.LayoutParams(dp(38),dp(38),Gravity.CENTER))
+                            addView(check,FrameLayout.LayoutParams(dp(34),dp(34),Gravity.CENTER))
                         }
-                        line.addView(holder,LinearLayout.LayoutParams(0,dp(46),.58f))
+                        line.addView(holder,LinearLayout.LayoutParams(0,dp(46),.50f))
                     }
-                    line.addView(tableCell(fmtDropTime(x.optString("created_at"))),LinearLayout.LayoutParams(0,dp(46),1.22f))
-                    line.addView(tableCell(x.optString("location").ifBlank{"-"}),LinearLayout.LayoutParams(0,dp(46),.82f))
+                    val timeCell=tableCell(fmtDropTime(x.optString("created_at"))).apply{ellipsize=null;maxLines=1;textSize=8.0f}
+                    line.addView(timeCell,LinearLayout.LayoutParams(0,dp(46),1.52f))
+                    line.addView(tableCell(x.optString("location").ifBlank{"-"}),LinearLayout.LayoutParams(0,dp(46),.70f))
                     line.addView(tableCell(x.optString("do_number").ifBlank{"-"}),LinearLayout.LayoutParams(0,dp(46),1.08f))
-                    line.addView(tableCell(x.optInt("package_count").toString(),false,Gravity.CENTER),LinearLayout.LayoutParams(0,dp(46),.78f))
+                    line.addView(tableCell(x.optInt("package_count").toString(),false,Gravity.CENTER),LinearLayout.LayoutParams(0,dp(46),.68f))
                     dropList.addView(line,LinearLayout.LayoutParams(-1,dp(46)))
                 }
                 if(to<pageItems.size)dropList.post{addDropChunk(to)} else addPager()

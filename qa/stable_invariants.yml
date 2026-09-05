@@ -766,16 +766,17 @@ invariants:
     last_verified: "0.4.2-beta.127 LIVE / OWNER acceptance complete 11/11 / 2026-09-05T21:14:36+07:00"
 
   - id: LABOR-BULK-REALTIME-007
-    status: ACTIVE_PASS
+    status: LOCKED_REQUIREMENT_PENDING_FIX
     scope: labor
     rule: "Màn công nhật không còn cảm giác giật/khựng. Tạo/kết thúc nhiều người không load tuần tự gây đơ; trạng thái hoàn thành cập nhật mượt. Bỏ qua cảnh báo Tổ trưởng/Kéo hàng lưu theo từng NLĐ + phiên/ngày; xử lý một người không ẩn cảnh báo người khác; NLĐ mới xuất hiện vẫn có cảnh báo. Có thể chọn riêng/chọn nhiều/chọn tất cả; select không dính nhau và có kích thước hợp lý. Có Sửa nhiều cho giờ bắt đầu, giờ kết thúc và tính/không tính khấu trừ."
     technical_candidate: "0.4.2-beta.127"
     technical_evidence: "Beta127 LIVE exact bytes; source 014ea67eb05773d0d61593f705c2171b5ec574ee; candidate 33967758178/9970037896; Fast Check 33968559771 PASS; visual+PDA+API36 33967758178/9970125449 + human PASS 44 screenshots 320x568/360x640/480x800; runtime DoD 33968559764/9970218116 PASS; terminal publish+OTA+install/readback+finalize 33969468377 PASS; APK SHA256 922dd571c8e8d6cb5e6d8dbe7fd4f3d73433e14a9f35a50a78d97bf64fa9fbf7; size 14461941; signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged."
     owner_acceptance: "PASS — OWNER item 7 OK, 2026-09-05T21:14:36+07:00."
     owner_receipt: "ops/beta127-owner-acceptance.json"
-    active_pass: true
+    active_pass: false
     last_verified: "0.4.2-beta.127 LIVE / OWNER acceptance complete 11/11 / 2026-09-05T21:14:36+07:00"
 
+    owner_reopened_20260905: "OWNER reports visible reload-like flicker; implementation must be fixed and re-verified before PASS."
   - id: PDA-EXCHANGE-SOURCE-002
     status: ACTIVE_PASS
     scope: pda-exchange
@@ -788,38 +789,41 @@ invariants:
     last_verified: "0.4.2-beta.127 LIVE / OWNER acceptance complete 11/11 / 2026-09-05T21:14:36+07:00"
 
   - id: ATTENDANCE-LOCAL-FIRST-003
-    status: ACTIVE_PASS
+    status: LOCKED_REQUIREMENT_PENDING_FIX
     scope: attendance
     rule: "Ô search hiển thị Tìm mã nhân viên / họ tên. Bấm/mở/lọc không còn reload-like, nhấp nháy hoặc giật lag."
     technical_candidate: "0.4.2-beta.127"
     technical_evidence: "Beta127 LIVE exact bytes; source 014ea67eb05773d0d61593f705c2171b5ec574ee; candidate 33967758178/9970037896; Fast Check 33968559771 PASS; visual+PDA+API36 33967758178/9970125449 + human PASS 44 screenshots 320x568/360x640/480x800; runtime DoD 33968559764/9970218116 PASS; terminal publish+OTA+install/readback+finalize 33969468377 PASS; APK SHA256 922dd571c8e8d6cb5e6d8dbe7fd4f3d73433e14a9f35a50a78d97bf64fa9fbf7; size 14461941; signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged."
     owner_acceptance: "PASS — OWNER item 9 OK, 2026-09-05T21:14:36+07:00."
     owner_receipt: "ops/beta127-owner-acceptance.json"
-    active_pass: true
+    active_pass: false
     last_verified: "0.4.2-beta.127 LIVE / OWNER acceptance complete 11/11 / 2026-09-05T21:14:36+07:00"
 
+    owner_reopened_20260905: "OWNER reports visible reload-like flicker; implementation must be fixed and re-verified before PASS."
   - id: QR-INLINE-SHIFT-NAV-003
-    status: ACTIVE_PASS
+    status: LOCKED_REQUIREMENT_PENDING_FIX
     scope: qr-navigation
     rule: "Sau khi quét có kết quả thì không hiển thị danh sách nhân sự chi tiết; danh sách này chỉ hiển thị khi chưa quét. Layout chi tiết theo ca được đưa ra ngay trong danh sách chi tiết; không phải mở danh sách rồi bấm ca để vào thêm một tầng trang chi tiết. Luồng scan/result/back giữ đúng navigation thực tế và không làm UI chớp/reload."
     technical_candidate: "0.4.2-beta.127"
     technical_evidence: "Beta127 LIVE exact bytes; source 014ea67eb05773d0d61593f705c2171b5ec574ee; candidate 33967758178/9970037896; Fast Check 33968559771 PASS; visual+PDA+API36 33967758178/9970125449 + human PASS 44 screenshots 320x568/360x640/480x800; runtime DoD 33968559764/9970218116 PASS; terminal publish+OTA+install/readback+finalize 33969468377 PASS; APK SHA256 922dd571c8e8d6cb5e6d8dbe7fd4f3d73433e14a9f35a50a78d97bf64fa9fbf7; size 14461941; signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged."
     owner_acceptance: "PASS — OWNER item 10 OK, 2026-09-05T21:14:36+07:00."
     owner_receipt: "ops/beta127-owner-acceptance.json"
-    active_pass: true
+    active_pass: false
     last_verified: "0.4.2-beta.127 LIVE / OWNER acceptance complete 11/11 / 2026-09-05T21:14:36+07:00"
 
+    owner_reopened_20260905: "OWNER reports visible reload-like flicker; implementation must be fixed and re-verified before PASS."
   - id: UI-REALTIME-100MS-006
-    status: ACTIVE_PASS
+    status: LOCKED_REQUIREMENT_PENDING_FIX
     scope: ui-realtime
     rule: "Cảnh báo có dữ liệu local xuất hiện gần như tức thì, không chờ 1–2 giây. Thao tác local/UI phản hồi mục tiêu khoảng <=100 ms theo phương án OWNER đã chốt; không chờ round-trip Service để render. Service xử lý/reconcile nền vào state hiện tại; Service chậm không làm UI khựng, reload hoặc chớp giật. Rà soát toàn app: các màn bị tác động giữ realtime UI update mượt và đúng canonical state."
     technical_candidate: "0.4.2-beta.127"
     technical_evidence: "Beta127 LIVE exact bytes; source 014ea67eb05773d0d61593f705c2171b5ec574ee; candidate 33967758178/9970037896; Fast Check 33968559771 PASS; visual+PDA+API36 33967758178/9970125449 + human PASS 44 screenshots 320x568/360x640/480x800; runtime DoD 33968559764/9970218116 PASS; terminal publish+OTA+install/readback+finalize 33969468377 PASS; APK SHA256 922dd571c8e8d6cb5e6d8dbe7fd4f3d73433e14a9f35a50a78d97bf64fa9fbf7; size 14461941; signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged."
     owner_acceptance: "PASS — OWNER item 11 OK, 2026-09-05T21:14:36+07:00."
     owner_receipt: "ops/beta127-owner-acceptance.json"
-    active_pass: true
+    active_pass: false
     last_verified: "0.4.2-beta.127 LIVE / OWNER acceptance complete 11/11 / 2026-09-05T21:14:36+07:00"
 
+    owner_reopened_20260905: "OWNER reports visible reload-like flicker; implementation must be fixed and re-verified before PASS."
   - id: OWNER-SCOPE-CONTINUITY-001
     status: TECHNICAL_PASS_AWAITING_OWNER
     scope: control-plane-owner-scope
@@ -830,13 +834,21 @@ invariants:
     owner_acceptance: "PENDING_OWNER_SCOPE_CONTINUITY_001"
     active_pass: false
 
+  - id: DROP-LAYOUT-INPUT-004
+    status: LOCKED_REQUIREMENT_PENDING_FIX
+    scope: drop-receive-ui
+    rule: "Nhận hàng Rớt ưu tiên hiển thị đầy đủ thời gian bằng cách thu gọn Chọn/Vị trí/Số kiện; Scan QR/DO/Số kiện không lặp tiêu đề khi hint đã đủ nghĩa; ô nhập phải nổi bật và dễ nhận biết."
+    regression_minimum: [time_full_visible, compact_select_location_package_columns, no_redundant_input_labels, prominent_inputs]
+    owner_command: "CMD-20260905-003"
+    active_pass: false
+
 impact_map:
   "CURRENT_STATE.md": [OWNER-SCOPE-CONTINUITY-001]
   "docs/handovers/**": [OWNER-SCOPE-CONTINUITY-001]
   "ops/OWNER_SCOPE_CURRENT.json": [OWNER-SCOPE-CONTINUITY-001]
   "ops/owner-command-ledger.jsonl": [OWNER-SCOPE-CONTINUITY-001]
   "tools/owner_scope*": [OWNER-SCOPE-CONTINUITY-001]
-  "app/**": [DOCUMENT-DRAFT-NOTE-UX-003, DOCUMENT-GROUP-VIEWER-004, PDA-SERIAL-DERIVE-002, REPORT-LABOR-DEDUCTION-002, DROP-RECEIVE-CRUD-001, LOCAL-FIRST-RECONCILE-002, ATTENDANCE-QR-FILTER-002, LABOR-FIXED-ROLE-REVIEW-005, ADMIN-OTHER-PASSWORD-003, LAN-GLOBAL-TEST-002, UI-TAP-FEEDBACK-004, LABOR-SCAN-PINNED-004, UI-FORM-BASE-CONSISTENCY-003, UI-STATUS-001, QR-LOCAL-001, MEAL-DATE-001, MEAL-WARN-001, ROLE-HISTORY-001, OTA-BETA-001, PDA-EXIT-001, ENV-ISOLATION-001, SERVICE-DISCOVERY-001, SHIFT-STAFF-DOWNLOAD-QR-001, DOCUMENT-MANAGEMENT-001, DOCUMENT-BATCH-001, LABOR-TIME-RANGE-001, MEAL-UI-NULL-001, UI-COPY-DENSITY-001, NAV-HISTORY-BACK-001, UI-REVIEW-WARNING-001, LABOR-EXACT-SESSION-002, HISTORY-DELETE-CANONICAL-001, DOCUMENT-BATCH-MODE-TICK-002, INFRA-RESILIENCE-001, CHANGELOG-CURRENT-VERSION-001, ADMIN-AUDIT-PASSWORD-001, HISTORY-SUPERADMIN-CLEANUP-002, LABOR-MULTI-INTERVAL-003, UI-DATA-DATE-SELECT-001, UI-EMPLOYEE-SCAN-ROSTER-001, UI-FORM-CONSISTENCY-002, DOCUMENT-COMPACT-MULTI-EDIT-005, DOCUMENT-CROSS-GROUP-VIEWER-005, DROP-RECEIVE-COMPACT-LIST-002, UI-PERFORMANCE-COMPACT-005, LABOR-FIXED-ROLE-BULK-006, LAN-MANUAL-REAL-003, REVIEW-100-SESSIONS-001, OLD-SESSION-BULK-EXIT-001, SETTINGS-RESET-LAYOUT-002, HISTORY-DATE-BULK-DETAIL-003, STATUS-QUEUE-RECOVERY-004, STAFF-SEARCH-DEBOUNCE-001, DROP-PAGINATION-003, REPORT-MANPOWER-LABOR-003, LABOR-BULK-REALTIME-007, PDA-EXCHANGE-SOURCE-002, ATTENDANCE-LOCAL-FIRST-003, QR-INLINE-SHIFT-NAV-003, UI-REALTIME-100MS-006]
+  "app/**": [DOCUMENT-DRAFT-NOTE-UX-003, DOCUMENT-GROUP-VIEWER-004, PDA-SERIAL-DERIVE-002, REPORT-LABOR-DEDUCTION-002, DROP-RECEIVE-CRUD-001, LOCAL-FIRST-RECONCILE-002, ATTENDANCE-QR-FILTER-002, LABOR-FIXED-ROLE-REVIEW-005, ADMIN-OTHER-PASSWORD-003, LAN-GLOBAL-TEST-002, UI-TAP-FEEDBACK-004, LABOR-SCAN-PINNED-004, UI-FORM-BASE-CONSISTENCY-003, UI-STATUS-001, QR-LOCAL-001, MEAL-DATE-001, MEAL-WARN-001, ROLE-HISTORY-001, OTA-BETA-001, PDA-EXIT-001, ENV-ISOLATION-001, SERVICE-DISCOVERY-001, SHIFT-STAFF-DOWNLOAD-QR-001, DOCUMENT-MANAGEMENT-001, DOCUMENT-BATCH-001, LABOR-TIME-RANGE-001, MEAL-UI-NULL-001, UI-COPY-DENSITY-001, NAV-HISTORY-BACK-001, UI-REVIEW-WARNING-001, LABOR-EXACT-SESSION-002, HISTORY-DELETE-CANONICAL-001, DOCUMENT-BATCH-MODE-TICK-002, INFRA-RESILIENCE-001, CHANGELOG-CURRENT-VERSION-001, ADMIN-AUDIT-PASSWORD-001, HISTORY-SUPERADMIN-CLEANUP-002, LABOR-MULTI-INTERVAL-003, UI-DATA-DATE-SELECT-001, UI-EMPLOYEE-SCAN-ROSTER-001, UI-FORM-CONSISTENCY-002, DOCUMENT-COMPACT-MULTI-EDIT-005, DOCUMENT-CROSS-GROUP-VIEWER-005, DROP-RECEIVE-COMPACT-LIST-002, UI-PERFORMANCE-COMPACT-005, LABOR-FIXED-ROLE-BULK-006, LAN-MANUAL-REAL-003, REVIEW-100-SESSIONS-001, OLD-SESSION-BULK-EXIT-001, SETTINGS-RESET-LAYOUT-002, HISTORY-DATE-BULK-DETAIL-003, STATUS-QUEUE-RECOVERY-004, STAFF-SEARCH-DEBOUNCE-001, DROP-PAGINATION-003, REPORT-MANPOWER-LABOR-003, LABOR-BULK-REALTIME-007, PDA-EXCHANGE-SOURCE-002, ATTENDANCE-LOCAL-FIRST-003, QR-INLINE-SHIFT-NAV-003, UI-REALTIME-100MS-006, DROP-LAYOUT-INPUT-004]
   "service/**": [DOCUMENT-DRAFT-NOTE-UX-003, DROP-RECEIVE-CRUD-001, LOCAL-FIRST-RECONCILE-002, ADMIN-OTHER-PASSWORD-003, LAN-GLOBAL-TEST-002, QR-LOCAL-001, MEAL-DATE-001, PDA-EXIT-001, ENV-ISOLATION-001, DOCUMENT-MANAGEMENT-001, DOCUMENT-BATCH-001, LABOR-TIME-RANGE-001, LABOR-EXACT-SESSION-002, INFRA-RESILIENCE-001, ADMIN-AUDIT-PASSWORD-001, LABOR-MULTI-INTERVAL-003, UI-DATA-DATE-SELECT-001, DOCUMENT-COMPACT-MULTI-EDIT-005, DOCUMENT-CROSS-GROUP-VIEWER-005, DROP-RECEIVE-COMPACT-LIST-002, UI-PERFORMANCE-COMPACT-005, LABOR-FIXED-ROLE-BULK-006, LAN-MANUAL-REAL-003, OLD-SESSION-BULK-EXIT-001]
   "services/**": [ENV-ISOLATION-001, INFRA-RESILIENCE-001, BETA-STABLE-AUDIT-001]
   "google-apps-script/**": [ENV-ISOLATION-001, INFRA-RESILIENCE-001, OTA-BETA-001]

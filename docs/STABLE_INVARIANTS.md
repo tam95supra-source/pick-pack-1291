@@ -737,30 +737,34 @@ Technical receipt: `ops/beta121-technical-pass.json`. Regression: `tools/beta121
 - Rule: Bỏ text Phạm vi báo cáo; tiêu đề đúng Báo cáo tình hình nhân sự. Select ca có đúng 3 lựa chọn: Ca 1 và HC / C2 / Cả ngày; đi cùng chọn ngày-tháng-năm; kích thước gọn và đồng bộ toàn app. Tiêu đề bảng và Vị trí dùng chữ đậm. Bỏ Tổng nhân sự và Khấu trừ nhân sự; vùng kết quả mang tiêu đề Nhân sự pick & pack thực tế sau khi loại trừ hỗ trợ. Có chi tiết công nhật dưới bảng thâm niên và trên vùng Pick & Pack thực tế: hiển thị vị trí công nhật và số lượng mỗi vị trí với layout hợp lý.
 - Owner receipt: `ops/beta127-owner-acceptance.json`
 
-### LABOR-BULK-REALTIME-007 — ACTIVE_PASS
+### LABOR-BULK-REALTIME-007 — LOCKED_REQUIREMENT_PENDING_FIX
 - OWNER item: 7 — **OK**
 - Rule: Màn công nhật không còn cảm giác giật/khựng. Tạo/kết thúc nhiều người không load tuần tự gây đơ; trạng thái hoàn thành cập nhật mượt. Bỏ qua cảnh báo Tổ trưởng/Kéo hàng lưu theo từng NLĐ + phiên/ngày; xử lý một người không ẩn cảnh báo người khác; NLĐ mới xuất hiện vẫn có cảnh báo. Có thể chọn riêng/chọn nhiều/chọn tất cả; select không dính nhau và có kích thước hợp lý. Có Sửa nhiều cho giờ bắt đầu, giờ kết thúc và tính/không tính khấu trừ.
 - Owner receipt: `ops/beta127-owner-acceptance.json`
+- OWNER failure 2026-09-05 R3: UI vẫn có nhấp nháy/reload-like; cần sửa và re-verify trước khi ACTIVE_PASS lại.
 
 ### PDA-EXCHANGE-SOURCE-002 — ACTIVE_PASS
 - OWNER item: 8 — **OK**
 - Rule: Hiển thị nguồn PDA. Layout Đổi PDA được thiết kế lại đơn giản, dễ hiểu cho người dùng và không làm sai canonical PDA/session.
 - Owner receipt: `ops/beta127-owner-acceptance.json`
 
-### ATTENDANCE-LOCAL-FIRST-003 — ACTIVE_PASS
+### ATTENDANCE-LOCAL-FIRST-003 — LOCKED_REQUIREMENT_PENDING_FIX
 - OWNER item: 9 — **OK**
 - Rule: Ô search hiển thị Tìm mã nhân viên / họ tên. Bấm/mở/lọc không còn reload-like, nhấp nháy hoặc giật lag.
 - Owner receipt: `ops/beta127-owner-acceptance.json`
+- OWNER failure 2026-09-05 R3: UI vẫn có nhấp nháy/reload-like; cần sửa và re-verify trước khi ACTIVE_PASS lại.
 
-### QR-INLINE-SHIFT-NAV-003 — ACTIVE_PASS
+### QR-INLINE-SHIFT-NAV-003 — LOCKED_REQUIREMENT_PENDING_FIX
 - OWNER item: 10 — **OK**
 - Rule: Sau khi quét có kết quả thì không hiển thị danh sách nhân sự chi tiết; danh sách này chỉ hiển thị khi chưa quét. Layout chi tiết theo ca được đưa ra ngay trong danh sách chi tiết; không phải mở danh sách rồi bấm ca để vào thêm một tầng trang chi tiết. Luồng scan/result/back giữ đúng navigation thực tế và không làm UI chớp/reload.
 - Owner receipt: `ops/beta127-owner-acceptance.json`
+- OWNER failure 2026-09-05 R3: UI vẫn có nhấp nháy/reload-like; cần sửa và re-verify trước khi ACTIVE_PASS lại.
 
-### UI-REALTIME-100MS-006 — ACTIVE_PASS
+### UI-REALTIME-100MS-006 — LOCKED_REQUIREMENT_PENDING_FIX
 - OWNER item: 11 — **OK**
 - Rule: Cảnh báo có dữ liệu local xuất hiện gần như tức thì, không chờ 1–2 giây. Thao tác local/UI phản hồi mục tiêu khoảng <=100 ms theo phương án OWNER đã chốt; không chờ round-trip Service để render. Service xử lý/reconcile nền vào state hiện tại; Service chậm không làm UI khựng, reload hoặc chớp giật. Rà soát toàn app: các màn bị tác động giữ realtime UI update mượt và đúng canonical state.
 - Owner receipt: `ops/beta127-owner-acceptance.json`
+- OWNER failure 2026-09-05 R3: UI vẫn có nhấp nháy/reload-like; cần sửa và re-verify trước khi ACTIVE_PASS lại.
 
 ### OWNER-SCOPE-CONTINUITY-001
 - Status: TECHNICAL_PASS_AWAITING_OWNER
@@ -769,3 +773,9 @@ Technical receipt: `ops/beta121-technical-pass.json`. Regression: `tools/beta121
 - Regression: `tools/owner_scope_guard.py` + `tools/owner_scope_guard_regression.py`; positive + negative cases.
 - Technical evidence: Technical PASS run 33973889892; canonical release guard 33973993708 PASS; canonical beta/current guard 33974000825 PASS; App fast-check 33973993724 PASS; control-plane only, app/service/APK bytes unchanged.
 - OWNER acceptance: PENDING.
+
+### DROP-LAYOUT-INPUT-004 — LOCKED_REQUIREMENT_PENDING_FIX
+- Scope: Nhận hàng Rớt / UI nhập liệu + bảng
+- Rule: Thu gọn Chọn/Vị trí/Số kiện để ưu tiên cột Thời gian hiển thị đầy đủ; không lặp tiêu đề Scan QR/DO/Số kiện khi hint đã đủ nghĩa; ô nhập phải nổi bật, dễ nhìn.
+- Regression: 320x568 / 360x640 / 480x800; thời gian không ellipsis; không label lặp; input border/fill rõ; CRUD/pagination cũ không regress.
+- Authority: OWNER command CMD-20260905-003.

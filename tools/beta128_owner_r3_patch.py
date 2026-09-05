@@ -92,8 +92,8 @@ def patch_attendance() -> None:
     # Scheduled time-boundary refresh must bypass the no-op signature because status semantics can change with clock time.
     s = replace_once(
         s,
-        '                if(activeDate==selected.toString()){\n                    if(selected.isBefore(LocalDate.now(ZoneId.of(TZ))))load(selected)else{render();remoteLoad()}\n                }',
-        '                if(activeDate==selected.toString()){\n                    lastRenderSignature=""\n                    if(selected.isBefore(LocalDate.now(ZoneId.of(TZ))))load(selected)else{render();remoteLoad()}\n                }',
+        '                val nowDay=today()\n                if(selected.isBefore(nowDay))load(nowDay) else {render();remoteLoad()}',
+        '                val nowDay=today()\n                lastRenderSignature=""\n                if(selected.isBefore(nowDay))load(nowDay) else {render();remoteLoad()}',
         "attendance-boundary-force-render",
     )
     write(p, s)
@@ -207,19 +207,23 @@ def update_invariants() -> None:
     d = "docs/STABLE_INVARIANTS.md"
     md = read(d)
     for inv in ids:
-        pattern = rf'(?ms)(^### {re.escape(inv)}\n)(.*?)(?=^### |\Z)'
+        pattern = rf'(?ms)^### {re.escape(inv)}(?: — [^\n]+)?\n.*?(?=^### |\Z)'
         m = re.search(pattern, md)
         if not m:
             raise SystemExit(f"BETA128_R3_PATCH_FAIL:docs-invariant:{inv}")
-        block = m.group(1) + m.group(2)
-        block = replace_regex_once(block, r'(?m)^- Status: ACTIVE_PASS$', '- Status: LOCKED_REQUIREMENT_PENDING_FIX', f"docs-status-{inv}")
+        block = m.group(0)
+        block = re.sub(
+            rf'(?m)^### {re.escape(inv)}(?: — [^\n]+)?$',
+            f'### {inv} — LOCKED_REQUIREMENT_PENDING_FIX',
+            block,
+            count=1,
+        )
         if "OWNER failure 2026-09-05 R3" not in block:
-            block += '- OWNER failure 2026-09-05 R3: UI vẫn có nhấp nháy/reload-like; cần sửa và re-verify trước khi ACTIVE_PASS lại.\n\n'
+            block = block.rstrip() + '\n- OWNER failure 2026-09-05 R3: UI vẫn có nhấp nháy/reload-like; cần sửa và re-verify trước khi ACTIVE_PASS lại.\n\n'
         md = md[:m.start()] + block + md[m.end():]
-    if "### DROP-LAYOUT-INPUT-004\n" not in md:
+    if "### DROP-LAYOUT-INPUT-004" not in md:
         md += (
-            '\n### DROP-LAYOUT-INPUT-004\n'
-            '- Status: LOCKED_REQUIREMENT_PENDING_FIX\n'
+            '\n### DROP-LAYOUT-INPUT-004 — LOCKED_REQUIREMENT_PENDING_FIX\n'
             '- Scope: Nhận hàng Rớt / UI nhập liệu + bảng\n'
             '- Rule: Thu gọn Chọn/Vị trí/Số kiện để ưu tiên cột Thời gian hiển thị đầy đủ; không lặp tiêu đề Scan QR/DO/Số kiện khi hint đã đủ nghĩa; ô nhập phải nổi bật, dễ nhìn.\n'
             '- Regression: 320x568 / 360x640 / 480x800; thời gian không ellipsis; không label lặp; input border/fill rõ; CRUD/pagination cũ không regress.\n'

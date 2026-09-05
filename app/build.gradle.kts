@@ -32,8 +32,8 @@ android {
         create("beta") {
             dimension = "channel"
             applicationId = "vn.pickpack1291.app.beta.publicbeta"
-            versionCode = 133
-            versionName = "0.4.2-beta.127"
+            versionCode = 134
+            versionName = "0.4.2-beta.128"
             manifestPlaceholders["appLabel"] = "Pick Pack 1291 Beta"
             buildConfigField("String", "CHANNEL", "\"BETA\"")
             buildConfigField("String", "ENVIRONMENT_ID", "\"BETA\"")
@@ -157,3 +157,5 @@ dependencies {
 // Legacy Beta44 candidate-workflow compatibility markers only; actual beta metadata above is authoritative:
 // versionCode = 50
 // versionName = "0.4.2-beta.44"
+
+// Beta128: owner R3 drop-table/input refinement and no-op realtime render dedupe for labor, meal attendance and QR session timeline; Stable unchanged.

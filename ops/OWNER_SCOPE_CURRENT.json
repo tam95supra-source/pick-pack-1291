@@ -2,14 +2,14 @@
   "schema_version": 1,
   "project": "APK PICK PACK 1291",
   "owner": "Nguyễn Văn Tâm",
-  "scope_id": "OWNER_20260905_CHAT_ORIGINAL_10_PLUS_GLOBAL_REALTIME_BETA127",
-  "revision": 2,
-  "scope_status": "OWNER_ACCEPTANCE_COMPLETE",
+  "scope_id": "OWNER_20260905_R3_DROP_REALTIME_BETA128",
+  "revision": 3,
+  "scope_status": "LOCKED_REQUIREMENT_PENDING_FIX",
   "source_of_truth": "ops/OWNER_SCOPE_CURRENT.json",
-  "migration_source": "ops/beta-release-request.json + ops/beta127-owner-acceptance.json",
+  "migration_source": "OWNER CMD-20260905-003 over Beta127 accepted baseline",
   "owner_command_ledger": "ops/owner-command-ledger.jsonl",
-  "ledger_head_sequence": 2,
-  "ledger_head_event_sha256": "db93d50eba8cf91406e2afbf6d44ce56a1e49a660b3621af1ddc82c2eb822655",
+  "ledger_head_sequence": 3,
+  "ledger_head_event_sha256": "bbe7cd9e91e587f8fed342d18582077561cc43accc92a110303ee404ccdd3eab",
   "requirements": [
     {
       "requirement_id": "R2-01",
@@ -123,10 +123,10 @@
         "Có Sửa nhiều cho giờ bắt đầu, giờ kết thúc và tính/không tính khấu trừ."
       ],
       "invariant_id": "LABOR-BULK-REALTIME-007",
-      "state": "ACTIVE_PASS",
-      "owner_result": "OK",
+      "state": "LOCKED_REQUIREMENT_PENDING_FIX",
       "source_command_ids": [
-        "CMD-20260905-001"
+        "CMD-20260905-001",
+        "CMD-20260905-003"
       ]
     },
     {
@@ -153,10 +153,10 @@
         "Bấm/mở/lọc không còn reload-like, nhấp nháy hoặc giật lag."
       ],
       "invariant_id": "ATTENDANCE-LOCAL-FIRST-003",
-      "state": "ACTIVE_PASS",
-      "owner_result": "OK",
+      "state": "LOCKED_REQUIREMENT_PENDING_FIX",
       "source_command_ids": [
-        "CMD-20260905-001"
+        "CMD-20260905-001",
+        "CMD-20260905-003"
       ]
     },
     {
@@ -169,10 +169,10 @@
         "Luồng scan/result/back giữ đúng navigation thực tế và không làm UI chớp/reload."
       ],
       "invariant_id": "QR-INLINE-SHIFT-NAV-003",
-      "state": "ACTIVE_PASS",
-      "owner_result": "OK",
+      "state": "LOCKED_REQUIREMENT_PENDING_FIX",
       "source_command_ids": [
-        "CMD-20260905-001"
+        "CMD-20260905-001",
+        "CMD-20260905-003"
       ]
     },
     {
@@ -186,10 +186,25 @@
         "Rà soát toàn app: các màn bị tác động giữ realtime UI update mượt và đúng canonical state."
       ],
       "invariant_id": "UI-REALTIME-100MS-006",
-      "state": "ACTIVE_PASS",
-      "owner_result": "OK",
+      "state": "LOCKED_REQUIREMENT_PENDING_FIX",
       "source_command_ids": [
-        "CMD-20260905-001"
+        "CMD-20260905-001",
+        "CMD-20260905-003"
+      ]
+    },
+    {
+      "requirement_id": "R3-12",
+      "checklist_number": 12,
+      "title": "Nhận hàng Rớt – bố cục nhập và bảng",
+      "acceptance": [
+        "Thu hẹp cột Chọn, Vị trí và Số kiện để cột Thời gian rộng hơn; thời gian hiển thị đầy đủ, không bị che hoặc biến thành ba chấm.",
+        "Scan QR, DO và Số kiện không có tiêu đề lặp phía trên khi nội dung/hint trong ô đã đủ nhận biết trường.",
+        "Các ô nhập Scan QR, DO và Số kiện nổi bật, dễ nhìn nhưng không thay đổi logic nhập/quét hiện hành."
+      ],
+      "invariant_id": "DROP-LAYOUT-INPUT-004",
+      "state": "LOCKED_REQUIREMENT_PENDING_FIX",
+      "source_command_ids": [
+        "CMD-20260905-003"
       ]
     }
   ],
@@ -199,32 +214,15 @@
     "source_command_ids": [
       "CMD-20260905-002"
     ],
-    "status": "TECHNICAL_PASS_AWAITING_OWNER",
-    "technical_evidence": {
-      "technical_pass_run_id": 33973889892,
-      "guard_status": "PASS_FINAL_REMOTE_READBACK",
-      "canonical_release_guard_run_id": 33973993708,
-      "canonical_beta_current_guard_run_id": 33974000825,
-      "canonical_app_fast_check_run_id": 33973993724,
-      "scope_guard_self_test": "PASS",
-      "negative_regression": "PASS",
-      "scope_drift_guard": "PASS",
-      "bootstrap_readback": "PASS",
-      "finalizer_pointer_mode": "PASS",
-      "semantic_vs_state_fence": "PASS",
-      "canonical_remote_readback": "PASS",
-      "app_fast_check": "PASS",
-      "app_service_apk_bytes_changed": false
-    }
+    "status": "LOCKED_REQUIREMENT_PENDING_FIX",
+    "technical_evidence": {}
   },
   "release_binding": {
-    "mode": "CURRENT_RELEASE",
-    "version_name": "0.4.2-beta.127",
-    "version_code": 133,
-    "owner_checklist_id": "BETA127_OWNER_ACCEPTANCE_20260905_R2",
-    "owner_checklist_revision": 2,
-    "owner_acceptance_receipt": "ops/beta127-owner-acceptance.json"
+    "mode": "CANDIDATE_TARGET",
+    "base_live_version_name": "0.4.2-beta.127",
+    "target_version_name": "0.4.2-beta.128",
+    "target_version_code": 134
   },
-  "semantics_sha256": "3a52ab482e3a6baddcca5e61f6d9aa1b719ccf6648639dfa901d33b98990c626",
-  "scope_sha256": "adb35b434007021b42f4c26e41de1931a1c8edfa64eb9923a12daf90ea741eac"
+  "semantics_sha256": "4ba607f61fd8877c1bbf0a86a69ac947e0fa0912e039e9f1085fb6d2e179eb90",
+  "scope_sha256": "6058c3463d6d7191f8ea5d829d4bf011b6c227047f23631479aa9a69352b146c"
 }
