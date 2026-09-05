@@ -25,12 +25,18 @@ sed -i 's/waitText("Loại kết nối",false,false,10000L);/waitText("Kiểu k�
 sed -i 's/waitText("Authority",false,false,10000L);/waitText("Chế độ quyền hiện tại",false,false,10000L);/g' "$W/src/vn/pickpack1291/verify/Beta83UiChecksInstrumentation.java"
 # Beta121 settings regrouped the former resilience center under a compact technical-test region.
 sed -i 's/TRUNG TÂM KIỂM THỬ RESILIENCE/KIỂM THỬ KỸ THUẬT/g' "$W/src/vn/pickpack1291/verify/Beta83UiChecksInstrumentation.java"
+# OWNER Beta123 removed the report-scope control entirely and renamed the report screen.
+# Verify the new canonical title and explicitly assert that the removed control stays absent.
+sed -i 's/waitText("Phạm vi báo cáo",true,false,12000L);/waitText("BÁO CÁO TÌNH HÌNH NHÂN SỰ",true,false,12000L); require(findText("Phạm vi báo cáo",true,false)==null,"REPORT_SCOPE_CONTROL_MUST_BE_REMOVED");/g' "$W/src/vn/pickpack1291/verify/Beta83UiChecksInstrumentation.java"
 ! grep -Fq 'waitText("Loại kết nối"' "$W/src/vn/pickpack1291/verify/Beta83UiChecksInstrumentation.java"
 ! grep -Fq 'waitText("Authority"' "$W/src/vn/pickpack1291/verify/Beta83UiChecksInstrumentation.java"
 ! grep -Fq 'TRUNG TÂM KIỂM THỬ RESILIENCE' "$W/src/vn/pickpack1291/verify/Beta83UiChecksInstrumentation.java"
+! grep -Fq 'waitText("Phạm vi báo cáo"' "$W/src/vn/pickpack1291/verify/Beta83UiChecksInstrumentation.java"
 grep -Fq 'waitText("Kiểu kết nối"' "$W/src/vn/pickpack1291/verify/Beta83UiChecksInstrumentation.java"
 grep -Fq 'waitText("Chế độ quyền hiện tại"' "$W/src/vn/pickpack1291/verify/Beta83UiChecksInstrumentation.java"
 grep -Fq 'KIỂM THỬ KỸ THUẬT' "$W/src/vn/pickpack1291/verify/Beta83UiChecksInstrumentation.java"
+grep -Fq 'waitText("BÁO CÁO TÌNH HÌNH NHÂN SỰ"' "$W/src/vn/pickpack1291/verify/Beta83UiChecksInstrumentation.java"
+grep -Fq 'REPORT_SCOPE_CONTROL_MUST_BE_REMOVED' "$W/src/vn/pickpack1291/verify/Beta83UiChecksInstrumentation.java"
 javac -encoding UTF-8 -source 8 -target 8 -cp "$SDK/platforms/android-36/android.jar" -d "$W/classes" "$W/src/vn/pickpack1291/verify/"*.java
 mapfile -t CLASSES < <(find "$W/classes" -type f -name '*.class' -print | sort)
 test "${#CLASSES[@]}" -ge 3
