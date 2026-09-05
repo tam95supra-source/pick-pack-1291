@@ -82,10 +82,23 @@ jobs:
           run-id: ${{ steps.resolve.outputs.release_run }}
           github-token: ${{ github.token }}
 
-      - name: Finalize exact Beta128 LIVE from existing PASS receipts
+      - name: Ensure exact Beta128 is finalized LIVE idempotently
+        shell: bash
         run: |
           set -euo pipefail
-          bash tools/finalize_beta83.sh
+          STAGE=$(jq -r '.stage' ops/beta-release-request.json)
+          if [[ "$STAGE" == "PUBLISH" ]]; then
+            bash tools/finalize_beta83.sh
+          elif [[ "$STAGE" == "pass_live" ]]; then
+            jq -e '.status=="PASS" and .version_name=="0.4.2-beta.128" and .ota_exact_bytes==true and .stable_unchanged==true and .main_unchanged==true' /tmp/beta-publish-final/receipt.json >/dev/null
+            jq -e '.status=="PASS" and .version_name=="0.4.2-beta.128" and .ota_from_base==true and .ota_download_exact==true and .installed_exact_bytes==true and .installed_and_opened==true and .stable_unchanged==true and .main_unchanged==true' /tmp/beta-pda-final/receipt.json >/dev/null
+            jq -e '.live==true and .ota_readback_status=="PASS" and .apk_sha256=="04b135c554c6de6aa979b113a3435cec65063c87e79f232d8c8ea28e1d75f4ce"' ops/beta-release-request.json >/dev/null
+            grep -Fq -- '- status: BETA128_PASS_LIVE' CURRENT_STATE.md
+            grep -Fq -- '- beta_live: 0.4.2-beta.128 (versionCode 134)' CURRENT_STATE.md
+          else
+            echo "BETA128_RECOVERY_FAIL:UNEXPECTED_STAGE:$STAGE"
+            exit 43
+          fi
 
       - name: Transition only reopened R3 requirements to Technical PASS
         shell: bash
