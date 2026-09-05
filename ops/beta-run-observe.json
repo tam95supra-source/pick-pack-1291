@@ -1,8 +1,8 @@
 {
-  "run_id": 33949837111,
-  "run_sha": "9315a13e4a9f580eb371d9aceb9cb7b9d4ad0733",
-  "ref": "release/beta123-owner-ui-realtime-20260905",
-  "execution_nonce": "beta123-verify-only-20260905-03",
-  "stage": "VERIFY_ONLY",
-  "observed_at": "2026-09-05T06:26:58Z"
+  "run_id": 33955316061,
+  "run_sha": "753e9c57cda39d1945fa539c8e12c245204fe1bb",
+  "ref": "release/beta125-navigation-frame-20260905",
+  "execution_nonce": "beta125-build-verify-20260905-01",
+  "stage": "BUILD_VERIFY",
+  "observed_at": "2026-09-05T08:27:47Z"
 }
