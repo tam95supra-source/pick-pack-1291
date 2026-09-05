@@ -32,6 +32,18 @@ jobs:
           python3 tools/owner_scope_guard.py --bootstrap
           python3 tools/beta128_owner_r3_contract.py
 
+      - name: Verify bootstrap left tracked worktree clean
+        shell: bash
+        run: |
+          set -euo pipefail
+          DIRTY="$(git status --porcelain --untracked-files=no)"
+          if [[ -n "$DIRTY" ]]; then
+            echo "BETA128_RECOVERY_DIRTY_TRACKED_FILES"
+            git diff --name-only
+            exit 42
+          fi
+          test ! -e tools/__pycache__/owner_scope_guard_v2.cpython-312.pyc || git check-ignore -q tools/__pycache__/owner_scope_guard_v2.cpython-312.pyc
+
       - name: Resolve exact prior publish and OTA receipts dynamically
         id: resolve
         shell: bash
