@@ -30,7 +30,12 @@ OWNER_LEDGER_HEAD=$(jq -r '.ledger_head_event_sha256' "$SCOPE")
 OWNER_CHECKLIST_ID=$(jq -r '.owner_checklist_id // "UNSPECIFIED"' "$R")
 OWNER_CHECKLIST_COUNT=$(jq -r '.requirements|length' "$SCOPE")
 test "$OWNER_CHECKLIST_COUNT" -gt 0
-OWNER_NEXT_ACTION="WAIT_FOR_OWNER_ACCEPTANCE_NUMBERED_CHECKLIST_1_TO_${OWNER_CHECKLIST_COUNT}"
+OWNER_PENDING_NUMBERS=$(jq -r '[.requirements[] | select(.state!="ACTIVE_PASS" and .state!="SUPERSEDED") | .checklist_number] | map(tostring) | join("_")' "$SCOPE")
+if [[ -n "$OWNER_PENDING_NUMBERS" ]]; then
+  OWNER_NEXT_ACTION="WAIT_FOR_OWNER_ACCEPTANCE_REQUIREMENTS_${OWNER_PENDING_NUMBERS}"
+else
+  OWNER_NEXT_ACTION="OWNER_ACCEPTANCE_COMPLETE"
+fi
 
 # The release request must bind the exact canonical scope, never a chat/template reconstruction.
 test "$(jq -r '.owner_scope // ""' "$R")" = "$OWNER_SCOPE"
@@ -149,7 +154,7 @@ cat > docs/handovers/HANDOVER_CURRENT.md <<EOF
 
 ## Authority
 - Không chép lại checklist/yêu cầu OWNER trong handoff.
-- Phiên tiếp quản phải chạy `python3 tools/owner_scope_guard.py --bootstrap` rồi đọc requirement từ `$OWNER_SCOPE_FILE`.
+- Phiên tiếp quản phải chạy python3 tools/owner_scope_guard.py --bootstrap rồi đọc requirement từ $OWNER_SCOPE_FILE.
 - Chat/memory chỉ dùng để tìm canonical files; không thay canonical scope.
 
 ## LIVE / TARGET / CANDIDATE
@@ -169,7 +174,7 @@ jq -r '.release_notes[]? | "- " + .' "$R" >> docs/handovers/HANDOVER_CURRENT.md
 cat >> docs/handovers/HANDOVER_CURRENT.md <<EOF
 - GitHub Release asset exact bytes khớp candidate SHA256/size; OTA tải trực tiếp từ GitHub Release: PASS.
 - OTA $PREV → $VERSION: download/install exact SHA/size/version/package/signer và mở app: PASS.
-- Canonical OWNER checklist: `$OWNER_SCOPE_FILE`, revision $OWNER_SCOPE_REVISION, SHA256 $OWNER_SCOPE_SHA, $OWNER_CHECKLIST_COUNT requirement(s).
+- Canonical OWNER checklist: $OWNER_SCOPE_FILE, revision $OWNER_SCOPE_REVISION, SHA256 $OWNER_SCOPE_SHA, $OWNER_CHECKLIST_COUNT requirement(s).
 
 ## Blocker
 Không có blocker kỹ thuật. Technical DoD PASS; đang chờ OWNER nghiệm thu canonical requirement IDs trong scope snapshot.

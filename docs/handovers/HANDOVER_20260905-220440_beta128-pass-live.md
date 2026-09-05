@@ -11,14 +11,14 @@
 - owner_scope_id: OWNER_20260905_R3_DROP_REALTIME_BETA128
 - owner_scope_revision: 3
 - owner_scope_semantics_sha256: 4ba607f61fd8877c1bbf0a86a69ac947e0fa0912e039e9f1085fb6d2e179eb90
-- owner_scope_sha256: 6058c3463d6d7191f8ea5d829d4bf011b6c227047f23631479aa9a69352b146c
+- owner_scope_sha256: d0124805ffd1dcf386295828e9d998083a45274bd0eeba8c360308f92c69f2e1
 - owner_command_ledger: ops/owner-command-ledger.jsonl
 - owner_command_ledger_head: bbe7cd9e91e587f8fed342d18582077561cc43accc92a110303ee404ccdd3eab
 - governance_policy: docs/OWNER_SCOPE_PROTOCOL.md
 
 ## Authority
 - Không chép lại checklist/yêu cầu OWNER trong handoff.
-- Phiên tiếp quản phải chạy  rồi đọc requirement từ .
+- Phiên tiếp quản phải chạy python3 tools/owner_scope_guard.py --bootstrap rồi đọc requirement từ ops/OWNER_SCOPE_CURRENT.json.
 - Chat/memory chỉ dùng để tìm canonical files; không thay canonical scope.
 
 ## LIVE / TARGET / CANDIDATE
@@ -38,10 +38,10 @@
 - Realtime UI: Service reconcile nền không được xóa/dựng lại UI nếu revision hoặc state không đổi.
 - GitHub Release asset exact bytes khớp candidate SHA256/size; OTA tải trực tiếp từ GitHub Release: PASS.
 - OTA 0.4.2-beta.127 → 0.4.2-beta.128: download/install exact SHA/size/version/package/signer và mở app: PASS.
-- Canonical OWNER checklist: , revision 3, SHA256 6058c3463d6d7191f8ea5d829d4bf011b6c227047f23631479aa9a69352b146c, 12 requirement(s).
+- Canonical OWNER checklist: ops/OWNER_SCOPE_CURRENT.json, revision 3, SHA256 d0124805ffd1dcf386295828e9d998083a45274bd0eeba8c360308f92c69f2e1, 12 requirement(s).
 
 ## Blocker
 Không có blocker kỹ thuật. Technical DoD PASS; đang chờ OWNER nghiệm thu canonical requirement IDs trong scope snapshot.
 
 ## NEXT_ACTION
-WAIT_FOR_OWNER_ACCEPTANCE_NUMBERED_CHECKLIST_1_TO_12
+WAIT_FOR_OWNER_ACCEPTANCE_REQUIREMENTS_7_9_10_11_12
