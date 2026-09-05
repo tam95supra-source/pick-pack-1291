@@ -32,8 +32,8 @@ android {
         create("beta") {
             dimension = "channel"
             applicationId = "vn.pickpack1291.app.beta.publicbeta"
-            versionCode = 132
-            versionName = "0.4.2-beta.126"
+            versionCode = 133
+            versionName = "0.4.2-beta.127"
             manifestPlaceholders["appLabel"] = "Pick Pack 1291 Beta"
             buildConfigField("String", "CHANNEL", "\"BETA\"")
             buildConfigField("String", "ENVIRONMENT_ID", "\"BETA\"")
@@ -107,6 +107,7 @@ dependencies {
 // Firebase client identifiers are injected at build time and default blank so source never contains project config.
 // GSHEET_API_URL remains public discovery/fallback configuration and manual update lookup path; no Service URL is compiled into APK.
 // Signing material remains outside this repository and the Android signer is owner-locked.
+// Beta127: closes OWNER R2 visual false-pass gaps: exact local-data delete wording, visible manpower report title, labor-detail ordering/empty state, and behavioral regression gates. Stable unchanged.
 // Beta125: employee loading/result/error are one logical navigation frame; Back from scanned employee returns directly to the actual QR scan screen. Preserves Beta124 post-scan roster suppression. Stable unchanged.
 // Beta124: QR scan result no longer appends the full current-shift roster; pre-scan/no-result roster remains available. Inherits Beta123 service recovery and OWNER UI scope; Stable unchanged.
 // Beta123: owner UI/realtime recovery scope: local reset/cache tools, history day delete, sync recovery, status route/ping, search/realtime smoothing, report/labor/PDA/attendance/QR/drop layout refinements; preserves Beta122 ACTIVE_PASS semantics. Stable unchanged.

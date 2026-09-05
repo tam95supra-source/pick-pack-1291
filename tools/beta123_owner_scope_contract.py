@@ -17,17 +17,19 @@ notes=txt('app/src/main/java/vn/pickpack1291/app/beta/ReleaseNotes.kt')
 qa=txt('qa/beta123_owner_scope_regression.md')
 
 # Exact Beta126 identity. Stable remains outside this patch scope.
-assert 'versionCode = 132' in gradle
-assert 'versionName = "0.4.2-beta.126"' in gradle
-assert 'VERSION_NAME = "0.4.2-beta.126"' in notes
+assert 'versionCode = 133' in gradle
+assert 'versionName = "0.4.2-beta.127"' in gradle
+assert 'VERSION_NAME = "0.4.2-beta.127"' in notes
 
 # Settings: actual rendered region fill must remain distinct; universal local reset/cache retained.
 settings=fn(ops,'settingsScreen')
 assert 'setColor(when(title)' in settings
-for s in ['Color.rgb(239,248,255)','Color.rgb(242,252,247)','Color.rgb(255,248,237)','XÓA CACHE','ĐẶT LẠI DỮ LIỆU']:
+for s in ['Color.rgb(239,248,255)','Color.rgb(242,252,247)','Color.rgb(255,248,237)','XÓA CACHE','XÓA DỮ LIỆU ỨNG DỤNG']:
     assert s in settings,(s,'settings')
 assert 'clearApplicationUserData' in ops
 assert 'không xóa dữ liệu trên Dịch vụ' in ops
+assert 'ĐẶT LẠI DỮ LIỆU' not in settings
+assert 'Xóa dữ liệu ứng dụng?' in ops
 
 # History and sync recovery already passed: guard them against regression.
 history=fn(ops,'historyScreen')
@@ -59,11 +61,13 @@ assert 'Service/D1 xác nhận ngay' not in drop
 
 # Report exact OWNER semantics.
 report=fn(ops,'reportScreen')
-assert 'BÁO CÁO TÌNH HÌNH NHÂN SỰ' in report
+assert 'body.addView(txt("BÁO CÁO TÌNH HÌNH NHÂN SỰ"' in report
 assert 'spinner(arrayOf("Ca 1 và HC","C2","Cả ngày"))' in report
 assert 'NHÂN SỰ PICK & PACK THỰC TẾ SAU KHI LOẠI TRỪ HỖ TRỢ' in report
 assert 'CHI TIẾT CÔNG NHẬT' in report
 assert 'Công nhật theo vị trí' in report
+assert report.index('section("CHI TIẾT CÔNG NHẬT")') < report.index('section("NHÂN SỰ PICK & PACK THỰC TẾ SAU KHI LOẠI TRỪ HỖ TRỢ")')
+assert 'Không có công nhật hỗ trợ trong phạm vi đã chọn.' in report
 assert '"Tổng nhân sự" to' not in report
 assert '"Khấu trừ công nhật" to' not in report
 

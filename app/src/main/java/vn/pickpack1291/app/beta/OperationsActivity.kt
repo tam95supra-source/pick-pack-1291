@@ -2523,7 +2523,7 @@ class OperationsActivity : Activity() {
     // S36_PERF_HISTORY_REPORT_SERVICE: selected-date cached aggregation; no full-day parse on UI thread.
     private fun reportScreen(){
         module="BUSINESS";screenState="REPORT"
-        val root=baseRoot("BÁO CÁO TÌNH HÌNH NHÂN SỰ");val body=column(bg).apply{setPadding(dp(3),dp(6),dp(3),dp(42))}
+        val root=baseRoot("BÁO CÁO TÌNH HÌNH NHÂN SỰ");val body=column(bg).apply{setPadding(dp(3),dp(6),dp(3),dp(42))};body.addView(txt("BÁO CÁO TÌNH HÌNH NHÂN SỰ",13f,navy,true).apply{setPadding(dp(4),dp(2),dp(4),dp(6))})
         val period=spinner(arrayOf("Ca 1 và HC","C2","Cả ngày"))
         fun availableReportDates():List<String> = operationalStore.availableDates().filter{date->
             val events=operationalStore.loadDay(date)?.optJSONArray("events")
@@ -2572,16 +2572,15 @@ class OperationsActivity : Activity() {
             val packerBase=main.count{reportPosition(it.emp,it.work)=="Packer"}
             val pickerDeduct=support.count{reportPosition(it.emp,it.work)=="Picker"}
             val packerDeduct=support.count{reportPosition(it.emp,it.work)=="Packer"}
+            box.addView(gap(6));box.addView(section("CHI TIẾT CÔNG NHẬT"))
+            if(support.isNotEmpty()) box.addView(s34ReportGrid("",supportGrid(support),"Công nhật theo vị trí","position"))
+            else box.addView(info("Không có công nhật hỗ trợ trong phạm vi đã chọn."))
             box.addView(gap(6))
             box.addView(section("NHÂN SỰ PICK & PACK THỰC TẾ SAU KHI LOẠI TRỪ HỖ TRỢ"))
             box.addView(details(listOf(
                 "Picker" to (pickerBase-pickerDeduct).coerceAtLeast(0).toString(),
                 "Packer" to (packerBase-packerDeduct).coerceAtLeast(0).toString()
             )))
-            if(support.isNotEmpty()){
-                box.addView(gap(6));box.addView(section("CHI TIẾT CÔNG NHẬT"))
-                box.addView(s34ReportGrid("",supportGrid(support),"Công nhật theo vị trí","position"))
-            }
             if(cachedEntries.isEmpty())box.addView(info("Chưa có snapshot ngày đã chọn trên PDA. Chọn ngày khác hoặc đồng bộ để tải dữ liệu canonical."))
         }
         fun loadDate(){
@@ -3338,7 +3337,7 @@ class OperationsActivity : Activity() {
         }.show()
     }
     private fun confirmResetLocalAppData(){
-        AlertDialog.Builder(this).setTitle("Đặt lại dữ liệu ứng dụng?").setMessage("Ứng dụng sẽ trở về trạng thái như mới cài. Dữ liệu chỉ có trên thiết bị và chưa đồng bộ có thể mất; dữ liệu chuẩn trên Dịch vụ không bị xóa và sẽ được tải lại sau khi mở ứng dụng.").setNegativeButton("Hủy",null).setPositiveButton("ĐẶT LẠI"){_,_->
+        AlertDialog.Builder(this).setTitle("Xóa dữ liệu ứng dụng?").setMessage("Ứng dụng sẽ trở về trạng thái như mới cài. Dữ liệu chỉ có trên thiết bị và chưa đồng bộ có thể mất; dữ liệu chuẩn trên Dịch vụ không bị xóa và sẽ được tải lại sau khi mở ứng dụng.").setNegativeButton("Hủy",null).setPositiveButton("XÓA DỮ LIỆU"){_,_->
             val am=getSystemService(android.app.ActivityManager::class.java)
             if(am?.clearApplicationUserData()!=true)TopNotice.show(this,"Không thể đặt lại dữ liệu ứng dụng trên thiết bị này.",TopNotice.Kind.ERROR)
         }.show()
@@ -3395,7 +3394,7 @@ class OperationsActivity : Activity() {
         )))
         val localTools=row(Color.TRANSPARENT)
         val clearCache=primary("XÓA CACHE",navy){confirmClearCache()}.apply{textSize=9.5f}
-        val clearData=primary("ĐẶT LẠI DỮ LIỆU",red){confirmResetLocalAppData()}.apply{textSize=9.5f}
+        val clearData=primary("XÓA DỮ LIỆU ỨNG DỤNG",red){confirmResetLocalAppData()}.apply{textSize=8.8f}
         localTools.addView(clearCache,LinearLayout.LayoutParams(0,dp(40),1f).apply{marginEnd=dp(4)})
         localTools.addView(clearData,LinearLayout.LayoutParams(0,dp(40),1f).apply{marginStart=dp(4)})
         appRegion.addView(gap(7));appRegion.addView(localTools,matchWrap());appRegion.addView(gap(5))
