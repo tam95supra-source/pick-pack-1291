@@ -1,26 +1,26 @@
 # CURRENT STATE — PICK PACK 1291
 
-- updated_at: 2026-09-05T16:07:00Z
-- status: BETA128_OWNER_R3_IN_PROGRESS
+- updated_at: 2026-09-05T22:04:40Z
+- status: BETA128_PASS_LIVE
 - continuity_branch: release/beta128-owner-r3-drop-realtime-20260905
-- source_sha: 014ea67eb05773d0d61593f705c2171b5ec574ee
-- beta_live: 0.4.2-beta.127 (versionCode 133)
+- source_sha: 5569d1e931436e02d118ed8ab57f2143de43b9f7
+- beta_live: 0.4.2-beta.128 (versionCode 134)
 - package: vn.pickpack1291.app.beta.publicbeta
-- candidate_run: 33967758178
-- candidate_artifact: 9970037896
-- verify_run: 33967758178
-- verify_artifact: 9970125449
-- apk_sha256: 922dd571c8e8d6cb5e6d8dbe7fd4f3d73433e14a9f35a50a78d97bf64fa9fbf7
+- candidate_run: 33980153560
+- candidate_artifact: 9973576823
+- verify_run: 33980153560
+- verify_artifact: 9973660685
+- apk_sha256: 04b135c554c6de6aa979b113a3435cec65063c87e79f232d8c8ea28e1d75f4ce
 - apk_size: 14461941
 - signer_sha256: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
-- terminal_run: 33969468377
+- terminal_run: 33994851862
 - fast_check: PASS
 - service_gate: NOT_REQUIRED
 - visual_matrix: PASS 320x568 / 360x640 / 480x800
 - human_visual: PASS
 - pda_functional_pre_ota: PASS
-- beta_ota: exact 0.4.2-beta.127 PASS via GitHub Release
-- beta_ota_url: https://github.com/tam95supra-source/pick-pack-1291/releases/download/v0.4.2-beta.127-publicbeta/pick-pack-1291-public-beta-0.4.2-beta.127.apk
+- beta_ota: exact 0.4.2-beta.128 PASS via GitHub Release
+- beta_ota_url: https://github.com/tam95supra-source/pick-pack-1291/releases/download/v0.4.2-beta.128-publicbeta/pick-pack-1291-public-beta-0.4.2-beta.128.apk
 - apk_transport: GITHUB_RELEASE_ONLY
 - google_drive_apk: FORBIDDEN
 - stable: unchanged
@@ -33,10 +33,6 @@
 - owner_scope_sha256: 6058c3463d6d7191f8ea5d829d4bf011b6c227047f23631479aa9a69352b146c
 - owner_command_ledger: ops/owner-command-ledger.jsonl
 - owner_command_ledger_head: bbe7cd9e91e587f8fed342d18582077561cc43accc92a110303ee404ccdd3eab
-- owner_checklist_id: BETA127_OWNER_ACCEPTANCE_20260905_R2
-- owner_checklist_revision: 2
-- owner_acceptance_receipt: ops/beta127-owner-acceptance.json
-- owner_acceptance_at: 2026-09-05T21:14:36+07:00
-- owner_acceptance: BETA127_PREVIOUS_COMPLETE; R3_CURRENT_PENDING
-- owner_scope_continuity_policy: OWNER_SCOPE_CONTINUITY_001 / LOCKED_REQUIREMENT_PENDING_FIX
-- next_action: VERIFY_BETA128_OWNER_R3_SOURCE_AND_RUN_REQUIRED_GATES
+- owner_checklist_id: BETA128_OWNER_ACCEPTANCE_20260905_R3
+- owner_checklist_revision: 3
+- next_action: WAIT_FOR_OWNER_ACCEPTANCE_NUMBERED_CHECKLIST_1_TO_12
