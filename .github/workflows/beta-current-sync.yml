@@ -4,6 +4,9 @@ on:
   workflow_run:
     workflows: ["Beta release"]
     types: [completed]
+  push:
+    branches:
+      - 'release/**'
 
 permissions:
   contents: write
@@ -15,13 +18,15 @@ concurrency:
 jobs:
   sync-current:
     if: >-
-      github.event.workflow_run.conclusion == 'success' &&
-      startsWith(github.event.workflow_run.head_branch, 'release/')
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       startsWith(github.event.workflow_run.head_branch, 'release/')) ||
+      (github.event_name == 'push' && startsWith(github.ref_name, 'release/'))
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.workflow_run.head_branch }}
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_branch || github.ref_name }}
           fetch-depth: 0
 
       - name: Verify sync contract
@@ -30,7 +35,7 @@ jobs:
       - name: Fast-forward beta/current to exact PASS/LIVE state
         shell: bash
         env:
-          RELEASE_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          RELEASE_BRANCH: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_branch || github.ref_name }}
         run: |
           set -euo pipefail
           git fetch origin beta/current "$RELEASE_BRANCH" --quiet
@@ -43,8 +48,6 @@ jobs:
           test "$(jq -r '.technical_pass_status // empty' ops/beta-release-request.json)" = "PASS"
 
           TARGET_VERSION=$(jq -r '.version_name' ops/beta-release-request.json)
-          TARGET_NO=${TARGET_VERSION##*.}
-          TARGET_NO=${TARGET_NO#beta.}
           TARGET_NO=${TARGET_VERSION##*beta.}
           [[ "$TARGET_NO" =~ ^[0-9]+$ ]]
 
