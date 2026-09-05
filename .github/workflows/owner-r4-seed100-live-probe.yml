@@ -1,0 +1,78 @@
+name: Owner R4 seed100 live probe
+
+on:
+  push:
+    branches:
+      - release/beta128-live-sync-seed100-20260906
+    paths:
+      - .github/workflows/owner-r4-seed100-live-probe.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: owner-r4-seed100-live-probe
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install service tooling
+        run: npm --prefix service install --ignore-scripts --no-audit --no-fund
+      - name: Resolve current official Beta production writer target
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import re,pathlib
+          p=pathlib.Path('.github/workflows/beta118-owner-seed-100-sessions.yml')
+          m=re.search(r'(?m)^\s*D1_NAME:\s*([^\s#]+)',p.read_text(encoding='utf-8'))
+          if not m: raise SystemExit('D1_NAME_SOURCE_MISSING')
+          pathlib.Path('/tmp/d1_name').write_text(m.group(1).strip(),encoding='utf-8')
+          PY
+      - name: Bounded live readback
+        shell: bash
+        run: |
+          set -euo pipefail
+          D1_NAME=$(cat /tmp/d1_name)
+          TODAY=$(TZ=Asia/Bangkok date +%F)
+          SQL="SELECT authority_epoch,authority_seq,mode,scope,service_generation FROM authority_state WHERE singleton_id=1; SELECT COUNT(*) eligible_employees FROM employees e LEFT JOIN attendance_sessions a ON a.mnv=e.mnv AND a.business_date='$TODAY' WHERE a.session_id IS NULL; SELECT state,COUNT(*) n FROM attendance_sessions WHERE business_date='$TODAY' GROUP BY state; SELECT r.resource_type,COUNT(*) n FROM resources r LEFT JOIN resource_leases l ON l.resource_type=r.resource_type AND l.resource_id=r.resource_id WHERE r.available=1 AND l.resource_id IS NULL GROUP BY r.resource_type ORDER BY r.resource_type; SELECT resource_type,resource_id,status_label FROM resources WHERE available=1 AND lower(resource_id) LIKE 'hy1.outbound%' ORDER BY resource_type,resource_id LIMIT 100; SELECT login_id,role,status FROM accounts WHERE lower(login_id) LIKE 'hy1.outbound%' ORDER BY login_id LIMIT 100; SELECT rpm.shift,COUNT(*) n FROM resource_pack_map rpm JOIN resources rt ON rt.resource_type='PACK_TABLE' AND rt.resource_id=rpm.pack_table AND rt.available=1 JOIN resources ru ON ru.resource_type='USER_PACK' AND ru.resource_id=rpm.user_pack AND ru.available=1 LEFT JOIN resource_leases lt ON lt.resource_type='PACK_TABLE' AND lt.resource_id=rpm.pack_table LEFT JOIN resource_leases lu ON lu.resource_type='USER_PACK' AND lu.resource_id=rpm.user_pack WHERE rpm.available=1 AND lt.resource_id IS NULL AND lu.resource_id IS NULL AND lower(rpm.user_pack) LIKE 'hy1.outbound%' GROUP BY rpm.shift ORDER BY rpm.shift;"
+          npx --prefix service wrangler d1 execute "$D1_NAME" --remote --json --command "$SQL" > /tmp/probe.json
+          python3 - <<'PY'
+          import json,datetime,pathlib
+          raw=json.load(open('/tmp/probe.json',encoding='utf-8')); rows=[]
+          def walk(v):
+            if isinstance(v,dict):
+              if isinstance(v.get('results'),list): rows.append(v['results'])
+              for x in v.values(): walk(x)
+            elif isinstance(v,list):
+              for x in v: walk(x)
+          walk(raw)
+          flat=[x for group in rows for x in group if isinstance(x,dict)]
+          auth=next((x for x in flat if 'authority_epoch' in x and 'authority_seq' in x),None)
+          if not auth or auth.get('mode')!='SERVICE_PRIMARY' or auth.get('scope')!='PRODUCTION': raise SystemExit(f'AUTHORITY_FENCE_FAILED:{auth}')
+          eligible=next((int(x['eligible_employees']) for x in flat if 'eligible_employees' in x),0)
+          if eligible < 100: raise SystemExit(f'NOT_ENOUGH_ELIGIBLE_EMPLOYEES:{eligible}')
+          report={'status':'PASS','business_date':datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=7))).date().isoformat(),'authority':auth,'eligible_employees':eligible,'result_groups':rows,'bounded_readback':True}
+          pathlib.Path('ops/owner-r4-seed100-live-probe.json').write_text(json.dumps(report,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+          PY
+      - name: Commit probe receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add ops/owner-r4-seed100-live-probe.json
+          git commit -m "ops(seed100): record bounded live resource probe"
+          git push origin HEAD:release/beta128-live-sync-seed100-20260906
