@@ -1,6 +1,6 @@
 {
   "stage": "VERIFY_ONLY",
-  "mode": "VERIFY_EXISTING_BETA125_EXACT_CANDIDATE_NAV_DIAG",
+  "mode": "VERIFY_EXISTING_BETA125_EXACT_CANDIDATE_NAV_VISUAL_DIAG",
   "version_name": "0.4.2-beta.125",
   "version_code": 131,
   "base_version": "0.4.2-beta.122",
@@ -67,8 +67,8 @@
   "stable_gas_repair_artifact_name": "stable-primary-canary-source-restore-33821666160",
   "apk_transport": "GITHUB_RELEASE_ONLY",
   "google_drive_apk": "FORBIDDEN",
-  "execution_nonce": "beta125-verify-nav-diag-20260905-02",
-  "next_action": "VERIFY_NAV_STACK_ON_BETA125_EXACT_CANDIDATE",
+  "execution_nonce": "beta125-verify-nav-visual-diag-20260905-03",
+  "next_action": "VERIFY_RESTORED_SCAN_VIEW_ON_BETA125_EXACT_CANDIDATE",
   "owner_scope": "OWNER_20260905_BETA125_QR_NAVIGATION_PLUS_BETA123_SCOPE",
   "owner_checklist_id": "BETA125_OWNER_ACCEPTANCE_20260905_R1",
   "owner_checklist_revision": 1,
