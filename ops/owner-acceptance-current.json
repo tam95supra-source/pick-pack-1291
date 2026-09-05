@@ -1,80 +1,100 @@
 {
   "schema_version": 1,
-  "state_epoch": 202609042359,
+  "state_epoch": 202609050820,
   "channel": "BETA",
   "public_beta": {
-    "version_name": "0.4.2-beta.120",
-    "version_code": 126,
-    "source_sha": "b8f548d5717156554b8599955f62ab23f9973fc9",
-    "apk_sha256": "04d9f4b88e6ff038766357402f7f5831de67649087c839f922897042120b8ef8",
+    "version_name": "0.4.2-beta.121",
+    "version_code": 127,
+    "source_sha": "ee482efb41565eee797b9b6c11fe54557c2b67f8",
+    "apk_sha256": "5b042c8e1f6d288ef19efe9abc773562c204fb3defd91396e4101adcedc8cc57",
     "technical_status": "PASS_LIVE"
   },
   "owner_scope": {
-    "scope_id": "OWNER_20260904_BETA120_BULK_EXIT_RESET200_ACCEPTANCE",
-    "status": "ACTIVE_PASS",
+    "scope_id": "OWNER_20260905_UI_STATUS_ROLE_SETTINGS_DROP_PDA_SOURCE",
+    "status": "PARTIAL_ACCEPTANCE_PENDING_FIX",
     "requirements": [
       {
-        "id": "CURRENT_PUBLIC_BETA_001",
+        "id": "UI-STATUS-DETAIL-VI-003",
         "status": "ACTIVE_PASS",
-        "rule": "beta/current and CURRENT_STATE identify the newest public LIVE Beta and reject stale rollback"
+        "rule": "Status header/detail Vietnamese + icons + manual sync accepted."
       },
       {
-        "id": "SUPERADMIN_AUTH_002",
-        "status": "ACTIVE_PASS",
-        "rule": "Beta119 accepted SUPERADMIN authentication semantics remain unchanged on Beta120"
+        "id": "SUPERADMIN-EFFECTIVE-ROLE-003",
+        "status": "LOCKED_REQUIREMENT_PENDING_FIX",
+        "rule": "Only role selector may use actual SUPERADMIN; every business surface/action must obey effective USER/ADMIN/SUPERADMIN."
       },
       {
-        "id": "OWNER_ACCEPTANCE_LEDGER_001",
+        "id": "SETTINGS-REGION-INHOUSE-DROP-001",
         "status": "ACTIVE_PASS",
-        "rule": "owner checklist and acceptance state remain repository-backed, monotonic and fenced"
+        "rule": "Settings grouped regions, Inhouse pending card and drop-receive table accepted."
       },
       {
-        "id": "OLD-SESSION-BULK-EXIT-001",
-        "status": "ACTIVE_PASS",
-        "rule": "SUPERADMIN Ra ca tất cả hợp lệ routes directly to Service authority with bounded idempotent batches, failure isolation and labor skip"
+        "id": "PDA-SOURCE-MASTER-001",
+        "status": "LOCKED_REQUIREMENT_PENDING_FIX",
+        "rule": "PDA source must be visible/editable in Android PDA information and Resource PDA list using canonical source catalog."
       }
     ]
   },
   "technical_evidence": {
-    "candidate_run_id": 33874862142,
-    "candidate_artifact_id": 9937580926,
-    "fast_check_run_id": 33874862122,
-    "service_visual_pda_run_id": 33876606829,
-    "device_discovery_run_id": 33895538590,
-    "runtime_dod_run_id": 33895822870,
-    "beta_domain_run_id": 33896047850,
-    "terminal_run_id": 33896192267,
-    "release_lock_receipt": "ops/beta120-release-lock.json",
-    "owner_receipt": "ops/beta120-owner-acceptance.json"
+    "candidate_run_id": 33929895214,
+    "candidate_artifact_id": 9958252319,
+    "fast_check_run_id": 33932137056,
+    "service_visual_pda_run_id": 33932137068,
+    "device_discovery_run_id": 33932666498,
+    "runtime_dod_run_id": 33933735030,
+    "beta_domain_run_id": 33934032820,
+    "terminal_run_id": 33934142254,
+    "release_lock_receipt": "ops/beta121-release-lock.json",
+    "owner_receipt": "ops/beta121-owner-acceptance-partial.json"
   },
   "checklist": {
-    "checklist_id": "BETA120_OWNER_ACCEPTANCE_20260904_R1",
-    "revision": 1,
-    "status": "OWNER_ACCEPTANCE_COMPLETE",
+    "checklist_id": "BETA121_OWNER_ACCEPTANCE_20260905_R1",
+    "revision": 2,
+    "status": "PARTIAL_ACCEPTANCE_PENDING_FIX",
     "items": [
-      {"number": 1, "id": "DATA_SCOPE_ITEM_1", "status": "OWNER_OK", "test": "OWNER acceptance recorded from prior numbered checklist."},
-      {"number": 2, "id": "DATA_SCOPE_ITEM_2", "status": "OWNER_OK", "test": "OWNER acceptance recorded from prior numbered checklist."},
-      {"number": 3, "id": "DATA_SCOPE_ITEM_3", "status": "OWNER_OK", "test": "OWNER acceptance recorded from prior numbered checklist."},
-      {"number": 4, "id": "OLD-SESSION-BULK-EXIT-001", "status": "OWNER_OK", "test": "OWNER confirmed phần Ra ca đã OK."}
+      {
+        "number": 1,
+        "id": "UI-STATUS-DETAIL-VI-003",
+        "status": "OWNER_OK",
+        "test": "OWNER confirmed item 1 OK."
+      },
+      {
+        "number": 2,
+        "id": "SUPERADMIN-EFFECTIVE-ROLE-003",
+        "status": "OWNER_NOT_OK",
+        "test": "USER simulation still exposes History; effective-role lowering must be real everywhere except selector."
+      },
+      {
+        "number": 3,
+        "id": "SETTINGS-REGION-INHOUSE-DROP-001",
+        "status": "OWNER_OK",
+        "test": "OWNER confirmed item 3 OK."
+      },
+      {
+        "number": 4,
+        "id": "PDA-SOURCE-MASTER-001",
+        "status": "OWNER_NOT_OK",
+        "test": "PDA source missing from Android PDA info and Resource PDA list."
+      }
     ],
     "owner_responses": [
       {
-        "recorded_at": "2026-09-04T23:58:00+07:00",
-        "response": "1 2 3 đều ok",
-        "items": {"1": "OK", "2": "OK", "3": "OK"}
-      },
-      {
-        "recorded_at": "2026-09-04T23:59:30+07:00",
-        "response": "Phần ra ca đã ok. Chốt xong.",
-        "items": {"OLD-SESSION-BULK-EXIT-001": "OK"}
+        "recorded_at": "2026-09-05T08:20:00+07:00",
+        "response": "1 ok 2 anh vẫn thấy lịch sử hiển thị dù về user, anh muốn quyền hạ thực sự như user, admin. Chỉ có phần chọn quyền là tồn tại để chuyển thôi. 3 ok 4 chưa thấy nguồn ở phần thông tin pda cũng như danh sách pda ở tài nguyên, mới cập nhật gsheet chưa cập nhập app à?",
+        "items": {
+          "1": "OK",
+          "2": "NOT_OK",
+          "3": "OK",
+          "4": "NOT_OK"
+        }
       }
     ]
   },
   "previous_acceptance": {
-    "version_name": "0.4.2-beta.119",
-    "state_epoch": 202609041920,
-    "checklist_id": "BETA119_OWNER_ACCEPTANCE_20260904_R1",
-    "revision": 4,
+    "version_name": "0.4.2-beta.120",
+    "state_epoch": 202609042359,
+    "checklist_id": "BETA120_OWNER_ACCEPTANCE_20260904_R1",
+    "revision": 1,
     "status": "OWNER_ACCEPTANCE_COMPLETE"
   },
   "fencing": {
@@ -91,5 +111,5 @@
     "gmail_oauth_secret_in_repo": "FORBIDDEN",
     "secret_values_in_logs_artifacts_receipts": "FORBIDDEN"
   },
-  "next_action": "OWNER_ACCEPTANCE_COMPLETE"
+  "next_action": "FIX_BETA121_OWNER_ITEMS_2_4_IN_BETA122"
 }

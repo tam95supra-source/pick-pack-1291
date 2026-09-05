@@ -1,0 +1,35 @@
+{
+  "status": "PARTIAL_ACCEPTANCE_PENDING_FIX",
+  "version_name": "0.4.2-beta.121",
+  "checklist_id": "BETA121_OWNER_ACCEPTANCE_20260905_R1",
+  "revision": 2,
+  "recorded_at": "2026-09-05T08:20:00+07:00",
+  "owner": "Nguyễn Văn Tâm",
+  "items": [
+    {
+      "number": 1,
+      "id": "UI-STATUS-DETAIL-VI-003",
+      "status": "OWNER_OK",
+      "test": "OWNER confirmed item 1 OK."
+    },
+    {
+      "number": 2,
+      "id": "SUPERADMIN-EFFECTIVE-ROLE-003",
+      "status": "OWNER_NOT_OK",
+      "test": "USER simulation still exposes History; effective-role lowering must be real everywhere except selector."
+    },
+    {
+      "number": 3,
+      "id": "SETTINGS-REGION-INHOUSE-DROP-001",
+      "status": "OWNER_OK",
+      "test": "OWNER confirmed item 3 OK."
+    },
+    {
+      "number": 4,
+      "id": "PDA-SOURCE-MASTER-001",
+      "status": "OWNER_NOT_OK",
+      "test": "PDA source missing from Android PDA info and Resource PDA list."
+    }
+  ],
+  "next_action": "FIX_BETA121_OWNER_ITEMS_2_4_IN_BETA122"
+}

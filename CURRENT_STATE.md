@@ -34,4 +34,4 @@
 - authority: SERVICE_PRIMARY / PRODUCTION / epoch 9 / unchanged
 - technical_pass_status: PASS
 - owner_acceptance: PENDING
-- next_action: WAIT_FOR_OWNER_ACCEPTANCE_NUMBERED_CHECKLIST
+- next_action: FIX_BETA121_OWNER_ITEMS_2_4_IN_BETA122
