@@ -6,6 +6,8 @@ on:
     paths:
       - '.github/workflows/beta124-apply-qr-postscan-fix.yml'
       - 'tools/beta124_apply_qr_postscan_fix.py'
+      - 'tools/beta113_owner_scope_contract.py'
+      - 'tools/beta116_owner_scope_contract.py'
 permissions:
   contents: write
 concurrency:
