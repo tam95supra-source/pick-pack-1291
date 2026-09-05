@@ -11,171 +11,32 @@
   "ledger_head_sequence": 2,
   "ledger_head_event_sha256": "db93d50eba8cf91406e2afbf6d44ce56a1e49a660b3621af1ddc82c2eb822655",
   "requirements": [
-    {
-      "requirement_id": "R2-01",
-      "checklist_number": 1,
-      "title": "Cài đặt",
-      "acceptance": [
-        "Trong Thông tin ứng dụng có Xóa cache và Xóa dữ liệu ứng dụng.",
-        "Xóa dữ liệu cho phép cả USER; chỉ cần xác nhận, không yêu cầu mật khẩu; chỉ xóa dữ liệu local và đưa app về trạng thái như mới cài, không xóa dữ liệu Service/server.",
-        "Sau reset, app đồng bộ lại đúng dữ liệu canonical từ Service.",
-        "Layout các nhóm cài đặt có màu sắc rõ ràng, dễ phân biệt và vẫn giữ bố cục logic."
-      ],
-      "invariant_id": "SETTINGS-RESET-LAYOUT-002",
-      "state": "ACTIVE_PASS",
-      "owner_result": "OK",
-      "source_command_ids": ["CMD-20260905-001"]
-    },
-    {
-      "requirement_id": "R2-02",
-      "checklist_number": 2,
-      "title": "Lịch sử",
-      "acceptance": [
-        "Có nút Xóa toàn bộ cùng hàng với Chọn/Bỏ chọn/Xóa đã chọn; xóa toàn bộ lịch sử của ngày đang chọn theo quyền/xác thực đã chốt.",
-        "Ô tìm kiếm hiển thị Tìm mã nhân viên, họ tên, nghiệp vụ …",
-        "Chọn ngày/search/nút có kích thước gọn, đồng bộ toàn app và tăng diện tích hiển thị lịch sử.",
-        "Chi tiết lịch sử thuần Việt, dễ hiểu, bỏ text hướng dẫn OWNER thừa và hiển thị đủ thông tin chi tiết hữu ích."
-      ],
-      "invariant_id": "HISTORY-DATE-BULK-DETAIL-003",
-      "state": "ACTIVE_PASS",
-      "owner_result": "OK",
-      "source_command_ids": ["CMD-20260905-001"]
-    },
-    {
-      "requirement_id": "R2-03",
-      "checklist_number": 3,
-      "title": "Ba ô Mạng / Đồng bộ / Dịch vụ",
-      "acceptance": [
-        "Dịch vụ hiển thị loại/nguồn đang dùng thực tế như Cloudflare/LAN; chỉ hiện Không hoạt động/OFFLINE khi thực sự không hoạt động.",
-        "Mạng hiển thị ping cạnh loại mạng.",
-        "Các mục Đồng bộ/Dịch vụ đang chờ có thao tác xử lý lại từng mục, xử lý lại tất cả/cưỡng ép thử lại theo cơ chế an toàn.",
-        "ADMIN/SUPERADMIN có thể tự xử lý; chỉ cho xóa hẳn mục đã xác minh terminal/stale/không còn giá trị nghiệp vụ, không làm mất mutation chưa commit."
-      ],
-      "invariant_id": "STATUS-QUEUE-RECOVERY-004",
-      "state": "ACTIVE_PASS",
-      "owner_result": "OK",
-      "source_command_ids": ["CMD-20260905-001"]
-    },
-    {
-      "requirement_id": "R2-04",
-      "checklist_number": 4,
-      "title": "Nhân sự",
-      "acceptance": [
-        "Gõ ô search không còn giật/khựng dù danh sách lớn hoặc giới hạn hiển thị đang áp dụng.",
-        "Không rebuild toàn bộ danh sách đồng bộ theo từng ký tự; kết quả tìm kiếm vẫn đúng."
-      ],
-      "invariant_id": "STAFF-SEARCH-DEBOUNCE-001",
-      "state": "ACTIVE_PASS",
-      "owner_result": "OK",
-      "source_command_ids": ["CMD-20260905-001"]
-    },
-    {
-      "requirement_id": "R2-05",
-      "checklist_number": 5,
-      "title": "Hàng rớt",
-      "acceptance": [
-        "Cột thời gian được căn để không tràn xuống hai dòng.",
-        "Hiển thị 50 DO mỗi trang; có tiến/lùi trang khi dữ liệu nhiều hơn 50.",
-        "Đã bỏ text thừa Service / D1 xác nhận ngay …."
-      ],
-      "invariant_id": "DROP-PAGINATION-003",
-      "state": "ACTIVE_PASS",
-      "owner_result": "OK",
-      "source_command_ids": ["CMD-20260905-001"]
-    },
-    {
-      "requirement_id": "R2-06",
-      "checklist_number": 6,
-      "title": "Báo cáo tình hình nhân sự",
-      "acceptance": [
-        "Bỏ text Phạm vi báo cáo; tiêu đề đúng Báo cáo tình hình nhân sự.",
-        "Select ca có đúng 3 lựa chọn: Ca 1 và HC / C2 / Cả ngày; đi cùng chọn ngày-tháng-năm; kích thước gọn và đồng bộ toàn app.",
-        "Tiêu đề bảng và Vị trí dùng chữ đậm.",
-        "Bỏ Tổng nhân sự và Khấu trừ nhân sự; vùng kết quả mang tiêu đề Nhân sự pick & pack thực tế sau khi loại trừ hỗ trợ.",
-        "Có chi tiết công nhật dưới bảng thâm niên và trên vùng Pick & Pack thực tế: hiển thị vị trí công nhật và số lượng mỗi vị trí với layout hợp lý."
-      ],
-      "invariant_id": "REPORT-MANPOWER-LABOR-003",
-      "state": "ACTIVE_PASS",
-      "owner_result": "OK",
-      "source_command_ids": ["CMD-20260905-001"]
-    },
-    {
-      "requirement_id": "R2-07",
-      "checklist_number": 7,
-      "title": "Công nhật",
-      "acceptance": [
-        "Màn công nhật không còn cảm giác giật/khựng.",
-        "Tạo/kết thúc nhiều người không load tuần tự gây đơ; trạng thái hoàn thành cập nhật mượt.",
-        "Bỏ qua cảnh báo Tổ trưởng/Kéo hàng lưu theo từng NLĐ + phiên/ngày; xử lý một người không ẩn cảnh báo người khác; NLĐ mới xuất hiện vẫn có cảnh báo.",
-        "Có thể chọn riêng/chọn nhiều/chọn tất cả; select không dính nhau và có kích thước hợp lý.",
-        "Có Sửa nhiều cho giờ bắt đầu, giờ kết thúc và tính/không tính khấu trừ."
-      ],
-      "invariant_id": "LABOR-BULK-REALTIME-007",
-      "state": "ACTIVE_PASS",
-      "owner_result": "OK",
-      "source_command_ids": ["CMD-20260905-001"]
-    },
-    {
-      "requirement_id": "R2-08",
-      "checklist_number": 8,
-      "title": "Đổi / trả PDA",
-      "acceptance": [
-        "Hiển thị nguồn PDA.",
-        "Layout Đổi PDA được thiết kế lại đơn giản, dễ hiểu cho người dùng và không làm sai canonical PDA/session."
-      ],
-      "invariant_id": "PDA-EXCHANGE-SOURCE-002",
-      "state": "ACTIVE_PASS",
-      "owner_result": "OK",
-      "source_command_ids": ["CMD-20260905-001"]
-    },
-    {
-      "requirement_id": "R2-09",
-      "checklist_number": 9,
-      "title": "Điểm danh",
-      "acceptance": [
-        "Ô search hiển thị Tìm mã nhân viên / họ tên.",
-        "Bấm/mở/lọc không còn reload-like, nhấp nháy hoặc giật lag."
-      ],
-      "invariant_id": "ATTENDANCE-LOCAL-FIRST-003",
-      "state": "ACTIVE_PASS",
-      "owner_result": "OK",
-      "source_command_ids": ["CMD-20260905-001"]
-    },
-    {
-      "requirement_id": "R2-10",
-      "checklist_number": 10,
-      "title": "Scan QR vào / ra",
-      "acceptance": [
-        "Sau khi quét có kết quả thì không hiển thị danh sách nhân sự chi tiết; danh sách này chỉ hiển thị khi chưa quét.",
-        "Layout chi tiết theo ca được đưa ra ngay trong danh sách chi tiết; không phải mở danh sách rồi bấm ca để vào thêm một tầng trang chi tiết.",
-        "Luồng scan/result/back giữ đúng navigation thực tế và không làm UI chớp/reload."
-      ],
-      "invariant_id": "QR-INLINE-SHIFT-NAV-003",
-      "state": "ACTIVE_PASS",
-      "owner_result": "OK",
-      "source_command_ids": ["CMD-20260905-001"]
-    },
-    {
-      "requirement_id": "R2-11",
-      "checklist_number": 11,
-      "title": "Realtime UI toàn app",
-      "acceptance": [
-        "Cảnh báo có dữ liệu local xuất hiện gần như tức thì, không chờ 1–2 giây.",
-        "Thao tác local/UI phản hồi mục tiêu khoảng <=100 ms theo phương án OWNER đã chốt; không chờ round-trip Service để render.",
-        "Service xử lý/reconcile nền vào state hiện tại; Service chậm không làm UI khựng, reload hoặc chớp giật.",
-        "Rà soát toàn app: các màn bị tác động giữ realtime UI update mượt và đúng canonical state."
-      ],
-      "invariant_id": "UI-REALTIME-100MS-006",
-      "state": "ACTIVE_PASS",
-      "owner_result": "OK",
-      "source_command_ids": ["CMD-20260905-001"]
-    }
+    {"requirement_id":"R2-01","checklist_number":1,"title":"Cài đặt","acceptance":["Trong Thông tin ứng dụng có Xóa cache và Xóa dữ liệu ứng dụng.","Xóa dữ liệu cho phép cả USER; chỉ cần xác nhận, không yêu cầu mật khẩu; chỉ xóa dữ liệu local và đưa app về trạng thái như mới cài, không xóa dữ liệu Service/server.","Sau reset, app đồng bộ lại đúng dữ liệu canonical từ Service.","Layout các nhóm cài đặt có màu sắc rõ ràng, dễ phân biệt và vẫn giữ bố cục logic."],"invariant_id":"SETTINGS-RESET-LAYOUT-002","state":"ACTIVE_PASS","owner_result":"OK","source_command_ids":["CMD-20260905-001"]},
+    {"requirement_id":"R2-02","checklist_number":2,"title":"Lịch sử","acceptance":["Có nút Xóa toàn bộ cùng hàng với Chọn/Bỏ chọn/Xóa đã chọn; xóa toàn bộ lịch sử của ngày đang chọn theo quyền/xác thực đã chốt.","Ô tìm kiếm hiển thị Tìm mã nhân viên, họ tên, nghiệp vụ …","Chọn ngày/search/nút có kích thước gọn, đồng bộ toàn app và tăng diện tích hiển thị lịch sử.","Chi tiết lịch sử thuần Việt, dễ hiểu, bỏ text hướng dẫn OWNER thừa và hiển thị đủ thông tin chi tiết hữu ích."],"invariant_id":"HISTORY-DATE-BULK-DETAIL-003","state":"ACTIVE_PASS","owner_result":"OK","source_command_ids":["CMD-20260905-001"]},
+    {"requirement_id":"R2-03","checklist_number":3,"title":"Ba ô Mạng / Đồng bộ / Dịch vụ","acceptance":["Dịch vụ hiển thị loại/nguồn đang dùng thực tế như Cloudflare/LAN; chỉ hiện Không hoạt động/OFFLINE khi thực sự không hoạt động.","Mạng hiển thị ping cạnh loại mạng.","Các mục Đồng bộ/Dịch vụ đang chờ có thao tác xử lý lại từng mục, xử lý lại tất cả/cưỡng ép thử lại theo cơ chế an toàn.","ADMIN/SUPERADMIN có thể tự xử lý; chỉ cho xóa hẳn mục đã xác minh terminal/stale/không còn giá trị nghiệp vụ, không làm mất mutation chưa commit."],"invariant_id":"STATUS-QUEUE-RECOVERY-004","state":"ACTIVE_PASS","owner_result":"OK","source_command_ids":["CMD-20260905-001"]},
+    {"requirement_id":"R2-04","checklist_number":4,"title":"Nhân sự","acceptance":["Gõ ô search không còn giật/khựng dù danh sách lớn hoặc giới hạn hiển thị đang áp dụng.","Không rebuild toàn bộ danh sách đồng bộ theo từng ký tự; kết quả tìm kiếm vẫn đúng."],"invariant_id":"STAFF-SEARCH-DEBOUNCE-001","state":"ACTIVE_PASS","owner_result":"OK","source_command_ids":["CMD-20260905-001"]},
+    {"requirement_id":"R2-05","checklist_number":5,"title":"Hàng rớt","acceptance":["Cột thời gian được căn để không tràn xuống hai dòng.","Hiển thị 50 DO mỗi trang; có tiến/lùi trang khi dữ liệu nhiều hơn 50.","Đã bỏ text thừa Service / D1 xác nhận ngay …."],"invariant_id":"DROP-PAGINATION-003","state":"ACTIVE_PASS","owner_result":"OK","source_command_ids":["CMD-20260905-001"]},
+    {"requirement_id":"R2-06","checklist_number":6,"title":"Báo cáo tình hình nhân sự","acceptance":["Bỏ text Phạm vi báo cáo; tiêu đề đúng Báo cáo tình hình nhân sự.","Select ca có đúng 3 lựa chọn: Ca 1 và HC / C2 / Cả ngày; đi cùng chọn ngày-tháng-năm; kích thước gọn và đồng bộ toàn app.","Tiêu đề bảng và Vị trí dùng chữ đậm.","Bỏ Tổng nhân sự và Khấu trừ nhân sự; vùng kết quả mang tiêu đề Nhân sự pick & pack thực tế sau khi loại trừ hỗ trợ.","Có chi tiết công nhật dưới bảng thâm niên và trên vùng Pick & Pack thực tế: hiển thị vị trí công nhật và số lượng mỗi vị trí với layout hợp lý."],"invariant_id":"REPORT-MANPOWER-LABOR-003","state":"ACTIVE_PASS","owner_result":"OK","source_command_ids":["CMD-20260905-001"]},
+    {"requirement_id":"R2-07","checklist_number":7,"title":"Công nhật","acceptance":["Màn công nhật không còn cảm giác giật/khựng.","Tạo/kết thúc nhiều người không load tuần tự gây đơ; trạng thái hoàn thành cập nhật mượt.","Bỏ qua cảnh báo Tổ trưởng/Kéo hàng lưu theo từng NLĐ + phiên/ngày; xử lý một người không ẩn cảnh báo người khác; NLĐ mới xuất hiện vẫn có cảnh báo.","Có thể chọn riêng/chọn nhiều/chọn tất cả; select không dính nhau và có kích thước hợp lý.","Có Sửa nhiều cho giờ bắt đầu, giờ kết thúc và tính/không tính khấu trừ."],"invariant_id":"LABOR-BULK-REALTIME-007","state":"ACTIVE_PASS","owner_result":"OK","source_command_ids":["CMD-20260905-001"]},
+    {"requirement_id":"R2-08","checklist_number":8,"title":"Đổi / trả PDA","acceptance":["Hiển thị nguồn PDA.","Layout Đổi PDA được thiết kế lại đơn giản, dễ hiểu cho người dùng và không làm sai canonical PDA/session."],"invariant_id":"PDA-EXCHANGE-SOURCE-002","state":"ACTIVE_PASS","owner_result":"OK","source_command_ids":["CMD-20260905-001"]},
+    {"requirement_id":"R2-09","checklist_number":9,"title":"Điểm danh","acceptance":["Ô search hiển thị Tìm mã nhân viên / họ tên.","Bấm/mở/lọc không còn reload-like, nhấp nháy hoặc giật lag."],"invariant_id":"ATTENDANCE-LOCAL-FIRST-003","state":"ACTIVE_PASS","owner_result":"OK","source_command_ids":["CMD-20260905-001"]},
+    {"requirement_id":"R2-10","checklist_number":10,"title":"Scan QR vào / ra","acceptance":["Sau khi quét có kết quả thì không hiển thị danh sách nhân sự chi tiết; danh sách này chỉ hiển thị khi chưa quét.","Layout chi tiết theo ca được đưa ra ngay trong danh sách chi tiết; không phải mở danh sách rồi bấm ca để vào thêm một tầng trang chi tiết.","Luồng scan/result/back giữ đúng navigation thực tế và không làm UI chớp/reload."],"invariant_id":"QR-INLINE-SHIFT-NAV-003","state":"ACTIVE_PASS","owner_result":"OK","source_command_ids":["CMD-20260905-001"]},
+    {"requirement_id":"R2-11","checklist_number":11,"title":"Realtime UI toàn app","acceptance":["Cảnh báo có dữ liệu local xuất hiện gần như tức thì, không chờ 1–2 giây.","Thao tác local/UI phản hồi mục tiêu khoảng <=100 ms theo phương án OWNER đã chốt; không chờ round-trip Service để render.","Service xử lý/reconcile nền vào state hiện tại; Service chậm không làm UI khựng, reload hoặc chớp giật.","Rà soát toàn app: các màn bị tác động giữ realtime UI update mượt và đúng canonical state."],"invariant_id":"UI-REALTIME-100MS-006","state":"ACTIVE_PASS","owner_result":"OK","source_command_ids":["CMD-20260905-001"]}
   ],
   "governance": {
     "policy_id": "OWNER_SCOPE_CONTINUITY_001",
     "policy_file": "docs/OWNER_SCOPE_PROTOCOL.md",
     "source_command_ids": ["CMD-20260905-002"],
-    "status": "LOCKED_REQUIREMENT_PENDING_FIX"
+    "status": "TECHNICAL_PASS_AWAITING_OWNER",
+    "technical_evidence": {
+      "guard_run_id": 33972852061,
+      "guard_status": "PASS",
+      "scope_guard_self_test": "PASS",
+      "scope_drift_guard": "PASS",
+      "bootstrap_readback": "PASS",
+      "finalizer_pointer_mode": "PASS",
+      "app_service_bytes_changed": false
+    }
   },
   "release_binding": {
     "mode": "CURRENT_RELEASE",
@@ -185,5 +46,6 @@
     "owner_checklist_revision": 2,
     "owner_acceptance_receipt": "ops/beta127-owner-acceptance.json"
   },
-  "scope_sha256": "09988e6963eb033702e073e9a0f4a76302d598f09702d97bc5ce3cfbe5f22cba"
+  "semantics_sha256": "3a52ab482e3a6baddcca5e61f6d9aa1b719ccf6648639dfa901d33b98990c626",
+  "scope_sha256": "9292b93190229dc584f76c3034dc4554dc46c16c642aa9d51fdc4274b44a77e2"
 }
