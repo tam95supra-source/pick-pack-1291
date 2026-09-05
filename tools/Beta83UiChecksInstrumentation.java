@@ -663,6 +663,18 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     }catch(Throwable t){return "diag_error="+t.getClass().getSimpleName()+":"+String.valueOf(t.getMessage());}
   }
 
+  private String visibleTextSummary(){
+    AccessibilityNodeInfo r=root();if(r==null)return "root=null";
+    StringBuilder b=new StringBuilder();
+    ArrayDeque<AccessibilityNodeInfo> q=new ArrayDeque<>();q.add(r);int count=0;
+    while(!q.isEmpty()&&count<40){
+      AccessibilityNodeInfo n=q.removeFirst();String t=textOf(n);
+      if(t!=null&&!t.trim().isEmpty()){if(b.length()>0)b.append(" | ");b.append(t.replace("\n"," "));count++;}
+      for(int i=0;i<n.getChildCount();i++){AccessibilityNodeInfo c=n.getChild(i);if(c!=null)q.addLast(c);}
+    }
+    return b.toString();
+  }
+
   private void runBack36()throws Exception{
     String mnv=req("mnv"),mnv2=req("mnv2"),mnv3=req("mnv3");
     seedAuth();seedService();seedData(mnv,mnv2,mnv3);
@@ -1199,9 +1211,11 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     mark("post_scan_roster_hidden_beta124");
     String navBefore=navState();
     invokeActivityBack();
+    SystemClock.sleep(1200L);
     String navAfter=navState();
+    shot(tag+"-04b-beta125-back-scan");
     AccessibilityNodeInfo qrBack=findText("QUÉT QR NHÂN SỰ",true,false);
-    require(qrBack!=null,"BETA125_BACK_NAV_DIAG:"+navBefore+"=>"+navAfter);
+    require(qrBack!=null,"BETA125_BACK_NAV_VISUAL_DIAG:"+navBefore+"=>"+navAfter+";texts="+visibleTextSummary());
     mark("post_scan_activity_back_beta124");
 
     showTextOnScreen("Danh sách QR vào / ra",10000L);
