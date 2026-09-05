@@ -1,0 +1,55 @@
+name: Owner R4 finalizer current self sync
+
+on:
+  push:
+    branches:
+      - release/beta128-live-sync-seed100-20260906
+    paths:
+      - .github/workflows/owner-r4-finalizer-current-selfsync.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Add same-job beta current self-sync to finalizer
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('tools/finalize_beta83.sh'); t=p.read_text(encoding='utf-8')
+          anchor='''git push origin "HEAD:$BRANCH"\ngit fetch origin "$BRANCH" --quiet\ntest "$(git rev-parse "origin/$BRANCH")" = "$FINAL"'''
+          repl='''git push origin "HEAD:$BRANCH"\ngit fetch origin "$BRANCH" --quiet\ntest "$(git rev-parse "origin/$BRANCH")" = "$FINAL"\n\n# Same-job convergence is mandatory because commits pushed by GITHUB_TOKEN do not recursively trigger push workflows.\ngit fetch origin beta/current --quiet\nCURRENT_HEAD=$(git rev-parse origin/beta/current)\nCURRENT_VERSION=$(git show origin/beta/current:CURRENT_STATE.md | sed -n 's/^- beta_live: \\([^ ]*\\).*/\\1/p' | head -n1)\nCURRENT_NO="${CURRENT_VERSION##*beta.}"\n[[ "$CURRENT_NO" =~ ^[0-9]+$ ]]\nif (( CURRENT_NO > BETA_NO )); then\n  echo "FINALIZER_CURRENT_SYNC_SKIP_NEWER_CURRENT:$CURRENT_VERSION"\nelse\n  if [[ "$CURRENT_HEAD" != "$FINAL" ]]; then\n    git merge-base --is-ancestor "$CURRENT_HEAD" "$FINAL" || { echo "FINALIZER_CURRENT_SYNC_FAIL_NON_FF" >&2; exit 1; }\n    git push origin "$FINAL:refs/heads/beta/current"\n  fi\n  git fetch origin beta/current --quiet\n  test "$(git rev-parse origin/beta/current)" = "$FINAL"\n  test "$(git show origin/beta/current:CURRENT_STATE.md | sed -n 's/^- beta_live: \\([^ ]*\\).*/\\1/p' | head -n1)" = "$VERSION"\n  test "$(git show origin/beta/current:ops/beta-ota-current.json | jq -r '.version_name')" = "$VERSION"\n  echo "FINALIZER_CURRENT_SYNC_PASS:$VERSION:$FINAL"\nfi'''
+          if anchor not in t: raise SystemExit('FINALIZER_CURRENT_SYNC_ANCHOR_MISSING')
+          p.write_text(t.replace(anchor,repl,1),encoding='utf-8')
+          PY
+      - name: Extend canonical contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('tools/finalizer_handoff_contract.py'); t=p.read_text(encoding='utf-8')
+          anchor="assert 'WAIT_FOR_OWNER_ACCEPTANCE_REQUIREMENTS_${OWNER_PENDING_NUMBERS}' in finalizer\n"
+          add=anchor+"assert 'refs/heads/beta/current' in finalizer\nassert 'FINALIZER_CURRENT_SYNC_PASS' in finalizer\nassert 'FINALIZER_CURRENT_SYNC_SKIP_NEWER_CURRENT' in finalizer\nassert 'FINALIZER_CURRENT_SYNC_FAIL_NON_FF' in finalizer\nassert 'git merge-base --is-ancestor' in finalizer\nassert '--force' not in finalizer\n"
+          if anchor not in t: raise SystemExit('FINALIZER_CONTRACT_ANCHOR_MISSING')
+          p.write_text(t.replace(anchor,add,1),encoding='utf-8')
+          PY
+          python3 tools/owner_scope_guard.py --bootstrap
+          python3 tools/finalizer_handoff_contract.py
+      - name: Commit self-sync fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tools/finalize_beta83.sh tools/finalizer_handoff_contract.py
+          git commit -m "fix(current): self-sync beta/current from finalizer"
+          git push origin HEAD:release/beta128-live-sync-seed100-20260906
