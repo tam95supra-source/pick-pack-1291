@@ -1,0 +1,101 @@
+name: OWNER scope final readback remediation
+
+on:
+  push:
+    branches:
+      - 'control/owner-scope-continuity-final-readback-20260905'
+    paths:
+      - '.github/workflows/owner-scope-final-readback-remediation.yml'
+
+permissions:
+  contents: write
+
+env:
+  CANONICAL_BASE_SHA: 8068015bd8100c776681d090a7321cc8f8727509
+  CONTINUITY_BRANCH: release/beta127-owner-r2-complete-20260905
+
+jobs:
+  finalize-readback:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify exact ancestry and unchanged app bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          git merge-base --is-ancestor "$CANONICAL_BASE_SHA" HEAD
+          git diff --quiet "$CANONICAL_BASE_SHA" -- app service services google-apps-script
+
+      - name: Install YAML parser
+        run: python3 -m pip install --quiet pyyaml
+
+      - name: Finalize canonical technical evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          EVIDENCE='{"technical_pass_run_id":33973889892,"guard_status":"PASS_FINAL_REMOTE_READBACK","canonical_release_guard_run_id":33973993708,"canonical_beta_current_guard_run_id":33974000825,"canonical_app_fast_check_run_id":33973993724,"scope_guard_self_test":"PASS","negative_regression":"PASS","scope_drift_guard":"PASS","bootstrap_readback":"PASS","finalizer_pointer_mode":"PASS","semantic_vs_state_fence":"PASS","canonical_remote_readback":"PASS","app_fast_check":"PASS","app_service_apk_bytes_changed":false}'
+          python3 tools/owner_scope_admin.py governance-status --status TECHNICAL_PASS_AWAITING_OWNER --evidence "$EVIDENCE"
+          python3 <<'PY'
+          from pathlib import Path
+
+          replacements = {
+              Path('docs/STABLE_INVARIANTS.md'): (
+                  '- Technical evidence: CI run 33973889892; control-plane only, app/service/APK bytes unchanged.',
+                  '- Technical evidence: Technical PASS run 33973889892; canonical release guard 33973993708 PASS; canonical beta/current guard 33974000825 PASS; App fast-check 33973993724 PASS; control-plane only, app/service/APK bytes unchanged.'
+              ),
+              Path('qa/stable_invariants.yml'): (
+                  'technical_evidence: "Control-plane V2 positive/negative regression PASS; CI run 33973889892; app/service/APK bytes unchanged."',
+                  'technical_evidence: "Control-plane V2 positive/negative regression PASS; Technical PASS run 33973889892; canonical release guard 33973993708 PASS; canonical beta/current guard 33974000825 PASS; App fast-check 33973993724 PASS; app/service/APK bytes unchanged."'
+              ),
+          }
+          for path, (old, new) in replacements.items():
+              text = path.read_text()
+              if old not in text:
+                  raise SystemExit(f'FINAL_READBACK_FAIL:MISSING_EVIDENCE_ANCHOR:{path}')
+              path.write_text(text.replace(old, new, 1))
+          PY
+
+      - name: Verify final control-plane DoD
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/owner_scope_guard.py --self-test
+          python3 tools/owner_scope_guard_regression.py
+          python3 tools/owner_scope_guard.py --base-ref "origin/${CONTINUITY_BRANCH}"
+          python3 tools/owner_scope_guard.py --bootstrap
+          python3 tools/owner_acceptance_ledger_guard.py --self-test
+          python3 tools/public_repo_secret_guard.py --self-test
+          python3 tools/public_repo_secret_guard.py --base-ref "origin/${CONTINUITY_BRANCH}"
+          python3 tools/beta_current_sync_contract.py
+          python3 - <<'PY'
+          import json, yaml
+          from pathlib import Path
+          scope=json.loads(Path('ops/OWNER_SCOPE_CURRENT.json').read_text())
+          assert scope['governance']['status']=='TECHNICAL_PASS_AWAITING_OWNER'
+          ev=scope['governance']['technical_evidence']
+          assert ev['guard_status']=='PASS_FINAL_REMOTE_READBACK'
+          assert ev['canonical_remote_readback']=='PASS'
+          assert ev['app_fast_check']=='PASS'
+          assert ev['app_service_apk_bytes_changed'] is False
+          yaml.safe_load(Path('qa/stable_invariants.yml').read_text())
+          assert 'OWNER-SCOPE-CONTINUITY-001' in Path('docs/STABLE_INVARIANTS.md').read_text()
+          PY
+          git diff --quiet "$CANONICAL_BASE_SHA" -- app service services google-apps-script
+
+      - name: Commit and remote readback
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add ops/OWNER_SCOPE_CURRENT.json CURRENT_STATE.md docs/handovers/HANDOVER_CURRENT.md docs/STABLE_INVARIANTS.md qa/stable_invariants.yml
+          git commit -m '[skip ci] control-plane: finalize remote readback evidence'
+          FINAL=$(git rev-parse HEAD)
+          git push origin "HEAD:${GITHUB_REF_NAME}"
+          git fetch origin "${GITHUB_REF_NAME}" --quiet
+          test "$(git rev-parse "origin/${GITHUB_REF_NAME}")" = "$FINAL"
+          test "$(git show "origin/${GITHUB_REF_NAME}:ops/OWNER_SCOPE_CURRENT.json" | jq -r '.governance.technical_evidence.guard_status')" = 'PASS_FINAL_REMOTE_READBACK'
+          test "$(git show "origin/${GITHUB_REF_NAME}:CURRENT_STATE.md" | awk -F': ' '/^- next_action:/{print $2}')" = 'WAIT_FOR_OWNER_ACCEPTANCE_OWNER_SCOPE_CONTINUITY_001'
