@@ -1,0 +1,39 @@
+name: Beta123 replication fencing
+
+on:
+  push:
+    branches: [work/beta123-owner-ui-realtime-20260905]
+    paths:
+      - .github/workflows/beta123-replication-fencing.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fence:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: work/beta123-owner-ui-realtime-20260905
+          fetch-depth: 0
+      - name: Apply exact writer fencing fix
+        run: python3 tools/beta123_replication_fencing_patch.py
+      - name: Guard writer ownership semantics
+        run: |
+          python3 tools/beta123_replication_fencing_contract.py
+          git diff --check
+      - name: Typecheck service
+        run: |
+          npm --prefix service install --ignore-scripts --no-audit --no-fund
+          npm --prefix service run check
+      - name: Commit service fix
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add service/src/replication.ts tools/beta123_replication_fencing_patch.py tools/beta123_replication_fencing_contract.py
+          if git diff --cached --quiet; then echo NO_CHANGES; exit 0; fi
+          git commit -m 'fix(beta123): fence replication writer ownership'
+          git push origin HEAD:work/beta123-owner-ui-realtime-20260905
