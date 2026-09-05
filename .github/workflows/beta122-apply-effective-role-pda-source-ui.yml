@@ -1,0 +1,64 @@
+name: Beta122 apply effective-role PDA source UI
+
+on:
+  push:
+    branches:
+      - release/beta122-effective-role-pda-source-ui-20260905
+    paths:
+      - .github/workflows/beta122-apply-effective-role-pda-source-ui.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: beta122-apply-effective-role-pda-source-ui
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.4.1'
+      - name: Apply deterministic Beta122 patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile tools/beta122_apply_effective_role_pda_source_ui.py tools/beta122_owner_followup_contract.py
+          python3 tools/beta122_apply_effective_role_pda_source_ui.py
+      - name: Verify OWNER regression contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/beta122_owner_followup_contract.py
+          git diff --check
+      - name: Android Beta and Stable compile regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'versionCode = 1' app/build.gradle.kts
+          grep -q 'versionName = "0.1.0-stable"' app/build.gradle.kts
+          gradle --no-daemon --build-cache --parallel :app:testBetaDebugUnitTest :app:assembleBetaDebug :app:assembleStableDebug
+      - name: Commit implementation only
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/build.gradle.kts app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt app/src/main/java/vn/pickpack1291/app/beta/ReleaseNotes.kt tools/beta122_owner_followup_contract.py
+          git diff --cached --name-only
+          if git diff --cached --name-only | grep -E '^(service|google-apps-script)/'; then exit 91; fi
+          git commit -m 'fix(beta122): enforce effective role and show PDA source'
+          SHA=$(git rev-parse HEAD)
+          git push origin HEAD:release/beta122-effective-role-pda-source-ui-20260905
+          echo "BETA122_SOURCE_SHA=$SHA"
