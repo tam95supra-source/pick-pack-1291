@@ -1,0 +1,157 @@
+name: Beta127 pass-live next-action remediation
+
+on:
+  push:
+    branches:
+      - 'release/beta127-owner-r2-complete-20260905'
+    paths:
+      - '.github/workflows/beta127-pass-live-next-action-remediation.yml'
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: beta127-pass-live-next-action-remediation-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  remediate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Patch pass-live next action and finalizer regression
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          R=ops/beta-release-request.json
+          jq -e '.stage=="pass_live" and .live==true and .technical_pass_status=="PASS" and .owner_acceptance=="PENDING" and .ota_readback_status=="PASS" and .candidate_locked==true' "$R" >/dev/null
+          COUNT=$(jq -r 'if (.owner_checklist|type)=="array" then (.owner_checklist|length) else 0 end' "$R")
+          test "$COUNT" -gt 0
+          NEXT="WAIT_FOR_OWNER_ACCEPTANCE_NUMBERED_CHECKLIST_1_TO_${COUNT}"
+          test "$COUNT" = "11"
+
+          jq --arg next "$NEXT" '.next_action=$next' "$R" > /tmp/request.json
+          mv /tmp/request.json "$R"
+
+          export NEXT
+          python3 - <<'PY'
+          import os, re
+          from pathlib import Path
+
+          next_action = os.environ['NEXT']
+
+          p = Path('tools/finalize_beta83.sh')
+          s = p.read_text()
+          old = 'OWNER_NEXT_ACTION=$(jq -r \'.next_action // "WAIT_FOR_OWNER_ACCEPTANCE_NUMBERED_CHECKLIST"\' "$R")'
+          new = '''OWNER_CHECKLIST_COUNT=$(jq -r 'if (.owner_checklist|type)=="array" then (.owner_checklist|length) else 0 end' "$R")
+          test "$OWNER_CHECKLIST_COUNT" -gt 0
+          OWNER_NEXT_ACTION="WAIT_FOR_OWNER_ACCEPTANCE_NUMBERED_CHECKLIST_1_TO_${OWNER_CHECKLIST_COUNT}"'''
+          if old in s:
+              s = s.replace(old, new, 1)
+          elif 'OWNER_CHECKLIST_COUNT=' not in s:
+              raise SystemExit('finalize_beta83.sh owner-next-action anchor missing')
+          if "jq '.stage=\"pass_live\"" in s:
+              s = s.replace("jq '.stage=\"pass_live\"", "jq --arg next \"$OWNER_NEXT_ACTION\" '.stage=\"pass_live\"", 1)
+          elif 'jq --arg next "$OWNER_NEXT_ACTION"' not in s:
+              raise SystemExit('finalize_beta83.sh jq anchor missing')
+          old_expr = '.next_action=(.next_action // "WAIT_FOR_OWNER_ACCEPTANCE_NUMBERED_CHECKLIST")'
+          if old_expr in s:
+              s = s.replace(old_expr, '.next_action=$next', 1)
+          elif '.next_action=$next' not in s:
+              raise SystemExit('finalize_beta83.sh next-action expression anchor missing')
+          guard_anchor = 'test "$(git show "origin/$BRANCH:ops/beta-ota-current.json"|jq -r \'.google_drive_apk\')" = "FORBIDDEN"'
+          guard = '''test "$(git show "origin/$BRANCH:ops/beta-release-request.json"|jq -r '.next_action')" = "$OWNER_NEXT_ACTION"
+          test "$(git show "origin/$BRANCH:CURRENT_STATE.md"|grep -c -- "- next_action: $OWNER_NEXT_ACTION")" = 1
+          test "$(git show "origin/$BRANCH:docs/handovers/HANDOVER_CURRENT.md"|grep -c -x "$OWNER_NEXT_ACTION")" = 1'''
+          if guard not in s:
+              if guard_anchor not in s:
+                  raise SystemExit('finalize_beta83.sh readback guard anchor missing')
+              s = s.replace(guard_anchor, guard_anchor + '\n' + guard, 1)
+          p.write_text(s)
+
+          p = Path('tools/beta83_release_handoff_finalizer.sh')
+          s = p.read_text()
+          old = 'if [[ "$FIN" == success ]]; then NEXT=WAIT_FOR_OWNER_NEW_SCOPE'
+          new = '''if [[ "$FIN" == success ]]; then
+            ACCEPT=$(jq -r '.owner_acceptance // "PENDING"' "$R")
+            if [[ "$ACCEPT" == "COMPLETE" ]]; then
+              NEXT=WAIT_FOR_OWNER_NEW_SCOPE
+            else
+              COUNT=$(jq -r 'if (.owner_checklist|type)=="array" then (.owner_checklist|length) else 0 end' "$R")
+              test "$COUNT" -gt 0
+              NEXT="WAIT_FOR_OWNER_ACCEPTANCE_NUMBERED_CHECKLIST_1_TO_${COUNT}"
+            fi'''
+          if old in s:
+              s = s.replace(old, new, 1)
+          elif 'WAIT_FOR_OWNER_ACCEPTANCE_NUMBERED_CHECKLIST_1_TO_${COUNT}' not in s:
+              raise SystemExit('beta83_release_handoff_finalizer.sh anchor missing')
+          p.write_text(s)
+
+          p = Path('CURRENT_STATE.md')
+          s = p.read_text()
+          s2, n = re.subn(r'^- next_action:.*$', '- next_action: ' + next_action, s, count=1, flags=re.M)
+          if n != 1:
+              raise SystemExit('CURRENT_STATE next_action anchor missing')
+          p.write_text(s2)
+
+          current = Path('docs/handovers/HANDOVER_CURRENT.md')
+          cs = current.read_text()
+          m = re.search(r'^- archive_file:\s*(.+)$', cs, flags=re.M)
+          if not m:
+              raise SystemExit('HANDOVER_CURRENT archive_file missing')
+          archive = Path(m.group(1).strip())
+          if not archive.exists():
+              raise SystemExit(f'archive missing: {archive}')
+
+          note = '- Regression finalizer NEXT_ACTION: PASS; pass_live + OWNER PENDING luôn chuyển sang checklist OWNER, không giữ lệnh PUBLISH cũ.'
+          for hp in (current, archive):
+              hs = hp.read_text()
+              lines = hs.splitlines()
+              try:
+                  idx = lines.index('## NEXT_ACTION')
+              except ValueError:
+                  raise SystemExit(f'NEXT_ACTION section missing: {hp}')
+              if idx + 1 >= len(lines):
+                  raise SystemExit(f'NEXT_ACTION value missing: {hp}')
+              lines[idx + 1] = next_action
+              hs = '\n'.join(lines) + ('\n' if hs.endswith('\n') else '')
+              if note not in hs:
+                  marker = '\n## Blocker\n'
+                  if marker not in hs:
+                      raise SystemExit(f'Blocker section missing: {hp}')
+                  hs = hs.replace(marker, '\n' + note + marker, 1)
+              hp.write_text(hs)
+          PY
+
+          bash -n tools/finalize_beta83.sh tools/beta83_release_handoff_finalizer.sh
+          jq -e --arg next "$NEXT" '.stage=="pass_live" and .next_action==$next and (.owner_checklist|length)==11' "$R" >/dev/null
+          grep -Fqx -- "- next_action: $NEXT" CURRENT_STATE.md
+          grep -Fqx -- "$NEXT" docs/handovers/HANDOVER_CURRENT.md
+          ARCH=$(awk -F': ' '/^- archive_file:/{print $2; exit}' docs/handovers/HANDOVER_CURRENT.md)
+          grep -Fqx -- "$NEXT" "$ARCH"
+          grep -Fq 'OWNER_CHECKLIST_COUNT=' tools/finalize_beta83.sh
+          grep -Fq '.next_action=$next' tools/finalize_beta83.sh
+          grep -Fq 'WAIT_FOR_OWNER_ACCEPTANCE_NUMBERED_CHECKLIST_1_TO_${COUNT}' tools/beta83_release_handoff_finalizer.sh
+
+      - name: Commit correction and read back
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add tools/finalize_beta83.sh tools/beta83_release_handoff_finalizer.sh ops/beta-release-request.json CURRENT_STATE.md docs/handovers/HANDOVER_CURRENT.md docs/handovers/HANDOVER_20260905-134145_beta127-pass-live.md
+          git diff --cached --quiet && { echo 'No correction required'; exit 0; }
+          git commit -m 'fix(release): lock pass-live next action to owner acceptance checklist'
+          SHA=$(git rev-parse HEAD)
+          git push origin "HEAD:$GITHUB_REF_NAME"
+          git fetch origin "$GITHUB_REF_NAME" --quiet
+          test "$(git rev-parse origin/$GITHUB_REF_NAME)" = "$SHA"
+          NEXT=$(jq -r '.next_action' ops/beta-release-request.json)
+          test "$NEXT" = 'WAIT_FOR_OWNER_ACCEPTANCE_NUMBERED_CHECKLIST_1_TO_11'
+          test "$(git show origin/$GITHUB_REF_NAME:ops/beta-release-request.json | jq -r '.next_action')" = "$NEXT"
+          git show origin/$GITHUB_REF_NAME:CURRENT_STATE.md | grep -Fqx -- "- next_action: $NEXT"
+          git show origin/$GITHUB_REF_NAME:docs/handovers/HANDOVER_CURRENT.md | grep -Fqx -- "$NEXT"
