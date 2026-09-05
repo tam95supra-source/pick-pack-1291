@@ -171,3 +171,4 @@ jobs:
             /tmp/beta123-replication-readonly/summary.json
           if-no-files-found: error
           retention-days: 14
+# refresh-readonly-20260905-1244
