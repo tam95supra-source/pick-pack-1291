@@ -1,0 +1,27 @@
+{
+  "status": "OWNER_ACCEPTANCE_COMPLETE",
+  "accepted_at": "2026-09-05T09:37:19+07:00",
+  "state_epoch": 202609050937,
+  "version_name": "0.4.2-beta.122",
+  "version_code": 128,
+  "package": "vn.pickpack1291.app.beta.publicbeta",
+  "source_sha": "fd26d18b0ae81cbc919824141f3670a3fe3b276e",
+  "apk_sha256": "b06d1cf470fa840f53c9641397bf16cdfa3ce5d20651349f4ac3bb6e0ef4b54b",
+  "apk_size": 14429173,
+  "signer_sha256": "d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e",
+  "terminal_run_id": 33938535151,
+  "publish_artifact_id": 9960999680,
+  "ota_device_artifact_id": 9961036406,
+  "final_artifact_id": 9961041181,
+  "owner_response": "2 4 ok.",
+  "invariants": {
+    "UI-STATUS-DETAIL-VI-003": "ACTIVE_PASS",
+    "SUPERADMIN-EFFECTIVE-ROLE-003": "ACTIVE_PASS",
+    "SETTINGS-REGION-INHOUSE-DROP-001": "ACTIVE_PASS",
+    "PDA-SOURCE-MASTER-001": "ACTIVE_PASS"
+  },
+  "stable_unchanged": true,
+  "main_unchanged": true,
+  "authority_change": "NONE",
+  "next_action": "OWNER_ACCEPTANCE_COMPLETE"
+}

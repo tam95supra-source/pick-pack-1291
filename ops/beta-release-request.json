@@ -87,13 +87,14 @@
   "apk_transport": "GITHUB_RELEASE_ONLY",
   "google_drive_apk": "FORBIDDEN",
   "execution_nonce": "beta122-publish-exact-20260905-02",
-  "next_action": "WAIT_FOR_OWNER_ACCEPTANCE_NUMBERED_CHECKLIST",
+  "next_action": "OWNER_ACCEPTANCE_COMPLETE",
   "owner_scope": "OWNER_20260905_BETA122_EFFECTIVE_ROLE_PDA_SOURCE_UI",
   "owner_checklist_id": "BETA122_OWNER_ACCEPTANCE_20260905_R1",
-  "owner_checklist_revision": 1,
+  "owner_checklist_revision": 3,
   "technical_pass_status": "PASS",
-  "owner_acceptance": "PENDING",
+  "owner_acceptance": "OWNER_ACCEPTANCE_COMPLETE",
   "ota_readback_status": "PASS",
   "publish_run_id": "33938535151",
-  "ota_readback_run_id": 33938535151
+  "ota_readback_run_id": 33938535151,
+  "owner_acceptance_receipt": "ops/beta122-owner-acceptance.json"
 }

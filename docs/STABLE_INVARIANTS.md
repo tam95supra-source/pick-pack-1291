@@ -656,15 +656,14 @@ Technical receipt: `ops/beta121-technical-pass.json`. Regression: `tools/beta121
 - OWNER acceptance: PASS — OWNER item 1 OK, 2026-09-05 08:20 +07:00.
 
 ### SUPERADMIN-EFFECTIVE-ROLE-003
-- Status: TECHNICAL_PASS_AWAITING_OWNER
+- Status: ACTIVE_PASS
 - Scope: SUPERADMIN / effective role
 - Parent: SUPERADMIN_AUTH_002 ACTIVE_PASS.
 - Rule: chỉ actual SUPERADMIN mới được chọn effective USER / ADMIN / SUPERADMIN trong chi tiết Dịch vụ; quyền nghiệp vụ thực tế phải hạ theo effective role; actual role vẫn là authority và user không phải SUPERADMIN không được tự nâng quyền.
 - Regression: actual_super_guard / effective_user / effective_admin / effective_superadmin / no_non_super_elevation / auth_session_preserved.
 - Regression case: `tools/beta121_owner_ui_pda_source_contract.py`.
 - Technical evidence: 0.4.2-beta.122 Technical PASS/LIVE; source fd26d18b0ae81cbc919824141f3670a3fe3b276e; candidate 33937101147/9960620587; Service inherited PASS 33929895214/9958376646 (service/GAS bytes unchanged); Fast Check 33937614821; visual+PDA+API36 33937614831/9960788555 + human PASS 43 screenshots 320x568/360x640/480x800; device/discovery 33938053451/9960858682; runtime DoD 33938184655/9960886189; Beta domain inherited PASS 33934032820/9959551837; terminal publish/OTA/install/open/readback/finalize 33938535151; publish 9960999680; OTA device 9961036406; final 9961041181; SHA256 b06d1cf470fa840f53c9641397bf16cdfa3ce5d20651349f4ac3bb6e0ef4b54b; size 14429173; signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged.
-- OWNER acceptance: PENDING RECHECK — Beta122 đã sửa hạ quyền nghiệp vụ thực sự theo effective USER/ADMIN; chờ OWNER nghiệm thu lại item 2.
-
+- OWNER acceptance: PASS — OWNER item 2 OK after Beta122 recheck, 2026-09-05 09:37 +07:00.
 
 ### SETTINGS-REGION-INHOUSE-DROP-001
 - Status: ACTIVE_PASS
@@ -676,14 +675,13 @@ Technical receipt: `ops/beta121-technical-pass.json`. Regression: `tools/beta121
 - OWNER acceptance: PASS — OWNER item 3 OK, 2026-09-05 08:20 +07:00.
 
 ### PDA-SOURCE-MASTER-001
-- Status: TECHNICAL_PASS_AWAITING_OWNER
+- Status: ACTIVE_PASS
 - Scope: PDA master data / Nguồn
 - Rule: PDA có trường `Nguồn` xuyên Android → GAS → Service; danh mục hiện hành gồm 1291, 1386, 1368, 1399, Inbound, Outbound; không được làm mất nguồn khi đọc/ghi master data.
 - Regression: source_field_android / gas_source_roundtrip / service_source_roundtrip / allowed_source_catalog / existing_pda_identity_preserved.
 - Regression case: `tools/beta121_owner_ui_pda_source_contract.py`.
 - Technical evidence: 0.4.2-beta.122 Technical PASS/LIVE; source fd26d18b0ae81cbc919824141f3670a3fe3b276e; candidate 33937101147/9960620587; Service inherited PASS 33929895214/9958376646 (service/GAS bytes unchanged); Fast Check 33937614821; visual+PDA+API36 33937614831/9960788555 + human PASS 43 screenshots 320x568/360x640/480x800; device/discovery 33938053451/9960858682; runtime DoD 33938184655/9960886189; Beta domain inherited PASS 33934032820/9959551837; terminal publish/OTA/install/open/readback/finalize 33938535151; publish 9960999680; OTA device 9961036406; final 9961041181; SHA256 b06d1cf470fa840f53c9641397bf16cdfa3ce5d20651349f4ac3bb6e0ef4b54b; size 14429173; signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged.
-- OWNER acceptance: PENDING RECHECK — Beta122 đã bổ sung Nguồn trong thông tin/chọn/đổi-trả/danh sách và form thêm-sửa PDA; chờ OWNER nghiệm thu lại item 4.
-
+- OWNER acceptance: PASS — OWNER item 4 OK after Beta122 recheck, 2026-09-05 09:37 +07:00.
 
 ### Beta121 re-verification — OTA-BETA-001
 - Status: ACTIVE_PASS (semantics unchanged; OWNER-accepted invariant re-verified).
@@ -692,10 +690,12 @@ Technical receipt: `ops/beta121-technical-pass.json`. Regression: `tools/beta121
 - Evidence: baseline recovery run 33934523152 artifact 9959702930 PASS; exact Beta120 restored before publish; Beta121 publish 33934142254 artifact 9959732997 PASS; OTA install/open/readback artifact 9959773897 PASS; final artifact 9959777958 PASS.
 
 
-## Beta122 follow-up — TECHNICAL_PASS_AWAITING_OWNER items 2/4
+## Beta122 follow-up — OWNER_ACCEPTANCE_COMPLETE
 
 - Technical receipt: `ops/beta122-technical-pass.json`.
-- `SUPERADMIN-EFFECTIVE-ROLE-003`: TECHNICAL_PASS_AWAITING_OWNER.
-- `PDA-SOURCE-MASTER-001`: TECHNICAL_PASS_AWAITING_OWNER.
+- `SUPERADMIN-EFFECTIVE-ROLE-003`: ACTIVE_PASS — OWNER item 2 OK.
+- `PDA-SOURCE-MASTER-001`: ACTIVE_PASS — OWNER item 4 OK.
 - `UI-STATUS-DETAIL-VI-003` và `SETTINGS-REGION-INHOUSE-DROP-001` tiếp tục ACTIVE_PASS theo OWNER acceptance Beta121; không hồi quy.
 - OTA-BETA-001 semantics giữ nguyên; Beta122 exact GitHub Release/OTA/install/readback/finalize PASS run 33938535151.
+
+- OWNER final acceptance: items 2/4 OK at 2026-09-05 09:37 +07:00; all four Beta122 scope invariants are ACTIVE_PASS.

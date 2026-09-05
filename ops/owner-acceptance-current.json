@@ -1,17 +1,17 @@
 {
   "schema_version": 1,
-  "state_epoch": 202609050820,
+  "state_epoch": 202609050937,
   "channel": "BETA",
   "public_beta": {
-    "version_name": "0.4.2-beta.121",
-    "version_code": 127,
-    "source_sha": "ee482efb41565eee797b9b6c11fe54557c2b67f8",
-    "apk_sha256": "5b042c8e1f6d288ef19efe9abc773562c204fb3defd91396e4101adcedc8cc57",
+    "version_name": "0.4.2-beta.122",
+    "version_code": 128,
+    "source_sha": "fd26d18b0ae81cbc919824141f3670a3fe3b276e",
+    "apk_sha256": "b06d1cf470fa840f53c9641397bf16cdfa3ce5d20651349f4ac3bb6e0ef4b54b",
     "technical_status": "PASS_LIVE"
   },
   "owner_scope": {
-    "scope_id": "OWNER_20260905_UI_STATUS_ROLE_SETTINGS_DROP_PDA_SOURCE",
-    "status": "PARTIAL_ACCEPTANCE_PENDING_FIX",
+    "scope_id": "OWNER_20260905_BETA122_EFFECTIVE_ROLE_PDA_SOURCE_UI",
+    "status": "OWNER_ACCEPTANCE_COMPLETE",
     "requirements": [
       {
         "id": "UI-STATUS-DETAIL-VI-003",
@@ -20,8 +20,8 @@
       },
       {
         "id": "SUPERADMIN-EFFECTIVE-ROLE-003",
-        "status": "LOCKED_REQUIREMENT_PENDING_FIX",
-        "rule": "Only role selector may use actual SUPERADMIN; every business surface/action must obey effective USER/ADMIN/SUPERADMIN."
+        "status": "ACTIVE_PASS",
+        "rule": "Only role selector may use actual SUPERADMIN; every business surface/action obeys effective USER/ADMIN/SUPERADMIN."
       },
       {
         "id": "SETTINGS-REGION-INHOUSE-DROP-001",
@@ -30,51 +30,57 @@
       },
       {
         "id": "PDA-SOURCE-MASTER-001",
-        "status": "LOCKED_REQUIREMENT_PENDING_FIX",
-        "rule": "PDA source must be visible/editable in Android PDA information and Resource PDA list using canonical source catalog."
+        "status": "ACTIVE_PASS",
+        "rule": "PDA source visible/editable in Android PDA information and Resource PDA list using canonical source catalog."
       }
     ]
   },
   "technical_evidence": {
-    "candidate_run_id": 33929895214,
-    "candidate_artifact_id": 9958252319,
-    "fast_check_run_id": 33932137056,
-    "service_visual_pda_run_id": 33932137068,
-    "device_discovery_run_id": 33932666498,
-    "runtime_dod_run_id": 33933735030,
-    "beta_domain_run_id": 33934032820,
-    "terminal_run_id": 33934142254,
-    "release_lock_receipt": "ops/beta121-release-lock.json",
-    "owner_receipt": "ops/beta121-owner-acceptance-partial.json"
+    "candidate_run_id": 33937101147,
+    "candidate_artifact_id": 9960620587,
+    "fast_check_run_id": 33937614821,
+    "visual_pda_run_id": 33937614831,
+    "visual_pda_artifact_id": 9960788555,
+    "device_discovery_run_id": 33938053451,
+    "device_discovery_artifact_id": 9960858682,
+    "runtime_dod_run_id": 33938184655,
+    "runtime_dod_artifact_id": 9960886189,
+    "terminal_run_id": 33938535151,
+    "publish_artifact_id": 9960999680,
+    "ota_device_artifact_id": 9961036406,
+    "final_artifact_id": 9961041181,
+    "release_lock_receipt": "ops/beta122-release-lock.json",
+    "technical_receipt": "ops/beta122-technical-pass.json",
+    "owner_receipt": "ops/beta122-owner-acceptance.json"
   },
   "checklist": {
-    "checklist_id": "BETA121_OWNER_ACCEPTANCE_20260905_R1",
-    "revision": 2,
-    "status": "PARTIAL_ACCEPTANCE_PENDING_FIX",
+    "checklist_id": "BETA122_OWNER_ACCEPTANCE_20260905_R1",
+    "revision": 3,
+    "status": "OWNER_ACCEPTANCE_COMPLETE",
     "items": [
       {
         "number": 1,
         "id": "UI-STATUS-DETAIL-VI-003",
         "status": "OWNER_OK",
-        "test": "OWNER confirmed item 1 OK."
+        "test": "OWNER confirmed item 1 OK on Beta121; preserved through Beta122."
       },
       {
         "number": 2,
         "id": "SUPERADMIN-EFFECTIVE-ROLE-003",
-        "status": "OWNER_NOT_OK",
-        "test": "USER simulation still exposes History; effective-role lowering must be real everywhere except selector."
+        "status": "OWNER_OK",
+        "test": "OWNER rechecked Beta122 fix and replied item 2 OK."
       },
       {
         "number": 3,
         "id": "SETTINGS-REGION-INHOUSE-DROP-001",
         "status": "OWNER_OK",
-        "test": "OWNER confirmed item 3 OK."
+        "test": "OWNER confirmed item 3 OK on Beta121; preserved through Beta122."
       },
       {
         "number": 4,
         "id": "PDA-SOURCE-MASTER-001",
-        "status": "OWNER_NOT_OK",
-        "test": "PDA source missing from Android PDA info and Resource PDA list."
+        "status": "OWNER_OK",
+        "test": "OWNER rechecked Beta122 fix and replied item 4 OK."
       }
     ],
     "owner_responses": [
@@ -87,15 +93,23 @@
           "3": "OK",
           "4": "NOT_OK"
         }
+      },
+      {
+        "recorded_at": "2026-09-05T09:37:19+07:00",
+        "response": "2 4 ok.",
+        "items": {
+          "2": "OK",
+          "4": "OK"
+        }
       }
     ]
   },
   "previous_acceptance": {
-    "version_name": "0.4.2-beta.120",
-    "state_epoch": 202609042359,
-    "checklist_id": "BETA120_OWNER_ACCEPTANCE_20260904_R1",
-    "revision": 1,
-    "status": "OWNER_ACCEPTANCE_COMPLETE"
+    "version_name": "0.4.2-beta.121",
+    "state_epoch": 202609050820,
+    "checklist_id": "BETA121_OWNER_ACCEPTANCE_20260905_R1",
+    "revision": 2,
+    "status": "PARTIAL_ACCEPTANCE_PENDING_FIX"
   },
   "fencing": {
     "reject_lower_state_epoch": true,
@@ -111,5 +125,5 @@
     "gmail_oauth_secret_in_repo": "FORBIDDEN",
     "secret_values_in_logs_artifacts_receipts": "FORBIDDEN"
   },
-  "next_action": "FIX_BETA121_OWNER_ITEMS_2_4_IN_BETA122"
+  "next_action": "OWNER_ACCEPTANCE_COMPLETE"
 }
