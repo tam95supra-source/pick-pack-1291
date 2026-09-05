@@ -40,10 +40,13 @@ jobs:
         run: gradle :app:compileBetaDebugKotlin :app:compileStableDebugKotlin :app:testBetaDebugUnitTest --no-daemon
       - name: Commit implementation
         run: |
+          set -euo pipefail
+          BRANCH=work/beta123-owner-ui-realtime-20260905
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git add app qa tools
           if git diff --cached --quiet; then echo NO_CHANGES; exit 0; fi
           git commit -m 'feat(beta123): owner UI realtime recovery scope'
-          git push origin HEAD:work/beta123-owner-ui-realtime-20260905
-# rerun-20260905-owner-scope-9-merge-fenced-head
+          git pull --rebase origin "$BRANCH"
+          git push origin HEAD:"$BRANCH"
+# rerun-20260905-owner-scope-10-rebase-safe
