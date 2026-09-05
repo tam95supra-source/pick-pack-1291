@@ -110,7 +110,8 @@ assert '• Nguồn: ${source.ifBlank{"—"}}' in fn(ops,'resourceListText')
 assert 'Tìm mã nhân viên / họ tên' in meal
 assert 'payload=store.load(date.toString());render();remoteLoad()' in meal
 assert 'main.postDelayed(it,140L)' in meal
-assert 'if(activeDate==date)activeRefresh?.invoke()' in meal
+assert 'activeRefresh={activity.runOnUiThread{if(activeDate==selected.toString())remoteLoad()}}' in meal
+assert 'if(signature==lastRenderSignature)return' in meal
 
 # 10 QR: post-scan roster hidden; session/work detail is inline in result, not another drill-down layer.
 scan=fn(ops,'employeeScan')
