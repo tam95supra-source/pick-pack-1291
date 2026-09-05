@@ -1,0 +1,38 @@
+{
+  "status": "PASS",
+  "version_name": "0.4.2-beta.121",
+  "version_code": 127,
+  "candidate_source_sha": "ee482efb41565eee797b9b6c11fe54557c2b67f8",
+  "candidate_run_id": 33929895214,
+  "candidate_artifact_id": 9958252319,
+  "candidate_artifact_name": "beta-candidate-33929895214",
+  "apk_sha256": "5b042c8e1f6d288ef19efe9abc773562c204fb3defd91396e4101adcedc8cc57",
+  "apk_size": 14429173,
+  "verify_run_id": 33932137068,
+  "verify_artifact_id": 9959024622,
+  "verify_artifact_name": "beta-verify-33932137068",
+  "visual_matrix": "PASS",
+  "pda_functional_pre_ota": "PASS",
+  "back_api36": "PASS",
+  "human_visual_sizes": ["320x568", "360x640", "480x800"],
+  "screenshot_count": 43,
+  "inspected_evidence": [
+    "320x568/320x568-01-business.png",
+    "320x568/320x568-07-settings-top.png",
+    "320x568/320x568-08-settings-bottom.png",
+    "360x640/360x640-01-business.png",
+    "480x800/480x800-01-business.png"
+  ],
+  "human_inspection": {
+    "layout_break": false,
+    "control_occlusion": false,
+    "header_status_overflow": false,
+    "critical_text_clipping": false,
+    "result": "PASS"
+  },
+  "rebuild": false,
+  "resign": false,
+  "apk_transport": "GITHUB_RELEASE_ONLY",
+  "stable_publish": "FORBIDDEN",
+  "authority_change": "NONE"
+}
