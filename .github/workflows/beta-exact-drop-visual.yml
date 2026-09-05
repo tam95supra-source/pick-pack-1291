@@ -1,0 +1,106 @@
+name: Beta exact candidate drop visual
+
+on:
+  push:
+    branches:
+      - 'release/**'
+    paths:
+      - .github/workflows/beta-exact-drop-visual.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: beta-exact-drop-visual-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SIGNING_KEY_B64: ${{ secrets.ANDROID_SIGNING_KEY_B64 }}
+      SIGNING_STORE_PASSWORD: ${{ secrets.ANDROID_SIGNING_STORE_PASSWORD }}
+      SIGNING_KEY_PASSWORD: ${{ secrets.ANDROID_SIGNING_KEY_PASSWORD }}
+      SIGNING_ALIAS: ${{ secrets.ANDROID_SIGNING_ALIAS }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.4.1'
+      - name: Resolve Android SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> "$GITHUB_ENV"
+          test -f "$ANDROID_HOME/platforms/android-36/android.jar"
+          test -x "$ANDROID_HOME/build-tools/36.0.0/apksigner"
+      - name: Discover exact locked candidate from canonical request
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION=$(jq -r '.version_name' ops/beta-release-request.json)
+          SOURCE=$(jq -r '.candidate_source_sha // .source_sha' ops/beta-release-request.json)
+          test "$SOURCE" != null -a -n "$SOURCE"
+          git diff --quiet "$SOURCE" HEAD -- app service google-apps-script
+          FOUND=""
+          while read -r RUN; do
+            [[ -n "$RUN" ]] || continue
+            NAME="beta-candidate-$RUN"
+            AID=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN/artifacts" --jq ".artifacts[] | select(.name==\"$NAME\" and .expired==false) | .id" | head -n1 || true)
+            [[ -n "$AID" ]] || continue
+            rm -rf /tmp/beta-candidate; mkdir -p /tmp/beta-candidate
+            if ! gh run download "$RUN" -n "$NAME" -D /tmp/beta-candidate >/dev/null 2>&1; then continue; fi
+            META=/tmp/beta-candidate/release-meta.json
+            [[ -f "$META" ]] || continue
+            if jq -e --arg v "$VERSION" --arg s "$SOURCE" '.version_name==$v and .source_sha==$s and .candidate_locked==true and .stable_publish=="FORBIDDEN" and .authority_change=="NONE"' "$META" >/dev/null; then
+              FOUND="$RUN"; break
+            fi
+          done < <(gh run list --workflow beta-release.yml --branch "$GITHUB_REF_NAME" --limit 30 --json databaseId,conclusion --jq '.[] | select(.conclusion=="success") | .databaseId')
+          [[ -n "$FOUND" ]] || { echo EXACT_LOCKED_CANDIDATE_NOT_FOUND >&2; exit 41; }
+          echo "CANDIDATE_RUN_ID=$FOUND" >> "$GITHUB_ENV"
+          jq -e '.candidate_locked==true' /tmp/beta-candidate/release-meta.json >/dev/null
+      - name: Build Drop visual harness without changing candidate
+        shell: bash
+        run: bash tools/beta128_drop_visual_prepare.sh
+      - name: Enable KVM
+        shell: bash
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules >/dev/null
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm || true
+          sudo chmod 666 /dev/kvm || true
+      - name: Run exact candidate visual matrix with Drop coverage
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 29
+          target: default
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: false
+          emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-metrics
+          script: bash tools/beta83_verify_matrix.sh
+      - name: Verify Drop screenshots exist at all required sizes
+        shell: bash
+        run: |
+          set -euo pipefail
+          for S in 320x568 360x640 480x800; do
+            test -f "/tmp/beta-verify/$S/$S-01d-beta128-drop.png"
+          done
+          jq -e '.status=="PASS" and (.visual_sizes|sort)==(["320x568","360x640","480x800"]|sort)' /tmp/beta-verify/receipt.json >/dev/null
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: beta-exact-drop-visual-${{ github.run_id }}
+          path: /tmp/beta-verify
+          retention-days: 30
+          if-no-files-found: error
