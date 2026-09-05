@@ -32,7 +32,8 @@ for forbidden in (
 # OWNER item 4: source must be visible and editable in Android, not only present in backend/GSheet.
 assert 'private fun pdaSourceBySerial(serial:String):String' in ops
 assert ' • Nguồn: ${source.ifBlank{"—"}}' in ops
-assert 'Serial PDA\\nChưa chọn\\nNguồn\\n—\\nTình trạng PDA' in ops
+assert 'val source=p?.optString("source").orEmpty().ifBlank{p?.optString("Nguồn").orEmpty()}' in ops
+assert 'panel.text="Serial PDA' in ops and 'source.ifBlank{"—"}' in ops and 'Tình trạng PDA' in ops
 assert 'Nguồn: ${source.ifBlank{"—"}} • Tình trạng:' in ops
 assert '"Nguồn" to source.ifBlank{"—"}' in ops
 assert 'private fun resourcePdaSourceValues(catalogs:JSONArray?)' in ops
