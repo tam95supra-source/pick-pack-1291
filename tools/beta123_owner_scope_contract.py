@@ -7,6 +7,11 @@ def fn(src,name):
     assert start>=0,name
     nxt=src.find('\n    private fun ',start+20)
     return src[start:] if nxt<0 else src[start:nxt]
+def generic_fn(src,signature):
+    start=src.find(signature)
+    assert start>=0,signature
+    nxt=src.find('\n    private fun ',start+len(signature))
+    return src[start:] if nxt<0 else src[start:nxt]
 
 ops=txt('app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt')
 drop=txt('app/src/main/java/vn/pickpack1291/app/beta/DropReceiveFeature.kt')
@@ -82,7 +87,7 @@ assert '"Khấu trừ công nhật" to' not in report
 # 7 Labor: per-employee/session acknowledgement + bounded parallel create/finish/edit; bulk fields remain complete.
 assert 'fun laborAckKey(s:JSONObject)' in ops
 assert 'return "$mnv|${sid.ifBlank{enter}}"' in ops
-batch=fn(ops,'runBoundedLaborBatch')
+batch=generic_fn(ops,'private fun <T> runBoundedLaborBatch(')
 assert 'maxInFlight:Int=6' in batch and 'running<maxInFlight' in batch
 create=fn(ops,'showLaborBatchCreateForm');finish=fn(ops,'showLaborBatchFinishForm')
 assert 'runBoundedLaborBatch(chosen,6' in create and 'runBoundedLaborBatch(chosen,6' in finish
