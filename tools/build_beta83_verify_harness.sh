@@ -28,15 +28,34 @@ sed -i 's/TRUNG TÂM KIỂM THỬ RESILIENCE/KIỂM THỬ KỸ THUẬT/g' "$W/sr
 # OWNER Beta123 removed the report-scope control entirely and renamed the report screen.
 # Verify the new canonical title and explicitly assert that the removed control stays absent.
 sed -i 's/waitText("Phạm vi báo cáo",true,false,12000L);/waitText("BÁO CÁO TÌNH HÌNH NHÂN SỰ",true,false,12000L); require(findText("Phạm vi báo cáo",true,false)==null,"REPORT_SCOPE_CONTROL_MUST_BE_REMOVED");/g' "$W/src/vn/pickpack1291/verify/Beta83UiChecksInstrumentation.java"
+# Beta125 diagnostic proved the app returns EMPLOYEE -> SCAN correctly, but the old harness
+# falsely required the BUSINESS-home label "QUÉT QR NHÂN SỰ" after Back. Assert the actual
+# SCAN semantics instead: state/displayed SCAN, editable scan control present, employee UI
+# gone, and the full QR roster remains hidden.
+python3 - "$W/src/vn/pickpack1291/verify/Beta83UiChecksInstrumentation.java" <<'PY'
+from pathlib import Path
+import sys
+p=Path(sys.argv[1])
+s=p.read_text(encoding='utf-8')
+old='''    AccessibilityNodeInfo qrBack=findText("QUÉT QR NHÂN SỰ",true,false);\n    require(qrBack!=null,"BETA125_BACK_NAV_VISUAL_DIAG:"+navBefore+"=>"+navAfter+";texts="+visibleTextSummary());\n    mark("post_scan_activity_back_beta124");'''
+new='''    require(navAfter.contains("screen=SCAN,displayed=SCAN"),"BETA125_BACK_NAV_STATE_NOT_SCAN:"+navBefore+"=>"+navAfter);\n    require(findEditable()!=null,"BETA125_BACK_SCAN_INPUT_MISSING:"+navAfter+";texts="+visibleTextSummary());\n    require(findText("THÔNG TIN CA",true,false)==null,"BETA125_BACK_EMPLOYEE_UI_STILL_VISIBLE:"+navAfter);\n    require(findText("Danh sách QR vào / ra",true,false)==null,"BETA125_BACK_ROSTER_REOPENED:"+navAfter);\n    mark("post_scan_activity_back_beta124");'''
+if old not in s:
+    raise SystemExit('BETA125_BACK_DIAGNOSTIC_ASSERTION_NOT_FOUND')
+p.write_text(s.replace(old,new,1),encoding='utf-8')
+PY
 ! grep -Fq 'waitText("Loại kết nối"' "$W/src/vn/pickpack1291/verify/Beta83UiChecksInstrumentation.java"
 ! grep -Fq 'waitText("Authority"' "$W/src/vn/pickpack1291/verify/Beta83UiChecksInstrumentation.java"
 ! grep -Fq 'TRUNG TÂM KIỂM THỬ RESILIENCE' "$W/src/vn/pickpack1291/verify/Beta83UiChecksInstrumentation.java"
 ! grep -Fq 'waitText("Phạm vi báo cáo"' "$W/src/vn/pickpack1291/verify/Beta83UiChecksInstrumentation.java"
+! grep -Fq 'BETA125_BACK_NAV_VISUAL_DIAG' "$W/src/vn/pickpack1291/verify/Beta83UiChecksInstrumentation.java"
 grep -Fq 'waitText("Kiểu kết nối"' "$W/src/vn/pickpack1291/verify/Beta83UiChecksInstrumentation.java"
 grep -Fq 'waitText("Chế độ quyền hiện tại"' "$W/src/vn/pickpack1291/verify/Beta83UiChecksInstrumentation.java"
 grep -Fq 'KIỂM THỬ KỸ THUẬT' "$W/src/vn/pickpack1291/verify/Beta83UiChecksInstrumentation.java"
 grep -Fq 'waitText("BÁO CÁO TÌNH HÌNH NHÂN SỰ"' "$W/src/vn/pickpack1291/verify/Beta83UiChecksInstrumentation.java"
 grep -Fq 'REPORT_SCOPE_CONTROL_MUST_BE_REMOVED' "$W/src/vn/pickpack1291/verify/Beta83UiChecksInstrumentation.java"
+grep -Fq 'BETA125_BACK_NAV_STATE_NOT_SCAN' "$W/src/vn/pickpack1291/verify/Beta83UiChecksInstrumentation.java"
+grep -Fq 'BETA125_BACK_SCAN_INPUT_MISSING' "$W/src/vn/pickpack1291/verify/Beta83UiChecksInstrumentation.java"
+grep -Fq 'BETA125_BACK_ROSTER_REOPENED' "$W/src/vn/pickpack1291/verify/Beta83UiChecksInstrumentation.java"
 javac -encoding UTF-8 -source 8 -target 8 -cp "$SDK/platforms/android-36/android.jar" -d "$W/classes" "$W/src/vn/pickpack1291/verify/"*.java
 mapfile -t CLASSES < <(find "$W/classes" -type f -name '*.class' -print | sort)
 test "${#CLASSES[@]}" -ge 3
