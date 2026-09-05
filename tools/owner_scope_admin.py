@@ -140,6 +140,61 @@ def governance_status(args) -> None:
     }, ensure_ascii=False))
 
 
+def requirement_status(args) -> None:
+    scope = read_scope()
+    old_semantics = scope.get("semantics_sha256")
+    old_revision = scope.get("revision")
+    found = None
+    for item in scope.get("requirements") or []:
+        if item.get("requirement_id") == args.requirement_id:
+            found = item
+            break
+    if found is None:
+        raise SystemExit(f"OWNER_SCOPE_ADMIN_FAIL:UNKNOWN_REQUIREMENT:{args.requirement_id}")
+    found["state"] = args.status
+    if args.evidence:
+        evidence = json.loads(args.evidence)
+        if not isinstance(evidence, dict):
+            raise SystemExit("OWNER_SCOPE_ADMIN_FAIL:EVIDENCE_NOT_OBJECT")
+        found["technical_evidence"] = evidence
+    write_scope(scope)
+    scope = read_scope()
+    if scope.get("semantics_sha256") != old_semantics:
+        raise SystemExit("OWNER_SCOPE_ADMIN_FAIL:TECHNICAL_TRANSITION_CHANGED_SEMANTICS")
+    if scope.get("revision") != old_revision:
+        raise SystemExit("OWNER_SCOPE_ADMIN_FAIL:TECHNICAL_TRANSITION_CHANGED_REVISION")
+    sync_pointers(scope)
+    print(json.dumps({
+        "status": "REQUIREMENT_STATE_UPDATED",
+        "requirement_id": args.requirement_id,
+        "requirement_status": args.status,
+        "revision": scope["revision"],
+        "semantics_sha256": scope["semantics_sha256"],
+        "scope_sha256": scope["scope_sha256"],
+    }, ensure_ascii=False))
+
+
+def scope_status(args) -> None:
+    scope = read_scope()
+    old_semantics = scope.get("semantics_sha256")
+    old_revision = scope.get("revision")
+    scope["scope_status"] = args.status
+    write_scope(scope)
+    scope = read_scope()
+    if scope.get("semantics_sha256") != old_semantics:
+        raise SystemExit("OWNER_SCOPE_ADMIN_FAIL:SCOPE_TRANSITION_CHANGED_SEMANTICS")
+    if scope.get("revision") != old_revision:
+        raise SystemExit("OWNER_SCOPE_ADMIN_FAIL:SCOPE_TRANSITION_CHANGED_REVISION")
+    sync_pointers(scope)
+    print(json.dumps({
+        "status": "SCOPE_STATE_UPDATED",
+        "scope_status": scope["scope_status"],
+        "revision": scope["revision"],
+        "semantics_sha256": scope["semantics_sha256"],
+        "scope_sha256": scope["scope_sha256"],
+    }, ensure_ascii=False))
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -166,6 +221,22 @@ def main() -> None:
     ])
     p.add_argument("--evidence")
     p.set_defaults(func=governance_status)
+
+    p = sub.add_parser("requirement-status")
+    p.add_argument("--requirement-id", required=True)
+    p.add_argument("--status", required=True, choices=[
+        "LOCKED_REQUIREMENT_PENDING_FIX",
+        "TECHNICAL_PASS_AWAITING_OWNER",
+    ])
+    p.add_argument("--evidence")
+    p.set_defaults(func=requirement_status)
+
+    p = sub.add_parser("scope-status")
+    p.add_argument("--status", required=True, choices=[
+        "LOCKED_REQUIREMENT_PENDING_FIX",
+        "TECHNICAL_PASS_AWAITING_OWNER",
+    ])
+    p.set_defaults(func=scope_status)
 
     args = parser.parse_args()
     args.func(args)
