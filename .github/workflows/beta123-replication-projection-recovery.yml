@@ -1,0 +1,44 @@
+name: Beta123 replication projection recovery
+
+on:
+  push:
+    branches: [work/beta123-owner-ui-realtime-20260905]
+    paths:
+      - .github/workflows/beta123-replication-projection-recovery.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  recover-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: work/beta123-owner-ui-realtime-20260905
+          fetch-depth: 0
+      - name: Apply bounded projection recovery fix
+        run: python3 tools/beta123_replication_projection_recovery_patch.py
+      - name: Guard projection recovery semantics
+        run: |
+          python3 tools/beta123_replication_projection_recovery_contract.py
+          python3 tools/beta123_replication_fencing_contract.py
+          git diff --check
+      - name: Typecheck service
+        run: |
+          npm --prefix service install --ignore-scripts --no-audit --no-fund
+          npm --prefix service run check
+      - name: Commit service recovery fix
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git fetch origin work/beta123-owner-ui-realtime-20260905
+          git pull --rebase origin work/beta123-owner-ui-realtime-20260905
+          python3 tools/beta123_replication_projection_recovery_patch.py
+          python3 tools/beta123_replication_projection_recovery_contract.py
+          git add service/src/replication.ts tools/beta123_replication_projection_recovery_patch.py tools/beta123_replication_projection_recovery_contract.py
+          if git diff --cached --quiet; then echo NO_CHANGES; exit 0; fi
+          git commit -m 'fix(beta123): verify operational projection before replication ack'
+          git push origin HEAD:work/beta123-owner-ui-realtime-20260905
