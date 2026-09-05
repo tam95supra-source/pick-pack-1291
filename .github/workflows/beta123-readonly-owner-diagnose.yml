@@ -2,14 +2,10 @@ name: Beta123 read-only owner scope diagnose
 
 on:
   push:
-    branches:
-      - tmp/beta123-readonly-diag4-20260905
-    paths:
-      - .github/workflows/beta123-readonly-owner-diagnose.yml
-
+    branches: [tmp/beta123-readonly-diag4-20260905]
+    paths: [.github/workflows/beta123-readonly-owner-diagnose.yml]
 permissions:
   contents: read
-
 jobs:
   diagnose:
     runs-on: ubuntu-24.04
@@ -20,66 +16,34 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-      - name: Extract exact UI function bodies
-        shell: bash
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          def extract(path,names):
-              s=Path(path).read_text(encoding='utf-8')
-              for name in names:
-                  needle=f'private fun {name}'
-                  at=s.find(needle)
-                  print(f'\n===== {path} :: {name} at {at} =====')
-                  if at<0: continue
-                  brace=s.find('{',at); depth=0; i=brace
-                  while i<len(s):
-                      if s[i]=='{': depth+=1
-                      elif s[i]=='}':
-                          depth-=1
-                          if depth==0:
-                              print(s[at:min(i+1,at+24000)])
-                              break
-                      i+=1
-          extract('app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt',[
-            'refreshHeaderConnection','showConnectionDetail','deleteHistoryBulk','historyTimeline',
-            'showLaborBatchCreate','showLaborBatchFinish','openLaborExact','loadEmployee'
-          ])
-          PY
-      - name: Fresh-read production authority and backlog schema
+        with: {node-version: '24'}
+      - name: Inspect stale production replication claims
         shell: bash
         run: |
           set -euo pipefail
           npm --prefix service install --ignore-scripts --no-audit --no-fund >/dev/null
           DB_NAME=$(python3 - <<'PY'
-          import re, pathlib
-          p=pathlib.Path('.github/workflows/beta118-owner-reset-200-preflight.yml')
-          t=p.read_text(encoding='utf-8')
+          import re,pathlib
+          t=pathlib.Path('.github/workflows/beta118-owner-reset-200-preflight.yml').read_text()
           m=re.search(r'^\s*D1_NAME:\s*([^\s#]+)',t,re.M)
           if not m: raise SystemExit('PRODUCTION_D1_RUNBOOK_NAME_MISSING')
           print(m.group(1).strip('"\''))
           PY
           )
-          echo "Production D1 selected from canonical runbook: $DB_NAME"
-          npx --prefix service wrangler d1 execute "$DB_NAME" --remote --json --command "SELECT authority_epoch,authority_seq,mode,scope,service_generation FROM authority_state WHERE singleton_id=1; SELECT name FROM sqlite_master WHERE type='table' AND (name LIKE '%outbox%' OR name LIKE '%queue%' OR name LIKE '%projection%' OR name LIKE '%projector%') ORDER BY name; PRAGMA table_info(sheet_replication_outbox); SELECT status,COUNT(*) n FROM sheet_replication_outbox GROUP BY status ORDER BY status;" > /tmp/readback.json
+          SQL="SELECT authority_epoch,authority_seq,mode,scope,service_generation FROM authority_state WHERE singleton_id=1; SELECT status,COUNT(*) n,MIN(claimed_at) oldest_claim,MAX(claimed_at) newest_claim,MIN(created_at) oldest_created,MAX(created_at) newest_created,MIN(attempt_count) min_attempt,MAX(attempt_count) max_attempt FROM sheet_replication_outbox GROUP BY status ORDER BY status; SELECT COALESCE(last_error_class,'') error_class,COALESCE(last_error,'') last_error,COUNT(*) n FROM sheet_replication_outbox WHERE status='INFLIGHT' GROUP BY error_class,last_error ORDER BY n DESC LIMIT 10; SELECT COUNT(*) stale_5m FROM sheet_replication_outbox WHERE status='INFLIGHT' AND claimed_at < strftime('%Y-%m-%dT%H:%M:%fZ','now','-5 minutes');"
+          npx --prefix service wrangler d1 execute "$DB_NAME" --remote --json --command "$SQL" > /tmp/r.json
           python3 - <<'PY'
           import json
-          x=json.load(open('/tmp/readback.json'))
+          x=json.load(open('/tmp/r.json'))
           rows=[]
-          def walk(v):
-              if isinstance(v,dict):
-                  if isinstance(v.get('results'),list): rows.extend(r for r in v['results'] if isinstance(r,dict))
-                  for z in v.values(): walk(z)
-              elif isinstance(v,list):
-                  for z in v: walk(z)
-          walk(x)
-          auth=next((r for r in rows if 'authority_epoch' in r),None)
-          print('AUTHORITY',auth)
-          if not auth or auth.get('mode')!='SERVICE_PRIMARY' or auth.get('scope')!='PRODUCTION':
-              raise SystemExit('AUTHORITY_FENCE_FAILED')
-          print('READONLY_ROWS')
-          for r in rows:
-              if r is not auth: print(r)
+          def w(v):
+            if isinstance(v,dict):
+              if isinstance(v.get('results'),list): rows.extend(v['results'])
+              for z in v.values(): w(z)
+            elif isinstance(v,list):
+              for z in v: w(z)
+          w(x)
+          for r in rows: print(r)
+          auth=next(r for r in rows if isinstance(r,dict) and 'authority_epoch' in r)
+          assert auth['mode']=='SERVICE_PRIMARY' and auth['scope']=='PRODUCTION' and auth['authority_epoch']==9
           PY
