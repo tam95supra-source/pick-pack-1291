@@ -55,8 +55,6 @@ def update_yaml_invariant(text: str, invariant_id: str, candidate: str, evidence
 
 
 def update_docs_invariant(text: str, invariant_id: str, candidate: str, evidence: str) -> str:
-    # Canonical docs encode lifecycle in the heading itself, e.g.
-    # "### ID — LOCKED_REQUIREMENT_PENDING_FIX", rather than a mandatory Status row.
     pat = re.compile(rf"(?ms)^### {re.escape(invariant_id)}(?: — [A-Z_]+)?\n(.*?)(?=^### |\Z)")
     m = pat.search(text)
     if not m:
@@ -191,8 +189,8 @@ def main() -> None:
     for invariant_id in TARGETS.values():
         registry = update_yaml_invariant(registry, invariant_id, request["version_name"], evidence_text)
         docs = update_docs_invariant(docs, invariant_id, request["version_name"], evidence_text)
-    REGISTRY.write_text(registry, encoding="utf-8")
-    DOCS.write_text(docs, encoding="utf-8")
+    REGISTRY.write_text(registry.rstrip() + "\n", encoding="utf-8")
+    DOCS.write_text(docs.rstrip() + "\n", encoding="utf-8")
 
     sync_pointers(scope)
 
