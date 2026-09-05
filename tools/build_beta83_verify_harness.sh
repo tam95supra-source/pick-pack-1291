@@ -19,6 +19,10 @@ sed -i '/waitText("Quản lý biên bản dùng icon gọn",false,false,10000L);
 sed -i 's/waitText("ĐIỂM DANH",true,false,10000L);/waitText("QUÉT ĐỂ ĐIỂM DANH",true,false,10000L);/g' "$W/src/vn/pickpack1291/verify/Beta83UiChecksInstrumentation.java"
 # Beta117 renamed the document-batch marker while preserving the same guarded behavior.
 sed -i 's/document_batch_controls_beta110/document_batch_controls_beta117/g' tools/beta83_verify_matrix.sh
+# Beta125 retains an additional human-inspection screenshot immediately after EMPLOYEE -> Back -> SCAN.
+# This is evidence-only; account for the extra PNG without changing any functional assertion.
+sed -i 's/"320x568":((320,568),21)/"320x568":((320,568),22)/g' tools/beta83_verify_matrix.sh
+grep -Fq '"320x568":((320,568),22)' tools/beta83_verify_matrix.sh
 # Beta121 deliberately localized status-detail labels. Patch the generated harness only;
 # the locked candidate APK must remain byte-for-byte unchanged.
 sed -i 's/waitText("Loại kết nối",false,false,10000L);/waitText("Kiểu kết nối",false,false,10000L);/g' "$W/src/vn/pickpack1291/verify/Beta83UiChecksInstrumentation.java"
