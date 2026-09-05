@@ -36,7 +36,7 @@ jobs:
           set -euo pipefail
           python3 - <<'PY'
           import re,pathlib
-          p=pathlib.Path('.github/workflows/beta118-owner-seed-100-sessions.yml')
+          p=pathlib.Path('.github/workflows/beta118-owner-100-sessions-live-normalize.yml')
           m=re.search(r'(?m)^\s*D1_NAME:\s*([^\s#]+)',p.read_text(encoding='utf-8'))
           if not m: raise SystemExit('D1_NAME_SOURCE_MISSING')
           pathlib.Path('/tmp/d1_name').write_text(m.group(1).strip(),encoding='utf-8')
@@ -64,7 +64,7 @@ jobs:
           if not auth or auth.get('mode')!='SERVICE_PRIMARY' or auth.get('scope')!='PRODUCTION': raise SystemExit(f'AUTHORITY_FENCE_FAILED:{auth}')
           eligible=next((int(x['eligible_employees']) for x in flat if 'eligible_employees' in x),0)
           if eligible < 100: raise SystemExit(f'NOT_ENOUGH_ELIGIBLE_EMPLOYEES:{eligible}')
-          report={'status':'PASS','business_date':datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=7))).date().isoformat(),'authority':auth,'eligible_employees':eligible,'result_groups':rows,'bounded_readback':True}
+          report={'status':'PASS','business_date':datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=7))).date().isoformat(),'authority':auth,'eligible_employees':eligible,'result_groups':rows,'bounded_readback':True,'writer_target_source':'.github/workflows/beta118-owner-100-sessions-live-normalize.yml'}
           pathlib.Path('ops/owner-r4-seed100-live-probe.json').write_text(json.dumps(report,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
           PY
       - name: Commit probe receipt
