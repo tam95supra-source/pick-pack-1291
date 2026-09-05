@@ -1,8 +1,8 @@
 {
-  "run_id": 33937101147,
-  "run_sha": "df6acb4d4ce36bc6a4b579578e58bc95882825be",
+  "run_id": 33937614831,
+  "run_sha": "9d72b491d2ddffc67547c7b69dfe982d26feb83f",
   "ref": "release/beta122-effective-role-pda-source-ui-20260905",
-  "execution_nonce": "beta122-build-verify-20260905-01",
-  "stage": "BUILD_VERIFY",
-  "observed_at": "2026-09-05T01:45:28Z"
+  "execution_nonce": "beta122-verify-exact-20260905-01",
+  "stage": "VERIFY_ONLY",
+  "observed_at": "2026-09-05T01:55:55Z"
 }
