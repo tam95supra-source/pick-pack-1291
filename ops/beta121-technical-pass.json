@@ -1,0 +1,58 @@
+{
+  "status": "TECHNICAL_PASS_AWAITING_OWNER",
+  "version_name": "0.4.2-beta.121",
+  "version_code": 127,
+  "package": "vn.pickpack1291.app.beta.publicbeta",
+  "source_sha": "ee482efb41565eee797b9b6c11fe54557c2b67f8",
+  "candidate_run_id": 33929895214,
+  "candidate_artifact_id": 9958252319,
+  "apk_sha256": "5b042c8e1f6d288ef19efe9abc773562c204fb3defd91396e4101adcedc8cc57",
+  "apk_size": 14429173,
+  "signer_sha256": "d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e",
+  "fast_check_run_id": 33932137056,
+  "visual_pda_api36": {
+    "run_id": 33932137068,
+    "artifact_id": 9959024622,
+    "human_visual_sizes": [
+      "320x568",
+      "360x640",
+      "480x800"
+    ]
+  },
+  "device_regression": {
+    "run_id": 33932666498,
+    "artifact_id": 9959133081
+  },
+  "runtime_dod": {
+    "run_id": 33933735030,
+    "artifact_id": 9959507710
+  },
+  "beta_domain": {
+    "run_id": 33934032820,
+    "artifact_id": 9959551837
+  },
+  "ota_baseline_recovery": {
+    "run_id": 33934523152,
+    "artifact_id": 9959702930
+  },
+  "terminal_run_id": 33934142254,
+  "publish_artifact_id": 9959732997,
+  "ota_device_artifact_id": 9959773897,
+  "final_artifact_id": 9959777958,
+  "live": true,
+  "ota_readback": "PASS",
+  "stable_unchanged": true,
+  "main_unchanged": true,
+  "authority_change": "NONE",
+  "apk_transport": "GITHUB_RELEASE_ONLY",
+  "google_drive_apk": "FORBIDDEN",
+  "owner_checklist_id": "BETA121_OWNER_ACCEPTANCE_20260905_R1",
+  "owner_acceptance": "PENDING",
+  "invariants": [
+    "UI-STATUS-DETAIL-VI-003",
+    "SUPERADMIN-EFFECTIVE-ROLE-003",
+    "SETTINGS-REGION-INHOUSE-DROP-001",
+    "PDA-SOURCE-MASTER-001"
+  ],
+  "next_action": "WAIT_FOR_OWNER_ACCEPTANCE_NUMBERED_CHECKLIST"
+}

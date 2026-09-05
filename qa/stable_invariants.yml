@@ -50,6 +50,7 @@ invariants:
     technical_evidence: "Beta109 terminal 33515483109 PASS; publish 9803429207; OTA/install/readback 9803518172; final 9803526992; exact candidate 33506205883/9799840161 SHA256 1c01a58eefe5d0501eccbfe0359a2d5c0b3ec159f5ef37889d757f0984bbc7c8 size 14167029 signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; GitHub Release asset 539613285 exact; Stable/main/authority unchanged"
     publish_verifier_regression: "Fast Check 33388933459 PASS; receipt-driven visual/human gate enforced"
     latest_reverification: "0.4.2-beta.111 LIVE / source 03b37e5aa2726c273cc1e7c4a2161763bd3c4d2d / candidate 33586428789/9830403339 / Fast Check 33588839641 / Service 33588851239/9831120144 / visual+PDA+API36 33589199933/9831243286 + human PASS 41 screenshots / device 33590310367/9831531954 / runtime 33590505522 attempt2/9831607439 / terminal 33590747613 / publish 9831669563 / OTA-install-readback 9831721383 / final 9831726759 / SHA256 f67049067e600f4d8439d0ae088889f7b35df8b215e5432a2fcdd54f05f04a4f / size 14216181 / signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged"
+    beta121_reverification: "Beta121 run 33934142254 PASS; exact GitHub Release SHA/size; OTA baseline recovery 33934523152/9959702930 guarded by tools/beta_ota_baseline_recovery_contract.py; OTA device 9959773897; final 9959777958; Stable/main/authority unchanged."
 
   - id: PDA-EXIT-001
     status: ACTIVE_PASS
@@ -657,3 +658,51 @@ impact_map:
   "google-apps-script/**": [ENV-ISOLATION-001, INFRA-RESILIENCE-001, OTA-BETA-001]
   ".github/workflows/**": [OTA-BETA-001, ENV-ISOLATION-001, INFRA-RESILIENCE-001, BETA-STABLE-AUDIT-001, CHANGELOG-CURRENT-VERSION-001]
   "config/environment_contracts.json": [ENV-ISOLATION-001, BETA-STABLE-AUDIT-001]
+
+  - id: UI-STATUS-DETAIL-VI-003
+    status: TECHNICAL_PASS_AWAITING_OWNER
+    scope: ui-status-detail-vi
+    parent_invariant: UI-STATUS-001
+    rule: "3 ô status giữ header; icon đúng ngữ nghĩa; chi tiết tiếng Việt; Đồng bộ ngay không phá realtime/header."
+    regression_minimum: [header_pinned, status_icons, vietnamese_detail_labels, manual_sync_from_header, no_geometry_regression]
+    regression_case: "tools/beta121_owner_ui_pda_source_contract.py"
+    technical_evidence: "0.4.2-beta.121 Technical PASS/LIVE; source ee482efb41565eee797b9b6c11fe54557c2b67f8; candidate 33929895214/9958252319; Service 33929895214/9958376646; Fast Check 33932137056; visual+PDA+API36 33932137068/9959024622 + human PASS 43 screenshots 320x568/360x640/480x800; device/discovery 33932666498/9959133081; runtime DoD 33933735030/9959507710; Beta domain 33934032820/9959551837; OTA baseline recovery 33934523152/9959702930; terminal publish/OTA/install/open/readback/finalize 33934142254; publish 9959732997; OTA device 9959773897; final 9959777958; SHA256 5b042c8e1f6d288ef19efe9abc773562c204fb3defd91396e4101adcedc8cc57; size 14429173; signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged."
+    technical_receipt: "ops/beta121-technical-pass.json"
+    owner_acceptance: "PENDING_BETA121_ITEM_1_OF_4"
+    active_pass: false
+
+  - id: SUPERADMIN-EFFECTIVE-ROLE-003
+    status: TECHNICAL_PASS_AWAITING_OWNER
+    scope: superadmin-effective-role
+    parent_invariant: SUPERADMIN_AUTH_002
+    rule: "Chỉ actual SUPERADMIN được chọn effective USER/ADMIN/SUPERADMIN; quyền nghiệp vụ hạ theo effective role; non-super không tự nâng quyền."
+    regression_minimum: [actual_super_guard, effective_user, effective_admin, effective_superadmin, no_non_super_elevation, auth_session_preserved]
+    regression_case: "tools/beta121_owner_ui_pda_source_contract.py"
+    technical_evidence: "0.4.2-beta.121 Technical PASS/LIVE; source ee482efb41565eee797b9b6c11fe54557c2b67f8; candidate 33929895214/9958252319; Service 33929895214/9958376646; Fast Check 33932137056; visual+PDA+API36 33932137068/9959024622 + human PASS 43 screenshots 320x568/360x640/480x800; device/discovery 33932666498/9959133081; runtime DoD 33933735030/9959507710; Beta domain 33934032820/9959551837; OTA baseline recovery 33934523152/9959702930; terminal publish/OTA/install/open/readback/finalize 33934142254; publish 9959732997; OTA device 9959773897; final 9959777958; SHA256 5b042c8e1f6d288ef19efe9abc773562c204fb3defd91396e4101adcedc8cc57; size 14429173; signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged."
+    technical_receipt: "ops/beta121-technical-pass.json"
+    owner_acceptance: "PENDING_BETA121_ITEM_2_OF_4"
+    active_pass: false
+
+  - id: SETTINGS-REGION-INHOUSE-DROP-001
+    status: TECHNICAL_PASS_AWAITING_OWNER
+    scope: settings-inhouse-drop
+    parent_invariant: UI-FORM-CONSISTENCY-002
+    rule: "Cài đặt chia vùng; Bảng công Inhouse là placeholder Chờ phát triển; Nhận hàng Rớt dùng bảng compact Thời gian/Vị trí/DO/Số kiện."
+    regression_minimum: [settings_regions, inhouse_placeholder_nonfunctional, drop_table_headers, compact_row_geometry, existing_drop_permissions_preserved]
+    regression_case: "tools/beta121_owner_ui_pda_source_contract.py"
+    technical_evidence: "0.4.2-beta.121 Technical PASS/LIVE; source ee482efb41565eee797b9b6c11fe54557c2b67f8; candidate 33929895214/9958252319; Service 33929895214/9958376646; Fast Check 33932137056; visual+PDA+API36 33932137068/9959024622 + human PASS 43 screenshots 320x568/360x640/480x800; device/discovery 33932666498/9959133081; runtime DoD 33933735030/9959507710; Beta domain 33934032820/9959551837; OTA baseline recovery 33934523152/9959702930; terminal publish/OTA/install/open/readback/finalize 33934142254; publish 9959732997; OTA device 9959773897; final 9959777958; SHA256 5b042c8e1f6d288ef19efe9abc773562c204fb3defd91396e4101adcedc8cc57; size 14429173; signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged."
+    technical_receipt: "ops/beta121-technical-pass.json"
+    owner_acceptance: "PENDING_BETA121_ITEM_3_OF_4"
+    active_pass: false
+
+  - id: PDA-SOURCE-MASTER-001
+    status: TECHNICAL_PASS_AWAITING_OWNER
+    scope: pda-source-master
+    parent_invariant: PDA-EXIT-001
+    rule: "PDA Nguồn round-trip Android/GAS/Service; catalog 1291,1386,1368,1399,Inbound,Outbound; không mất source trong master data."
+    regression_minimum: [source_field_android, gas_source_roundtrip, service_source_roundtrip, allowed_source_catalog, existing_pda_identity_preserved]
+    regression_case: "tools/beta121_owner_ui_pda_source_contract.py"
+    technical_evidence: "0.4.2-beta.121 Technical PASS/LIVE; source ee482efb41565eee797b9b6c11fe54557c2b67f8; candidate 33929895214/9958252319; Service 33929895214/9958376646; Fast Check 33932137056; visual+PDA+API36 33932137068/9959024622 + human PASS 43 screenshots 320x568/360x640/480x800; device/discovery 33932666498/9959133081; runtime DoD 33933735030/9959507710; Beta domain 33934032820/9959551837; OTA baseline recovery 33934523152/9959702930; terminal publish/OTA/install/open/readback/finalize 33934142254; publish 9959732997; OTA device 9959773897; final 9959777958; SHA256 5b042c8e1f6d288ef19efe9abc773562c204fb3defd91396e4101adcedc8cc57; size 14429173; signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged."
+    technical_receipt: "ops/beta121-technical-pass.json"
+    owner_acceptance: "PENDING_BETA121_ITEM_4_OF_4"
+    active_pass: false

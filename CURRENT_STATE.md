@@ -14,16 +14,24 @@
 - apk_size: 14429173
 - signer_sha256: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
 - terminal_run: 33934142254
-- fast_check: PASS
-- service_gate: null
-- visual_matrix: PASS 320x568 / 360x640 / 480x800
+- fast_check: PASS / run 33932137056
+- service_gate: PASS / run 33929895214 / artifact 9958376646
+- visual_matrix: PASS / run 33932137068 / artifact 9959024622 / 320x568 + 360x640 + 480x800
 - human_visual: PASS
 - pda_functional_pre_ota: PASS
+- device_regression: PASS / run 33932666498 / artifact 9959133081
+- runtime_dod: PASS / run 33933735030 / artifact 9959507710
+- beta_domain: PASS / run 33934032820 / artifact 9959551837
+- ota_baseline_recovery: PASS / run 33934523152 / artifact 9959702930
 - beta_ota: exact 0.4.2-beta.121 PASS via GitHub Release
 - beta_ota_url: https://github.com/tam95supra-source/pick-pack-1291/releases/download/v0.4.2-beta.121-publicbeta/pick-pack-1291-public-beta-0.4.2-beta.121.apk
+- ota_install_readback: PASS / run 33934142254 / artifact 9959773897
+- final_receipt: PASS / artifact 9959777958
 - apk_transport: GITHUB_RELEASE_ONLY
 - google_drive_apk: FORBIDDEN
 - stable: unchanged
 - main_sha: 021dac5c6932b3ac5c60ce8fdba562ddf3d9688f
-- authority: SERVICE_PRIMARY / PRODUCTION / epoch 9 / generation m2-prod-reset-20260823-001
+- authority: SERVICE_PRIMARY / PRODUCTION / epoch 9 / unchanged
+- technical_pass_status: PASS
+- owner_acceptance: PENDING
 - next_action: WAIT_FOR_OWNER_ACCEPTANCE_NUMBERED_CHECKLIST
