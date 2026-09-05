@@ -8,6 +8,7 @@ VERSION=$(jq -r '.version_name' "$R")
 python3 tools/owner_scope_guard.py --bootstrap >/tmp/owner-scope-bootstrap-handoff.json
 OWNER_SCOPE=$(jq -r '.scope_id' "$SCOPE")
 OWNER_SCOPE_REVISION=$(jq -r '.revision' "$SCOPE")
+OWNER_SCOPE_SEMANTICS_SHA=$(jq -r '.semantics_sha256' "$SCOPE")
 OWNER_SCOPE_SHA=$(jq -r '.scope_sha256' "$SCOPE")
 OWNER_LEDGER=$(jq -r '.owner_command_ledger' "$SCOPE")
 OWNER_LEDGER_HEAD=$(jq -r '.ledger_head_event_sha256' "$SCOPE")
@@ -43,6 +44,7 @@ echo "stage=$(jq -r '.stage' "$R")"
 echo 'owner_scope_file=ops/OWNER_SCOPE_CURRENT.json'
 echo "owner_scope_id=$OWNER_SCOPE"
 echo "owner_scope_revision=$OWNER_SCOPE_REVISION"
+echo "owner_scope_semantics_sha256=$OWNER_SCOPE_SEMANTICS_SHA"
 echo "owner_scope_sha256=$OWNER_SCOPE_SHA"
 echo "owner_command_ledger=$OWNER_LEDGER"
 echo "owner_command_ledger_head=$OWNER_LEDGER_HEAD"
