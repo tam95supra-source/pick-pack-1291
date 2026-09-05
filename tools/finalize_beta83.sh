@@ -16,6 +16,10 @@ SOURCE=$(jq -r '.source_sha' "$R")
 SHA=$(jq -r '.apk_sha256' "$R")
 SIZE=$(jq -r '.apk_size' "$R")
 SIGNER=$(jq -r '.signer_sha256' "$R")
+OWNER_SCOPE=$(jq -r '.owner_scope // .scope // "UNSPECIFIED"' "$R")
+OWNER_CHECKLIST_ID=$(jq -r '.owner_checklist_id // "UNSPECIFIED"' "$R")
+OWNER_CHECKLIST_REVISION=$(jq -r '.owner_checklist_revision // 0' "$R")
+OWNER_NEXT_ACTION=$(jq -r '.next_action // "WAIT_FOR_OWNER_ACCEPTANCE_NUMBERED_CHECKLIST"' "$R")
 
 jq -e --arg v "$VERSION" --arg p "$PKG" --arg h "$SHA" --argjson z "$SIZE" '
   .status=="PASS" and .version_name==$v and .package==$p and .apk_sha256==$h and .apk_size==$z and
@@ -63,7 +67,7 @@ jq '.stage="pass_live" | .mode="PASS_LIVE_EXACT_BYTES_GITHUB_RELEASE_ONLY" | .pu
     .live=true | .technical_pass_status="PASS" | .owner_acceptance="PENDING" |
     .ota_readback_status="PASS" | .ota_readback_run_id=(env.GITHUB_RUN_ID|tonumber) |
     .apk_transport="GITHUB_RELEASE_ONLY" | .google_drive_apk="FORBIDDEN" |
-    .next_action="WAIT_FOR_OWNER_ACCEPTANCE_NUMBERED_CHECKLIST"' "$R" > /tmp/request.json
+    .next_action=(.next_action // "WAIT_FOR_OWNER_ACCEPTANCE_NUMBERED_CHECKLIST")' "$R" > /tmp/request.json
 mv /tmp/request.json ops/beta-release-request.json
 
 cat > CURRENT_STATE.md <<EOF
@@ -84,7 +88,7 @@ cat > CURRENT_STATE.md <<EOF
 - signer_sha256: $SIGNER
 - terminal_run: $GITHUB_RUN_ID
 - fast_check: PASS
-- service_gate: $(jq -r '.service_gate' "$R")
+- service_gate: $(jq -r '.service_gate // "NOT_REQUIRED"' "$R")
 - visual_matrix: PASS 320x568 / 360x640 / 480x800
 - human_visual: PASS
 - pda_functional_pre_ota: PASS
@@ -95,7 +99,10 @@ cat > CURRENT_STATE.md <<EOF
 - stable: unchanged
 - main_sha: $MAIN
 - authority: $AUTH_MODE / $AUTH_SCOPE / epoch $AUTH_EPOCH / generation $AUTH_GEN
-- next_action: WAIT_FOR_OWNER_ACCEPTANCE_NUMBERED_CHECKLIST
+- owner_scope: $OWNER_SCOPE
+- owner_checklist_id: $OWNER_CHECKLIST_ID
+- owner_checklist_revision: $OWNER_CHECKLIST_REVISION
+- next_action: $OWNER_NEXT_ACTION
 EOF
 
 mkdir -p docs/handovers
@@ -109,46 +116,53 @@ cat > docs/handovers/HANDOVER_CURRENT.md <<EOF
 - branch: $BRANCH
 - release_trigger_sha: $GITHUB_SHA
 - archive_file: $ARCH
+- owner_scope: $OWNER_SCOPE
+- owner_checklist_id: $OWNER_CHECKLIST_ID
+- owner_checklist_revision: $OWNER_CHECKLIST_REVISION
 
 ## Mục tiêu + DoD
-Release $VERSION Technical PASS/LIVE cho scope $(jq -r '.scope' "$R"); toàn bộ pre-OTA + GitHub Release exact bytes + OTA install/readback + finalizer PASS; OWNER acceptance còn PENDING.
+Release $VERSION Technical PASS/LIVE cho scope $OWNER_SCOPE; toàn bộ pre-OTA + GitHub Release exact bytes + OTA install/readback + finalizer PASS; OWNER acceptance còn PENDING.
 
 ## LIVE / TARGET / CANDIDATE
 - LIVE BETA: $VERSION / versionCode $CODE / package $PKG.
-- TARGET: PASS/LIVE.
+- TARGET: PASS/LIVE, chờ OWNER nghiệm thu đúng checklist của release request.
 - CANDIDATE LOCKED: run $(jq -r '.candidate_run_id' "$R"); artifact $(jq -r '.candidate_artifact_id' "$R"); source $SOURCE; SHA256 $SHA; size $SIZE; signer $SIGNER.
 - Fast Check: PASS run $(jq -r '.fast_check_run_id' "$R").
-- Service: $(jq -r '.service_gate' "$R").
+- Service gate: $(jq -r '.service_gate_status // .service_gate // "NOT_REQUIRED"' "$R").
 - Visual/PDA pre-OTA: PASS run $(jq -r '.verify_run_id' "$R"), artifact $(jq -r '.verify_artifact_id' "$R").
 - Human visual 320x568 / 360x640 / 480x800: PASS.
+- Fresh discovery/device: $(jq -r '.device_regression_status // "UNKNOWN"' "$R") run $(jq -r '.device_regression_run_id // "-"' "$R").
+- Runtime DoD: $(jq -r '.runtime_dod_status // "UNKNOWN"' "$R") run $(jq -r '.runtime_dod_run_id // "-"' "$R").
 - Stable/main/signer/authority: unchanged.
 
-## Evidence
-- 3 ô Mạng / Đồng bộ / Dịch vụ ghim trên cùng ở mọi màn scope: PASS.
-- QR nhân sự local fast-path giữ nguyên; functional + service regression PASS.
-- Điểm danh chỉ chấp nhận ACTIVE session đúng business_date hiện tại; ACTIVE phiên cũ bị chặn: PASS.
-- Cảnh báo chưa điểm danh ở trên cùng Nghiệp vụ; USER không thấy/deep-link được Lịch sử: PASS.
+## Evidence cốt lõi
+EOF
+jq -r '.release_notes[]? | "- " + .' "$R" >> docs/handovers/HANDOVER_CURRENT.md
+cat >> docs/handovers/HANDOVER_CURRENT.md <<EOF
 - GitHub Release asset exact bytes khớp candidate SHA256/size; OTA tải trực tiếp từ GitHub Release: PASS.
 - OTA $PREV → $VERSION: download/install exact SHA/size/version/package/signer và mở app: PASS.
-- Google Drive APK: FORBIDDEN từ Beta97; không backup/staging/mirror/upload/download/rollback/phân phối APK qua Drive.
+- Google Drive APK: FORBIDDEN; canonical APK transport = GITHUB_RELEASE_ONLY.
 
-## Lỗi/root cause/PASS path
-- VERIFY_ONLY harness cũ đếm text guard HISTORY cứng; sửa verifier semantics và exact candidate PASS.
-- Publish cũ có luồng Drive APK song song và DriveApp/public APK bị Google chặn; loại bỏ toàn bộ Drive dependency khỏi Beta APK pipeline.
-- Canonical Beta APK path: GitHub Actions exact candidate → GitHub Release exact asset → GAS manifest GitHub URL → OTA install/readback → finalizer.
-- Rollback canonical: exact LIVE baseline GitHub Actions/GitHub Release → atomic Beta manifest restore; không dùng Drive APK.
-- Candidate được build/sign đúng một lần; mọi recovery dùng exact locked bytes, không rebuild/resign.
+## Checklist OWNER nghiệm thu
+EOF
+if jq -e '.owner_checklist | type=="array" and length>0' "$R" >/dev/null 2>&1; then
+  jq -r '.owner_checklist[] | "\(.id). **\(.title)**\n" + (.acceptance | map("   - " + .) | join("\n"))' "$R" >> docs/handovers/HANDOVER_CURRENT.md
+else
+  echo '- ERROR: release request chưa có owner_checklist; không được tự sinh checklist từ template cũ.' >> docs/handovers/HANDOVER_CURRENT.md
+fi
+cat >> docs/handovers/HANDOVER_CURRENT.md <<EOF
 
 ## Blocker
-Không có.
+Không có blocker kỹ thuật. Technical DoD PASS; đang chờ OWNER nghiệm thu đúng checklist phía trên.
 
 ## Invariants
 - Stable/main/signer/authority không đổi.
 - APK Beta release/OTA/rollback = GITHUB_RELEASE_ONLY.
 - Google Drive không được dùng cho APK; GSheet/GAS nghiệp vụ không bị xóa/thay authority.
+- OWNER silence không phải acceptance; chỉ mục OWNER xác nhận OK mới được khóa ACTIVE_PASS.
 
 ## NEXT_ACTION
-WAIT_FOR_OWNER_ACCEPTANCE_NUMBERED_CHECKLIST
+$OWNER_NEXT_ACTION
 EOF
 
 cp docs/handovers/HANDOVER_CURRENT.md "$ARCH"
@@ -178,6 +192,7 @@ test "$(git rev-parse "origin/$BRANCH")" = "$FINAL"
 test "$(git show "origin/$BRANCH:CURRENT_STATE.md"|grep -c "$BETA_STATUS")" = 1
 test "$(git show "origin/$BRANCH:CURRENT_STATE.md"|grep -c 'google_drive_apk: FORBIDDEN')" = 1
 test "$(git show "origin/$BRANCH:docs/handovers/HANDOVER_CURRENT.md"|grep -c 'status: READY')" = 1
+test "$(git show "origin/$BRANCH:docs/handovers/HANDOVER_CURRENT.md"|grep -c "$OWNER_SCOPE")" -ge 1
 test "$(git show "origin/$BRANCH:ops/beta-ota-current.json"|jq -r '.source')" = "GITHUB_RELEASE"
 test "$(git show "origin/$BRANCH:ops/beta-ota-current.json"|jq -r '.google_drive_apk')" = "FORBIDDEN"
 
