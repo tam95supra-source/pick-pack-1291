@@ -870,7 +870,6 @@ class OperationsActivity : Activity() {
             }};return
         }
         when(state){"ACTIVE"->renderActive(body,ctx);"ENDED"->renderEnded(body,ctx);else->renderEnter(body,ctx,masters?:JSONObject())}
-        addInlineCurrentShiftStaff(body)
         root.addView(ScrollView(this).apply{addView(body)},LinearLayout.LayoutParams(-1,0,1f));setScreen(root);hideKeyboardForResult(root,scan)
     }
 
