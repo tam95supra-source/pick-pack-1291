@@ -1,0 +1,29 @@
+name: Beta124 apply verify harness
+on:
+  push:
+    branches: [release/beta124-qr-postscan-owner-scope-20260905]
+    paths: [.github/workflows/beta124-apply-verify-harness.yml]
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - name: Patch harness only
+        run: |
+          set -euo pipefail
+          python3 tools/beta124_patch_verify_harness_source.py
+          git diff --check
+          grep -Fq 'POST_SCAN_ROSTER_MUST_BE_HIDDEN' tools/Beta83UiChecksInstrumentation.java
+          grep -Fq 'post_scan_roster_hidden_beta124' tools/beta83_verify_matrix.sh
+      - name: Commit harness
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add tools/Beta83UiChecksInstrumentation.java tools/beta83_verify_matrix.sh
+          git commit -m 'test(beta124): guard QR roster before and after scan'
+          git pull --rebase origin release/beta124-qr-postscan-owner-scope-20260905
+          git push origin HEAD:release/beta124-qr-postscan-owner-scope-20260905
