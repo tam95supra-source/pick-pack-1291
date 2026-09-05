@@ -1,0 +1,101 @@
+name: Owner R4 technical pass
+
+on:
+  push:
+    branches:
+      - release/beta128-live-sync-seed100-20260906
+    paths:
+      - .github/workflows/owner-r4-technical-pass.yml
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify immutable technical evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          r=json.load(open('ops/owner-r4-seed100-receipt.json',encoding='utf-8'))
+          assert r['status']=='PASS'
+          assert r['count']==100 and r['shift_counts']=={'Ca 1':95,'Ca HC':5}
+          d=r['db_readback']
+          assert d['totals']['total']==d['totals']['active_no_exit']==100
+          assert d['events']['event_count']==100 and d['assertions']==100 and d['outbox']==100
+          assert d['review_set']==100 and d['post_meal_attendance']==100
+          assert d['authority']['mode']=='SERVICE_PRIMARY' and d['authority']['scope']=='PRODUCTION'
+          assert r['stable_unchanged'] and r['main_unchanged'] and r['authority_change']=='NONE'
+          PY
+          python3 tools/beta_current_sync_contract.py
+          python3 tools/owner_scope_guard.py --bootstrap
+          python3 tools/finalizer_handoff_contract.py
+      - name: Transition canonical R4 requirements to technical pass
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json,subprocess
+          ev13={'current_sync_workflow_run':33999149835,'control_plane_guard_run':33999375429,'finalizer_self_sync_patch_run':33999580468,'mechanism':'workflow post-release push + same-job finalizer fast-forward','fast_forward_only':True,'monotonic':True,'stable_main_unchanged':True}
+          ev14={'seed_run':33999517691,'receipt':'ops/owner-r4-seed100-receipt.json','count':100,'shifts':{'Ca 1':95,'Ca HC':5},'pda':30,'pack_tables':28,'hy1_outbound_user_pick':30,'review':100,'attendance':100,'events':100,'outbox':100,'no_exit':100,'stable_main_unchanged':True}
+          for rid,ev in [('R4-13',ev13),('R4-14',ev14)]:
+              subprocess.run(['python3','tools/owner_scope_admin.py','requirement-status','--requirement-id',rid,'--status','TECHNICAL_PASS_AWAITING_OWNER','--evidence',json.dumps(ev,separators=(',',':'))],check=True)
+          subprocess.run(['python3','tools/owner_scope_admin.py','scope-status','--status','TECHNICAL_PASS_AWAITING_OWNER'],check=True)
+          PY
+      - name: Refresh CURRENT and READY handoff
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json,re,datetime,pathlib
+          root=pathlib.Path('.'); scope=json.loads((root/'ops/OWNER_SCOPE_CURRENT.json').read_text(encoding='utf-8'))
+          now=datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0).isoformat().replace('+00:00','Z'); stamp=datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%d-%H%M%S')
+          branch='release/beta128-live-sync-seed100-20260906'; next_action='WAIT_FOR_OWNER_ACCEPTANCE_REQUIREMENTS_13_14'
+          cp=root/'CURRENT_STATE.md'; current=cp.read_text(encoding='utf-8')
+          current=re.sub(r'(?m)^- updated_at:.*$',f'- updated_at: {now}',current)
+          current=re.sub(r'(?m)^- continuity_branch:.*$',f'- continuity_branch: {branch}',current)
+          current=re.sub(r'(?m)^- owner_acceptance:.*$',f'- owner_acceptance: PENDING requirements 13,14',current)
+          current=re.sub(r'(?m)^- next_action:.*$',f'- next_action: {next_action}',current)
+          cp.write_text(current,encoding='utf-8')
+          def val(key):
+              m=re.search(rf'(?m)^- {re.escape(key)}:\s*(.+)$',current); return m.group(1).strip() if m else '-'
+          archive=f'docs/handovers/HANDOVER_{stamp}_beta128-r4-technical-pass.md'
+          handoff=f'''# PICK PACK 1291 — HANDOFF SCHEMA V3\n\n- schema_version: 3\n- status: READY\n- time_utc: {now}\n- owner: Nguyễn Văn Tâm\n- branch: {branch}\n- release_trigger_sha: {val('source_sha')}\n- archive_file: {archive}\n- owner_scope_file: ops/OWNER_SCOPE_CURRENT.json\n- owner_scope_id: {scope['scope_id']}\n- owner_scope_revision: {scope['revision']}\n- owner_scope_semantics_sha256: {scope['semantics_sha256']}\n- owner_scope_sha256: {scope['scope_sha256']}\n- owner_command_ledger: {scope['owner_command_ledger']}\n- owner_command_ledger_head: {scope['ledger_head_event_sha256']}\n- governance_policy: docs/OWNER_SCOPE_PROTOCOL.md\n\n## Authority\n- Không chép lại checklist/yêu cầu OWNER trong handoff.\n- Phiên tiếp quản phải chạy python3 tools/owner_scope_guard.py --bootstrap rồi đọc requirement từ ops/OWNER_SCOPE_CURRENT.json.\n- Chat/memory chỉ dùng để tìm canonical files; không thay canonical scope.\n\n## LIVE / TARGET\n- LIVE BETA: {val('beta_live')} / package {val('package')}.\n- R4-13 và R4-14: TECHNICAL_PASS_AWAITING_OWNER; Stable/main/signer/authority không đổi.\n\n## Evidence cốt lõi\n- LIVE/current: post-release sync + finalizer same-job FF/readback đã khóa regression bot-push.\n- Seed100: receipt ops/owner-r4-seed100-receipt.json PASS, exact 95 Ca 1 + 5 Ca HC, review/attendance/history PASS.\n- Canonical OWNER checklist: ops/OWNER_SCOPE_CURRENT.json, revision {scope['revision']}, SHA256 {scope['scope_sha256']}, {len(scope['requirements'])} requirement(s).\n\n## Blocker\nKhông có blocker kỹ thuật; chờ OWNER nghiệm thu requirement 13 và 14.\n\n## NEXT_ACTION\n{next_action}\n'''
+          hp=root/'docs/handovers/HANDOVER_CURRENT.md'; hp.write_text(handoff,encoding='utf-8')
+          ap=root/archive; ap.parent.mkdir(parents=True,exist_ok=True); ap.write_text(handoff,encoding='utf-8')
+          receipt={'status':'TECHNICAL_PASS_AWAITING_OWNER','scope_id':scope['scope_id'],'revision':scope['revision'],'semantics_sha256':scope['semantics_sha256'],'scope_sha256':scope['scope_sha256'],'requirements':['R4-13','R4-14'],'next_action':next_action,'stable_main_unchanged':True}
+          (root/'ops/owner-r4-technical-pass.json').write_text(json.dumps(receipt,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+          PY
+          python3 tools/owner_scope_guard.py --bootstrap
+          python3 tools/beta_current_sync_contract.py
+          python3 tools/finalizer_handoff_contract.py
+      - name: Commit and same-job converge beta current
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add ops/OWNER_SCOPE_CURRENT.json CURRENT_STATE.md docs/handovers ops/owner-r4-technical-pass.json
+          git commit -m "ops(r4): technical PASS live-current and seed100"
+          FINAL=$(git rev-parse HEAD)
+          git push origin HEAD:release/beta128-live-sync-seed100-20260906
+          git fetch origin beta/current --quiet
+          CURRENT=$(git rev-parse origin/beta/current)
+          if [[ "$CURRENT" != "$FINAL" ]]; then
+            git merge-base --is-ancestor "$CURRENT" "$FINAL"
+            git push origin "$FINAL:refs/heads/beta/current"
+          fi
+          git fetch origin beta/current --quiet
+          test "$(git rev-parse origin/beta/current)" = "$FINAL"
+          SCOPE_SHA=$(jq -r '.scope_sha256' ops/OWNER_SCOPE_CURRENT.json)
+          test "$(git show origin/beta/current:ops/OWNER_SCOPE_CURRENT.json | jq -r '.scope_sha256')" = "$SCOPE_SHA"
+          test "$(git show origin/beta/current:ops/OWNER_SCOPE_CURRENT.json | jq -r '.scope_status')" = "TECHNICAL_PASS_AWAITING_OWNER"
+          test "$(git show origin/beta/current:CURRENT_STATE.md | sed -n 's/^- beta_live: \([^ ]*\).*/\1/p' | head -n1)" = "0.4.2-beta.128"
+          echo "R4_TECHNICAL_PASS_CURRENT_READBACK_PASS:$FINAL:$SCOPE_SHA"
