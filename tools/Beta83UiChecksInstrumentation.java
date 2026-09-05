@@ -639,6 +639,13 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     SystemClock.sleep(450L);
   }
 
+  private void invokeActivityBack(){
+    Activity a=currentActivity;
+    require(a!=null&&PKG.equals(a.getPackageName()),"CURRENT_ACTIVITY_MISSING_BACK");
+    runOnMainSync(new Runnable(){@Override public void run(){a.onBackPressed();}});
+    SystemClock.sleep(450L);
+  }
+
   private void runBack36()throws Exception{
     String mnv=req("mnv"),mnv2=req("mnv2"),mnv3=req("mnv3");
     seedAuth();seedService();seedData(mnv,mnv2,mnv3);
@@ -1009,7 +1016,7 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     waitText("Ca HC – 33/0",true,false,12000L);
     waitText("Ca 2 – 33/0",true,false,12000L);
     clickText("Quét QR nhân sự",true,12000L);
-    waitText("Danh sách QR vào / ra",true,false,12000L);
+    waitTextScrolling("Danh sách QR vào / ra",20000L);
     waitText("Trong ca 34 • Đã ra 0",true,false,12000L);
     long end=SystemClock.uptimeMillis()+12000L;
     while(SystemClock.uptimeMillis()<end&&countTextExact("Trong ca 33 • Đã ra 0")<2)SystemClock.sleep(180L);
@@ -1171,6 +1178,11 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     shot(tag+"-04-beta113-quick-exit-dialog");
     pressSystemBack();
     waitText("THÔNG TIN CA",true,false,10000L);
+    require(findText("Danh sách QR vào / ra",true,false)==null,"POST_SCAN_ROSTER_MUST_BE_HIDDEN");
+    mark("post_scan_roster_hidden_beta124");
+    invokeActivityBack();
+    waitText("QUÉT QR NHÂN SỰ",true,false,10000L);
+    mark("post_scan_activity_back_beta124");
 
     showTextOnScreen("Danh sách QR vào / ra",10000L);
     waitText("TEST (",false,false,10000L);
