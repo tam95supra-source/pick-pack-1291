@@ -45,9 +45,10 @@ assert 'OUTBOUND_DROP_DELETE_SELECTED' in outbound
 assert 'action==="outbound_drop_list"' in outbound and 'action==="outbound_drop_delete"' in outbound
 assert '"outbound_drop_list"' in bridge and '"outbound_drop_delete"' in bridge
 
-# Attendance and QR filters.
-for token in ['Tìm MNV / họ tên','Tất cả ca','Tất cả NCC','Tất cả vị trí','QUÉT ĐỂ ĐIỂM DANH']:
+# Attendance and QR filters. OWNER Beta123 supersedes the abbreviated search placeholder.
+for token in ['Tìm mã nhân viên / họ tên','Tất cả ca','Tất cả NCC','Tất cả vị trí','QUÉT ĐỂ ĐIỂM DANH']:
     assert token in meal, token
+assert 'Tìm MNV / họ tên' not in meal
 inline=ops[ops.index("private fun addInlineCurrentShiftStaff"):ops.index("private fun addScannedOldSessionWarning")]
 for token in ['Tất cả ca','Tất cả NCC','Tất cả vị trí','Danh sách QR vào / ra']:
     assert token in inline, token
