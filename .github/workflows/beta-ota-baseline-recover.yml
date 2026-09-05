@@ -1,0 +1,129 @@
+name: Beta OTA baseline recover
+
+on:
+  push:
+    branches:
+      - 'release/beta121-owner-ui-pda-source-20260905'
+    paths:
+      - .github/workflows/beta-ota-baseline-recover.yml
+      - tools/beta_ota_baseline_recovery_contract.py
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: beta-ota-baseline-recover
+  cancel-in-progress: false
+
+jobs:
+  recover:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+      GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+      GOOGLE_OAUTH_REFRESH_TOKEN: ${{ secrets.GOOGLE_OAUTH_REFRESH_TOKEN }}
+      GAS_SCRIPT_ID: ${{ secrets.GAS_SCRIPT_ID }}
+      GAS_DEPLOYMENT_ID: ${{ secrets.GAS_DEPLOYMENT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate recovery harness
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile tools/gas_ota_static_contract.py tools/beta_ota_baseline_recovery_contract.py
+          python3 tools/gas_ota_static_contract.py --self-test
+          python3 tools/beta_ota_baseline_recovery_contract.py --self-test
+      - name: Restore exact current LIVE Beta OTA contract
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          E=/tmp/beta-ota-baseline-recover
+          mkdir -p "$E"
+          for n in GOOGLE_OAUTH_CLIENT_ID GOOGLE_OAUTH_CLIENT_SECRET GOOGLE_OAUTH_REFRESH_TOKEN GAS_SCRIPT_ID GAS_DEPLOYMENT_ID; do
+            test -n "${!n:-}" || { echo "MISSING_REQUIRED_SECRET:$n"; exit 2; }
+          done
+          R=ops/beta-release-request.json
+          PREV=$(jq -r '.base_version' "$R")
+          BASE_CODE=$(jq -r '.base_version_code' "$R")
+          PKG=$(jq -r '.package' "$R")
+          BASE_SHA=$(jq -r '.base_apk_sha256' "$R")
+          BASE_SIZE=$(jq -r '.base_apk_size' "$R")
+          test "$(jq -r '.release_lock_status' "$R")" = PASS
+          test "$(jq -r '.candidate_locked' "$R")" = true
+          test "$(jq -r '.stable_publish' "$R")" = FORBIDDEN
+          test "$(jq -r '.authority_change' "$R")" = NONE
+
+          RAW=$(printf '%s' "$GAS_DEPLOYMENT_ID" | tr -d '\r\n\t ')
+          DEP="$RAW"
+          if [[ "$RAW" == *"/s/"* ]]; then DEP="${RAW#*/s/}"; DEP="${DEP%%/*}"; fi
+          test -n "$DEP"
+          GAS_URL="https://script.google.com/macros/s/$DEP/exec"
+          echo "::add-mask::$GAS_URL"
+
+          post(){ curl -fsSL --connect-timeout 15 --max-time 35 -H 'content-type: application/json' "$GAS_URL" --data-binary "$1"; }
+          post "$(jq -nc '{action:"update_check",channel:"STABLE",current_version:"0.1.0-stable"}')" > "$E/pre-recovery.json" || true
+
+          TOKEN_JSON=$(curl -fsS --connect-timeout 15 --max-time 30 https://oauth2.googleapis.com/token \
+            -H 'Content-Type: application/x-www-form-urlencoded' \
+            --data-urlencode "client_id=$GOOGLE_OAUTH_CLIENT_ID" \
+            --data-urlencode "client_secret=$GOOGLE_OAUTH_CLIENT_SECRET" \
+            --data-urlencode "refresh_token=$GOOGLE_OAUTH_REFRESH_TOKEN" \
+            --data-urlencode grant_type=refresh_token)
+          ACCESS_TOKEN=$(jq -r '.access_token//empty' <<<"$TOKEN_JSON")
+          test -n "$ACCESS_TOKEN"
+          export ACCESS_TOKEN
+          echo "::add-mask::$ACCESS_TOKEN"
+
+          BASE_URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/v${PREV}-publicbeta/pick-pack-1291-public-beta-${PREV}.apk"
+          echo "::add-mask::$BASE_URL"
+          curl -fsSL --retry 2 --retry-delay 2 --connect-timeout 15 --max-time 180 "$BASE_URL" -o "$E/base-live.apk"
+          test "$(sha256sum "$E/base-live.apk" | awk '{print $1}')" = "$BASE_SHA"
+          test "$(stat -c '%s' "$E/base-live.apk")" = "$BASE_SIZE"
+
+          printf '%s\n' "Khôi phục exact LIVE $PREV qua GitHub Release trước publish." > "$E/base-notes.txt"
+          python3 tools/gas_ota_static_contract.py \
+            --version "$PREV" --version-code "$BASE_CODE" --package "$PKG" \
+            --sha256 "$BASE_SHA" --size "$BASE_SIZE" --apk-url "$BASE_URL" \
+            --published-at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --notes-file "$E/base-notes.txt" --receipt "$E/gas-contract.json" \
+            --description "Pick Pack 1291 recover exact LIVE $PREV OTA baseline"
+
+          BASE_PROBE=$(python3 - "$PREV" <<'PY'
+import re,sys
+m=re.search(r'^(.*beta\.)(\d+)$',sys.argv[1]); assert m and int(m.group(2))>0
+print(m.group(1)+str(int(m.group(2))-1))
+PY
+)
+          PASS=0
+          for a in 0 1 2 3 4 5 6 7; do
+            post "$(jq -nc '{action:"update_check",channel:"STABLE",current_version:"0.1.0-stable"}')" > "$E/stable.json" || true
+            post "$(jq -nc --arg c "$BASE_PROBE" '{action:"update_check",channel:"BETA",current_version:$c}')" > "$E/beta-old.json" || true
+            post "$(jq -nc --arg c "$PREV" '{action:"update_check",channel:"BETA",current_version:$c}')" > "$E/beta-current.json" || true
+            if jq -e '.ok==true and .channel=="STABLE" and .available==false' "$E/stable.json" >/dev/null 2>&1 \
+              && jq -e --arg v "$PREV" --arg p "$PKG" --arg h "$BASE_SHA" --argjson z "$BASE_SIZE" --arg u "$BASE_URL" '.ok==true and .channel=="BETA" and .source=="GITHUB_RELEASE" and .available==true and .version_name==$v and .package==$p and .sha256==$h and .size==$z and .apk_url==$u' "$E/beta-old.json" >/dev/null 2>&1 \
+              && jq -e --arg v "$PREV" --arg p "$PKG" '.ok==true and .channel=="BETA" and .source=="GITHUB_RELEASE" and .available==false and .version_name==$v and .package==$p' "$E/beta-current.json" >/dev/null 2>&1; then PASS=1; break; fi
+            sleep $((2+a*3))
+          done
+          test "$PASS" = 1
+
+          jq -n --arg v "$PREV" --argjson c "$BASE_CODE" --arg p "$PKG" --arg h "$BASE_SHA" --argjson z "$BASE_SIZE" --arg u "$BASE_URL" '{version_name:$v,version_code:$c,package:$p,sha256:$h,size:$z,apk_url:$u}' > "$E/expected.json"
+          python3 tools/beta_ota_baseline_recovery_contract.py --stable "$E/stable.json" --beta-old "$E/beta-old.json" --beta-current "$E/beta-current.json" --expected "$E/expected.json" --out "$E/readback-contract.json"
+
+          EXPECTED_SERVICE=$(jq -r '.environments.BETA.current_service.url // empty' config/environment_contracts.json)
+          test -n "$EXPECTED_SERVICE"
+          post "$(jq -nc '{action:"service_discovery",_app_channel:"BETA",_environment_id:"BETA",_service_audience:"PICK_PACK_1291_BETA"}')" > "$E/discovery.json"
+          jq -e --arg u "$EXPECTED_SERVICE" '.ok==true and .environment_id=="BETA" and .service_audience=="PICK_PACK_1291_BETA" and .authority_mode=="SERVICE_PRIMARY" and .authority.mode=="SERVICE_PRIMARY" and .authority.scope=="PRODUCTION" and (.service_url|rtrimstr("/"))==($u|rtrimstr("/"))' "$E/discovery.json" >/dev/null
+
+          jq -n --arg v "$PREV" --arg h "$BASE_SHA" --argjson z "$BASE_SIZE" --arg u "$BASE_URL" \
+            --slurpfile pre "$E/pre-recovery.json" --slurpfile gas "$E/gas-contract.json" --slurpfile stable "$E/stable.json" --slurpfile beta "$E/beta-old.json" --slurpfile current "$E/beta-current.json" --slurpfile discovery "$E/discovery.json" \
+            '{status:"PASS",phase:"BETA_OTA_BASELINE_RECOVERY",version_name:$v,sha256:$h,size:$z,apk_url:$u,pre_recovery:($pre[0]//{}),gas_contract:$gas[0],stable_readback:$stable[0],beta_readback:$beta[0],current_readback:$current[0],service_discovery:$discovery[0],stable_publish:false,authority_change:"NONE",target_beta_touched:false}' > "$E/receipt.json"
+          cat "$E/receipt.json"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: beta-ota-baseline-recover-${{ github.run_id }}
+          path: /tmp/beta-ota-baseline-recover
+          retention-days: 90
+          if-no-files-found: error
