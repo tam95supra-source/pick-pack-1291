@@ -2,14 +2,14 @@
   "schema_version": 1,
   "project": "APK PICK PACK 1291",
   "owner": "Nguyễn Văn Tâm",
-  "scope_id": "OWNER_20260905_R3_DROP_REALTIME_BETA128",
-  "revision": 3,
-  "scope_status": "OWNER_ACCEPTANCE_COMPLETE",
+  "scope_id": "OWNER_20260906_R4_LIVE_SYNC_SEED100",
+  "revision": 4,
+  "scope_status": "LOCKED_REQUIREMENT_PENDING_FIX",
   "source_of_truth": "ops/OWNER_SCOPE_CURRENT.json",
-  "migration_source": "OWNER CMD-20260905-003 over Beta127 accepted baseline",
+  "migration_source": "OWNER CMD-20260906-005 + CMD-20260906-006 over Beta128 accepted baseline",
   "owner_command_ledger": "ops/owner-command-ledger.jsonl",
-  "ledger_head_sequence": 4,
-  "ledger_head_event_sha256": "082b266eeed4017ac6bd76df724dd72b6a37de198b94dd52063b4e34abbee13a",
+  "ledger_head_sequence": 6,
+  "ledger_head_event_sha256": "884eaee1d0a83a19f6119214a4f06f865c6270ee9b2c7780b2ed0e1b586ec155",
   "requirements": [
     {
       "requirement_id": "R2-01",
@@ -331,6 +331,38 @@
         "accepted_at": "2026-09-06T05:59:00+07:00",
         "command_id": "CMD-20260906-004"
       }
+    },
+    {
+      "requirement_id": "R4-13",
+      "checklist_number": 13,
+      "title": "LIVE Beta/current luôn đúng bản public PASS mới nhất",
+      "acceptance": [
+        "beta/current và CURRENT_STATE/HANDOVER/owner scope phải phản ánh Beta public PASS/LIVE mới nhất, không được tiếp tục trỏ Beta cũ sau khi release/finalizer có commit hợp lệ.",
+        "Cơ chế sync phải tự xử lý cả commit control-plane/finalizer hợp lệ sau Beta release, chỉ fast-forward và fail-closed khi diverged/rollback; không force, không đụng Stable/main/signer/authority.",
+        "Có regression chứng minh post-release commit hợp lệ vẫn hội tụ beta/current về exact LIVE mới nhất."
+      ],
+      "invariant_id": "LIVE-CURRENT-SYNC-001",
+      "state": "LOCKED_REQUIREMENT_PENDING_FIX",
+      "source_command_ids": [
+        "CMD-20260906-006"
+      ]
+    },
+    {
+      "requirement_id": "R4-14",
+      "checklist_number": 14,
+      "title": "100 phiên vào kiểm thử tải/quota/UI",
+      "acceptance": [
+        "Tạo đúng 100 phiên vào hợp lệ cho ngày hiện hành trên Beta; đúng 95 Ca 1 và 5 Ca HC, không tạo phiên ra.",
+        "Dùng dữ liệu hợp lệ và phân bổ ngẫu nhiên/thực tế cho bàn pack, PDA và user thuộc hy1.outbound theo canonical hiện hành; không hardcode dữ liệu động ngoài writer/runtime.",
+        "Mỗi phiên có canonical event/lịch sử, durable outbox/idempotency/audit và hiển thị bình thường ở rà soát phiên, điểm danh như thao tác người dùng.",
+        "Readback xác minh đủ exact 100 phiên, không trùng, đúng phân bố ca, không có exit; kiểm tra bounded để phục vụ đo quota/mức chịu tải mà không tự tạo tải đọc bất thường."
+      ],
+      "invariant_id": "OWNER-LOAD-SEED-100-001",
+      "state": "LOCKED_REQUIREMENT_PENDING_FIX",
+      "source_command_ids": [
+        "CMD-20260906-005",
+        "CMD-20260906-006"
+      ]
     }
   ],
   "governance": {
@@ -348,7 +380,7 @@
     }
   },
   "release_binding": {
-    "mode": "CURRENT_RELEASE",
+    "mode": "CONTROL_PLANE_ONLY",
     "base_live_version_name": "0.4.2-beta.127",
     "live_version_name": "0.4.2-beta.128",
     "live_version_code": 134,
@@ -362,6 +394,6 @@
     "owner_acceptance": "PENDING",
     "owner_acceptance_receipt": "ops/beta128-owner-acceptance.json"
   },
-  "semantics_sha256": "4ba607f61fd8877c1bbf0a86a69ac947e0fa0912e039e9f1085fb6d2e179eb90",
-  "scope_sha256": "72b55f9c0f6eba3b6c6da4c2f612ae3fdfe02008f0c9400cfe7dd67c0872069c"
+  "semantics_sha256": "be0d473b1042f7a36fc8606e5d5f5202819faa67b167289fb70cabb3d5c817de",
+  "scope_sha256": "d64c6b601d4f54893a00405b6368cc3bfd15f948d367adfc7fb18db58ca3c63b"
 }

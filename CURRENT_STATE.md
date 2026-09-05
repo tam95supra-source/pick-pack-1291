@@ -27,13 +27,13 @@
 - main_sha: 021dac5c6932b3ac5c60ce8fdba562ddf3d9688f
 - authority: SERVICE_PRIMARY / PRODUCTION / epoch 9 / generation m2-prod-reset-20260823-001
 - owner_scope_file: ops/OWNER_SCOPE_CURRENT.json
-- owner_scope_id: OWNER_20260905_R3_DROP_REALTIME_BETA128
-- owner_scope_revision: 3
-- owner_scope_semantics_sha256: 4ba607f61fd8877c1bbf0a86a69ac947e0fa0912e039e9f1085fb6d2e179eb90
-- owner_scope_sha256: 72b55f9c0f6eba3b6c6da4c2f612ae3fdfe02008f0c9400cfe7dd67c0872069c
+- owner_scope_id: OWNER_20260906_R4_LIVE_SYNC_SEED100
+- owner_scope_revision: 4
+- owner_scope_semantics_sha256: be0d473b1042f7a36fc8606e5d5f5202819faa67b167289fb70cabb3d5c817de
+- owner_scope_sha256: d64c6b601d4f54893a00405b6368cc3bfd15f948d367adfc7fb18db58ca3c63b
 - owner_command_ledger: ops/owner-command-ledger.jsonl
-- owner_command_ledger_head: 082b266eeed4017ac6bd76df724dd72b6a37de198b94dd52063b4e34abbee13a
+- owner_command_ledger_head: 884eaee1d0a83a19f6119214a4f06f865c6270ee9b2c7780b2ed0e1b586ec155
 - owner_checklist_id: BETA128_OWNER_ACCEPTANCE_20260905_R3
 - owner_checklist_revision: 3
 - owner_acceptance: COMPLETE (12/12 OWNER OK)
-- next_action: WAIT_FOR_OWNER_NEW_SCOPE
+- next_action: FIX_LIVE_CURRENT_SYNC_THEN_SEED_100_SESSIONS

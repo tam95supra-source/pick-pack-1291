@@ -8,12 +8,12 @@
 - release_trigger_sha: 1c9bc65ddaeffeb50b22ca2a9ab9125cc6e45deb
 - archive_file: docs/handovers/HANDOVER_20260905-225900_beta128-owner-accepted.md
 - owner_scope_file: ops/OWNER_SCOPE_CURRENT.json
-- owner_scope_id: OWNER_20260905_R3_DROP_REALTIME_BETA128
-- owner_scope_revision: 3
-- owner_scope_semantics_sha256: 4ba607f61fd8877c1bbf0a86a69ac947e0fa0912e039e9f1085fb6d2e179eb90
-- owner_scope_sha256: 72b55f9c0f6eba3b6c6da4c2f612ae3fdfe02008f0c9400cfe7dd67c0872069c
+- owner_scope_id: OWNER_20260906_R4_LIVE_SYNC_SEED100
+- owner_scope_revision: 4
+- owner_scope_semantics_sha256: be0d473b1042f7a36fc8606e5d5f5202819faa67b167289fb70cabb3d5c817de
+- owner_scope_sha256: d64c6b601d4f54893a00405b6368cc3bfd15f948d367adfc7fb18db58ca3c63b
 - owner_command_ledger: ops/owner-command-ledger.jsonl
-- owner_command_ledger_head: 082b266eeed4017ac6bd76df724dd72b6a37de198b94dd52063b4e34abbee13a
+- owner_command_ledger_head: 884eaee1d0a83a19f6119214a4f06f865c6270ee9b2c7780b2ed0e1b586ec155
 - governance_policy: docs/OWNER_SCOPE_PROTOCOL.md
 
 ## Authority
@@ -44,4 +44,4 @@
 Không có blocker kỹ thuật. OWNER acceptance COMPLETE; canonical scope đã khóa ACTIVE_PASS.
 
 ## NEXT_ACTION
-WAIT_FOR_OWNER_NEW_SCOPE
+FIX_LIVE_CURRENT_SYNC_THEN_SEED_100_SESSIONS
