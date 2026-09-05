@@ -30,7 +30,7 @@ jobs:
           print(m.group(1).strip('"\''))
           PY
           )
-          SQL="SELECT authority_epoch,authority_seq,mode,scope,service_generation FROM authority_state WHERE singleton_id=1; SELECT status,COUNT(*) n,MIN(claimed_at) oldest_claim,MAX(claimed_at) newest_claim,MIN(created_at) oldest_created,MAX(created_at) newest_created,MIN(attempt_count) min_attempt,MAX(attempt_count) max_attempt FROM sheet_replication_outbox GROUP BY status ORDER BY status; SELECT COALESCE(last_error_class,'') error_class,COALESCE(last_error,'') last_error,COUNT(*) n FROM sheet_replication_outbox WHERE status='INFLIGHT' GROUP BY error_class,last_error ORDER BY n DESC LIMIT 10; SELECT COUNT(*) stale_5m FROM sheet_replication_outbox WHERE status='INFLIGHT' AND claimed_at < strftime('%Y-%m-%dT%H:%M:%fZ','now','-5 minutes');"
+          SQL="SELECT authority_epoch,authority_seq,mode,scope,service_generation FROM authority_state WHERE singleton_id=1; SELECT status,COUNT(*) n,MIN(claimed_at) oldest_claim,MAX(claimed_at) newest_claim,MIN(created_at) oldest_created,MAX(created_at) newest_created,MIN(attempt_count) min_attempt,MAX(attempt_count) max_attempt FROM sheet_replication_outbox GROUP BY status ORDER BY status; SELECT COALESCE(last_error_class,'') error_class,COALESCE(last_error,'') last_error,COUNT(*) n FROM sheet_replication_outbox WHERE status IN ('INFLIGHT','RETRY','PENDING') GROUP BY error_class,last_error ORDER BY n DESC LIMIT 10; SELECT COUNT(*) stale_15m FROM sheet_replication_outbox WHERE status='INFLIGHT' AND (claimed_at IS NULL OR claimed_at < strftime('%Y-%m-%dT%H:%M:%fZ','now','-15 minutes')); SELECT state,pending_count,retry_count,last_attempt_at,last_success_at,last_error_class,last_error FROM replication_status WHERE singleton_id=1;"
           npx --prefix service wrangler d1 execute "$DB_NAME" --remote --json --command "$SQL" > /tmp/r.json
           python3 - <<'PY'
           import json
@@ -47,3 +47,4 @@ jobs:
           auth=next(r for r in rows if isinstance(r,dict) and 'authority_epoch' in r)
           assert auth['mode']=='SERVICE_PRIMARY' and auth['scope']=='PRODUCTION' and auth['authority_epoch']==9
           PY
+# fresh-read-after-15m-20260905
