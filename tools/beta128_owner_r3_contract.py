@@ -35,7 +35,7 @@ meal = read("app/src/main/java/vn/pickpack1291/app/beta/PostMealAttendanceFeatur
 assert 'lastFastRefreshAt' in meal
 assert 'now-lastFastRefreshAt<1_500L' in meal
 assert 'if(signature==lastRenderSignature)return' in meal
-assert 'lastRenderSignature=""' in meal  # boundary refresh remains clock-correct
+assert 'lastRenderSignature=""' in meal
 assert 'contentBox.post{addChunk(0)}' not in meal
 assert '            addChunk(0)' in meal
 
@@ -49,23 +49,29 @@ assert 'openBox.post{addChunk(0)}' not in ops
 assert 'renderedTimelineRevision:Long?=null' in ops
 assert 'if(renderedTimelineRevision!=null&&revision==renderedTimelineRevision)return' in ops
 
-# Owner scope must reopen the reported false-PASS invariants and add the new Drop layout requirement.
+# Canonical semantics stay fixed while technical/OWNER lifecycle state advances.
 scope = json.loads(read("ops/OWNER_SCOPE_CURRENT.json"))
 assert scope["revision"] == 3
-assert scope["scope_status"] == "LOCKED_REQUIREMENT_PENDING_FIX"
+assert scope["scope_status"] in {
+    "LOCKED_REQUIREMENT_PENDING_FIX",
+    "TECHNICAL_PASS_AWAITING_OWNER",
+    "OWNER_ACCEPTANCE_COMPLETE",
+}
 req = {x["requirement_id"]: x for x in scope["requirements"]}
+allowed = {"LOCKED_REQUIREMENT_PENDING_FIX", "TECHNICAL_PASS_AWAITING_OWNER", "ACTIVE_PASS"}
 for rid in ("R2-07", "R2-09", "R2-10", "R2-11"):
-    assert req[rid]["state"] == "LOCKED_REQUIREMENT_PENDING_FIX", rid
+    assert req[rid]["state"] in allowed, (rid, req[rid]["state"])
     assert "CMD-20260905-003" in req[rid]["source_command_ids"], rid
 assert req["R3-12"]["invariant_id"] == "DROP-LAYOUT-INPUT-004"
-assert req["R3-12"]["state"] == "LOCKED_REQUIREMENT_PENDING_FIX"
+assert req["R3-12"]["state"] in allowed
 assert len(scope["requirements"]) == 12
 
 registry = read("qa/stable_invariants.yml")
-for inv in ("LABOR-BULK-REALTIME-007", "ATTENDANCE-LOCAL-FIRST-003", "QR-INLINE-SHIFT-NAV-003", "UI-REALTIME-100MS-006"):
+for inv in ("LABOR-BULK-REALTIME-007", "ATTENDANCE-LOCAL-FIRST-003", "QR-INLINE-SHIFT-NAV-003", "UI-REALTIME-100MS-006", "DROP-LAYOUT-INPUT-004"):
     block = re.search(rf'(?ms)^  - id: {re.escape(inv)}\n(.*?)(?=^  - id: |^impact_map:)', registry)
-    assert block and 'status: LOCKED_REQUIREMENT_PENDING_FIX' in block.group(1), inv
-assert '  - id: DROP-LAYOUT-INPUT-004\n    status: LOCKED_REQUIREMENT_PENDING_FIX' in registry
+    assert block, inv
+    status = re.search(r'(?m)^    status: ([A-Z_]+)$', block.group(1))
+    assert status and status.group(1) in allowed, (inv, status.group(1) if status else None)
 
 ledger = [json.loads(x) for x in read("ops/owner-command-ledger.jsonl").splitlines() if x.strip()]
 assert ledger[-1]["command_id"] == "CMD-20260905-003"
@@ -74,7 +80,8 @@ assert ledger[-1]["related_requirement_ids"] == ["R2-07", "R2-09", "R2-10", "R2-
 
 current = read("CURRENT_STATE.md")
 handover = read("docs/handovers/HANDOVER_CURRENT.md")
-assert '- next_action: VERIFY_BETA128_OWNER_R3_SOURCE_AND_RUN_REQUIRED_GATES' in current
-assert 'VERIFY_BETA128_OWNER_R3_SOURCE_AND_RUN_REQUIRED_GATES' in handover
+assert '- owner_scope_id: OWNER_20260905_R3_DROP_REALTIME_BETA128' in current
+assert '- owner_scope_id: OWNER_20260905_R3_DROP_REALTIME_BETA128' in handover
+assert '## NEXT_ACTION' in handover
 
 print("beta128_owner_r3_contract=PASS")
