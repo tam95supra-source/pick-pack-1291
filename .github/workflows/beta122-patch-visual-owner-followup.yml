@@ -1,0 +1,42 @@
+name: Beta122 patch visual owner followup
+
+on:
+  push:
+    branches:
+      - release/beta122-effective-role-pda-source-ui-20260905
+    paths:
+      - .github/workflows/beta122-patch-visual-owner-followup.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply runtime harness patch
+        run: |
+          set -euo pipefail
+          python3 -m py_compile tools/beta122_patch_visual_owner_followup.py
+          python3 tools/beta122_patch_visual_owner_followup.py
+          python3 tools/beta122_owner_followup_contract.py
+          grep -Fq 'BETA122_OWNER_FOLLOWUP_RUNTIME_PASS' tools/Beta83UiChecksInstrumentation.java
+          grep -Fq 'BETA122_EFFECTIVE_USER_HISTORY_STILL_VISIBLE' tools/Beta83UiChecksInstrumentation.java
+          grep -Fq 'BETA122_PDA_SOURCE_PANEL_NOT_RENDERED' tools/Beta83UiChecksInstrumentation.java
+          git diff --check
+      - name: Commit harness only
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add tools/Beta83UiChecksInstrumentation.java
+          if git diff --cached --quiet; then
+            echo BETA122_RUNTIME_HARNESS_ALREADY_APPLIED
+            exit 0
+          fi
+          git commit -m 'test(beta122): verify effective role and PDA source on exact candidate'
+          git push origin HEAD:release/beta122-effective-role-pda-source-ui-20260905
