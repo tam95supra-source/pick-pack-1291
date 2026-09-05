@@ -39,3 +39,17 @@ Status: LOCKED_REQUIREMENT_PENDING_FIX until exact candidate Technical DoD PASS;
 - PDA source is never inferred from UI-only cache when canonical master has a value.
 - Service response after local QR render cannot erase in-progress selections.
 - Stable/main/signer/authority remain unchanged.
+
+
+## Beta126 remediation — OWNER DOCX scope audit
+Status: LOCKED_REQUIREMENT_PENDING_FIX until exact Beta126 candidate passes all gates; then TECHNICAL_PASS_AWAITING_OWNER.
+
+New mandatory regression checks:
+- Settings region fills are actually distinct at rendered background level; cache/reset semantics retained for every role.
+- Staff search is debounce-driven and cannot synchronously rebuild on every character.
+- Report contains `BÁO CÁO TÌNH HÌNH NHÂN SỰ`, `Ca 1 và HC / C2 / Cả ngày`, has `CHI TIẾT CÔNG NHẬT` and `NHÂN SỰ PICK & PACK THỰC TẾ SAU KHI LOẠI TRỪ HỖ TRỢ`, and contains no `Tổng nhân sự` / `Khấu trừ công nhật` summary rows.
+- Labor batch create/finish uses bounded concurrency and one UI refresh at completion; no recursive per-person `next(index,ok)` chain.
+- Labor bulk edit supports shared BĐ, shared KT and tri-state deduction while preserving fixed-position deduction guards.
+- Header Service keeps actual provider/route visible when degraded.
+- Previously proven History/queue recovery/Drop/PDA source/Meal local-first/QR roster-hide behavior must remain unchanged.
+- Exact candidate visual matrix: 320x568, 360x640, 480x800 with human inspection; PDA functional must exercise Staff search, Report, Labor batch selector/edit, Settings and QR navigation.
