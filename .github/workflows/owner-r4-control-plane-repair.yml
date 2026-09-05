@@ -1,0 +1,133 @@
+name: Owner R4 control plane repair
+
+on:
+  push:
+    branches:
+      - release/beta128-live-sync-seed100-20260906
+    paths:
+      - .github/workflows/owner-r4-control-plane-repair.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: owner-r4-control-plane-repair
+  cancel-in-progress: false
+
+jobs:
+  repair:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Repair finalizer locked-state handling
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('tools/finalize_beta83.sh')
+          text=p.read_text(encoding='utf-8')
+          old='''OWNER_PENDING_NUMBERS=$(jq -r '[.requirements[] | select(.state!="ACTIVE_PASS" and .state!="SUPERSEDED") | .checklist_number] | map(tostring) | join("_")' "$SCOPE")\nif [[ -n "$OWNER_PENDING_NUMBERS" ]]; then\n  OWNER_NEXT_ACTION="WAIT_FOR_OWNER_ACCEPTANCE_REQUIREMENTS_${OWNER_PENDING_NUMBERS}"\nelse\n  OWNER_NEXT_ACTION="OWNER_ACCEPTANCE_COMPLETE"\nfi'''
+          new='''OWNER_LOCKED_NUMBERS=$(jq -r '[.requirements[] | select(.state=="LOCKED_REQUIREMENT_PENDING_FIX") | .checklist_number] | map(tostring) | join("_")' "$SCOPE")\nOWNER_PENDING_NUMBERS=$(jq -r '[.requirements[] | select(.state=="TECHNICAL_PASS_AWAITING_OWNER") | .checklist_number] | map(tostring) | join("_")' "$SCOPE")\nif [[ -n "$OWNER_LOCKED_NUMBERS" ]]; then\n  echo "FINALIZER_BLOCKED_LOCKED_REQUIREMENTS_${OWNER_LOCKED_NUMBERS}" >&2\n  exit 1\nelif [[ -n "$OWNER_PENDING_NUMBERS" ]]; then\n  OWNER_NEXT_ACTION="WAIT_FOR_OWNER_ACCEPTANCE_REQUIREMENTS_${OWNER_PENDING_NUMBERS}"\nelse\n  OWNER_NEXT_ACTION="OWNER_ACCEPTANCE_COMPLETE"\nfi'''
+          if old not in text: raise SystemExit('FINALIZER_PATCH_ANCHOR_MISSING')
+          p.write_text(text.replace(old,new,1),encoding='utf-8')
+          PY
+      - name: Repair finalizer handoff contract for implementation state
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > tools/finalizer_handoff_contract.py <<'PY'
+          #!/usr/bin/env python3
+          from __future__ import annotations
+          import json,re
+          from pathlib import Path
+
+          ROOT=Path(__file__).resolve().parents[1]
+          scope=json.loads((ROOT/'ops/OWNER_SCOPE_CURRENT.json').read_text(encoding='utf-8'))
+          current=(ROOT/'CURRENT_STATE.md').read_text(encoding='utf-8')
+          handoff_path=ROOT/'docs/handovers/HANDOVER_CURRENT.md'
+          handoff=handoff_path.read_text(encoding='utf-8')
+          finalizer=(ROOT/'tools/finalize_beta83.sh').read_text(encoding='utf-8')
+
+          assert '`python3 tools/owner_scope_guard.py --bootstrap`' not in finalizer
+          assert '`$OWNER_SCOPE_FILE`' not in finalizer
+          assert 'OWNER_LOCKED_NUMBERS=' in finalizer
+          assert 'select(.state=="LOCKED_REQUIREMENT_PENDING_FIX")' in finalizer
+          assert 'FINALIZER_BLOCKED_LOCKED_REQUIREMENTS_${OWNER_LOCKED_NUMBERS}' in finalizer
+          assert 'OWNER_PENDING_NUMBERS=' in finalizer
+          assert 'select(.state=="TECHNICAL_PASS_AWAITING_OWNER")' in finalizer
+          assert 'WAIT_FOR_OWNER_ACCEPTANCE_REQUIREMENTS_${OWNER_PENDING_NUMBERS}' in finalizer
+
+          sid=scope['scope_id']; rev=scope['revision']; sem=scope['semantics_sha256']; sha=scope['scope_sha256']; ledger=scope['ledger_head_event_sha256']; count=len(scope['requirements'])
+          locked=[str(x['checklist_number']) for x in scope['requirements'] if x.get('state')=='LOCKED_REQUIREMENT_PENDING_FIX']
+          pending=[str(x['checklist_number']) for x in scope['requirements'] if x.get('state')=='TECHNICAL_PASS_AWAITING_OWNER']
+          m=re.search(r'(?m)^- next_action:\s*(.+)$',current); actual_next=m.group(1).strip() if m else ''
+          if scope.get('scope_status')=='OWNER_ACCEPTANCE_COMPLETE':
+              assert not locked and not pending, 'accepted scope still has pending requirements'
+              expected_next='WAIT_FOR_OWNER_NEW_SCOPE'
+          elif locked:
+              assert actual_next and not actual_next.startswith('WAIT_FOR_OWNER_ACCEPTANCE_REQUIREMENTS_'), 'locked implementation scope cannot wait for OWNER acceptance'
+              expected_next=actual_next
+          elif pending:
+              expected_next='WAIT_FOR_OWNER_ACCEPTANCE_REQUIREMENTS_'+'_'.join(pending)
+          else:
+              expected_next='OWNER_ACCEPTANCE_COMPLETE'
+
+          for text,label in ((current,'CURRENT_STATE'),(handoff,'HANDOVER_CURRENT')):
+              assert f'- owner_scope_id: {sid}' in text,label
+              assert f'- owner_scope_revision: {rev}' in text,label
+              assert f'- owner_scope_semantics_sha256: {sem}' in text,label
+              assert f'- owner_scope_sha256: {sha}' in text,label
+              assert f'- owner_command_ledger_head: {ledger}' in text,label
+          assert f'- next_action: {expected_next}' in current
+          assert re.search(rf'(?m)^## NEXT_ACTION\n{re.escape(expected_next)}$',handoff)
+          assert 'Phiên tiếp quản phải chạy python3 tools/owner_scope_guard.py --bootstrap rồi đọc requirement từ ops/OWNER_SCOPE_CURRENT.json.' in handoff
+          assert f'Canonical OWNER checklist: ops/OWNER_SCOPE_CURRENT.json, revision {rev}, SHA256 {sha}, {count} requirement(s).' in handoff
+          assert '## Checklist OWNER nghiệm thu' not in handoff
+          m=re.search(r'(?m)^- archive_file: (.+)$',handoff); assert m,'archive pointer missing'
+          archive=ROOT/m.group(1).strip(); assert archive.exists(),archive
+          archive_text=archive.read_text(encoding='utf-8')
+          assert f'- owner_scope_sha256: {sha}' in archive_text
+          assert re.search(rf'(?m)^## NEXT_ACTION\n{re.escape(expected_next)}$',archive_text)
+          print(json.dumps({'status':'PASS','scope_id':sid,'revision':rev,'scope_sha256':sha,'locked':[int(x) for x in locked],'pending_owner_checklist':[int(x) for x in pending],'next_action':expected_next},ensure_ascii=False))
+          PY
+      - name: Refresh current and READY handoff for R4
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json,re,datetime,pathlib
+          root=pathlib.Path('.')
+          scope=json.loads((root/'ops/OWNER_SCOPE_CURRENT.json').read_text(encoding='utf-8'))
+          cp=root/'CURRENT_STATE.md'; current=cp.read_text(encoding='utf-8')
+          now=datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0).isoformat().replace('+00:00','Z')
+          stamp=datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%d-%H%M%S')
+          branch='release/beta128-live-sync-seed100-20260906'
+          current=re.sub(r'(?m)^- updated_at:.*$',f'- updated_at: {now}',current)
+          current=re.sub(r'(?m)^- continuity_branch:.*$',f'- continuity_branch: {branch}',current)
+          current=re.sub(r'(?m)^- owner_checklist_id:.*$',f'- owner_checklist_id: OWNER_R4_LIVE_SYNC_SEED100',current)
+          current=re.sub(r'(?m)^- owner_checklist_revision:.*$',f'- owner_checklist_revision: {scope["revision"]}',current)
+          current=re.sub(r'(?m)^- owner_acceptance:.*$',f'- owner_acceptance: PENDING (R4 implementation)',current)
+          cp.write_text(current,encoding='utf-8')
+          def val(key):
+              m=re.search(rf'(?m)^- {re.escape(key)}:\s*(.+)$',current); return m.group(1).strip() if m else '-'
+          next_action=val('next_action')
+          archive=f'docs/handovers/HANDOVER_{stamp}_beta128-r4-live-sync-seed100.md'
+          handoff=f'''# PICK PACK 1291 — HANDOFF SCHEMA V3\n\n- schema_version: 3\n- status: READY\n- time_utc: {now}\n- owner: Nguyễn Văn Tâm\n- branch: {branch}\n- release_trigger_sha: {val('source_sha')}\n- archive_file: {archive}\n- owner_scope_file: ops/OWNER_SCOPE_CURRENT.json\n- owner_scope_id: {scope['scope_id']}\n- owner_scope_revision: {scope['revision']}\n- owner_scope_semantics_sha256: {scope['semantics_sha256']}\n- owner_scope_sha256: {scope['scope_sha256']}\n- owner_command_ledger: {scope['owner_command_ledger']}\n- owner_command_ledger_head: {scope['ledger_head_event_sha256']}\n- governance_policy: docs/OWNER_SCOPE_PROTOCOL.md\n\n## Authority\n- Không chép lại checklist/yêu cầu OWNER trong handoff.\n- Phiên tiếp quản phải chạy python3 tools/owner_scope_guard.py --bootstrap rồi đọc requirement từ ops/OWNER_SCOPE_CURRENT.json.\n- Chat/memory chỉ dùng để tìm canonical files; không thay canonical scope.\n\n## LIVE / TARGET\n- LIVE BETA: {val('beta_live')} / package {val('package')}.\n- R4 đang thực thi control-plane LIVE-current và seed 100 phiên; Stable/main/signer/authority không đổi.\n\n## Evidence cốt lõi\n- Current-sync đã mở rộng từ release-complete sang cả post-release push hợp lệ, vẫn monotonic + fast-forward-only + fail-closed.\n- Canonical OWNER checklist: ops/OWNER_SCOPE_CURRENT.json, revision {scope['revision']}, SHA256 {scope['scope_sha256']}, {len(scope['requirements'])} requirement(s).\n\n## Blocker\nKhông có blocker OWNER; tiếp tục thực thi requirement LOCKED theo NEXT_ACTION.\n\n## NEXT_ACTION\n{next_action}\n'''
+          hp=root/'docs/handovers/HANDOVER_CURRENT.md'; hp.write_text(handoff,encoding='utf-8')
+          ap=root/archive; ap.parent.mkdir(parents=True,exist_ok=True); ap.write_text(handoff,encoding='utf-8')
+          PY
+          python3 tools/owner_scope_guard.py --bootstrap
+          python3 tools/finalizer_handoff_contract.py
+      - name: Commit repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tools/finalize_beta83.sh tools/finalizer_handoff_contract.py CURRENT_STATE.md docs/handovers
+          git commit -m "fix(control-plane): distinguish LOCKED implementation from owner acceptance"
+          git push origin HEAD:release/beta128-live-sync-seed100-20260906
