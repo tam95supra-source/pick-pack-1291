@@ -33,9 +33,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python3 -m py_compile tools/beta127_owner_r2_remediation.py
-          python3 tools/beta127_owner_r2_remediation.py
+          python3 -m py_compile tools/beta127_owner_r2_remediation_v2.py
+          python3 tools/beta127_owner_r2_remediation_v2.py
           python3 tools/beta123_owner_scope_contract.py
+          bash -n tools/build_beta83_verify_harness.sh
           git diff --check
       - name: Compile and unit regression
         shell: bash
