@@ -30,7 +30,7 @@ jobs:
       - name: Contracts and source guards
         run: |
           python3 tools/beta123_owner_scope_contract.py
-          python3 tools/beta122_owner_ui_pda_source_contract.py
+          python3 tools/beta121_owner_ui_pda_source_contract.py
           git diff --check
       - name: Compile Android Beta and Stable
         run: ./gradlew :app:compileBetaDebugKotlin :app:compileStableDebugKotlin :app:testBetaDebugUnitTest --no-daemon
@@ -42,4 +42,4 @@ jobs:
           if git diff --cached --quiet; then echo NO_CHANGES; exit 0; fi
           git commit -m 'feat(beta123): owner UI realtime recovery scope'
           git push origin HEAD:work/beta123-owner-ui-realtime-20260905
-# rerun-20260905-owner-scope-3
+# rerun-20260905-owner-scope-4
