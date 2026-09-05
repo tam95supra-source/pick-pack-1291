@@ -1,0 +1,43 @@
+name: Beta123 apply owner UI realtime scope
+
+on:
+  push:
+    branches: [work/beta123-owner-ui-realtime-20260905]
+    paths:
+      - .github/workflows/beta123-apply-owner-scope.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: work/beta123-owner-ui-realtime-20260905
+          fetch-depth: 0
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Apply deterministic patch
+        run: |
+          python3 tools/beta123_apply_owner_scope.py
+          python3 tools/beta123_patch_fixups.py
+      - name: Contracts and source guards
+        run: |
+          python3 tools/beta123_owner_scope_contract.py
+          python3 tools/beta122_owner_ui_pda_source_contract.py
+          git diff --check
+      - name: Compile Android Beta and Stable
+        run: ./gradlew :app:compileBetaDebugKotlin :app:compileStableDebugKotlin :app:testBetaDebugUnitTest --no-daemon
+      - name: Commit implementation
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add app qa tools
+          if git diff --cached --quiet; then echo NO_CHANGES; exit 0; fi
+          git commit -m 'feat(beta123): owner UI realtime recovery scope'
+          git push origin HEAD:work/beta123-owner-ui-realtime-20260905
