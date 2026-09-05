@@ -1,0 +1,75 @@
+name: Beta121 post-release metadata
+
+on:
+  push:
+    branches:
+      - 'release/beta121-owner-ui-pda-source-20260905'
+    paths:
+      - .github/workflows/beta121-post-release-metadata.yml
+      - tools/beta121_post_release_metadata.py
+      - tools/finalize_handoff_contract.py
+      - tools/finalize_beta83.sh
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: beta121-post-release-metadata
+  cancel-in-progress: false
+
+jobs:
+  finalize-metadata:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout release control source
+        uses: actions/checkout@v4
+        with:
+          ref: release/beta121-owner-ui-pda-source-20260905
+          fetch-depth: 0
+      - name: Validate finalizer canonical-field regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile tools/finalize_handoff_contract.py tools/beta121_post_release_metadata.py
+          python3 tools/finalize_handoff_contract.py
+      - name: Checkout canonical beta current
+        uses: actions/checkout@v4
+        with:
+          ref: beta/current
+          path: current
+          fetch-depth: 0
+      - name: Apply Beta121 technical-pass metadata only
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/beta121_post_release_metadata.py current
+          git -C current diff --name-only > /tmp/changed.txt
+          cat /tmp/changed.txt
+          grep -Fxq 'CURRENT_STATE.md' /tmp/changed.txt
+          grep -Fxq 'docs/STABLE_INVARIANTS.md' /tmp/changed.txt
+          grep -Fxq 'docs/handovers/HANDOVER_CURRENT.md' /tmp/changed.txt
+          grep -Fxq 'docs/handovers/HANDOVER_20260905-005940_beta121-technical-pass-owner-pending.md' /tmp/changed.txt
+          grep -Fxq 'ops/beta121-technical-pass.json' /tmp/changed.txt
+          grep -Fxq 'qa/stable_invariants.yml' /tmp/changed.txt
+          ! grep -E '^(app|service|google-apps-script)/' /tmp/changed.txt
+          test "$(jq -r '.version_name' current/ops/beta-release-request.json)" = '0.4.2-beta.121'
+          test "$(jq -r '.technical_pass_status' current/ops/beta-release-request.json)" = PASS
+          test "$(jq -r '.owner_acceptance' current/ops/beta-release-request.json)" = PENDING
+          test "$(grep -c '^## NEXT_ACTION$' current/docs/handovers/HANDOVER_CURRENT.md)" = 1
+          ! grep -Fq 'null' current/docs/handovers/HANDOVER_CURRENT.md
+      - name: Commit canonical beta current metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          git -C current config user.name 'github-actions[bot]'
+          git -C current config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git -C current add CURRENT_STATE.md docs/STABLE_INVARIANTS.md docs/handovers/HANDOVER_CURRENT.md docs/handovers/HANDOVER_20260905-005940_beta121-technical-pass-owner-pending.md ops/beta121-technical-pass.json qa/stable_invariants.yml
+          git -C current diff --cached --quiet && { echo 'METADATA_ALREADY_CURRENT'; exit 0; }
+          git -C current commit -m '[skip ci] lock Beta121 technical-pass metadata awaiting OWNER'
+          SHA=$(git -C current rev-parse HEAD)
+          git -C current push origin HEAD:beta/current
+          git -C current fetch origin beta/current --quiet
+          test "$(git -C current rev-parse origin/beta/current)" = "$SHA"
+          echo "CANONICAL_METADATA_COMMIT=$SHA"
