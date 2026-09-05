@@ -1,8 +1,8 @@
 {
-  "run_id": 33964725581,
-  "run_sha": "9b5393986af87c993b647978ccc176929e2c1ed4",
-  "ref": "release/beta126-owner-scope-20260905",
-  "execution_nonce": "beta126-publish-exact-20260905-01",
-  "stage": "PUBLISH",
-  "observed_at": "2026-09-05T11:58:14Z"
+  "run_id": 33967758178,
+  "run_sha": "c9a8db2d69dc5f9295116d0062761047cfd3cc9a",
+  "ref": "release/beta127-owner-r2-complete-20260905",
+  "execution_nonce": "beta127-build-verify-owner-r2-20260905-01",
+  "stage": "BUILD_VERIFY",
+  "observed_at": "2026-09-05T13:03:00Z"
 }
