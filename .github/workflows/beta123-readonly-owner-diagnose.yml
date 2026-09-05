@@ -1,0 +1,78 @@
+name: Beta123 read-only owner scope diagnose
+
+on:
+  push:
+    branches:
+      - tmp/beta123-readonly-diag4-20260905
+    paths:
+      - .github/workflows/beta123-readonly-owner-diagnose.yml
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Extract exact UI function bodies
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          def extract(path,names):
+              s=Path(path).read_text(encoding='utf-8')
+              for name in names:
+                  needle=f'private fun {name}'
+                  at=s.find(needle)
+                  print(f'\n===== {path} :: {name} at {at} =====')
+                  if at<0: continue
+                  brace=s.find('{',at); depth=0; i=brace
+                  while i<len(s):
+                      if s[i]=='{': depth+=1
+                      elif s[i]=='}':
+                          depth-=1
+                          if depth==0:
+                              print(s[at:min(i+1,at+24000)])
+                              break
+                      i+=1
+          extract('app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt',[
+            'settingsScreen','historyScreen','staffScreen','reportScreen','laborHome','pdaExchangeScreen','employeeScan','syncScreen','statusDetailDialog'
+          ])
+          PY
+      - name: Fresh-read service authority and backlog
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm --prefix service install --ignore-scripts --no-audit --no-fund >/dev/null
+          DB_NAME=$(python3 - <<'PY'
+          import re, pathlib
+          for p in [pathlib.Path('service/wrangler.toml'),pathlib.Path('service/wrangler.jsonc'),pathlib.Path('wrangler.toml')]:
+              if p.exists():
+                  t=p.read_text(encoding='utf-8')
+                  m=re.search(r'database_name\s*=\s*["\']([^"\']+)',t)
+                  if m: print(m.group(1)); break
+          PY
+          )
+          test -n "$DB_NAME"
+          SQL="SELECT authority_epoch,authority_seq,mode,scope,service_generation FROM authority_state WHERE singleton_id=1; SELECT name FROM sqlite_master WHERE type='table' AND (name LIKE '%outbox%' OR name LIKE '%queue%' OR name LIKE '%projection%') ORDER BY name; SELECT status,COUNT(*) n,MIN(created_at) oldest,MAX(updated_at) newest FROM sheet_replication_outbox GROUP BY status ORDER BY status;"
+          npx --prefix service wrangler d1 execute "$DB_NAME" --remote --json --command "$SQL" > /tmp/readback.json
+          python3 - <<'PY'
+          import json
+          x=json.load(open('/tmp/readback.json'))
+          def walk(v):
+              if isinstance(v,dict):
+                  if isinstance(v.get('results'),list):
+                      for r in v['results']: print(r)
+                  for z in v.values(): walk(z)
+              elif isinstance(v,list):
+                  for z in v: walk(z)
+          walk(x)
+          PY
