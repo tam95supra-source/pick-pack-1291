@@ -24,190 +24,35 @@ jobs:
       - name: Install YAML parser
         run: python3 -m pip install --quiet pyyaml
 
-      - name: Patch remaining control-plane fences
+      - name: Apply deterministic continuity finalizer
+        run: python3 tools/owner_scope_continuity_finalize.py
+
+      - name: OWNER scope guard self-test
+        run: python3 tools/owner_scope_guard.py --self-test
+
+      - name: OWNER scope negative regression
+        run: python3 tools/owner_scope_guard_regression.py
+
+      - name: OWNER scope drift and bootstrap
         shell: bash
         run: |
           set -euo pipefail
-          python3 <<'PY'
-          import json, os, re, sys
-          from datetime import datetime, timezone
-          from pathlib import Path
-          sys.path.insert(0, 'tools')
-          from owner_scope_guard_v2 import semantic_hash, full_scope_hash
-
-          # 1) Acceptance receipt is mandatory only after OWNER acceptance is complete.
-          p=Path('tools/owner_scope_guard_v2.py')
-          t=p.read_text()
-          old='''    receipt = read_json(ROOT / binding["owner_acceptance_receipt"])
-              if scope["scope_status"] == "OWNER_ACCEPTANCE_COMPLETE":
-                  if request.get("owner_acceptance") != "COMPLETE":
-                      fail("RELEASE_OWNER_ACCEPTANCE")
-                  if receipt.get("status") != "OWNER_ACCEPTANCE_COMPLETE":
-                      fail("OWNER_RECEIPT_STATUS")
-          '''
-          # indentation-safe direct block replacement
-          old=old.replace('              if ', '    if ').replace('                  if ', '        if ').replace('                      fail', '            fail')
-          new='''    if scope["scope_status"] == "OWNER_ACCEPTANCE_COMPLETE":
-              receipt_rel = binding.get("owner_acceptance_receipt")
-              if not isinstance(receipt_rel, str) or not receipt_rel.strip():
-                  fail("OWNER_RECEIPT_PATH")
-              receipt = read_json(ROOT / receipt_rel)
-              if request.get("owner_acceptance") != "COMPLETE":
-                  fail("RELEASE_OWNER_ACCEPTANCE")
-              if receipt.get("status") != "OWNER_ACCEPTANCE_COMPLETE":
-                  fail("OWNER_RECEIPT_STATUS")
-          '''
-          new=new.replace('              receipt_rel', '        receipt_rel').replace('              if ', '        if ').replace('                  fail', '            fail').replace('              receipt =', '        receipt =')
-          if old not in t:
-              raise SystemExit('PATCH_FAIL:guard receipt block')
-          p.write_text(t.replace(old,new,1))
-
-          # 2) Main release finalizer must carry both semantic and snapshot hashes.
-          p=Path('tools/finalize_beta83.sh')
-          t=p.read_text()
-          reps=[
-            ('OWNER_SCOPE_REVISION=$(jq -r \' .revision\' "$SCOPE")', 'OWNER_SCOPE_REVISION=$(jq -r \' .revision\' "$SCOPE")'),
-          ]
-          # exact simple replacements
-          anchor='OWNER_SCOPE_REVISION=$(jq -r \'.revision\' "$SCOPE")\nOWNER_SCOPE_SHA=$(jq -r \'.scope_sha256\' "$SCOPE")'
-          replacement='OWNER_SCOPE_REVISION=$(jq -r \'.revision\' "$SCOPE")\nOWNER_SCOPE_SEMANTICS_SHA=$(jq -r \'.semantics_sha256\' "$SCOPE")\nOWNER_SCOPE_SHA=$(jq -r \'.scope_sha256\' "$SCOPE")'
-          if anchor not in t: raise SystemExit('PATCH_FAIL:finalizer scope vars')
-          t=t.replace(anchor,replacement,1)
-          anchor='- owner_scope_revision: $OWNER_SCOPE_REVISION\n- owner_scope_sha256: $OWNER_SCOPE_SHA'
-          replacement='- owner_scope_revision: $OWNER_SCOPE_REVISION\n- owner_scope_semantics_sha256: $OWNER_SCOPE_SEMANTICS_SHA\n- owner_scope_sha256: $OWNER_SCOPE_SHA'
-          if t.count(anchor) < 2: raise SystemExit('PATCH_FAIL:finalizer pointer blocks')
-          t=t.replace(anchor,replacement)
-          anchor='test "$(git show "origin/$BRANCH:CURRENT_STATE.md"|grep -c -- "- owner_scope_sha256: $OWNER_SCOPE_SHA")" = 1'
-          replacement='test "$(git show "origin/$BRANCH:CURRENT_STATE.md"|grep -c -- "- owner_scope_semantics_sha256: $OWNER_SCOPE_SEMANTICS_SHA")" = 1\n'+anchor
-          if anchor not in t: raise SystemExit('PATCH_FAIL:finalizer current readback')
-          t=t.replace(anchor,replacement,1)
-          anchor='test "$(git show "origin/$BRANCH:docs/handovers/HANDOVER_CURRENT.md"|grep -c -- "- owner_scope_sha256: $OWNER_SCOPE_SHA")" = 1'
-          replacement='test "$(git show "origin/$BRANCH:docs/handovers/HANDOVER_CURRENT.md"|grep -c -- "- owner_scope_semantics_sha256: $OWNER_SCOPE_SEMANTICS_SHA")" = 1\n'+anchor
-          if anchor not in t: raise SystemExit('PATCH_FAIL:finalizer handoff readback')
-          t=t.replace(anchor,replacement,1)
-          anchor='--arg owner_scope "$OWNER_SCOPE" --arg owner_scope_sha "$OWNER_SCOPE_SHA" --argjson owner_scope_revision "$OWNER_SCOPE_REVISION"'
-          replacement='--arg owner_scope "$OWNER_SCOPE" --arg owner_scope_semantics_sha "$OWNER_SCOPE_SEMANTICS_SHA" --arg owner_scope_sha "$OWNER_SCOPE_SHA" --argjson owner_scope_revision "$OWNER_SCOPE_REVISION"'
-          if anchor not in t: raise SystemExit('PATCH_FAIL:finalizer receipt args')
-          t=t.replace(anchor,replacement,1)
-          anchor='owner_scope:$owner_scope,owner_scope_sha256:$owner_scope_sha,owner_scope_revision:$owner_scope_revision,'
-          replacement='owner_scope:$owner_scope,owner_scope_semantics_sha256:$owner_scope_semantics_sha,owner_scope_sha256:$owner_scope_sha,owner_scope_revision:$owner_scope_revision,'
-          if anchor not in t: raise SystemExit('PATCH_FAIL:finalizer receipt json')
-          t=t.replace(anchor,replacement,1)
-          p.write_text(t)
-
-          # 3) Machine registry invariant without reformatting the historical YAML.
-          p=Path('qa/stable_invariants.yml')
-          t=p.read_text()
-          iid='OWNER-SCOPE-CONTINUITY-001'
-          if f'  - id: {iid}\n' not in t:
-              block=f'''  - id: {iid}
-              status: TECHNICAL_PASS_AWAITING_OWNER
-              scope: control-plane-owner-scope
-              rule: "OWNER requirements/clarifications/acceptance are persisted in an append-only hash-chain ledger and a canonical scope snapshot; semantic changes require a new OWNER command plus revision bump; handoff/release/finalizer must bootstrap and bind exact semantic/snapshot hashes; chat memory is never authority."
-              regression_minimum: [ledger_append_only, semantic_hash_fence, snapshot_hash_fence, revision_fence, state_only_transition, handoff_pointer_only, release_binding, acceptance_registry_sync, secret_redaction_guard]
-              regression_case: "tools/owner_scope_guard.py + tools/owner_scope_guard_regression.py"
-              technical_evidence: "Control-plane guard V2 + negative regression PASS; CI run {os.environ['GITHUB_RUN_ID']}; no app/service/APK bytes changed."
-              owner_acceptance: "PENDING_OWNER_SCOPE_CONTINUITY_001"
-              active_pass: false
-
-          '''.replace('              ','')
-              if '\nimpact_map:\n' not in t: raise SystemExit('PATCH_FAIL:registry impact_map')
-              t=t.replace('\nimpact_map:\n','\n'+block+'impact_map:\n',1)
-          marker='impact_map:\n'
-          extra='''  "ops/OWNER_SCOPE_CURRENT.json": [OWNER-SCOPE-CONTINUITY-001]
-            "ops/owner-command-ledger.jsonl": [OWNER-SCOPE-CONTINUITY-001]
-            "docs/handovers/**": [OWNER-SCOPE-CONTINUITY-001]
-            "CURRENT_STATE.md": [OWNER-SCOPE-CONTINUITY-001]
-            "tools/owner_scope*": [OWNER-SCOPE-CONTINUITY-001]
-          '''.replace('            ','')
-          if '"ops/OWNER_SCOPE_CURRENT.json"' not in t:
-              t=t.replace(marker,marker+extra,1)
-          wf=re.search(r'(?m)^  "\.github/workflows/\*\*": \[(.*?)\]$',t)
-          if not wf: raise SystemExit('PATCH_FAIL:workflow impact map')
-          vals=[x.strip() for x in wf.group(1).split(',') if x.strip()]
-          if iid not in vals: vals.append(iid)
-          repl='  ".github/workflows/**": ['+', '.join(vals)+']'
-          t=t[:wf.start()]+repl+t[wf.end():]
-          p.write_text(t)
-
-          # 4) Durable Markdown invariant.
-          p=Path('docs/STABLE_INVARIANTS.md')
-          t=p.read_text()
-          header='### OWNER-SCOPE-CONTINUITY-001'
-          if header not in t:
-              t=t.rstrip()+f'''\n\n{header}\n- Status: TECHNICAL_PASS_AWAITING_OWNER\n- Scope: control-plane / OWNER scope continuity\n- Rule: yêu cầu/clarification/acceptance OWNER phải đi qua append-only ledger + canonical scope snapshot; semantic hash chỉ đổi bởi OWNER command + revision; handoff/finalizer chỉ trỏ canonical scope và bắt buộc bootstrap guard.\n- Regression: `tools/owner_scope_guard.py` + `tools/owner_scope_guard_regression.py`; positive + negative cases.\n- Technical evidence: CI run {os.environ['GITHUB_RUN_ID']} PASS; control-plane only, app/service/APK bytes unchanged.\n- OWNER acceptance: PENDING.\n'''
-          p.write_text(t)
-
-          # 5) Final technical evidence in canonical scope; semantic hash must remain unchanged.
-          p=Path('ops/OWNER_SCOPE_CURRENT.json')
-          scope=json.loads(p.read_text())
-          semantic_before=scope['semantics_sha256']
-          scope['governance']['status']='TECHNICAL_PASS_AWAITING_OWNER'
-          scope['governance']['technical_evidence']={
-              'guard_run_id': int(os.environ['GITHUB_RUN_ID']),
-              'guard_status':'PASS_PENDING_FINAL_READBACK',
-              'scope_guard_self_test':'PASS',
-              'negative_regression':'PASS',
-              'scope_drift_guard':'PASS',
-              'bootstrap_readback':'PASS',
-              'finalizer_pointer_mode':'PASS',
-              'semantic_vs_state_fence':'PASS',
-              'app_service_apk_bytes_changed':False,
-          }
-          scope['semantics_sha256']=semantic_hash(scope)
-          if scope['semantics_sha256'] != semantic_before:
-              raise SystemExit('PATCH_FAIL:semantic hash changed during technical state update')
-          scope['scope_sha256']=full_scope_hash(scope)
-          p.write_text(json.dumps(scope,ensure_ascii=False,indent=2)+'\n')
-
-          # 6) Sync handoff/current pointers and set the only valid NEXT_ACTION.
-          def pointer(text,key,value):
-              pat=rf'(?m)^- {re.escape(key)}:\s*.*$'
-              line=f'- {key}: {value}'
-              if re.search(pat,text): return re.sub(pat,line,text)
-              anchor='- owner_scope_revision: 2'
-              if anchor not in text: raise SystemExit(f'PATCH_FAIL:pointer {key}')
-              return text.replace(anchor,anchor+'\n'+line,1)
-          now=datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
-          for rel in ['CURRENT_STATE.md','docs/handovers/HANDOVER_CURRENT.md']:
-              path=Path(rel); text=path.read_text()
-              for key,val in {
-                  'owner_scope_revision':str(scope['revision']),
-                  'owner_scope_semantics_sha256':scope['semantics_sha256'],
-                  'owner_scope_sha256':scope['scope_sha256'],
-                  'owner_command_ledger_head':scope['ledger_head_event_sha256'],
-              }.items(): text=pointer(text,key,val)
-              if rel=='CURRENT_STATE.md':
-                  text=re.sub(r'(?m)^- updated_at: .*$',f'- updated_at: {now}',text)
-                  text=re.sub(r'(?m)^- owner_scope_continuity_policy: .*$', '- owner_scope_continuity_policy: OWNER_SCOPE_CONTINUITY_001 / TECHNICAL_PASS_AWAITING_OWNER',text)
-                  text=re.sub(r'(?m)^- next_action: .*$', '- next_action: WAIT_FOR_OWNER_ACCEPTANCE_OWNER_SCOPE_CONTINUITY_001',text)
-              else:
-                  text=re.sub(r'(?m)^- time_utc: .*$',f'- time_utc: {now}',text)
-                  text=re.sub(r'(?s)## NEXT_ACTION\n.*$', '## NEXT_ACTION\nWAIT_FOR_OWNER_ACCEPTANCE_OWNER_SCOPE_CONTINUITY_001',text)
-              path.write_text(text)
-
-          # New READY archive is pointer-only, not a copied checklist.
-          h=Path('docs/handovers/HANDOVER_CURRENT.md')
-          stamp=datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')
-          archive=f'docs/handovers/HANDOVER_{stamp}_owner-scope-continuity-tech-pass.md'
-          text=h.read_text()
-          text=re.sub(r'(?m)^- archive_file: .*$',f'- archive_file: {archive}',text)
-          h.write_text(text)
-          Path(archive).write_text(text)
-          PY
-
-      - name: Verify control-plane technical DoD
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 tools/owner_scope_guard.py --self-test
-          python3 tools/owner_scope_guard_regression.py
           python3 tools/owner_scope_guard.py --base-ref "origin/${CONTINUITY_BRANCH}"
           python3 tools/owner_scope_guard.py --bootstrap
+
+      - name: Existing control-plane guards
+        shell: bash
+        run: |
+          set -euo pipefail
           python3 tools/owner_acceptance_ledger_guard.py --self-test
           python3 tools/public_repo_secret_guard.py --self-test
           python3 tools/public_repo_secret_guard.py --base-ref "origin/${CONTINUITY_BRANCH}"
           python3 tools/beta_current_sync_contract.py
+
+      - name: Finalizer and invariant contract
+        shell: bash
+        run: |
+          set -euo pipefail
           bash -n tools/finalize_beta83.sh
           bash -n tools/beta83_release_handoff_finalizer.sh
           grep -q 'OWNER_SCOPE_SEMANTICS_SHA' tools/finalize_beta83.sh
