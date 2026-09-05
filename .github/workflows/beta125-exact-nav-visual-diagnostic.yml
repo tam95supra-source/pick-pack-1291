@@ -1,9 +1,11 @@
 name: Beta125 exact nav visual diagnostic
 on:
+  workflow_dispatch:
   push:
     branches: [release/beta125-navigation-frame-20260905]
     paths:
       - '.github/workflows/beta125-exact-nav-visual-diagnostic.yml'
+      - 'tools/build_beta83_verify_harness.sh'
 permissions:
   actions: read
   contents: read
