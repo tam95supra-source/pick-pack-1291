@@ -17,7 +17,6 @@ FILES = [
     "ops/owner-command-ledger.jsonl",
     "ops/beta-release-request.json",
     "ops/owner-acceptance-current.json",
-    "ops/beta127-owner-acceptance.json",
     "docs/handovers/HANDOVER_CURRENT.md",
     "CURRENT_STATE.md",
     "qa/stable_invariants.yml",
@@ -110,7 +109,15 @@ def run(root: Path, *args: str, expect: int = 0, needle: str | None = None) -> s
 def prepare() -> tuple[tempfile.TemporaryDirectory, Path]:
     td = tempfile.TemporaryDirectory()
     root = Path(td.name)
-    for rel in FILES:
+    files = list(FILES)
+    live_scope = json.loads((SRC / "ops/OWNER_SCOPE_CURRENT.json").read_text())
+    receipt = (live_scope.get("release_binding") or {}).get("owner_acceptance_receipt")
+    if receipt:
+        receipt_path = SRC / receipt
+        if not receipt_path.is_file():
+            raise SystemExit(f"REGRESSION_FAIL missing_dynamic_owner_receipt={receipt}")
+        files.append(receipt)
+    for rel in files:
         dst = root / rel
         dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(SRC / rel, dst)
