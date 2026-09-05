@@ -1,3 +1,4 @@
+# retry after generic bounded-labor contract fix
 name: Beta127 dispatch BUILD_VERIFY
 
 on:
