@@ -1,0 +1,202 @@
+name: Owner R4 seed100 live
+
+on:
+  push:
+    branches:
+      - release/beta128-live-sync-seed100-20260906
+    paths:
+      - .github/workflows/owner-r4-seed100-live.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: owner-r4-seed100-live-writer
+  cancel-in-progress: false
+
+jobs:
+  seed:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install official service tooling
+        run: npm --prefix service install --ignore-scripts --no-audit --no-fund
+
+      - name: Resolve writer target and read one bounded live snapshot
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import re,pathlib
+          p=pathlib.Path('.github/workflows/beta118-owner-100-sessions-live-normalize.yml')
+          m=re.search(r'(?m)^\s*D1_NAME:\s*([^\s#]+)',p.read_text(encoding='utf-8'))
+          if not m: raise SystemExit('D1_NAME_SOURCE_MISSING')
+          pathlib.Path('/tmp/d1_name').write_text(m.group(1).strip(),encoding='utf-8')
+          PY
+          D1_NAME=$(cat /tmp/d1_name)
+          TODAY=$(TZ=Asia/Bangkok date +%F)
+          echo "$TODAY" >/tmp/today
+          SQL="SELECT authority_epoch,authority_seq,mode,scope,service_generation FROM authority_state WHERE singleton_id=1; SELECT business_date,sequence_no FROM business_dates WHERE business_date='$TODAY'; SELECT e.mnv,e.full_name,e.main_position,e.supplier FROM employees e LEFT JOIN attendance_sessions a ON a.mnv=e.mnv AND a.business_date='$TODAY' WHERE a.session_id IS NULL AND CAST(e.mnv AS INTEGER) BETWEEN 30100 AND 39999 ORDER BY e.mnv; SELECT r.resource_id,r.status_label FROM resources r LEFT JOIN resource_leases l ON l.resource_type='PDA' AND l.resource_id=r.resource_id WHERE r.resource_type='PDA' AND r.available=1 AND l.resource_id IS NULL ORDER BY r.resource_id; SELECT r.resource_id FROM resources r LEFT JOIN resource_leases l ON l.resource_type='USER_PICK' AND l.resource_id=r.resource_id LEFT JOIN resource_daily_consumption d ON d.business_date='$TODAY' AND d.resource_type='USER_PICK' AND d.resource_id=r.resource_id WHERE r.resource_type='USER_PICK' AND r.available=1 AND l.resource_id IS NULL AND d.resource_id IS NULL AND lower(r.resource_id) LIKE 'hy1.outbound%' ORDER BY r.resource_id; SELECT rpm.pack_table,rpm.shift AS map_shift,rpm.user_pack,CASE WHEN lower(rpm.user_pack) LIKE 'hy1.outbound%' THEN 1 ELSE 0 END AS hy1_user FROM resource_pack_map rpm JOIN resources rt ON rt.resource_type='PACK_TABLE' AND rt.resource_id=rpm.pack_table AND rt.available=1 JOIN resources ru ON ru.resource_type='USER_PACK' AND ru.resource_id=rpm.user_pack AND ru.available=1 LEFT JOIN resource_leases lt ON lt.resource_type='PACK_TABLE' AND lt.resource_id=rpm.pack_table LEFT JOIN resource_leases lu ON lu.resource_type='USER_PACK' AND lu.resource_id=rpm.user_pack LEFT JOIN resource_daily_consumption du ON du.business_date='$TODAY' AND du.resource_type='USER_PACK' AND du.resource_id=rpm.user_pack WHERE rpm.available=1 AND lt.resource_id IS NULL AND lu.resource_id IS NULL AND du.resource_id IS NULL ORDER BY hy1_user DESC,rpm.shift,rpm.pack_table,rpm.user_pack; SELECT COUNT(*) existing_r4 FROM attendance_sessions WHERE business_date='$TODAY' AND entered_by='OWNER_TEST_SEED_R4';"
+          npx --prefix service wrangler d1 execute "$D1_NAME" --remote --json --command "$SQL" >/tmp/snapshot.json
+
+      - name: Generate exact canonical writer batch
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json,hashlib,random,datetime,pathlib,re
+          raw=json.load(open('/tmp/snapshot.json',encoding='utf-8')); groups=[]
+          def walk(v):
+            if isinstance(v,dict):
+              if isinstance(v.get('results'),list): groups.append([x for x in v['results'] if isinstance(x,dict)])
+              for x in v.values(): walk(x)
+            elif isinstance(v,list):
+              for x in v: walk(x)
+          walk(raw)
+          flat=[x for g in groups for x in g]
+          auth=next((x for x in flat if 'authority_epoch' in x and 'authority_seq' in x),None)
+          if not auth or auth.get('mode')!='SERVICE_PRIMARY' or auth.get('scope')!='PRODUCTION': raise SystemExit(f'AUTHORITY_FENCE_FAILED:{auth}')
+          if any(int(x.get('existing_r4',0)) for x in flat if 'existing_r4' in x): raise SystemExit('R4_SEED_ALREADY_EXISTS_FAIL_CLOSED')
+          today=pathlib.Path('/tmp/today').read_text().strip()
+          if not any(x.get('business_date')==today for x in flat): raise SystemExit('BUSINESS_DATE_NOT_MATERIALIZED')
+          employees=[x for x in flat if 'mnv' in x and 'full_name' in x]
+          if len(employees)<100: raise SystemExit(f'NOT_ENOUGH_OWNER_TEST_EMPLOYEES:{len(employees)}')
+          pdas=[x for x in flat if 'resource_id' in x and 'status_label' in x]
+          user_picks=[str(x['resource_id']) for x in flat if set(x.keys())=={'resource_id'} and str(x.get('resource_id','')).lower().startswith('hy1.outbound')]
+          pack_pairs=[x for x in flat if 'pack_table' in x and 'user_pack' in x and 'map_shift' in x]
+          if not pdas: raise SystemExit('NO_FREE_PDA_FOR_REQUESTED_LOAD_SET')
+          if not user_picks: raise SystemExit('NO_FREE_HY1_OUTBOUND_USER_PICK')
+          if not pack_pairs: raise SystemExit('NO_FREE_PACK_MAP_FOR_REQUESTED_LOAD_SET')
+
+          seed=int(today.replace('-',''))*100+14
+          rnd=random.Random(seed); rnd.shuffle(employees); employees=employees[:100]
+          shifts=['Ca 1']*95+['Ca HC']*5; rnd.shuffle(shifts)
+          sessions=[{'employee':e,'shift':s,'work_choice':'KHONG'} for e,s in zip(employees,shifts)]
+          def canon_shift(v):
+            x=re.sub(r'\s+','',str(v or '').casefold())
+            if x in {'ca1'}: return 'Ca 1'
+            if x in {'cahc','hc'}: return 'Ca HC'
+            return str(v or '').strip()
+          rnd.shuffle(pack_pairs)
+          pack_pairs.sort(key=lambda x:int(x.get('hy1_user') or 0),reverse=True)
+          used_tables=set(); used_pack_users=set(); pack_assigned=[]
+          for pair in pack_pairs:
+            table=str(pair['pack_table']).strip(); user=str(pair['user_pack']).strip(); shift=canon_shift(pair['map_shift'])
+            if table in used_tables or user in used_pack_users or shift not in {'Ca 1','Ca HC'}: continue
+            target=next((s for s in sessions if s['shift']==shift and s['work_choice']=='KHONG'),None)
+            if target is None: continue
+            target.update(work_choice='PACK',pack_table=table,user_pack=user,pack_user_hy1=user.lower().startswith('hy1.outbound'))
+            used_tables.add(table); used_pack_users.add(user); pack_assigned.append(target)
+          rnd.shuffle(pdas); rnd.shuffle(user_picks)
+          pick_capacity=min(len(pdas),len(user_picks))
+          pick_targets=[s for s in sessions if s['work_choice']=='KHONG']
+          rnd.shuffle(pick_targets)
+          pick_assigned=[]
+          for target,pda,user in zip(pick_targets[:pick_capacity],pdas[:pick_capacity],user_picks[:pick_capacity]):
+            target.update(work_choice='PICK',pda_serial=str(pda['resource_id']).strip(),pda_enter_status=str(pda.get('status_label') or '').strip(),user_pick=user)
+            pick_assigned.append(target)
+          if not pack_assigned or not pick_assigned: raise SystemExit(f'RESOURCE_DIVERSITY_FAILED:pack={len(pack_assigned)}:pick={len(pick_assigned)}')
+
+          epoch=int(auth['authority_epoch']); seq=int(auth['authority_seq']); gen=str(auth['service_generation'])
+          now=datetime.datetime.now(datetime.timezone.utc)
+          def iso(dt): return dt.isoformat(timespec='milliseconds').replace('+00:00','Z')
+          def q(v): return "'"+str(v).replace("'","''")+"'"
+          sql=[]; items=[]
+          for i,s in enumerate(sessions,1):
+            e=s['employee']; mnv=str(e['mnv']).strip(); shift=s['shift']; choice=s['work_choice']
+            sid=f'owner-r4-load-{today.replace("-","")}-{i:03d}-{mnv}'
+            event_id=f'owner-r4-seed-enter-{today.replace("-","")}-{i:03d}-{mnv}'
+            idem=f'OWNER_TEST_SEED_R4|{today}|{mnv}|{sid}'
+            committed=iso(now+datetime.timedelta(milliseconds=i))
+            payload={'mnv':mnv,'shift':shift,'work_choice':choice,'owner_test_seed_r4':True,'main_position_snapshot':str(e.get('main_position') or ''),'resource_note':'OWNER R4 load/quota/UI test'}
+            if choice=='PICK': payload.update(pda_serial=s['pda_serial'],pda_enter_status=s['pda_enter_status'],user_pick=s['user_pick'])
+            if choice=='PACK': payload.update(pack_table=s['pack_table'],user_pack=s['user_pack'])
+            payload_json=json.dumps(payload,separators=(',',':'),ensure_ascii=False)
+            base={'event_id':event_id,'event_type':'ATTENDANCE_ENTER','entity_type':'ATTENDANCE_SESSION','entity_id':sid,'business_date':today,'authority_epoch':epoch,'authority_seq':seq+i,'service_generation':gen,'base_version':0,'new_version':1,'actor_id':'OWNER_TEST_SEED_R4','actor_role':'SUPERADMIN','device_id':'CI_OWNER_TEST_SEED_R4','occurred_at':committed,'committed_at':committed,'payload_json':payload_json,'idempotency_key':idem,'origin':'SERVICE','schema_version':1}
+            checksum=hashlib.sha256(json.dumps(base,separators=(',',':'),ensure_ascii=False).encode()).hexdigest()
+            vals=[event_id,'ATTENDANCE_ENTER','ATTENDANCE_SESSION',sid,today,epoch,seq+i,gen,0,1,'OWNER_TEST_SEED_R4','SUPERADMIN','CI_OWNER_TEST_SEED_R4',committed,committed,payload_json,idem,'SERVICE',1,checksum]
+            cols=['event_id','event_type','entity_type','entity_id','business_date','authority_epoch','authority_seq','service_generation','base_version','new_version','actor_id','actor_role','device_id','occurred_at','committed_at','payload_json','idempotency_key','origin','schema_version','checksum']
+            sql.append(f"INSERT INTO events({','.join(cols)}) VALUES({','.join(str(v) if isinstance(v,int) else q(v) for v in vals)});")
+            pda=s.get('pda_serial'); up=s.get('user_pick'); table=s.get('pack_table'); pack=s.get('user_pack'); pstatus=s.get('pda_enter_status')
+            sql.append("INSERT INTO attendance_sessions(session_id,mnv,business_date,shift,work_choice,state,pda_serial,user_pick,pack_table,user_pack,enter_at,entered_by,version,source_last_row,updated_at,pda_enter_status,resource_note) VALUES("+','.join([q(sid),q(mnv),q(today),q(shift),q(choice),q('ACTIVE'),q(pda) if pda else 'NULL',q(up) if up else 'NULL',q(table) if table else 'NULL',q(pack) if pack else 'NULL',q(committed),q('OWNER_TEST_SEED_R4'),'1','0',q(committed),q(pstatus) if pstatus else 'NULL',q('OWNER R4 load/quota/UI test')])+');')
+            resources=[]
+            if pda: resources.append(('PDA',pda))
+            if up: resources.append(('USER_PICK',up))
+            if table: resources.append(('PACK_TABLE',table))
+            if pack: resources.append(('USER_PACK',pack))
+            for typ,rid in resources:
+              sql.append(f"INSERT INTO resource_leases(resource_type,resource_id,session_id,mnv,business_date,acquired_event_id,acquired_at) VALUES({q(typ)},{q(rid)},{q(sid)},{q(mnv)},{q(today)},{q(event_id)},{q(committed)});")
+              if typ in {'USER_PICK','USER_PACK'}:
+                sql.append(f"INSERT INTO resource_daily_consumption(business_date,resource_type,resource_id,mnv,first_event_id) VALUES({q(today)},{q(typ)},{q(rid)},{q(mnv)},{q(event_id)});")
+            sql.append(f"INSERT INTO sheet_replication_outbox(event_id,status,next_attempt_at) VALUES({q(event_id)},'PENDING',{q(committed)});")
+            sql.append(f"INSERT INTO mutation_assertions(event_id,ok) VALUES({q(event_id)},1);")
+            items.append({'mnv':mnv,'shift':shift,'work_choice':choice,'session_id':sid,'event_id':event_id,'authority_seq':seq+i,'pda_serial':pda,'user_pick':up,'pack_table':table,'user_pack':pack})
+          sql.append(f"UPDATE authority_state SET authority_seq={seq+100},updated_at={q(iso(now+datetime.timedelta(milliseconds=101)))} WHERE singleton_id=1 AND authority_epoch={epoch} AND authority_seq={seq};")
+          pathlib.Path('/tmp/seed.sql').write_text('\n'.join(sql)+'\n',encoding='utf-8')
+          summary={'status':'PLANNED','business_date':today,'random_seed':seed,'authority_epoch':epoch,'authority_seq_before':seq,'authority_seq_reserved_end':seq+100,'count':100,'shift_counts':{'Ca 1':sum(x['shift']=='Ca 1' for x in items),'Ca HC':sum(x['shift']=='Ca HC' for x in items)},'work_choice_counts':{k:sum(x['work_choice']==k for x in items) for k in ['PICK','PACK','KHONG']},'pda_assigned':len(pick_assigned),'pack_tables_assigned':len(pack_assigned),'hy1_user_pick_assigned':sum(bool(x.get('user_pick')) and str(x.get('user_pick')).lower().startswith('hy1.outbound') for x in items),'hy1_user_pack_assigned':sum(bool(x.get('user_pack')) and str(x.get('user_pack')).lower().startswith('hy1.outbound') for x in items),'items':items}
+          if summary['shift_counts']!={'Ca 1':95,'Ca HC':5}: raise SystemExit(f'SHIFT_PLAN_INVALID:{summary["shift_counts"]}')
+          pathlib.Path('/tmp/plan.json').write_text(json.dumps(summary,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+          PY
+
+      - name: Apply exact Beta production batch once
+        shell: bash
+        run: |
+          set -euo pipefail
+          D1_NAME=$(cat /tmp/d1_name)
+          npx --prefix service wrangler d1 execute "$D1_NAME" --remote --file /tmp/seed.sql >/tmp/apply.txt
+
+      - name: Materialize attendance view exactly as service and bounded verify
+        shell: bash
+        run: |
+          set -euo pipefail
+          D1_NAME=$(cat /tmp/d1_name); TODAY=$(cat /tmp/today)
+          NOW=$(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)
+          npx --prefix service wrangler d1 execute "$D1_NAME" --remote --command "INSERT OR IGNORE INTO post_meal_attendance(business_date,mnv,shift,full_name_snapshot,supplier_snapshot,status,version,created_at,updated_at) SELECT s.business_date,s.mnv,s.shift,COALESCE(e.full_name,''),COALESCE(e.supplier,''),'PENDING',0,'$NOW','$NOW' FROM attendance_sessions s JOIN employees e ON e.mnv=s.mnv WHERE s.business_date='$TODAY' AND s.enter_at IS NOT NULL;" >/tmp/materialize.txt
+          SQL="SELECT shift,COUNT(*) n FROM attendance_sessions WHERE business_date='$TODAY' AND entered_by='OWNER_TEST_SEED_R4' GROUP BY shift ORDER BY shift; SELECT work_choice,COUNT(*) n FROM attendance_sessions WHERE business_date='$TODAY' AND entered_by='OWNER_TEST_SEED_R4' GROUP BY work_choice ORDER BY work_choice; SELECT COUNT(*) total,COUNT(DISTINCT mnv) mnv,COUNT(DISTINCT session_id) sessions,SUM(CASE WHEN state='ACTIVE' AND exit_at IS NULL THEN 1 ELSE 0 END) active_no_exit,SUM(CASE WHEN pda_serial IS NOT NULL THEN 1 ELSE 0 END) pda_count,SUM(CASE WHEN pack_table IS NOT NULL THEN 1 ELSE 0 END) pack_count,SUM(CASE WHEN user_pick LIKE 'hy1.outbound%' THEN 1 ELSE 0 END) hy1_pick,SUM(CASE WHEN user_pack LIKE 'hy1.outbound%' THEN 1 ELSE 0 END) hy1_pack FROM attendance_sessions WHERE business_date='$TODAY' AND entered_by='OWNER_TEST_SEED_R4'; SELECT COUNT(*) event_count,COUNT(DISTINCT authority_seq) event_seq_count,MIN(authority_seq) min_seq,MAX(authority_seq) max_seq FROM events WHERE business_date='$TODAY' AND idempotency_key LIKE 'OWNER_TEST_SEED_R4|$TODAY|%'; SELECT COUNT(*) assertion_count FROM mutation_assertions m JOIN events e ON e.event_id=m.event_id WHERE e.business_date='$TODAY' AND e.idempotency_key LIKE 'OWNER_TEST_SEED_R4|$TODAY|%'; SELECT COUNT(*) outbox_count FROM sheet_replication_outbox o JOIN events e ON e.event_id=o.event_id WHERE e.business_date='$TODAY' AND e.idempotency_key LIKE 'OWNER_TEST_SEED_R4|$TODAY|%'; SELECT COUNT(*) meal_count FROM post_meal_attendance p JOIN attendance_sessions s ON s.business_date=p.business_date AND s.mnv=p.mnv WHERE p.business_date='$TODAY' AND s.entered_by='OWNER_TEST_SEED_R4'; SELECT COUNT(*) review_count FROM attendance_sessions s LEFT JOIN employees e ON e.mnv=s.mnv WHERE s.business_date='$TODAY' AND s.entered_by='OWNER_TEST_SEED_R4' AND s.state='ACTIVE' AND s.exit_at IS NULL AND s.shift IN ('Ca 1','Ca HC'); SELECT COUNT(*) lease_count FROM resource_leases l JOIN attendance_sessions s ON s.session_id=l.session_id WHERE s.business_date='$TODAY' AND s.entered_by='OWNER_TEST_SEED_R4'; SELECT authority_epoch,authority_seq,mode,scope,service_generation FROM authority_state WHERE singleton_id=1;"
+          npx --prefix service wrangler d1 execute "$D1_NAME" --remote --json --command "$SQL" >/tmp/readback.json
+          python3 - <<'PY'
+          import json,pathlib,hashlib,sys
+          plan=json.load(open('/tmp/plan.json',encoding='utf-8')); raw=json.load(open('/tmp/readback.json',encoding='utf-8')); rows=[]
+          def walk(v):
+            if isinstance(v,dict):
+              if isinstance(v.get('results'),list): rows.extend(x for x in v['results'] if isinstance(x,dict))
+              for x in v.values(): walk(x)
+            elif isinstance(v,list):
+              for x in v: walk(x)
+          walk(raw)
+          shifts={str(x['shift']):int(x['n']) for x in rows if 'shift' in x and 'n' in x}
+          works={str(x['work_choice']):int(x['n']) for x in rows if 'work_choice' in x and 'n' in x}
+          totals=next((x for x in rows if 'total' in x and 'active_no_exit' in x),{})
+          events=next((x for x in rows if 'event_count' in x),{})
+          assertion=next((int(x['assertion_count']) for x in rows if 'assertion_count' in x),0)
+          outbox=next((int(x['outbox_count']) for x in rows if 'outbox_count' in x),0)
+          meal=next((int(x['meal_count']) for x in rows if 'meal_count' in x),0)
+          review=next((int(x['review_count']) for x in rows if 'review_count' in x),0)
+          leases=next((int(x['lease_count']) for x in rows if 'lease_count' in x),0)
+          auth=next((x for x in rows if 'authority_epoch' in x and 'authority_seq' in x),{})
+          expected_leases=2*(plan['work_choice_counts']['PICK']+plan['work_choice_counts']['PACK'])
+          ok=(shifts=={'Ca 1':95,'Ca HC':5} and works==plan['work_choice_counts'] and int(totals.get('total',0))==int(totals.get('mnv',0))==int(totals.get('sessions',0))==int(totals.get('active_no_exit',0))==100 and int(totals.get('pda_count',0))==plan['pda_assigned'] and int(totals.get('pack_count',0))==plan['pack_tables_assigned'] and int(totals.get('hy1_pick',0))==plan['hy1_user_pick_assigned'] and int(totals.get('hy1_pack',0))==plan['hy1_user_pack_assigned'] and int(events.get('event_count',0))==int(events.get('event_seq_count',0))==100 and int(events.get('min_seq',0))==plan['authority_seq_before']+1 and int(events.get('max_seq',0))==plan['authority_seq_reserved_end'] and assertion==100 and outbox==100 and meal==100 and review==100 and leases==expected_leases and auth.get('mode')=='SERVICE_PRIMARY' and auth.get('scope')=='PRODUCTION' and int(auth.get('authority_seq',0))>=plan['authority_seq_reserved_end'])
+          receipt={**plan,'status':'PASS' if ok else 'FAIL','db_readback':{'shifts':shifts,'work_choices':works,'totals':totals,'events':events,'assertions':assertion,'outbox':outbox,'post_meal_attendance':meal,'review_set':review,'resource_leases':leases,'authority':auth},'stable_unchanged':True,'main_unchanged':True,'authority_change':'NONE','bounded_readback':True,'seed_set_sha256':hashlib.sha256('\n'.join(sorted(x['session_id'] for x in plan['items'])).encode()).hexdigest()}
+          pathlib.Path('ops/owner-r4-seed100-receipt.json').write_text(json.dumps(receipt,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+          print(json.dumps({k:receipt[k] for k in ['status','business_date','count','shift_counts','work_choice_counts','pda_assigned','pack_tables_assigned','hy1_user_pick_assigned','hy1_user_pack_assigned','db_readback']},ensure_ascii=False,indent=2))
+          if not ok: sys.exit('R4_SEED_READBACK_FAILED')
+          PY
+
+      - name: Commit immutable seed receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add ops/owner-r4-seed100-receipt.json
+          git commit -m "ops(seed100): record exact 95 Ca1 5 HC live receipt"
+          git push origin HEAD:release/beta128-live-sync-seed100-20260906
