@@ -23,7 +23,7 @@ new='''  const claim=crypto.randomUUID(),claimAt=nowIso();
     claimed=owned.results??[];
     if(!claimed.length){
       const pending=await db.prepare("SELECT COUNT(*) n FROM sheet_replication_outbox WHERE status IN ('PENDING','RETRY','INFLIGHT')").first<{n:number}>();
-      return{ok:true,processed:0,appended:0,operational:0,pending:pending?.n??0,checkpoint:null};
+      return{ok:true,processed:0,appended:0,operational:0,pending:pending?.n??0,checkpoint:undefined};
     }
     const assertOwnership=async()=>{
       const ownership=await db.prepare("SELECT COUNT(*) n FROM sheet_replication_outbox WHERE status='INFLIGHT' AND claim_token=?1").bind(claim).first<{n:number}>();
