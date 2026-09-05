@@ -232,8 +232,11 @@ def check_release_binding(scope: dict) -> None:
             fail(f"RELEASE_CHECKLIST_NUMBER:{num}")
         if item.get("title") != scoped["title"] or item.get("acceptance") != scoped["acceptance"]:
             fail(f"RELEASE_CHECKLIST_CONTENT:{num}")
-    receipt = read_json(ROOT / binding["owner_acceptance_receipt"])
     if scope["scope_status"] == "OWNER_ACCEPTANCE_COMPLETE":
+        receipt_rel = binding.get("owner_acceptance_receipt")
+        if not isinstance(receipt_rel, str) or not receipt_rel.strip():
+            fail("OWNER_RECEIPT_PATH")
+        receipt = read_json(ROOT / receipt_rel)
         if request.get("owner_acceptance") != "COMPLETE":
             fail("RELEASE_OWNER_ACCEPTANCE")
         if receipt.get("status") != "OWNER_ACCEPTANCE_COMPLETE":

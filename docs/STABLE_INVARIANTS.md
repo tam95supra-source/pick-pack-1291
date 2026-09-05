@@ -762,3 +762,10 @@ Technical receipt: `ops/beta121-technical-pass.json`. Regression: `tools/beta121
 - Rule: Cảnh báo có dữ liệu local xuất hiện gần như tức thì, không chờ 1–2 giây. Thao tác local/UI phản hồi mục tiêu khoảng <=100 ms theo phương án OWNER đã chốt; không chờ round-trip Service để render. Service xử lý/reconcile nền vào state hiện tại; Service chậm không làm UI khựng, reload hoặc chớp giật. Rà soát toàn app: các màn bị tác động giữ realtime UI update mượt và đúng canonical state.
 - Owner receipt: `ops/beta127-owner-acceptance.json`
 
+### OWNER-SCOPE-CONTINUITY-001
+- Status: TECHNICAL_PASS_AWAITING_OWNER
+- Scope: control-plane / OWNER scope continuity
+- Rule: yêu cầu/clarification/acceptance OWNER đi qua append-only ledger + canonical scope; semantic hash chỉ đổi bởi OWNER command + revision; handoff/finalizer chỉ trỏ canonical scope và bắt buộc bootstrap guard.
+- Regression: `tools/owner_scope_guard.py` + `tools/owner_scope_guard_regression.py`; positive + negative cases.
+- Technical evidence: CI run 33973889892; control-plane only, app/service/APK bytes unchanged.
+- OWNER acceptance: PENDING.

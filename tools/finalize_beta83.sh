@@ -22,6 +22,7 @@ SIZE=$(jq -r '.apk_size' "$R")
 SIGNER=$(jq -r '.signer_sha256' "$R")
 OWNER_SCOPE=$(jq -r '.scope_id' "$SCOPE")
 OWNER_SCOPE_REVISION=$(jq -r '.revision' "$SCOPE")
+OWNER_SCOPE_SEMANTICS_SHA=$(jq -r '.semantics_sha256' "$SCOPE")
 OWNER_SCOPE_SHA=$(jq -r '.scope_sha256' "$SCOPE")
 OWNER_SCOPE_FILE=ops/OWNER_SCOPE_CURRENT.json
 OWNER_LEDGER=$(jq -r '.owner_command_ledger' "$SCOPE")
@@ -117,6 +118,7 @@ cat > CURRENT_STATE.md <<EOF
 - owner_scope_file: $OWNER_SCOPE_FILE
 - owner_scope_id: $OWNER_SCOPE
 - owner_scope_revision: $OWNER_SCOPE_REVISION
+- owner_scope_semantics_sha256: $OWNER_SCOPE_SEMANTICS_SHA
 - owner_scope_sha256: $OWNER_SCOPE_SHA
 - owner_command_ledger: $OWNER_LEDGER
 - owner_command_ledger_head: $OWNER_LEDGER_HEAD
@@ -139,6 +141,7 @@ cat > docs/handovers/HANDOVER_CURRENT.md <<EOF
 - owner_scope_file: $OWNER_SCOPE_FILE
 - owner_scope_id: $OWNER_SCOPE
 - owner_scope_revision: $OWNER_SCOPE_REVISION
+- owner_scope_semantics_sha256: $OWNER_SCOPE_SEMANTICS_SHA
 - owner_scope_sha256: $OWNER_SCOPE_SHA
 - owner_command_ledger: $OWNER_LEDGER
 - owner_command_ledger_head: $OWNER_LEDGER_HEAD
@@ -200,9 +203,11 @@ git push origin "HEAD:$BRANCH"
 git fetch origin "$BRANCH" --quiet
 test "$(git rev-parse "origin/$BRANCH")" = "$FINAL"
 test "$(git show "origin/$BRANCH:CURRENT_STATE.md"|grep -c "$BETA_STATUS")" = 1
+test "$(git show "origin/$BRANCH:CURRENT_STATE.md"|grep -c -- "- owner_scope_semantics_sha256: $OWNER_SCOPE_SEMANTICS_SHA")" = 1
 test "$(git show "origin/$BRANCH:CURRENT_STATE.md"|grep -c -- "- owner_scope_sha256: $OWNER_SCOPE_SHA")" = 1
 test "$(git show "origin/$BRANCH:docs/handovers/HANDOVER_CURRENT.md"|grep -c 'status: READY')" = 1
 test "$(git show "origin/$BRANCH:docs/handovers/HANDOVER_CURRENT.md"|grep -c -- "- owner_scope_file: $OWNER_SCOPE_FILE")" = 1
+test "$(git show "origin/$BRANCH:docs/handovers/HANDOVER_CURRENT.md"|grep -c -- "- owner_scope_semantics_sha256: $OWNER_SCOPE_SEMANTICS_SHA")" = 1
 test "$(git show "origin/$BRANCH:docs/handovers/HANDOVER_CURRENT.md"|grep -c -- "- owner_scope_sha256: $OWNER_SCOPE_SHA")" = 1
 test "$(git show "origin/$BRANCH:docs/handovers/HANDOVER_CURRENT.md"|grep -c '## Checklist OWNER nghiệm thu')" = 0
 test "$(git show "origin/$BRANCH:ops/beta-ota-current.json"|jq -r '.source')" = "GITHUB_RELEASE"
@@ -214,12 +219,12 @@ mkdir -p /tmp/beta-final
 jq -n --arg status PASS --arg version "$VERSION" --argjson code "$CODE" --arg package "$PKG" \
   --arg source "$SOURCE" --arg sha "$SHA" --argjson size "$SIZE" --arg signer "$SIGNER" \
   --arg url "$OTA_URL" --arg commit "$FINAL" --arg main "$MAIN" --arg at "$NOW" \
-  --arg owner_scope "$OWNER_SCOPE" --arg owner_scope_sha "$OWNER_SCOPE_SHA" --argjson owner_scope_revision "$OWNER_SCOPE_REVISION" '{
+  --arg owner_scope "$OWNER_SCOPE" --arg owner_scope_semantics_sha "$OWNER_SCOPE_SEMANTICS_SHA" --arg owner_scope_sha "$OWNER_SCOPE_SHA" --argjson owner_scope_revision "$OWNER_SCOPE_REVISION" '{
     status:$status,version_name:$version,version_code:$code,package:$package,source_sha:$source,
     apk_sha256:$sha,apk_size:$size,signer_sha256:$signer,apk_url:$url,
     ota_transport:"GITHUB_RELEASE",google_drive_apk:"FORBIDDEN",
     handoff_commit_sha:$commit,main_sha:$main,stable_unchanged:true,authority_change:"NONE",
-    owner_scope:$owner_scope,owner_scope_sha256:$owner_scope_sha,owner_scope_revision:$owner_scope_revision,
+    owner_scope:$owner_scope,owner_scope_semantics_sha256:$owner_scope_semantics_sha,owner_scope_sha256:$owner_scope_sha,owner_scope_revision:$owner_scope_revision,
     readback:true,finalized_at:$at
   }' > /tmp/beta-final/receipt.json
 cat /tmp/beta-final/receipt.json
