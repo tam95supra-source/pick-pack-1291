@@ -55,25 +55,27 @@ def update_yaml_invariant(text: str, invariant_id: str, candidate: str, evidence
 
 
 def update_docs_invariant(text: str, invariant_id: str, candidate: str, evidence: str) -> str:
-    pat = re.compile(rf"(?ms)(^### {re.escape(invariant_id)}\n)(.*?)(?=^### |\Z)")
+    # Canonical docs encode lifecycle in the heading itself, e.g.
+    # "### ID — LOCKED_REQUIREMENT_PENDING_FIX", rather than a mandatory Status row.
+    pat = re.compile(rf"(?ms)^### {re.escape(invariant_id)}(?: — [A-Z_]+)?\n(.*?)(?=^### |\Z)")
     m = pat.search(text)
     if not m:
         raise SystemExit(f"BETA128_RECOVERY_FAIL:DOCS_MISSING:{invariant_id}")
-    body = m.group(2)
-    if not re.search(r"(?m)^- Status: [A-Z_]+$", body):
-        raise SystemExit(f"BETA128_RECOVERY_FAIL:DOCS_STATUS_MISSING:{invariant_id}")
-    body = re.sub(r"(?m)^- Status: [A-Z_]+$", "- Status: TECHNICAL_PASS_AWAITING_OWNER", body, count=1)
+    body = m.group(1)
+    if re.search(r"(?m)^- Status: [A-Z_]+$", body):
+        body = re.sub(r"(?m)^- Status: [A-Z_]+$", "- Status: TECHNICAL_PASS_AWAITING_OWNER", body, count=1)
     cand_line = f"- Technical candidate: {candidate}"
     if re.search(r"(?m)^- Technical candidate: .+$", body):
         body = re.sub(r"(?m)^- Technical candidate: .+$", cand_line, body, count=1)
     else:
-        body = re.sub(r"(?m)^(- Status: TECHNICAL_PASS_AWAITING_OWNER)$", rf"\1\n{cand_line}", body, count=1)
+        body = body.rstrip() + "\n" + cand_line + "\n"
     ev_line = f"- Technical evidence Beta128: {evidence}"
     if re.search(r"(?m)^- Technical evidence Beta128: .+$", body):
         body = re.sub(r"(?m)^- Technical evidence Beta128: .+$", ev_line, body, count=1)
     else:
         body = body.rstrip() + "\n" + ev_line + "\n\n"
-    return text[:m.start()] + m.group(1) + body + text[m.end():]
+    replacement = f"### {invariant_id} — TECHNICAL_PASS_AWAITING_OWNER\n" + body
+    return text[:m.start()] + replacement + text[m.end():]
 
 
 def replace_current_next_action(text: str, next_action: str) -> str:
@@ -151,7 +153,6 @@ def main() -> None:
         item["state"] = "TECHNICAL_PASS_AWAITING_OWNER"
         item["technical_evidence"] = evidence_obj
 
-    # Previously OWNER-accepted requirements stay ACTIVE_PASS and are never reopened by recovery.
     for item in scope["requirements"]:
         if item["requirement_id"] not in TARGETS and item.get("state") != "ACTIVE_PASS":
             raise SystemExit(f"BETA128_RECOVERY_FAIL:PREVIOUS_ACCEPTANCE_DRIFT:{item['requirement_id']}:{item.get('state')}")
@@ -193,7 +194,6 @@ def main() -> None:
     REGISTRY.write_text(registry, encoding="utf-8")
     DOCS.write_text(docs, encoding="utf-8")
 
-    # Sync canonical pointers after the state-only scope hash changes.
     sync_pointers(scope)
 
     pending_numbers = [str(x["checklist_number"]) for x in scope["requirements"] if x["state"] == "TECHNICAL_PASS_AWAITING_OWNER"]
