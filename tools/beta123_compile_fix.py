@@ -4,15 +4,13 @@ from pathlib import Path
 p=Path('app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt')
 s=p.read_text(encoding='utf-8')
 
-# Nullable ping samples: discard nulls before numeric comparison/min.
+# Existing deterministic fixes retained.
 s=s.replace(
     'val ping=listOf(lastPingMs,lastLatencyMs).filter{it>=0}.minOrNull()',
     'val ping=listOf(lastPingMs,lastLatencyMs).filterNotNull().filter{it>=0}.minOrNull()',
     1,
 )
 
-# History delete-all button is created before local loadRows/eventDate helpers are declared.
-# Route the click through a lambda, then bind that lambda only after those helpers are in scope.
 update_anchor='''        fun updateSelectedCount(){selectionCount.text="Đã chọn ${selectedHistoryIds.size} lịch sử"}
         if(isSuper()){
 '''
@@ -50,11 +48,65 @@ if 'deleteAllDateAction={' not in s[load_pos:render_pos]:
 '''
     s=s[:render_pos]+bind+s[render_pos:]
 
-# Fail closed if either deterministic compile defect remains.
+# Beta126: Kotlin lambda assigned to a variable cannot use return@pump.
+old_runner='''        lateinit var pump:()->Unit
+        pump={
+            if(finished)return@pump
+            while(running<maxInFlight&&queue.isNotEmpty()){
+                val item=queue.removeFirst();running++
+                worker(item){ok,error->runOnUiThread{
+                    running--
+                    if(ok)success++ else if(error.isNotBlank())failures.add(error)
+                    if(queue.isEmpty()&&running==0){finished=true;done(success,failures.toList())}else pump()
+                }}
+            }
+        }
+        pump()
+'''
+new_runner='''        lateinit var pump:()->Unit
+        pump={
+            if(!finished){
+                while(running<maxInFlight&&queue.isNotEmpty()){
+                    val item=queue.removeFirst();running++
+                    worker(item){ok,error->runOnUiThread{
+                        running--
+                        if(ok)success++ else if(error.isNotBlank())failures.add(error)
+                        if(queue.isEmpty()&&running==0){finished=true;done(success,failures.toList())}else pump()
+                    }}
+                }
+            }
+        }
+        pump()
+'''
+if old_runner not in s:
+    raise SystemExit('BETA126_PARALLEL_RUNNER_ANCHOR_NOT_FOUND')
+s=s.replace(old_runner,new_runner,1)
+
+# Beta126: preserve provider identity only inside refreshHeaderConnection.
+wrong='LanAuthorityPolicy.HealthState.DEGRADED->provider.ifBlank{"Đang xác định"}+" • Suy giảm"'
+s=s.replace(wrong,'LanAuthorityPolicy.HealthState.DEGRADED->"Suy giảm"')
+start=s.find('    private fun refreshHeaderConnection(){')
+if start<0:
+    raise SystemExit('REFRESH_HEADER_CONNECTION_NOT_FOUND')
+end=s.find('\n    private fun ',start+20)
+if end<0:
+    end=len(s)
+chunk=s[start:end]
+needle='LanAuthorityPolicy.HealthState.DEGRADED->"Suy giảm"'
+if needle not in chunk:
+    raise SystemExit('DEGRADED_HEADER_BRANCH_NOT_FOUND')
+chunk=chunk.replace(needle,'LanAuthorityPolicy.HealthState.DEGRADED->serviceProviderFromRuntime().ifBlank{"Đang xác định"}+" • Suy giảm"',1)
+s=s[:start]+chunk+s[end:]
+
+# Fail closed if deterministic defects remain.
 assert 'listOf(lastPingMs,lastLatencyMs).filter{it>=0}.minOrNull()' not in s
 assert 'deleteAllDate.setOnClickListener{\n                val priorQuery=query' not in s
 assert 'deleteAllDate.setOnClickListener{deleteAllDateAction?.invoke()}' in s
 assert 'deleteAllDateAction={' in s
+assert 'return@pump' not in s
+assert wrong not in s
+header=s[start:end]
+assert 'LanAuthorityPolicy.HealthState.DEGRADED->serviceProviderFromRuntime().ifBlank' in header
 
 p.write_text(s,encoding='utf-8')
-print('BETA123_COMPILE_FIX_PASS')
+print('BETA126_COMPILE_FIX_PASS')
