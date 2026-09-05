@@ -20,31 +20,18 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
-      - name: Checkout release branch
+      - name: Checkout acceptance writer
         uses: actions/checkout@v4
         with:
           ref: release/beta121-owner-ui-pda-source-20260905
           fetch-depth: 0
-      - name: Record on release continuity branch
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 tools/beta121_record_owner_partial_acceptance.py .
-          python3 tools/owner_acceptance_ledger_guard.py --base-ref HEAD
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add CURRENT_STATE.md docs/STABLE_INVARIANTS.md docs/handovers/HANDOVER_CURRENT.md ops/beta-release-request.json ops/owner-acceptance-current.json ops/beta121-owner-acceptance-partial.json qa/stable_invariants.yml
-          git diff --cached --quiet || git commit -m '[skip ci] record Beta121 OWNER partial acceptance 1/3 OK 2/4 pending'
-          REL=$(git rev-parse HEAD)
-          git push origin HEAD:release/beta121-owner-ui-pda-source-20260905
-          echo "RELEASE_ACCEPTANCE_SHA=$REL"
       - name: Checkout canonical beta current
         uses: actions/checkout@v4
         with:
           ref: beta/current
           path: current
           fetch-depth: 0
-      - name: Record canonical beta current
+      - name: Record canonical OWNER partial acceptance
         shell: bash
         run: |
           set -euo pipefail
@@ -64,4 +51,8 @@ jobs:
           test "$(jq -r '.checklist.items[1].status' current/ops/owner-acceptance-current.json)" = OWNER_NOT_OK
           test "$(jq -r '.checklist.items[2].status' current/ops/owner-acceptance-current.json)" = OWNER_OK
           test "$(jq -r '.checklist.items[3].status' current/ops/owner-acceptance-current.json)" = OWNER_NOT_OK
+          grep -A3 '^### UI-STATUS-DETAIL-VI-003$' current/docs/STABLE_INVARIANTS.md | grep -Fq 'Status: ACTIVE_PASS'
+          grep -A3 '^### SUPERADMIN-EFFECTIVE-ROLE-003$' current/docs/STABLE_INVARIANTS.md | grep -Fq 'Status: LOCKED_REQUIREMENT_PENDING_FIX'
+          grep -A3 '^### SETTINGS-REGION-INHOUSE-DROP-001$' current/docs/STABLE_INVARIANTS.md | grep -Fq 'Status: ACTIVE_PASS'
+          grep -A3 '^### PDA-SOURCE-MASTER-001$' current/docs/STABLE_INVARIANTS.md | grep -Fq 'Status: LOCKED_REQUIREMENT_PENDING_FIX'
           echo "CANONICAL_ACCEPTANCE_SHA=$CUR"
