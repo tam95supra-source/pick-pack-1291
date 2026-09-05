@@ -42,7 +42,8 @@ assert 'XỬ LÝ HÀNG ĐỢI' in ops and 'CƯỠNG ÉP THỬ LẠI' in ops
 
 # Header: transport + ping and provider/route retained even when degraded.
 assert '• ${ping}ms' in ops
-assert 'LanAuthorityPolicy.HealthState.DEGRADED->provider.ifBlank' in ops
+header=fn(ops,'refreshHeaderConnection')
+assert 'LanAuthorityPolicy.HealthState.DEGRADED->serviceProviderFromRuntime().ifBlank' in header
 assert '"Cloudflare"' in ops and '"Không hoạt động"' in ops
 
 # Staff: debounce required; direct synchronous per-character rebuild forbidden.
