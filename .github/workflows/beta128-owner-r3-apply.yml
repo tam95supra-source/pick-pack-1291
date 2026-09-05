@@ -1,73 +1,30 @@
-name: Beta128 owner R3 apply
+name: Beta128 owner R3 applied-contract verify
 
 on:
-  push:
-    branches:
-      - release/beta128-owner-r3-drop-realtime-20260905
-    paths:
-      - .github/workflows/beta128-owner-r3-apply.yml
+  workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
   actions: read
 
 concurrency:
-  group: beta128-owner-r3-apply
+  group: beta128-owner-r3-applied-contract
   cancel-in-progress: false
 
 jobs:
-  apply:
+  verify:
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Repair exact attendance boundary harness
+      - name: Verify OWNER R3 implementation is already applied
         shell: bash
         run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          p=Path('tools/beta128_owner_r3_patch.py')
-          s=p.read_text(encoding='utf-8')
-          old="""        '                if(activeDate==selected.toString()){\\n                    if(selected.isBefore(LocalDate.now(ZoneId.of(TZ))))load(selected)else{render();remoteLoad()}\\n                }',
-        '                if(activeDate==selected.toString()){\\n                    lastRenderSignature=\"\"\\n                    if(selected.isBefore(LocalDate.now(ZoneId.of(TZ))))load(selected)else{render();remoteLoad()}\\n                }',"""
-          new="""        '                val nowDay=today()\\n                if(selected.isBefore(nowDay))load(nowDay) else {render();remoteLoad()}',
-        '                val nowDay=today()\\n                lastRenderSignature=\"\"\\n                if(selected.isBefore(nowDay))load(nowDay) else {render();remoteLoad()}',"""
-          if s.count(old)!=1:
-              raise SystemExit(f'BETA128_HARNESS_REPAIR_FAIL:count={s.count(old)}')
-          p.write_text(s.replace(old,new,1),encoding='utf-8')
-          PY
-          python3 -m py_compile tools/beta128_owner_r3_patch.py tools/beta128_owner_r3_contract.py
-      - name: Apply OWNER R3 patch
-        run: python3 tools/beta128_owner_r3_patch.py
-      - name: Verify focused regression and canonical scope
-        run: |
           set -euo pipefail
+          python3 -m py_compile tools/beta128_owner_r3_contract.py
           python3 tools/beta128_owner_r3_contract.py
-          python3 tools/owner_scope_guard_v2.py --base-ref beta/current
           python3 tools/owner_scope_guard_v2.py --bootstrap
           git diff --check
-      - name: Commit implementation and canonical scope
-        shell: bash
-        run: |
-          set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add \
-            tools/beta128_owner_r3_patch.py \
-            app/build.gradle.kts \
-            app/src/main/java/vn/pickpack1291/app/beta/ReleaseNotes.kt \
-            app/src/main/java/vn/pickpack1291/app/beta/DropReceiveFeature.kt \
-            app/src/main/java/vn/pickpack1291/app/beta/PostMealAttendanceFeature.kt \
-            app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt \
-            qa/stable_invariants.yml \
-            docs/STABLE_INVARIANTS.md \
-            docs/handovers/HANDOVER_CURRENT.md \
-            CURRENT_STATE.md \
-            ops/OWNER_SCOPE_CURRENT.json \
-            ops/owner-command-ledger.jsonl
-          git diff --cached --name-only
-          test -n "$(git diff --cached --name-only)"
-          git commit -m "fix(beta128): smooth realtime UI and refine drop receive"
-          git push origin HEAD:release/beta128-owner-r3-drop-realtime-20260905
+          echo BETA128_OWNER_R3_ALREADY_APPLIED_PASS
