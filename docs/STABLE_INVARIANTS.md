@@ -699,3 +699,66 @@ Technical receipt: `ops/beta121-technical-pass.json`. Regression: `tools/beta121
 - OTA-BETA-001 semantics giữ nguyên; Beta122 exact GitHub Release/OTA/install/readback/finalize PASS run 33938535151.
 
 - OWNER final acceptance: items 2/4 OK at 2026-09-05 09:37 +07:00; all four Beta122 scope invariants are ACTIVE_PASS.
+
+## Beta127 — OWNER acceptance R2 11/11 (2026-09-05)
+
+- OWNER response: `1 ok 2 ok 3 ok 4 ok 5 ok 6 ok 7 ok 8 ok 9 ok 10 ok 11 ok`
+- Accepted at: `2026-09-05T21:14:36+07:00`
+- State: all items below are `ACTIVE_PASS`.
+- Evidence: exact Beta127 candidate 33967758178/9970037896; Fast Check 33968559771; visual/PDA/API36 33967758178/9970125449 + 44-screen human PASS; runtime 33968559764/9970218116; publish/OTA/install/readback/finalize 33969468377; Stable/main/signer/authority unchanged.
+
+### SETTINGS-RESET-LAYOUT-002 — ACTIVE_PASS
+- OWNER item: 1 — **OK**
+- Rule: Trong Thông tin ứng dụng có Xóa cache và Xóa dữ liệu ứng dụng. Xóa dữ liệu cho phép cả USER; chỉ cần xác nhận, không yêu cầu mật khẩu; chỉ xóa dữ liệu local và đưa app về trạng thái như mới cài, không xóa dữ liệu Service/server. Sau reset, app đồng bộ lại đúng dữ liệu canonical từ Service. Layout các nhóm cài đặt có màu sắc rõ ràng, dễ phân biệt và vẫn giữ bố cục logic.
+- Owner receipt: `ops/beta127-owner-acceptance.json`
+
+### HISTORY-DATE-BULK-DETAIL-003 — ACTIVE_PASS
+- OWNER item: 2 — **OK**
+- Rule: Có nút Xóa toàn bộ cùng hàng với Chọn/Bỏ chọn/Xóa đã chọn; xóa toàn bộ lịch sử của ngày đang chọn theo quyền/xác thực đã chốt. Ô tìm kiếm hiển thị Tìm mã nhân viên, họ tên, nghiệp vụ … Chọn ngày/search/nút có kích thước gọn, đồng bộ toàn app và tăng diện tích hiển thị lịch sử. Chi tiết lịch sử thuần Việt, dễ hiểu, bỏ text hướng dẫn OWNER thừa và hiển thị đủ thông tin chi tiết hữu ích.
+- Owner receipt: `ops/beta127-owner-acceptance.json`
+
+### STATUS-QUEUE-RECOVERY-004 — ACTIVE_PASS
+- OWNER item: 3 — **OK**
+- Rule: Dịch vụ hiển thị loại/nguồn đang dùng thực tế như Cloudflare/LAN; chỉ hiện Không hoạt động/OFFLINE khi thực sự không hoạt động. Mạng hiển thị ping cạnh loại mạng. Các mục Đồng bộ/Dịch vụ đang chờ có thao tác xử lý lại từng mục, xử lý lại tất cả/cưỡng ép thử lại theo cơ chế an toàn. ADMIN/SUPERADMIN có thể tự xử lý; chỉ cho xóa hẳn mục đã xác minh terminal/stale/không còn giá trị nghiệp vụ, không làm mất mutation chưa commit.
+- Owner receipt: `ops/beta127-owner-acceptance.json`
+
+### STAFF-SEARCH-DEBOUNCE-001 — ACTIVE_PASS
+- OWNER item: 4 — **OK**
+- Rule: Gõ ô search không còn giật/khựng dù danh sách lớn hoặc giới hạn hiển thị đang áp dụng. Không rebuild toàn bộ danh sách đồng bộ theo từng ký tự; kết quả tìm kiếm vẫn đúng.
+- Owner receipt: `ops/beta127-owner-acceptance.json`
+
+### DROP-PAGINATION-003 — ACTIVE_PASS
+- OWNER item: 5 — **OK**
+- Rule: Cột thời gian được căn để không tràn xuống hai dòng. Hiển thị 50 DO mỗi trang; có tiến/lùi trang khi dữ liệu nhiều hơn 50. Đã bỏ text thừa Service / D1 xác nhận ngay ….
+- Owner receipt: `ops/beta127-owner-acceptance.json`
+
+### REPORT-MANPOWER-LABOR-003 — ACTIVE_PASS
+- OWNER item: 6 — **OK**
+- Rule: Bỏ text Phạm vi báo cáo; tiêu đề đúng Báo cáo tình hình nhân sự. Select ca có đúng 3 lựa chọn: Ca 1 và HC / C2 / Cả ngày; đi cùng chọn ngày-tháng-năm; kích thước gọn và đồng bộ toàn app. Tiêu đề bảng và Vị trí dùng chữ đậm. Bỏ Tổng nhân sự và Khấu trừ nhân sự; vùng kết quả mang tiêu đề Nhân sự pick & pack thực tế sau khi loại trừ hỗ trợ. Có chi tiết công nhật dưới bảng thâm niên và trên vùng Pick & Pack thực tế: hiển thị vị trí công nhật và số lượng mỗi vị trí với layout hợp lý.
+- Owner receipt: `ops/beta127-owner-acceptance.json`
+
+### LABOR-BULK-REALTIME-007 — ACTIVE_PASS
+- OWNER item: 7 — **OK**
+- Rule: Màn công nhật không còn cảm giác giật/khựng. Tạo/kết thúc nhiều người không load tuần tự gây đơ; trạng thái hoàn thành cập nhật mượt. Bỏ qua cảnh báo Tổ trưởng/Kéo hàng lưu theo từng NLĐ + phiên/ngày; xử lý một người không ẩn cảnh báo người khác; NLĐ mới xuất hiện vẫn có cảnh báo. Có thể chọn riêng/chọn nhiều/chọn tất cả; select không dính nhau và có kích thước hợp lý. Có Sửa nhiều cho giờ bắt đầu, giờ kết thúc và tính/không tính khấu trừ.
+- Owner receipt: `ops/beta127-owner-acceptance.json`
+
+### PDA-EXCHANGE-SOURCE-002 — ACTIVE_PASS
+- OWNER item: 8 — **OK**
+- Rule: Hiển thị nguồn PDA. Layout Đổi PDA được thiết kế lại đơn giản, dễ hiểu cho người dùng và không làm sai canonical PDA/session.
+- Owner receipt: `ops/beta127-owner-acceptance.json`
+
+### ATTENDANCE-LOCAL-FIRST-003 — ACTIVE_PASS
+- OWNER item: 9 — **OK**
+- Rule: Ô search hiển thị Tìm mã nhân viên / họ tên. Bấm/mở/lọc không còn reload-like, nhấp nháy hoặc giật lag.
+- Owner receipt: `ops/beta127-owner-acceptance.json`
+
+### QR-INLINE-SHIFT-NAV-003 — ACTIVE_PASS
+- OWNER item: 10 — **OK**
+- Rule: Sau khi quét có kết quả thì không hiển thị danh sách nhân sự chi tiết; danh sách này chỉ hiển thị khi chưa quét. Layout chi tiết theo ca được đưa ra ngay trong danh sách chi tiết; không phải mở danh sách rồi bấm ca để vào thêm một tầng trang chi tiết. Luồng scan/result/back giữ đúng navigation thực tế và không làm UI chớp/reload.
+- Owner receipt: `ops/beta127-owner-acceptance.json`
+
+### UI-REALTIME-100MS-006 — ACTIVE_PASS
+- OWNER item: 11 — **OK**
+- Rule: Cảnh báo có dữ liệu local xuất hiện gần như tức thì, không chờ 1–2 giây. Thao tác local/UI phản hồi mục tiêu khoảng <=100 ms theo phương án OWNER đã chốt; không chờ round-trip Service để render. Service xử lý/reconcile nền vào state hiện tại; Service chậm không làm UI khựng, reload hoặc chớp giật. Rà soát toàn app: các màn bị tác động giữ realtime UI update mượt và đúng canonical state.
+- Owner receipt: `ops/beta127-owner-acceptance.json`
+

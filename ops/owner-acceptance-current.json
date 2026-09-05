@@ -1,115 +1,314 @@
 {
   "schema_version": 1,
-  "state_epoch": 202609050937,
+  "state_epoch": 20260905211436,
   "channel": "BETA",
   "public_beta": {
-    "version_name": "0.4.2-beta.122",
-    "version_code": 128,
-    "source_sha": "fd26d18b0ae81cbc919824141f3670a3fe3b276e",
-    "apk_sha256": "b06d1cf470fa840f53c9641397bf16cdfa3ce5d20651349f4ac3bb6e0ef4b54b",
+    "version_name": "0.4.2-beta.127",
+    "version_code": 133,
+    "source_sha": "014ea67eb05773d0d61593f705c2171b5ec574ee",
+    "apk_sha256": "922dd571c8e8d6cb5e6d8dbe7fd4f3d73433e14a9f35a50a78d97bf64fa9fbf7",
     "technical_status": "PASS_LIVE"
   },
   "owner_scope": {
-    "scope_id": "OWNER_20260905_BETA122_EFFECTIVE_ROLE_PDA_SOURCE_UI",
+    "scope_id": "OWNER_20260905_CHAT_ORIGINAL_10_PLUS_GLOBAL_REALTIME_BETA127",
     "status": "OWNER_ACCEPTANCE_COMPLETE",
     "requirements": [
       {
-        "id": "UI-STATUS-DETAIL-VI-003",
+        "id": "SETTINGS-RESET-LAYOUT-002",
         "status": "ACTIVE_PASS",
-        "rule": "Status header/detail Vietnamese + icons + manual sync accepted."
+        "rule": "Trong Thông tin ứng dụng có Xóa cache và Xóa dữ liệu ứng dụng. Xóa dữ liệu cho phép cả USER; chỉ cần xác nhận, không yêu cầu mật khẩu; chỉ xóa dữ liệu local và đưa app về trạng thái như mới cài, không xóa dữ liệu Service/server. Sau reset, app đồng bộ lại đúng dữ liệu canonical từ Service. Layout các nhóm cài đặt có màu sắc rõ ràng, dễ phân biệt và vẫn giữ bố cục logic."
       },
       {
-        "id": "SUPERADMIN-EFFECTIVE-ROLE-003",
+        "id": "HISTORY-DATE-BULK-DETAIL-003",
         "status": "ACTIVE_PASS",
-        "rule": "Only role selector may use actual SUPERADMIN; every business surface/action obeys effective USER/ADMIN/SUPERADMIN."
+        "rule": "Có nút Xóa toàn bộ cùng hàng với Chọn/Bỏ chọn/Xóa đã chọn; xóa toàn bộ lịch sử của ngày đang chọn theo quyền/xác thực đã chốt. Ô tìm kiếm hiển thị Tìm mã nhân viên, họ tên, nghiệp vụ … Chọn ngày/search/nút có kích thước gọn, đồng bộ toàn app và tăng diện tích hiển thị lịch sử. Chi tiết lịch sử thuần Việt, dễ hiểu, bỏ text hướng dẫn OWNER thừa và hiển thị đủ thông tin chi tiết hữu ích."
       },
       {
-        "id": "SETTINGS-REGION-INHOUSE-DROP-001",
+        "id": "STATUS-QUEUE-RECOVERY-004",
         "status": "ACTIVE_PASS",
-        "rule": "Settings grouped regions, Inhouse pending card and drop-receive table accepted."
+        "rule": "Dịch vụ hiển thị loại/nguồn đang dùng thực tế như Cloudflare/LAN; chỉ hiện Không hoạt động/OFFLINE khi thực sự không hoạt động. Mạng hiển thị ping cạnh loại mạng. Các mục Đồng bộ/Dịch vụ đang chờ có thao tác xử lý lại từng mục, xử lý lại tất cả/cưỡng ép thử lại theo cơ chế an toàn. ADMIN/SUPERADMIN có thể tự xử lý; chỉ cho xóa hẳn mục đã xác minh terminal/stale/không còn giá trị nghiệp vụ, không làm mất mutation chưa commit."
       },
       {
-        "id": "PDA-SOURCE-MASTER-001",
+        "id": "STAFF-SEARCH-DEBOUNCE-001",
         "status": "ACTIVE_PASS",
-        "rule": "PDA source visible/editable in Android PDA information and Resource PDA list using canonical source catalog."
+        "rule": "Gõ ô search không còn giật/khựng dù danh sách lớn hoặc giới hạn hiển thị đang áp dụng. Không rebuild toàn bộ danh sách đồng bộ theo từng ký tự; kết quả tìm kiếm vẫn đúng."
+      },
+      {
+        "id": "DROP-PAGINATION-003",
+        "status": "ACTIVE_PASS",
+        "rule": "Cột thời gian được căn để không tràn xuống hai dòng. Hiển thị 50 DO mỗi trang; có tiến/lùi trang khi dữ liệu nhiều hơn 50. Đã bỏ text thừa Service / D1 xác nhận ngay …."
+      },
+      {
+        "id": "REPORT-MANPOWER-LABOR-003",
+        "status": "ACTIVE_PASS",
+        "rule": "Bỏ text Phạm vi báo cáo; tiêu đề đúng Báo cáo tình hình nhân sự. Select ca có đúng 3 lựa chọn: Ca 1 và HC / C2 / Cả ngày; đi cùng chọn ngày-tháng-năm; kích thước gọn và đồng bộ toàn app. Tiêu đề bảng và Vị trí dùng chữ đậm. Bỏ Tổng nhân sự và Khấu trừ nhân sự; vùng kết quả mang tiêu đề Nhân sự pick & pack thực tế sau khi loại trừ hỗ trợ. Có chi tiết công nhật dưới bảng thâm niên và trên vùng Pick & Pack thực tế: hiển thị vị trí công nhật và số lượng mỗi vị trí với layout hợp lý."
+      },
+      {
+        "id": "LABOR-BULK-REALTIME-007",
+        "status": "ACTIVE_PASS",
+        "rule": "Màn công nhật không còn cảm giác giật/khựng. Tạo/kết thúc nhiều người không load tuần tự gây đơ; trạng thái hoàn thành cập nhật mượt. Bỏ qua cảnh báo Tổ trưởng/Kéo hàng lưu theo từng NLĐ + phiên/ngày; xử lý một người không ẩn cảnh báo người khác; NLĐ mới xuất hiện vẫn có cảnh báo. Có thể chọn riêng/chọn nhiều/chọn tất cả; select không dính nhau và có kích thước hợp lý. Có Sửa nhiều cho giờ bắt đầu, giờ kết thúc và tính/không tính khấu trừ."
+      },
+      {
+        "id": "PDA-EXCHANGE-SOURCE-002",
+        "status": "ACTIVE_PASS",
+        "rule": "Hiển thị nguồn PDA. Layout Đổi PDA được thiết kế lại đơn giản, dễ hiểu cho người dùng và không làm sai canonical PDA/session."
+      },
+      {
+        "id": "ATTENDANCE-LOCAL-FIRST-003",
+        "status": "ACTIVE_PASS",
+        "rule": "Ô search hiển thị Tìm mã nhân viên / họ tên. Bấm/mở/lọc không còn reload-like, nhấp nháy hoặc giật lag."
+      },
+      {
+        "id": "QR-INLINE-SHIFT-NAV-003",
+        "status": "ACTIVE_PASS",
+        "rule": "Sau khi quét có kết quả thì không hiển thị danh sách nhân sự chi tiết; danh sách này chỉ hiển thị khi chưa quét. Layout chi tiết theo ca được đưa ra ngay trong danh sách chi tiết; không phải mở danh sách rồi bấm ca để vào thêm một tầng trang chi tiết. Luồng scan/result/back giữ đúng navigation thực tế và không làm UI chớp/reload."
+      },
+      {
+        "id": "UI-REALTIME-100MS-006",
+        "status": "ACTIVE_PASS",
+        "rule": "Cảnh báo có dữ liệu local xuất hiện gần như tức thì, không chờ 1–2 giây. Thao tác local/UI phản hồi mục tiêu khoảng <=100 ms theo phương án OWNER đã chốt; không chờ round-trip Service để render. Service xử lý/reconcile nền vào state hiện tại; Service chậm không làm UI khựng, reload hoặc chớp giật. Rà soát toàn app: các màn bị tác động giữ realtime UI update mượt và đúng canonical state."
       }
     ]
   },
   "technical_evidence": {
-    "candidate_run_id": 33937101147,
-    "candidate_artifact_id": 9960620587,
-    "fast_check_run_id": 33937614821,
-    "visual_pda_run_id": 33937614831,
-    "visual_pda_artifact_id": 9960788555,
-    "device_discovery_run_id": 33938053451,
-    "device_discovery_artifact_id": 9960858682,
-    "runtime_dod_run_id": 33938184655,
-    "runtime_dod_artifact_id": 9960886189,
-    "terminal_run_id": 33938535151,
-    "publish_artifact_id": 9960999680,
-    "ota_device_artifact_id": 9961036406,
-    "final_artifact_id": 9961041181,
-    "release_lock_receipt": "ops/beta122-release-lock.json",
-    "technical_receipt": "ops/beta122-technical-pass.json",
-    "owner_receipt": "ops/beta122-owner-acceptance.json"
+    "candidate_run_id": 33967758178,
+    "candidate_artifact_id": 9970037896,
+    "verify_run_id": 33967758178,
+    "verify_artifact_id": 9970125449,
+    "fast_check_run_id": 33968559771,
+    "runtime_dod_run_id": 33968559764,
+    "runtime_dod_artifact_id": 9970218116,
+    "terminal_run_id": 33969468377,
+    "apk_sha256": "922dd571c8e8d6cb5e6d8dbe7fd4f3d73433e14a9f35a50a78d97bf64fa9fbf7",
+    "apk_size": 14461941,
+    "signer_sha256": "d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e",
+    "ota_readback": "PASS",
+    "human_visual": "PASS",
+    "stable_unchanged": true,
+    "main_unchanged": true,
+    "authority_change": "NONE",
+    "owner_receipt": "ops/beta127-owner-acceptance.json"
   },
   "checklist": {
-    "checklist_id": "BETA122_OWNER_ACCEPTANCE_20260905_R1",
-    "revision": 3,
+    "checklist_id": "BETA127_OWNER_ACCEPTANCE_20260905_R2",
+    "revision": 2,
     "status": "OWNER_ACCEPTANCE_COMPLETE",
     "items": [
       {
         "number": 1,
-        "id": "UI-STATUS-DETAIL-VI-003",
+        "id": "SETTINGS-RESET-LAYOUT-002",
         "status": "OWNER_OK",
-        "test": "OWNER confirmed item 1 OK on Beta121; preserved through Beta122."
+        "test": "OWNER explicitly confirmed item OK on Beta127."
       },
       {
         "number": 2,
-        "id": "SUPERADMIN-EFFECTIVE-ROLE-003",
+        "id": "HISTORY-DATE-BULK-DETAIL-003",
         "status": "OWNER_OK",
-        "test": "OWNER rechecked Beta122 fix and replied item 2 OK."
+        "test": "OWNER explicitly confirmed item OK on Beta127."
       },
       {
         "number": 3,
-        "id": "SETTINGS-REGION-INHOUSE-DROP-001",
+        "id": "STATUS-QUEUE-RECOVERY-004",
         "status": "OWNER_OK",
-        "test": "OWNER confirmed item 3 OK on Beta121; preserved through Beta122."
+        "test": "OWNER explicitly confirmed item OK on Beta127."
       },
       {
         "number": 4,
-        "id": "PDA-SOURCE-MASTER-001",
+        "id": "STAFF-SEARCH-DEBOUNCE-001",
         "status": "OWNER_OK",
-        "test": "OWNER rechecked Beta122 fix and replied item 4 OK."
+        "test": "OWNER explicitly confirmed item OK on Beta127."
+      },
+      {
+        "number": 5,
+        "id": "DROP-PAGINATION-003",
+        "status": "OWNER_OK",
+        "test": "OWNER explicitly confirmed item OK on Beta127."
+      },
+      {
+        "number": 6,
+        "id": "REPORT-MANPOWER-LABOR-003",
+        "status": "OWNER_OK",
+        "test": "OWNER explicitly confirmed item OK on Beta127."
+      },
+      {
+        "number": 7,
+        "id": "LABOR-BULK-REALTIME-007",
+        "status": "OWNER_OK",
+        "test": "OWNER explicitly confirmed item OK on Beta127."
+      },
+      {
+        "number": 8,
+        "id": "PDA-EXCHANGE-SOURCE-002",
+        "status": "OWNER_OK",
+        "test": "OWNER explicitly confirmed item OK on Beta127."
+      },
+      {
+        "number": 9,
+        "id": "ATTENDANCE-LOCAL-FIRST-003",
+        "status": "OWNER_OK",
+        "test": "OWNER explicitly confirmed item OK on Beta127."
+      },
+      {
+        "number": 10,
+        "id": "QR-INLINE-SHIFT-NAV-003",
+        "status": "OWNER_OK",
+        "test": "OWNER explicitly confirmed item OK on Beta127."
+      },
+      {
+        "number": 11,
+        "id": "UI-REALTIME-100MS-006",
+        "status": "OWNER_OK",
+        "test": "OWNER explicitly confirmed item OK on Beta127."
       }
     ],
     "owner_responses": [
       {
-        "recorded_at": "2026-09-05T08:20:00+07:00",
-        "response": "1 ok 2 anh vẫn thấy lịch sử hiển thị dù về user, anh muốn quyền hạ thực sự như user, admin. Chỉ có phần chọn quyền là tồn tại để chuyển thôi. 3 ok 4 chưa thấy nguồn ở phần thông tin pda cũng như danh sách pda ở tài nguyên, mới cập nhật gsheet chưa cập nhập app à?",
+        "recorded_at": "2026-09-05T21:14:36+07:00",
+        "response": "1 ok 2 ok 3 ok 4 ok 5 ok 6 ok 7 ok 8 ok 9 ok 10 ok 11 ok",
         "items": {
           "1": "OK",
-          "2": "NOT_OK",
-          "3": "OK",
-          "4": "NOT_OK"
-        }
-      },
-      {
-        "recorded_at": "2026-09-05T09:37:19+07:00",
-        "response": "2 4 ok.",
-        "items": {
           "2": "OK",
-          "4": "OK"
+          "3": "OK",
+          "4": "OK",
+          "5": "OK",
+          "6": "OK",
+          "7": "OK",
+          "8": "OK",
+          "9": "OK",
+          "10": "OK",
+          "11": "OK"
         }
       }
     ]
   },
   "previous_acceptance": {
-    "version_name": "0.4.2-beta.121",
-    "state_epoch": 202609050820,
-    "checklist_id": "BETA121_OWNER_ACCEPTANCE_20260905_R1",
-    "revision": 2,
-    "status": "PARTIAL_ACCEPTANCE_PENDING_FIX"
+    "schema_version": 1,
+    "state_epoch": 202609050937,
+    "channel": "BETA",
+    "public_beta": {
+      "version_name": "0.4.2-beta.122",
+      "version_code": 128,
+      "source_sha": "fd26d18b0ae81cbc919824141f3670a3fe3b276e",
+      "apk_sha256": "b06d1cf470fa840f53c9641397bf16cdfa3ce5d20651349f4ac3bb6e0ef4b54b",
+      "technical_status": "PASS_LIVE"
+    },
+    "owner_scope": {
+      "scope_id": "OWNER_20260905_BETA122_EFFECTIVE_ROLE_PDA_SOURCE_UI",
+      "status": "OWNER_ACCEPTANCE_COMPLETE",
+      "requirements": [
+        {
+          "id": "UI-STATUS-DETAIL-VI-003",
+          "status": "ACTIVE_PASS",
+          "rule": "Status header/detail Vietnamese + icons + manual sync accepted."
+        },
+        {
+          "id": "SUPERADMIN-EFFECTIVE-ROLE-003",
+          "status": "ACTIVE_PASS",
+          "rule": "Only role selector may use actual SUPERADMIN; every business surface/action obeys effective USER/ADMIN/SUPERADMIN."
+        },
+        {
+          "id": "SETTINGS-REGION-INHOUSE-DROP-001",
+          "status": "ACTIVE_PASS",
+          "rule": "Settings grouped regions, Inhouse pending card and drop-receive table accepted."
+        },
+        {
+          "id": "PDA-SOURCE-MASTER-001",
+          "status": "ACTIVE_PASS",
+          "rule": "PDA source visible/editable in Android PDA information and Resource PDA list using canonical source catalog."
+        }
+      ]
+    },
+    "technical_evidence": {
+      "candidate_run_id": 33937101147,
+      "candidate_artifact_id": 9960620587,
+      "fast_check_run_id": 33937614821,
+      "visual_pda_run_id": 33937614831,
+      "visual_pda_artifact_id": 9960788555,
+      "device_discovery_run_id": 33938053451,
+      "device_discovery_artifact_id": 9960858682,
+      "runtime_dod_run_id": 33938184655,
+      "runtime_dod_artifact_id": 9960886189,
+      "terminal_run_id": 33938535151,
+      "publish_artifact_id": 9960999680,
+      "ota_device_artifact_id": 9961036406,
+      "final_artifact_id": 9961041181,
+      "release_lock_receipt": "ops/beta122-release-lock.json",
+      "technical_receipt": "ops/beta122-technical-pass.json",
+      "owner_receipt": "ops/beta122-owner-acceptance.json"
+    },
+    "checklist": {
+      "checklist_id": "BETA122_OWNER_ACCEPTANCE_20260905_R1",
+      "revision": 3,
+      "status": "OWNER_ACCEPTANCE_COMPLETE",
+      "items": [
+        {
+          "number": 1,
+          "id": "UI-STATUS-DETAIL-VI-003",
+          "status": "OWNER_OK",
+          "test": "OWNER confirmed item 1 OK on Beta121; preserved through Beta122."
+        },
+        {
+          "number": 2,
+          "id": "SUPERADMIN-EFFECTIVE-ROLE-003",
+          "status": "OWNER_OK",
+          "test": "OWNER rechecked Beta122 fix and replied item 2 OK."
+        },
+        {
+          "number": 3,
+          "id": "SETTINGS-REGION-INHOUSE-DROP-001",
+          "status": "OWNER_OK",
+          "test": "OWNER confirmed item 3 OK on Beta121; preserved through Beta122."
+        },
+        {
+          "number": 4,
+          "id": "PDA-SOURCE-MASTER-001",
+          "status": "OWNER_OK",
+          "test": "OWNER rechecked Beta122 fix and replied item 4 OK."
+        }
+      ],
+      "owner_responses": [
+        {
+          "recorded_at": "2026-09-05T08:20:00+07:00",
+          "response": "1 ok 2 anh vẫn thấy lịch sử hiển thị dù về user, anh muốn quyền hạ thực sự như user, admin. Chỉ có phần chọn quyền là tồn tại để chuyển thôi. 3 ok 4 chưa thấy nguồn ở phần thông tin pda cũng như danh sách pda ở tài nguyên, mới cập nhật gsheet chưa cập nhập app à?",
+          "items": {
+            "1": "OK",
+            "2": "NOT_OK",
+            "3": "OK",
+            "4": "NOT_OK"
+          }
+        },
+        {
+          "recorded_at": "2026-09-05T09:37:19+07:00",
+          "response": "2 4 ok.",
+          "items": {
+            "2": "OK",
+            "4": "OK"
+          }
+        }
+      ]
+    },
+    "previous_acceptance": {
+      "version_name": "0.4.2-beta.121",
+      "state_epoch": 202609050820,
+      "checklist_id": "BETA121_OWNER_ACCEPTANCE_20260905_R1",
+      "revision": 2,
+      "status": "PARTIAL_ACCEPTANCE_PENDING_FIX"
+    },
+    "fencing": {
+      "reject_lower_state_epoch": true,
+      "reject_older_beta_version": true,
+      "reject_lower_checklist_revision": true,
+      "owner_silence_is_acceptance": false
+    },
+    "security": {
+      "plaintext_password_in_repo": "FORBIDDEN",
+      "plaintext_otp_in_repo": "FORBIDDEN",
+      "password_verifier_in_public_repo": "FORBIDDEN",
+      "session_token_in_repo": "FORBIDDEN",
+      "gmail_oauth_secret_in_repo": "FORBIDDEN",
+      "secret_values_in_logs_artifacts_receipts": "FORBIDDEN"
+    },
+    "next_action": "OWNER_ACCEPTANCE_COMPLETE"
   },
   "fencing": {
     "reject_lower_state_epoch": true,
@@ -125,5 +324,5 @@
     "gmail_oauth_secret_in_repo": "FORBIDDEN",
     "secret_values_in_logs_artifacts_receipts": "FORBIDDEN"
   },
-  "next_action": "OWNER_ACCEPTANCE_COMPLETE"
+  "next_action": "WAIT_FOR_OWNER_NEW_SCOPE"
 }

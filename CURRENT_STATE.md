@@ -1,6 +1,6 @@
 # CURRENT STATE — PICK PACK 1291
 
-- updated_at: 2026-09-05T13:41:45Z
+- updated_at: 2026-09-05T14:14:36Z
 - status: BETA127_PASS_LIVE
 - continuity_branch: release/beta127-owner-r2-complete-20260905
 - source_sha: 014ea67eb05773d0d61593f705c2171b5ec574ee
@@ -29,4 +29,7 @@
 - owner_scope: OWNER_20260905_CHAT_ORIGINAL_10_PLUS_GLOBAL_REALTIME_BETA127
 - owner_checklist_id: BETA127_OWNER_ACCEPTANCE_20260905_R2
 - owner_checklist_revision: 2
-- next_action: WAIT_FOR_OWNER_ACCEPTANCE_NUMBERED_CHECKLIST_1_TO_11
+- owner_acceptance_receipt: ops/beta127-owner-acceptance.json
+- owner_acceptance_at: 2026-09-05T21:14:36+07:00
+- owner_acceptance: COMPLETE (11/11 OWNER OK)
+- next_action: WAIT_FOR_OWNER_NEW_SCOPE

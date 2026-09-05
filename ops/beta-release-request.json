@@ -87,7 +87,7 @@
   "apk_transport": "GITHUB_RELEASE_ONLY",
   "google_drive_apk": "FORBIDDEN",
   "execution_nonce": "beta127-publish-owner-r2-20260905-01",
-  "next_action": "WAIT_FOR_OWNER_ACCEPTANCE_NUMBERED_CHECKLIST_1_TO_11",
+  "next_action": "WAIT_FOR_OWNER_NEW_SCOPE",
   "owner_scope": "OWNER_20260905_CHAT_ORIGINAL_10_PLUS_GLOBAL_REALTIME_BETA127",
   "owner_scope_source": "OWNER yêu cầu xử lý triệt để đủ checklist R2 1-11; Beta126 false-positive đã được phát hiện bằng exact visual audit",
   "owner_checklist_id": "BETA127_OWNER_ACCEPTANCE_20260905_R2",
@@ -101,7 +101,10 @@
         "Xóa dữ liệu cho phép cả USER; chỉ cần xác nhận, không yêu cầu mật khẩu; chỉ xóa dữ liệu local và đưa app về trạng thái như mới cài, không xóa dữ liệu Service/server.",
         "Sau reset, app đồng bộ lại đúng dữ liệu canonical từ Service.",
         "Layout các nhóm cài đặt có màu sắc rõ ràng, dễ phân biệt và vẫn giữ bố cục logic."
-      ]
+      ],
+      "owner_result": "OK",
+      "owner_status": "ACTIVE_PASS",
+      "owner_accepted_at": "2026-09-05T21:14:36+07:00"
     },
     {
       "id": 2,
@@ -111,7 +114,10 @@
         "Ô tìm kiếm hiển thị Tìm mã nhân viên, họ tên, nghiệp vụ …",
         "Chọn ngày/search/nút có kích thước gọn, đồng bộ toàn app và tăng diện tích hiển thị lịch sử.",
         "Chi tiết lịch sử thuần Việt, dễ hiểu, bỏ text hướng dẫn OWNER thừa và hiển thị đủ thông tin chi tiết hữu ích."
-      ]
+      ],
+      "owner_result": "OK",
+      "owner_status": "ACTIVE_PASS",
+      "owner_accepted_at": "2026-09-05T21:14:36+07:00"
     },
     {
       "id": 3,
@@ -121,7 +127,10 @@
         "Mạng hiển thị ping cạnh loại mạng.",
         "Các mục Đồng bộ/Dịch vụ đang chờ có thao tác xử lý lại từng mục, xử lý lại tất cả/cưỡng ép thử lại theo cơ chế an toàn.",
         "ADMIN/SUPERADMIN có thể tự xử lý; chỉ cho xóa hẳn mục đã xác minh terminal/stale/không còn giá trị nghiệp vụ, không làm mất mutation chưa commit."
-      ]
+      ],
+      "owner_result": "OK",
+      "owner_status": "ACTIVE_PASS",
+      "owner_accepted_at": "2026-09-05T21:14:36+07:00"
     },
     {
       "id": 4,
@@ -129,7 +138,10 @@
       "acceptance": [
         "Gõ ô search không còn giật/khựng dù danh sách lớn hoặc giới hạn hiển thị đang áp dụng.",
         "Không rebuild toàn bộ danh sách đồng bộ theo từng ký tự; kết quả tìm kiếm vẫn đúng."
-      ]
+      ],
+      "owner_result": "OK",
+      "owner_status": "ACTIVE_PASS",
+      "owner_accepted_at": "2026-09-05T21:14:36+07:00"
     },
     {
       "id": 5,
@@ -138,7 +150,10 @@
         "Cột thời gian được căn để không tràn xuống hai dòng.",
         "Hiển thị 50 DO mỗi trang; có tiến/lùi trang khi dữ liệu nhiều hơn 50.",
         "Đã bỏ text thừa Service / D1 xác nhận ngay …."
-      ]
+      ],
+      "owner_result": "OK",
+      "owner_status": "ACTIVE_PASS",
+      "owner_accepted_at": "2026-09-05T21:14:36+07:00"
     },
     {
       "id": 6,
@@ -149,7 +164,10 @@
         "Tiêu đề bảng và Vị trí dùng chữ đậm.",
         "Bỏ Tổng nhân sự và Khấu trừ nhân sự; vùng kết quả mang tiêu đề Nhân sự pick & pack thực tế sau khi loại trừ hỗ trợ.",
         "Có chi tiết công nhật dưới bảng thâm niên và trên vùng Pick & Pack thực tế: hiển thị vị trí công nhật và số lượng mỗi vị trí với layout hợp lý."
-      ]
+      ],
+      "owner_result": "OK",
+      "owner_status": "ACTIVE_PASS",
+      "owner_accepted_at": "2026-09-05T21:14:36+07:00"
     },
     {
       "id": 7,
@@ -160,7 +178,10 @@
         "Bỏ qua cảnh báo Tổ trưởng/Kéo hàng lưu theo từng NLĐ + phiên/ngày; xử lý một người không ẩn cảnh báo người khác; NLĐ mới xuất hiện vẫn có cảnh báo.",
         "Có thể chọn riêng/chọn nhiều/chọn tất cả; select không dính nhau và có kích thước hợp lý.",
         "Có Sửa nhiều cho giờ bắt đầu, giờ kết thúc và tính/không tính khấu trừ."
-      ]
+      ],
+      "owner_result": "OK",
+      "owner_status": "ACTIVE_PASS",
+      "owner_accepted_at": "2026-09-05T21:14:36+07:00"
     },
     {
       "id": 8,
@@ -168,7 +189,10 @@
       "acceptance": [
         "Hiển thị nguồn PDA.",
         "Layout Đổi PDA được thiết kế lại đơn giản, dễ hiểu cho người dùng và không làm sai canonical PDA/session."
-      ]
+      ],
+      "owner_result": "OK",
+      "owner_status": "ACTIVE_PASS",
+      "owner_accepted_at": "2026-09-05T21:14:36+07:00"
     },
     {
       "id": 9,
@@ -176,7 +200,10 @@
       "acceptance": [
         "Ô search hiển thị Tìm mã nhân viên / họ tên.",
         "Bấm/mở/lọc không còn reload-like, nhấp nháy hoặc giật lag."
-      ]
+      ],
+      "owner_result": "OK",
+      "owner_status": "ACTIVE_PASS",
+      "owner_accepted_at": "2026-09-05T21:14:36+07:00"
     },
     {
       "id": 10,
@@ -185,7 +212,10 @@
         "Sau khi quét có kết quả thì không hiển thị danh sách nhân sự chi tiết; danh sách này chỉ hiển thị khi chưa quét.",
         "Layout chi tiết theo ca được đưa ra ngay trong danh sách chi tiết; không phải mở danh sách rồi bấm ca để vào thêm một tầng trang chi tiết.",
         "Luồng scan/result/back giữ đúng navigation thực tế và không làm UI chớp/reload."
-      ]
+      ],
+      "owner_result": "OK",
+      "owner_status": "ACTIVE_PASS",
+      "owner_accepted_at": "2026-09-05T21:14:36+07:00"
     },
     {
       "id": 11,
@@ -195,12 +225,18 @@
         "Thao tác local/UI phản hồi mục tiêu khoảng <=100 ms theo phương án OWNER đã chốt; không chờ round-trip Service để render.",
         "Service xử lý/reconcile nền vào state hiện tại; Service chậm không làm UI khựng, reload hoặc chớp giật.",
         "Rà soát toàn app: các màn bị tác động giữ realtime UI update mượt và đúng canonical state."
-      ]
+      ],
+      "owner_result": "OK",
+      "owner_status": "ACTIVE_PASS",
+      "owner_accepted_at": "2026-09-05T21:14:36+07:00"
     }
   ],
   "technical_pass_status": "PASS",
-  "owner_acceptance": "PENDING",
+  "owner_acceptance": "COMPLETE",
   "ota_readback_status": "PASS",
   "publish_run_id": "33969468377",
-  "ota_readback_run_id": 33969468377
+  "ota_readback_run_id": 33969468377,
+  "owner_acceptance_at": "2026-09-05T21:14:36+07:00",
+  "owner_acceptance_response": "1 ok 2 ok 3 ok 4 ok 5 ok 6 ok 7 ok 8 ok 9 ok 10 ok 11 ok",
+  "owner_acceptance_receipt": "ops/beta127-owner-acceptance.json"
 }

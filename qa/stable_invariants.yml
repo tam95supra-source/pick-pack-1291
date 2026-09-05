@@ -651,14 +651,6 @@ invariants:
     active_pass: true
     last_verified: "0.4.2-beta.120 LIVE / terminal run 33896192267 / OWNER acceptance complete 2026-09-04"
 
-impact_map:
-  "app/**": [DOCUMENT-DRAFT-NOTE-UX-003, DOCUMENT-GROUP-VIEWER-004, PDA-SERIAL-DERIVE-002, REPORT-LABOR-DEDUCTION-002, DROP-RECEIVE-CRUD-001, LOCAL-FIRST-RECONCILE-002, ATTENDANCE-QR-FILTER-002, LABOR-FIXED-ROLE-REVIEW-005, ADMIN-OTHER-PASSWORD-003, LAN-GLOBAL-TEST-002, UI-TAP-FEEDBACK-004, LABOR-SCAN-PINNED-004, UI-FORM-BASE-CONSISTENCY-003, UI-STATUS-001, QR-LOCAL-001, MEAL-DATE-001, MEAL-WARN-001, ROLE-HISTORY-001, OTA-BETA-001, PDA-EXIT-001, ENV-ISOLATION-001, SERVICE-DISCOVERY-001, SHIFT-STAFF-DOWNLOAD-QR-001, DOCUMENT-MANAGEMENT-001, DOCUMENT-BATCH-001, LABOR-TIME-RANGE-001, MEAL-UI-NULL-001, UI-COPY-DENSITY-001, NAV-HISTORY-BACK-001, UI-REVIEW-WARNING-001, LABOR-EXACT-SESSION-002, HISTORY-DELETE-CANONICAL-001, DOCUMENT-BATCH-MODE-TICK-002, INFRA-RESILIENCE-001, CHANGELOG-CURRENT-VERSION-001, ADMIN-AUDIT-PASSWORD-001, HISTORY-SUPERADMIN-CLEANUP-002, LABOR-MULTI-INTERVAL-003, UI-DATA-DATE-SELECT-001, UI-EMPLOYEE-SCAN-ROSTER-001, UI-FORM-CONSISTENCY-002, DOCUMENT-COMPACT-MULTI-EDIT-005, DOCUMENT-CROSS-GROUP-VIEWER-005, DROP-RECEIVE-COMPACT-LIST-002, UI-PERFORMANCE-COMPACT-005, LABOR-FIXED-ROLE-BULK-006, LAN-MANUAL-REAL-003, REVIEW-100-SESSIONS-001, OLD-SESSION-BULK-EXIT-001]
-  "service/**": [DOCUMENT-DRAFT-NOTE-UX-003, DROP-RECEIVE-CRUD-001, LOCAL-FIRST-RECONCILE-002, ADMIN-OTHER-PASSWORD-003, LAN-GLOBAL-TEST-002, QR-LOCAL-001, MEAL-DATE-001, PDA-EXIT-001, ENV-ISOLATION-001, DOCUMENT-MANAGEMENT-001, DOCUMENT-BATCH-001, LABOR-TIME-RANGE-001, LABOR-EXACT-SESSION-002, INFRA-RESILIENCE-001, ADMIN-AUDIT-PASSWORD-001, LABOR-MULTI-INTERVAL-003, UI-DATA-DATE-SELECT-001, DOCUMENT-COMPACT-MULTI-EDIT-005, DOCUMENT-CROSS-GROUP-VIEWER-005, DROP-RECEIVE-COMPACT-LIST-002, UI-PERFORMANCE-COMPACT-005, LABOR-FIXED-ROLE-BULK-006, LAN-MANUAL-REAL-003, OLD-SESSION-BULK-EXIT-001]
-  "services/**": [ENV-ISOLATION-001, INFRA-RESILIENCE-001, BETA-STABLE-AUDIT-001]
-  "google-apps-script/**": [ENV-ISOLATION-001, INFRA-RESILIENCE-001, OTA-BETA-001]
-  ".github/workflows/**": [OTA-BETA-001, ENV-ISOLATION-001, INFRA-RESILIENCE-001, BETA-STABLE-AUDIT-001, CHANGELOG-CURRENT-VERSION-001]
-  "config/environment_contracts.json": [ENV-ISOLATION-001, BETA-STABLE-AUDIT-001]
-
   - id: UI-STATUS-DETAIL-VI-003
     status: ACTIVE_PASS
     scope: ui-status-detail-vi
@@ -706,3 +698,132 @@ impact_map:
     technical_receipt: "ops/beta122-technical-pass.json"
     owner_acceptance: "PASS — OWNER item 4 OK after Beta122 recheck, 2026-09-05 09:37 +07:00."
     active_pass: true
+
+  - id: SETTINGS-RESET-LAYOUT-002
+    status: ACTIVE_PASS
+    scope: settings
+    rule: "Trong Thông tin ứng dụng có Xóa cache và Xóa dữ liệu ứng dụng. Xóa dữ liệu cho phép cả USER; chỉ cần xác nhận, không yêu cầu mật khẩu; chỉ xóa dữ liệu local và đưa app về trạng thái như mới cài, không xóa dữ liệu Service/server. Sau reset, app đồng bộ lại đúng dữ liệu canonical từ Service. Layout các nhóm cài đặt có màu sắc rõ ràng, dễ phân biệt và vẫn giữ bố cục logic."
+    technical_candidate: "0.4.2-beta.127"
+    technical_evidence: "Beta127 LIVE exact bytes; source 014ea67eb05773d0d61593f705c2171b5ec574ee; candidate 33967758178/9970037896; Fast Check 33968559771 PASS; visual+PDA+API36 33967758178/9970125449 + human PASS 44 screenshots 320x568/360x640/480x800; runtime DoD 33968559764/9970218116 PASS; terminal publish+OTA+install/readback+finalize 33969468377 PASS; APK SHA256 922dd571c8e8d6cb5e6d8dbe7fd4f3d73433e14a9f35a50a78d97bf64fa9fbf7; size 14461941; signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged."
+    owner_acceptance: "PASS — OWNER item 1 OK, 2026-09-05T21:14:36+07:00."
+    owner_receipt: "ops/beta127-owner-acceptance.json"
+    active_pass: true
+    last_verified: "0.4.2-beta.127 LIVE / OWNER acceptance complete 11/11 / 2026-09-05T21:14:36+07:00"
+
+  - id: HISTORY-DATE-BULK-DETAIL-003
+    status: ACTIVE_PASS
+    scope: history
+    rule: "Có nút Xóa toàn bộ cùng hàng với Chọn/Bỏ chọn/Xóa đã chọn; xóa toàn bộ lịch sử của ngày đang chọn theo quyền/xác thực đã chốt. Ô tìm kiếm hiển thị Tìm mã nhân viên, họ tên, nghiệp vụ … Chọn ngày/search/nút có kích thước gọn, đồng bộ toàn app và tăng diện tích hiển thị lịch sử. Chi tiết lịch sử thuần Việt, dễ hiểu, bỏ text hướng dẫn OWNER thừa và hiển thị đủ thông tin chi tiết hữu ích."
+    technical_candidate: "0.4.2-beta.127"
+    technical_evidence: "Beta127 LIVE exact bytes; source 014ea67eb05773d0d61593f705c2171b5ec574ee; candidate 33967758178/9970037896; Fast Check 33968559771 PASS; visual+PDA+API36 33967758178/9970125449 + human PASS 44 screenshots 320x568/360x640/480x800; runtime DoD 33968559764/9970218116 PASS; terminal publish+OTA+install/readback+finalize 33969468377 PASS; APK SHA256 922dd571c8e8d6cb5e6d8dbe7fd4f3d73433e14a9f35a50a78d97bf64fa9fbf7; size 14461941; signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged."
+    owner_acceptance: "PASS — OWNER item 2 OK, 2026-09-05T21:14:36+07:00."
+    owner_receipt: "ops/beta127-owner-acceptance.json"
+    active_pass: true
+    last_verified: "0.4.2-beta.127 LIVE / OWNER acceptance complete 11/11 / 2026-09-05T21:14:36+07:00"
+
+  - id: STATUS-QUEUE-RECOVERY-004
+    status: ACTIVE_PASS
+    scope: status-sync-service
+    rule: "Dịch vụ hiển thị loại/nguồn đang dùng thực tế như Cloudflare/LAN; chỉ hiện Không hoạt động/OFFLINE khi thực sự không hoạt động. Mạng hiển thị ping cạnh loại mạng. Các mục Đồng bộ/Dịch vụ đang chờ có thao tác xử lý lại từng mục, xử lý lại tất cả/cưỡng ép thử lại theo cơ chế an toàn. ADMIN/SUPERADMIN có thể tự xử lý; chỉ cho xóa hẳn mục đã xác minh terminal/stale/không còn giá trị nghiệp vụ, không làm mất mutation chưa commit."
+    technical_candidate: "0.4.2-beta.127"
+    technical_evidence: "Beta127 LIVE exact bytes; source 014ea67eb05773d0d61593f705c2171b5ec574ee; candidate 33967758178/9970037896; Fast Check 33968559771 PASS; visual+PDA+API36 33967758178/9970125449 + human PASS 44 screenshots 320x568/360x640/480x800; runtime DoD 33968559764/9970218116 PASS; terminal publish+OTA+install/readback+finalize 33969468377 PASS; APK SHA256 922dd571c8e8d6cb5e6d8dbe7fd4f3d73433e14a9f35a50a78d97bf64fa9fbf7; size 14461941; signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged."
+    owner_acceptance: "PASS — OWNER item 3 OK, 2026-09-05T21:14:36+07:00."
+    owner_receipt: "ops/beta127-owner-acceptance.json"
+    active_pass: true
+    last_verified: "0.4.2-beta.127 LIVE / OWNER acceptance complete 11/11 / 2026-09-05T21:14:36+07:00"
+
+  - id: STAFF-SEARCH-DEBOUNCE-001
+    status: ACTIVE_PASS
+    scope: staff-search
+    rule: "Gõ ô search không còn giật/khựng dù danh sách lớn hoặc giới hạn hiển thị đang áp dụng. Không rebuild toàn bộ danh sách đồng bộ theo từng ký tự; kết quả tìm kiếm vẫn đúng."
+    technical_candidate: "0.4.2-beta.127"
+    technical_evidence: "Beta127 LIVE exact bytes; source 014ea67eb05773d0d61593f705c2171b5ec574ee; candidate 33967758178/9970037896; Fast Check 33968559771 PASS; visual+PDA+API36 33967758178/9970125449 + human PASS 44 screenshots 320x568/360x640/480x800; runtime DoD 33968559764/9970218116 PASS; terminal publish+OTA+install/readback+finalize 33969468377 PASS; APK SHA256 922dd571c8e8d6cb5e6d8dbe7fd4f3d73433e14a9f35a50a78d97bf64fa9fbf7; size 14461941; signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged."
+    owner_acceptance: "PASS — OWNER item 4 OK, 2026-09-05T21:14:36+07:00."
+    owner_receipt: "ops/beta127-owner-acceptance.json"
+    active_pass: true
+    last_verified: "0.4.2-beta.127 LIVE / OWNER acceptance complete 11/11 / 2026-09-05T21:14:36+07:00"
+
+  - id: DROP-PAGINATION-003
+    status: ACTIVE_PASS
+    scope: drop-receive
+    rule: "Cột thời gian được căn để không tràn xuống hai dòng. Hiển thị 50 DO mỗi trang; có tiến/lùi trang khi dữ liệu nhiều hơn 50. Đã bỏ text thừa Service / D1 xác nhận ngay …."
+    technical_candidate: "0.4.2-beta.127"
+    technical_evidence: "Beta127 LIVE exact bytes; source 014ea67eb05773d0d61593f705c2171b5ec574ee; candidate 33967758178/9970037896; Fast Check 33968559771 PASS; visual+PDA+API36 33967758178/9970125449 + human PASS 44 screenshots 320x568/360x640/480x800; runtime DoD 33968559764/9970218116 PASS; terminal publish+OTA+install/readback+finalize 33969468377 PASS; APK SHA256 922dd571c8e8d6cb5e6d8dbe7fd4f3d73433e14a9f35a50a78d97bf64fa9fbf7; size 14461941; signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged."
+    owner_acceptance: "PASS — OWNER item 5 OK, 2026-09-05T21:14:36+07:00."
+    owner_receipt: "ops/beta127-owner-acceptance.json"
+    active_pass: true
+    last_verified: "0.4.2-beta.127 LIVE / OWNER acceptance complete 11/11 / 2026-09-05T21:14:36+07:00"
+
+  - id: REPORT-MANPOWER-LABOR-003
+    status: ACTIVE_PASS
+    scope: manpower-report
+    rule: "Bỏ text Phạm vi báo cáo; tiêu đề đúng Báo cáo tình hình nhân sự. Select ca có đúng 3 lựa chọn: Ca 1 và HC / C2 / Cả ngày; đi cùng chọn ngày-tháng-năm; kích thước gọn và đồng bộ toàn app. Tiêu đề bảng và Vị trí dùng chữ đậm. Bỏ Tổng nhân sự và Khấu trừ nhân sự; vùng kết quả mang tiêu đề Nhân sự pick & pack thực tế sau khi loại trừ hỗ trợ. Có chi tiết công nhật dưới bảng thâm niên và trên vùng Pick & Pack thực tế: hiển thị vị trí công nhật và số lượng mỗi vị trí với layout hợp lý."
+    technical_candidate: "0.4.2-beta.127"
+    technical_evidence: "Beta127 LIVE exact bytes; source 014ea67eb05773d0d61593f705c2171b5ec574ee; candidate 33967758178/9970037896; Fast Check 33968559771 PASS; visual+PDA+API36 33967758178/9970125449 + human PASS 44 screenshots 320x568/360x640/480x800; runtime DoD 33968559764/9970218116 PASS; terminal publish+OTA+install/readback+finalize 33969468377 PASS; APK SHA256 922dd571c8e8d6cb5e6d8dbe7fd4f3d73433e14a9f35a50a78d97bf64fa9fbf7; size 14461941; signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged."
+    owner_acceptance: "PASS — OWNER item 6 OK, 2026-09-05T21:14:36+07:00."
+    owner_receipt: "ops/beta127-owner-acceptance.json"
+    active_pass: true
+    last_verified: "0.4.2-beta.127 LIVE / OWNER acceptance complete 11/11 / 2026-09-05T21:14:36+07:00"
+
+  - id: LABOR-BULK-REALTIME-007
+    status: ACTIVE_PASS
+    scope: labor
+    rule: "Màn công nhật không còn cảm giác giật/khựng. Tạo/kết thúc nhiều người không load tuần tự gây đơ; trạng thái hoàn thành cập nhật mượt. Bỏ qua cảnh báo Tổ trưởng/Kéo hàng lưu theo từng NLĐ + phiên/ngày; xử lý một người không ẩn cảnh báo người khác; NLĐ mới xuất hiện vẫn có cảnh báo. Có thể chọn riêng/chọn nhiều/chọn tất cả; select không dính nhau và có kích thước hợp lý. Có Sửa nhiều cho giờ bắt đầu, giờ kết thúc và tính/không tính khấu trừ."
+    technical_candidate: "0.4.2-beta.127"
+    technical_evidence: "Beta127 LIVE exact bytes; source 014ea67eb05773d0d61593f705c2171b5ec574ee; candidate 33967758178/9970037896; Fast Check 33968559771 PASS; visual+PDA+API36 33967758178/9970125449 + human PASS 44 screenshots 320x568/360x640/480x800; runtime DoD 33968559764/9970218116 PASS; terminal publish+OTA+install/readback+finalize 33969468377 PASS; APK SHA256 922dd571c8e8d6cb5e6d8dbe7fd4f3d73433e14a9f35a50a78d97bf64fa9fbf7; size 14461941; signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged."
+    owner_acceptance: "PASS — OWNER item 7 OK, 2026-09-05T21:14:36+07:00."
+    owner_receipt: "ops/beta127-owner-acceptance.json"
+    active_pass: true
+    last_verified: "0.4.2-beta.127 LIVE / OWNER acceptance complete 11/11 / 2026-09-05T21:14:36+07:00"
+
+  - id: PDA-EXCHANGE-SOURCE-002
+    status: ACTIVE_PASS
+    scope: pda-exchange
+    rule: "Hiển thị nguồn PDA. Layout Đổi PDA được thiết kế lại đơn giản, dễ hiểu cho người dùng và không làm sai canonical PDA/session."
+    technical_candidate: "0.4.2-beta.127"
+    technical_evidence: "Beta127 LIVE exact bytes; source 014ea67eb05773d0d61593f705c2171b5ec574ee; candidate 33967758178/9970037896; Fast Check 33968559771 PASS; visual+PDA+API36 33967758178/9970125449 + human PASS 44 screenshots 320x568/360x640/480x800; runtime DoD 33968559764/9970218116 PASS; terminal publish+OTA+install/readback+finalize 33969468377 PASS; APK SHA256 922dd571c8e8d6cb5e6d8dbe7fd4f3d73433e14a9f35a50a78d97bf64fa9fbf7; size 14461941; signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged."
+    owner_acceptance: "PASS — OWNER item 8 OK, 2026-09-05T21:14:36+07:00."
+    owner_receipt: "ops/beta127-owner-acceptance.json"
+    active_pass: true
+    last_verified: "0.4.2-beta.127 LIVE / OWNER acceptance complete 11/11 / 2026-09-05T21:14:36+07:00"
+
+  - id: ATTENDANCE-LOCAL-FIRST-003
+    status: ACTIVE_PASS
+    scope: attendance
+    rule: "Ô search hiển thị Tìm mã nhân viên / họ tên. Bấm/mở/lọc không còn reload-like, nhấp nháy hoặc giật lag."
+    technical_candidate: "0.4.2-beta.127"
+    technical_evidence: "Beta127 LIVE exact bytes; source 014ea67eb05773d0d61593f705c2171b5ec574ee; candidate 33967758178/9970037896; Fast Check 33968559771 PASS; visual+PDA+API36 33967758178/9970125449 + human PASS 44 screenshots 320x568/360x640/480x800; runtime DoD 33968559764/9970218116 PASS; terminal publish+OTA+install/readback+finalize 33969468377 PASS; APK SHA256 922dd571c8e8d6cb5e6d8dbe7fd4f3d73433e14a9f35a50a78d97bf64fa9fbf7; size 14461941; signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged."
+    owner_acceptance: "PASS — OWNER item 9 OK, 2026-09-05T21:14:36+07:00."
+    owner_receipt: "ops/beta127-owner-acceptance.json"
+    active_pass: true
+    last_verified: "0.4.2-beta.127 LIVE / OWNER acceptance complete 11/11 / 2026-09-05T21:14:36+07:00"
+
+  - id: QR-INLINE-SHIFT-NAV-003
+    status: ACTIVE_PASS
+    scope: qr-navigation
+    rule: "Sau khi quét có kết quả thì không hiển thị danh sách nhân sự chi tiết; danh sách này chỉ hiển thị khi chưa quét. Layout chi tiết theo ca được đưa ra ngay trong danh sách chi tiết; không phải mở danh sách rồi bấm ca để vào thêm một tầng trang chi tiết. Luồng scan/result/back giữ đúng navigation thực tế và không làm UI chớp/reload."
+    technical_candidate: "0.4.2-beta.127"
+    technical_evidence: "Beta127 LIVE exact bytes; source 014ea67eb05773d0d61593f705c2171b5ec574ee; candidate 33967758178/9970037896; Fast Check 33968559771 PASS; visual+PDA+API36 33967758178/9970125449 + human PASS 44 screenshots 320x568/360x640/480x800; runtime DoD 33968559764/9970218116 PASS; terminal publish+OTA+install/readback+finalize 33969468377 PASS; APK SHA256 922dd571c8e8d6cb5e6d8dbe7fd4f3d73433e14a9f35a50a78d97bf64fa9fbf7; size 14461941; signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged."
+    owner_acceptance: "PASS — OWNER item 10 OK, 2026-09-05T21:14:36+07:00."
+    owner_receipt: "ops/beta127-owner-acceptance.json"
+    active_pass: true
+    last_verified: "0.4.2-beta.127 LIVE / OWNER acceptance complete 11/11 / 2026-09-05T21:14:36+07:00"
+
+  - id: UI-REALTIME-100MS-006
+    status: ACTIVE_PASS
+    scope: ui-realtime
+    rule: "Cảnh báo có dữ liệu local xuất hiện gần như tức thì, không chờ 1–2 giây. Thao tác local/UI phản hồi mục tiêu khoảng <=100 ms theo phương án OWNER đã chốt; không chờ round-trip Service để render. Service xử lý/reconcile nền vào state hiện tại; Service chậm không làm UI khựng, reload hoặc chớp giật. Rà soát toàn app: các màn bị tác động giữ realtime UI update mượt và đúng canonical state."
+    technical_candidate: "0.4.2-beta.127"
+    technical_evidence: "Beta127 LIVE exact bytes; source 014ea67eb05773d0d61593f705c2171b5ec574ee; candidate 33967758178/9970037896; Fast Check 33968559771 PASS; visual+PDA+API36 33967758178/9970125449 + human PASS 44 screenshots 320x568/360x640/480x800; runtime DoD 33968559764/9970218116 PASS; terminal publish+OTA+install/readback+finalize 33969468377 PASS; APK SHA256 922dd571c8e8d6cb5e6d8dbe7fd4f3d73433e14a9f35a50a78d97bf64fa9fbf7; size 14461941; signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged."
+    owner_acceptance: "PASS — OWNER item 11 OK, 2026-09-05T21:14:36+07:00."
+    owner_receipt: "ops/beta127-owner-acceptance.json"
+    active_pass: true
+    last_verified: "0.4.2-beta.127 LIVE / OWNER acceptance complete 11/11 / 2026-09-05T21:14:36+07:00"
+
+impact_map:
+  "app/**": [DOCUMENT-DRAFT-NOTE-UX-003, DOCUMENT-GROUP-VIEWER-004, PDA-SERIAL-DERIVE-002, REPORT-LABOR-DEDUCTION-002, DROP-RECEIVE-CRUD-001, LOCAL-FIRST-RECONCILE-002, ATTENDANCE-QR-FILTER-002, LABOR-FIXED-ROLE-REVIEW-005, ADMIN-OTHER-PASSWORD-003, LAN-GLOBAL-TEST-002, UI-TAP-FEEDBACK-004, LABOR-SCAN-PINNED-004, UI-FORM-BASE-CONSISTENCY-003, UI-STATUS-001, QR-LOCAL-001, MEAL-DATE-001, MEAL-WARN-001, ROLE-HISTORY-001, OTA-BETA-001, PDA-EXIT-001, ENV-ISOLATION-001, SERVICE-DISCOVERY-001, SHIFT-STAFF-DOWNLOAD-QR-001, DOCUMENT-MANAGEMENT-001, DOCUMENT-BATCH-001, LABOR-TIME-RANGE-001, MEAL-UI-NULL-001, UI-COPY-DENSITY-001, NAV-HISTORY-BACK-001, UI-REVIEW-WARNING-001, LABOR-EXACT-SESSION-002, HISTORY-DELETE-CANONICAL-001, DOCUMENT-BATCH-MODE-TICK-002, INFRA-RESILIENCE-001, CHANGELOG-CURRENT-VERSION-001, ADMIN-AUDIT-PASSWORD-001, HISTORY-SUPERADMIN-CLEANUP-002, LABOR-MULTI-INTERVAL-003, UI-DATA-DATE-SELECT-001, UI-EMPLOYEE-SCAN-ROSTER-001, UI-FORM-CONSISTENCY-002, DOCUMENT-COMPACT-MULTI-EDIT-005, DOCUMENT-CROSS-GROUP-VIEWER-005, DROP-RECEIVE-COMPACT-LIST-002, UI-PERFORMANCE-COMPACT-005, LABOR-FIXED-ROLE-BULK-006, LAN-MANUAL-REAL-003, REVIEW-100-SESSIONS-001, OLD-SESSION-BULK-EXIT-001, SETTINGS-RESET-LAYOUT-002, HISTORY-DATE-BULK-DETAIL-003, STATUS-QUEUE-RECOVERY-004, STAFF-SEARCH-DEBOUNCE-001, DROP-PAGINATION-003, REPORT-MANPOWER-LABOR-003, LABOR-BULK-REALTIME-007, PDA-EXCHANGE-SOURCE-002, ATTENDANCE-LOCAL-FIRST-003, QR-INLINE-SHIFT-NAV-003, UI-REALTIME-100MS-006]
+  "service/**": [DOCUMENT-DRAFT-NOTE-UX-003, DROP-RECEIVE-CRUD-001, LOCAL-FIRST-RECONCILE-002, ADMIN-OTHER-PASSWORD-003, LAN-GLOBAL-TEST-002, QR-LOCAL-001, MEAL-DATE-001, PDA-EXIT-001, ENV-ISOLATION-001, DOCUMENT-MANAGEMENT-001, DOCUMENT-BATCH-001, LABOR-TIME-RANGE-001, LABOR-EXACT-SESSION-002, INFRA-RESILIENCE-001, ADMIN-AUDIT-PASSWORD-001, LABOR-MULTI-INTERVAL-003, UI-DATA-DATE-SELECT-001, DOCUMENT-COMPACT-MULTI-EDIT-005, DOCUMENT-CROSS-GROUP-VIEWER-005, DROP-RECEIVE-COMPACT-LIST-002, UI-PERFORMANCE-COMPACT-005, LABOR-FIXED-ROLE-BULK-006, LAN-MANUAL-REAL-003, OLD-SESSION-BULK-EXIT-001]
+  "services/**": [ENV-ISOLATION-001, INFRA-RESILIENCE-001, BETA-STABLE-AUDIT-001]
+  "google-apps-script/**": [ENV-ISOLATION-001, INFRA-RESILIENCE-001, OTA-BETA-001]
+  ".github/workflows/**": [OTA-BETA-001, ENV-ISOLATION-001, INFRA-RESILIENCE-001, BETA-STABLE-AUDIT-001, CHANGELOG-CURRENT-VERSION-001]
+  "config/environment_contracts.json": [ENV-ISOLATION-001, BETA-STABLE-AUDIT-001]

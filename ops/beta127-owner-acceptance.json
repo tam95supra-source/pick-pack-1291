@@ -1,0 +1,100 @@
+{
+  "schema_version": 1,
+  "project": "APK PICK PACK 1291",
+  "channel": "BETA",
+  "version_name": "0.4.2-beta.127",
+  "version_code": 133,
+  "owner_scope": "OWNER_20260905_CHAT_ORIGINAL_10_PLUS_GLOBAL_REALTIME_BETA127",
+  "checklist_id": "BETA127_OWNER_ACCEPTANCE_20260905_R2",
+  "checklist_revision": 2,
+  "accepted_at": "2026-09-05T21:14:36+07:00",
+  "owner_response": "1 ok 2 ok 3 ok 4 ok 5 ok 6 ok 7 ok 8 ok 9 ok 10 ok 11 ok",
+  "status": "OWNER_ACCEPTANCE_COMPLETE",
+  "items": [
+    {
+      "number": 1,
+      "invariant_id": "SETTINGS-RESET-LAYOUT-002",
+      "status": "OWNER_OK",
+      "invariant_state": "ACTIVE_PASS"
+    },
+    {
+      "number": 2,
+      "invariant_id": "HISTORY-DATE-BULK-DETAIL-003",
+      "status": "OWNER_OK",
+      "invariant_state": "ACTIVE_PASS"
+    },
+    {
+      "number": 3,
+      "invariant_id": "STATUS-QUEUE-RECOVERY-004",
+      "status": "OWNER_OK",
+      "invariant_state": "ACTIVE_PASS"
+    },
+    {
+      "number": 4,
+      "invariant_id": "STAFF-SEARCH-DEBOUNCE-001",
+      "status": "OWNER_OK",
+      "invariant_state": "ACTIVE_PASS"
+    },
+    {
+      "number": 5,
+      "invariant_id": "DROP-PAGINATION-003",
+      "status": "OWNER_OK",
+      "invariant_state": "ACTIVE_PASS"
+    },
+    {
+      "number": 6,
+      "invariant_id": "REPORT-MANPOWER-LABOR-003",
+      "status": "OWNER_OK",
+      "invariant_state": "ACTIVE_PASS"
+    },
+    {
+      "number": 7,
+      "invariant_id": "LABOR-BULK-REALTIME-007",
+      "status": "OWNER_OK",
+      "invariant_state": "ACTIVE_PASS"
+    },
+    {
+      "number": 8,
+      "invariant_id": "PDA-EXCHANGE-SOURCE-002",
+      "status": "OWNER_OK",
+      "invariant_state": "ACTIVE_PASS"
+    },
+    {
+      "number": 9,
+      "invariant_id": "ATTENDANCE-LOCAL-FIRST-003",
+      "status": "OWNER_OK",
+      "invariant_state": "ACTIVE_PASS"
+    },
+    {
+      "number": 10,
+      "invariant_id": "QR-INLINE-SHIFT-NAV-003",
+      "status": "OWNER_OK",
+      "invariant_state": "ACTIVE_PASS"
+    },
+    {
+      "number": 11,
+      "invariant_id": "UI-REALTIME-100MS-006",
+      "status": "OWNER_OK",
+      "invariant_state": "ACTIVE_PASS"
+    }
+  ],
+  "technical_evidence": {
+    "candidate_run_id": 33967758178,
+    "candidate_artifact_id": 9970037896,
+    "verify_run_id": 33967758178,
+    "verify_artifact_id": 9970125449,
+    "fast_check_run_id": 33968559771,
+    "runtime_dod_run_id": 33968559764,
+    "runtime_dod_artifact_id": 9970218116,
+    "terminal_run_id": 33969468377,
+    "apk_sha256": "922dd571c8e8d6cb5e6d8dbe7fd4f3d73433e14a9f35a50a78d97bf64fa9fbf7",
+    "apk_size": 14461941,
+    "signer_sha256": "d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e",
+    "ota_readback": "PASS",
+    "human_visual": "PASS",
+    "stable_unchanged": true,
+    "main_unchanged": true,
+    "authority_change": "NONE"
+  },
+  "next_action": "WAIT_FOR_OWNER_NEW_SCOPE"
+}
