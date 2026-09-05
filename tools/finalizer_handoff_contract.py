@@ -26,7 +26,11 @@ sha = scope["scope_sha256"]
 ledger = scope["ledger_head_event_sha256"]
 count = len(scope["requirements"])
 pending = [str(x["checklist_number"]) for x in scope["requirements"] if x.get("state") not in {"ACTIVE_PASS", "SUPERSEDED"}]
-expected_next = "OWNER_ACCEPTANCE_COMPLETE" if not pending else "WAIT_FOR_OWNER_ACCEPTANCE_REQUIREMENTS_" + "_".join(pending)
+if scope.get("scope_status") == "OWNER_ACCEPTANCE_COMPLETE":
+    assert not pending, "accepted scope still has pending requirements"
+    expected_next = "WAIT_FOR_OWNER_NEW_SCOPE"
+else:
+    expected_next = "OWNER_ACCEPTANCE_COMPLETE" if not pending else "WAIT_FOR_OWNER_ACCEPTANCE_REQUIREMENTS_" + "_".join(pending)
 
 for text, label in ((current, "CURRENT_STATE"), (handoff, "HANDOVER_CURRENT")):
     assert f"- owner_scope_id: {sid}" in text, label
