@@ -1009,7 +1009,7 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     waitText("Ca HC – 33/0",true,false,12000L);
     waitText("Ca 2 – 33/0",true,false,12000L);
     clickText("Quét QR nhân sự",true,12000L);
-    waitText("Danh sách QR vào / ra",true,false,12000L);
+    waitTextScrolling("Danh sách QR vào / ra",20000L);
     waitText("Trong ca 34 • Đã ra 0",true,false,12000L);
     long end=SystemClock.uptimeMillis()+12000L;
     while(SystemClock.uptimeMillis()<end&&countTextExact("Trong ca 33 • Đã ra 0")<2)SystemClock.sleep(180L);
@@ -1171,6 +1171,10 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     shot(tag+"-04-beta113-quick-exit-dialog");
     pressSystemBack();
     waitText("THÔNG TIN CA",true,false,10000L);
+    require(findText("Danh sách QR vào / ra",true,false)==null,"POST_SCAN_ROSTER_MUST_BE_HIDDEN");
+    mark("post_scan_roster_hidden_beta124");
+    pressSystemBack();
+    waitText("QUÉT QR NHÂN SỰ",true,false,10000L);
 
     showTextOnScreen("Danh sách QR vào / ra",10000L);
     waitText("TEST (",false,false,10000L);
