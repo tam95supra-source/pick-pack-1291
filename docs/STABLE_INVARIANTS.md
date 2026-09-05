@@ -767,5 +767,5 @@ Technical receipt: `ops/beta121-technical-pass.json`. Regression: `tools/beta121
 - Scope: control-plane / OWNER scope continuity
 - Rule: yêu cầu/clarification/acceptance OWNER đi qua append-only ledger + canonical scope; semantic hash chỉ đổi bởi OWNER command + revision; handoff/finalizer chỉ trỏ canonical scope và bắt buộc bootstrap guard.
 - Regression: `tools/owner_scope_guard.py` + `tools/owner_scope_guard_regression.py`; positive + negative cases.
-- Technical evidence: CI run 33973889892; control-plane only, app/service/APK bytes unchanged.
+- Technical evidence: Technical PASS run 33973889892; canonical release guard 33973993708 PASS; canonical beta/current guard 33974000825 PASS; App fast-check 33973993724 PASS; control-plane only, app/service/APK bytes unchanged.
 - OWNER acceptance: PENDING.

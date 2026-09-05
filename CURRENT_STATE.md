@@ -30,7 +30,7 @@
 - owner_scope_id: OWNER_20260905_CHAT_ORIGINAL_10_PLUS_GLOBAL_REALTIME_BETA127
 - owner_scope_revision: 2
 - owner_scope_semantics_sha256: 3a52ab482e3a6baddcca5e61f6d9aa1b719ccf6648639dfa901d33b98990c626
-- owner_scope_sha256: 43cbe96c50fccbd6eaa1417d2cdb619f91ec2cbdfbee7e1a80f1e37d23482aad
+- owner_scope_sha256: adb35b434007021b42f4c26e41de1931a1c8edfa64eb9923a12daf90ea741eac
 - owner_command_ledger: ops/owner-command-ledger.jsonl
 - owner_command_ledger_head: db93d50eba8cf91406e2afbf6d44ce56a1e49a660b3621af1ddc82c2eb822655
 - owner_checklist_id: BETA127_OWNER_ACCEPTANCE_20260905_R2

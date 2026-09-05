@@ -201,14 +201,19 @@
     ],
     "status": "TECHNICAL_PASS_AWAITING_OWNER",
     "technical_evidence": {
-      "guard_run_id": 33973889892,
-      "guard_status": "PASS_PENDING_REMOTE_READBACK",
+      "technical_pass_run_id": 33973889892,
+      "guard_status": "PASS_FINAL_REMOTE_READBACK",
+      "canonical_release_guard_run_id": 33973993708,
+      "canonical_beta_current_guard_run_id": 33974000825,
+      "canonical_app_fast_check_run_id": 33973993724,
       "scope_guard_self_test": "PASS",
       "negative_regression": "PASS",
       "scope_drift_guard": "PASS",
       "bootstrap_readback": "PASS",
       "finalizer_pointer_mode": "PASS",
       "semantic_vs_state_fence": "PASS",
+      "canonical_remote_readback": "PASS",
+      "app_fast_check": "PASS",
       "app_service_apk_bytes_changed": false
     }
   },
@@ -221,5 +226,5 @@
     "owner_acceptance_receipt": "ops/beta127-owner-acceptance.json"
   },
   "semantics_sha256": "3a52ab482e3a6baddcca5e61f6d9aa1b719ccf6648639dfa901d33b98990c626",
-  "scope_sha256": "43cbe96c50fccbd6eaa1417d2cdb619f91ec2cbdfbee7e1a80f1e37d23482aad"
+  "scope_sha256": "adb35b434007021b42f4c26e41de1931a1c8edfa64eb9923a12daf90ea741eac"
 }

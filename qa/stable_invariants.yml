@@ -826,7 +826,7 @@ invariants:
     rule: "OWNER requirements/clarifications/acceptance persist in append-only hash-chain ledger + canonical scope; semantic changes require new OWNER command and revision bump; handoff/release/finalizer bind semantic/snapshot hashes; chat memory is not authority."
     regression_minimum: [ledger_append_only, semantic_hash_fence, snapshot_hash_fence, revision_fence, state_only_transition, handoff_pointer_only, release_binding, acceptance_registry_sync, secret_redaction_guard]
     regression_case: "tools/owner_scope_guard.py + tools/owner_scope_guard_regression.py"
-    technical_evidence: "Control-plane V2 positive/negative regression PASS; CI run 33973889892; app/service/APK bytes unchanged."
+    technical_evidence: "Control-plane V2 positive/negative regression PASS; Technical PASS run 33973889892; canonical release guard 33973993708 PASS; canonical beta/current guard 33974000825 PASS; App fast-check 33973993724 PASS; app/service/APK bytes unchanged."
     owner_acceptance: "PENDING_OWNER_SCOPE_CONTINUITY_001"
     active_pass: false
 
