@@ -60,7 +60,7 @@
   "stable_gas_repair_artifact_name": "stable-primary-canary-source-restore-33821666160",
   "apk_transport": "GITHUB_RELEASE_ONLY",
   "google_drive_apk": "FORBIDDEN",
-  "execution_nonce": "beta121-verify-exact-20260905-02",
+  "execution_nonce": "beta121-verify-exact-20260905-03",
   "next_action": "VERIFY_EXACT_CANDIDATE_VISUAL_PDA",
   "owner_scope": "OWNER_20260905_UI_STATUS_ROLE_SETTINGS_DROP_PDA_SOURCE",
   "owner_checklist_id": "BETA121_OWNER_ACCEPTANCE_20260905_R1",
