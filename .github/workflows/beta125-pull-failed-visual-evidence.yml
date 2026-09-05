@@ -1,0 +1,33 @@
+name: Beta125 preserve failed visual evidence
+on:
+  push:
+    branches: [release/beta125-navigation-frame-20260905]
+    paths:
+      - '.github/workflows/beta125-pull-failed-visual-evidence.yml'
+      - 'tools/beta125_patch_verify_pull_failure.py'
+permissions:
+  contents: write
+concurrency:
+  group: beta125-pull-failed-visual-evidence
+  cancel-in-progress: false
+jobs:
+  patch:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - name: Patch verification harness only
+        run: |
+          set -euo pipefail
+          python3 tools/beta125_patch_verify_pull_failure.py
+          git diff --check
+      - name: Commit harness
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add tools/beta83_verify_matrix.sh
+          git commit -m 'test(beta125): retain screenshots when visual gate fails'
+          git pull --rebase origin release/beta125-navigation-frame-20260905
+          git push origin HEAD:release/beta125-navigation-frame-20260905
