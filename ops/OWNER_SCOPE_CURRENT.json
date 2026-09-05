@@ -185,5 +185,6 @@
     "owner_checklist_revision": 2,
     "owner_acceptance_receipt": "ops/beta127-owner-acceptance.json"
   },
-  "scope_sha256": "09988e6963eb033702e073e9a0f4a76302d598f09702d97bc5ce3cfbe5f22cba"
+  "scope_sha256": "3f1a9b87215010428a8aba50267ad29a58844c6b4af9e27c78fbc45649802fd0",
+  "scope_hash_version": 1
 }
