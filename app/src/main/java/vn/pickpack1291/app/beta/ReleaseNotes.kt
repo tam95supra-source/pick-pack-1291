@@ -1,16 +1,13 @@
 package vn.pickpack1291.app.beta
 
 object ReleaseNotes {
-    const val VERSION_NAME = "0.4.2-beta.121"
+    const val VERSION_NAME = "0.4.2-beta.122"
 
     private val current = listOf(
-        "Làm mới 3 ô Mạng / Đồng bộ / Dịch vụ với biểu tượng dễ nhận biết và nội dung chi tiết thuần Việt.",
-        "SUPERADMIN chuyển chế độ trải nghiệm USER / ADMIN / SUPERADMIN ngay trong chi tiết Dịch vụ; mọi quyền còn lại hạ theo chế độ đang chọn.",
-        "Cài đặt được chia thành các vùng Tài khoản, Giao diện, Ứng dụng & cập nhật, Hỗ trợ & nhật ký; thông tin phiên bản và thay đổi nằm đúng trong vùng Ứng dụng & cập nhật.",
-        "Thêm thẻ Bảng công Inhouse ở trạng thái chờ phát triển.",
-        "Nhận hàng Rớt hiển thị danh sách dạng bảng có ô kẻ và cân bằng nút Chọn tất cả / Xóa đã chọn.",
-        "PDA bổ sung trường Nguồn và truyền qua master data với các giá trị danh mục được OWNER quy định.",
-        "Giữ nguyên Stable/main/signer/authority và các invariant ACTIVE_PASS ngoài phạm vi thay đổi."
+        "Khi SUPERADMIN chuyển sang USER hoặc ADMIN, toàn bộ menu, màn hình và thao tác nghiệp vụ hạ đúng quyền thực tế; chỉ bộ chọn quyền trong chi tiết Dịch vụ vẫn tồn tại để chuyển lại.",
+        "PDA hiển thị Nguồn trong thông tin chọn/đang dùng, xác nhận đổi-trả và danh sách PDA ở Tài nguyên; ADMIN có thể chọn Nguồn từ danh mục canonical khi thêm/sửa PDA.",
+        "Giữ nguyên hai mục OWNER đã nghiệm thu ở Beta121: ba ô Mạng / Đồng bộ / Dịch vụ và bố cục Cài đặt / Bảng công Inhouse / bảng Nhận hàng Rớt.",
+        "Giữ nguyên Stable/main/signer/authority và toàn bộ invariant ACTIVE_PASS ngoài phạm vi sửa."
     )
 
     fun currentItems():List<String> = current.toList()
