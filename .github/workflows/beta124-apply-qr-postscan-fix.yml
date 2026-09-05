@@ -1,0 +1,48 @@
+name: Beta124 apply QR postscan fix
+on:
+  push:
+    branches:
+      - work/beta124-qr-postscan-fix-20260905
+    paths:
+      - '.github/workflows/beta124-apply-qr-postscan-fix.yml'
+      - 'tools/beta124_apply_qr_postscan_fix.py'
+permissions:
+  contents: write
+concurrency:
+  group: beta124-qr-postscan-fix
+  cancel-in-progress: false
+jobs:
+  apply-verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.4.1'
+      - name: Apply deterministic Beta124 patch
+        run: python3 tools/beta124_apply_qr_postscan_fix.py
+      - name: Verify owner and regression contracts
+        run: |
+          set -euo pipefail
+          python3 tools/beta113_owner_scope_contract.py
+          python3 tools/beta116_owner_scope_contract.py
+          python3 tools/beta117_owner_followup_contract.py
+          python3 tools/beta123_owner_scope_contract.py
+          git diff --check
+      - name: Compile and unit test exact source
+        run: gradle --no-daemon --build-cache --parallel :app:testBetaDebugUnitTest :app:assembleBetaDebug :app:assembleStableDebug
+      - name: Commit verified source
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/build.gradle.kts app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt app/src/main/java/vn/pickpack1291/app/beta/ReleaseNotes.kt
+          git commit -m 'fix(beta124): suppress current-shift roster after QR result'
+          git pull --rebase origin work/beta124-qr-postscan-fix-20260905
+          git push origin HEAD:work/beta124-qr-postscan-fix-20260905
