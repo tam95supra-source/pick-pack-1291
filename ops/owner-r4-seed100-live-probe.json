@@ -1,0 +1,558 @@
+{
+  "status": "PASS",
+  "business_date": "2026-09-06",
+  "authority": {
+    "authority_epoch": 9,
+    "authority_seq": 2466,
+    "mode": "SERVICE_PRIMARY",
+    "scope": "PRODUCTION",
+    "service_generation": "m2-prod-reset-20260823-001"
+  },
+  "eligible_employees": 498,
+  "result_groups": [
+    [
+      {
+        "authority_epoch": 9,
+        "authority_seq": 2466,
+        "mode": "SERVICE_PRIMARY",
+        "scope": "PRODUCTION",
+        "service_generation": "m2-prod-reset-20260823-001"
+      }
+    ],
+    [
+      {
+        "eligible_employees": 498
+      }
+    ],
+    [
+      {
+        "state": "ENDED",
+        "n": 2
+      }
+    ],
+    [
+      {
+        "resource_type": "PACK_TABLE",
+        "n": 28
+      },
+      {
+        "resource_type": "PDA",
+        "n": 30
+      },
+      {
+        "resource_type": "USER_PACK",
+        "n": 60
+      },
+      {
+        "resource_type": "USER_PICK",
+        "n": 145
+      }
+    ],
+    [
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound06",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound07",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound08",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound09",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound10",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound100",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound101",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound102",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound103",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound104",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound105",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound106",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound107",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound108",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound109",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound11",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound110",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound111",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound112",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound113",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound114",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound115",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound116",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound117",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound118",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound119",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound12",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound120",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound121",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound122",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound123",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound124",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound125",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound126",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound127",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound128",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound129",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound13",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound130",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound131",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound132",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound133",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound134",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound135",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound136",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound137",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound138",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound139",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound14",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound140",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound141",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound142",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound143",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound144",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound145",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound146",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound147",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound148",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound149",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound15",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound150",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound16",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound17",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound18",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound19",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound20",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound21",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound22",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound23",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound24",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound25",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound26",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound27",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound28",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound29",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound30",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound31",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound32",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound33",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound34",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound35",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound36",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound37",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound38",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound39",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound40",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound41",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound42",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound43",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound44",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound45",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound46",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound47",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound48",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound49",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound50",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound51",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound52",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound53",
+        "status_label": "Khả dụng"
+      },
+      {
+        "resource_type": "USER_PICK",
+        "resource_id": "hy1.outbound54",
+        "status_label": "Khả dụng"
+      }
+    ],
+    [],
+    []
+  ],
+  "bounded_readback": true,
+  "writer_target_source": ".github/workflows/beta118-owner-100-sessions-live-normalize.yml"
+}
