@@ -20,34 +20,35 @@ sed -i 's/waitText("ĐIỂM DANH",true,false,10000L);/waitText("QUÉT ĐỂ ĐI�
 # Beta117 renamed the document-batch marker while preserving the same guarded behavior.
 sed -i 's/document_batch_controls_beta110/document_batch_controls_beta117/g' tools/beta83_verify_matrix.sh
 # Beta125 retains an additional human-inspection screenshot immediately after EMPLOYEE -> Back -> SCAN.
-# This is evidence-only; account for the extra PNG without changing any functional assertion.
 sed -i 's/"320x568":((320,568),21)/"320x568":((320,568),22)/g' tools/beta83_verify_matrix.sh
 grep -Fq '"320x568":((320,568),22)' tools/beta83_verify_matrix.sh
-# Beta121 deliberately localized status-detail labels. Patch the generated harness only;
-# the locked candidate APK must remain byte-for-byte unchanged.
+# Beta121 localized status-detail labels.
 sed -i 's/waitText("Loại kết nối",false,false,10000L);/waitText("Kiểu kết nối",false,false,10000L);/g' "$W/src/vn/pickpack1291/verify/Beta83UiChecksInstrumentation.java"
 sed -i 's/waitText("Authority",false,false,10000L);/waitText("Chế độ quyền hiện tại",false,false,10000L);/g' "$W/src/vn/pickpack1291/verify/Beta83UiChecksInstrumentation.java"
-# Beta121 settings regrouped the former resilience center under a compact technical-test region.
+# Beta121 settings regrouped the former resilience center.
 sed -i 's/TRUNG TÂM KIỂM THỬ RESILIENCE/KIỂM THỬ KỸ THUẬT/g' "$W/src/vn/pickpack1291/verify/Beta83UiChecksInstrumentation.java"
-# OWNER Beta123 removed the report-scope control and redundant report heading from the rendered
-# chrome. Assert the REPORT navigation state plus report-specific content instead of pinning a
-# title string that is intentionally no longer exposed to the user.
+# OWNER Beta123 removed report scope control.
 sed -i 's/waitText("Phạm vi báo cáo",true,false,12000L);/require(navState().contains("screen=REPORT,displayed=REPORT"),"REPORT_SCREEN_STATE_INVALID:"+navState()); require(findText("Phạm vi báo cáo",true,false)==null,"REPORT_SCOPE_CONTROL_MUST_BE_REMOVED");/g' "$W/src/vn/pickpack1291/verify/Beta83UiChecksInstrumentation.java"
-# Beta125 diagnostic proved the app returns EMPLOYEE -> SCAN correctly, but the old harness
-# falsely required the BUSINESS-home label "QUÉT QR NHÂN SỰ" after Back. Assert the actual
-# SCAN semantics instead: state/displayed SCAN, editable scan control present, employee UI
-# gone, and the full QR roster remains hidden. Then open a fresh SCAN flow before the older
-# roster/grouping assertions, because post-scan roster suppression is itself a locked rule.
+# Beta125 navigation frame exact semantic assertion.
 python3 - "$W/src/vn/pickpack1291/verify/Beta83UiChecksInstrumentation.java" <<'PY'
 from pathlib import Path
 import sys
-p=Path(sys.argv[1])
-s=p.read_text(encoding='utf-8')
+p=Path(sys.argv[1]);s=p.read_text(encoding='utf-8')
 old='''    AccessibilityNodeInfo qrBack=findText("QUÉT QR NHÂN SỰ",true,false);\n    require(qrBack!=null,"BETA125_BACK_NAV_VISUAL_DIAG:"+navBefore+"=>"+navAfter+";texts="+visibleTextSummary());\n    mark("post_scan_activity_back_beta124");'''
 new='''    require(navAfter.contains("screen=SCAN,displayed=SCAN"),"BETA125_BACK_NAV_STATE_NOT_SCAN:"+navBefore+"=>"+navAfter);\n    require(findEditable()!=null,"BETA125_BACK_SCAN_INPUT_MISSING:"+navAfter+";texts="+visibleTextSummary());\n    require(findText("THÔNG TIN CA",true,false)==null,"BETA125_BACK_EMPLOYEE_UI_STILL_VISIBLE:"+navAfter);\n    require(findText("Danh sách QR vào / ra",true,false)==null,"BETA125_BACK_ROSTER_REOPENED:"+navAfter);\n    mark("post_scan_activity_back_beta124");\n\n    open("BUSINESS");\n    waitText("Quét QR nhân sự",true,true,10000L);\n    clickText("Quét QR nhân sự",true,12000L);'''
-if old not in s:
-    raise SystemExit('BETA125_BACK_DIAGNOSTIC_ASSERTION_NOT_FOUND')
-p.write_text(s.replace(old,new,1),encoding='utf-8')
+if old not in s: raise SystemExit('BETA125_BACK_DIAGNOSTIC_ASSERTION_NOT_FOUND')
+s=s.replace(old,new,1)
+# Beta126: report must expose the exact owner section and remove rejected summary rows.
+needle='''    waitText("Thâm niên",true,false,12000L);\n    require(findText("Site 1291 •",false,false)==null,"REPORT_SCOPE_TEXT_MUST_BE_REMOVED");'''
+repl='''    waitText("Thâm niên",true,false,12000L);\n    waitText("NHÂN SỰ PICK & PACK THỰC TẾ SAU KHI LOẠI TRỪ HỖ TRỢ",true,false,12000L);\n    require(findText("Tổng nhân sự",true,false)==null,"BETA126_REPORT_TOTAL_MUST_BE_REMOVED");\n    require(findText("Khấu trừ công nhật",true,false)==null,"BETA126_REPORT_DEDUCTION_SUMMARY_MUST_BE_REMOVED");\n    require(findText("Site 1291 •",false,false)==null,"REPORT_SCOPE_TEXT_MUST_BE_REMOVED");'''
+if needle not in s: raise SystemExit('BETA126_REPORT_ASSERT_ANCHOR_NOT_FOUND')
+s=s.replace(needle,repl)
+# Beta126: labor home must expose bulk edit in addition to create/finish.
+needle2='''    waitText("Chi tiết công nhật theo ngày",true,false,10000L);\n    waitText("Scan / Nhập mã nhân viên",true,false,10000L);'''
+repl2='''    waitText("Chi tiết công nhật theo ngày",true,false,10000L);\n    waitText("SỬA NHIỀU",true,false,10000L);\n    waitText("Scan / Nhập mã nhân viên",true,false,10000L);'''
+if needle2 not in s: raise SystemExit('BETA126_LABOR_ASSERT_ANCHOR_NOT_FOUND')
+s=s.replace(needle2,repl2)
+p.write_text(s,encoding='utf-8')
 PY
 ! grep -Fq 'waitText("Loại kết nối"' "$W/src/vn/pickpack1291/verify/Beta83UiChecksInstrumentation.java"
 ! grep -Fq 'waitText("Authority"' "$W/src/vn/pickpack1291/verify/Beta83UiChecksInstrumentation.java"
@@ -59,6 +60,9 @@ grep -Fq 'waitText("Chế độ quyền hiện tại"' "$W/src/vn/pickpack1291/v
 grep -Fq 'KIỂM THỬ KỸ THUẬT' "$W/src/vn/pickpack1291/verify/Beta83UiChecksInstrumentation.java"
 grep -Fq 'REPORT_SCREEN_STATE_INVALID' "$W/src/vn/pickpack1291/verify/Beta83UiChecksInstrumentation.java"
 grep -Fq 'REPORT_SCOPE_CONTROL_MUST_BE_REMOVED' "$W/src/vn/pickpack1291/verify/Beta83UiChecksInstrumentation.java"
+grep -Fq 'BETA126_REPORT_TOTAL_MUST_BE_REMOVED' "$W/src/vn/pickpack1291/verify/Beta83UiChecksInstrumentation.java"
+grep -Fq 'BETA126_REPORT_DEDUCTION_SUMMARY_MUST_BE_REMOVED' "$W/src/vn/pickpack1291/verify/Beta83UiChecksInstrumentation.java"
+grep -Fq 'waitText("SỬA NHIỀU"' "$W/src/vn/pickpack1291/verify/Beta83UiChecksInstrumentation.java"
 grep -Fq 'BETA125_BACK_NAV_STATE_NOT_SCAN' "$W/src/vn/pickpack1291/verify/Beta83UiChecksInstrumentation.java"
 grep -Fq 'BETA125_BACK_SCAN_INPUT_MISSING' "$W/src/vn/pickpack1291/verify/Beta83UiChecksInstrumentation.java"
 grep -Fq 'BETA125_BACK_ROSTER_REOPENED' "$W/src/vn/pickpack1291/verify/Beta83UiChecksInstrumentation.java"
