@@ -164,7 +164,7 @@ object PostMealAttendanceFeature {
         val root=column()
         val controls=column().apply{setPadding(dp(10),dp(8),dp(10),dp(6))}
         val dateBtn=button("",navy).apply{textSize=10.5f}
-        val search=input("Tìm MNV / họ tên").apply{textSize=11.5f}
+        val search=input("Tìm mã nhân viên / họ tên").apply{textSize=11.5f}
         val dateSearch=row()
         dateSearch.addView(dateBtn,LinearLayout.LayoutParams(0,dp(44),.46f).apply{marginEnd=dp(3)})
         dateSearch.addView(search,LinearLayout.LayoutParams(0,dp(44),.54f).apply{marginStart=dp(3)})

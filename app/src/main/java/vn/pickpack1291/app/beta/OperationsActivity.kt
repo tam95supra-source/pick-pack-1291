@@ -618,9 +618,9 @@ class OperationsActivity : Activity() {
         val supplierSp=spinner(supplierValues.toTypedArray())
         val positionSp=spinner(positionValues.toTypedArray())
         val filters=row(bg).apply{
-            addView(shiftSp,LinearLayout.LayoutParams(0,dp(38),1f).apply{marginEnd=dp(2)})
-            addView(supplierSp,LinearLayout.LayoutParams(0,dp(38),1f).apply{marginStart=dp(2);marginEnd=dp(2)})
-            addView(positionSp,LinearLayout.LayoutParams(0,dp(38),1f).apply{marginStart=dp(2)})
+            addView(shiftSp,LinearLayout.LayoutParams(0,dp(42),1f).apply{marginEnd=dp(4)})
+            addView(supplierSp,LinearLayout.LayoutParams(0,dp(42),1f).apply{marginStart=dp(4);marginEnd=dp(4)})
+            addView(positionSp,LinearLayout.LayoutParams(0,dp(42),1f).apply{marginStart=dp(4)})
         }
         body.addView(filters,matchWrap());body.addView(gap(10))
         val host=column(bg);body.addView(host,matchWrap())
@@ -706,9 +706,9 @@ class OperationsActivity : Activity() {
         addBusinessShiftReconciliation(body)
         val mnv=mnvInput("Scan / Nhập mã nhân viên")
         body.addView(mnv,matchWrap());body.addView(gap(4))
-        addInlineCurrentShiftStaff(body)
+        val preScanStaff=column(bg);addInlineCurrentShiftStaff(preScanStaff);body.addView(preScanStaff,matchWrap())
         var busy=false
-        fun submit(){val v=mnv.text.toString().trim();if(v.isBlank()){TopNotice.show(this,"Nhập hoặc quét Mã nhân viên.",TopNotice.Kind.WARNING);return};if(busy)return;busy=true;hideSoftKeyboard(mnv);loadEmployee(v);mnv.postDelayed({busy=false},600)}
+        fun submit(){val v=mnv.text.toString().trim();if(v.isBlank()){TopNotice.show(this,"Nhập hoặc quét Mã nhân viên.",TopNotice.Kind.WARNING);return};if(busy)return;busy=true;hideSoftKeyboard(mnv);preScanStaff.visibility=View.GONE;loadEmployee(v);mnv.postDelayed({busy=false},600)}
         bindScannerEnter(mnv){submit()}
         root.addView(ScrollView(this).apply{addView(body)},LinearLayout.LayoutParams(-1,0,1f));setScreen(root);mnv.requestFocus()
     }
@@ -1822,9 +1822,9 @@ class OperationsActivity : Activity() {
         val supplierSp=spinner(arrayOf("Tất cả NCC"))
         val positionSp=spinner(arrayOf("Tất cả vị trí"))
         val filterRow=row(bg).apply{
-            addView(shiftSp,LinearLayout.LayoutParams(0,dp(38),1f).apply{marginEnd=dp(2)})
-            addView(supplierSp,LinearLayout.LayoutParams(0,dp(38),1f).apply{marginStart=dp(2);marginEnd=dp(2)})
-            addView(positionSp,LinearLayout.LayoutParams(0,dp(38),1f).apply{marginStart=dp(2)})
+            addView(shiftSp,LinearLayout.LayoutParams(0,dp(42),1f).apply{marginEnd=dp(4)})
+            addView(supplierSp,LinearLayout.LayoutParams(0,dp(42),1f).apply{marginStart=dp(4);marginEnd=dp(4)})
+            addView(positionSp,LinearLayout.LayoutParams(0,dp(42),1f).apply{marginStart=dp(4)})
         }
         body.addView(filterRow,matchWrap());body.addView(gap(5))
         val laborCount=txt("",9.5f,muted,true);body.addView(laborCount);body.addView(gap(4))
@@ -1914,6 +1914,7 @@ class OperationsActivity : Activity() {
             val day=operationalStore.loadDay(currentDate)?:return
             val sessions=day.optJSONArray("sessions")?:JSONArray()
             val acknowledged=(reviewPrefs.getStringSet("ack_$currentDate",emptySet())?:emptySet()).toMutableSet()
+            fun laborAckKey(s:JSONObject):String{val mnv=s.optString("mnv").trim();val sid=s.optString("session_id").trim();val enter=s.optString("enter_event_id").ifBlank{s.optString("enter_at")}.trim();return "$mnv|${sid.ifBlank{enter}}"}
             val laborSessionIds=rows.map{it.optString("attendance_session_id")}.filter{it.isNotBlank()}.toSet()
             val pending=mutableListOf<JSONObject>()
             for(i in 0 until sessions.length()){
@@ -1956,7 +1957,7 @@ class OperationsActivity : Activity() {
                             addView(head,matchWrap())
                             val noLabor=smallButton("ĐÃ KIỂM TRA — KHÔNG TÍNH CÔNG NHẬT",navy)
                             noLabor.setOnClickListener{
-                                acknowledged.add(sid);selected.remove(sid);remaining.removeAll{it.optString("session_id")==sid}
+                                acknowledged.add(laborAckKey(x));selected.remove(sid);remaining.removeAll{it.optString("session_id")==sid}
                                 reviewPrefs.edit().putStringSet("ack_$currentDate",acknowledged).apply()
                                 renderDialog();reviewFixed(rows)
                             }
@@ -2463,8 +2464,8 @@ class OperationsActivity : Activity() {
     // S36_PERF_HISTORY_REPORT_SERVICE: selected-date cached aggregation; no full-day parse on UI thread.
     private fun reportScreen(){
         module="BUSINESS";screenState="REPORT"
-        val root=baseRoot("BÁO CÁO NHÂN SỰ");val body=column(bg).apply{setPadding(dp(3),dp(6),dp(3),dp(42))}
-        val period=spinner(arrayOf("Ca 1 + Ca HC","Ca 2","Cả ngày"))
+        val root=baseRoot("BÁO CÁO TÌNH HÌNH NHÂN SỰ");val body=column(bg).apply{setPadding(dp(3),dp(6),dp(3),dp(42))}
+        val period=spinner(arrayOf("Ca 1 và HC","C2","Cả ngày"))
         fun availableReportDates():List<String> = operationalStore.availableDates().filter{date->
             val events=operationalStore.loadDay(date)?.optJSONArray("events")
             events!=null&&(0 until events.length()).any{i->events.optJSONObject(i)?.optString("event_type")?.uppercase()=="ATTENDANCE_ENTER"}
@@ -2476,7 +2477,7 @@ class OperationsActivity : Activity() {
             textSize=12f;isAllCaps=false;background=outlineBg(surface,14);setTextColor(ink);isEnabled=true
         }
         val controls=row(bg).apply{gravity=Gravity.CENTER_VERTICAL;addView(period,LinearLayout.LayoutParams(0,dp(50),1f).apply{marginEnd=dp(5)});addView(dateButton,LinearLayout.LayoutParams(0,dp(50),1f).apply{marginStart=dp(5)})}
-        body.addView(section("Phạm vi báo cáo"));body.addView(controls,matchWrap());body.addView(gap(7))
+        body.addView(controls,matchWrap());body.addView(gap(7))
         val box=column(bg);body.addView(box,matchWrap())
         fun fold(v:String)=java.text.Normalizer.normalize(v,java.text.Normalizer.Form.NFD).replace(Regex("\\p{Mn}+"),"").uppercase().trim()
         fun site1291(v:String):Boolean{val x=fold(v);return x=="1291"||x=="SITE 1291"||Regex("(^|[^0-9])1291([^0-9]|$)").containsMatchIn(x)}
@@ -2661,19 +2662,21 @@ class OperationsActivity : Activity() {
         var selectedDate=initialHistoryDates.firstOrNull()?:operationalStore.businessDate();var filter="ALL";val pageSize=100;var pageStart=0;var query=""
         val hiddenHistoryIds=(getSharedPreferences("pp_history_delete_ui",MODE_PRIVATE).getStringSet("hidden_ids",emptySet())?:emptySet()).toMutableSet()
         val selectedHistoryIds=linkedSetOf<String>();val currentPageDeleteIds=linkedSetOf<String>();val pageChecks=mutableListOf<CheckBox>()
-        val q=input("Tìm MNV, họ tên, nghiệp vụ, người xử lý",false).apply{setSingleLine(true)};val dateButton=Button(this).apply{text=runCatching{java.time.LocalDate.parse(selectedDate).format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}.getOrDefault(selectedDate);textSize=11f;isAllCaps=false;background=outlineBg(surface,14);setTextColor(ink)}
+        val q=input("Tìm mã nhân viên, họ tên, nghiệp vụ …",false).apply{setSingleLine(true)};val dateButton=Button(this).apply{text=runCatching{java.time.LocalDate.parse(selectedDate).format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}.getOrDefault(selectedDate);textSize=11f;isAllCaps=false;background=outlineBg(surface,14);setTextColor(ink)}
         val searchRow=row(bg).apply{addView(q,LinearLayout.LayoutParams(0,dp(50),1f).apply{marginEnd=dp(5)});addView(dateButton,size(dp(112),dp(50)))};body.addView(searchRow,matchWrap());body.addView(gap(7))
         val metrics=row(bg);val allBtn=metric("Tổng","0",navy);val pendingBtn=metric("Chờ","0",Color.rgb(217,119,6));val failBtn=metric("Cần xử lí","0",red);metrics.addView(allBtn,LinearLayout.LayoutParams(0,-2,1f).apply{marginEnd=dp(2)});metrics.addView(pendingBtn,LinearLayout.LayoutParams(0,-2,1f).apply{setMargins(dp(2),0,dp(2),0)});metrics.addView(failBtn,LinearLayout.LayoutParams(0,-2,1f).apply{marginStart=dp(2)});body.addView(metrics,matchWrap());body.addView(gap(7))
         val selectionBox=column(bg)
         val selectionCount=txt("Đã chọn 0 lịch sử",10f,muted,true)
         fun updateSelectedCount(){selectionCount.text="Đã chọn ${selectedHistoryIds.size} lịch sử"}
+        var deleteAllDateAction:(()->Unit)?=null
         if(isSuper()){
             selectionBox.addView(gap(6));selectionBox.addView(selectionCount)
-            val choose=row(bg);val selectPage=smallButton("CHỌN TRANG",navy);val clear=smallButton("BỎ CHỌN",muted);val deleteSelected=smallButton("XÓA ĐÃ CHỌN",red)
-            choose.addView(selectPage,LinearLayout.LayoutParams(0,dp(40),1f).apply{marginEnd=dp(2)});choose.addView(clear,LinearLayout.LayoutParams(0,dp(40),1f).apply{marginStart=dp(2);marginEnd=dp(2)});choose.addView(deleteSelected,LinearLayout.LayoutParams(0,dp(40),1f).apply{marginStart=dp(2)});selectionBox.addView(gap(5));selectionBox.addView(choose,matchWrap());selectionBox.addView(gap(8))
+            val choose=row(bg);val selectPage=smallButton("CHỌN",navy);val clear=smallButton("BỎ CHỌN",muted);val deleteSelected=smallButton("XÓA ĐÃ CHỌN",red);val deleteAllDate=smallButton("XÓA TOÀN BỘ",red)
+            choose.addView(selectPage,LinearLayout.LayoutParams(0,dp(38),.72f).apply{marginEnd=dp(2)});choose.addView(clear,LinearLayout.LayoutParams(0,dp(38),.82f).apply{marginStart=dp(2);marginEnd=dp(2)});choose.addView(deleteSelected,LinearLayout.LayoutParams(0,dp(38),1.18f).apply{marginStart=dp(2);marginEnd=dp(2)});choose.addView(deleteAllDate,LinearLayout.LayoutParams(0,dp(38),1.28f).apply{marginStart=dp(2)});selectionBox.addView(gap(5));selectionBox.addView(choose,matchWrap());selectionBox.addView(gap(8))
             selectPage.setOnClickListener{selectedHistoryIds.addAll(currentPageDeleteIds);pageChecks.forEach{it.isChecked=true};updateSelectedCount()}
             clear.setOnClickListener{selectedHistoryIds.clear();pageChecks.forEach{it.isChecked=false};updateSelectedCount()}
             deleteSelected.setOnClickListener{deleteHistoryBulk(selectedHistoryIds.toList())}
+            deleteAllDate.setOnClickListener{deleteAllDateAction?.invoke()}
             body.addView(selectionBox,matchWrap())
         }
         val box=column(bg);body.addView(box,matchWrap())
@@ -2706,6 +2709,13 @@ class OperationsActivity : Activity() {
             }
             out.sortByDescending{e->val qAt=e.optLong("local_queued_at",0L);if(qAt>0)qAt else runCatching{java.time.Instant.parse(e.optString("at_iso")).toEpochMilli()}.getOrDefault(0L)};return out
         }
+        deleteAllDateAction={
+            val priorQuery=query;query=""
+            val all=loadRows().filter{eventDate(it,selectedDate)==selectedDate&&it.optString("event_type").uppercase()!="HISTORY_DELETE"}.map{it.optString("event_id")}.filter{it.isNotBlank()}.distinct()
+            query=priorQuery
+            if(all.isEmpty())TopNotice.show(this,"Ngày đã chọn không có lịch sử để xóa.",TopNotice.Kind.INFO) else deleteHistoryBulk(all)
+        }
+
         fun render(){
             box.removeAllViews();currentPageDeleteIds.clear();pageChecks.clear();val rows=loadRows();val groups=rows.groupBy{e->e.optString("event_id").ifBlank{"${e.optString("mnv")}|${e.optString("at_iso")}|${e.optString("event_type")}"}}.entries.sortedByDescending{entry->entry.value.maxOfOrNull{e->e.optLong("local_queued_at",0L).takeIf{it>0}?:runCatching{java.time.Instant.parse(e.optString("at_iso")).toEpochMilli()}.getOrDefault(0L)}?:0L};val states=groups.map{g->if(g.value.any{statusOf(it)=="FAILED"})"FAILED" else if(g.value.any{statusOf(it)=="PENDING"})"PENDING" else "SYNCED"};val metricRows=if(query.isBlank())rows else run{val savedQuery=query;query="";val allRows=loadRows();query=savedQuery;allRows};val pending=metricRows.count{statusOf(it)=="PENDING"};val failed=metricRows.count{statusOf(it)=="FAILED"}
             fun updateMetric(v:View,title:String,n:Int){if(v is TextView)v.text="$title: $n"};updateMetric(allBtn,"Tổng",metricRows.size);updateMetric(pendingBtn,"Chờ",pending);updateMetric(failBtn,"Cần xử lí",failed)
@@ -2881,7 +2891,7 @@ class OperationsActivity : Activity() {
         screenState="HISTORY_DETAIL";val root=baseRoot("LỊCH SỬ");val body=body();val first=items.firstOrNull()?:return
         val mnv=first.optString("mnv");val full=first.optString("full_name").ifBlank{MasterDataCache.employee(this,mnv)?.optString("full_name").orEmpty()}
         val subject=listOf(mnv,full).filter{it.isNotBlank()}.joinToString(" – ").ifBlank{first.optString("entity_id").ifBlank{"Hệ thống"}}
-        val intro=column(surface).apply{setPadding(dp(13),dp(11),dp(13),dp(11));background=outlineBg(surface,16);addView(txt("Đối tượng: $subject",13.5f,navy,true));addView(txt("Mỗi thẻ cho biết ai thực hiện, việc đã làm, thời gian, nội dung thay đổi và trạng thái ghi nhận.",9.8f,muted,false))}
+        val intro=column(surface).apply{setPadding(dp(13),dp(11),dp(13),dp(11));background=outlineBg(surface,16);addView(txt("Đối tượng: $subject",13.5f,navy,true));addView(txt("${items.size} thao tác",9.8f,muted,false))}
         body.addView(intro,matchWrap());body.addView(gap(8))
         items.sortedBy{historyEventTime(it)}.forEach{e->
             val type=e.optString("event_type");val actor=e.optString("actor_id").ifBlank{e.optString("actor")}.ifBlank{"Hệ thống"};val role=e.optString("actor_role").ifBlank{"—"};val status=historyGroupStatus(listOf(e));val statusColor=when(status){"Đã đồng bộ"->green;"Lỗi đồng bộ"->red;else->orange};val fill=when(status){"Đã đồng bộ"->Color.rgb(239,250,244);"Lỗi đồng bộ"->Color.rgb(255,239,239);else->Color.rgb(255,248,230)}
@@ -2903,6 +2913,44 @@ class OperationsActivity : Activity() {
     // S51B_BETA45_COMPILE_GUARD
     // S51_BETA45_MANUAL_UPDATE_SYNC_DETAIL_VI: detailed Vietnamese sync view shared by all roles.
     // S53_BETA47_SHEET_LOGIC_UI: concise sync screen + unified APP/WEB presence.
+    private fun showSyncQueueRecoveryDialog(){
+        if(!isAdmin()){showError("Chỉ ADMIN/SUPERADMIN được xử lý hàng đợi đồng bộ.");return}
+        val items=runCatching{operationalStore.queueRecoveryItems(200)}.getOrDefault(emptyList())
+        if(items.isEmpty()){TopNotice.show(this,"Không có dữ liệu cục bộ đang chờ xử lý.",TopNotice.Kind.INFO);return}
+        val selected=linkedSetOf<String>()
+        val host=column(surface).apply{setPadding(dp(9),dp(5),dp(9),dp(9))}
+        val count=txt("Đã chọn 0/${items.size}",9.4f,muted,true)
+        val top=row(surface);val all=smallButton("CHỌN TẤT CẢ",navy);val clear=smallButton("BỎ CHỌN",muted)
+        top.addView(all,LinearLayout.LayoutParams(0,dp(36),1f).apply{marginEnd=dp(3)});top.addView(clear,LinearLayout.LayoutParams(0,dp(36),1f).apply{marginStart=dp(3)})
+        host.addView(top,matchWrap());host.addView(gap(4));host.addView(count);host.addView(gap(5))
+        val checks=mutableListOf<CheckBox>()
+        items.forEach{x->
+            val line=row(surface).apply{gravity=Gravity.CENTER_VERTICAL;setPadding(dp(5),dp(4),dp(5),dp(4));background=outlineBg(surface,9)}
+            val cb=CheckBox(this).apply{setOnCheckedChangeListener{_,on->if(on)selected.add(x.eventId)else selected.remove(x.eventId);count.text="Đã chọn ${selected.size}/${items.size}"}}
+            checks.add(cb);line.addView(cb,LinearLayout.LayoutParams(dp(38),dp(38)))
+            val detail=listOf(x.status,"Thử ${x.attempts} lần",x.lastError.takeIf{it.isNotBlank()}).filterNotNull().joinToString(" • ")
+            line.addView(column(surface).apply{addView(txt(x.action,10f,navy,true));addView(txt(detail,8.8f,muted,false).apply{maxLines=2})},LinearLayout.LayoutParams(0,-2,1f))
+            host.addView(line,matchWrap());host.addView(gap(3))
+        }
+        all.setOnClickListener{checks.forEach{it.isChecked=true}}
+        clear.setOnClickListener{checks.forEach{it.isChecked=false}}
+        val actions=column(surface)
+        val retry=primary("THỬ LẠI",teal){}
+        val force=primary("CƯỠNG ÉP THỬ LẠI",orange){}
+        val remove=primary("XÓA HẲN LỖI ĐÃ DỪNG",red){}
+        actions.addView(retry,matchWrap());actions.addView(gap(5));actions.addView(force,matchWrap());actions.addView(gap(5));actions.addView(remove,matchWrap());host.addView(gap(5));host.addView(actions,matchWrap())
+        var dialog:AlertDialog?=null
+        fun chosen():List<String>{val ids=selected.toList();if(ids.isEmpty())TopNotice.show(this,"Chọn ít nhất một mục.",TopNotice.Kind.WARNING);return ids}
+        fun wake(changed:Int,label:String){
+            if(changed>0){M2ImmediateOutbox.kick(applicationContext);M2WorkScheduler.schedule(applicationContext)}
+            TopNotice.show(this,"$label: $changed mục.",if(changed>0)TopNotice.Kind.SUCCESS else TopNotice.Kind.INFO);dialog?.dismiss();syncScreen()
+        }
+        retry.setOnClickListener{val ids=chosen();if(ids.isNotEmpty())wake(operationalStore.retryQueue(ids,false),"Đã đưa về hàng chờ thử lại")}
+        force.setOnClickListener{val ids=chosen();if(ids.isNotEmpty())AlertDialog.Builder(this).setTitle("Cưỡng ép thử lại?").setMessage("Giữ nguyên Event ID và đưa các lỗi/đối soát đã chọn về hàng chờ để gửi lại. Có thể bị Service từ chối lại nếu dữ liệu không còn hợp lệ.").setNegativeButton("Hủy",null).setPositiveButton("THỬ LẠI"){_,_->wake(operationalStore.retryQueue(ids,true),"Đã cưỡng ép thử lại")}.show()}
+        remove.setOnClickListener{val ids=chosen();if(ids.isNotEmpty())AlertDialog.Builder(this).setTitle("Xóa hẳn lỗi đã dừng?").setMessage("Chỉ các mục đã dừng ở trạng thái lỗi/từ chối/xung đột mới bị xóa cục bộ. Mục đang chờ gửi không thể bị xóa bằng thao tác này.").setNegativeButton("Hủy",null).setPositiveButton("XÓA"){_,_->wake(operationalStore.deleteTerminalQueue(ids),"Đã xóa lỗi cục bộ")}.show()}
+        dialog=AlertDialog.Builder(this).setTitle("Xử lý hàng đợi đồng bộ").setView(ScrollView(this).apply{addView(host)}).setNegativeButton("ĐÓNG",null).create();dialog?.show()
+    }
+
     private fun syncScreen(){
         module="SYNC";screenState="SYNC"
         val root=baseRoot("ĐỒNG BỘ");val body=body()
@@ -2912,6 +2960,7 @@ class OperationsActivity : Activity() {
         val pdaBox=column(bg);val serviceBox=column(bg);val sheetBox=column(bg);val otherBox=column(bg)
         body.addView(pdaBox,matchWrap());body.addView(serviceBox,matchWrap());body.addView(sheetBox,matchWrap());body.addView(otherBox,matchWrap())
         val actions=row(bg);val syncNow=smallButton("ĐỒNG BỘ NGAY",teal);val refresh=smallButton("LÀM MỚI",navy);actions.addView(syncNow,LinearLayout.LayoutParams(0,dp(38),1f).apply{marginEnd=dp(4)});actions.addView(refresh,LinearLayout.LayoutParams(0,dp(38),1f).apply{marginStart=dp(4)});body.addView(gap(9));body.addView(actions,matchWrap())
+        if(isAdmin()){body.addView(gap(6));body.addView(primary("XỬ LÝ HÀNG ĐỢI",orange){showSyncQueueRecoveryDialog()},matchWrap())}
         fun dateVi(v:String)=runCatching{java.time.LocalDate.parse(v.take(10)).format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}.getOrDefault(v.ifBlank{"—"})
         fun timeVi(v:String)=if(v.isBlank())"—" else formatIso(v)
         fun authorityVi(v:String)=when(v.uppercase()){ "SERVICE_PRIMARY"->"Dịch vụ chính";"GOOGLE_FALLBACK"->"Google dự phòng";"RECONCILING"->"Đang đối chiếu dữ liệu";"OFFLINE_LOCAL"->"Chỉ lưu trên PDA";else->"Chưa xác định" }
@@ -3222,12 +3271,26 @@ class OperationsActivity : Activity() {
         addView(txt(subtitle,8.8f,muted,false))
     }
 
+    private fun confirmClearCache(){
+        AlertDialog.Builder(this).setTitle("Xóa bộ nhớ đệm?").setMessage("Chỉ xóa file tạm trên thiết bị. Tài khoản và dữ liệu nghiệp vụ vẫn được giữ.").setNegativeButton("Hủy",null).setPositiveButton("XÓA"){_,_->
+            Thread{runCatching{cacheDir.deleteRecursively();externalCacheDir?.deleteRecursively()};runOnUiThread{TopNotice.show(this,"Đã xóa bộ nhớ đệm.",TopNotice.Kind.SUCCESS);settingsScreen()}}.start()
+        }.show()
+    }
+    private fun confirmResetLocalAppData(){
+        AlertDialog.Builder(this).setTitle("Đặt lại dữ liệu ứng dụng?").setMessage("Ứng dụng sẽ trở về trạng thái như mới cài. Dữ liệu chỉ có trên thiết bị và chưa đồng bộ có thể mất; dữ liệu chuẩn trên Dịch vụ không bị xóa và sẽ được tải lại sau khi mở ứng dụng.").setNegativeButton("Hủy",null).setPositiveButton("ĐẶT LẠI"){_,_->
+            val am=getSystemService(android.app.ActivityManager::class.java)
+            if(am?.clearApplicationUserData()!=true)TopNotice.show(this,"Không thể đặt lại dữ liệu ứng dụng trên thiết bị này.",TopNotice.Kind.ERROR)
+        }.show()
+    }
+
     private fun settingsScreen(){
         module="SETTINGS"
         screenState="SETTINGS"
         val root=baseRoot("CÀI ĐẶT")
         val body=body()
-        fun region(title:String,subtitle:String):LinearLayout=column(Color.rgb(248,250,252)).apply{
+        fun region(title:String,subtitle:String):LinearLayout=column(when(title){
+            "TÀI KHOẢN & QUYỀN"->Color.rgb(239,248,255);"GIAO DIỆN"->Color.rgb(242,252,247);"ỨNG DỤNG & CẬP NHẬT"->Color.rgb(255,248,237);else->Color.rgb(248,245,255)
+        }).apply{
             setPadding(dp(10),dp(9),dp(10),dp(10))
             background=GradientDrawable().apply{setColor(Color.rgb(248,250,252));cornerRadius=dp(14).toFloat()}
             addView(txt(title,11.2f,navy,true))
@@ -3269,6 +3332,13 @@ class OperationsActivity : Activity() {
             "Dữ liệu ứng dụng" to humanBytes(storageUsage.userDataBytes),
             "Bộ nhớ đệm (cache)" to humanBytes(storageUsage.cacheBytes)
         )))
+        val localTools=row(Color.TRANSPARENT)
+        val clearCache=primary("XÓA CACHE",navy){confirmClearCache()}.apply{textSize=9.5f}
+        val clearData=primary("ĐẶT LẠI DỮ LIỆU",red){confirmResetLocalAppData()}.apply{textSize=9.5f}
+        localTools.addView(clearCache,LinearLayout.LayoutParams(0,dp(40),1f).apply{marginEnd=dp(4)})
+        localTools.addView(clearData,LinearLayout.LayoutParams(0,dp(40),1f).apply{marginStart=dp(4)})
+        appRegion.addView(gap(7));appRegion.addView(localTools,matchWrap());appRegion.addView(gap(5))
+        appRegion.addView(txt("Đặt lại dữ liệu chỉ xóa dữ liệu cục bộ của thiết bị; không xóa dữ liệu trên Dịch vụ.",9f,muted,false))
         appRegion.addView(section("CẬP NHẬT PHIÊN BẢN"))
         val pendingUpdate=UpdateManager.pendingInfo(this)
         val latestRelease=UpdateManager.latestInfo(this)
@@ -3613,7 +3683,7 @@ class OperationsActivity : Activity() {
                         val actions=row(surface)
                         if(isSuper()){
                             actions.addView(smallButton("SỬA",teal).apply{setOnClickListener{accountEditDialog(x)}},LinearLayout.LayoutParams(0,dp(38),.85f).apply{marginEnd=dp(2)})
-                            if(!isProtectedAccount)actions.addView(smallButton("ĐỔI MK",navy).apply{setOnClickListener{changeOtherAccountPassword(x)}},LinearLayout.LayoutParams(0,dp(38),1f).apply{marginStart=dp(2);marginEnd=dp(2)})
+                            if(!isProtectedAccount)actions.addView(smallButton("ĐỔI MK",navy).apply{setOnClickListener{changeOtherAccountPassword(x)}},LinearLayout.LayoutParams(0,dp(42),1f).apply{marginStart=dp(4);marginEnd=dp(4)})
                         }
                         val newStatus=if(x.optString("status")=="ACTIVE")"DISABLED" else "ACTIVE"
                         actions.addView(smallButton(if(newStatus=="DISABLED")"VÔ HIỆU" else "KÍCH HOẠT",if(newStatus=="DISABLED")orange else green).apply{
@@ -3897,7 +3967,7 @@ class OperationsActivity : Activity() {
         val networkLabel=when{
             net==null->"Đang kiểm tra"
             !net.hasInternet->"Không Internet"
-            else->transportViHeader(net.transport)
+            else->{val ping=listOf(lastPingMs,lastLatencyMs).filterNotNull().filter{it>=0}.minOrNull();"${transportViHeader(net.transport)}${if(ping!=null)" • ${ping}ms" else ""}"}
         }
         if(networkStatusText?.text?.toString()!=networkLabel)networkStatusText?.text=networkLabel
         val counts=runCatching{operationalStore.mutationStatusCounts()}.getOrDefault(OperationalDataStore.MutationStatusCounts(0,0,0,0))
@@ -3911,7 +3981,7 @@ class OperationsActivity : Activity() {
         val provider=serviceProviderFromRuntime()
         val lanState=LanCoordinator.get(this).healthState()
         val serviceLabel=when(lanState){
-            LanAuthorityPolicy.HealthState.NORMAL->when(provider){"Cloudflare"->"Hoạt động";"Google Drive"->"Dự phòng";"OFFLINE","Service OFFLINE (test)"->"Ngoại tuyến";else->"Đang kiểm tra"}
+            LanAuthorityPolicy.HealthState.NORMAL->when(provider){"Cloudflare"->"Cloudflare";"Google Drive"->"Google dự phòng";"OFFLINE","Service OFFLINE (test)"->"Không hoạt động";else->provider.ifBlank{"Đang kiểm tra"}}
             LanAuthorityPolicy.HealthState.DEGRADED->"Suy giảm"
             LanAuthorityPolicy.HealthState.SERVICE_UNAVAILABLE->"Mất dịch vụ"
             LanAuthorityPolicy.HealthState.LAN_AVAILABLE->"LAN sẵn sàng"
@@ -3939,9 +4009,9 @@ class OperationsActivity : Activity() {
         val net=txt("—",8.8f,Color.WHITE,true);networkStatusText=net
         val syn=txt("—",8.8f,Color.WHITE,true);syncStatusText=syn
         val svc=txt("—",8.8f,Color.WHITE,true);serviceStatusText=svc
-        statuses.addView(headerStatusChip(R.drawable.ic_pp_network,"Mạng",net){showHeaderStatusDetail("NETWORK")},LinearLayout.LayoutParams(0,dp(38),1f).apply{marginEnd=dp(2)})
+        statuses.addView(headerStatusChip(R.drawable.ic_pp_network,"Mạng",net){showHeaderStatusDetail("NETWORK")},LinearLayout.LayoutParams(0,dp(42),1f).apply{marginEnd=dp(4)})
         statuses.addView(headerStatusChip(R.drawable.ic_pp_sync,"Đồng bộ",syn){showHeaderStatusDetail("SYNC")},LinearLayout.LayoutParams(0,dp(38),1f).apply{marginStart=dp(1);marginEnd=dp(1)})
-        statuses.addView(headerStatusChip(R.drawable.ic_pp_service,"Dịch vụ",svc){showHeaderStatusDetail("SERVICE")},LinearLayout.LayoutParams(0,dp(38),1f).apply{marginStart=dp(2)})
+        statuses.addView(headerStatusChip(R.drawable.ic_pp_service,"Dịch vụ",svc){showHeaderStatusDetail("SERVICE")},LinearLayout.LayoutParams(0,dp(42),1f).apply{marginStart=dp(4)})
         addView(statuses,matchWrap());refreshHeaderConnection()
     }
     private fun activeTab()=when(module){"STAFF"->"STAFF";"HISTORY"->"HISTORY";"SYNC"->"SYNC";"SETTINGS"->"SETTINGS";else->"BUSINESS"}

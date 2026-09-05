@@ -32,8 +32,8 @@ android {
         create("beta") {
             dimension = "channel"
             applicationId = "vn.pickpack1291.app.beta.publicbeta"
-            versionCode = 128
-            versionName = "0.4.2-beta.122"
+            versionCode = 129
+            versionName = "0.4.2-beta.123"
             manifestPlaceholders["appLabel"] = "Pick Pack 1291 Beta"
             buildConfigField("String", "CHANNEL", "\"BETA\"")
             buildConfigField("String", "ENVIRONMENT_ID", "\"BETA\"")
@@ -107,6 +107,7 @@ dependencies {
 // Firebase client identifiers are injected at build time and default blank so source never contains project config.
 // GSHEET_API_URL remains public discovery/fallback configuration and manual update lookup path; no Service URL is compiled into APK.
 // Signing material remains outside this repository and the Android signer is owner-locked.
+// Beta123: owner UI/realtime recovery scope: local reset/cache tools, history day delete, sync recovery, status route/ping, search/realtime smoothing, report/labor/PDA/attendance/QR/drop layout refinements; preserves Beta122 ACTIVE_PASS semantics. Stable unchanged.
 // Beta122: effective USER/ADMIN role lowering is enforced on navigation/actions while only the Service role selector keeps actual SUPERADMIN authority; PDA source is visible/editable throughout Android PDA UI. Stable unchanged.
 // Beta121: owner UI status/service role switch, grouped Settings, pending Inhouse attendance card, bordered dropped-receiving table, and PDA source master metadata. Stable unchanged.
 // Beta120: route SUPERADMIN bulk old-session exit directly to Service and execute bounded canonical chunks to prevent GAS UNKNOWN/request timeout; preserves Beta119 behavior. Stable unchanged.

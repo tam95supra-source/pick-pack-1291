@@ -80,7 +80,7 @@ object DropReceiveFeature {
         val actions=row();actions.addView(addBtn,LinearLayout.LayoutParams(0,dp(44),1.15f).apply{marginEnd=dp(3)});actions.addView(selectAll,LinearLayout.LayoutParams(0,dp(44),.95f).apply{marginStart=dp(3);marginEnd=dp(3)});actions.addView(deleteSelected,LinearLayout.LayoutParams(0,dp(44),.95f).apply{marginStart=dp(3)});body.addView(actions,LinearLayout.LayoutParams(-1,-2))
         body.addView(gap(7))
         val dropList=column();body.addView(dropList,LinearLayout.LayoutParams(-1,-2))
-        body.addView(gap(8));body.addView(text("Service/D1 xác nhận ngay; Google Sheet được đồng bộ nền qua outbox.",9f,muted,false))
+        body.addView(gap(4))
 
         val scroll=ScrollView(activity).apply{isFillViewport=true;addView(body,ViewGroup.LayoutParams(-1,-2))}
         root.addView(scroll,LinearLayout.LayoutParams(-1,0,1f))
@@ -126,7 +126,8 @@ object DropReceiveFeature {
                 gravity=gravityValue or Gravity.CENTER_VERTICAL
                 minHeight=dp(if(header)36 else 44)
                 setPadding(dp(5),dp(4),dp(5),dp(4))
-                maxLines=2
+                maxLines=if(header)2 else 1
+                ellipsize=android.text.TextUtils.TruncateAt.END
                 background=GradientDrawable().apply{setColor(if(header)headerFill else Color.WHITE);setStroke(dp(1),border)}
             }
             fun addTableHeader(){

@@ -575,6 +575,41 @@ class OperationalDataStore(context: Context) {
         MutationStatusCounts(pending,review,rejected,confirmed)
     }
 
+    data class QueueRecoveryItem(val eventId:String,val action:String,val status:String,val attempts:Int,val lastError:String,val queuedAt:Long)
+
+    fun queueRecoveryItems(limit:Int=200):List<QueueRecoveryItem> = withDbLock {
+        val out=ArrayList<QueueRecoveryItem>()
+        readableDb().query("mutation_outbox",arrayOf("event_id","body_json","status","attempt_count","last_error","queued_at"),"status!='CONFIRMED'",null,null,null,"queued_at ASC",limit.coerceIn(1,500).toString()).use{c->
+            while(c.moveToNext()){
+                val body=runCatching{JSONObject(c.getString(1))}.getOrDefault(JSONObject())
+                out+=QueueRecoveryItem(c.getString(0),body.optString("action").ifBlank{body.optString("event_type").ifBlank{"Nghiệp vụ"}},c.getString(2),c.getInt(3),c.getString(4).orEmpty(),c.getLong(5))
+            }
+        };out
+    }
+
+    fun retryQueue(eventIds:Collection<String>,force:Boolean=false):Int = withDbLock {
+        val ids=eventIds.map{it.trim()}.filter{it.isNotBlank()}.distinct();if(ids.isEmpty())return@withDbLock 0
+        val db=writableDb();var changed=0;val now=System.currentTimeMillis()
+        db.beginTransaction();try{
+            for(id in ids){
+                val status=db.query("mutation_outbox",arrayOf("status"),"event_id=?",arrayOf(id),null,null,null,"1").use{q->if(q.moveToFirst())q.getString(0).orEmpty().uppercase() else ""}
+                val allowed=if(force) status in setOf("PENDING","RETRY","FAILED","ERROR","REJECTED","REVIEW_REQUIRED","CONFLICT") else status in setOf("PENDING","RETRY","FAILED","ERROR")
+                if(!allowed)continue
+                val cv=ContentValues().apply{put("status","PENDING");put("next_attempt_at",0L);put("updated_at",now);putNull("last_error")}
+                changed+=db.update("mutation_outbox",cv,"event_id=?",arrayOf(id))
+            };db.setTransactionSuccessful()
+        }finally{db.endTransaction()};changed
+    }
+
+    fun deleteTerminalQueue(eventIds:Collection<String>):Int = withDbLock {
+        val ids=eventIds.map{it.trim()}.filter{it.isNotBlank()}.distinct();if(ids.isEmpty())return@withDbLock 0
+        val db=writableDb();var removed=0
+        db.beginTransaction();try{
+            for(id in ids)removed+=db.delete("mutation_outbox","event_id=? AND status IN ('REJECTED','REVIEW_REQUIRED','CONFLICT','FAILED','ERROR')",arrayOf(id))
+            db.setTransactionSuccessful()
+        }finally{db.endTransaction()};removed
+    }
+
     fun pendingMutationCount(): Int = mutationStatusCounts().pending
 
     fun conflicts(limit: Int = 100): List<JSONObject> = withDbLock {
