@@ -766,15 +766,15 @@ invariants:
     last_verified: "0.4.2-beta.127 LIVE / OWNER acceptance complete 11/11 / 2026-09-05T21:14:36+07:00"
 
   - id: LABOR-BULK-REALTIME-007
-    status: TECHNICAL_PASS_AWAITING_OWNER
+    status: ACTIVE_PASS
     scope: labor
     rule: "Màn công nhật không còn cảm giác giật/khựng. Tạo/kết thúc nhiều người không load tuần tự gây đơ; trạng thái hoàn thành cập nhật mượt. Bỏ qua cảnh báo Tổ trưởng/Kéo hàng lưu theo từng NLĐ + phiên/ngày; xử lý một người không ẩn cảnh báo người khác; NLĐ mới xuất hiện vẫn có cảnh báo. Có thể chọn riêng/chọn nhiều/chọn tất cả; select không dính nhau và có kích thước hợp lý. Có Sửa nhiều cho giờ bắt đầu, giờ kết thúc và tính/không tính khấu trừ."
     technical_candidate: "0.4.2-beta.128"
     technical_evidence: "Beta128 LIVE exact bytes; source 5569d1e931436e02d118ed8ab57f2143de43b9f7; candidate 33980153560/9973576823; Fast Check 33981305129 PASS; control-plane 33995041387 PASS; visual/PDA/API36 33980153560/9973660685 + human PASS 47 screenshots 320x568/360x640/480x800; runtime DoD 33981305147/9973871632 PASS; publish/OTA/install/readback run 33981578145 artifacts 9973922070/9973956942 PASS; APK SHA256 04b135c554c6de6aa979b113a3435cec65063c87e79f232d8c8ea28e1d75f4ce; size 14461941; signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged."
-    owner_acceptance: "PASS — OWNER item 7 OK, 2026-09-05T21:14:36+07:00."
-    owner_receipt: "ops/beta127-owner-acceptance.json"
-    active_pass: false
-    last_verified: "0.4.2-beta.127 LIVE / OWNER acceptance complete 11/11 / 2026-09-05T21:14:36+07:00"
+    owner_acceptance: "PASS — OWNER Beta128 accepted 2026-09-06T05:59:00+07:00."
+    owner_receipt: "ops/beta128-owner-acceptance.json"
+    active_pass: true
+    last_verified: "0.4.2-beta.128 LIVE / OWNER acceptance complete 12/12 / 2026-09-06T05:59:00+07:00"
 
     owner_reopened_20260905: "OWNER reports visible reload-like flicker; implementation must be fixed and re-verified before PASS."
   - id: PDA-EXCHANGE-SOURCE-002
@@ -789,39 +789,39 @@ invariants:
     last_verified: "0.4.2-beta.127 LIVE / OWNER acceptance complete 11/11 / 2026-09-05T21:14:36+07:00"
 
   - id: ATTENDANCE-LOCAL-FIRST-003
-    status: TECHNICAL_PASS_AWAITING_OWNER
+    status: ACTIVE_PASS
     scope: attendance
     rule: "Ô search hiển thị Tìm mã nhân viên / họ tên. Bấm/mở/lọc không còn reload-like, nhấp nháy hoặc giật lag."
     technical_candidate: "0.4.2-beta.128"
     technical_evidence: "Beta128 LIVE exact bytes; source 5569d1e931436e02d118ed8ab57f2143de43b9f7; candidate 33980153560/9973576823; Fast Check 33981305129 PASS; control-plane 33995041387 PASS; visual/PDA/API36 33980153560/9973660685 + human PASS 47 screenshots 320x568/360x640/480x800; runtime DoD 33981305147/9973871632 PASS; publish/OTA/install/readback run 33981578145 artifacts 9973922070/9973956942 PASS; APK SHA256 04b135c554c6de6aa979b113a3435cec65063c87e79f232d8c8ea28e1d75f4ce; size 14461941; signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged."
-    owner_acceptance: "PASS — OWNER item 9 OK, 2026-09-05T21:14:36+07:00."
-    owner_receipt: "ops/beta127-owner-acceptance.json"
-    active_pass: false
-    last_verified: "0.4.2-beta.127 LIVE / OWNER acceptance complete 11/11 / 2026-09-05T21:14:36+07:00"
+    owner_acceptance: "PASS — OWNER Beta128 accepted 2026-09-06T05:59:00+07:00."
+    owner_receipt: "ops/beta128-owner-acceptance.json"
+    active_pass: true
+    last_verified: "0.4.2-beta.128 LIVE / OWNER acceptance complete 12/12 / 2026-09-06T05:59:00+07:00"
 
     owner_reopened_20260905: "OWNER reports visible reload-like flicker; implementation must be fixed and re-verified before PASS."
   - id: QR-INLINE-SHIFT-NAV-003
-    status: TECHNICAL_PASS_AWAITING_OWNER
+    status: ACTIVE_PASS
     scope: qr-navigation
     rule: "Sau khi quét có kết quả thì không hiển thị danh sách nhân sự chi tiết; danh sách này chỉ hiển thị khi chưa quét. Layout chi tiết theo ca được đưa ra ngay trong danh sách chi tiết; không phải mở danh sách rồi bấm ca để vào thêm một tầng trang chi tiết. Luồng scan/result/back giữ đúng navigation thực tế và không làm UI chớp/reload."
     technical_candidate: "0.4.2-beta.128"
     technical_evidence: "Beta128 LIVE exact bytes; source 5569d1e931436e02d118ed8ab57f2143de43b9f7; candidate 33980153560/9973576823; Fast Check 33981305129 PASS; control-plane 33995041387 PASS; visual/PDA/API36 33980153560/9973660685 + human PASS 47 screenshots 320x568/360x640/480x800; runtime DoD 33981305147/9973871632 PASS; publish/OTA/install/readback run 33981578145 artifacts 9973922070/9973956942 PASS; APK SHA256 04b135c554c6de6aa979b113a3435cec65063c87e79f232d8c8ea28e1d75f4ce; size 14461941; signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged."
-    owner_acceptance: "PASS — OWNER item 10 OK, 2026-09-05T21:14:36+07:00."
-    owner_receipt: "ops/beta127-owner-acceptance.json"
-    active_pass: false
-    last_verified: "0.4.2-beta.127 LIVE / OWNER acceptance complete 11/11 / 2026-09-05T21:14:36+07:00"
+    owner_acceptance: "PASS — OWNER Beta128 accepted 2026-09-06T05:59:00+07:00."
+    owner_receipt: "ops/beta128-owner-acceptance.json"
+    active_pass: true
+    last_verified: "0.4.2-beta.128 LIVE / OWNER acceptance complete 12/12 / 2026-09-06T05:59:00+07:00"
 
     owner_reopened_20260905: "OWNER reports visible reload-like flicker; implementation must be fixed and re-verified before PASS."
   - id: UI-REALTIME-100MS-006
-    status: TECHNICAL_PASS_AWAITING_OWNER
+    status: ACTIVE_PASS
     scope: ui-realtime
     rule: "Cảnh báo có dữ liệu local xuất hiện gần như tức thì, không chờ 1–2 giây. Thao tác local/UI phản hồi mục tiêu khoảng <=100 ms theo phương án OWNER đã chốt; không chờ round-trip Service để render. Service xử lý/reconcile nền vào state hiện tại; Service chậm không làm UI khựng, reload hoặc chớp giật. Rà soát toàn app: các màn bị tác động giữ realtime UI update mượt và đúng canonical state."
     technical_candidate: "0.4.2-beta.128"
     technical_evidence: "Beta128 LIVE exact bytes; source 5569d1e931436e02d118ed8ab57f2143de43b9f7; candidate 33980153560/9973576823; Fast Check 33981305129 PASS; control-plane 33995041387 PASS; visual/PDA/API36 33980153560/9973660685 + human PASS 47 screenshots 320x568/360x640/480x800; runtime DoD 33981305147/9973871632 PASS; publish/OTA/install/readback run 33981578145 artifacts 9973922070/9973956942 PASS; APK SHA256 04b135c554c6de6aa979b113a3435cec65063c87e79f232d8c8ea28e1d75f4ce; size 14461941; signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged."
-    owner_acceptance: "PASS — OWNER item 11 OK, 2026-09-05T21:14:36+07:00."
-    owner_receipt: "ops/beta127-owner-acceptance.json"
-    active_pass: false
-    last_verified: "0.4.2-beta.127 LIVE / OWNER acceptance complete 11/11 / 2026-09-05T21:14:36+07:00"
+    owner_acceptance: "PASS — OWNER Beta128 accepted 2026-09-06T05:59:00+07:00."
+    owner_receipt: "ops/beta128-owner-acceptance.json"
+    active_pass: true
+    last_verified: "0.4.2-beta.128 LIVE / OWNER acceptance complete 12/12 / 2026-09-06T05:59:00+07:00"
 
     owner_reopened_20260905: "OWNER reports visible reload-like flicker; implementation must be fixed and re-verified before PASS."
   - id: OWNER-SCOPE-CONTINUITY-001
@@ -835,14 +835,17 @@ invariants:
     active_pass: false
 
   - id: DROP-LAYOUT-INPUT-004
-    status: TECHNICAL_PASS_AWAITING_OWNER
+    status: ACTIVE_PASS
     technical_candidate: "0.4.2-beta.128"
     technical_evidence: "Beta128 LIVE exact bytes; source 5569d1e931436e02d118ed8ab57f2143de43b9f7; candidate 33980153560/9973576823; Fast Check 33981305129 PASS; control-plane 33995041387 PASS; visual/PDA/API36 33980153560/9973660685 + human PASS 47 screenshots 320x568/360x640/480x800; runtime DoD 33981305147/9973871632 PASS; publish/OTA/install/readback run 33981578145 artifacts 9973922070/9973956942 PASS; APK SHA256 04b135c554c6de6aa979b113a3435cec65063c87e79f232d8c8ea28e1d75f4ce; size 14461941; signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged."
     scope: drop-receive-ui
     rule: "Nhận hàng Rớt ưu tiên hiển thị đầy đủ thời gian bằng cách thu gọn Chọn/Vị trí/Số kiện; Scan QR/DO/Số kiện không lặp tiêu đề khi hint đã đủ nghĩa; ô nhập phải nổi bật và dễ nhận biết."
     regression_minimum: [time_full_visible, compact_select_location_package_columns, no_redundant_input_labels, prominent_inputs]
     owner_command: "CMD-20260905-003"
-    active_pass: false
+    active_pass: true
+    owner_acceptance: "PASS — OWNER Beta128 accepted 2026-09-06T05:59:00+07:00."
+    owner_receipt: "ops/beta128-owner-acceptance.json"
+    last_verified: "0.4.2-beta.128 LIVE / OWNER acceptance complete 12/12 / 2026-09-06T05:59:00+07:00"
 
 impact_map:
   "CURRENT_STATE.md": [OWNER-SCOPE-CONTINUITY-001]

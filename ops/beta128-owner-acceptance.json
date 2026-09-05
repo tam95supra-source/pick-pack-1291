@@ -1,0 +1,148 @@
+{
+  "schema_version": 1,
+  "project": "APK PICK PACK 1291",
+  "channel": "BETA",
+  "version_name": "0.4.2-beta.128",
+  "version_code": 134,
+  "owner_scope": "OWNER_20260905_R3_DROP_REALTIME_BETA128",
+  "owner_scope_revision": 3,
+  "owner_scope_semantics_sha256": "4ba607f61fd8877c1bbf0a86a69ac947e0fa0912e039e9f1085fb6d2e179eb90",
+  "owner_scope_sha256": "72b55f9c0f6eba3b6c6da4c2f612ae3fdfe02008f0c9400cfe7dd67c0872069c",
+  "checklist_id": "BETA128_OWNER_ACCEPTANCE_20260905_R3",
+  "checklist_revision": 3,
+  "accepted_at": "2026-09-06T05:59:00+07:00",
+  "owner_response": "Tất cả ok",
+  "owner_response_applies_to": [
+    7,
+    9,
+    10,
+    11,
+    12
+  ],
+  "status": "OWNER_ACCEPTANCE_COMPLETE",
+  "items": [
+    {
+      "number": 1,
+      "requirement_id": "R2-01",
+      "invariant_id": "SETTINGS-RESET-LAYOUT-002",
+      "status": "OWNER_OK",
+      "invariant_state": "ACTIVE_PASS",
+      "acceptance_source": "INHERITED_OWNER_OK"
+    },
+    {
+      "number": 2,
+      "requirement_id": "R2-02",
+      "invariant_id": "HISTORY-DATE-BULK-DETAIL-003",
+      "status": "OWNER_OK",
+      "invariant_state": "ACTIVE_PASS",
+      "acceptance_source": "INHERITED_OWNER_OK"
+    },
+    {
+      "number": 3,
+      "requirement_id": "R2-03",
+      "invariant_id": "STATUS-QUEUE-RECOVERY-004",
+      "status": "OWNER_OK",
+      "invariant_state": "ACTIVE_PASS",
+      "acceptance_source": "INHERITED_OWNER_OK"
+    },
+    {
+      "number": 4,
+      "requirement_id": "R2-04",
+      "invariant_id": "STAFF-SEARCH-DEBOUNCE-001",
+      "status": "OWNER_OK",
+      "invariant_state": "ACTIVE_PASS",
+      "acceptance_source": "INHERITED_OWNER_OK"
+    },
+    {
+      "number": 5,
+      "requirement_id": "R2-05",
+      "invariant_id": "DROP-PAGINATION-003",
+      "status": "OWNER_OK",
+      "invariant_state": "ACTIVE_PASS",
+      "acceptance_source": "INHERITED_OWNER_OK"
+    },
+    {
+      "number": 6,
+      "requirement_id": "R2-06",
+      "invariant_id": "REPORT-MANPOWER-LABOR-003",
+      "status": "OWNER_OK",
+      "invariant_state": "ACTIVE_PASS",
+      "acceptance_source": "INHERITED_OWNER_OK"
+    },
+    {
+      "number": 7,
+      "requirement_id": "R2-07",
+      "invariant_id": "LABOR-BULK-REALTIME-007",
+      "status": "OWNER_OK",
+      "invariant_state": "ACTIVE_PASS",
+      "acceptance_source": "OWNER_RESPONSE_2026-09-06"
+    },
+    {
+      "number": 8,
+      "requirement_id": "R2-08",
+      "invariant_id": "PDA-EXCHANGE-SOURCE-002",
+      "status": "OWNER_OK",
+      "invariant_state": "ACTIVE_PASS",
+      "acceptance_source": "INHERITED_OWNER_OK"
+    },
+    {
+      "number": 9,
+      "requirement_id": "R2-09",
+      "invariant_id": "ATTENDANCE-LOCAL-FIRST-003",
+      "status": "OWNER_OK",
+      "invariant_state": "ACTIVE_PASS",
+      "acceptance_source": "OWNER_RESPONSE_2026-09-06"
+    },
+    {
+      "number": 10,
+      "requirement_id": "R2-10",
+      "invariant_id": "QR-INLINE-SHIFT-NAV-003",
+      "status": "OWNER_OK",
+      "invariant_state": "ACTIVE_PASS",
+      "acceptance_source": "OWNER_RESPONSE_2026-09-06"
+    },
+    {
+      "number": 11,
+      "requirement_id": "R2-11",
+      "invariant_id": "UI-REALTIME-100MS-006",
+      "status": "OWNER_OK",
+      "invariant_state": "ACTIVE_PASS",
+      "acceptance_source": "OWNER_RESPONSE_2026-09-06"
+    },
+    {
+      "number": 12,
+      "requirement_id": "R3-12",
+      "invariant_id": "DROP-LAYOUT-INPUT-004",
+      "status": "OWNER_OK",
+      "invariant_state": "ACTIVE_PASS",
+      "acceptance_source": "OWNER_RESPONSE_2026-09-06"
+    }
+  ],
+  "technical_evidence": {
+    "version_name": "0.4.2-beta.128",
+    "source_sha": "5569d1e931436e02d118ed8ab57f2143de43b9f7",
+    "candidate_run_id": 33980153560,
+    "candidate_artifact_id": 9973576823,
+    "verify_run_id": 33980153560,
+    "verify_artifact_id": 9973660685,
+    "fast_check_run_id": 33981305129,
+    "control_plane_run_id": 33995041387,
+    "runtime_dod_run_id": 33981305147,
+    "runtime_dod_artifact_id": 9973871632,
+    "release_run_id": 33981578145,
+    "publish_artifact_id": 9973922070,
+    "pda_ota_artifact_id": 9973956942,
+    "apk_sha256": "04b135c554c6de6aa979b113a3435cec65063c87e79f232d8c8ea28e1d75f4ce",
+    "apk_size": 14461941,
+    "signer_sha256": "d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e",
+    "status": "PASS",
+    "human_visual": "PASS",
+    "visual_matrix": "PASS_320x568_360x640_480x800",
+    "ota_readback": "PASS",
+    "stable_unchanged": true,
+    "main_unchanged": true,
+    "authority_change": "NONE"
+  },
+  "owner_command_ledger_head": "082b266eeed4017ac6bd76df724dd72b6a37de198b94dd52063b4e34abbee13a",
+  "next_action": "WAIT_FOR_OWNER_NEW_SCOPE"
+}
