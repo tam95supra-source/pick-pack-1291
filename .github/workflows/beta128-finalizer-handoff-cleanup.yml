@@ -1,0 +1,120 @@
+name: Beta128 finalizer handoff cleanup
+
+on:
+  push:
+    branches:
+      - release/beta128-owner-r3-drop-realtime-20260905
+    paths:
+      - .github/workflows/beta128-finalizer-handoff-cleanup.yml
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Bootstrap canonical OWNER scope
+        run: |
+          set -euo pipefail
+          python3 tools/owner_scope_guard.py --bootstrap
+          jq -e '.scope_status=="TECHNICAL_PASS_AWAITING_OWNER" and .revision==3' ops/OWNER_SCOPE_CURRENT.json >/dev/null
+          grep -Fq -- '- status: BETA128_PASS_LIVE' CURRENT_STATE.md
+
+      - name: Repair finalizer and current handoff from canonical scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json,re
+
+          finalizer=Path('tools/finalize_beta83.sh')
+          s=finalizer.read_text(encoding='utf-8')
+          old='OWNER_NEXT_ACTION="WAIT_FOR_OWNER_ACCEPTANCE_NUMBERED_CHECKLIST_1_TO_${OWNER_CHECKLIST_COUNT}"'
+          new='''OWNER_PENDING_NUMBERS=$(jq -r '[.requirements[] | select(.state!="ACTIVE_PASS" and .state!="SUPERSEDED") | .checklist_number] | map(tostring) | join("_")' "$SCOPE")
+          if [[ -n "$OWNER_PENDING_NUMBERS" ]]; then
+            OWNER_NEXT_ACTION="WAIT_FOR_OWNER_ACCEPTANCE_REQUIREMENTS_${OWNER_PENDING_NUMBERS}"
+          else
+            OWNER_NEXT_ACTION="OWNER_ACCEPTANCE_COMPLETE"
+          fi'''.replace('\n          ','\n')
+          if s.count(old)!=1:
+              raise SystemExit(f'FINALIZER_NEXT_ACTION_PATTERN_COUNT={s.count(old)}')
+          s=s.replace(old,new,1)
+          bad1='- Phiên tiếp quản phải chạy `python3 tools/owner_scope_guard.py --bootstrap` rồi đọc requirement từ `$OWNER_SCOPE_FILE`.'
+          good1='- Phiên tiếp quản phải chạy python3 tools/owner_scope_guard.py --bootstrap rồi đọc requirement từ $OWNER_SCOPE_FILE.'
+          bad2='- Canonical OWNER checklist: `$OWNER_SCOPE_FILE`, revision $OWNER_SCOPE_REVISION, SHA256 $OWNER_SCOPE_SHA, $OWNER_CHECKLIST_COUNT requirement(s).'
+          good2='- Canonical OWNER checklist: $OWNER_SCOPE_FILE, revision $OWNER_SCOPE_REVISION, SHA256 $OWNER_SCOPE_SHA, $OWNER_CHECKLIST_COUNT requirement(s).'
+          if s.count(bad1)!=1 or s.count(bad2)!=1:
+              raise SystemExit(f'FINALIZER_HEREDOC_PATTERN_COUNT={s.count(bad1)},{s.count(bad2)}')
+          s=s.replace(bad1,good1,1).replace(bad2,good2,1)
+          finalizer.write_text(s,encoding='utf-8')
+
+          scope=json.loads(Path('ops/OWNER_SCOPE_CURRENT.json').read_text(encoding='utf-8'))
+          pending=[str(x['checklist_number']) for x in scope['requirements'] if x.get('state') not in {'ACTIVE_PASS','SUPERSEDED'}]
+          if pending != ['7','9','10','11','12']:
+              raise SystemExit(f'PENDING_NUMBERS={pending}')
+          next_action='WAIT_FOR_OWNER_ACCEPTANCE_REQUIREMENTS_'+'_'.join(pending)
+          scope_hash=scope['scope_sha256']
+          sem=scope['semantics_sha256']
+          rev=scope['revision']
+          count=len(scope['requirements'])
+
+          hp=Path('docs/handovers/HANDOVER_CURRENT.md')
+          h=hp.read_text(encoding='utf-8')
+          h=re.sub(r'(?m)^- owner_scope_revision: .+$',f'- owner_scope_revision: {rev}',h,1)
+          h=re.sub(r'(?m)^- owner_scope_semantics_sha256: .+$',f'- owner_scope_semantics_sha256: {sem}',h,1)
+          h=re.sub(r'(?m)^- owner_scope_sha256: .+$',f'- owner_scope_sha256: {scope_hash}',h,1)
+          h=re.sub(r'(?m)^- Phiên tiếp quản phải chạy .*$', '- Phiên tiếp quản phải chạy python3 tools/owner_scope_guard.py --bootstrap rồi đọc requirement từ ops/OWNER_SCOPE_CURRENT.json.',h,1)
+          h=re.sub(r'(?m)^- Canonical OWNER checklist:.*$',f'- Canonical OWNER checklist: ops/OWNER_SCOPE_CURRENT.json, revision {rev}, SHA256 {scope_hash}, {count} requirement(s).',h,1)
+          h=re.sub(r'(?ms)(## NEXT_ACTION\n).*?(?=\n## |\Z)',rf'\1{next_action}\n',h,1)
+          hp.write_text(h.rstrip()+'\n',encoding='utf-8')
+
+          m=re.search(r'(?m)^- archive_file: (.+)$',h)
+          if not m:
+              raise SystemExit('HANDOFF_ARCHIVE_POINTER_MISSING')
+          ap=Path(m.group(1).strip())
+          if not ap.exists():
+              raise SystemExit(f'HANDOFF_ARCHIVE_MISSING:{ap}')
+          ap.write_text(h.rstrip()+'\n',encoding='utf-8')
+          PY
+
+      - name: Regression check finalizer and handoff
+        shell: bash
+        run: |
+          set -euo pipefail
+          ! grep -Fq '`python3 tools/owner_scope_guard.py --bootstrap`' tools/finalize_beta83.sh
+          ! grep -Fq '`$OWNER_SCOPE_FILE`' tools/finalize_beta83.sh
+          grep -Fq 'OWNER_PENDING_NUMBERS=' tools/finalize_beta83.sh
+          grep -Fq 'WAIT_FOR_OWNER_ACCEPTANCE_REQUIREMENTS_${OWNER_PENDING_NUMBERS}' tools/finalize_beta83.sh
+          grep -Fq 'Phiên tiếp quản phải chạy python3 tools/owner_scope_guard.py --bootstrap rồi đọc requirement từ ops/OWNER_SCOPE_CURRENT.json.' docs/handovers/HANDOVER_CURRENT.md
+          SCOPE_HASH=$(jq -r '.scope_sha256' ops/OWNER_SCOPE_CURRENT.json)
+          grep -Fq -- "- owner_scope_sha256: $SCOPE_HASH" docs/handovers/HANDOVER_CURRENT.md
+          grep -Fq "SHA256 $SCOPE_HASH, 12 requirement(s)." docs/handovers/HANDOVER_CURRENT.md
+          grep -Fq 'WAIT_FOR_OWNER_ACCEPTANCE_REQUIREMENTS_7_9_10_11_12' docs/handovers/HANDOVER_CURRENT.md
+          python3 tools/owner_scope_guard.py --bootstrap
+          git diff --check
+
+      - name: Commit and remote readback
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          ARCH=$(sed -n 's/^- archive_file: //p' docs/handovers/HANDOVER_CURRENT.md)
+          git add tools/finalize_beta83.sh docs/handovers/HANDOVER_CURRENT.md "$ARCH"
+          git diff --cached --check
+          git commit -m 'fix(control-plane): harden finalizer handoff generation'
+          FINAL=$(git rev-parse HEAD)
+          git push origin "HEAD:$GITHUB_REF_NAME"
+          git fetch origin "$GITHUB_REF_NAME" --quiet
+          test "$(git rev-parse "origin/$GITHUB_REF_NAME")" = "$FINAL"
+          SCOPE_HASH=$(git show "origin/$GITHUB_REF_NAME:ops/OWNER_SCOPE_CURRENT.json" | jq -r '.scope_sha256')
+          git show "origin/$GITHUB_REF_NAME:docs/handovers/HANDOVER_CURRENT.md" | grep -Fq -- "- owner_scope_sha256: $SCOPE_HASH"
+          git show "origin/$GITHUB_REF_NAME:docs/handovers/HANDOVER_CURRENT.md" | grep -Fq 'WAIT_FOR_OWNER_ACCEPTANCE_REQUIREMENTS_7_9_10_11_12'
+          ! git show "origin/$GITHUB_REF_NAME:tools/finalize_beta83.sh" | grep -Fq '`$OWNER_SCOPE_FILE`'
