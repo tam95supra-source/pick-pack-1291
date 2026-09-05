@@ -646,6 +646,23 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     SystemClock.sleep(450L);
   }
 
+  private String navState(){
+    try{
+      Activity a=currentActivity;
+      if(a==null)return "activity=null";
+      Class<?> c=a.getClass();
+      Field ss=c.getDeclaredField("screenState");ss.setAccessible(true);
+      Field ds=c.getDeclaredField("displayedScreenState");ds.setAccessible(true);
+      Field bs=c.getDeclaredField("screenBackStack");bs.setAccessible(true);
+      Object raw=bs.get(a);
+      java.util.ArrayDeque<?> dq=(java.util.ArrayDeque<?>)raw;
+      Object top=dq.peekLast();
+      String topState="";
+      if(top!=null){Field ts=top.getClass().getDeclaredField("screenState");ts.setAccessible(true);topState=String.valueOf(ts.get(top));}
+      return "screen="+String.valueOf(ss.get(a))+",displayed="+String.valueOf(ds.get(a))+",stack="+dq.size()+",top="+topState;
+    }catch(Throwable t){return "diag_error="+t.getClass().getSimpleName()+":"+String.valueOf(t.getMessage());}
+  }
+
   private void runBack36()throws Exception{
     String mnv=req("mnv"),mnv2=req("mnv2"),mnv3=req("mnv3");
     seedAuth();seedService();seedData(mnv,mnv2,mnv3);
@@ -1180,8 +1197,11 @@ public final class Beta83UiChecksInstrumentation extends Instrumentation {
     waitText("THÔNG TIN CA",true,false,10000L);
     require(findText("Danh sách QR vào / ra",true,false)==null,"POST_SCAN_ROSTER_MUST_BE_HIDDEN");
     mark("post_scan_roster_hidden_beta124");
+    String navBefore=navState();
     invokeActivityBack();
-    waitText("QUÉT QR NHÂN SỰ",true,false,10000L);
+    String navAfter=navState();
+    AccessibilityNodeInfo qrBack=findText("QUÉT QR NHÂN SỰ",true,false);
+    require(qrBack!=null,"BETA125_BACK_NAV_DIAG:"+navBefore+"=>"+navAfter);
     mark("post_scan_activity_back_beta124");
 
     showTextOnScreen("Danh sách QR vào / ra",10000L);
