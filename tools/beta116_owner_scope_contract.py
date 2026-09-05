@@ -63,9 +63,10 @@ assert any(token in inline for token in [
 ])
 assert 'setOnClickListener{if(id.mnv.isNotBlank())loadEmployee(id.mnv)}' in inline
 
-# Labor: local list shell, Service exact-session detail, fixed-position review, filters and weighted buttons.
+# Labor: local list shell, Service exact-session detail, fixed-position review and filters.
+# Beta117+ owns compact/select geometry, so the old Beta116 .88f/1.12f button-weight pin is superseded.
 labor=ops[ops.index("private fun laborHome()"):ops.index("private fun laborWheelPick(")]
-for token in ['pp_labor_list_cache_v116','Tất cả ca','Tất cả NCC','Tất cả vị trí','KIỂM TRA CÔNG NHẬT CHO CÁC VỊ TRÍ CỐ ĐỊNH','api.call("employee_context"','.88f','1.12f']:
+for token in ['pp_labor_list_cache_v116','Tất cả ca','Tất cả NCC','Tất cả vị trí','KIỂM TRA CÔNG NHẬT CHO CÁC VỊ TRÍ CỐ ĐỊNH','api.call("employee_context"']:
     assert token in labor, token
 assert 'PdaLocalProjection.employeeContext(this,v)' not in labor
 
