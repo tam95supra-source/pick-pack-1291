@@ -1,0 +1,36 @@
+name: Beta127 dispatch BUILD_VERIFY
+
+on:
+  push:
+    branches:
+      - release/beta127-owner-r2-complete-20260905
+    paths:
+      - .github/workflows/beta127-dispatch-build-verify.yml
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  contract-and-dispatch:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate OWNER R2 contract and request
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/beta123_owner_scope_contract.py
+          bash -n tools/build_beta83_verify_harness.sh
+          jq -e '.stage=="BUILD_VERIFY" and .version_name=="0.4.2-beta.127" and .version_code==133 and .candidate_locked==false and .human_visual_pass==false and .owner_checklist_id=="BETA127_OWNER_ACCEPTANCE_20260905_R2" and (.owner_checklist|length)==11 and .stable_publish=="FORBIDDEN" and .authority_change=="NONE"' ops/beta-release-request.json >/dev/null
+      - name: Dispatch canonical beta release workflow
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh workflow run beta-release.yml \
+            --repo "${GITHUB_REPOSITORY}" \
+            --ref release/beta127-owner-r2-complete-20260905 \
+            -f run_ref=release/beta127-owner-r2-complete-20260905
