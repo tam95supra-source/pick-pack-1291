@@ -51,5 +51,14 @@ jobs:
       - name: Reject stale acceptance state
         run: python3 tools/owner_acceptance_ledger_guard.py --base-ref '${{ steps.base.outputs.base }}'
 
+      - name: OWNER scope guard self-test
+        run: python3 tools/owner_scope_guard.py --self-test
+
+      - name: Reject OWNER scope loss or drift
+        run: python3 tools/owner_scope_guard.py --base-ref '${{ steps.base.outputs.base }}'
+
+      - name: OWNER scope bootstrap readback
+        run: python3 tools/owner_scope_guard.py --bootstrap
+
       - name: Current sync contract
         run: python3 tools/beta_current_sync_contract.py
