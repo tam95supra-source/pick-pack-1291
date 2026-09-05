@@ -110,17 +110,20 @@ assert 'values=rows.map(r=>norm(r[0])),keys=values.map(key)' in location_replica
 assert '.filter(Boolean)' not in location_replication
 assert 'A${idx+2}:A${idx+2}' in location_replication
 
-# 9) Shift review tile no longer navigates to full roster; roster is inline below scan/session.
+# 9) OWNER Beta123 supersedes the older inline-roster-after-scan behavior.
+# Shift review remains compact, but once a scan has a result neither the scan screen nor
+# rendered employee context may append the full current-shift roster. The standalone
+# roster component remains available for explicit/no-result list surfaces.
 recon=ops[ops.index("private fun addBusinessShiftReconciliation"):ops.index("private fun addInlineCurrentShiftStaff")]
 assert 'HIỂN THỊ CHI TIẾT NHÂN SỰ' not in recon
 assert 'shiftStaffOrdered(pending)' in recon and '"RA CA"' in recon
 scan=ops[ops.index("private fun employeeScan()"):ops.index("private fun employeeRenderSignature")]
-assert scan.index('body.addView(mnv') < scan.index('addInlineCurrentShiftStaff(body)')
+assert 'addInlineCurrentShiftStaff(body)' not in scan
 render=ops[ops.index("private fun renderEmployee(ctx"):ops.index("private fun sameEmployeeContext")]
-assert render.index('when(state)') < render.index('addInlineCurrentShiftStaff(body)')
+assert 'addInlineCurrentShiftStaff(body)' not in render
 inline=ops[ops.index("private fun addInlineCurrentShiftStaff"):ops.index("private fun addScannedOldSessionWarning")]
 assert ('showCurrentDayShiftStaff(currentDate,shift,group)' in inline or 'showCurrentDayShiftStaff(currentDate,shiftName,group)' in inline)
 for token in ['setOnClickListener{if(id.mnv.isNotBlank())loadEmployee(id.mnv)}','contentDescription="Mở quét QR vào ra']:
     assert token in inline, token
 
-print("beta115_owner_scope_contract=PASS changelog=PASS audit=PASS history_delete=PASS labor_revised=PASS bulk=PASS select_ui=PASS today_calendar=PASS outbound_sheet_row_index=PASS inline_roster=PASS")
+print("beta123_owner_scope_contract=PASS changelog=PASS audit=PASS history_delete=PASS labor_revised=PASS bulk=PASS select_ui=PASS today_calendar=PASS outbound_sheet_row_index=PASS scan_roster_suppression=PASS")
