@@ -6,6 +6,7 @@ on:
       - release/beta128-owner-r3-drop-realtime-20260905
     paths:
       - .github/workflows/beta128-owner-r3-apply-v2.yml
+      - tools/beta128_owner_r3_apply.py
 
 permissions:
   contents: write
