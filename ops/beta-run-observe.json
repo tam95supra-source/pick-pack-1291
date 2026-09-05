@@ -1,8 +1,8 @@
 {
-  "run_id": 33968559764,
-  "run_sha": "19a944979ce30b06faeb0d76e7906405451dfc2f",
+  "run_id": 33969468377,
+  "run_sha": "4ea93c4e47361171646ced9f659fa6f54039fbb1",
   "ref": "release/beta127-owner-r2-complete-20260905",
-  "execution_nonce": "beta127-runtime-dod-owner-r2-20260905-02",
-  "stage": "RUNTIME_DOD_VERIFY",
-  "observed_at": "2026-09-05T13:19:29Z"
+  "execution_nonce": "beta127-publish-owner-r2-20260905-01",
+  "stage": "PUBLISH",
+  "observed_at": "2026-09-05T13:38:11Z"
 }
