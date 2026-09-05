@@ -1,0 +1,43 @@
+{
+  "status": "PASS",
+  "channel": "BETA",
+  "version_name": "0.4.2-beta.121",
+  "version_code": 127,
+  "package": "vn.pickpack1291.app.beta.publicbeta",
+  "source_sha": "ee482efb41565eee797b9b6c11fe54557c2b67f8",
+  "candidate_source_sha": "ee482efb41565eee797b9b6c11fe54557c2b67f8",
+  "candidate_run_id": 33929895214,
+  "candidate_artifact_id": 9958252319,
+  "candidate_artifact_name": "beta-candidate-33929895214",
+  "apk_sha256": "5b042c8e1f6d288ef19efe9abc773562c204fb3defd91396e4101adcedc8cc57",
+  "apk_size": 14429173,
+  "signer_sha256": "d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e",
+  "candidate_locked": true,
+  "rebuild": false,
+  "resign": false,
+  "apk_transport": "GITHUB_RELEASE_ONLY",
+  "google_drive_apk": "FORBIDDEN",
+  "stable_publish": "FORBIDDEN",
+  "authority_change": "NONE",
+  "pre_ota_gates": {
+    "service": {"status": "PASS", "run_id": 33929895214, "artifact_id": 9958376646, "artifact_name": "beta-service-33929895214"},
+    "fast_check": {"status": "PASS", "run_id": 33932137056},
+    "visual_pda_api36": {"status": "PASS", "run_id": 33932137068, "artifact_id": 9959024622, "artifact_name": "beta-verify-33932137068", "human_receipt": "ops/beta121-human-visual-receipt.json", "sizes": ["320x568", "360x640", "480x800"]},
+    "beta_auth": {"status": "PASS", "run_id": 33874702285, "inherited": true},
+    "service_discovery_device": {"status": "PASS", "run_id": 33932666498, "artifact_id": 9959133081, "artifact_name": "beta-service-discovery-33932666498"},
+    "runtime_dod": {"status": "PASS", "run_id": 33933735030, "artifact_id": 9959507710, "artifact_name": "beta-stable-runtime-33933735030"},
+    "beta_domain": {"status": "PASS", "run_id": 33934032820, "artifact_id": 9959551837, "artifact_name": "beta-domain-prepare-33934032820"},
+    "stable_gas_guard": {"status": "PASS", "run_id": 33821666160, "artifact_id": 9959484768, "artifact_name": "stable-primary-canary-source-restore-33821666160"}
+  },
+  "base_live": {
+    "version_name": "0.4.2-beta.120",
+    "version_code": 126,
+    "candidate_run_id": 33874862142,
+    "candidate_artifact_id": 9937580926,
+    "terminal_run_id": 33896192267,
+    "terminal_artifact_name": "beta-final-33896192267"
+  },
+  "publish_rule": "PUBLISH_EXACT_LOCKED_BYTES_ONLY_NO_REBUILD_NO_RESIGN",
+  "post_publish_failure_rule": "ROLLBACK_BETA_MANIFEST_FIRST_STABLE_UNTOUCHED",
+  "owner_acceptance_after_technical_pass": "PENDING"
+}
