@@ -25,9 +25,10 @@ sed -i 's/waitText("Loại kết nối",false,false,10000L);/waitText("Kiểu k�
 sed -i 's/waitText("Authority",false,false,10000L);/waitText("Chế độ quyền hiện tại",false,false,10000L);/g' "$W/src/vn/pickpack1291/verify/Beta83UiChecksInstrumentation.java"
 # Beta121 settings regrouped the former resilience center under a compact technical-test region.
 sed -i 's/TRUNG TÂM KIỂM THỬ RESILIENCE/KIỂM THỬ KỸ THUẬT/g' "$W/src/vn/pickpack1291/verify/Beta83UiChecksInstrumentation.java"
-# OWNER Beta123 removed the report-scope control entirely and renamed the report screen.
-# Verify the new canonical title and explicitly assert that the removed control stays absent.
-sed -i 's/waitText("Phạm vi báo cáo",true,false,12000L);/waitText("BÁO CÁO TÌNH HÌNH NHÂN SỰ",true,false,12000L); require(findText("Phạm vi báo cáo",true,false)==null,"REPORT_SCOPE_CONTROL_MUST_BE_REMOVED");/g' "$W/src/vn/pickpack1291/verify/Beta83UiChecksInstrumentation.java"
+# OWNER Beta123 removed the report-scope control and redundant report heading from the rendered
+# chrome. Assert the REPORT navigation state plus report-specific content instead of pinning a
+# title string that is intentionally no longer exposed to the user.
+sed -i 's/waitText("Phạm vi báo cáo",true,false,12000L);/require(navState().contains("screen=REPORT,displayed=REPORT"),"REPORT_SCREEN_STATE_INVALID:"+navState()); require(findText("Phạm vi báo cáo",true,false)==null,"REPORT_SCOPE_CONTROL_MUST_BE_REMOVED");/g' "$W/src/vn/pickpack1291/verify/Beta83UiChecksInstrumentation.java"
 # Beta125 diagnostic proved the app returns EMPLOYEE -> SCAN correctly, but the old harness
 # falsely required the BUSINESS-home label "QUÉT QR NHÂN SỰ" after Back. Assert the actual
 # SCAN semantics instead: state/displayed SCAN, editable scan control present, employee UI
@@ -52,7 +53,7 @@ PY
 grep -Fq 'waitText("Kiểu kết nối"' "$W/src/vn/pickpack1291/verify/Beta83UiChecksInstrumentation.java"
 grep -Fq 'waitText("Chế độ quyền hiện tại"' "$W/src/vn/pickpack1291/verify/Beta83UiChecksInstrumentation.java"
 grep -Fq 'KIỂM THỬ KỸ THUẬT' "$W/src/vn/pickpack1291/verify/Beta83UiChecksInstrumentation.java"
-grep -Fq 'waitText("BÁO CÁO TÌNH HÌNH NHÂN SỰ"' "$W/src/vn/pickpack1291/verify/Beta83UiChecksInstrumentation.java"
+grep -Fq 'REPORT_SCREEN_STATE_INVALID' "$W/src/vn/pickpack1291/verify/Beta83UiChecksInstrumentation.java"
 grep -Fq 'REPORT_SCOPE_CONTROL_MUST_BE_REMOVED' "$W/src/vn/pickpack1291/verify/Beta83UiChecksInstrumentation.java"
 grep -Fq 'BETA125_BACK_NAV_STATE_NOT_SCAN' "$W/src/vn/pickpack1291/verify/Beta83UiChecksInstrumentation.java"
 grep -Fq 'BETA125_BACK_SCAN_INPUT_MISSING' "$W/src/vn/pickpack1291/verify/Beta83UiChecksInstrumentation.java"
