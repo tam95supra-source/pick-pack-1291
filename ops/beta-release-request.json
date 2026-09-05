@@ -86,7 +86,7 @@
   "apk_transport": "GITHUB_RELEASE_ONLY",
   "google_drive_apk": "FORBIDDEN",
   "execution_nonce": "beta128-publish-owner-r3-20260906-01",
-  "next_action": "WAIT_FOR_OWNER_ACCEPTANCE_NUMBERED_CHECKLIST_1_TO_12",
+  "next_action": "WAIT_FOR_OWNER_ACCEPTANCE_REQUIREMENTS_7_9_10_11_12",
   "owner_scope": "OWNER_20260905_R3_DROP_REALTIME_BETA128",
   "owner_scope_source": "Canonical ops/OWNER_SCOPE_CURRENT.json revision 3",
   "owner_checklist_id": "BETA128_OWNER_ACCEPTANCE_20260905_R3",
@@ -207,11 +207,19 @@
     }
   ],
   "owner_scope_semantics_sha256": "4ba607f61fd8877c1bbf0a86a69ac947e0fa0912e039e9f1085fb6d2e179eb90",
-  "owner_scope_sha256": "6058c3463d6d7191f8ea5d829d4bf011b6c227047f23631479aa9a69352b146c",
+  "owner_scope_sha256": "d0124805ffd1dcf386295828e9d998083a45274bd0eeba8c360308f92c69f2e1",
   "owner_command_ledger_head": "bbe7cd9e91e587f8fed342d18582077561cc43accc92a110303ee404ccdd3eab",
   "technical_pass_status": "PASS",
   "owner_acceptance": "PENDING",
   "ota_readback_status": "PASS",
   "publish_run_id": "33994851862",
-  "ota_readback_run_id": 33994851862
+  "ota_readback_run_id": 33994851862,
+  "technical_pass_requirement_numbers": [
+    7,
+    9,
+    10,
+    11,
+    12
+  ],
+  "technical_pass_recovery_run_id": 33995062256
 }

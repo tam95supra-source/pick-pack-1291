@@ -4,7 +4,7 @@
   "owner": "Nguyễn Văn Tâm",
   "scope_id": "OWNER_20260905_R3_DROP_REALTIME_BETA128",
   "revision": 3,
-  "scope_status": "LOCKED_REQUIREMENT_PENDING_FIX",
+  "scope_status": "TECHNICAL_PASS_AWAITING_OWNER",
   "source_of_truth": "ops/OWNER_SCOPE_CURRENT.json",
   "migration_source": "OWNER CMD-20260905-003 over Beta127 accepted baseline",
   "owner_command_ledger": "ops/owner-command-ledger.jsonl",
@@ -123,11 +123,30 @@
         "Có Sửa nhiều cho giờ bắt đầu, giờ kết thúc và tính/không tính khấu trừ."
       ],
       "invariant_id": "LABOR-BULK-REALTIME-007",
-      "state": "LOCKED_REQUIREMENT_PENDING_FIX",
+      "state": "TECHNICAL_PASS_AWAITING_OWNER",
       "source_command_ids": [
         "CMD-20260905-001",
         "CMD-20260905-003"
-      ]
+      ],
+      "technical_evidence": {
+        "version_name": "0.4.2-beta.128",
+        "source_sha": "5569d1e931436e02d118ed8ab57f2143de43b9f7",
+        "candidate_run_id": 33980153560,
+        "candidate_artifact_id": 9973576823,
+        "verify_run_id": 33980153560,
+        "verify_artifact_id": 9973660685,
+        "fast_check_run_id": 33981305129,
+        "control_plane_run_id": 33995041387,
+        "runtime_dod_run_id": 33981305147,
+        "runtime_dod_artifact_id": 9973871632,
+        "release_run_id": 33981578145,
+        "publish_artifact_id": 9973922070,
+        "pda_ota_artifact_id": 9973956942,
+        "apk_sha256": "04b135c554c6de6aa979b113a3435cec65063c87e79f232d8c8ea28e1d75f4ce",
+        "apk_size": 14461941,
+        "signer_sha256": "d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e",
+        "status": "PASS"
+      }
     },
     {
       "requirement_id": "R2-08",
@@ -153,11 +172,30 @@
         "Bấm/mở/lọc không còn reload-like, nhấp nháy hoặc giật lag."
       ],
       "invariant_id": "ATTENDANCE-LOCAL-FIRST-003",
-      "state": "LOCKED_REQUIREMENT_PENDING_FIX",
+      "state": "TECHNICAL_PASS_AWAITING_OWNER",
       "source_command_ids": [
         "CMD-20260905-001",
         "CMD-20260905-003"
-      ]
+      ],
+      "technical_evidence": {
+        "version_name": "0.4.2-beta.128",
+        "source_sha": "5569d1e931436e02d118ed8ab57f2143de43b9f7",
+        "candidate_run_id": 33980153560,
+        "candidate_artifact_id": 9973576823,
+        "verify_run_id": 33980153560,
+        "verify_artifact_id": 9973660685,
+        "fast_check_run_id": 33981305129,
+        "control_plane_run_id": 33995041387,
+        "runtime_dod_run_id": 33981305147,
+        "runtime_dod_artifact_id": 9973871632,
+        "release_run_id": 33981578145,
+        "publish_artifact_id": 9973922070,
+        "pda_ota_artifact_id": 9973956942,
+        "apk_sha256": "04b135c554c6de6aa979b113a3435cec65063c87e79f232d8c8ea28e1d75f4ce",
+        "apk_size": 14461941,
+        "signer_sha256": "d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e",
+        "status": "PASS"
+      }
     },
     {
       "requirement_id": "R2-10",
@@ -169,11 +207,30 @@
         "Luồng scan/result/back giữ đúng navigation thực tế và không làm UI chớp/reload."
       ],
       "invariant_id": "QR-INLINE-SHIFT-NAV-003",
-      "state": "LOCKED_REQUIREMENT_PENDING_FIX",
+      "state": "TECHNICAL_PASS_AWAITING_OWNER",
       "source_command_ids": [
         "CMD-20260905-001",
         "CMD-20260905-003"
-      ]
+      ],
+      "technical_evidence": {
+        "version_name": "0.4.2-beta.128",
+        "source_sha": "5569d1e931436e02d118ed8ab57f2143de43b9f7",
+        "candidate_run_id": 33980153560,
+        "candidate_artifact_id": 9973576823,
+        "verify_run_id": 33980153560,
+        "verify_artifact_id": 9973660685,
+        "fast_check_run_id": 33981305129,
+        "control_plane_run_id": 33995041387,
+        "runtime_dod_run_id": 33981305147,
+        "runtime_dod_artifact_id": 9973871632,
+        "release_run_id": 33981578145,
+        "publish_artifact_id": 9973922070,
+        "pda_ota_artifact_id": 9973956942,
+        "apk_sha256": "04b135c554c6de6aa979b113a3435cec65063c87e79f232d8c8ea28e1d75f4ce",
+        "apk_size": 14461941,
+        "signer_sha256": "d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e",
+        "status": "PASS"
+      }
     },
     {
       "requirement_id": "R2-11",
@@ -186,11 +243,30 @@
         "Rà soát toàn app: các màn bị tác động giữ realtime UI update mượt và đúng canonical state."
       ],
       "invariant_id": "UI-REALTIME-100MS-006",
-      "state": "LOCKED_REQUIREMENT_PENDING_FIX",
+      "state": "TECHNICAL_PASS_AWAITING_OWNER",
       "source_command_ids": [
         "CMD-20260905-001",
         "CMD-20260905-003"
-      ]
+      ],
+      "technical_evidence": {
+        "version_name": "0.4.2-beta.128",
+        "source_sha": "5569d1e931436e02d118ed8ab57f2143de43b9f7",
+        "candidate_run_id": 33980153560,
+        "candidate_artifact_id": 9973576823,
+        "verify_run_id": 33980153560,
+        "verify_artifact_id": 9973660685,
+        "fast_check_run_id": 33981305129,
+        "control_plane_run_id": 33995041387,
+        "runtime_dod_run_id": 33981305147,
+        "runtime_dod_artifact_id": 9973871632,
+        "release_run_id": 33981578145,
+        "publish_artifact_id": 9973922070,
+        "pda_ota_artifact_id": 9973956942,
+        "apk_sha256": "04b135c554c6de6aa979b113a3435cec65063c87e79f232d8c8ea28e1d75f4ce",
+        "apk_size": 14461941,
+        "signer_sha256": "d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e",
+        "status": "PASS"
+      }
     },
     {
       "requirement_id": "R3-12",
@@ -202,10 +278,29 @@
         "Các ô nhập Scan QR, DO và Số kiện nổi bật, dễ nhìn nhưng không thay đổi logic nhập/quét hiện hành."
       ],
       "invariant_id": "DROP-LAYOUT-INPUT-004",
-      "state": "LOCKED_REQUIREMENT_PENDING_FIX",
+      "state": "TECHNICAL_PASS_AWAITING_OWNER",
       "source_command_ids": [
         "CMD-20260905-003"
-      ]
+      ],
+      "technical_evidence": {
+        "version_name": "0.4.2-beta.128",
+        "source_sha": "5569d1e931436e02d118ed8ab57f2143de43b9f7",
+        "candidate_run_id": 33980153560,
+        "candidate_artifact_id": 9973576823,
+        "verify_run_id": 33980153560,
+        "verify_artifact_id": 9973660685,
+        "fast_check_run_id": 33981305129,
+        "control_plane_run_id": 33995041387,
+        "runtime_dod_run_id": 33981305147,
+        "runtime_dod_artifact_id": 9973871632,
+        "release_run_id": 33981578145,
+        "publish_artifact_id": 9973922070,
+        "pda_ota_artifact_id": 9973956942,
+        "apk_sha256": "04b135c554c6de6aa979b113a3435cec65063c87e79f232d8c8ea28e1d75f4ce",
+        "apk_size": 14461941,
+        "signer_sha256": "d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e",
+        "status": "PASS"
+      }
     }
   ],
   "governance": {
@@ -214,15 +309,28 @@
     "source_command_ids": [
       "CMD-20260905-002"
     ],
-    "status": "LOCKED_REQUIREMENT_PENDING_FIX",
-    "technical_evidence": {}
+    "status": "TECHNICAL_PASS_AWAITING_OWNER",
+    "technical_evidence": {
+      "control_plane_run_id": 33995041387,
+      "recovery_run_id": 33995062256,
+      "status": "PASS",
+      "note": "Bootstrap/hash/ledger/finalizer recovery verified; app/service/APK bytes unchanged by recovery."
+    }
   },
   "release_binding": {
-    "mode": "CANDIDATE_TARGET",
+    "mode": "CURRENT_RELEASE",
     "base_live_version_name": "0.4.2-beta.127",
-    "target_version_name": "0.4.2-beta.128",
-    "target_version_code": 134
+    "live_version_name": "0.4.2-beta.128",
+    "live_version_code": 134,
+    "candidate_source_sha": "5569d1e931436e02d118ed8ab57f2143de43b9f7",
+    "candidate_run_id": 33980153560,
+    "candidate_artifact_id": 9973576823,
+    "apk_sha256": "04b135c554c6de6aa979b113a3435cec65063c87e79f232d8c8ea28e1d75f4ce",
+    "apk_size": 14461941,
+    "terminal_run_id": 33981578145,
+    "ota_readback_status": "PASS",
+    "owner_acceptance": "PENDING"
   },
   "semantics_sha256": "4ba607f61fd8877c1bbf0a86a69ac947e0fa0912e039e9f1085fb6d2e179eb90",
-  "scope_sha256": "6058c3463d6d7191f8ea5d829d4bf011b6c227047f23631479aa9a69352b146c"
+  "scope_sha256": "d0124805ffd1dcf386295828e9d998083a45274bd0eeba8c360308f92c69f2e1"
 }

@@ -30,9 +30,9 @@
 - owner_scope_id: OWNER_20260905_R3_DROP_REALTIME_BETA128
 - owner_scope_revision: 3
 - owner_scope_semantics_sha256: 4ba607f61fd8877c1bbf0a86a69ac947e0fa0912e039e9f1085fb6d2e179eb90
-- owner_scope_sha256: 6058c3463d6d7191f8ea5d829d4bf011b6c227047f23631479aa9a69352b146c
+- owner_scope_sha256: d0124805ffd1dcf386295828e9d998083a45274bd0eeba8c360308f92c69f2e1
 - owner_command_ledger: ops/owner-command-ledger.jsonl
 - owner_command_ledger_head: bbe7cd9e91e587f8fed342d18582077561cc43accc92a110303ee404ccdd3eab
 - owner_checklist_id: BETA128_OWNER_ACCEPTANCE_20260905_R3
 - owner_checklist_revision: 3
-- next_action: WAIT_FOR_OWNER_ACCEPTANCE_NUMBERED_CHECKLIST_1_TO_12
+- next_action: WAIT_FOR_OWNER_ACCEPTANCE_REQUIREMENTS_7_9_10_11_12
