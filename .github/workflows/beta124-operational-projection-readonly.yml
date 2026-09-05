@@ -1,0 +1,113 @@
+name: Beta124 operational projection read-only
+on:
+  push:
+    branches: [release/beta124-qr-postscan-owner-scope-20260905]
+    paths: [.github/workflows/beta124-operational-projection-readonly.yml]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+      GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+      GOOGLE_OAUTH_REFRESH_TOKEN: ${{ secrets.GOOGLE_OAUTH_REFRESH_TOKEN }}
+      D1_NAME: pick-pack-1291-service-prod
+      SHEET_ID: 1E7ZWz-4eMcBliQxDYBVoogIoeSYyiaXGwj0I6mbMm78
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '24'}
+      - name: Read canonical Service events and authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm --prefix service install --ignore-scripts --no-audit --no-fund >/dev/null
+          SQL="SELECT authority_epoch,authority_seq,mode,scope,service_generation FROM authority_state WHERE singleton_id=1; SELECT e.event_id,e.entity_id AS session_id,s.mnv,e.business_date,e.event_type,e.authority_seq,e.idempotency_key FROM events e JOIN attendance_sessions s ON s.session_id=e.entity_id WHERE e.event_type='ATTENDANCE_EXIT' AND e.business_date='2026-09-04' AND e.idempotency_key LIKE 'OLD_SESSION_BULK_EXIT|%' ORDER BY e.authority_seq; SELECT status,COUNT(*) n FROM sheet_replication_outbox GROUP BY status ORDER BY status; SELECT COUNT(*) n FROM events WHERE event_type='ATTENDANCE_EXIT' AND business_date='2026-09-04' AND idempotency_key LIKE 'OLD_SESSION_BULK_EXIT|%' GROUP BY idempotency_key HAVING COUNT(*)>1;"
+          npx --prefix service wrangler d1 execute "$D1_NAME" --remote --json --command "$SQL" > /tmp/d1.json
+      - name: Read Google operational projections
+        shell: bash
+        run: |
+          set -euo pipefail
+          TOKEN=$(curl -fsS -X POST https://oauth2.googleapis.com/token \
+            -d client_id="$GOOGLE_OAUTH_CLIENT_ID" \
+            -d client_secret="$GOOGLE_OAUTH_CLIENT_SECRET" \
+            -d refresh_token="$GOOGLE_OAUTH_REFRESH_TOKEN" \
+            -d grant_type=refresh_token | jq -r '.access_token')
+          test -n "$TOKEN" -a "$TOKEN" != null
+          python3 - <<'PY'
+          import os,urllib.parse
+          for sheet,rg,out in [('RA - VÀO TRONG CA','A:V','/tmp/ra.url'),('LỊCH SỬ NGHIỆP VỤ','A:M','/tmp/history.url')]:
+            full=f"'{sheet}'!{rg}"
+            open(out,'w').write('https://sheets.googleapis.com/v4/spreadsheets/'+os.environ['SHEET_ID']+'/values/'+urllib.parse.quote(full,safe='')+'?majorDimension=ROWS&valueRenderOption=FORMATTED_VALUE')
+          PY
+          curl -fsS -H "Authorization: Bearer $TOKEN" "$(cat /tmp/ra.url)" > /tmp/ra.json
+          curl -fsS -H "Authorization: Bearer $TOKEN" "$(cat /tmp/history.url)" > /tmp/history.json
+      - name: Verify Event ID, session, employee and semantics
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          raw=json.load(open('/tmp/d1.json'))
+          sets=[]
+          def walk(v):
+            if isinstance(v,dict):
+              if isinstance(v.get('results'),list): sets.append(v['results'])
+              for x in v.values(): walk(x)
+            elif isinstance(v,list):
+              for x in v: walk(x)
+          walk(raw)
+          auth=next(r for s in sets for r in s if isinstance(r,dict) and 'authority_epoch' in r)
+          events=[r for s in sets for r in s if isinstance(r,dict) and r.get('event_type')=='ATTENDANCE_EXIT' and str(r.get('idempotency_key','')).startswith('OLD_SESSION_BULK_EXIT|')]
+          outbox=[r for s in sets for r in s if isinstance(r,dict) and 'status' in r and 'n' in r]
+          dup=[r for s in sets for r in s if isinstance(r,dict) and set(r)=={'n'}]
+          assert auth['mode']=='SERVICE_PRIMARY' and auth['scope']=='PRODUCTION' and int(auth['authority_epoch'])==9,auth
+          assert len(events)==200,('expected_200_events',len(events))
+          assert len({r['event_id'] for r in events})==200
+          assert len({r['idempotency_key'] for r in events})==200
+          assert not dup,dup
+          counts={r['status']:int(r['n']) for r in outbox}
+          assert counts.get('INFLIGHT',0)==0 and counts.get('PENDING',0)==0 and counts.get('RETRY',0)==0,counts
+          ra=json.load(open('/tmp/ra.json')).get('values',[])
+          hist=json.load(open('/tmp/history.json')).get('values',[])
+          assert ra and hist
+          rh=ra[0]; hh=hist[0]
+          def idx(h,n):
+            assert n in h,(n,h); return h.index(n)
+          ri={n:idx(rh,n) for n in ['Mã nhân viên','Loại thao tác','Event ID']}
+          hi={n:idx(hh,n) for n in ['Session ID','Mã nhân viên','Loại sự kiện','Nhãn sự kiện','Event ID']}
+          ra_by={}
+          for row in ra[1:]:
+            eid=row[ri['Event ID']].strip() if len(row)>ri['Event ID'] else ''
+            if eid: ra_by.setdefault(eid,[]).append(row)
+          hi_by={}
+          for row in hist[1:]:
+            eid=row[hi['Event ID']].strip() if len(row)>hi['Event ID'] else ''
+            if eid: hi_by.setdefault(eid,[]).append(row)
+          missing_ra=[]; missing_hi=[]; bad_ra=[]; bad_hi=[]
+          for e in events:
+            eid=e['event_id']; mnv=str(e['mnv']); sid=e['session_id']
+            rr=ra_by.get(eid,[]); hr=hi_by.get(eid,[])
+            if len(rr)!=1: missing_ra.append((eid,len(rr)))
+            else:
+              r=rr[0]; op=(r[ri['Loại thao tác']] if len(r)>ri['Loại thao tác'] else '').strip().upper()
+              rm=(r[ri['Mã nhân viên']] if len(r)>ri['Mã nhân viên'] else '').strip()
+              if rm!=mnv or not ('RA' in op or 'EXIT' in op): bad_ra.append((eid,rm,op,mnv))
+            if len(hr)!=1: missing_hi.append((eid,len(hr)))
+            else:
+              r=hr[0]; hs=(r[hi['Session ID']] if len(r)>hi['Session ID'] else '').strip(); hm=(r[hi['Mã nhân viên']] if len(r)>hi['Mã nhân viên'] else '').strip(); ht=(r[hi['Loại sự kiện']] if len(r)>hi['Loại sự kiện'] else '').strip().upper(); hl=(r[hi['Nhãn sự kiện']] if len(r)>hi['Nhãn sự kiện'] else '').strip().lower()
+              if hs!=sid or hm!=mnv or ht!='ATTENDANCE_EXIT' or 'ra ca' not in hl: bad_hi.append((eid,hs,hm,ht,hl,sid,mnv))
+          summary={'status':'PASS' if not(missing_ra or missing_hi or bad_ra or bad_hi) else 'FAIL','authority':auth,'event_count':len(events),'outbox':counts,'ra_unique_matches':200-len(missing_ra),'history_unique_matches':200-len(missing_hi),'missing_ra':missing_ra[:20],'missing_history':missing_hi[:20],'bad_ra':bad_ra[:20],'bad_history':bad_hi[:20]}
+          open('/tmp/summary.json','w').write(json.dumps(summary,ensure_ascii=False,indent=2))
+          print(json.dumps({k:v for k,v in summary.items() if k not in ['missing_ra','missing_history','bad_ra','bad_history']},ensure_ascii=False))
+          assert summary['status']=='PASS',summary
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: beta124-operational-projection-readonly
+          path: /tmp/summary.json
+          retention-days: 14
