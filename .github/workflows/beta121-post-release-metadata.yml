@@ -45,7 +45,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 tools/beta121_post_release_metadata.py current
-          git -C current diff --name-only > /tmp/changed.txt
+          { git -C current diff --name-only; git -C current ls-files --others --exclude-standard; } | sort -u > /tmp/changed.txt
           cat /tmp/changed.txt
           grep -Fxq 'CURRENT_STATE.md' /tmp/changed.txt
           grep -Fxq 'docs/STABLE_INVARIANTS.md' /tmp/changed.txt
