@@ -78,6 +78,19 @@ def sync(root: Path, scope: dict) -> None:
         update_pointer(path, "owner_command_ledger_head", scope["ledger_head_event_sha256"])
 
 
+def sync_release_request(root: Path, scope: dict) -> None:
+    path = root / "ops/beta-release-request.json"
+    req = json.loads(path.read_text())
+    req["owner_scope"] = scope["scope_id"]
+    req["owner_checklist_revision"] = scope["revision"]
+    by_number = {x["checklist_number"]: x for x in scope["requirements"]}
+    for item in req["owner_checklist"]:
+        scoped = by_number[item["id"]]
+        item["title"] = scoped["title"]
+        item["acceptance"] = scoped["acceptance"]
+    path.write_text(json.dumps(req, ensure_ascii=False, indent=2) + "\n")
+
+
 def run(root: Path, *args: str, expect: int = 0, needle: str | None = None) -> str:
     proc = subprocess.run(
         [sys.executable, "tools/owner_scope_guard.py", *args],
@@ -107,19 +120,21 @@ def prepare() -> tuple[tempfile.TemporaryDirectory, Path]:
 
 
 def main() -> None:
-    # Baseline canonical snapshot must bootstrap.
     td, root = prepare()
     try:
         run(root, "--bootstrap", needle="BOOTSTRAP_PASS")
     finally:
         td.cleanup()
 
-    # State-only change is valid without a new OWNER command/revision.
+    # State/evidence-only transitions are valid without a new OWNER command or revision.
     td, root = prepare()
     try:
         scope_path = root / "ops/OWNER_SCOPE_CURRENT.json"
         scope = json.loads(scope_path.read_text())
-        scope["governance"]["status"] = "ACTIVE_PASS" if scope["governance"]["status"] != "ACTIVE_PASS" else "TECHNICAL_PASS_AWAITING_OWNER"
+        scope["governance"]["status"] = (
+            "ACTIVE_PASS" if scope["governance"]["status"] != "ACTIVE_PASS"
+            else "TECHNICAL_PASS_AWAITING_OWNER"
+        )
         rehash(scope)
         scope_path.write_text(json.dumps(scope, ensure_ascii=False, indent=2) + "\n")
         sync(root, scope)
@@ -127,7 +142,7 @@ def main() -> None:
     finally:
         td.cleanup()
 
-    # Semantic drift with no OWNER command must fail.
+    # Semantic drift with no OWNER command must fail at semantic authority fence.
     td, root = prepare()
     try:
         scope_path = root / "ops/OWNER_SCOPE_CURRENT.json"
@@ -136,11 +151,12 @@ def main() -> None:
         rehash(scope)
         scope_path.write_text(json.dumps(scope, ensure_ascii=False, indent=2) + "\n")
         sync(root, scope)
+        sync_release_request(root, scope)
         run(root, "--base-ref", "HEAD", expect=1, needle="SEMANTICS_CHANGED_WITHOUT_NEW_OWNER_COMMAND")
     finally:
         td.cleanup()
 
-    # Semantic drift with valid new OWNER event but no revision bump must fail.
+    # New OWNER event without revision bump must still fail.
     td, root = prepare()
     try:
         ledger_path = root / "ops/owner-command-ledger.jsonl"
@@ -167,6 +183,7 @@ def main() -> None:
         rehash(scope)
         scope_path.write_text(json.dumps(scope, ensure_ascii=False, indent=2) + "\n")
         sync(root, scope)
+        sync_release_request(root, scope)
         run(root, "--base-ref", "HEAD", expect=1, needle="SEMANTICS_CHANGED_WITHOUT_REVISION_BUMP")
     finally:
         td.cleanup()
@@ -184,7 +201,7 @@ def main() -> None:
     finally:
         td.cleanup()
 
-    # Handoff must never duplicate OWNER checklist.
+    # Handoff must never duplicate the OWNER checklist.
     td, root = prepare()
     try:
         handoff = root / "docs/handovers/HANDOVER_CURRENT.md"
