@@ -1,8 +1,8 @@
 {
-  "run_id": 33950367448,
-  "run_sha": "c7c3717b0fb4f527b39523cb1f08987eaf83a111",
+  "run_id": 33953298213,
+  "run_sha": "760246475585542d4094d435f871291c22aeed91",
   "ref": "release/beta124-qr-postscan-owner-scope-20260905",
-  "execution_nonce": "beta124-build-verify-20260905-01",
-  "stage": "BUILD_VERIFY",
-  "observed_at": "2026-09-05T06:38:31Z"
+  "execution_nonce": "beta124-verify-only-20260905-01",
+  "stage": "VERIFY_ONLY",
+  "observed_at": "2026-09-05T07:42:50Z"
 }
