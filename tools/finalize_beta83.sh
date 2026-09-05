@@ -16,6 +16,14 @@ SOURCE=$(jq -r '.source_sha' "$R")
 SHA=$(jq -r '.apk_sha256' "$R")
 SIZE=$(jq -r '.apk_size' "$R")
 SIGNER=$(jq -r '.signer_sha256' "$R")
+OWNER_SCOPE=$(jq -r '.owner_scope // "UNSPECIFIED_SCOPE"' "$R")
+SERVICE_STATUS=$(jq -r '.service_gate_status // "UNKNOWN"' "$R")
+SERVICE_RUN=$(jq -r '.service_gate_run_id // empty' "$R")
+SERVICE_ARTIFACT=$(jq -r '.service_gate_artifact_id // empty' "$R")
+RELEASE_NOTES=$(jq -r '.release_notes[]? | "- " + .' "$R")
+
+test "$OWNER_SCOPE" != "null"
+test "$SERVICE_STATUS" != "null"
 
 jq -e --arg v "$VERSION" --arg p "$PKG" --arg h "$SHA" --argjson z "$SIZE" '
   .status=="PASS" and .version_name==$v and .package==$p and .apk_sha256==$h and .apk_size==$z and
@@ -84,7 +92,7 @@ cat > CURRENT_STATE.md <<EOF
 - signer_sha256: $SIGNER
 - terminal_run: $GITHUB_RUN_ID
 - fast_check: PASS
-- service_gate: $(jq -r '.service_gate' "$R")
+- service_gate: $SERVICE_STATUS / run $SERVICE_RUN / artifact $SERVICE_ARTIFACT
 - visual_matrix: PASS 320x568 / 360x640 / 480x800
 - human_visual: PASS
 - pda_functional_pre_ota: PASS
@@ -95,6 +103,8 @@ cat > CURRENT_STATE.md <<EOF
 - stable: unchanged
 - main_sha: $MAIN
 - authority: $AUTH_MODE / $AUTH_SCOPE / epoch $AUTH_EPOCH / generation $AUTH_GEN
+- technical_pass_status: PASS
+- owner_acceptance: PENDING
 - next_action: WAIT_FOR_OWNER_ACCEPTANCE_NUMBERED_CHECKLIST
 EOF
 
@@ -111,41 +121,36 @@ cat > docs/handovers/HANDOVER_CURRENT.md <<EOF
 - archive_file: $ARCH
 
 ## Mục tiêu + DoD
-Release $VERSION Technical PASS/LIVE cho scope $(jq -r '.scope' "$R"); toàn bộ pre-OTA + GitHub Release exact bytes + OTA install/readback + finalizer PASS; OWNER acceptance còn PENDING.
+Release $VERSION Technical PASS/LIVE cho OWNER scope $OWNER_SCOPE; toàn bộ pre-OTA + GitHub Release exact bytes + OTA install/readback + finalizer PASS; OWNER acceptance còn PENDING.
 
 ## LIVE / TARGET / CANDIDATE
 - LIVE BETA: $VERSION / versionCode $CODE / package $PKG.
 - TARGET: PASS/LIVE.
 - CANDIDATE LOCKED: run $(jq -r '.candidate_run_id' "$R"); artifact $(jq -r '.candidate_artifact_id' "$R"); source $SOURCE; SHA256 $SHA; size $SIZE; signer $SIGNER.
 - Fast Check: PASS run $(jq -r '.fast_check_run_id' "$R").
-- Service: $(jq -r '.service_gate' "$R").
+- Service: $SERVICE_STATUS / run $SERVICE_RUN / artifact $SERVICE_ARTIFACT.
 - Visual/PDA pre-OTA: PASS run $(jq -r '.verify_run_id' "$R"), artifact $(jq -r '.verify_artifact_id' "$R").
 - Human visual 320x568 / 360x640 / 480x800: PASS.
+- Runtime DoD: $(jq -r '.runtime_dod_status' "$R") / run $(jq -r '.runtime_dod_run_id' "$R") / artifact $(jq -r '.runtime_dod_artifact_id' "$R").
+- Beta domain/readback: $(jq -r '.beta_domain_status' "$R") / run $(jq -r '.beta_domain_run_id' "$R") / artifact $(jq -r '.beta_domain_artifact_id' "$R").
 - Stable/main/signer/authority: unchanged.
 
-## Evidence
-- 3 ô Mạng / Đồng bộ / Dịch vụ ghim trên cùng ở mọi màn scope: PASS.
-- QR nhân sự local fast-path giữ nguyên; functional + service regression PASS.
-- Điểm danh chỉ chấp nhận ACTIVE session đúng business_date hiện tại; ACTIVE phiên cũ bị chặn: PASS.
-- Cảnh báo chưa điểm danh ở trên cùng Nghiệp vụ; USER không thấy/deep-link được Lịch sử: PASS.
-- GitHub Release asset exact bytes khớp candidate SHA256/size; OTA tải trực tiếp từ GitHub Release: PASS.
-- OTA $PREV → $VERSION: download/install exact SHA/size/version/package/signer và mở app: PASS.
-- Google Drive APK: FORBIDDEN từ Beta97; không backup/staging/mirror/upload/download/rollback/phân phối APK qua Drive.
+## OWNER scope đã Technical PASS
+$RELEASE_NOTES
 
-## Lỗi/root cause/PASS path
-- VERIFY_ONLY harness cũ đếm text guard HISTORY cứng; sửa verifier semantics và exact candidate PASS.
-- Publish cũ có luồng Drive APK song song và DriveApp/public APK bị Google chặn; loại bỏ toàn bộ Drive dependency khỏi Beta APK pipeline.
-- Canonical Beta APK path: GitHub Actions exact candidate → GitHub Release exact asset → GAS manifest GitHub URL → OTA install/readback → finalizer.
-- Rollback canonical: exact LIVE baseline GitHub Actions/GitHub Release → atomic Beta manifest restore; không dùng Drive APK.
-- Candidate được build/sign đúng một lần; mọi recovery dùng exact locked bytes, không rebuild/resign.
+## Release evidence
+- GitHub Release asset exact bytes khớp candidate SHA256/size và source SHA: PASS.
+- OTA $PREV → $VERSION: download/install exact SHA/size/version/package/signer và mở app: PASS.
+- Google Drive APK: FORBIDDEN; OTA/rollback chỉ GitHub Release exact bytes.
+- Stable/main/signer/authority không đổi.
+
+## Regression/recovery
+- Candidate build/sign đúng một lần; mọi verify/recovery dùng exact locked bytes, không rebuild/resign.
+- OTA baseline nếu cần recovery phải phục hồi exact previous LIVE trước target activation và fail-closed nếu SHA/size/readback lệch.
+- Finalizer dùng canonical owner_scope + service_gate_status; không được sinh scope/service null.
 
 ## Blocker
 Không có.
-
-## Invariants
-- Stable/main/signer/authority không đổi.
-- APK Beta release/OTA/rollback = GITHUB_RELEASE_ONLY.
-- Google Drive không được dùng cho APK; GSheet/GAS nghiệp vụ không bị xóa/thay authority.
 
 ## NEXT_ACTION
 WAIT_FOR_OWNER_ACCEPTANCE_NUMBERED_CHECKLIST
@@ -178,6 +183,7 @@ test "$(git rev-parse "origin/$BRANCH")" = "$FINAL"
 test "$(git show "origin/$BRANCH:CURRENT_STATE.md"|grep -c "$BETA_STATUS")" = 1
 test "$(git show "origin/$BRANCH:CURRENT_STATE.md"|grep -c 'google_drive_apk: FORBIDDEN')" = 1
 test "$(git show "origin/$BRANCH:docs/handovers/HANDOVER_CURRENT.md"|grep -c 'status: READY')" = 1
+test "$(git show "origin/$BRANCH:docs/handovers/HANDOVER_CURRENT.md"|grep -c 'null')" = 0
 test "$(git show "origin/$BRANCH:ops/beta-ota-current.json"|jq -r '.source')" = "GITHUB_RELEASE"
 test "$(git show "origin/$BRANCH:ops/beta-ota-current.json"|jq -r '.google_drive_apk')" = "FORBIDDEN"
 
