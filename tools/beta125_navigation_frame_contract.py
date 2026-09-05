@@ -6,7 +6,10 @@ notes=Path('app/src/main/java/vn/pickpack1291/app/beta/ReleaseNotes.kt').read_te
 assert 'versionCode = 131' in gradle
 assert 'versionName = "0.4.2-beta.125"' in gradle
 assert 'VERSION_NAME = "0.4.2-beta.125"' in notes
-set_screen=ops[ops.index('private fun setScreen(content:View)'):ops.index('private fun handleBackNavigation')]
+start=ops.index('private fun setScreen(content:View)')
+next_fun=ops.find('\n    private fun ', start+len('private fun setScreen(content:View)'))
+assert next_fun>start, 'SETSCREEN_NEXT_FUNCTION_NOT_FOUND'
+set_screen=ops[start:next_fun]
 for token in [
     'setOf("EMPLOYEE_LOADING","EMPLOYEE","EMPLOYEE_LOOKUP_ERROR")',
     'val sameEmployeeFrame=displayedModule==module&&displayedScreenState in employeeFrameStates&&screenState in employeeFrameStates',
@@ -14,7 +17,6 @@ for token in [
     'screenBackStack.addLast(ScreenSnapshot('
 ]: assert token in set_screen, token
 # Actual navigation history semantics remains stack-based and one Back restores the prior real snapshot.
-nav=ops[ops.index('private fun handleBackNavigation'):ops.index('private fun body()') if ops.index('private fun body()')>ops.index('private fun handleBackNavigation') else len(ops)]
 assert 'if(screenBackStack.isNotEmpty())navigateBack()' in ops
 assert 'val snapshot=screenBackStack.removeLast()' in ops
 # Beta124 bug must stay fixed: pre-scan roster present, result renderer never appends it.
