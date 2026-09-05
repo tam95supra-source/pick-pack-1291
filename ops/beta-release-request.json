@@ -1,6 +1,6 @@
 {
-  "stage": "PUBLISH",
-  "mode": "PUBLISH_EXACT_LOCKED_BETA_GITHUB_RELEASE_ONLY",
+  "stage": "pass_live",
+  "mode": "PASS_LIVE_EXACT_BYTES_GITHUB_RELEASE_ONLY",
   "version_name": "0.4.2-beta.122",
   "version_code": 128,
   "base_version": "0.4.2-beta.121",
@@ -24,7 +24,7 @@
   "human_visual_receipt": "ops/beta122-human-visual-receipt.json",
   "rebuild": false,
   "resign": false,
-  "live": false,
+  "live": true,
   "stable_publish": "FORBIDDEN",
   "authority_change": "NONE",
   "release_notes": [
@@ -46,7 +46,11 @@
   "fast_check": "PASS",
   "fast_check_run_id": 33937614821,
   "human_visual_pass": true,
-  "human_visual_sizes": ["320x568", "360x640", "480x800"],
+  "human_visual_sizes": [
+    "320x568",
+    "360x640",
+    "480x800"
+  ],
   "visual_matrix": "PASS",
   "visual_verify_run_id": 33937614831,
   "visual_verify_artifact_id": 9960788555,
@@ -83,11 +87,13 @@
   "apk_transport": "GITHUB_RELEASE_ONLY",
   "google_drive_apk": "FORBIDDEN",
   "execution_nonce": "beta122-publish-exact-20260905-02",
-  "next_action": "PUBLISH_EXACT_BETA122_OTA_AND_POST_OTA_VERIFY",
+  "next_action": "WAIT_FOR_OWNER_ACCEPTANCE_NUMBERED_CHECKLIST",
   "owner_scope": "OWNER_20260905_BETA122_EFFECTIVE_ROLE_PDA_SOURCE_UI",
   "owner_checklist_id": "BETA122_OWNER_ACCEPTANCE_20260905_R1",
   "owner_checklist_revision": 1,
-  "technical_pass_status": "PENDING",
-  "owner_acceptance": "PENDING_FIX",
-  "ota_readback_status": "PENDING"
+  "technical_pass_status": "PASS",
+  "owner_acceptance": "PENDING",
+  "ota_readback_status": "PASS",
+  "publish_run_id": "33938535151",
+  "ota_readback_run_id": 33938535151
 }
