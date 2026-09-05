@@ -1,6 +1,6 @@
 {
-  "stage": "PUBLISH",
-  "mode": "BETA127_OWNER_R2_FALSE_PASS_REMEDIATION",
+  "stage": "pass_live",
+  "mode": "PASS_LIVE_EXACT_BYTES_GITHUB_RELEASE_ONLY",
   "version_name": "0.4.2-beta.127",
   "version_code": 133,
   "base_version": "0.4.2-beta.126",
@@ -22,7 +22,7 @@
   "release_lock_status": "PRE_OTA_ALL_GATES_PASS",
   "rebuild": false,
   "resign": false,
-  "live": false,
+  "live": true,
   "stable_publish": "FORBIDDEN",
   "authority_change": "NONE",
   "release_notes": [
@@ -198,7 +198,9 @@
       ]
     }
   ],
-  "technical_pass_status": "PENDING",
+  "technical_pass_status": "PASS",
   "owner_acceptance": "PENDING",
-  "ota_readback_status": "PENDING"
+  "ota_readback_status": "PASS",
+  "publish_run_id": "33969468377",
+  "ota_readback_run_id": 33969468377
 }

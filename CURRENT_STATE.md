@@ -1,35 +1,32 @@
 # CURRENT STATE — PICK PACK 1291
 
-- updated_at: 2026-09-05T12:14:00Z
-- status: BETA126_PASS_LIVE
-- continuity_branch: release/beta126-owner-scope-20260905
-- source_sha: 9bfcad4bb218d5865fe6ae220352c44cd4bd8cf0
-- beta_live: 0.4.2-beta.126 (versionCode 132)
+- updated_at: 2026-09-05T13:41:45Z
+- status: BETA127_PASS_LIVE
+- continuity_branch: release/beta127-owner-r2-complete-20260905
+- source_sha: 014ea67eb05773d0d61593f705c2171b5ec574ee
+- beta_live: 0.4.2-beta.127 (versionCode 133)
 - package: vn.pickpack1291.app.beta.publicbeta
-- candidate_run: 33963619992
-- candidate_artifact: 9968783758
-- verify_run: 33963619992
-- verify_artifact: 9968868014
-- apk_sha256: 211229dff3bcabc8151b4753914a3439185b5bbfe69fcad9f3faecbfa4fac4bb
+- candidate_run: 33967758178
+- candidate_artifact: 9970037896
+- verify_run: 33967758178
+- verify_artifact: 9970125449
+- apk_sha256: 922dd571c8e8d6cb5e6d8dbe7fd4f3d73433e14a9f35a50a78d97bf64fa9fbf7
 - apk_size: 14461941
 - signer_sha256: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
-- terminal_run: 33964725581
+- terminal_run: 33969468377
 - fast_check: PASS
+- service_gate: NOT_REQUIRED
 - visual_matrix: PASS 320x568 / 360x640 / 480x800
 - human_visual: PASS
 - pda_functional_pre_ota: PASS
-- fresh_discovery_device: PASS run 33964502604 artifact 9969005524
-- runtime_dod: PASS run 33964635091 artifact 9969035647
-- beta_ota: exact 0.4.2-beta.126 PASS via GitHub Release
-- beta_ota_url: https://github.com/tam95supra-source/pick-pack-1291/releases/download/v0.4.2-beta.126-publicbeta/pick-pack-1291-public-beta-0.4.2-beta.126.apk
+- beta_ota: exact 0.4.2-beta.127 PASS via GitHub Release
+- beta_ota_url: https://github.com/tam95supra-source/pick-pack-1291/releases/download/v0.4.2-beta.127-publicbeta/pick-pack-1291-public-beta-0.4.2-beta.127.apk
 - apk_transport: GITHUB_RELEASE_ONLY
 - google_drive_apk: FORBIDDEN
 - stable: unchanged
 - main_sha: 021dac5c6932b3ac5c60ce8fdba562ddf3d9688f
 - authority: SERVICE_PRIMARY / PRODUCTION / epoch 9 / generation m2-prod-reset-20260823-001
-- owner_scope: OWNER_20260905_CHAT_ORIGINAL_10_PLUS_GLOBAL_REALTIME_BETA126
-- owner_checklist_id: BETA126_OWNER_ACCEPTANCE_20260905_R2
+- owner_scope: OWNER_20260905_CHAT_ORIGINAL_10_PLUS_GLOBAL_REALTIME_BETA127
+- owner_checklist_id: BETA127_OWNER_ACCEPTANCE_20260905_R2
 - owner_checklist_revision: 2
-- technical_pass_status: PASS
-- owner_acceptance: PENDING
-- next_action: WAIT_FOR_OWNER_ACCEPTANCE_NUMBERED_CHECKLIST_1_TO_11
+- next_action: PUBLISH_EXACT_LOCKED_CANDIDATE_THEN_OTA_READBACK
