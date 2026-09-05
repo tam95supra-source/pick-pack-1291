@@ -1,8 +1,8 @@
 {
-  "run_id": 33955316061,
-  "run_sha": "753e9c57cda39d1945fa539c8e12c245204fe1bb",
+  "run_id": 33956897142,
+  "run_sha": "db487b125e48ded6aea05c054e52336fe70fb131",
   "ref": "release/beta125-navigation-frame-20260905",
-  "execution_nonce": "beta125-build-verify-20260905-01",
-  "stage": "BUILD_VERIFY",
-  "observed_at": "2026-09-05T08:27:47Z"
+  "execution_nonce": "beta125-verify-nav-diag-20260905-02",
+  "stage": "VERIFY_ONLY",
+  "observed_at": "2026-09-05T09:02:40Z"
 }
