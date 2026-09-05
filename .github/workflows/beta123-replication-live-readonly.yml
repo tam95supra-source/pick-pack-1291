@@ -29,7 +29,7 @@ jobs:
           node-version: '24'
       - name: Install exact service tooling
         run: npm --prefix service install --ignore-scripts --no-audit --no-fund
-      - name: Resolve current production authority and outbox read-only
+      - name: Read production authority and replication state
         shell: bash
         run: |
           set -euo pipefail
@@ -39,33 +39,26 @@ jobs:
           from pathlib import Path
           import re
           s=Path('.github/workflows/beta-release.yml').read_text(encoding='utf-8')
-          p=s.find('service-live-regression:')
-          if p<0: raise SystemExit('SERVICE_LIVE_JOB_NOT_FOUND')
-          m=re.search(r'(?m)^\s+D1_NAME:\s*([^\s#]+)',s[p:])
-          if not m: raise SystemExit('D1_NAME_NOT_FOUND_IN_CANONICAL_RELEASE')
-          print(m.group(1))
+          vals={m.group(1) for m in re.finditer(r'(?m)^\s+D1_NAME:\s*([A-Za-z0-9._-]+)\s*$',s)}
+          if len(vals)!=1:
+              raise SystemExit(f'D1_NAME_AUTHORITY_AMBIGUOUS:{sorted(vals)}')
+          print(next(iter(vals)))
           PY
           )
           echo "D1_NAME=$D1_NAME" >> "$GITHUB_ENV"
-          LIST=$(npx --prefix service wrangler d1 list --json)
-          D1_ID=$(node -e 'const a=JSON.parse(process.argv[1]);const n=process.argv[2];const x=a.filter(v=>v.name===n);if(x.length!==1)process.exit(2);process.stdout.write(x[0].uuid||x[0].id||"")' "$LIST" "$D1_NAME")
-          test -n "$D1_ID"
-          echo "::add-mask::$D1_ID"
-          printf '%s' "$D1_ID" > "$D/d1-id.txt"
           npx --prefix service wrangler d1 execute "$D1_NAME" --remote --json --command "SELECT authority_epoch,authority_seq,mode,scope,service_generation FROM authority_state WHERE singleton_id=1;" > "$D/authority.json"
           npx --prefix service wrangler d1 execute "$D1_NAME" --remote --json --command "SELECT target_identity,state,checkpoint,pending_count,retry_count,last_attempt_at,last_success_at,last_error_class,last_error,updated_at FROM replication_status WHERE singleton_id=1;" > "$D/replication-status.json"
           npx --prefix service wrangler d1 execute "$D1_NAME" --remote --json --command "SELECT status,COUNT(*) AS n,MIN(claimed_at) AS oldest_claimed_at,MAX(claimed_at) AS newest_claimed_at,MIN(attempt_count) AS min_attempts,MAX(attempt_count) AS max_attempts FROM sheet_replication_outbox GROUP BY status ORDER BY status;" > "$D/outbox-counts.json"
           npx --prefix service wrangler d1 execute "$D1_NAME" --remote --json --command "SELECT o.outbox_id,o.event_id,o.status,o.claim_token,o.claimed_at,o.attempt_count,o.next_attempt_at,o.replicated_at,o.google_checkpoint,o.last_error_class,o.last_error,e.event_type,e.entity_type,e.entity_id,e.business_date,e.authority_epoch,e.authority_seq,e.idempotency_key,e.origin,e.checksum FROM sheet_replication_outbox o JOIN events e ON e.event_id=o.event_id WHERE o.status='INFLIGHT' ORDER BY o.claimed_at,o.outbox_id;" > "$D/inflight.json"
           npx --prefix service wrangler d1 execute "$D1_NAME" --remote --json --command "SELECT e.event_type,COUNT(*) AS n FROM sheet_replication_outbox o JOIN events e ON e.event_id=o.event_id WHERE o.status='INFLIGHT' GROUP BY e.event_type ORDER BY n DESC,e.event_type;" > "$D/inflight-types.json"
           npx --prefix service wrangler d1 execute "$D1_NAME" --remote --json --command "SELECT idempotency_key,COUNT(*) AS n FROM events WHERE idempotency_key IN (SELECT e.idempotency_key FROM sheet_replication_outbox o JOIN events e ON e.event_id=o.event_id WHERE o.status='INFLIGHT') GROUP BY idempotency_key HAVING COUNT(*)>1 ORDER BY n DESC,idempotency_key LIMIT 200;" > "$D/idempotency-duplicates.json"
-      - name: Resolve the single live Worker read-only
+      - name: Resolve current live Worker read-only
         shell: bash
         run: |
           set -euo pipefail
           D=/tmp/beta123-replication-readonly
           GEN=$(node -e 'const j=require(process.argv[1]),r=j?.[0]?.results?.[0];if(!r||r.mode!=="SERVICE_PRIMARY"||r.scope!=="PRODUCTION"||!r.service_generation)process.exit(2);process.stdout.write(String(r.service_generation))' "$D/authority.json")
-          EPOCH=$(node -e 'const j=require(process.argv[1]),r=j?.[0]?.results?.[0];process.stdout.write(String(r?.authority_epoch??""))' "$D/authority.json")
-          test -n "$GEN" -a -n "$EPOCH"
+          EPOCH=$(node -e 'const j=require(process.argv[1]),r=j?.[0]?.results?.[0];if(!r?.authority_epoch)process.exit(2);process.stdout.write(String(r.authority_epoch))' "$D/authority.json")
           curl -fsS -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts" > "$D/scripts.json"
           curl -fsS -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/subdomain" > "$D/subdomain.json"
           SUBDOMAIN=$(jq -er '.result.subdomain' "$D/subdomain.json")
@@ -73,8 +66,8 @@ jobs:
           while IFS= read -r name; do
             [[ "$name" == pick-pack-1291* || "$name" == pickpack* ]] || continue
             url="https://${name}.${SUBDOMAIN}.workers.dev"
-            http=$(curl -sS --connect-timeout 8 --max-time 15 -o "$D/health-${name}.json" -w '%{http_code}' "$url/health" || printf 000)
-            if [[ "$http" =~ ^2 ]] && jq -e --arg gen "$GEN" --argjson epoch "$EPOCH" '.ok==true and .environment=="production" and (.generation|tostring)==$gen and .authority.mode=="SERVICE_PRIMARY" and .authority.scope=="PRODUCTION" and .authority.authority_epoch==$epoch' "$D/health-${name}.json" >/dev/null 2>&1; then
+            code=$(curl -sS --connect-timeout 8 --max-time 15 -o "$D/health-${name}.json" -w '%{http_code}' "$url/health" || printf 000)
+            if [[ "$code" =~ ^2 ]] && jq -e --arg gen "$GEN" --argjson epoch "$EPOCH" '.ok==true and .environment=="production" and (.generation|tostring)==$gen and .authority.mode=="SERVICE_PRIMARY" and .authority.scope=="PRODUCTION" and .authority.authority_epoch==$epoch' "$D/health-${name}.json" >/dev/null 2>&1; then
               printf '%s\t%s\n' "$name" "$url" >> "$D/healthy.tsv"
             fi
           done < <(jq -r '.result[]? | .id // empty' "$D/scripts.json")
@@ -83,15 +76,13 @@ jobs:
           printf '%s' "$WORKER_NAME" > "$D/worker-name.txt"
           printf '%s' "$SERVICE_URL" > "$D/service-url.txt"
           curl -fsS "$SERVICE_URL/health" > "$D/health-live.json"
-      - name: Read technical replica event ids without mutation
+      - name: Read technical replica event ids
         shell: bash
         run: |
           set -euo pipefail
           D=/tmp/beta123-replication-readonly
-          TARGET=$(node -e 'const j=require(process.argv[1]),r=j?.[0]?.results?.[0];process.stdout.write(String(r?.target_identity||""))' "$D/replication-status.json")
-          test -n "$TARGET"
+          TARGET=$(node -e 'const j=require(process.argv[1]),r=j?.[0]?.results?.[0];if(!r?.target_identity)process.exit(2);process.stdout.write(String(r.target_identity))' "$D/replication-status.json")
           echo "::add-mask::$TARGET"
-          printf '%s' "$TARGET" > "$D/target-identity.txt"
           TOKEN=$(curl -fsS https://oauth2.googleapis.com/token \
             --data-urlencode "client_id=$GOOGLE_OAUTH_CLIENT_ID" \
             --data-urlencode "client_secret=$GOOGLE_OAUTH_CLIENT_SECRET" \
@@ -113,16 +104,16 @@ jobs:
               jq -n --arg code "$code" '{available:false,http_code:$code}' > "$D/technical-replica.json"
             fi
           fi
-      - name: Build current-state diagnosis
+      - name: Build read-only diagnosis
         shell: bash
         run: |
           set -euo pipefail
           D=/tmp/beta123-replication-readonly
           python3 - "$D" <<'PY'
-          import json,sys,pathlib,datetime,collections
+          import json,sys,pathlib,collections
           D=pathlib.Path(sys.argv[1])
           def rows(name):
-              raw=json.load(open(D/name,encoding='utf-8'));out=[]
+              raw=json.load(open(D/name,encoding='utf-8')); out=[]
               def walk(x):
                   if isinstance(x,dict):
                       if isinstance(x.get('results'),list): out.extend(v for v in x['results'] if isinstance(v,dict))
@@ -138,10 +129,9 @@ jobs:
           authority=rows('authority.json'); repl=rows('replication-status.json'); counts=rows('outbox-counts.json'); inflight=rows('inflight.json'); types=rows('inflight-types.json'); dup=rows('idempotency-duplicates.json')
           tech=json.load(open(D/'technical-replica.json',encoding='utf-8'))
           tech_ids={str(r[0]) for r in tech.get('values',[]) if isinstance(r,list) and r}
-          inflight_ids={str(r.get('event_id','')) for r in inflight}
+          inflight_ids={str(r.get('event_id','')) for r in inflight if r.get('event_id')}
           present=sorted(inflight_ids & tech_ids); missing=sorted(inflight_ids-tech_ids)
-          claim_tokens=[str(r.get('claim_token') or '') for r in inflight]
-          by_claim=collections.Counter(claim_tokens)
+          claims=[str(r.get('claim_token') or '') for r in inflight]; by_claim=collections.Counter(claims)
           report={
             'status':'READ_ONLY_PASS',
             'authority':authority[0] if authority else {},
@@ -150,7 +140,7 @@ jobs:
             'inflight_count':len(inflight),
             'inflight_types':types,
             'inflight_unique_event_ids':len(inflight_ids),
-            'inflight_unique_claim_tokens':len({x for x in claim_tokens if x}),
+            'inflight_unique_claim_tokens':len({x for x in claims if x}),
             'largest_claim_batch':max(by_claim.values(),default=0),
             'idempotency_duplicate_keys':len(dup),
             'technical_replica_available':bool(tech.get('available')),
@@ -163,7 +153,8 @@ jobs:
           }
           json.dump(report,open(D/'summary.json','w',encoding='utf-8'),ensure_ascii=False,indent=2)
           print(json.dumps({k:v for k,v in report.items() if k not in ('technical_present_event_ids','technical_missing_event_ids')},ensure_ascii=False,indent=2))
-          if not authority or authority[0].get('mode')!='SERVICE_PRIMARY' or authority[0].get('scope')!='PRODUCTION': raise SystemExit('AUTHORITY_NOT_PRODUCTION_SERVICE_PRIMARY')
+          if not authority or authority[0].get('mode')!='SERVICE_PRIMARY' or authority[0].get('scope')!='PRODUCTION':
+              raise SystemExit('AUTHORITY_NOT_PRODUCTION_SERVICE_PRIMARY')
           PY
       - uses: actions/upload-artifact@v4
         with:
