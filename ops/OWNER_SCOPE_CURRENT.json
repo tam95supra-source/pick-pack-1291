@@ -4,7 +4,7 @@
   "owner": "Nguyễn Văn Tâm",
   "scope_id": "OWNER_20260906_R4_LIVE_SYNC_SEED100",
   "revision": 4,
-  "scope_status": "LOCKED_REQUIREMENT_PENDING_FIX",
+  "scope_status": "TECHNICAL_PASS_AWAITING_OWNER",
   "source_of_truth": "ops/OWNER_SCOPE_CURRENT.json",
   "migration_source": "OWNER CMD-20260906-005 + CMD-20260906-006 over Beta128 accepted baseline",
   "owner_command_ledger": "ops/owner-command-ledger.jsonl",
@@ -342,10 +342,19 @@
         "Có regression chứng minh post-release commit hợp lệ vẫn hội tụ beta/current về exact LIVE mới nhất."
       ],
       "invariant_id": "LIVE-CURRENT-SYNC-001",
-      "state": "LOCKED_REQUIREMENT_PENDING_FIX",
+      "state": "TECHNICAL_PASS_AWAITING_OWNER",
       "source_command_ids": [
         "CMD-20260906-006"
-      ]
+      ],
+      "technical_evidence": {
+        "current_sync_workflow_run": 33999149835,
+        "control_plane_guard_run": 33999375429,
+        "finalizer_self_sync_patch_run": 33999580468,
+        "mechanism": "workflow post-release push + same-job finalizer fast-forward",
+        "fast_forward_only": true,
+        "monotonic": true,
+        "stable_main_unchanged": true
+      }
     },
     {
       "requirement_id": "R4-14",
@@ -358,11 +367,29 @@
         "Readback xác minh đủ exact 100 phiên, không trùng, đúng phân bố ca, không có exit; kiểm tra bounded để phục vụ đo quota/mức chịu tải mà không tự tạo tải đọc bất thường."
       ],
       "invariant_id": "OWNER-LOAD-SEED-100-001",
-      "state": "LOCKED_REQUIREMENT_PENDING_FIX",
+      "state": "TECHNICAL_PASS_AWAITING_OWNER",
       "source_command_ids": [
         "CMD-20260906-005",
         "CMD-20260906-006"
-      ]
+      ],
+      "technical_evidence": {
+        "seed_run": 33999517691,
+        "receipt": "ops/owner-r4-seed100-receipt.json",
+        "count": 100,
+        "shifts": {
+          "Ca 1": 95,
+          "Ca HC": 5
+        },
+        "pda": 30,
+        "pack_tables": 28,
+        "hy1_outbound_user_pick": 30,
+        "review": 100,
+        "attendance": 100,
+        "events": 100,
+        "outbox": 100,
+        "no_exit": 100,
+        "stable_main_unchanged": true
+      }
     }
   ],
   "governance": {
@@ -395,5 +422,5 @@
     "owner_acceptance_receipt": "ops/beta128-owner-acceptance.json"
   },
   "semantics_sha256": "be0d473b1042f7a36fc8606e5d5f5202819faa67b167289fb70cabb3d5c817de",
-  "scope_sha256": "d64c6b601d4f54893a00405b6368cc3bfd15f948d367adfc7fb18db58ca3c63b"
+  "scope_sha256": "d8f8afe6b6946630f2ba722b5232269eb01b58fd4174ac5fc8e3cb120de2827c"
 }

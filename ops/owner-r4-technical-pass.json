@@ -1,0 +1,13 @@
+{
+  "status": "TECHNICAL_PASS_AWAITING_OWNER",
+  "scope_id": "OWNER_20260906_R4_LIVE_SYNC_SEED100",
+  "revision": 4,
+  "semantics_sha256": "be0d473b1042f7a36fc8606e5d5f5202819faa67b167289fb70cabb3d5c817de",
+  "scope_sha256": "d8f8afe6b6946630f2ba722b5232269eb01b58fd4174ac5fc8e3cb120de2827c",
+  "requirements": [
+    "R4-13",
+    "R4-14"
+  ],
+  "next_action": "WAIT_FOR_OWNER_ACCEPTANCE_REQUIREMENTS_13_14",
+  "stable_main_unchanged": true
+}
