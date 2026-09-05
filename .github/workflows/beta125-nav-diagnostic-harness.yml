@@ -1,0 +1,33 @@
+name: Beta125 nav diagnostic harness
+on:
+  push:
+    branches: [release/beta125-navigation-frame-20260905]
+    paths:
+      - '.github/workflows/beta125-nav-diagnostic-harness.yml'
+      - 'tools/beta125_nav_diag_harness.py'
+permissions:
+  contents: write
+concurrency:
+  group: beta125-nav-diagnostic-harness
+  cancel-in-progress: false
+jobs:
+  patch:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - name: Apply diagnostic harness only
+        run: |
+          set -euo pipefail
+          python3 tools/beta125_nav_diag_harness.py
+          git diff --check
+      - name: Commit harness
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add tools/Beta83UiChecksInstrumentation.java
+          git commit -m 'test(beta125): capture QR navigation stack around Back'
+          git pull --rebase origin release/beta125-navigation-frame-20260905
+          git push origin HEAD:release/beta125-navigation-frame-20260905
