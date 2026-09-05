@@ -1,0 +1,103 @@
+name: Beta122 finalize owner pending registry
+
+on:
+  push:
+    branches:
+      - beta/current
+    paths:
+      - .github/workflows/beta122-finalize-registry.yml
+
+permissions:
+  contents: write
+
+jobs:
+  finalize-registry:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Patch canonical invariant state
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          evidence = "0.4.2-beta.122 Technical PASS/LIVE; source fd26d18b0ae81cbc919824141f3670a3fe3b276e; candidate 33937101147/9960620587; Service inherited PASS 33929895214/9958376646 (service/GAS bytes unchanged); Fast Check 33937614821; visual+PDA+API36 33937614831/9960788555 + human PASS 43 screenshots 320x568/360x640/480x800; device/discovery 33938053451/9960858682; runtime DoD 33938184655/9960886189; Beta domain inherited PASS 33934032820/9959551837; terminal publish/OTA/install/open/readback/finalize 33938535151; publish 9960999680; OTA device 9961036406; final 9961041181; SHA256 b06d1cf470fa840f53c9641397bf16cdfa3ce5d20651349f4ac3bb6e0ef4b54b; size 14429173; signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged."
+
+          def section(text, start, end=None):
+              a=text.index(start)
+              b=text.index(end,a) if end else len(text)
+              return a,b,text[a:b]
+
+          p=Path('docs/STABLE_INVARIANTS.md')
+          t=p.read_text()
+          assert '### UI-STATUS-DETAIL-VI-003\n- Status: ACTIVE_PASS' in t
+          assert '### SETTINGS-REGION-INHOUSE-DROP-001\n- Status: ACTIVE_PASS' in t
+
+          a,b,s=section(t,'### SUPERADMIN-EFFECTIVE-ROLE-003','### SETTINGS-REGION-INHOUSE-DROP-001')
+          s=s.replace('- Status: LOCKED_REQUIREMENT_PENDING_FIX','- Status: TECHNICAL_PASS_AWAITING_OWNER',1)
+          lines=s.splitlines()
+          lines=[('- Technical evidence: '+evidence) if x.startswith('- Technical evidence:') else ('- OWNER acceptance: PENDING RECHECK — Beta122 đã sửa hạ quyền nghiệp vụ thực sự theo effective USER/ADMIN; chờ OWNER nghiệm thu lại item 2.') if x.startswith('- OWNER acceptance:') else x for x in lines]
+          s='\n'.join(lines)+'\n\n'
+          t=t[:a]+s+t[b:]
+
+          a,b,s=section(t,'### PDA-SOURCE-MASTER-001','### Beta121 re-verification')
+          s=s.replace('- Status: LOCKED_REQUIREMENT_PENDING_FIX','- Status: TECHNICAL_PASS_AWAITING_OWNER',1)
+          lines=s.splitlines()
+          lines=[('- Technical evidence: '+evidence) if x.startswith('- Technical evidence:') else ('- OWNER acceptance: PENDING RECHECK — Beta122 đã bổ sung Nguồn trong thông tin/chọn/đổi-trả/danh sách và form thêm-sửa PDA; chờ OWNER nghiệm thu lại item 4.') if x.startswith('- OWNER acceptance:') else x for x in lines]
+          s='\n'.join(lines)+'\n\n'
+          t=t[:a]+s+t[b:]
+          if '## Beta122 follow-up — TECHNICAL_PASS_AWAITING_OWNER items 2/4' not in t:
+              t += '\n\n## Beta122 follow-up — TECHNICAL_PASS_AWAITING_OWNER items 2/4\n\n- Technical receipt: `ops/beta122-technical-pass.json`.\n- `SUPERADMIN-EFFECTIVE-ROLE-003`: TECHNICAL_PASS_AWAITING_OWNER.\n- `PDA-SOURCE-MASTER-001`: TECHNICAL_PASS_AWAITING_OWNER.\n- `UI-STATUS-DETAIL-VI-003` và `SETTINGS-REGION-INHOUSE-DROP-001` tiếp tục ACTIVE_PASS theo OWNER acceptance Beta121; không hồi quy.\n- OTA-BETA-001 semantics giữ nguyên; Beta122 exact GitHub Release/OTA/install/readback/finalize PASS run 33938535151.\n'
+          p.write_text(t)
+
+          p=Path('qa/stable_invariants.yml')
+          t=p.read_text()
+          assert 'id: UI-STATUS-DETAIL-VI-003\n    status: ACTIVE_PASS' in t
+          assert 'id: SETTINGS-REGION-INHOUSE-DROP-001\n    status: ACTIVE_PASS' in t
+
+          a,b,s=section(t,'  - id: SUPERADMIN-EFFECTIVE-ROLE-003','  - id: SETTINGS-REGION-INHOUSE-DROP-001')
+          s=s.replace('status: LOCKED_REQUIREMENT_PENDING_FIX','status: TECHNICAL_PASS_AWAITING_OWNER',1)
+          lines=s.splitlines()
+          lines=[('    technical_evidence: "'+evidence+'"') if x.strip().startswith('technical_evidence:') else ('    technical_receipt: "ops/beta122-technical-pass.json"') if x.strip().startswith('technical_receipt:') else ('    owner_acceptance: "PENDING RECHECK — Beta122 fixed effective USER/ADMIN business-permission downgrade; OWNER item 2 pending recheck."') if x.strip().startswith('owner_acceptance:') else x for x in lines]
+          s='\n'.join(lines)+'\n\n'
+          t=t[:a]+s+t[b:]
+
+          a,b,s=section(t,'  - id: PDA-SOURCE-MASTER-001')
+          s=s.replace('status: LOCKED_REQUIREMENT_PENDING_FIX','status: TECHNICAL_PASS_AWAITING_OWNER',1)
+          lines=s.splitlines()
+          lines=[('    technical_evidence: "'+evidence+'"') if x.strip().startswith('technical_evidence:') else ('    technical_receipt: "ops/beta122-technical-pass.json"') if x.strip().startswith('technical_receipt:') else ('    owner_acceptance: "PENDING RECHECK — Beta122 fixed PDA Nguồn display/select/edit flow; OWNER item 4 pending recheck."') if x.strip().startswith('owner_acceptance:') else x for x in lines]
+          s='\n'.join(lines)
+          t=t[:a]+s
+          p.write_text(t)
+
+          # Fail closed: exactly the intended two items are awaiting OWNER; accepted items remain active.
+          inv=Path('docs/STABLE_INVARIANTS.md').read_text()
+          reg=Path('qa/stable_invariants.yml').read_text()
+          for x in (inv,reg):
+              assert 'UI-STATUS-DETAIL-VI-003' in x and 'SETTINGS-REGION-INHOUSE-DROP-001' in x
+              assert 'SUPERADMIN-EFFECTIVE-ROLE-003' in x and 'PDA-SOURCE-MASTER-001' in x
+          PY
+          git diff --check
+          python3 - <<'PY'
+          from pathlib import Path
+          t=Path('qa/stable_invariants.yml').read_text()
+          for ident,expect in [('UI-STATUS-DETAIL-VI-003','ACTIVE_PASS'),('SETTINGS-REGION-INHOUSE-DROP-001','ACTIVE_PASS'),('SUPERADMIN-EFFECTIVE-ROLE-003','TECHNICAL_PASS_AWAITING_OWNER'),('PDA-SOURCE-MASTER-001','TECHNICAL_PASS_AWAITING_OWNER')]:
+              s=t[t.index('  - id: '+ident):]
+              s=s.split('\n  - id:',1)[0]
+              assert f'status: {expect}' in s,(ident,expect)
+          print('BETA122_REGISTRY_FINALIZE_PASS')
+          PY
+      - name: Commit canonical registry update and remove one-shot workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/beta122-finalize-registry.yml
+          git add docs/STABLE_INVARIANTS.md qa/stable_invariants.yml
+          git commit -m "[skip ci] lock Beta122 technical PASS awaiting OWNER 2/4"
+          git push origin HEAD:beta/current
