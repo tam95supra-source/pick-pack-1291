@@ -672,16 +672,17 @@ impact_map:
     active_pass: true
 
   - id: SUPERADMIN-EFFECTIVE-ROLE-003
-    status: LOCKED_REQUIREMENT_PENDING_FIX
+    status: TECHNICAL_PASS_AWAITING_OWNER
     scope: superadmin-effective-role
     parent_invariant: SUPERADMIN_AUTH_002
     rule: "Chỉ actual SUPERADMIN được chọn effective USER/ADMIN/SUPERADMIN; quyền nghiệp vụ hạ theo effective role; non-super không tự nâng quyền."
     regression_minimum: [actual_super_guard, effective_user, effective_admin, effective_superadmin, no_non_super_elevation, auth_session_preserved]
     regression_case: "tools/beta121_owner_ui_pda_source_contract.py"
-    technical_evidence: "0.4.2-beta.121 Technical PASS/LIVE; source ee482efb41565eee797b9b6c11fe54557c2b67f8; candidate 33929895214/9958252319; Service 33929895214/9958376646; Fast Check 33932137056; visual+PDA+API36 33932137068/9959024622 + human PASS 43 screenshots 320x568/360x640/480x800; device/discovery 33932666498/9959133081; runtime DoD 33933735030/9959507710; Beta domain 33934032820/9959551837; OTA baseline recovery 33934523152/9959702930; terminal publish/OTA/install/open/readback/finalize 33934142254; publish 9959732997; OTA device 9959773897; final 9959777958; SHA256 5b042c8e1f6d288ef19efe9abc773562c204fb3defd91396e4101adcedc8cc57; size 14429173; signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged."
-    technical_receipt: "ops/beta121-technical-pass.json"
-    owner_acceptance: "NOT OK — khi hạ về USER vẫn thấy Lịch sử; OWNER yêu cầu toàn bộ quyền nghiệp vụ hạ thực sự như USER/ADMIN, chỉ bộ chọn quyền trong chi tiết Dịch vụ được giữ theo actual SUPERADMIN."
+    technical_evidence: "0.4.2-beta.122 Technical PASS/LIVE; source fd26d18b0ae81cbc919824141f3670a3fe3b276e; candidate 33937101147/9960620587; Service inherited PASS 33929895214/9958376646 (service/GAS bytes unchanged); Fast Check 33937614821; visual+PDA+API36 33937614831/9960788555 + human PASS 43 screenshots 320x568/360x640/480x800; device/discovery 33938053451/9960858682; runtime DoD 33938184655/9960886189; Beta domain inherited PASS 33934032820/9959551837; terminal publish/OTA/install/open/readback/finalize 33938535151; publish 9960999680; OTA device 9961036406; final 9961041181; SHA256 b06d1cf470fa840f53c9641397bf16cdfa3ce5d20651349f4ac3bb6e0ef4b54b; size 14429173; signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged."
+    technical_receipt: "ops/beta122-technical-pass.json"
+    owner_acceptance: "PENDING RECHECK — Beta122 fixed effective USER/ADMIN business-permission downgrade; OWNER item 2 pending recheck."
     active_pass: false
+
 
   - id: SETTINGS-REGION-INHOUSE-DROP-001
     status: ACTIVE_PASS
@@ -696,13 +697,13 @@ impact_map:
     active_pass: true
 
   - id: PDA-SOURCE-MASTER-001
-    status: LOCKED_REQUIREMENT_PENDING_FIX
+    status: TECHNICAL_PASS_AWAITING_OWNER
     scope: pda-source-master
     parent_invariant: PDA-EXIT-001
     rule: "PDA Nguồn round-trip Android/GAS/Service; catalog 1291,1386,1368,1399,Inbound,Outbound; không mất source trong master data."
     regression_minimum: [source_field_android, gas_source_roundtrip, service_source_roundtrip, allowed_source_catalog, existing_pda_identity_preserved]
     regression_case: "tools/beta121_owner_ui_pda_source_contract.py"
-    technical_evidence: "0.4.2-beta.121 Technical PASS/LIVE; source ee482efb41565eee797b9b6c11fe54557c2b67f8; candidate 33929895214/9958252319; Service 33929895214/9958376646; Fast Check 33932137056; visual+PDA+API36 33932137068/9959024622 + human PASS 43 screenshots 320x568/360x640/480x800; device/discovery 33932666498/9959133081; runtime DoD 33933735030/9959507710; Beta domain 33934032820/9959551837; OTA baseline recovery 33934523152/9959702930; terminal publish/OTA/install/open/readback/finalize 33934142254; publish 9959732997; OTA device 9959773897; final 9959777958; SHA256 5b042c8e1f6d288ef19efe9abc773562c204fb3defd91396e4101adcedc8cc57; size 14429173; signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged."
-    technical_receipt: "ops/beta121-technical-pass.json"
-    owner_acceptance: "NOT OK — Nguồn chưa hiển thị trong thông tin PDA và danh sách PDA ở Tài nguyên; data/GSheet đã có nhưng Android UI/edit chưa hoàn tất."
+    technical_evidence: "0.4.2-beta.122 Technical PASS/LIVE; source fd26d18b0ae81cbc919824141f3670a3fe3b276e; candidate 33937101147/9960620587; Service inherited PASS 33929895214/9958376646 (service/GAS bytes unchanged); Fast Check 33937614821; visual+PDA+API36 33937614831/9960788555 + human PASS 43 screenshots 320x568/360x640/480x800; device/discovery 33938053451/9960858682; runtime DoD 33938184655/9960886189; Beta domain inherited PASS 33934032820/9959551837; terminal publish/OTA/install/open/readback/finalize 33938535151; publish 9960999680; OTA device 9961036406; final 9961041181; SHA256 b06d1cf470fa840f53c9641397bf16cdfa3ce5d20651349f4ac3bb6e0ef4b54b; size 14429173; signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; Stable/main/authority unchanged."
+    technical_receipt: "ops/beta122-technical-pass.json"
+    owner_acceptance: "PENDING RECHECK — Beta122 fixed PDA Nguồn display/select/edit flow; OWNER item 4 pending recheck."
     active_pass: false
