@@ -1,5 +1,5 @@
 name: Owner R5 quota circuit dirty-due v2
-# rerun after metering legacy bootstrap Sheets reads
+# rerun after metering beta44 owner Sheets write
 
 on:
   push:
@@ -34,8 +34,8 @@ jobs:
       - name: Apply quota circuit patch
         run: |
           set -euo pipefail
-          python3 -m py_compile tools/r5_quota_circuit_apply.py tools/r5_quota_circuit_apply_v2.py tools/r5_quota_circuit_apply_v3.py tools/r5_quota_circuit_apply_v4.py tools/r5_quota_circuit_apply_v5.py tools/r5_quota_circuit_apply_v6.py
-          python3 tools/r5_quota_circuit_apply_v6.py
+          python3 -m py_compile tools/r5_quota_circuit_apply.py tools/r5_quota_circuit_apply_v2.py tools/r5_quota_circuit_apply_v3.py tools/r5_quota_circuit_apply_v4.py tools/r5_quota_circuit_apply_v5.py tools/r5_quota_circuit_apply_v6.py tools/r5_quota_circuit_apply_v7.py
+          python3 tools/r5_quota_circuit_apply_v7.py
       - name: Compile service
         run: |
           set -euo pipefail
@@ -86,7 +86,7 @@ jobs:
           assert files
           q=Path('service/src/quota_budget.ts').read_text()
           assert 'hard_limit' not in q
-          assert 'GOOGLE_SHEETS_DAILY",250' not in q and 'GOOGLE_SHEETS_PROJECT_MINUTE",100' not in q
+          assert 'GOOGLE_SHEETS_DAILY\",250' not in q and 'GOOGLE_SHEETS_PROJECT_MINUTE\",100' not in q
           e=Path('service/src/entry_product.ts').read_text()
           assert 'catalog-source-30m' in e and 'repair-dirty-5m' in e and 'repair-30m' not in e
           d=Path('service/src/document_management.ts').read_text()
@@ -97,6 +97,7 @@ jobs:
           assert Path('service/src/beta47_history_audit.ts').read_text().count('requireSheetsCall') >= 3
           assert Path('service/src/dr.ts').read_text().count('requireSheetsCall') >= 3
           assert Path('service/src/bootstrap.ts').read_text().count('requireSheetsCall') >= 3
+          assert Path('service/src/beta44_owner.ts').read_text().count('requireSheetsCall') >= 2
           print('R5_METERING_DIRTY_DUE_PASS files='+','.join(files))
           PY
           git diff --check
@@ -105,7 +106,7 @@ jobs:
           set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add service/src/replication.ts service/src/master_replication.ts service/src/beta47_projection.ts service/src/session_hotfix.ts service/src/outbound_beta78.ts service/src/document_management.ts service/src/entry_product.ts service/src/bootstrap_resumable.ts service/src/beta47_history_audit.ts service/src/dr.ts service/src/bootstrap.ts
+          git add service/src/replication.ts service/src/master_replication.ts service/src/beta47_projection.ts service/src/session_hotfix.ts service/src/outbound_beta78.ts service/src/document_management.ts service/src/entry_product.ts service/src/bootstrap_resumable.ts service/src/beta47_history_audit.ts service/src/dr.ts service/src/bootstrap.ts service/src/beta44_owner.ts
           test -n "$(git diff --cached --name-only)"
           git diff --cached --check
           git commit -m 'perf(r5): meter Sheets quota and run repair only when dirty'
