@@ -1,0 +1,40 @@
+name: Owner R5 Beta130 commit-visible timing fix
+on:
+  push:
+    branches: [work/r5-beta130-timeline-20260906]
+    paths:
+      - tools/r5_beta130_convergence_timing_fix.py
+      - .github/workflows/owner-r5-beta130-convergence-timing-fix.yml
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Canonical rev6 guard
+        run: |
+          set -euo pipefail
+          python3 tools/owner_scope_guard.py --bootstrap
+          test "$(jq -r '.scope_id' ops/OWNER_SCOPE_CURRENT.json)" = OWNER_20260906_R5_QUOTA_REALTIME
+          test "$(jq -r '.revision' ops/OWNER_SCOPE_CURRENT.json)" = 6
+      - name: Patch timing and recovery harness only
+        run: |
+          set -euo pipefail
+          python3 tools/r5_beta130_convergence_timing_fix.py
+          python3 tools/r5_quota_realtime_guard.py
+          git diff --check
+          git diff --quiet HEAD -- app service google-apps-script
+          git diff --exit-code -- app service google-apps-script
+      - name: Commit harness-only fix
+        run: |
+          set -euo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add tools/r5_service_convergence_gate.sh .github/workflows/owner-r5-beta130-service-harness-fix.yml
+          git diff --cached --quiet && { echo NO_PATCH; exit 1; }
+          git commit -m 'test(r5): measure commit-to-visible and repair recovery'
+          git push origin HEAD:work/r5-beta130-timeline-20260906
