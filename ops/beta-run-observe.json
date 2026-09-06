@@ -1,8 +1,8 @@
 {
-  "run_id": 34032260106,
-  "run_sha": "4435980e326c53ed9defd884ad4fc4bc389e1501",
+  "run_id": 34037749573,
+  "run_sha": "36190c8e29992202bf49010ccdf0330c16250ed3",
   "ref": "release/beta130-r5-rev6-20260906",
-  "execution_nonce": "beta130-r5-rev6-service-only-20260906-04",
+  "execution_nonce": "beta130-r5-rev6-service-only-20260906-05",
   "stage": "SERVICE_ONLY",
-  "observed_at": "2026-09-06T12:09:18Z"
+  "observed_at": "2026-09-06T13:59:32Z"
 }
