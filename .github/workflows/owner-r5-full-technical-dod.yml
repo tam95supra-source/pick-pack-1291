@@ -1,0 +1,69 @@
+name: Owner R5 full technical DoD preprod
+
+on:
+  push:
+    branches:
+      - work/r5-quota-realtime-20260906
+    paths:
+      - .github/workflows/owner-r5-full-technical-dod.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: owner-r5-full-technical-dod-preprod
+  cancel-in-progress: false
+
+jobs:
+  integrated:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.4.1'
+      - name: Canonical scope and handoff guards
+        run: |
+          set -euo pipefail
+          python3 tools/owner_scope_guard.py --bootstrap
+          python3 tools/finalizer_handoff_contract.py
+      - name: Service and Android compile
+        run: |
+          set -euo pipefail
+          npm --prefix service install --ignore-scripts --no-audit --no-fund --package-lock=false
+          npm --prefix service run check
+          gradle :app:compileBetaDebugKotlin --no-daemon --stacktrace
+      - name: O1 status load 0 1540 10000
+        run: |
+          set -euo pipefail
+          python3 tools/r5_quota_realtime_guard.py
+      - name: Integrated architecture quota and failure contracts
+        run: |
+          set -euo pipefail
+          python3 tools/r5_full_technical_dod.py
+          node --check service/public/app.js
+          git diff --check
+      - name: Source safety and no protected release mutation
+        run: |
+          set -euo pipefail
+          test "$(jq -r '.scope_id' ops/OWNER_SCOPE_CURRENT.json)" = "OWNER_20260906_R5_QUOTA_REALTIME"
+          test "$(jq -r '.requirements[] | select(.requirement_id==\"R5-15\") | .state' ops/OWNER_SCOPE_CURRENT.json)" = "LOCKED_REQUIREMENT_PENDING_FIX"
+          test "$(jq -r '.stage' ops/beta-release-request.json)" = "pass_live"
+          echo R5_PREPROD_RELEASE_FENCE_PASS
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: owner-r5-full-technical-dod-preprod-${{ github.run_id }}
+          path: /tmp/r5-full-dod
+          retention-days: 30
+          if-no-files-found: error
