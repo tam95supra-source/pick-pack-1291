@@ -155,6 +155,11 @@ function eventStatements(db: D1Database, event: EventRow, expectedSeq: number): 
     db.prepare(`INSERT INTO events(event_id,event_type,entity_type,entity_id,business_date,authority_epoch,authority_seq,service_generation,base_version,new_version,actor_id,actor_role,device_id,occurred_at,committed_at,payload_json,idempotency_key,origin,schema_version,checksum)
       VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20)`)
       .bind(event.event_id,event.event_type,event.entity_type,event.entity_id,event.business_date,event.authority_epoch,event.authority_seq,event.service_generation,event.base_version,event.new_version,event.actor_id,event.actor_role,event.device_id,event.occurred_at,event.committed_at,event.payload_json,event.idempotency_key,event.origin,event.schema_version,event.checksum),
+    db.prepare(`INSERT INTO day_revision_state(business_date,authority_epoch,service_generation,revision,updated_at) VALUES(?1,?2,?3,?4,?5)
+      ON CONFLICT(business_date,authority_epoch,service_generation) DO UPDATE SET
+        revision=CASE WHEN excluded.revision>day_revision_state.revision THEN excluded.revision ELSE day_revision_state.revision END,
+        updated_at=CASE WHEN excluded.revision>=day_revision_state.revision THEN excluded.updated_at ELSE day_revision_state.updated_at END`)
+      .bind(event.business_date,event.authority_epoch,event.service_generation,event.authority_seq,event.committed_at),
     db.prepare("INSERT INTO sheet_replication_outbox(event_id,status,next_attempt_at) VALUES(?1,'PENDING',?2)").bind(event.event_id,event.committed_at),
     db.prepare("INSERT INTO mutation_assertions(event_id,ok) VALUES(?1,1)").bind(event.event_id),
   ];

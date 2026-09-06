@@ -4,14 +4,17 @@ function utcKeys(d=new Date()):{day:string;minute:string}{
   const iso=d.toISOString();return{day:iso.slice(0,10),minute:iso.slice(0,16)};
 }
 function usageStmt(db:D1Database,windowKey:string,metric:string,count:number):D1PreparedStatement{
-  return db.prepare(`INSERT INTO quota_usage(window_key,metric,used,updated_at) VALUES(?1,?2,?3,strftime('%Y-%m-%dT%H:%M:%fZ','now'))
-    ON CONFLICT(window_key,metric) DO UPDATE SET used=used+excluded.used,updated_at=excluded.updated_at`).bind(windowKey,metric,count);
+  return db.prepare(`INSERT INTO quota_usage(window_key,metric,used,hard_limit,updated_at)
+    SELECT ?1,p.metric,?3,p.hard_limit,strftime('%Y-%m-%dT%H:%M:%fZ','now') FROM quota_policy p WHERE p.metric=?2
+    ON CONFLICT(window_key,metric) DO UPDATE SET
+      used=quota_usage.used+excluded.used,hard_limit=excluded.hard_limit,updated_at=excluded.updated_at`)
+    .bind(windowKey,metric,count);
 }
 
 /**
  * Reserve quota atomically before an actual Google Sheets API request.
  * Policy limits live in quota_policy (migration/config), not business logic.
- * D1 batch rollback on trigger abort guarantees daily/project/kind windows advance together or not at all.
+ * D1 batch rollback on named CHECK constraint guarantees daily/project/kind windows advance together or not at all.
  */
 export async function reserveSheetsCall(db:D1Database,kind:SheetsQuotaKind,count=1):Promise<boolean>{
   const n=Math.max(1,Math.min(100,Math.floor(count))),k=utcKeys(),metric=kind==="READ"?"GOOGLE_SHEETS_READ_MINUTE":"GOOGLE_SHEETS_WRITE_MINUTE";
@@ -23,7 +26,7 @@ export async function reserveSheetsCall(db:D1Database,kind:SheetsQuotaKind,count
     ]);
     return true;
   }catch(e){
-    if(String(e).includes("QUOTA_HARD_LIMIT"))return false;
+    if(String(e).includes("quota_hard_limit")||String(e).includes("CHECK constraint failed"))return false;
     throw e;
   }
 }

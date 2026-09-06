@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "status": "READY_NOT_LIVE",
+  "environment_id": "STABLE",
+  "service_audience": "PICK_PACK_1291_STABLE",
+  "implementation_contract": "R5-15/QUOTA-REALTIME-DELTA-001",
+  "shared_runtime_source": true,
+  "required_mechanisms": [
+    "O1_REVISION_STATUS",
+    "INDEXED_DELTA_CURSOR",
+    "SINGLE_FLIGHT_SYNC",
+    "COALESCED_WAKE",
+    "TERMINAL_OUTBOX",
+    "SHEETS_BATCH_METERING",
+    "DIRTY_DUE_SCHEDULING",
+    "QUOTA_CIRCUIT"
+  ],
+  "dynamic_bindings": [
+    "STABLE_DB",
+    "STABLE_GSHEET_API_URL",
+    "STABLE_FIREBASE_PROJECT_ID",
+    "STABLE_FIREBASE_GOOGLE_APP_ID",
+    "STABLE_FIREBASE_API_KEY",
+    "STABLE_FIREBASE_GCM_SENDER_ID"
+  ],
+  "activation": "OWNER_PROMOTE_ONLY",
+  "deploy_now": false
+}

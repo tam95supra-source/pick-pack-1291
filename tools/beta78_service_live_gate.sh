@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
+# Recovery callers may run this gate after a failed candidate migration. Make the service tree byte-exact to the base commit so candidate-only migrations cannot leak into rollback.
+if [[ -n "${BASE_SERVICE_SOURCE_SHA:-}" && -n "${SERVICE_SOURCE_SHA:-}" && "$SERVICE_SOURCE_SHA" == "$BASE_SERVICE_SOURCE_SHA" ]]; then
+  bash tools/restore_exact_service_tree.sh "$SERVICE_SOURCE_SHA"
+fi
+
 D=/tmp/beta78-service-live
 rm -rf "$D" && mkdir -p "$D"
 D1_NAME=pick-pack-1291-service-prod
