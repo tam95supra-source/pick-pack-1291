@@ -46,7 +46,7 @@ r5_service_convergence_gate(){
     done
   }
 
-  local trial status date cursor eid t0 ack i kind
+  local trial status date cursor eid t0 ack i kind ack_seq post post_date post_rev
   for trial in $(seq 1 "$trials"); do
     status="$out/status-$trial.json"
     r5_status "$status"
@@ -57,7 +57,15 @@ r5_service_convergence_gate(){
     t0=$(date +%s%3N)
     ack="r5-conv-ack-$trial"
     mutation_api "$ack" "{\"events\":[{\"action\":\"resilience_probe\",\"event_id\":\"$eid\",\"device_id\":\"$DEVICE\",\"payload\":{\"scenario\":\"R5_5_CLIENT_CONVERGENCE\",\"technical_probe\":true,\"occurred_at\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}}]}"
-    jq -e --arg e "$eid" '.ok==true and .results[0].local_event_id==$e and .results[0].status=="CONFIRMED" and .results[0].canonical_event_id==$e' "$D/$ack.json" >/dev/null
+    jq -e --arg e "$eid" '.ok==true and .results[0].local_event_id==$e and .results[0].status=="CONFIRMED" and .results[0].canonical_event_id==$e and (.results[0].authority_seq|type=="number")' "$D/$ack.json" >/dev/null
+    ack_seq=$(jq -r '.results[0].authority_seq' "$D/$ack.json")
+    post="$out/status-after-$trial.json"
+    curl -fsS --connect-timeout 10 --max-time 20 -H "Authorization: Bearer $TOKEN" "$SERVICE_URL/v1/sync/status" > "$post"
+    jq -e '.ok==true and .contract=="LOCAL_FIRST_REVISION_V1" and (.business_window|type=="array" and length>0)' "$post" >/dev/null
+    post_date=$(jq -r '.business_window[0].business_date' "$post")
+    post_rev=$(jq -r '.business_window[0].revision // 0' "$post")
+    [[ "$post_date" == "$date" && "$post_rev" =~ ^[0-9]+$ && "$ack_seq" =~ ^[0-9]+$ ]]
+    (( post_rev >= ack_seq )) || { echo "R5_DAY_REVISION_WATERMARK_STALE trial=$trial business_date=$date ack_seq=$ack_seq status_revision=$post_rev" >&2; return 44; }
     for i in 1 2 3 4 5; do
       kind=PDA; (( i <= 3 )) || kind=WEB
       r5_client_delta "$trial" "$i" "$kind" "$date" "$cursor" "$eid" "$t0" &
@@ -86,8 +94,6 @@ assert p99<=2000, f'R5_REMOTE_P99_EXCEEDED:{p99}'
 status_rows=[int(x) for x in (out/'status-rows.txt').read_text().splitlines() if x.strip()]
 delta_rows=[r['d1_rows_read'] for r in rows]
 max_status=max(status_rows); max_delta=max(delta_rows)
-# Canonical R5 max-day model, replacing the preprod 32/status and 6/delta assumptions
-# with fresh exact-service worst observed hot-path row costs.
 EVENTS=1540; CLIENTS=5; BATCH=100
 fixed=(EVENTS*40)+(1440*100)+(EVENTS*20)+100000
 reads=math.ceil(fixed+(EVENTS*CLIENTS*max_delta)+(CLIENTS*96*max_status))
@@ -115,6 +121,7 @@ receipt={
   },
   'reset_utc':'00:00',
   'before_baseline':{'run_id':34001866785,'rows_read_24h':3522525,'rows_written_24h':33136,'read_queries_24h':40820,'write_queries_24h':2098},
+  'regression_guards':['Every confirmed admin-audit resilience probe must advance the current business-day revision watermark to at least its authority_seq before fanout delta reads begin.'],
   'notes':['Five concurrent logical clients use the canonical current sync contract; PDA calls omit WEB override while WEB calls use client_source=WEB.','Normalized max-day substitutes fresh worst-observed status/delta D1 row costs into the canonical conservative 1540-event structural model.']
 }
 (out/'receipt.json').write_text(json.dumps(receipt,ensure_ascii=False,indent=2))
