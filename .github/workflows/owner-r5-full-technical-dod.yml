@@ -7,7 +7,16 @@ on:
       - work/r5-quota-realtime-20260906
     paths:
       - .github/workflows/owner-r5-full-technical-dod.yml
-      - tools/r5_quota_realtime_guard.py
+      - tools/r5*.py
+      - tools/owner_scope_guard.py
+      - tools/finalizer_handoff_contract.py
+      - ops/OWNER_SCOPE_CURRENT.json
+      - ops/owner-command-ledger.jsonl
+      - docs/handovers/**
+      - config/stable_r5_parity.json
+      - service/**
+      - app/build.gradle.kts
+      - app/src/main/**
 
 permissions:
   contents: read
