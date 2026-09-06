@@ -13,11 +13,19 @@ concurrency:
   cancel-in-progress: false
 jobs:
   patch-test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.4.1'
       - name: Canonical owner scope guard
         run: python3 tools/owner_scope_guard.py --bootstrap
       - name: Apply minimal incremental timeline patch
@@ -27,14 +35,18 @@ jobs:
           python3 tools/r5_quota_realtime_guard.py
           python3 tools/r5_full_technical_dod.py
       - name: Android compile
-        run: ./gradlew :app:compileBetaDebugKotlin :app:assembleBetaDebug --no-daemon
+        run: |
+          set -euo pipefail
+          gradle :app:compileBetaDebugKotlin --no-daemon --stacktrace
+          gradle :app:assembleBetaDebug --no-daemon --stacktrace
       - name: Commit exact Beta130 source
         run: |
           set -euo pipefail
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git add app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt app/build.gradle.kts
+          git diff --cached --check
           git diff --cached --quiet && { echo NO_PATCH_COMMIT >&2; exit 1; }
           git commit -m 'fix(r5): render employee timeline incrementally for Beta130'
           git push origin HEAD:${GITHUB_REF_NAME}
-# trigger: beta130-incremental-20260906-01
+# trigger: beta130-incremental-20260906-02
