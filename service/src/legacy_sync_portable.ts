@@ -11,21 +11,25 @@ interface ClientSyncRow{
 export async function m2ClientSyncStatus(db:D1Database):Promise<Record<string,unknown>>{
   const q=`WITH recent AS (
       SELECT business_date,sequence_no FROM business_dates ORDER BY sequence_no DESC LIMIT 7
+    ), current_authority AS (
+      SELECT authority_epoch,authority_seq,mode,scope,service_generation,updated_at FROM authority_state WHERE singleton_id=1
     ), rev AS (
-      SELECT recent.business_date,recent.sequence_no,MAX(COALESCE(events.authority_seq,0)) AS max_seq
-      FROM recent LEFT JOIN events ON events.business_date=recent.business_date
-      GROUP BY recent.business_date,recent.sequence_no
+      SELECT recent.business_date,recent.sequence_no,COALESCE(day_revision_state.revision,0) AS max_seq
+      FROM recent CROSS JOIN current_authority a
+      LEFT JOIN day_revision_state ON day_revision_state.business_date=recent.business_date
+        AND day_revision_state.authority_epoch=a.authority_epoch
+        AND day_revision_state.service_generation=a.service_generation
     ), meta AS (
       SELECT
         (SELECT business_date FROM business_dates ORDER BY sequence_no ASC LIMIT 1) AS server_retention_floor,
         COALESCE((SELECT pending_count FROM replication_status WHERE singleton_id=1),0) AS projection_pending,
-        COALESCE((SELECT MAX(source_row) FROM employees),0) AS master_revision
+        COALESCE((SELECT revision FROM revision_state WHERE namespace='employees'),0) AS master_revision
     )
     SELECT rev.business_date,rev.sequence_no,rev.max_seq,
       a.authority_epoch,a.authority_seq,a.mode,a.scope,a.service_generation,a.updated_at,
       meta.server_retention_floor,meta.projection_pending,meta.master_revision
-    FROM rev CROSS JOIN authority_state a CROSS JOIN meta
-    WHERE a.singleton_id=1 ORDER BY rev.sequence_no DESC`;
+    FROM rev CROSS JOIN current_authority a CROSS JOIN meta
+    ORDER BY rev.sequence_no DESC`;
   const result=await db.prepare(q).all<ClientSyncRow>(),rows=result.results??[],first=rows[0];
   if(!first)throw new Error("SYNC_STATUS_EMPTY");
   const dayRevisions:Record<string,number>={};for(const r of rows)dayRevisions[r.business_date]=Math.max(1,Number(r.max_seq??0));

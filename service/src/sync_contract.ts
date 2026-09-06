@@ -5,10 +5,14 @@ type Namespace="employees"|"catalogs"|"accounts"|"pda"|"user_pick"|"pack_table"|
 const NS=new Set<Namespace>(["employees","catalogs","accounts","pda","user_pick","pack_table","user_pack"]);
 
 export async function syncStatusV2(request:Request,env:Env):Promise<Response>{
-  const auth=await authenticate(env.DB,env,request);if(!auth)return apiError("UNAUTHORIZED","AUTH",401);const now=nowIso(),cutoff=new Date(Date.now()-60_000).toISOString();
+  const auth=await authenticate(env.DB,env,request);if(!auth)return apiError("UNAUTHORIZED","AUTH",401);const now=nowIso(),cutoff=new Date(Date.now()-15*60_000).toISOString();
   const results=await env.DB.batch([
-    env.DB.prepare(`WITH recent AS (SELECT business_date,sequence_no FROM business_dates ORDER BY sequence_no DESC LIMIT 7)
-      SELECT r.business_date,r.sequence_no,COALESCE(MAX(e.authority_seq),0) revision FROM recent r LEFT JOIN events e ON e.business_date=r.business_date GROUP BY r.business_date,r.sequence_no ORDER BY r.sequence_no DESC`),
+    env.DB.prepare(`WITH recent AS (SELECT business_date,sequence_no FROM business_dates ORDER BY sequence_no DESC LIMIT 7),
+      current_authority AS (SELECT authority_epoch,service_generation FROM authority_state WHERE singleton_id=1)
+      SELECT r.business_date,r.sequence_no,COALESCE(d.revision,0) revision
+      FROM recent r CROSS JOIN current_authority a
+      LEFT JOIN day_revision_state d ON d.business_date=r.business_date AND d.authority_epoch=a.authority_epoch AND d.service_generation=a.service_generation
+      ORDER BY r.sequence_no DESC`),
     env.DB.prepare("SELECT authority_epoch,authority_seq,mode,scope,service_generation,updated_at FROM authority_state WHERE singleton_id=1"),
     env.DB.prepare("SELECT namespace,revision,updated_at FROM revision_state ORDER BY namespace"),
     env.DB.prepare("SELECT target_kind,target_identity,schema_version,state,checkpoint,pending_count,retry_count,last_attempt_at,last_success_at,last_error_class,updated_at FROM replication_status WHERE singleton_id=1"),
