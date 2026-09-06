@@ -2,11 +2,11 @@
 
 - schema_version: 3
 - status: READY
-- time_utc: 2026-09-06T00:55:00Z
+- time_local: 2026-09-06T10:02:00+07:00
 - owner: Nguyễn Văn Tâm
 - branch: beta/current
 - release_trigger_sha: 5569d1e931436e02d118ed8ab57f2143de43b9f7
-- archive_file: docs/handovers/HANDOVER_20260906-0055_r5-quota-realtime-implementation.md
+- archive_file: docs/handovers/HANDOVER_20260906-1002_r5-stable-quota-parity-rev6.md
 - owner_scope_file: ops/OWNER_SCOPE_CURRENT.json
 - owner_scope_id: OWNER_20260906_R5_QUOTA_REALTIME
 - owner_scope_revision: 6
@@ -22,17 +22,19 @@
 - Chat/memory chỉ dùng để tìm canonical files; không thay canonical scope.
 
 ## LIVE / TARGET
-- LIVE BETA: 0.4.2-beta.128 (versionCode 134) / package vn.pickpack1291.app.beta.publicbeta.
-- R4-13 và R4-14: TECHNICAL_PASS_AWAITING_OWNER; Stable/main/signer/authority không đổi.
-- R5-15: LOCKED_REQUIREMENT_PENDING_FIX; implementation dùng work/r5-quota-realtime-20260906, chưa publish.
+- LIVE BETA: 0.4.2-beta.128 (versionCode 134), package vn.pickpack1291.app.beta.publicbeta.
+- Beta129 R5 chưa public; candidate rev5 cũ không được dùng để publish sau khi OWNER scope chuyển rev6.
+- Stable chưa có bản public/LIVE. R5 Stable parity chỉ ở trạng thái READY_NOT_LIVE; không deploy/public Stable trước lệnh OWNER promote.
+- Stable/main/signer/authority không đổi.
 
 ## Evidence cốt lõi
-- R5 scope transaction run 34001410533 PASS.
-- Baseline read-only run 34001866785 PASS, artifact 9979722130; status hot path 1.940 rows-read/lần, representative delta 213 rows-read/lần; D1 24h 3.522.525 rows-read, 33.136 rows-written, DB ~4,7 MB.
-- Canonical OWNER checklist: ops/OWNER_SCOPE_CURRENT.json, revision 5, SHA256 db50e75bfc93aa6b48f662bda00d6408ff424810258848bfdd76d6f78f622cbf, 15 requirement(s).
+- OWNER scope rev6 / CMD-20260906-008 bootstrap PASS.
+- D1 triggerless migration + Stable parity v3 run 34008592117 PASS: Service compile, full Wrangler local migration chain, quota fail-closed, exact Beta128 recovery, Stable READY_NOT_LIVE guard.
+- Stable Android compile trên shared runtime R5 PASS tại run 34008327191; app tree không đổi trong D1 recovery patch.
+- Canonical OWNER checklist: ops/OWNER_SCOPE_CURRENT.json, revision 6, SHA256 205600c9cfa96a6dc3a0a3293e2b8e74dcde16d3f198daf1ce7675008250f260, 15 requirement(s).
 
 ## Blocker
-Không có blocker kỹ thuật; R5-15 đang implementation; R4-13/R4-14 vẫn chờ OWNER nghiệm thu.
+Không có blocker OWNER; tiếp tục full R5 Technical DoD rev6 rồi dựng lại exact Beta129. Stable chỉ preflight, không deploy.
 
 ## NEXT_ACTION
 IMPLEMENT_R5_QUOTA_REALTIME_TECHNICAL_DOD
