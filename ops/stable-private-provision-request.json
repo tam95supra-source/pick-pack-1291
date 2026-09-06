@@ -3,6 +3,11 @@
   "environment": "STABLE",
   "lifecycle_target": "READY_NOT_LIVE",
   "mode": "PREFLIGHT_ONLY",
+  "scheduler_profile": "PRIVATE_IDLE",
+  "private_idle_crons": [],
+  "activation_crons": ["*/1 * * * *"],
+  "private_idle_observability_sampling": 0.1,
+  "active_observability_sampling": 0.1,
   "stable_primary_sheet_id": "1Z5tKgGjQxcQqKY-UJO2nOVvM3dA0_VtJx5ayKjWSAy0",
   "stable_dr_sheet_id": "1h2xbRX4hGL40CMeCfmdALffLZ0Un4_S44cAgCABBWhk",
   "stable_outbound_sheet_id": "1Z_TlJ5CdrSb2duUeTPY1rmi0W6vP69c8Ml3QbDkd2Wo",
@@ -14,5 +19,5 @@
   "target_worker_name": "pickpack1291-stable-private",
   "target_d1_name": "pick-pack-1291-service-stable",
   "stable_public_activation": false,
-  "execution_nonce": "recovery-readback-after-403-20260831"
+  "execution_nonce": "r5-rev7-private-idle-preflight-20260907"
 }
