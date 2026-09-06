@@ -1,0 +1,36 @@
+name: Owner R5 outbox quota diagnostic
+on:
+  push:
+    branches: [work/r5-beta130-timeline-20260906]
+    paths:
+      - .github/workflows/owner-r5-outbox-quota-diagnostic.yml
+permissions:
+  contents: read
+jobs:
+  read-only:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Read only R5 quota and outbound state
+        run: |
+          set -euo pipefail
+          cd service
+          npm install --ignore-scripts --no-audit --no-fund >/dev/null
+          DB=pick-pack-1291-service-prod
+          npx wrangler d1 execute "$DB" --remote --command "SELECT metric,hard_limit,unit,source_requirement FROM quota_policy ORDER BY metric;" --json > /tmp/quota-policy.json
+          npx wrangler d1 execute "$DB" --remote --command "SELECT window_key,metric,used,hard_limit,updated_at FROM quota_usage WHERE window_key LIKE 'D:%' OR window_key LIKE 'M:%' OR window_key LIKE 'MR:%' OR window_key LIKE 'MW:%' ORDER BY updated_at DESC LIMIT 40;" --json > /tmp/quota-usage.json
+          npx wrangler d1 execute "$DB" --remote --command "SELECT o.status,COUNT(*) n,MIN(o.next_attempt_at) oldest_due,MAX(o.attempt_count) max_attempt FROM outbound_replication_outbox o GROUP BY o.status ORDER BY o.status;" --json > /tmp/outbox-summary.json
+          npx wrangler d1 execute "$DB" --remote --command "SELECT o.outbox_id,o.event_id,o.status,o.attempt_count,o.next_attempt_at,o.claimed_at,o.replicated_at,o.last_error,e.actor_id,e.event_type,e.business_date,e.committed_at FROM outbound_replication_outbox o JOIN events e ON e.event_id=o.event_id WHERE o.status<>'SYNCED' ORDER BY o.outbox_id DESC LIMIT 30;" --json > /tmp/outbox-pending.json
+          jq -n --slurpfile p /tmp/quota-policy.json --slurpfile u /tmp/quota-usage.json --slurpfile s /tmp/outbox-summary.json --slurpfile o /tmp/outbox-pending.json '{quota_policy:$p[0][0].results,quota_usage:$u[0][0].results,outbox_summary:$s[0][0].results,outbox_pending:$o[0][0].results}' | tee /tmp/r5-outbox-quota-diagnostic.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: r5-outbox-quota-diagnostic-${{ github.run_id }}
+          path: /tmp/r5-outbox-quota-diagnostic.json
+          retention-days: 14
