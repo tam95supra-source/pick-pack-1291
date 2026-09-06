@@ -9,9 +9,11 @@ def must(cond: bool, msg: str) -> None:
         raise SystemExit("BETA_CURRENT_SYNC_CONTRACT_FAIL:" + msg)
 
 must('workflows: ["Beta release"]' in workflow, "WORKFLOW_RUN_SOURCE_MISSING")
-must("push:" in workflow and "'release/**'" in workflow, "POST_RELEASE_PUSH_SOURCE_MISSING")
-must("github.event_name == 'workflow_run'" in workflow and "github.event_name == 'push'" in workflow, "EVENT_SOURCE_SWITCH_MISSING")
-must("github.ref_name" in workflow and "workflow_run.head_branch" in workflow, "RELEASE_BRANCH_RESOLUTION_MISSING")
+must("types: [completed]" in workflow, "WORKFLOW_RUN_COMPLETION_MISSING")
+must("push:" not in workflow, "STALE_PASS_LIVE_PUSH_TRIGGER_FORBIDDEN")
+must("github.event.workflow_run.conclusion == 'success'" in workflow, "SUCCESS_ONLY_FENCE_MISSING")
+must("workflow_run.head_branch" in workflow and "startsWith(github.event.workflow_run.head_branch, 'release/')" in workflow, "RELEASE_BRANCH_FENCE_MISSING")
+must("github.ref_name" not in workflow, "PUSH_BRANCH_FALLBACK_FORBIDDEN")
 must("group: beta-current-sync" in workflow and "cancel-in-progress: false" in workflow, "GLOBAL_CONCURRENCY_MISSING")
 must("jq -r '.stage // empty'" in workflow and '"pass_live"' in workflow, "PASS_LIVE_FENCE_MISSING")
 must("technical_pass_status" in workflow and '"PASS"' in workflow, "TECHNICAL_PASS_FENCE_MISSING")
@@ -24,4 +26,9 @@ must("git show origin/beta/current:CURRENT_STATE.md" in workflow, "CURRENT_STATE
 must("git show origin/beta/current:ops/beta-ota-current.json" in workflow, "OTA_STATE_READBACK_MISSING")
 must('"GITHUB_RELEASE"' in workflow, "GITHUB_RELEASE_AUTHORITY_READBACK_MISSING")
 
-print("beta_current_sync_contract=PASS release_complete=PASS post_release_push=PASS monotonic=PASS fast_forward_only=PASS readback=PASS")
+# Regression: a stale PASS_LIVE file carried on a newly pushed release branch must not be able
+# to invoke this writer at all. Only the successful Beta release workflow_run is authoritative.
+must("event_name == 'push'" not in workflow, "PUSH_EVENT_WRITER_PATH_FORBIDDEN")
+must("'release/**'" not in workflow, "RELEASE_WILDCARD_PUSH_TRIGGER_FORBIDDEN")
+
+print("beta_current_sync_contract=PASS release_complete_only=PASS stale_pass_live_push=BLOCKED monotonic=PASS fast_forward_only=PASS readback=PASS")
