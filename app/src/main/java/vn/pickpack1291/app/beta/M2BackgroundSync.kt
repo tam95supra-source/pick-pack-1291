@@ -8,9 +8,8 @@ import java.net.URLEncoder
 import java.net.URL
 
 /**
- * Background catch-up invoked by WorkManager after FCM/network/outbox wake.
- * FCM is only an invalidation: this class re-reads authoritative revisions, refreshes changed day
- * snapshots, and rebuilds the persistent master cache only when a master namespace revision moved.
+ * Background catch-up invoked by WorkManager after FCM/network recovery.
+ * The same M2DayReconciler used by foreground owns revision/delta/reset semantics.
  */
 object M2BackgroundSync {
     private val masterNamespaces = listOf("employees", "catalogs", "pda", "user_pick", "pack_table", "user_pack")
@@ -24,25 +23,22 @@ object M2BackgroundSync {
         val store = OperationalDataStore(app)
 
         val dayRevisions = status.optJSONObject("day_revisions") ?: JSONObject()
-        val dates = ArrayList<String>()
-        val it = dayRevisions.keys()
-        while (it.hasNext()) dates += it.next()
-        // These are actual Service business dates; no calendar-day subtraction is used.
-        val ordered = dates.sortedDescending().take(7)
-        store.applyBusinessWindow(ordered, status.optLong("retention_epoch", store.authorityEpoch()))
-        status.optJSONObject("authority")?.let(store::saveAuthority)
-        store.putMeta("business_date", status.optString("business_date").ifBlank { ordered.firstOrNull().orEmpty() })
-        store.putMeta("retention_floor", ordered.lastOrNull().orEmpty())
-
-        for (date in ordered) {
-            val remoteRevision = dayRevisions.optLong(date, 0L)
-            if (store.revision(date) == remoteRevision) continue
-            val day = transport.sync("sync_day", JSONObject().put("business_date", date))
-            if (day.handled && day.ok) day.json?.optJSONObject("day")?.let(store::saveDay)
+        val revisions = LinkedHashMap<String, Long>()
+        val keys = dayRevisions.keys()
+        while (keys.hasNext()) {
+            val date = keys.next().trim()
+            if (date.isNotBlank()) revisions[date] = dayRevisions.optLong(date, 0L)
         }
+        val ordered = revisions.entries.sortedByDescending { it.key }.take(7).associateTo(LinkedHashMap()) { it.key to it.value }
+        if (ordered.isEmpty()) return false
+
+        status.optJSONObject("authority")?.let(store::saveAuthority)
+        val businessDate = status.optString("business_date").ifBlank { ordered.keys.first() }
+        val retentionEpoch = status.optLong("retention_epoch", store.authorityEpoch())
+        val result = M2DayReconciler(app, store).reconcile(businessDate, retentionEpoch, ordered)
 
         refreshMasterIfChanged(app, transport.cachedDiscoverySnapshot())
-        return true
+        return result.ok || result.busy
     }
 
     private fun refreshMasterIfChanged(context: Context, discovery: JSONObject?) {
@@ -57,8 +53,6 @@ object M2BackgroundSync {
         val changed = masterNamespaces.filter { revisions.optLong(it, 0L) != localRev.getLong(it, -1L) }
         if (changed.isEmpty()) return
 
-        // Preserve unchanged namespaces from the last confirmed cache. The Service master delta endpoint
-        // is NAMESPACE_SNAPSHOT_ON_REVISION_CHANGE, so changed namespaces are fetched as full snapshots.
         val snapshot = MasterDataCache.snapshot(context)?.let { JSONObject(it.toString()) } ?: JSONObject()
         snapshot.put("ok", true)
         var maxRevision = snapshot.optLong("master_revision", 0L)
@@ -85,7 +79,6 @@ object M2BackgroundSync {
         edit.apply()
     }
 
-    /** Keep Service fields and add the stable legacy aliases used by the current PDA UI. */
     private fun resourceRows(rows: JSONArray, type: String): JSONArray = JSONArray().apply {
         for (i in 0 until rows.length()) {
             val source = rows.optJSONObject(i) ?: continue
