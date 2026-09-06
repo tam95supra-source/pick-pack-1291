@@ -25,7 +25,8 @@ must("base_live_final_repo_receipt" in beta and "base_live_final_repo_receipt" i
 must("REPO_TECHNICAL_PASS" in publish and "ota_readback_run_id" in publish and "ota_readback_artifact_id" in publish,"BETA_BASE_FINAL_REPO_RECEIPT_NOT_FAIL_CLOSED")
 finalize=read("tools/finalize_beta83.sh")
 must('.technical_pass_status="PASS"' in finalize and '.owner_acceptance="PENDING"' in finalize,"BETA_FINALIZER_TECHNICAL_OWNER_STATE_MISSING")
-must('WAIT_FOR_OWNER_ACCEPTANCE_NUMBERED_CHECKLIST' in finalize,"BETA_FINALIZER_OWNER_NEXT_ACTION_MISSING")
+# Current canonical finalizer derives the exact pending requirement IDs from OWNER_SCOPE_CURRENT.
+must('WAIT_FOR_OWNER_ACCEPTANCE_REQUIREMENTS_${OWNER_PENDING_NUMBERS}' in finalize and 'TECHNICAL_PASS_AWAITING_OWNER' in finalize,"BETA_FINALIZER_OWNER_NEXT_ACTION_MISSING")
 _rebase=finalize.find('git rebase "origin/$BRANCH"')
 _commit=finalize.find('git commit -m')
 must(_rebase>=0 and _commit>=0 and _rebase<_commit,"BETA_FINALIZER_REBASE_MUST_PRECEDE_COMMIT")
