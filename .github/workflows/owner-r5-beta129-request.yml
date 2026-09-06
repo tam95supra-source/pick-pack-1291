@@ -1,0 +1,56 @@
+name: Owner R5 Beta129 request
+
+on:
+  push:
+    branches:
+      - release/beta129-quota-realtime-20260906
+    paths:
+      - .github/workflows/owner-r5-beta129-request.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: owner-r5-beta129-request
+  cancel-in-progress: false
+
+jobs:
+  request:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Canonical guards
+        run: |
+          set -euo pipefail
+          python3 tools/owner_scope_guard.py --bootstrap
+          python3 tools/finalizer_handoff_contract.py
+          python3 tools/beta_current_sync_contract.py
+      - name: Generate request
+        run: |
+          set -euo pipefail
+          python3 -m py_compile tools/r5_beta129_build_verify_request.py
+          python3 tools/r5_beta129_build_verify_request.py
+      - name: Validate BUILD_VERIFY fences
+        run: |
+          set -euo pipefail
+          R=ops/beta-release-request.json
+          jq -e '.stage=="BUILD_VERIFY" and .version_name=="0.4.2-beta.129" and .version_code==135 and .human_visual_pass==false and .candidate_locked==false and .service_gate_required==true and .stable_publish=="FORBIDDEN" and .authority_change=="NONE" and .technical_pass_status=="PENDING"' "$R" >/dev/null
+          SRC=$(jq -r '.source_sha' "$R")
+          test "$(git rev-parse "$SRC")" = "$SRC"
+          git diff --quiet "$SRC" HEAD -- app service google-apps-script
+          test "$(jq -r '.base_version' "$R")" = "0.4.2-beta.128"
+          test "$(jq -r '.base_source_sha' "$R")" = "5569d1e931436e02d118ed8ab57f2143de43b9f7"
+          git diff --check
+      - name: Commit BUILD_VERIFY request
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add ops/beta-release-request.json
+          test -n "$(git diff --cached --name-only)"
+          git diff --cached --check
+          git commit -m 'release(beta129): request exact R5 candidate and service gate'
+          git push origin HEAD:release/beta129-quota-realtime-20260906
