@@ -1,0 +1,91 @@
+name: R5 rev7 local quota validation
+
+on:
+  push:
+    branches:
+      - 'release/**'
+    paths:
+      - .github/workflows/r5-rev7-local-quota-validation.yml
+      - ops/OWNER_SCOPE_CURRENT.json
+      - ops/stable-private-provision-request.json
+      - tools/owner_scope_guard.py
+      - tools/owner_scope_guard_v2.py
+      - tools/r5_full_technical_dod.py
+      - tools/stable_private_provision.py
+      - service/src/**
+      - service/migrations/**
+      - service/package.json
+      - service/tsconfig.json
+      - google-apps-script/**
+permissions:
+  contents: read
+concurrency:
+  group: r5-rev7-local-quota-validation-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  local-validation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Canonical bootstrap
+        run: |
+          set -euo pipefail
+          python3 tools/owner_scope_guard.py --bootstrap
+          jq -e '.requirements[] | select(.requirement_id=="R5-15" and .invariant_id=="QUOTA-REALTIME-DELTA-001" and .state=="LOCKED_REQUIREMENT_PENDING_FIX")' ops/OWNER_SCOPE_CURRENT.json >/dev/null
+      - name: Python and scheduler source regression
+        run: |
+          set -euo pipefail
+          python3 -m py_compile tools/r5_full_technical_dod.py tools/stable_private_provision.py
+          python3 - <<'PY'
+          import importlib.util,json,pathlib
+          spec=importlib.util.spec_from_file_location('stable_private_provision','tools/stable_private_provision.py')
+          m=importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+          req=json.loads(pathlib.Path('ops/stable-private-provision-request.json').read_text())
+          crons,sampling,profile=m.scheduler_profile(req)
+          assert profile=='PRIVATE_IDLE' and crons==[] and 0 <= sampling < 1
+          assert req.get('activation_crons')
+          entry=pathlib.Path('service/src/entry_product.ts').read_text()
+          maintenance=pathlib.Path('service/src/d1_maintenance.ts').read_text()
+          assert 'capacity-6h' in entry and 'capacity-30m' not in entry
+          assert "UNION ALL SELECT 'attendance_sessions',COUNT(*)" not in maintenance
+          assert 'rows_by_table:"OMITTED_FROM_HOT_PATH"' in maintenance
+          PY
+      - name: Service typecheck
+        run: |
+          set -euo pipefail
+          npm --prefix service install --ignore-scripts --no-audit --no-fund --package-lock=false
+          npm --prefix service run check
+      - name: R5 evidence taxonomy regression
+        run: |
+          set -euo pipefail
+          python3 tools/r5_full_technical_dod.py
+          jq -e '.status=="NOT_VERIFIED" and .technical_pass==false and (.evidence_classes|index("STATIC"))!=null and (.evidence_classes|index("LOCAL_RUNTIME"))!=null and .owner_envelope.events==2000' /tmp/r5-full-dod/receipt.json >/dev/null
+          test "$(jq -r '.forecast_only.classification' /tmp/r5-full-dod/receipt.json)" = "FORECAST_NOT_CLOUD_MEASURED_NOT_LIVE_SHIFT"
+      - name: Local migrations only
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/r5-rev7-d1-local && mkdir -p /tmp/r5-rev7-d1-local
+          (cd service && npx wrangler d1 migrations apply DB --local --persist-to /tmp/r5-rev7-d1-local --config wrangler.jsonc) | tee /tmp/r5-rev7-migrations.log
+          ! grep -qi 'incomplete input' /tmp/r5-rev7-migrations.log
+      - name: Prove workflow cannot mutate cloud
+        run: |
+          set -euo pipefail
+          ! grep -Eiq 'CLOUDFLARE_API_TOKEN|GOOGLE_OAUTH|--remote|wrangler[[:space:]]+deploy|gh release create|workflow_dispatch' .github/workflows/r5-rev7-local-quota-validation.yml
+      - name: Write local evidence
+        run: |
+          mkdir -p /tmp/r5-rev7-local
+          cp /tmp/r5-full-dod/receipt.json /tmp/r5-rev7-local/r5-full-dod.json
+          jq -n --arg source_sha "$GITHUB_SHA" --arg scope_sha "$(jq -r '.scope_sha256' ops/OWNER_SCOPE_CURRENT.json)" '{status:"PASS",evidence_class:"LOCAL_RUNTIME",source_sha:$source_sha,owner_scope_sha256:$scope_sha,cloud_mutations:0,cloud_reads:0,service_typecheck:"PASS",local_migrations:"PASS",scheduler_private_idle:"PASS",technical_pass:false}' > /tmp/r5-rev7-local/evidence.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: r5-rev7-local-quota-validation-${{ github.run_id }}
+          path: /tmp/r5-rev7-local
+          retention-days: 30
+          if-no-files-found: warn
