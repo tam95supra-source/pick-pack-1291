@@ -13,7 +13,7 @@ if node -e 'process.exit(Date.parse(process.argv[1])>Date.now()+120000?0:1)' "$B
   B115_SHIFT_END="$B115_SCHEDULED_CAP"
   B115_AFTER_CAP=$(node -e 'process.stdout.write(new Date(Date.parse(process.argv[1])+15*60*1000).toISOString())' "$B115_SCHEDULED_CAP")
 else
-  read -r B115_SHIFT_END B115_AFTER_CAP < <(node -e 'const n=Date.now();process.stdout.write(new Date(n+55_000).toISOString()+" "+new Date(n+180_000).toISOString())')
+  read -r B115_SHIFT_END B115_AFTER_CAP < <(node -e 'const n=Date.now();process.stdout.write(new Date(n+55_000).toISOString()+" "+new Date(n+180_000).toISOString()+"\\n")')
 fi
 node -e 'if(Date.parse(process.argv[1])<=Date.now())throw new Error("B115_SCHEDULED_END_NOT_FUTURE_FOR_LIVE_GATE")' "$B115_SHIFT_END"''',
 }
