@@ -88,7 +88,7 @@ jobs:
           test "$(jq -r '.environment_id' config/stable_r5_parity.json)" = "STABLE"
           test "$(jq -r '.service_audience' config/stable_r5_parity.json)" = "PICK_PACK_1291_STABLE"
           test "$(jq -r '.activation' config/stable_r5_parity.json)" = "OWNER_PROMOTE_ONLY"
-          ! grep -q 'wrangler deploy' .github/workflows/owner-r5-full-technical-dod.yml
+          ! grep -Eq 'wrangler[[:space:]]+deplo[y]' .github/workflows/owner-r5-full-technical-dod.yml
       - name: Source safety and no protected release mutation
         run: |
           set -euo pipefail
