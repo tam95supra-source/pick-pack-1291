@@ -1,0 +1,106 @@
+name: Owner R5 quota circuit dirty-due v2
+
+on:
+  push:
+    branches:
+      - work/r5-quota-realtime-20260906
+    paths:
+      - .github/workflows/owner-r5-quota-circuit-v2.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: owner-r5-quota-circuit-v2
+  cancel-in-progress: false
+
+jobs:
+  apply-test-commit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Canonical guard
+        run: |
+          set -euo pipefail
+          python3 tools/owner_scope_guard.py --bootstrap
+          python3 tools/finalizer_handoff_contract.py
+      - name: Apply quota circuit patch
+        run: |
+          set -euo pipefail
+          python3 -m py_compile tools/r5_quota_circuit_apply.py tools/r5_quota_circuit_apply_v2.py
+          python3 tools/r5_quota_circuit_apply_v2.py
+      - name: Compile service
+        run: |
+          set -euo pipefail
+          npm --prefix service install --ignore-scripts --no-audit --no-fund --package-lock=false
+          npm --prefix service run check
+      - name: Atomic policy limiter test
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import sqlite3
+          from pathlib import Path
+          c=sqlite3.connect(':memory:')
+          c.execute('CREATE TABLE schema_migrations(version TEXT PRIMARY KEY, applied_at TEXT, checksum TEXT NOT NULL)')
+          c.execute('CREATE TABLE system_meta(key TEXT PRIMARY KEY,value TEXT NOT NULL,updated_at TEXT NOT NULL)')
+          c.executescript(Path('service/migrations/0017_r5_quota_budget.sql').read_text())
+          sql="""INSERT INTO quota_usage(window_key,metric,used,updated_at) VALUES(?,?,1,'x') ON CONFLICT(window_key,metric) DO UPDATE SET used=used+excluded.used,updated_at=excluded.updated_at"""
+          def reserve(minute,kind):
+            try:
+              with c:
+                c.execute(sql,('D:2026-09-06','GOOGLE_SHEETS_DAILY'))
+                c.execute(sql,(minute,'GOOGLE_SHEETS_PROJECT_MINUTE'))
+                c.execute(sql,(minute,'GOOGLE_SHEETS_READ_MINUTE' if kind=='R' else 'GOOGLE_SHEETS_WRITE_MINUTE'))
+              return True
+            except sqlite3.IntegrityError as e:
+              assert 'QUOTA_HARD_LIMIT' in str(e); return False
+          for _ in range(30): assert reserve('M:2026-09-06T01:00','R')
+          assert not reserve('M:2026-09-06T01:00','R')
+          assert c.execute("SELECT used FROM quota_usage WHERE window_key='D:2026-09-06' AND metric='GOOGLE_SHEETS_DAILY'").fetchone()[0]==30
+          for i in range(220): assert reserve(f'M:2026-09-06T{i+1000}','W' if i%2 else 'R')
+          assert c.execute("SELECT used FROM quota_usage WHERE window_key='D:2026-09-06' AND metric='GOOGLE_SHEETS_DAILY'").fetchone()[0]==250
+          assert not reserve('M:2026-09-06T9999','W')
+          assert c.execute("SELECT used FROM quota_usage WHERE window_key='D:2026-09-06' AND metric='GOOGLE_SHEETS_DAILY'").fetchone()[0]==250
+          c.execute("UPDATE quota_policy SET hard_limit=251 WHERE metric='GOOGLE_SHEETS_DAILY'")
+          assert reserve('M:2026-09-06T9999','W')
+          print('R5_ATOMIC_QUOTA_POLICY_PASS minute_read=30 daily=250 dynamic_policy=PASS')
+          PY
+      - name: Metering and dirty-due contract
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          files=[]
+          for f in Path('service/src').glob('*.ts'):
+            t=f.read_text(errors='ignore')
+            if 'sheets.googleapis.com' in t:
+              files.append(str(f))
+              if 'requireSheetsCall' not in t: raise SystemExit('UNMETERED_SHEETS_API:'+str(f))
+          assert files
+          q=Path('service/src/quota_budget.ts').read_text()
+          assert 'hard_limit' not in q and '250' not in q and '100' not in q and '30' not in q
+          e=Path('service/src/entry_product.ts').read_text()
+          assert 'catalog-source-30m' in e and 'repair-dirty-5m' in e and 'repair-30m' not in e
+          d=Path('service/src/document_management.ts').read_text()
+          assert 'r5_document_audit_dirty' in d and 'if(dirty?.value!=="1")return 0' in d
+          r=Path('service/src/replication.ts').read_text()
+          assert 'r5_operational_repair_dirty' in r
+          print('R5_METERING_DIRTY_DUE_PASS files='+','.join(files))
+          PY
+          git diff --check
+      - name: Commit exact tested circuit source
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add service/src/replication.ts service/src/master_replication.ts service/src/beta47_projection.ts service/src/session_hotfix.ts service/src/outbound_beta78.ts service/src/document_management.ts service/src/entry_product.ts
+          test -n "$(git diff --cached --name-only)"
+          git diff --cached --check
+          git commit -m 'perf(r5): meter Sheets quota and run repair only when dirty'
+          git push origin HEAD:work/r5-quota-realtime-20260906
