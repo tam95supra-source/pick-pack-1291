@@ -1,8 +1,8 @@
 {
-  "run_id": 33981578145,
-  "run_sha": "bdbb8552dbb0fadc0e8c256c23cbdb875e8f655c",
-  "ref": "release/beta128-owner-r3-drop-realtime-20260905",
-  "execution_nonce": "beta128-publish-owner-r3-20260906-01",
-  "stage": "PUBLISH",
-  "observed_at": "2026-09-05T17:38:22Z"
+  "run_id": 34007510661,
+  "run_sha": "631fa0da06bd1a81c8dc3fabe517f4cdd9f3a697",
+  "ref": "release/beta129-quota-realtime-20260906",
+  "execution_nonce": "beta129-r5-build-verify-20260906-02",
+  "stage": "BUILD_VERIFY",
+  "observed_at": "2026-09-06T02:50:44Z"
 }
