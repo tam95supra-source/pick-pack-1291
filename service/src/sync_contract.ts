@@ -24,7 +24,6 @@ export async function syncStatusV2(request:Request,env:Env):Promise<Response>{
   const authority=results[1]?.results?.[0] as Record<string,unknown>|undefined;if(!authority)return apiError("AUTHORITY_STATE_MISSING","INTEGRITY",503);const window=(results[0]?.results??[]).map(r=>({business_date:String((r as Record<string,unknown>).business_date||""),sequence_no:Number((r as Record<string,unknown>).sequence_no||0),revision:Number((r as Record<string,unknown>).revision||0)}));const master:Record<string,number>={};for(const r of results[2]?.results??[])master[String((r as Record<string,unknown>).namespace)]=Number((r as Record<string,unknown>).revision||0);const rep=(results[3]?.results?.[0]??{}) as Record<string,unknown>,metas=results.map(x=>x?.meta).filter(Boolean),telemetry={d1_duration_ms:metas.reduce((n,m)=>n+Number(m?.duration||0),0),d1_rows_read:metas.reduce((n,m)=>n+Number(m?.rows_read||0),0),d1_rows_written:metas.reduce((n,m)=>n+Number(m?.rows_written||0),0),served_by_region:String(metas[0]?.served_by_region||""),served_by_primary:Boolean(metas[0]?.served_by_primary)};
   return json({ok:true,contract:"LOCAL_FIRST_REVISION_V1",authority,service_generation:authority.service_generation,server_seq:authority.authority_seq,business_window:window,business_dates:window,master_revisions:master,replication:rep,realtime:{protocol:"INVALIDATION_V1",ticket_endpoint:"/v1/realtime/ticket",ws_endpoint:"/v1/realtime"},delta:{day_endpoint:"/v1/delta/day",master_endpoint:"/v1/delta/master",authority_endpoint:"/v1/delta"},service_telemetry:telemetry});
 }
-async function allowedDate(db:D1Database,date:string,superadmin:boolean):Promise<boolean>{if(superadmin)return true;const r=await db.prepare("SELECT 1 x FROM (SELECT business_date FROM business_dates ORDER BY sequence_no DESC LIMIT 7) WHERE business_date=?1").bind(date).first();return !!r;}
 type DeltaRow=Record<string,unknown>;
 function compatLabel(type:string):string{return type==="ATTENDANCE_ENTER"?"Vào ca":type==="ATTENDANCE_EXIT"?"Ra ca":type==="RESOURCE_CHANGE"?"Đổi tài nguyên":type==="LABOR_START"?"Bắt đầu công nhật":type==="LABOR_FINISH"?"Kết thúc công nhật":type==="ATTENDANCE_TIME_CORRECTED"?"Sửa thời gian vào/ra":type==="ATTENDANCE_EXIT_DELETED"?"Xóa thời gian ra":type;}
 function employeePatch(r:DeltaRow,prefix:"a_"|"l_"):Record<string,unknown>{return{mnv:String(r[prefix+"mnv"]||""),full_name:String(r[prefix+"full_name"]||""),phone:String(r[prefix+"phone"]||""),main_position:String(r[prefix+"main_position"]||""),supplier:String(r[prefix+"supplier"]||""),department:String(r[prefix+"department"]||""),site:String(r[prefix+"site"]||""),warehouse:String(r[prefix+"warehouse"]||""),start_date:String(r[prefix+"start_date"]||""),note:String(r[prefix+"note"]||"")};}
@@ -42,26 +41,50 @@ function deltaItem(r:DeltaRow):Record<string,unknown>{
   const compat_event={event_id:event.event_id,mnv,full_name:fullName,shift,event_type:event.event_type,label:compatLabel(event.event_type),at:event.committed_at,at_iso:event.committed_at,actor:event.actor_id,actor_role:event.actor_role,device_id:event.device_id,origin:event.origin||"SERVICE",detail:String(payload.note||payload.labor_type||payload.detail||""),authority_seq:event.authority_seq,payload_json:event.payload_json};
   return{event,canonical_patch:canonicalPatch(r),compat_event};
 }
-export async function dayDeltaData(db:D1Database,date:string,after:number,limit=250):Promise<Record<string,unknown>>{
-  const cap=Math.max(1,Math.min(250,limit)),authority=await db.prepare("SELECT authority_epoch,service_generation FROM authority_state WHERE singleton_id=1").first<{authority_epoch:number;service_generation:string}>();
-  if(!authority)throw new Error("AUTHORITY_STATE_MISSING");
-  const rev=(await db.prepare("SELECT revision FROM day_revision_state WHERE business_date=?1 AND authority_epoch=?2 AND service_generation=?3").bind(date,authority.authority_epoch,authority.service_generation).first<{revision:number}>())?.revision??0;
-  if(after<0||after>rev)return{ok:true,business_date:date,from_revision:after,to_revision:after,current_revision:rev,items:[],has_more:false,reset_required:true,reset_reason:"CURSOR_OUTSIDE_CURRENT_REVISION"};
-  const q=`SELECT e.event_id,e.event_type,e.entity_type,e.entity_id,e.business_date,e.authority_epoch,e.authority_seq,e.service_generation,e.base_version,e.new_version,e.actor_id,e.actor_role,e.device_id,e.occurred_at,e.committed_at,e.payload_json,e.idempotency_key,e.origin,e.schema_version,e.checksum,
+type DayDeltaQuery={allowed:boolean;data:Record<string,unknown>};
+async function dayDeltaQuery(db:D1Database,date:string,after:number,limit:number,allowAnyDate:boolean):Promise<DayDeltaQuery>{
+  const cap=Math.max(1,Math.min(250,limit));
+  const stateSql=`WITH recent AS (SELECT business_date FROM business_dates ORDER BY sequence_no DESC LIMIT 7),
+    a AS (SELECT authority_epoch,service_generation FROM authority_state WHERE singleton_id=1)
+    SELECT a.authority_epoch,a.service_generation,COALESCE(d.revision,0) revision,
+      CASE WHEN ?2=1 OR EXISTS(SELECT 1 FROM recent WHERE business_date=?1) THEN 1 ELSE 0 END allowed
+    FROM a LEFT JOIN day_revision_state d
+      ON d.business_date=?1 AND d.authority_epoch=a.authority_epoch AND d.service_generation=a.service_generation`;
+  const eventSql=`WITH recent AS (SELECT business_date FROM business_dates ORDER BY sequence_no DESC LIMIT 7),
+    st AS (
+      SELECT a.authority_epoch,a.service_generation,COALESCE(d.revision,0) revision,
+        CASE WHEN ?3=1 OR EXISTS(SELECT 1 FROM recent WHERE business_date=?1) THEN 1 ELSE 0 END allowed
+      FROM authority_state a LEFT JOIN day_revision_state d
+        ON d.business_date=?1 AND d.authority_epoch=a.authority_epoch AND d.service_generation=a.service_generation
+      WHERE a.singleton_id=1
+    )
+    SELECT e.event_id,e.event_type,e.entity_type,e.entity_id,e.business_date,e.authority_epoch,e.authority_seq,e.service_generation,e.base_version,e.new_version,e.actor_id,e.actor_role,e.device_id,e.occurred_at,e.committed_at,e.payload_json,e.idempotency_key,e.origin,e.schema_version,e.checksum,
     s.session_id AS a_session_id,s.mnv AS a_mnv,s.shift AS a_shift,s.work_choice AS a_work_choice,s.state AS a_state,s.pda_serial AS a_pda_serial,s.user_pick AS a_user_pick,s.pack_table AS a_pack_table,s.user_pack AS a_user_pack,s.enter_at AS a_enter_at,s.exit_at AS a_exit_at,s.entered_by AS a_entered_by,s.exited_by AS a_exited_by,s.version AS a_version,
     se.full_name AS a_full_name,se.phone AS a_phone,se.main_position AS a_main_position,se.supplier AS a_supplier,se.department AS a_department,se.site AS a_site,se.warehouse AS a_warehouse,se.start_date AS a_start_date,se.note AS a_note,
     l.labor_id AS l_labor_id,l.mnv AS l_mnv,l.shift AS l_shift,l.labor_type AS l_labor_type,l.time_marker AS l_time_marker,l.state AS l_state,l.start_at AS l_start_at,l.end_at AS l_end_at,l.note AS l_note,l.deduct_staff AS l_deduct_staff,l.start_event_id AS l_start_event_id,l.finish_event_id AS l_finish_event_id,l.version AS l_version,
     le.full_name AS l_full_name,le.phone AS l_phone,le.main_position AS l_main_position,le.supplier AS l_supplier,le.department AS l_department,le.site AS l_site,le.warehouse AS l_warehouse,le.start_date AS l_start_date,le.note AS l_note_emp
-    FROM events e
+    FROM st JOIN events e ON st.allowed=1 AND ?2>=0 AND ?2<=st.revision
+      AND e.business_date=?1 AND e.authority_epoch=st.authority_epoch AND e.service_generation=st.service_generation AND e.authority_seq>?2
     LEFT JOIN attendance_sessions s ON e.entity_type='ATTENDANCE_SESSION' AND s.session_id=e.entity_id
     LEFT JOIN employees se ON se.mnv=s.mnv
     LEFT JOIN labor_sessions l ON e.entity_type='LABOR_SESSION' AND l.labor_id=e.entity_id
     LEFT JOIN employees le ON le.mnv=l.mnv
-    WHERE e.business_date=?1 AND e.authority_epoch=?2 AND e.service_generation=?3 AND e.authority_seq>?4
-    ORDER BY e.authority_seq LIMIT ?5`;
-  const result=await db.prepare(q).bind(date,authority.authority_epoch,authority.service_generation,Math.max(0,after),cap+1).all<DeltaRow>(),all=result.results??[],page=all.slice(0,cap),items=page.map(deltaItem),to=page.length?Number(page[page.length-1]!.authority_seq||after):after,hasMore=all.length>cap;
+    ORDER BY e.authority_seq LIMIT ?4`;
+  const results=await db.batch([
+    db.prepare(stateSql).bind(date,allowAnyDate?1:0),
+    db.prepare(eventSql).bind(date,Math.max(-1,after),allowAnyDate?1:0,cap+1),
+  ]);
+  const state=(results[0]?.results?.[0]??null) as Record<string,unknown>|null;
+  if(!state)throw new Error("AUTHORITY_STATE_MISSING");
+  const allowed=Number(state.allowed||0)===1,rev=Number(state.revision||0);
+  const eventResult=results[1],all=(eventResult?.results??[]) as DeltaRow[];
+  const metas=results.map(x=>x?.meta).filter(Boolean);
+  const telemetry={d1_duration_ms:metas.reduce((n,m)=>n+Number(m?.duration||0),0),d1_rows_read:metas.reduce((n,m)=>n+Number(m?.rows_read||0),0),served_by_region:String(eventResult?.meta?.served_by_region||metas[0]?.served_by_region||""),served_by_primary:Boolean(eventResult?.meta?.served_by_primary??metas[0]?.served_by_primary)};
+  if(after<0||after>rev)return{allowed,data:{ok:true,business_date:date,from_revision:after,to_revision:after,current_revision:rev,items:[],has_more:false,reset_required:true,reset_reason:"CURSOR_OUTSIDE_CURRENT_REVISION",service_telemetry:telemetry}};
+  const page=all.slice(0,cap),items=page.map(deltaItem),to=page.length?Number(page[page.length-1]!.authority_seq||after):after,hasMore=all.length>cap;
   const gap=items.length===0&&after<rev;
-  return{ok:true,business_date:date,from_revision:after,to_revision:to,current_revision:rev,items,has_more:hasMore,reset_required:gap,reset_reason:gap?"CURSOR_GAP_OR_RETENTION":null,service_telemetry:{d1_duration_ms:result.meta.duration,d1_rows_read:result.meta.rows_read,served_by_region:result.meta.served_by_region??"",served_by_primary:result.meta.served_by_primary??false}};
+  return{allowed,data:{ok:true,business_date:date,from_revision:after,to_revision:to,current_revision:rev,items,has_more:hasMore,reset_required:gap,reset_reason:gap?"CURSOR_GAP_OR_RETENTION":null,service_telemetry:telemetry}};
 }
-export async function dayDeltaV2(request:Request,env:Env):Promise<Response>{const auth=await authenticate(env.DB,env,request);if(!auth)return apiError("UNAUTHORIZED","AUTH",401);const u=new URL(request.url),date=String(u.searchParams.get("business_date")||""),after=Number(u.searchParams.get("after_revision")||0),limit=Number(u.searchParams.get("limit")||250);if(!/^\d{4}-\d{2}-\d{2}$/.test(date))return apiError("BUSINESS_DATE_INVALID","VALIDATION",400);if(!await allowedDate(env.DB,date,auth.role==="SUPERADMIN"&&u.searchParams.get("client_source")==="WEB"))return apiError("BUSINESS_DATE_OUTSIDE_VIEW_WINDOW","PERMISSION",403);return json(await dayDeltaData(env.DB,date,after,limit));}
+export async function dayDeltaData(db:D1Database,date:string,after:number,limit=250):Promise<Record<string,unknown>>{return (await dayDeltaQuery(db,date,after,limit,true)).data;}
+export async function dayDeltaV2(request:Request,env:Env):Promise<Response>{const auth=await authenticate(env.DB,env,request);if(!auth)return apiError("UNAUTHORIZED","AUTH",401);const u=new URL(request.url),date=String(u.searchParams.get("business_date")||""),after=Number(u.searchParams.get("after_revision")||0),limit=Number(u.searchParams.get("limit")||250);if(!/^\d{4}-\d{2}-\d{2}$/.test(date))return apiError("BUSINESS_DATE_INVALID","VALIDATION",400);const allowAnyDate=auth.role==="SUPERADMIN"&&u.searchParams.get("client_source")==="WEB",delta=await dayDeltaQuery(env.DB,date,after,limit,allowAnyDate);if(!delta.allowed)return apiError("BUSINESS_DATE_OUTSIDE_VIEW_WINDOW","PERMISSION",403);return json(delta.data);}
 export async function masterDeltaV2(request:Request,env:Env):Promise<Response>{const auth=await authenticate(env.DB,env,request);if(!auth)return apiError("UNAUTHORIZED","AUTH",401);const u=new URL(request.url),ns=String(u.searchParams.get("namespace")||"") as Namespace,after=Number(u.searchParams.get("after_revision")||0);if(!NS.has(ns))return apiError("MASTER_NAMESPACE_INVALID","VALIDATION",400);const rev=(await env.DB.prepare("SELECT revision FROM revision_state WHERE namespace=?1").bind(ns).first<{revision:number}>())?.revision??0;if(after===rev)return json({ok:true,namespace:ns,from_revision:after,to_revision:rev,changed:false,rows:[]});let rows:unknown[]=[];if(ns==="employees")rows=(await env.DB.prepare("SELECT mnv,full_name,phone,main_position,supplier,department,site,warehouse,start_date,note FROM employees ORDER BY mnv").all()).results??[];else if(ns==="catalogs")rows=(await env.DB.prepare("SELECT namespace,ordinal,value FROM catalog_values ORDER BY namespace,ordinal").all()).results??[];else if(ns==="pack_table")rows=(await env.DB.prepare("SELECT resource_id,status_label,available,metadata_json FROM resources WHERE resource_type='PACK_TABLE' ORDER BY resource_id").all()).results??[];else if(ns==="accounts")rows=(await env.DB.prepare("SELECT login_id,role,display_name,position,status FROM accounts WHERE login_id=?1").bind(auth.login_id).all()).results??[];else{const type=ns==="pda"?"PDA":ns==="user_pick"?"USER_PICK":"USER_PACK";rows=(await env.DB.prepare("SELECT resource_id,status_label,available,metadata_json FROM resources WHERE resource_type=?1 ORDER BY resource_id").bind(type).all()).results??[];}return json({ok:true,namespace:ns,from_revision:after,to_revision:rev,changed:true,mode:"NAMESPACE_SNAPSHOT_ON_REVISION_CHANGE",rows});}
