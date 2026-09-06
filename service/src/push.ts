@@ -34,30 +34,35 @@ export async function registerPushDevice(request:Request,env:Env):Promise<Respon
 }
 export async function revokePushDevice(request:Request,env:Env):Promise<Response>{const auth=await authenticate(env.DB,env,request);if(!auth)return apiError("UNAUTHORIZED","AUTH",401);await env.DB.prepare("UPDATE push_devices SET status='REVOKED',updated_at=?1 WHERE device_id=?2 AND login_id=?3").bind(nowIso(),auth.device_id,auth.login_id).run();return json({ok:true});}
 
-export async function enqueueInvalidation(db:D1Database,namespace:string,revision:number|undefined,businessDate?:string):Promise<void>{const a=await currentAuthority(db),at=nowIso(),payload={type:businessDate?"DAY_CHANGED":"MASTER_CHANGED",namespace,revision:revision??null,business_date:businessDate??null,authority_epoch:a.authority_epoch,authority_seq:a.authority_seq};await db.prepare("INSERT INTO push_outbox(push_id,namespace,revision,business_date,authority_epoch,authority_seq,payload_json,status,next_attempt_at,created_at) VALUES(?1,?2,?3,?4,?5,?6,?7,'PENDING',?8,?8)").bind(crypto.randomUUID(),namespace,revision??null,businessDate??null,a.authority_epoch,a.authority_seq,JSON.stringify(payload),at).run();}
+function wakeScope(namespace:string,businessDate?:string):string{return businessDate?`DAY:${businessDate}`:`MASTER:${namespace}`;}
+async function upsertWake(db:D1Database,namespace:string,revision:number|undefined,businessDate:string|undefined,authorityEpoch:number,authoritySeq:number,at:string):Promise<void>{
+  const scope=wakeScope(namespace,businessDate),payload={type:businessDate?"DAY_CHANGED":"MASTER_CHANGED",namespace,revision:revision??null,business_date:businessDate??null,authority_epoch:authorityEpoch,authority_seq:authoritySeq};
+  await db.prepare(`INSERT INTO push_wake_outbox(scope_key,namespace,revision,business_date,authority_epoch,authority_seq,payload_json,status,attempt_count,next_attempt_at,created_at,updated_at)
+    VALUES(?1,?2,?3,?4,?5,?6,?7,'PENDING',0,?8,?8,?8)
+    ON CONFLICT(scope_key) DO UPDATE SET namespace=excluded.namespace,revision=excluded.revision,business_date=excluded.business_date,
+      authority_epoch=excluded.authority_epoch,authority_seq=excluded.authority_seq,payload_json=excluded.payload_json,status='PENDING',attempt_count=0,
+      next_attempt_at=excluded.next_attempt_at,last_error_class=NULL,updated_at=excluded.updated_at
+    WHERE excluded.authority_epoch>push_wake_outbox.authority_epoch OR (excluded.authority_epoch=push_wake_outbox.authority_epoch AND excluded.authority_seq>=push_wake_outbox.authority_seq)`).bind(scope,namespace,revision??null,businessDate??null,authorityEpoch,authoritySeq,JSON.stringify(payload),at).run();
+}
+export async function enqueueInvalidation(db:D1Database,namespace:string,revision:number|undefined,businessDate?:string):Promise<void>{const a=await currentAuthority(db);await upsertWake(db,namespace,revision,businessDate,a.authority_epoch,a.authority_seq,nowIso());}
 
-/**
- * Canonical business mutations already append durable events transactionally. Stage a deterministic
- * FCM invalidation from that event log so DAY_CHANGED cannot be lost if the request path returns
- * before a separate push enqueue. The one-minute scheduled flush makes this a wake signal only;
- * Android always pulls authoritative state after receiving it.
- */
+/** Stage at most one current wake per changed business day. This reads the O(days) revision projection, never scans event rows. */
 async function stageRecentDayInvalidations(db:D1Database):Promise<void>{
-  const cutoff=new Date(Date.now()-10*60_000).toISOString();
-  await db.prepare(`INSERT OR IGNORE INTO push_outbox(push_id,namespace,revision,business_date,authority_epoch,authority_seq,payload_json,status,next_attempt_at,created_at)
-    SELECT 'day:'||event_id,'business_day',authority_seq,business_date,authority_epoch,authority_seq,
-      json_object('type','DAY_CHANGED','namespace','business_day','revision',authority_seq,'business_date',business_date,'authority_epoch',authority_epoch,'authority_seq',authority_seq),
-      'PENDING',committed_at,committed_at
-    FROM events
-    WHERE business_date<>'MASTER' AND committed_at>=?1`).bind(cutoff).run();
+  const cutoff=new Date(Date.now()-10*60_000).toISOString(),a=await currentAuthority(db),rows=(await db.prepare(`SELECT business_date,revision,updated_at FROM day_revision_state WHERE authority_epoch=?1 AND service_generation=?2 AND updated_at>=?3 ORDER BY updated_at DESC LIMIT 7`).bind(a.authority_epoch,a.service_generation,cutoff).all<{business_date:string;revision:number;updated_at:string}>()).results??[];
+  for(const r of rows)await upsertWake(db,"business_day",r.revision,r.business_date,a.authority_epoch,Math.max(a.authority_seq,r.revision),r.updated_at||nowIso());
 }
 
-export async function flushPushOutbox(db:D1Database,rawEnv:Env,limit=50):Promise<{configured:boolean;sent:number;invalid:number;retry:number;pending:number}>{
+type PushWake={scope_key:string;payload_json:string;attempt_count:number};
+type PushDevice={device_id:string;login_id:string;fcm_token:string};
+export async function flushPushOutbox(db:D1Database,rawEnv:Env,limit=12):Promise<{configured:boolean;sent:number;invalid:number;retry:number;pending:number}>{
   await stageRecentDayInvalidations(db);
-  const env=rawEnv as PushEnv,access=await fcmAccessToken(env);if(!access)return{configured:false,sent:0,invalid:0,retry:0,pending:(await db.prepare("SELECT COUNT(*) n FROM push_outbox WHERE status IN ('PENDING','RETRY')").first<{n:number}>())?.n??0};
-  const pushes=(await db.prepare("SELECT push_id,payload_json,attempt_count FROM push_outbox WHERE status IN ('PENDING','RETRY') AND next_attempt_at<=?1 ORDER BY created_at LIMIT ?2").bind(nowIso(),Math.max(1,Math.min(100,limit))).all<{push_id:string;payload_json:string;attempt_count:number}>()).results??[],devices=(await db.prepare("SELECT device_id,login_id,fcm_token FROM push_devices WHERE status='ACTIVE'").all<{device_id:string;login_id:string;fcm_token:string}>()).results??[];let sent=0,invalid=0,retry=0;
-  for(const p of pushes){let transient=false;for(const d of devices){const data=JSON.parse(p.payload_json) as Record<string,unknown>,stringData=Object.fromEntries(Object.entries(data).map(([k,v])=>[k,v==null?"":String(v)]));const r=await fetch(`https://fcm.googleapis.com/v1/projects/${encodeURIComponent(access.projectId)}/messages:send`,{method:"POST",headers:{authorization:`Bearer ${access.token}`,"content-type":"application/json"},body:JSON.stringify({message:{token:d.fcm_token,data:stringData,android:{priority:"high"}}})});if(r.ok){sent++;await db.prepare("UPDATE push_devices SET last_success_at=?1,last_error_class=NULL WHERE fcm_token=?2").bind(nowIso(),d.fcm_token).run();continue;}const text=(await r.text()).slice(0,800);if(r.status===404||/UNREGISTERED|registration-token-not-registered/i.test(text)){invalid++;await db.prepare("UPDATE push_devices SET status='INVALID',last_error_class='UNREGISTERED',updated_at=?1 WHERE fcm_token=?2").bind(nowIso(),d.fcm_token).run();}else if(r.status===429||r.status>=500){transient=true;retry++;}else await db.prepare("UPDATE push_devices SET last_error_class=?1,updated_at=?2 WHERE fcm_token=?3").bind(`FCM_HTTP_${r.status}`,nowIso(),d.fcm_token).run();}
-    const attempts=p.attempt_count+1,next=new Date(Date.now()+Math.min(3600_000,Math.pow(2,Math.min(attempts,8))*5000)).toISOString();await db.prepare("UPDATE push_outbox SET status=?1,attempt_count=?2,next_attempt_at=?3,last_error_class=?4 WHERE push_id=?5").bind(transient&&attempts<8?"RETRY":transient?"FAILED":"SENT",attempts,next,transient?"FCM_TRANSIENT":null,p.push_id).run();
+  const env=rawEnv as PushEnv,access=await fcmAccessToken(env);if(!access)return{configured:false,sent:0,invalid:0,retry:0,pending:(await db.prepare("SELECT COUNT(*) n FROM push_wake_outbox WHERE status IN ('PENDING','RETRY')").first<{n:number}>())?.n??0};
+  const now=nowIso(),pushes=(await db.prepare("SELECT scope_key,payload_json,attempt_count FROM push_wake_outbox WHERE status IN ('PENDING','RETRY') AND next_attempt_at<=?1 ORDER BY updated_at LIMIT ?2").bind(now,Math.max(1,Math.min(24,limit))).all<PushWake>()).results??[],devices=(await db.prepare("SELECT device_id,login_id,fcm_token FROM push_devices WHERE status='ACTIVE'").all<PushDevice>()).results??[];let sent=0,invalid=0,retry=0;
+  const deviceState=new Map<string,{token:string;ok:boolean;invalid:boolean;error:string|null}>();
+  for(const d of devices)deviceState.set(d.fcm_token,{token:d.fcm_token,ok:false,invalid:false,error:null});
+  for(const p of pushes){let transient=false;for(const d of devices){const state=deviceState.get(d.fcm_token)!;if(state.invalid)continue;const data=JSON.parse(p.payload_json) as Record<string,unknown>,stringData=Object.fromEntries(Object.entries(data).map(([k,v])=>[k,v==null?"":String(v)]));const r=await fetch(`https://fcm.googleapis.com/v1/projects/${encodeURIComponent(access.projectId)}/messages:send`,{method:"POST",headers:{authorization:`Bearer ${access.token}`,"content-type":"application/json"},body:JSON.stringify({message:{token:d.fcm_token,data:stringData,android:{priority:"high"}}})});if(r.ok){sent++;state.ok=true;continue;}const text=(await r.text()).slice(0,800);if(r.status===404||/UNREGISTERED|registration-token-not-registered/i.test(text)){invalid++;state.invalid=true;state.error='UNREGISTERED';}else if(r.status===429||r.status>=500){transient=true;retry++;state.error=`FCM_HTTP_${r.status}`;}else state.error=`FCM_HTTP_${r.status}`;}
+    const attempts=p.attempt_count+1,next=new Date(Date.now()+Math.min(3600_000,Math.pow(2,Math.min(attempts,8))*5000)).toISOString();await db.prepare("UPDATE push_wake_outbox SET status=?1,attempt_count=?2,next_attempt_at=?3,last_error_class=?4,updated_at=?5 WHERE scope_key=?6").bind(transient&&attempts<8?"RETRY":transient?"FAILED":"SENT",attempts,next,transient?"FCM_TRANSIENT":null,nowIso(),p.scope_key).run();
   }
-  const pending=(await db.prepare("SELECT COUNT(*) n FROM push_outbox WHERE status IN ('PENDING','RETRY')").first<{n:number}>())?.n??0;return{configured:true,sent,invalid,retry,pending};
+  const updates:D1PreparedStatement[]=[];for(const s of deviceState.values()){if(s.invalid)updates.push(db.prepare("UPDATE push_devices SET status='INVALID',last_error_class='UNREGISTERED',updated_at=?1 WHERE fcm_token=?2").bind(nowIso(),s.token));else if(s.ok)updates.push(db.prepare("UPDATE push_devices SET last_success_at=?1,last_error_class=?2,updated_at=?1 WHERE fcm_token=?3").bind(nowIso(),s.error,s.token));else if(s.error)updates.push(db.prepare("UPDATE push_devices SET last_error_class=?1,updated_at=?2 WHERE fcm_token=?3").bind(s.error,nowIso(),s.token));}if(updates.length)await db.batch(updates);
+  const pending=(await db.prepare("SELECT COUNT(*) n FROM push_wake_outbox WHERE status IN ('PENDING','RETRY')").first<{n:number}>())?.n??0;return{configured:true,sent,invalid,retry,pending};
 }
