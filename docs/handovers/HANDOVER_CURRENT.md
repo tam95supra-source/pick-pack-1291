@@ -9,11 +9,11 @@
 - archive_file: docs/handovers/HANDOVER_20260906-0055_r5-quota-realtime-implementation.md
 - owner_scope_file: ops/OWNER_SCOPE_CURRENT.json
 - owner_scope_id: OWNER_20260906_R5_QUOTA_REALTIME
-- owner_scope_revision: 5
-- owner_scope_semantics_sha256: 17d567e9d4d65794cd0c56ff75c93946a932c05f64a649e040eaa17800dd6934
-- owner_scope_sha256: db50e75bfc93aa6b48f662bda00d6408ff424810258848bfdd76d6f78f622cbf
+- owner_scope_revision: 6
+- owner_scope_semantics_sha256: 218f12a7194d0c0f877db6f081e6cda314493097764f2dcfa0410036e9de5f1e
+- owner_scope_sha256: 205600c9cfa96a6dc3a0a3293e2b8e74dcde16d3f198daf1ce7675008250f260
 - owner_command_ledger: ops/owner-command-ledger.jsonl
-- owner_command_ledger_head: 4a6ddfcfd8fba0e681ca27ebb7048aa87e2e2035fe41d7bf4570ae145ae68c05
+- owner_command_ledger_head: 175b83ff1669986448b8855f5e8da71b4c161f92e8ccda63dadb5e0c7480b281
 - governance_policy: docs/OWNER_SCOPE_PROTOCOL.md
 
 ## Authority
