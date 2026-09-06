@@ -31,6 +31,7 @@ jobs:
           set -euo pipefail
           git fetch origin beta/current --quiet
           python3 tools/owner_scope_guard.py --bootstrap
+          python3 tools/finalizer_handoff_contract.py
           python3 - <<'PY'
           import json
           s=json.load(open('ops/OWNER_SCOPE_CURRENT.json',encoding='utf-8'))
@@ -38,8 +39,12 @@ jobs:
           r=next(x for x in s['requirements'] if x['requirement_id']=='R5-15')
           assert r['state']=='LOCKED_REQUIREMENT_PENDING_FIX'
           PY
-      - name: Apply versioned phase1 patch
-        run: python3 tools/r5_phase1_apply.py
+      - name: Validate and apply versioned phase1 patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile tools/r5_phase1_apply.py tools/r5_quota_realtime_guard.py
+          python3 tools/r5_phase1_apply.py
       - name: Compile and contract-test exact patch
         shell: bash
         run: |
@@ -55,7 +60,7 @@ jobs:
           set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add service/migrations/0015_r5_quota_realtime_revision.sql service/src/sync_contract.ts service/src/legacy_sync_portable.ts tools/r5_quota_realtime_guard.py
+          git add service/migrations/0015_r5_quota_realtime_revision.sql service/src/sync_contract.ts service/src/legacy_sync_portable.ts
           test -n "$(git diff --cached --name-only)"
           git diff --cached --check
           git commit -m 'perf(sync): make day revision status O(1)'
