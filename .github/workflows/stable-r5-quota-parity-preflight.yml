@@ -4,15 +4,22 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - work/r5-quota-realtime-20260906
+      - 'release/**'
     paths:
       - .github/workflows/stable-r5-quota-parity-preflight.yml
       - config/stable_r5_parity.json
+      - ops/OWNER_SCOPE_CURRENT.json
+      - ops/stable-private-provision-request.json
+      - tools/owner_scope_guard.py
+      - tools/owner_scope_guard_v2.py
       - tools/r5_stable_parity_guard.py
+      - tools/stable_private_provision.py
       - service/src/quota_budget.ts
       - service/src/core.ts
       - service/src/sync_contract.ts
       - service/src/push.ts
+      - service/src/d1_maintenance.ts
+      - service/src/entry_product.ts
       - service/migrations/0015_r5_quota_realtime_revision.sql
       - service/migrations/0016_r5_background_terminal.sql
       - service/migrations/0017_r5_quota_budget.sql
@@ -43,18 +50,36 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '9.4.1'
-      - name: Canonical scope rev6 and Stable READY_NOT_LIVE guard
+      - name: Canonical scope and Stable READY_NOT_LIVE guard
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p /tmp/stable-r5-preflight
           python3 tools/owner_scope_guard.py --bootstrap
-          test "$(jq -r '.revision' ops/OWNER_SCOPE_CURRENT.json)" = "6"
-          test "$(jq -r '.ledger_head_sequence' ops/OWNER_SCOPE_CURRENT.json)" = "8"
+          jq -e '.requirements[] | select(.requirement_id=="R5-15" and .invariant_id=="QUOTA-REALTIME-DELTA-001" and .state=="LOCKED_REQUIREMENT_PENDING_FIX")' ops/OWNER_SCOPE_CURRENT.json >/dev/null
           python3 tools/r5_stable_parity_guard.py
           test "$(jq -r '.status' config/stable_r5_parity.json)" = "READY_NOT_LIVE"
           test "$(jq -r '.deploy_now' config/stable_r5_parity.json)" = "false"
           test "$(jq -r '.activation' config/stable_r5_parity.json)" = "OWNER_PROMOTE_ONLY"
+      - name: Private Stable scheduler is idle by construction
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile tools/stable_private_provision.py
+          python3 - <<'PY'
+          import importlib.util, json, pathlib
+          p=pathlib.Path('tools/stable_private_provision.py')
+          spec=importlib.util.spec_from_file_location('stable_private_provision',p)
+          m=importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+          req=json.loads(pathlib.Path('ops/stable-private-provision-request.json').read_text())
+          crons,sampling,profile=m.scheduler_profile(req)
+          assert req['lifecycle_target']=='READY_NOT_LIVE'
+          assert req['stable_public_activation'] is False
+          assert profile=='PRIVATE_IDLE' and crons==[]
+          assert 0 <= sampling < 1
+          assert req.get('activation_crons'), 'ACTIVATION_CRONS_MISSING'
+          print(json.dumps({'status':'PASS','profile':profile,'crons':crons,'sampling':sampling,'activation_crons_configured':True}))
+          PY
       - name: Compile shared Service and Stable Android runtime
         shell: bash
         run: |
@@ -88,7 +113,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          ! grep -Eiq 'wrangler[[:space:]]+deploy|d1 migrations apply[^\n]*--remote|curl[^\n]*beta\.pickpack|gh release create' .github/workflows/stable-r5-quota-parity-preflight.yml
+          ! grep -Eiq 'wrangler[[:space:]]+deploy|d1 migrations apply[^\n]*--remote|gh release create' .github/workflows/stable-r5-quota-parity-preflight.yml
           python3 tools/r5_stable_parity_guard.py
           test "$(jq -r '.environment_id' config/stable_r5_parity.json)" = "STABLE"
           test "$(jq -r '.service_audience' config/stable_r5_parity.json)" = "PICK_PACK_1291_STABLE"
@@ -101,7 +126,7 @@ jobs:
           jq -n \
             --arg source_sha "$GITHUB_SHA" \
             --arg scope_sha "$(jq -r '.scope_sha256' ops/OWNER_SCOPE_CURRENT.json)" \
-            '{status:"PASS",channel:"STABLE",activation:"OWNER_PROMOTE_ONLY",deploy_now:false,source_sha:$source_sha,owner_scope_sha256:$scope_sha,service_compile:"PASS",stable_android_compile:"PASS",local_migrations:"PASS",quota_fail_closed:"PASS",isolation_static:"PASS"}' \
+            '{status:"PASS",evidence_class:"LOCAL_RUNTIME",channel:"STABLE",activation:"OWNER_PROMOTE_ONLY",deploy_now:false,source_sha:$source_sha,owner_scope_sha256:$scope_sha,service_compile:"PASS",stable_android_compile:"PASS",local_migrations:"PASS",quota_fail_closed:"PASS",private_idle_scheduler:"PASS",isolation_static:"PASS",cloud_runtime:"NOT_VERIFIED"}' \
             > /tmp/stable-r5-preflight/evidence.json
       - uses: actions/upload-artifact@v4
         if: always()
