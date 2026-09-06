@@ -1,5 +1,5 @@
 name: Owner R5 phase1 service revision v2
-# retrigger after npm install harness repair
+# retrigger after canonical service check harness repair
 
 on:
   push:
@@ -51,7 +51,7 @@ jobs:
         run: |
           set -euo pipefail
           npm --prefix service install --ignore-scripts --no-audit --no-fund --package-lock=false
-          npm --prefix service run typecheck
+          npm --prefix service run check
           python3 tools/r5_quota_realtime_guard.py
           ! grep -Eqi 'LEFT[[:space:]]+JOIN[[:space:]]+events|MAX[[:space:]]*\([[:space:]]*(e|events)\.authority_seq' service/src/sync_contract.ts service/src/legacy_sync_portable.ts
           git diff --check
