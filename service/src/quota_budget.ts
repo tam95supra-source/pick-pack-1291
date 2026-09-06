@@ -33,10 +33,10 @@ export async function requireSheetsCall(db:D1Database,kind:SheetsQuotaKind,count
 }
 
 export async function quotaUsageSnapshot(db:D1Database):Promise<Record<string,unknown>>{
-  const k=utcKeys(),[policy,day,minute]=await db.batch([
+  const k=utcKeys(),results=await db.batch([
     db.prepare("SELECT metric,hard_limit,unit,source_requirement FROM quota_policy ORDER BY metric"),
     db.prepare("SELECT metric,used FROM quota_usage WHERE window_key=?1 ORDER BY metric").bind(`D:${k.day}`),
     db.prepare("SELECT metric,used FROM quota_usage WHERE window_key=?1 ORDER BY metric").bind(`M:${k.minute}`),
-  ]);
-  return{day_utc:k.day,minute_utc:k.minute,policy:policy.results??[],day:day.results??[],minute:minute.results??[]};
+  ]),policy=results[0]?.results??[],day=results[1]?.results??[],minute=results[2]?.results??[];
+  return{day_utc:k.day,minute_utc:k.minute,policy,day,minute};
 }
