@@ -133,17 +133,31 @@ def ensure_d1(name):
     j=cf("/d1/database","POST",{"name":name}); r=j.get("result") or {}
     return r.get("uuid") or r.get("id")
 
+def scheduler_profile(req):
+    lifecycle=str(req.get("lifecycle_target","")).upper()
+    profile=str(req.get("scheduler_profile","")).upper()
+    if lifecycle=="READY_NOT_LIVE":
+        if profile!="PRIVATE_IDLE": raise RuntimeError("STABLE_PRIVATE_SCHEDULER_PROFILE_REQUIRED")
+        crons=req.get("private_idle_crons",[])
+        if crons not in ([],None): raise RuntimeError("STABLE_PRIVATE_IDLE_CRON_FORBIDDEN")
+        sample=float(req.get("private_idle_observability_sampling",0.1))
+        return [],max(0.0,min(1.0,sample)),"PRIVATE_IDLE"
+    crons=req.get("activation_crons",["*/1 * * * *"])
+    sample=float(req.get("active_observability_sampling",0.1))
+    return list(crons),max(0.0,min(1.0,sample)),"ACTIVE"
+
 def wrangler_config(req,d1_id,gas,gen):
+    crons,sampling,profile=scheduler_profile(req)
     cfg={"name":req["target_worker_name"],"main":"src/entry_product.ts","compatibility_date":"2026-08-08","compatibility_flags":["nodejs_compat"],
       "workers_dev":True,"placement":{"mode":"smart"},
-      "vars":{"SERVICE_GENERATION":gen,"ENVIRONMENT_ID":"STABLE","SERVICE_AUDIENCE":"PICK_PACK_1291_STABLE","GAS_API_URL":gas["primary"]["url"],
+      "vars":{"SERVICE_GENERATION":gen,"ENVIRONMENT_ID":"STABLE","SERVICE_AUDIENCE":"PICK_PACK_1291_STABLE","RUNTIME_LIFECYCLE":req["lifecycle_target"],"SCHEDULER_PROFILE":profile,"GAS_API_URL":gas["primary"]["url"],
       "OUTBOUND_GAS_API_URL":gas["outbound"]["url"],"DR_GAS_API_URL":gas["dr"]["url"],"DR_TARGET_ID":req["stable_dr_sheet_id"],
       "GOOGLE_SOURCE_SHEET_ID":req["stable_primary_sheet_id"],"GOOGLE_OUTBOUND_SHEET_ID":req["stable_outbound_sheet_id"]},
       "d1_databases":[{"binding":"DB","database_name":req["target_d1_name"],"database_id":d1_id,"migrations_dir":"migrations"}],
       "durable_objects":{"bindings":[{"name":"REALTIME_HUB","class_name":"RealtimeHub"}]},
       "migrations":[{"tag":"v1","new_sqlite_classes":["RealtimeHub"]}],
       "assets":{"directory":"./public","binding":"ASSETS","not_found_handling":"single-page-application","run_worker_first":["/health","/environment.json","/v1/*","/internal/*"]},
-      "triggers":{"crons":["*/1 * * * *"]},"observability":{"enabled":True,"head_sampling_rate":1}}
+      "triggers":{"crons":crons},"observability":{"enabled":True,"head_sampling_rate":sampling}}
     path=SERVICE/"wrangler.stable.private.generated.jsonc"; path.write_text(json.dumps(cfg,indent=2)+"\n"); return path
 
 def seed_d1(config,db_name,verifier_value,verifier_hash,gen):
@@ -173,6 +187,12 @@ def deploy_worker(req,config,secrets_map):
     if not sub: raise RuntimeError("WORKERS_SUBDOMAIN_MISSING")
     return f"https://{req['target_worker_name']}.{sub}.workers.dev"
 
+def private_idle_readback(req):
+    enc=urllib.parse.quote(req["target_worker_name"],safe="")
+    schedules=cf(f"/workers/scripts/{enc}/schedules").get("result") or []
+    settings=cf(f"/workers/scripts/{enc}/settings").get("result") or {}
+    return {"cron_count":len(schedules),"schedules":schedules,"observability":settings.get("observability"),"usage_model":settings.get("usage_model")}
+
 def verify_worker(url):
     with urllib.request.urlopen(url+"/health",timeout=30) as r:
         if r.status!=200: raise RuntimeError("STABLE_HEALTH_HTTP")
@@ -186,6 +206,8 @@ def verify_worker(url):
 def main():
     req=json.loads((ROOT/"ops/stable-private-provision-request.json").read_text())
     if req.get("environment")!="STABLE" or req.get("stable_public_activation") is not False: raise RuntimeError("STABLE_REQUEST_FAIL_CLOSED")
+    if str(req.get("lifecycle_target","")).upper()!="READY_NOT_LIVE": raise RuntimeError("STABLE_PRIVATE_LIFECYCLE_REQUIRED")
+    scheduler_profile(req)
     mode=str(req.get("mode","PREFLIGHT_ONLY")); token=oauth()
     for k in ("stable_primary_sheet_id","stable_dr_sheet_id","stable_outbound_sheet_id"):
         sid=req[k]; j=req_json(f"https://www.googleapis.com/drive/v3/files/{sid}?fields=id,mimeType,owners(emailAddress)",token=token)
@@ -196,18 +218,19 @@ def main():
     target_dbs=[x for x in dbs if x.get("name")==req["target_d1_name"]]
     workers=(cf("/workers/scripts?per_page=100").get("result") or [])
     target_workers=[x for x in workers if (x.get("id") or x.get("name"))==req["target_worker_name"]]
-    worker_settings={}
+    worker_settings={}; idle_readback={"cron_count":0,"schedules":[],"observability":None,"usage_model":None}
     if len(target_workers)==1:
         enc=urllib.parse.quote(req["target_worker_name"],safe="")
         raw=cf(f"/workers/scripts/{enc}/settings").get("result") or {}
         bindings=[]
         for b in raw.get("bindings",[]) or []:
             item={"name":b.get("name"),"type":b.get("type")}
-            if b.get("type")=="plain_text" and b.get("name") in ("ENVIRONMENT_ID","SERVICE_AUDIENCE","SERVICE_GENERATION","GAS_API_URL","OUTBOUND_GAS_API_URL","DR_GAS_API_URL","DR_TARGET_ID","GOOGLE_SOURCE_SHEET_ID","GOOGLE_OUTBOUND_SHEET_ID"):
+            if b.get("type")=="plain_text" and b.get("name") in ("ENVIRONMENT_ID","SERVICE_AUDIENCE","SERVICE_GENERATION","RUNTIME_LIFECYCLE","SCHEDULER_PROFILE","GAS_API_URL","OUTBOUND_GAS_API_URL","DR_GAS_API_URL","DR_TARGET_ID","GOOGLE_SOURCE_SHEET_ID","GOOGLE_OUTBOUND_SHEET_ID"):
                 item["text"]=b.get("text")
             if b.get("type")=="d1": item["id"]=b.get("id")
             bindings.append(item)
-        worker_settings={"bindings":bindings,"compatibility_date":raw.get("compatibility_date")}
+        worker_settings={"bindings":bindings,"compatibility_date":raw.get("compatibility_date"),"observability":raw.get("observability"),"usage_model":raw.get("usage_model")}
+        idle_readback=private_idle_readback(req)
     gas_readback={}
     for kind,key in (("primary","stable_primary_sheet_id"),("outbound","stable_outbound_sheet_id"),("dr","stable_dr_sheet_id")):
         c=contract_map(token,req[key]); sid=c.get("gas_script_id",""); depid=c.get("gas_deployment_id",""); url=c.get("gas_web_url","")
@@ -224,8 +247,9 @@ def main():
             except Exception: http_status=-1
         gas_readback[kind]={"script_id":sid,"deployment_id":depid,"url":url,"entry_points":entry,"runtime_http_status":http_status}
     receipt={"status":"PASS","mode":mode,"environment":"STABLE","stable_public_activation":False,
+      "scheduler_target":{"profile":"PRIVATE_IDLE","crons":[],"observability_head_sampling_rate":float(req.get("private_idle_observability_sampling",0.1))},
       "preflight":{"d1_count":len(dbs),"target_d1_matches":len(target_dbs),"target_d1_id":((target_dbs[0].get("uuid") or target_dbs[0].get("id")) if len(target_dbs)==1 else None),
-      "target_worker_matches":len(target_workers),"worker_settings":worker_settings,"sheets_owner_verified":True,"gas_readback":gas_readback}}
+      "target_worker_matches":len(target_workers),"worker_settings":worker_settings,"private_idle_readback":idle_readback,"sheets_owner_verified":True,"gas_readback":gas_readback}}
     if mode=="PREFLIGHT_ONLY":
         pathlib.Path("/tmp/stable-private-provision-receipt.json").write_text(json.dumps(receipt,indent=2)+"\n"); print(json.dumps(receipt)); return
     if mode!="PROVISION_PRIVATE": raise RuntimeError("UNKNOWN_PROVISION_MODE")
@@ -256,6 +280,8 @@ def main():
     for label,j in checks:
         if j.get("ok") is not True: raise RuntimeError("GAS_PROVISION_FAILED:"+label+":"+str(j.get("error","UNKNOWN")))
     verify_worker(worker_url)
+    idle=private_idle_readback(req)
+    if idle.get("cron_count")!=0: raise RuntimeError("STABLE_PRIVATE_CRON_STILL_ACTIVE")
 
     config=wrangler_config(req,d1_id,gas,gen)
     try:
@@ -267,9 +293,10 @@ def main():
     receipt.update({"resource":{"d1_name":req["target_d1_name"],"d1_id":d1_id,"worker_name":req["target_worker_name"],"worker_url":worker_url,"generation":gen},
       "gas":{k:{"script_id":v["script_id"],"deployment_id":v["deployment_id"],"version":v["version"],"url":v["url"]} for k,v in gas.items()},
       "auth":{"active_accounts":1,"login_id":"admin","role":"SUPERADMIN","password_exposed":False},
+      "scheduler_readback":idle,
       "isolation":{"worker_separate":True,"d1_separate":True,"google_oauth_in_worker":False,"bound_gas_currentonly":True,"beta_header_rejected":True,"missing_environment_rejected":True}})
     pathlib.Path("/tmp/stable-private-provision-receipt.json").write_text(json.dumps(receipt,indent=2)+"\n")
-    print(json.dumps({"status":"PASS","mode":mode,"environment":"STABLE","worker":req["target_worker_name"],"d1":req["target_d1_name"],"gas_count":3,"active_accounts":1,"password_exposed":False}))
+    print(json.dumps({"status":"PASS","mode":mode,"environment":"STABLE","worker":req["target_worker_name"],"d1":req["target_d1_name"],"gas_count":3,"active_accounts":1,"password_exposed":False,"scheduler_profile":"PRIVATE_IDLE","cron_count":idle.get("cron_count")}))
 
 if __name__=="__main__":
     try: main()
