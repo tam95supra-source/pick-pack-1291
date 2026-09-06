@@ -1,0 +1,76 @@
+name: Owner R5 exact Beta128 service recovery
+on:
+  push:
+    branches: [release/beta130-r5-rev6-20260906]
+    paths:
+      - .github/workflows/owner-r5-beta128-emergency-service-recovery.yml
+permissions:
+  contents: read
+concurrency:
+  group: owner-r5-production-service-writer
+  cancel-in-progress: false
+jobs:
+  recover:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+      GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+      GOOGLE_OAUTH_REFRESH_TOKEN: ${{ secrets.GOOGLE_OAUTH_REFRESH_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Bootstrap and exact base fence
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/owner_scope_guard.py --bootstrap
+          BASE=$(jq -er '.base_source_sha' ops/beta-release-request.json)
+          test "$(jq -r '.base_version' ops/beta-release-request.json)" = "0.4.2-beta.128"
+          test "$(jq -r '.live' ops/beta-release-request.json)" = false
+          git cat-file -e "$BASE^{commit}"
+          echo "BASE_SERVICE_SOURCE_SHA=$BASE" >> "$GITHUB_ENV"
+      - name: Materialize exact base service and recovery harness
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf service/node_modules service/package-lock.json service/.wrangler service/worker-configuration.d.ts service/wrangler.live.jsonc
+          git checkout "$BASE_SERVICE_SOURCE_SHA" -- service
+          git clean -fd -- service
+          npm --prefix service install --include=dev --ignore-scripts --no-audit --no-fund
+          test -d service/node_modules/fflate
+          test -x service/node_modules/.bin/wrangler
+          npm --prefix service run check
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('tools/beta78_service_live_gate.sh')
+          s=p.read_text(encoding='utf-8')
+          old='D1_NAME=pick-pack-1291-service-prod'
+          if s.count(old)!=1: raise SystemExit('D1_EXPORT_ANCHOR_COUNT:'+str(s.count(old)))
+          s=s.replace(old,'export '+old,1)
+          anchor="jq -e --arg gen \"$GEN\" --argjson epoch \"$EPOCH\" '.ok==true and .environment==\"production\" and (.generation|tostring)==$gen and .authority.mode==\"SERVICE_PRIMARY\" and .authority.scope==\"PRODUCTION\" and .authority.authority_epoch==$epoch' \"$D/health-after.json\" >/dev/null"
+          if s.count(anchor)!=1: raise SystemExit('RECOVERY_HEALTH_ANCHOR_COUNT:'+str(s.count(anchor)))
+          s=s.replace(anchor,anchor+'\necho exact_beta128_service_recovery=PASS\nexit 0',1)
+          p.write_text(s,encoding='utf-8')
+          PY
+          bash -n tools/beta78_service_live_gate.sh
+          git diff --quiet "$BASE_SERVICE_SOURCE_SHA" -- service
+      - name: Deploy exact Beta128 service and health readback
+        shell: bash
+        run: |
+          set -euo pipefail
+          SERVICE_SOURCE_SHA="$BASE_SERVICE_SOURCE_SHA" bash tools/beta78_service_live_gate.sh
+      - name: Upload recovery receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: r5-beta128-service-recovery-${{ github.run_id }}
+          path: /tmp/beta78-service-live
+          retention-days: 30
+          if-no-files-found: error
