@@ -2,11 +2,12 @@
 
 - schema_version: 3
 - status: READY
-- time_local: 2026-09-06T10:02:00+07:00
+- time_local: 2026-09-06T22:46:37+07:00
 - owner: Nguyễn Văn Tâm
-- branch: beta/current
-- release_trigger_sha: 5569d1e931436e02d118ed8ab57f2143de43b9f7
-- archive_file: docs/handovers/HANDOVER_20260906-1002_r5-stable-quota-parity-rev6.md
+- branch: release/beta130-r5-rev6-20260906
+- working_head_sha: d83fff4c2c35c42c44f9f9190d585ae850a89270
+- exact_candidate_source_sha: d5442338e7413d46a8344a3682f7e08276309630
+- archive_file: docs/handovers/HANDOVER_20260906-2246_r5-beta130-service-harness-late-day.md
 - owner_scope_file: ops/OWNER_SCOPE_CURRENT.json
 - owner_scope_id: OWNER_20260906_R5_QUOTA_REALTIME
 - owner_scope_revision: 6
@@ -18,23 +19,32 @@
 
 ## Authority
 - Không chép lại checklist/yêu cầu OWNER trong handoff.
-- Phiên tiếp quản phải chạy python3 tools/owner_scope_guard.py --bootstrap rồi đọc requirement từ ops/OWNER_SCOPE_CURRENT.json.
-- Chat/memory chỉ dùng để tìm canonical files; không thay canonical scope.
+- Phiên tiếp quản bắt buộc đọc HANDOVER_CURRENT, REGRESSION_GUARD_POLICY, STABLE_INVARIANTS, CURRENT_STATE, OWNER_SCOPE_CURRENT + ledger head và bootstrap canonical guard trước change.
+- Chat/memory/file prompt chỉ dùng để tìm canonical repo; requirement thực tế lấy từ ops/OWNER_SCOPE_CURRENT.json.
 
 ## LIVE / TARGET
-- LIVE BETA: 0.4.2-beta.128 (versionCode 134), package vn.pickpack1291.app.beta.publicbeta.
-- Beta129 R5 chưa public; candidate rev5 cũ không được dùng để publish sau khi OWNER scope chuyển rev6.
-- Stable chưa có bản public/LIVE. R5 Stable parity chỉ ở trạng thái READY_NOT_LIVE; không deploy/public Stable trước lệnh OWNER promote.
+- LIVE BETA vẫn là 0.4.2-beta.128 (versionCode 134), exact source 5569d1e931436e02d118ed8ab57f2143de43b9f7.
+- Exact Beta130 candidate 0.4.2-beta.130 (versionCode 136) đã khóa nhưng CHƯA LIVE: candidate run 34031376706, artifact 9988766781, APK SHA256 f6011a2088350c7ec0062caf2af0762eedfd14be68f03bdbc41f06a104070287, size 14478325, signer giữ nguyên.
+- Stable chưa public/LIVE; R5 Stable parity chỉ READY_NOT_LIVE. Cấm deploy/public Stable nếu chưa có lệnh OWNER promote.
 - Stable/main/signer/authority không đổi.
 
 ## Evidence cốt lõi
-- OWNER scope rev6 / CMD-20260906-008 bootstrap PASS.
-- D1 triggerless migration + Stable parity v3 run 34008592117 PASS: Service compile, full Wrangler local migration chain, quota fail-closed, exact Beta128 recovery, Stable READY_NOT_LIVE guard.
-- Stable Android compile trên shared runtime R5 PASS tại run 34008327191; app tree không đổi trong D1 recovery patch.
-- Canonical OWNER checklist: ops/OWNER_SCOPE_CURRENT.json, revision 6, SHA256 205600c9cfa96a6dc3a0a3293e2b8e74dcde16d3f198daf1ce7675008250f260, 15 requirement(s).
+- OWNER scope rev6 bootstrap PASS; semantics/snapshot/ledger pointers giữ nguyên.
+- Fast Check exact candidate: run 34040244296 PASS toàn bộ.
+- Service candidate bytes không đổi: d5442338e7413d46a8344a3682f7e08276309630.
+- Các service regression trước điểm lỗi trong run 34042735653 PASS: backup/restore, quota guard, D1 capacity, Beta89, Beta91, Beta92, Beta95, Beta110, Beta111.
+- Run 34042735653 artifact 9992232216: Beta115 cap conflict trả đúng LABOR_END_AFTER_SHIFT_OR_EXIT; future labor finish được CONFIRMED; sau đó b115-exit-future-blocked lại ATTENDANCE_EXIT thành công, nên harness fail.
+- Nguyên nhân hiện tại là fixture/harness phụ thuộc thời điểm cuối ngày: laborEndCap cho ACTIVE khi scheduled shift đã qua dùng now+60s, trong khi exit guard cũng so với Date.now()+60s; vì vậy fixture tạo end_at gần tương lai không thể còn >60s tại lúc exit. Không phải bằng chứng business implementation R5 sai.
+- Sau fail, canonical automatic recovery exact Beta128 PASS; LIVE không bị bỏ ở candidate fail.
+
+## Không được làm lại
+- Không rebuild/resign APK Beta130 khi app/service exact bytes không đổi.
+- Không rerun Fast Check 34040244296.
+- Không nới P95/P99/quota threshold và không bỏ regression để lấy PASS.
+- Không OTA trước khi mọi gate pre-OTA PASS.
 
 ## Blocker
-Không có blocker OWNER; tiếp tục full R5 Technical DoD rev6 rồi dựng lại exact Beta129. Stable chỉ preflight, không deploy.
+Không có blocker OWNER. Đây là harness failure tự xử lý được.
 
 ## NEXT_ACTION
-IMPLEMENT_R5_QUOTA_REALTIME_TECHNICAL_DOD
+FIX_B115_LATE_DAY_FUTURE_EXIT_HARNESS_AND_RERUN_EXACT_SERVICE_GATE_ONLY
