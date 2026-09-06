@@ -19,7 +19,7 @@
 
 ## Authority
 - Không chép lại checklist/yêu cầu OWNER trong handoff.
-- Phiên tiếp quản bắt buộc đọc HANDOVER_CURRENT, REGRESSION_GUARD_POLICY, STABLE_INVARIANTS, CURRENT_STATE, OWNER_SCOPE_CURRENT + ledger head và bootstrap canonical guard trước change.
+- Phiên tiếp quản phải chạy python3 tools/owner_scope_guard.py --bootstrap rồi đọc requirement từ ops/OWNER_SCOPE_CURRENT.json.
 - Chat/memory/file prompt chỉ dùng để tìm canonical repo; requirement thực tế lấy từ ops/OWNER_SCOPE_CURRENT.json.
 
 ## LIVE / TARGET
@@ -29,6 +29,7 @@
 - Stable/main/signer/authority không đổi.
 
 ## Evidence cốt lõi
+- Canonical OWNER checklist: ops/OWNER_SCOPE_CURRENT.json, revision 6, SHA256 205600c9cfa96a6dc3a0a3293e2b8e74dcde16d3f198daf1ce7675008250f260, 15 requirement(s).
 - OWNER scope rev6 bootstrap PASS; semantics/snapshot/ledger pointers giữ nguyên.
 - Fast Check exact candidate: run 34040244296 PASS toàn bộ.
 - Service candidate bytes không đổi: d5442338e7413d46a8344a3682f7e08276309630.

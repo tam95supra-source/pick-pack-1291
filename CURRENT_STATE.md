@@ -36,4 +36,4 @@
 - owner_checklist_id: OWNER_R5_QUOTA_REALTIME
 - owner_checklist_revision: 6
 - owner_acceptance: PENDING requirements 13,14,15
-- next_action: IMPLEMENT_R5_QUOTA_REALTIME_TECHNICAL_DOD
+- next_action: FIX_B115_LATE_DAY_FUTURE_EXIT_HARNESS_AND_RERUN_EXACT_SERVICE_GATE_ONLY
