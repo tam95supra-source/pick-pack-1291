@@ -1,4 +1,4 @@
-# R5 rev6 exact-candidate preparation; idempotent verify-or-apply
+# R5 rev6 exact-candidate preparation; idempotent verify-or-apply v2
 name: Owner R5 Beta129 prepare
 
 on:
