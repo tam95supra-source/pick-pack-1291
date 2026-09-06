@@ -1,0 +1,1633 @@
+{
+  "audit_cost": {
+    "direct_d1_rows_read": 212,
+    "direct_d1_rows_written": 0,
+    "http_budget": 45,
+    "http_calls": 30,
+    "note": "Control API/Analytics reads are not D1 business queries; one health request may perform additional bounded reads not counted in direct query meta."
+  },
+  "beta_health": {
+    "http_status": 403,
+    "ok": false
+  },
+  "captured_at": "2026-09-06T16:52:15.996727+00:00",
+  "d1_daily_analytics": {
+    "data": {
+      "d1AnalyticsAdaptiveGroups": [
+        {
+          "database_name": "UNRESOLVED",
+          "dimensions": {
+            "databaseId": "f945128e-90a0-44b2-958a-0b2de2a871ce",
+            "date": "2026-09-06"
+          },
+          "sum": {
+            "readQueries": 4,
+            "rowsRead": 830,
+            "rowsWritten": 377,
+            "writeQueries": 3
+          }
+        },
+        {
+          "database_name": "UNRESOLVED",
+          "dimensions": {
+            "databaseId": "98b96f15-8107-4a2f-9ef4-e698057a3807",
+            "date": "2026-09-06"
+          },
+          "sum": {
+            "readQueries": 4,
+            "rowsRead": 830,
+            "rowsWritten": 377,
+            "writeQueries": 3
+          }
+        },
+        {
+          "database_name": "UNRESOLVED",
+          "dimensions": {
+            "databaseId": "cfbeb148-5afa-4080-9500-628aa53c7de7",
+            "date": "2026-09-06"
+          },
+          "sum": {
+            "readQueries": 4,
+            "rowsRead": 830,
+            "rowsWritten": 377,
+            "writeQueries": 3
+          }
+        },
+        {
+          "database_name": "UNRESOLVED",
+          "dimensions": {
+            "databaseId": "d587cc87-be4c-4239-bd93-dc34ad3f691b",
+            "date": "2026-09-06"
+          },
+          "sum": {
+            "readQueries": 4,
+            "rowsRead": 830,
+            "rowsWritten": 377,
+            "writeQueries": 3
+          }
+        },
+        {
+          "database_name": "UNRESOLVED",
+          "dimensions": {
+            "databaseId": "a9e5ddcb-c233-4ea6-ba0a-ba6a4a136ff4",
+            "date": "2026-09-06"
+          },
+          "sum": {
+            "readQueries": 26,
+            "rowsRead": 3376,
+            "rowsWritten": 427,
+            "writeQueries": 156
+          }
+        },
+        {
+          "database_name": "UNRESOLVED",
+          "dimensions": {
+            "databaseId": "387d0ca9-18a4-4307-a049-ed61d4bed25d",
+            "date": "2026-09-06"
+          },
+          "sum": {
+            "readQueries": 4,
+            "rowsRead": 830,
+            "rowsWritten": 377,
+            "writeQueries": 3
+          }
+        },
+        {
+          "database_name": "UNRESOLVED",
+          "dimensions": {
+            "databaseId": "78fd5969-f658-4dae-a08a-0c7788049dfd",
+            "date": "2026-09-06"
+          },
+          "sum": {
+            "readQueries": 2,
+            "rowsRead": 215,
+            "rowsWritten": 376,
+            "writeQueries": 1
+          }
+        },
+        {
+          "database_name": "UNRESOLVED",
+          "dimensions": {
+            "databaseId": "d9ed68e7-78dc-424b-8463-d5a849afc478",
+            "date": "2026-09-06"
+          },
+          "sum": {
+            "readQueries": 2,
+            "rowsRead": 215,
+            "rowsWritten": 376,
+            "writeQueries": 1
+          }
+        },
+        {
+          "database_name": "UNRESOLVED",
+          "dimensions": {
+            "databaseId": "e508ad97-8d04-4335-8758-438b10ccd085",
+            "date": "2026-09-06"
+          },
+          "sum": {
+            "readQueries": 4,
+            "rowsRead": 830,
+            "rowsWritten": 377,
+            "writeQueries": 3
+          }
+        },
+        {
+          "database_name": "UNRESOLVED",
+          "dimensions": {
+            "databaseId": "f56f1fcb-c672-43d7-8b1f-1d6ce952aece",
+            "date": "2026-09-06"
+          },
+          "sum": {
+            "readQueries": 26,
+            "rowsRead": 3376,
+            "rowsWritten": 427,
+            "writeQueries": 156
+          }
+        },
+        {
+          "database_name": "UNRESOLVED",
+          "dimensions": {
+            "databaseId": "a50e49ab-09d5-4a7f-8839-8a7fea9168be",
+            "date": "2026-09-06"
+          },
+          "sum": {
+            "readQueries": 2,
+            "rowsRead": 215,
+            "rowsWritten": 376,
+            "writeQueries": 1
+          }
+        },
+        {
+          "database_name": "UNRESOLVED",
+          "dimensions": {
+            "databaseId": "5598dfe2-359c-4149-9912-54ba0d45c584",
+            "date": "2026-09-06"
+          },
+          "sum": {
+            "readQueries": 4,
+            "rowsRead": 830,
+            "rowsWritten": 377,
+            "writeQueries": 3
+          }
+        },
+        {
+          "database_name": "UNRESOLVED",
+          "dimensions": {
+            "databaseId": "0b4f8c64-848b-4fe9-a733-cd1d2f8dce7b",
+            "date": "2026-09-06"
+          },
+          "sum": {
+            "readQueries": 26,
+            "rowsRead": 3376,
+            "rowsWritten": 427,
+            "writeQueries": 156
+          }
+        },
+        {
+          "database_name": "UNRESOLVED",
+          "dimensions": {
+            "databaseId": "aa184710-0d12-4b40-bd84-23d27748c40b",
+            "date": "2026-09-05"
+          },
+          "sum": {
+            "readQueries": 2,
+            "rowsRead": 198,
+            "rowsWritten": 333,
+            "writeQueries": 1
+          }
+        },
+        {
+          "database_name": "UNRESOLVED",
+          "dimensions": {
+            "databaseId": "6abb5483-0263-4f24-b8c6-0dbebc04949f",
+            "date": "2026-09-06"
+          },
+          "sum": {
+            "readQueries": 2,
+            "rowsRead": 215,
+            "rowsWritten": 376,
+            "writeQueries": 1
+          }
+        },
+        {
+          "database_name": "UNRESOLVED",
+          "dimensions": {
+            "databaseId": "5908b750-956f-411e-9853-2d4fb7100e8c",
+            "date": "2026-09-06"
+          },
+          "sum": {
+            "readQueries": 26,
+            "rowsRead": 3376,
+            "rowsWritten": 427,
+            "writeQueries": 156
+          }
+        },
+        {
+          "database_name": "UNRESOLVED",
+          "dimensions": {
+            "databaseId": "3cf56ee6-cc36-40f5-91a6-234b97dd29d4",
+            "date": "2026-09-06"
+          },
+          "sum": {
+            "readQueries": 4,
+            "rowsRead": 830,
+            "rowsWritten": 377,
+            "writeQueries": 3
+          }
+        },
+        {
+          "database_name": "UNRESOLVED",
+          "dimensions": {
+            "databaseId": "507bcfb2-bc17-4432-8a8a-fbf3e546f5f5",
+            "date": "2026-09-06"
+          },
+          "sum": {
+            "readQueries": 2,
+            "rowsRead": 215,
+            "rowsWritten": 376,
+            "writeQueries": 1
+          }
+        },
+        {
+          "database_name": "UNRESOLVED",
+          "dimensions": {
+            "databaseId": "3e817f5a-81b3-4ae1-aa3b-80e3e10a2cbe",
+            "date": "2026-09-06"
+          },
+          "sum": {
+            "readQueries": 26,
+            "rowsRead": 3376,
+            "rowsWritten": 427,
+            "writeQueries": 156
+          }
+        },
+        {
+          "database_name": "UNRESOLVED",
+          "dimensions": {
+            "databaseId": "d9a0241c-baf3-457e-adad-f57e675d50e6",
+            "date": "2026-09-06"
+          },
+          "sum": {
+            "readQueries": 26,
+            "rowsRead": 3376,
+            "rowsWritten": 427,
+            "writeQueries": 156
+          }
+        },
+        {
+          "database_name": "UNRESOLVED",
+          "dimensions": {
+            "databaseId": "a76ede4f-fe44-43e3-9935-fa318f2d05f5",
+            "date": "2026-09-06"
+          },
+          "sum": {
+            "readQueries": 4,
+            "rowsRead": 830,
+            "rowsWritten": 377,
+            "writeQueries": 3
+          }
+        },
+        {
+          "database_name": "UNRESOLVED",
+          "dimensions": {
+            "databaseId": "13e20cb0-58f4-4f3c-b386-76173932e460",
+            "date": "2026-09-06"
+          },
+          "sum": {
+            "readQueries": 4,
+            "rowsRead": 830,
+            "rowsWritten": 377,
+            "writeQueries": 3
+          }
+        },
+        {
+          "database_name": "UNRESOLVED",
+          "dimensions": {
+            "databaseId": "4932cf61-dfb4-48c4-bcad-9f2a54206844",
+            "date": "2026-09-05"
+          },
+          "sum": {
+            "readQueries": 23,
+            "rowsRead": 3312,
+            "rowsWritten": 384,
+            "writeQueries": 140
+          }
+        },
+        {
+          "database_name": "UNRESOLVED",
+          "dimensions": {
+            "databaseId": "9c04e5f9-cfe4-436d-8cfe-bc409af979c0",
+            "date": "2026-09-06"
+          },
+          "sum": {
+            "readQueries": 2,
+            "rowsRead": 215,
+            "rowsWritten": 376,
+            "writeQueries": 1
+          }
+        },
+        {
+          "database_name": "UNRESOLVED",
+          "dimensions": {
+            "databaseId": "a84a0902-eb60-4f70-a503-06bf179c8d06",
+            "date": "2026-09-06"
+          },
+          "sum": {
+            "readQueries": 4,
+            "rowsRead": 830,
+            "rowsWritten": 377,
+            "writeQueries": 3
+          }
+        },
+        {
+          "database_name": "UNRESOLVED",
+          "dimensions": {
+            "databaseId": "9ae063dd-119f-44ca-b5f7-c80f0465f2ef",
+            "date": "2026-09-06"
+          },
+          "sum": {
+            "readQueries": 2,
+            "rowsRead": 215,
+            "rowsWritten": 376,
+            "writeQueries": 1
+          }
+        },
+        {
+          "database_name": "UNRESOLVED",
+          "dimensions": {
+            "databaseId": "d2dc4a6a-9768-4465-9d60-d2c6383529e9",
+            "date": "2026-09-06"
+          },
+          "sum": {
+            "readQueries": 2,
+            "rowsRead": 215,
+            "rowsWritten": 376,
+            "writeQueries": 1
+          }
+        },
+        {
+          "database_name": "UNRESOLVED",
+          "dimensions": {
+            "databaseId": "b383d5dd-4fb7-47e7-bc3e-2935f422bbc6",
+            "date": "2026-09-06"
+          },
+          "sum": {
+            "readQueries": 26,
+            "rowsRead": 3376,
+            "rowsWritten": 427,
+            "writeQueries": 156
+          }
+        },
+        {
+          "database_name": "pick-pack-1291-service-stable",
+          "dimensions": {
+            "databaseId": "47fd0d8d-c96a-435c-85c2-4b12aceedf2c",
+            "date": "2026-09-06"
+          },
+          "sum": {
+            "readQueries": 12890,
+            "rowsRead": 28103,
+            "rowsWritten": 99,
+            "writeQueries": 99
+          }
+        },
+        {
+          "database_name": "UNRESOLVED",
+          "dimensions": {
+            "databaseId": "caba4eb6-330b-4646-b436-1f9ccf293c8c",
+            "date": "2026-09-06"
+          },
+          "sum": {
+            "readQueries": 26,
+            "rowsRead": 3376,
+            "rowsWritten": 427,
+            "writeQueries": 156
+          }
+        },
+        {
+          "database_name": "UNRESOLVED",
+          "dimensions": {
+            "databaseId": "a3b4f74d-4d6a-4ca5-ae94-46ea89cb5b60",
+            "date": "2026-09-06"
+          },
+          "sum": {
+            "readQueries": 26,
+            "rowsRead": 3376,
+            "rowsWritten": 427,
+            "writeQueries": 156
+          }
+        },
+        {
+          "database_name": "UNRESOLVED",
+          "dimensions": {
+            "databaseId": "6d02ed98-14dd-4220-a74b-c2aaf480f078",
+            "date": "2026-09-06"
+          },
+          "sum": {
+            "readQueries": 4,
+            "rowsRead": 830,
+            "rowsWritten": 377,
+            "writeQueries": 3
+          }
+        },
+        {
+          "database_name": "UNRESOLVED",
+          "dimensions": {
+            "databaseId": "3347f630-bf41-4727-9ce3-1ddc5076b1f6",
+            "date": "2026-09-06"
+          },
+          "sum": {
+            "readQueries": 2,
+            "rowsRead": 215,
+            "rowsWritten": 376,
+            "writeQueries": 1
+          }
+        },
+        {
+          "database_name": "UNRESOLVED",
+          "dimensions": {
+            "databaseId": "e9c25871-bb8d-4b5d-ae9a-0f340d9b4d25",
+            "date": "2026-09-06"
+          },
+          "sum": {
+            "readQueries": 2,
+            "rowsRead": 215,
+            "rowsWritten": 376,
+            "writeQueries": 1
+          }
+        },
+        {
+          "database_name": "pick-pack-1291-service-stable",
+          "dimensions": {
+            "databaseId": "47fd0d8d-c96a-435c-85c2-4b12aceedf2c",
+            "date": "2026-09-05"
+          },
+          "sum": {
+            "readQueries": 18328,
+            "rowsRead": 52541,
+            "rowsWritten": 143,
+            "writeQueries": 143
+          }
+        },
+        {
+          "database_name": "UNRESOLVED",
+          "dimensions": {
+            "databaseId": "41038b6b-1755-4657-9001-23acd47bdc50",
+            "date": "2026-09-06"
+          },
+          "sum": {
+            "readQueries": 2,
+            "rowsRead": 215,
+            "rowsWritten": 376,
+            "writeQueries": 1
+          }
+        },
+        {
+          "database_name": "UNRESOLVED",
+          "dimensions": {
+            "databaseId": "effa1eef-b5b7-4308-99b5-dac77be18d0c",
+            "date": "2026-09-06"
+          },
+          "sum": {
+            "readQueries": 2,
+            "rowsRead": 215,
+            "rowsWritten": 376,
+            "writeQueries": 1
+          }
+        },
+        {
+          "database_name": "UNRESOLVED",
+          "dimensions": {
+            "databaseId": "2d0f429f-740a-4619-a3e2-c5f8020c412c",
+            "date": "2026-09-06"
+          },
+          "sum": {
+            "readQueries": 2,
+            "rowsRead": 215,
+            "rowsWritten": 376,
+            "writeQueries": 1
+          }
+        },
+        {
+          "database_name": "UNRESOLVED",
+          "dimensions": {
+            "databaseId": "6cdf7404-8e75-4c95-98a3-dd819ce2a936",
+            "date": "2026-09-06"
+          },
+          "sum": {
+            "readQueries": 4,
+            "rowsRead": 830,
+            "rowsWritten": 377,
+            "writeQueries": 3
+          }
+        },
+        {
+          "database_name": "pick-pack-1291-service-prod",
+          "dimensions": {
+            "databaseId": "b619df89-528d-4126-a948-de0425037b11",
+            "date": "2026-09-06"
+          },
+          "sum": {
+            "readQueries": 66406,
+            "rowsRead": 2919334,
+            "rowsWritten": 44309,
+            "writeQueries": 11508
+          }
+        },
+        {
+          "database_name": "UNRESOLVED",
+          "dimensions": {
+            "databaseId": "92f23b6e-483f-41ef-a29e-4f8adf65df3d",
+            "date": "2026-09-06"
+          },
+          "sum": {
+            "readQueries": 26,
+            "rowsRead": 3376,
+            "rowsWritten": 427,
+            "writeQueries": 156
+          }
+        },
+        {
+          "database_name": "UNRESOLVED",
+          "dimensions": {
+            "databaseId": "5103f1a9-f010-445f-95bc-2c09a9550b16",
+            "date": "2026-09-06"
+          },
+          "sum": {
+            "readQueries": 2,
+            "rowsRead": 215,
+            "rowsWritten": 376,
+            "writeQueries": 1
+          }
+        },
+        {
+          "database_name": "UNRESOLVED",
+          "dimensions": {
+            "databaseId": "6a91b511-81d5-49e4-a45b-533e5c3588f5",
+            "date": "2026-09-06"
+          },
+          "sum": {
+            "readQueries": 26,
+            "rowsRead": 3376,
+            "rowsWritten": 427,
+            "writeQueries": 156
+          }
+        },
+        {
+          "database_name": "UNRESOLVED",
+          "dimensions": {
+            "databaseId": "a7bf988d-d8ce-42af-9bf6-d1b7ae0df863",
+            "date": "2026-09-06"
+          },
+          "sum": {
+            "readQueries": 4,
+            "rowsRead": 830,
+            "rowsWritten": 377,
+            "writeQueries": 3
+          }
+        },
+        {
+          "database_name": "UNRESOLVED",
+          "dimensions": {
+            "databaseId": "262df6e4-9756-4f2f-afe5-0d657addfe65",
+            "date": "2026-09-06"
+          },
+          "sum": {
+            "readQueries": 4,
+            "rowsRead": 830,
+            "rowsWritten": 377,
+            "writeQueries": 3
+          }
+        },
+        {
+          "database_name": "UNRESOLVED",
+          "dimensions": {
+            "databaseId": "cff19448-78f5-4efd-b65a-3b3ab18ec796",
+            "date": "2026-09-06"
+          },
+          "sum": {
+            "readQueries": 22,
+            "rowsRead": 2747,
+            "rowsWritten": 379,
+            "writeQueries": 138
+          }
+        },
+        {
+          "database_name": "UNRESOLVED",
+          "dimensions": {
+            "databaseId": "6c2a87df-7ad8-4857-b1a0-f4b1f0249e5d",
+            "date": "2026-09-06"
+          },
+          "sum": {
+            "readQueries": 2,
+            "rowsRead": 215,
+            "rowsWritten": 376,
+            "writeQueries": 1
+          }
+        },
+        {
+          "database_name": "UNRESOLVED",
+          "dimensions": {
+            "databaseId": "97a6d707-7e48-4637-9143-a29cf6b6fba0",
+            "date": "2026-09-06"
+          },
+          "sum": {
+            "readQueries": 2,
+            "rowsRead": 215,
+            "rowsWritten": 376,
+            "writeQueries": 1
+          }
+        },
+        {
+          "database_name": "UNRESOLVED",
+          "dimensions": {
+            "databaseId": "04f4dd08-6976-432f-8ea4-5a0477e2b968",
+            "date": "2026-09-05"
+          },
+          "sum": {
+            "readQueries": 4,
+            "rowsRead": 765,
+            "rowsWritten": 334,
+            "writeQueries": 3
+          }
+        },
+        {
+          "database_name": "UNRESOLVED",
+          "dimensions": {
+            "databaseId": "22fe0143-dd2d-4b53-ab90-33bd1c0a21c5",
+            "date": "2026-09-06"
+          },
+          "sum": {
+            "readQueries": 4,
+            "rowsRead": 830,
+            "rowsWritten": 377,
+            "writeQueries": 3
+          }
+        },
+        {
+          "database_name": "UNRESOLVED",
+          "dimensions": {
+            "databaseId": "5e41284b-2bb3-480a-87e4-6520bbac37c9",
+            "date": "2026-09-06"
+          },
+          "sum": {
+            "readQueries": 2,
+            "rowsRead": 215,
+            "rowsWritten": 376,
+            "writeQueries": 1
+          }
+        },
+        {
+          "database_name": "UNRESOLVED",
+          "dimensions": {
+            "databaseId": "1f21115b-0216-4978-81ad-c9cb7a2d39e2",
+            "date": "2026-09-06"
+          },
+          "sum": {
+            "readQueries": 2,
+            "rowsRead": 215,
+            "rowsWritten": 376,
+            "writeQueries": 1
+          }
+        },
+        {
+          "database_name": "UNRESOLVED",
+          "dimensions": {
+            "databaseId": "6c3a38ca-4baa-42ad-b45d-768bd423eef5",
+            "date": "2026-09-06"
+          },
+          "sum": {
+            "readQueries": 26,
+            "rowsRead": 3376,
+            "rowsWritten": 427,
+            "writeQueries": 156
+          }
+        },
+        {
+          "database_name": "pick-pack-1291-service-prod",
+          "dimensions": {
+            "databaseId": "b619df89-528d-4126-a948-de0425037b11",
+            "date": "2026-09-05"
+          },
+          "sum": {
+            "readQueries": 43752,
+            "rowsRead": 3600286,
+            "rowsWritten": 38869,
+            "writeQueries": 9917
+          }
+        },
+        {
+          "database_name": "UNRESOLVED",
+          "dimensions": {
+            "databaseId": "8d82467a-b4b7-4578-b2d0-fccfd1879509",
+            "date": "2026-09-06"
+          },
+          "sum": {
+            "readQueries": 4,
+            "rowsRead": 830,
+            "rowsWritten": 377,
+            "writeQueries": 3
+          }
+        },
+        {
+          "database_name": "UNRESOLVED",
+          "dimensions": {
+            "databaseId": "ca5c26ac-7f7e-497d-9f2d-53d8581cd1c0",
+            "date": "2026-09-06"
+          },
+          "sum": {
+            "readQueries": 26,
+            "rowsRead": 3376,
+            "rowsWritten": 427,
+            "writeQueries": 156
+          }
+        },
+        {
+          "database_name": "UNRESOLVED",
+          "dimensions": {
+            "databaseId": "8146d293-e9bc-4349-b90b-cafa7b150ec2",
+            "date": "2026-09-06"
+          },
+          "sum": {
+            "readQueries": 2,
+            "rowsRead": 215,
+            "rowsWritten": 376,
+            "writeQueries": 1
+          }
+        },
+        {
+          "database_name": "UNRESOLVED",
+          "dimensions": {
+            "databaseId": "a7a41f0d-0c54-48b1-8dbb-c6c6bfb1d3f5",
+            "date": "2026-09-06"
+          },
+          "sum": {
+            "readQueries": 26,
+            "rowsRead": 3376,
+            "rowsWritten": 427,
+            "writeQueries": 156
+          }
+        },
+        {
+          "database_name": "UNRESOLVED",
+          "dimensions": {
+            "databaseId": "b4f6132c-4b53-4b9d-81fe-53ab9e473cb1",
+            "date": "2026-09-06"
+          },
+          "sum": {
+            "readQueries": 4,
+            "rowsRead": 830,
+            "rowsWritten": 377,
+            "writeQueries": 3
+          }
+        },
+        {
+          "database_name": "UNRESOLVED",
+          "dimensions": {
+            "databaseId": "e00c71f8-36ba-4c00-b411-173b97857fd0",
+            "date": "2026-09-06"
+          },
+          "sum": {
+            "readQueries": 2,
+            "rowsRead": 215,
+            "rowsWritten": 376,
+            "writeQueries": 1
+          }
+        },
+        {
+          "database_name": "UNRESOLVED",
+          "dimensions": {
+            "databaseId": "db388871-b90f-41f0-a176-897997581907",
+            "date": "2026-09-06"
+          },
+          "sum": {
+            "readQueries": 4,
+            "rowsRead": 830,
+            "rowsWritten": 377,
+            "writeQueries": 3
+          }
+        },
+        {
+          "database_name": "UNRESOLVED",
+          "dimensions": {
+            "databaseId": "b36da4b1-b202-4eb4-adf8-66c5760af2f1",
+            "date": "2026-09-06"
+          },
+          "sum": {
+            "readQueries": 2,
+            "rowsRead": 215,
+            "rowsWritten": 376,
+            "writeQueries": 1
+          }
+        },
+        {
+          "database_name": "UNRESOLVED",
+          "dimensions": {
+            "databaseId": "1cfc01a0-70e2-4bd1-a4f5-4790f64d46a8",
+            "date": "2026-09-06"
+          },
+          "sum": {
+            "readQueries": 4,
+            "rowsRead": 830,
+            "rowsWritten": 377,
+            "writeQueries": 3
+          }
+        },
+        {
+          "database_name": "UNRESOLVED",
+          "dimensions": {
+            "databaseId": "1be8c3ff-2975-4225-b717-7d412ca85129",
+            "date": "2026-09-06"
+          },
+          "sum": {
+            "readQueries": 26,
+            "rowsRead": 3376,
+            "rowsWritten": 427,
+            "writeQueries": 156
+          }
+        },
+        {
+          "database_name": "UNRESOLVED",
+          "dimensions": {
+            "databaseId": "f11237b7-ab7f-406c-8778-f3224f2dfe7d",
+            "date": "2026-09-06"
+          },
+          "sum": {
+            "readQueries": 26,
+            "rowsRead": 3376,
+            "rowsWritten": 427,
+            "writeQueries": 156
+          }
+        },
+        {
+          "database_name": "UNRESOLVED",
+          "dimensions": {
+            "databaseId": "fdbd33ed-affa-45f4-a9c4-de9cc200461c",
+            "date": "2026-09-06"
+          },
+          "sum": {
+            "readQueries": 26,
+            "rowsRead": 3376,
+            "rowsWritten": 427,
+            "writeQueries": 156
+          }
+        },
+        {
+          "database_name": "UNRESOLVED",
+          "dimensions": {
+            "databaseId": "929e70ab-2a6e-46f7-9053-115defa7479c",
+            "date": "2026-09-06"
+          },
+          "sum": {
+            "readQueries": 26,
+            "rowsRead": 3376,
+            "rowsWritten": 427,
+            "writeQueries": 156
+          }
+        },
+        {
+          "database_name": "UNRESOLVED",
+          "dimensions": {
+            "databaseId": "b5adcf1b-7c98-4c2f-8cde-693174191bf6",
+            "date": "2026-09-06"
+          },
+          "sum": {
+            "readQueries": 26,
+            "rowsRead": 3376,
+            "rowsWritten": 427,
+            "writeQueries": 156
+          }
+        },
+        {
+          "database_name": "UNRESOLVED",
+          "dimensions": {
+            "databaseId": "8e4f0e06-9e2d-4854-8e4b-c9b5b9b25f40",
+            "date": "2026-09-06"
+          },
+          "sum": {
+            "readQueries": 26,
+            "rowsRead": 3376,
+            "rowsWritten": 427,
+            "writeQueries": 156
+          }
+        },
+        {
+          "database_name": "UNRESOLVED",
+          "dimensions": {
+            "databaseId": "6cd9dda9-adc6-4a7e-9765-4265477afedf",
+            "date": "2026-09-06"
+          },
+          "sum": {
+            "readQueries": 4,
+            "rowsRead": 830,
+            "rowsWritten": 377,
+            "writeQueries": 3
+          }
+        },
+        {
+          "database_name": "UNRESOLVED",
+          "dimensions": {
+            "databaseId": "8fe17966-6888-4846-bacc-a4fd6c3ad772",
+            "date": "2026-09-06"
+          },
+          "sum": {
+            "readQueries": 26,
+            "rowsRead": 3376,
+            "rowsWritten": 427,
+            "writeQueries": 156
+          }
+        }
+      ]
+    },
+    "ok": true
+  },
+  "d1_inventory": {
+    "count": 3,
+    "databases": [
+      {
+        "file_size": 643072,
+        "id": "47fd0d8d-c96a-435c-85c2-4b12aceedf2c",
+        "name": "pick-pack-1291-service-stable",
+        "read": {
+          "ok": true
+        },
+        "version": "production"
+      },
+      {
+        "file_size": 4915200,
+        "id": "b619df89-528d-4126-a948-de0425037b11",
+        "name": "pick-pack-1291-service-prod",
+        "read": {
+          "ok": true
+        },
+        "version": "production"
+      },
+      {
+        "file_size": 372736,
+        "id": "19a7c8e9-9fc0-4b04-a545-bcbe84b1bcb1",
+        "name": "pick-pack-1291-primary",
+        "read": {
+          "ok": true
+        },
+        "version": "production"
+      }
+    ],
+    "read": {
+      "ok": true
+    }
+  },
+  "dr": {
+    "deno": {
+      "items": [
+        {
+          "autoDeploy": null,
+          "name": "pp1291-dr-stable",
+          "plan": null,
+          "region": null,
+          "suspended": null
+        },
+        {
+          "autoDeploy": null,
+          "name": "pp1291-dr-beta",
+          "plan": null,
+          "region": null,
+          "suspended": null
+        }
+      ],
+      "ok": true,
+      "usage": "NOT_VERIFIED"
+    },
+    "render": {
+      "items": [
+        {
+          "autoDeploy": "no",
+          "name": "pick-pack-1291-dr-stable",
+          "plan": "free",
+          "region": "singapore",
+          "suspended": "suspended"
+        },
+        {
+          "autoDeploy": "no",
+          "name": "pick-pack-1291-dr-beta",
+          "plan": "free",
+          "region": "singapore",
+          "suspended": "suspended"
+        }
+      ],
+      "ok": true,
+      "usage": "NOT_VERIFIED"
+    },
+    "turso": {
+      "organization_count": 0,
+      "read": {
+        "http_status": 403,
+        "ok": false
+      },
+      "usage": "NOT_VERIFIED"
+    }
+  },
+  "google": {
+    "billing_state": "NOT_VERIFIED",
+    "drive_storage": {
+      "limit": "16106127360",
+      "usage": "1091508759",
+      "usageInDrive": "1088703260",
+      "usageInDriveTrash": "160832910"
+    },
+    "sheets": [
+      {
+        "allocated_cells": 992051,
+        "read": {
+          "ok": true
+        },
+        "spreadsheet_id": "1E7ZWz-4eMcBliQxDYBVoogIoeSYyiaXGwj0I6mbMm78",
+        "tab_count": 17,
+        "title": "DỮ LIỆU THEO NGÀY"
+      },
+      {
+        "allocated_cells": 141200,
+        "read": {
+          "ok": true
+        },
+        "spreadsheet_id": "1Z5tKgGjQxcQqKY-UJO2nOVvM3dA0_VtJx5ayKjWSAy0",
+        "tab_count": 14,
+        "title": "PICK_PACK_1291_STABLE_DATA_READY_NOT_LIVE"
+      },
+      {
+        "allocated_cells": 9100,
+        "read": {
+          "ok": true
+        },
+        "spreadsheet_id": "1Z_TlJ5CdrSb2duUeTPY1rmi0W6vP69c8Ml3QbDkd2Wo",
+        "tab_count": 3,
+        "title": "PICK_PACK_1291_STABLE_OUTBOUND_READY_NOT_LIVE"
+      },
+      {
+        "allocated_cells": 53196,
+        "read": {
+          "ok": true
+        },
+        "spreadsheet_id": "1tl6har_8vGSVsVlcErfQwjX1YgvN3o-FRG5wQV4VTEM",
+        "tab_count": 2,
+        "title": "PICK PACK 1291 x OUTBOUND"
+      }
+    ],
+    "usage_metrics": "NOT_AVAILABLE_FROM_SHEETS_METADATA"
+  },
+  "kind": "BOUNDED_READ_ONLY_AUDIT",
+  "limitations": [
+    "Analytics can lag and may use adaptive sampling; no attribution of all daily usage to AI without a separate run ledger.",
+    "No runtime load, UI/frame, full-day, failure injection or Stable deployment performed.",
+    "Google/DR metadata does not establish daily usage or billing status."
+  ],
+  "live_deployments": 0,
+  "load_test_mutations": 0,
+  "plan": {
+    "default_usage_model": "standard",
+    "settings_read": {
+      "ok": true
+    },
+    "subscriptions": [
+      {
+        "plan_id": "free",
+        "price": 0,
+        "public_name": "Cloudflare Free Plan",
+        "scope": "zone",
+        "state": "Paid"
+      }
+    ],
+    "subscriptions_read": {
+      "ok": true
+    }
+  },
+  "source_sha": "b0519ce240d57510428db52cc295838101250afa",
+  "workers": [
+    {
+      "audience": "PICK_PACK_1291_BETA",
+      "authority": {
+        "data": [
+          {
+            "meta": {
+              "duration": 0.2719,
+              "rows_read": 1,
+              "rows_written": 0,
+              "size_after": 4915200
+            },
+            "results": [
+              {
+                "authority_epoch": 9,
+                "authority_seq": 3305,
+                "mode": "SERVICE_PRIMARY",
+                "scope": "PRODUCTION",
+                "service_generation": "m2-prod-reset-20260823-001"
+              }
+            ]
+          }
+        ],
+        "ok": true
+      },
+      "d1_id": "b619df89-528d-4126-a948-de0425037b11",
+      "d1_name": "pick-pack-1291-service-prod",
+      "deployments": [
+        {
+          "created_on": "2026-09-06T15:38:48.447074Z",
+          "id": "f5cd36bc-099a-449a-b79a-c919034b999a",
+          "source": "wrangler",
+          "strategy": "percentage",
+          "versions": [
+            {
+              "percentage": 100,
+              "version_id": "128f2e49-a27c-4a3d-b04e-d0a4f3ecae9c"
+            }
+          ]
+        },
+        {
+          "created_on": "2026-09-06T15:36:26.402078Z",
+          "id": "215df871-3cbe-44a3-9fac-a96ec7fe03da",
+          "source": "wrangler",
+          "strategy": "percentage",
+          "versions": [
+            {
+              "percentage": 100,
+              "version_id": "ea7551ea-32dc-4419-a8dd-6503b82717d9"
+            }
+          ]
+        },
+        {
+          "created_on": "2026-09-06T15:32:05.026821Z",
+          "id": "2aefcb86-1041-4f59-b1a5-d85a98f8ff11",
+          "source": "wrangler",
+          "strategy": "percentage",
+          "versions": [
+            {
+              "percentage": 100,
+              "version_id": "68826231-4257-400b-9504-e0ef0e26dba6"
+            }
+          ]
+        }
+      ],
+      "environment_id": "BETA",
+      "generation": "m2-prod-reset-20260823-001",
+      "has_realtime_hub": true,
+      "limits": null,
+      "name": "pickpack",
+      "observability": {
+        "enabled": true,
+        "head_sampling_rate": 1,
+        "logs": {
+          "enabled": true,
+          "head_sampling_rate": 1,
+          "invocation_logs": true,
+          "persist": true
+        },
+        "redact_query_string": false,
+        "traces": {
+          "enabled": false,
+          "head_sampling_rate": 1,
+          "persist": true
+        }
+      },
+      "quota_policy": {
+        "data": [
+          {
+            "meta": {
+              "duration": 0.5605,
+              "rows_read": 4,
+              "rows_written": 0,
+              "size_after": 4915200
+            },
+            "results": [
+              {
+                "hard_limit": 250,
+                "metric": "GOOGLE_SHEETS_DAILY",
+                "unit": "requests/day"
+              },
+              {
+                "hard_limit": 100,
+                "metric": "GOOGLE_SHEETS_PROJECT_MINUTE",
+                "unit": "requests/minute/project"
+              },
+              {
+                "hard_limit": 30,
+                "metric": "GOOGLE_SHEETS_READ_MINUTE",
+                "unit": "read requests/minute/user"
+              },
+              {
+                "hard_limit": 30,
+                "metric": "GOOGLE_SHEETS_WRITE_MINUTE",
+                "unit": "write requests/minute/user"
+              }
+            ]
+          }
+        ],
+        "ok": true
+      },
+      "quota_today": {
+        "data": [
+          {
+            "meta": {
+              "duration": 0.7458,
+              "rows_read": 2,
+              "rows_written": 0,
+              "size_after": 4915200
+            },
+            "results": [
+              {
+                "hard_limit": 250,
+                "metric": "GOOGLE_SHEETS_DAILY",
+                "updated_at": "2026-09-06T07:24:38.054Z",
+                "used": 250
+              }
+            ]
+          }
+        ],
+        "ok": true
+      },
+      "r5_tables": {
+        "data": [
+          {
+            "meta": {
+              "duration": 0.286,
+              "rows_read": 205,
+              "rows_written": 0,
+              "size_after": 4915200
+            },
+            "results": [
+              {
+                "name": "day_revision_state"
+              },
+              {
+                "name": "push_wake_outbox"
+              },
+              {
+                "name": "session_special_projection_outbox"
+              },
+              {
+                "name": "quota_policy"
+              },
+              {
+                "name": "quota_usage"
+              }
+            ]
+          }
+        ],
+        "ok": true
+      },
+      "schedules": {
+        "schedules": [
+          {
+            "created_on": "2026-08-23T05:07:41.798254Z",
+            "cron": "*/1 * * * *",
+            "modified_on": "2026-09-06T15:38:49.766948Z"
+          }
+        ]
+      },
+      "settings_read": {
+        "ok": true
+      },
+      "sheet_ids": {
+        "GOOGLE_OUTBOUND_SHEET_ID": "1tl6har_8vGSVsVlcErfQwjX1YgvN3o-FRG5wQV4VTEM",
+        "GOOGLE_SOURCE_SHEET_ID": "1E7ZWz-4eMcBliQxDYBVoogIoeSYyiaXGwj0I6mbMm78"
+      },
+      "top_rowsRead": {
+        "data": {
+          "d1QueriesAdaptiveGroups": [
+            {
+              "count": 658,
+              "dimensions": {
+                "query": "SELECT * FROM events WHERE event_type IN ('?','?') ORDER BY authority_seq DESC LIMIT ?"
+              },
+              "query_sha256": "8c3987bcf182603c0d8cda7cd473ee8f12ddca0ce7300a895a77199831256673",
+              "sum": {
+                "queryDurationMs": 880.2398999999998,
+                "rowsRead": 808569,
+                "rowsReturned": 1974,
+                "rowsWritten": 0
+              }
+            },
+            {
+              "count": 51,
+              "dimensions": {
+                "query": "WITH recent AS (\n      SELECT business_date,sequence_no FROM business_dates ORDER BY sequence_no DESC LIMIT ?\n    ), rev AS (\n      SELECT recent.business_date,recent.sequence_no,MAX(COALESCE(events.authority_seq,0)) AS max_seq\n      FROM recent LEFT JOIN events ON events.business_date=recent.business_date\n      GROUP BY recent.business_date,recent.sequence_no\n    ), meta AS (\n      SELECT\n        (SELECT business_date FROM business_dates ORDER BY sequence_no ASC LIMIT 1) AS server_retention_floor,\n        COALESCE((SELECT pending_count FROM replication_status WHERE singleton_id=1),0) AS projection_pending,\n        COALESCE((SELECT MAX(source_row) FROM employees),0) AS master_revision\n    )\n    SELECT rev.business_date,rev.sequence_no,rev.max_seq,\n      a.authority_epoch,a.authority_seq,a.mode,a.scope,a.service_generation,a.updated_at,\n      meta.server_retention_floor,meta.projection_pending,meta.master_revision\n    FROM rev CROSS JOIN authority_state a CROSS JOIN meta\n    WHERE a.singleton_id=1 ORDER BY rev.sequence_no DESC"
+              },
+              "query_sha256": "c36b6bb7fc41ba38c951fe80ea18b7a3c1398beae19095633475d79153ab73b0",
+              "sum": {
+                "queryDurationMs": 66.8871,
+                "rowsRead": 125388,
+                "rowsReturned": 357,
+                "rowsWritten": 0
+              }
+            },
+            {
+              "count": 34,
+              "dimensions": {
+                "query": "SELECT event_id first_event FROM events ORDER BY committed_at,event_id LIMIT ?;"
+              },
+              "query_sha256": "92633eb536917ebf71a105e8723556dce18476a358ad62ef92060f5cb01bc8fb",
+              "sum": {
+                "queryDurationMs": 23.2449,
+                "rowsRead": 83350,
+                "rowsReturned": 34,
+                "rowsWritten": 0
+              }
+            },
+            {
+              "count": 41,
+              "dimensions": {
+                "query": "WITH recent AS (SELECT business_date,sequence_no FROM business_dates ORDER BY sequence_no DESC LIMIT ?)\n      SELECT r.business_date,r.sequence_no,COALESCE(MAX(e.authority_seq),0) revision FROM recent r LEFT JOIN events e ON e.business_date=r.business_date GROUP BY r.business_date,r.sequence_no ORDER BY r.sequence_no DESC"
+              },
+              "query_sha256": "15b7009fe3fc9c6cb101ce0d5fadd324367fd79a8ac230c230f3071fa547da7c",
+              "sum": {
+                "queryDurationMs": 56.46060000000001,
+                "rowsRead": 80076,
+                "rowsReturned": 287,
+                "rowsWritten": 0
+              }
+            },
+            {
+              "count": 31,
+              "dimensions": {
+                "query": "SELECT * FROM events WHERE actor_role IN ('?','?','?') ORDER BY authority_seq DESC LIMIT ?"
+              },
+              "query_sha256": "ecc12a606c7837485b8ec99f3d074df957b4844fbc81f6f34d5c03cf4e42a3d1",
+              "sum": {
+                "queryDurationMs": 773.0257,
+                "rowsRead": 76018,
+                "rowsReturned": 38009,
+                "rowsWritten": 0
+              }
+            },
+            {
+              "count": 18,
+              "dimensions": {
+                "query": "SELECT '?' table_name,COUNT(*) rows FROM events\n      UNION ALL SELECT '?',COUNT(*) FROM attendance_sessions\n      UNION ALL SELECT '?',COUNT(*) FROM labor_sessions\n      UNION ALL SELECT '?',COUNT(*) FROM sheet_replication_outbox\n      UNION ALL SELECT '?',COUNT(*) FROM outbound_replication_outbox"
+              },
+              "query_sha256": "05e5d5401d94d2fd42e96d2563c4e96a480e13d830f85e9045292fa20211049c",
+              "sum": {
+                "queryDurationMs": 12.0726,
+                "rowsRead": 54378,
+                "rowsReturned": 90,
+                "rowsWritten": 0
+              }
+            },
+            {
+              "count": 246,
+              "dimensions": {
+                "query": "SELECT resource_type,resource_id FROM resource_daily_consumption WHERE first_event_id=?1 AND resource_type IN ('?','?') ORDER BY resource_type,resource_id"
+              },
+              "query_sha256": "afb3845102b461e53a1033a064fe719183f508dacc164bf8328a3ba8014373f8",
+              "sum": {
+                "queryDurationMs": 58.604800000000004,
+                "rowsRead": 50676,
+                "rowsReturned": 160,
+                "rowsWritten": 0
+              }
+            },
+            {
+              "count": 39,
+              "dimensions": {
+                "query": "SELECT COUNT(*) pending FROM outbound_replication_outbox o JOIN events e ON e.event_id=o.event_id WHERE e.actor_id='?' AND o.status<>'?';"
+              },
+              "query_sha256": "7889888779a6057a78f91c2996723988c6eb8715bdaf3a6689f2fad4294e1400",
+              "sum": {
+                "queryDurationMs": 26.503299999999996,
+                "rowsRead": 49296,
+                "rowsReturned": 39,
+                "rowsWritten": 0
+              }
+            }
+          ]
+        },
+        "ok": true
+      },
+      "top_rowsWritten": {
+        "data": {
+          "d1QueriesAdaptiveGroups": [
+            {
+              "count": 944,
+              "dimensions": {
+                "query": "INSERT INTO events(event_id,event_type,entity_type,entity_id,business_date,authority_epoch,authority_seq,service_generation,base_version,new_version,actor_id,actor_role,device_id,occurred_at,committed_at,payload_json,idempotency_key,origin,schema_version,checksum) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20)"
+              },
+              "query_sha256": "b7b02eb688195d4e45b41424aaf20c36645a169012a39ba00f45cf21dcbf0222",
+              "sum": {
+                "queryDurationMs": 265.98929999999996,
+                "rowsRead": 0,
+                "rowsReturned": 0,
+                "rowsWritten": 6608
+              }
+            },
+            {
+              "count": 505,
+              "dimensions": {
+                "query": "UPDATE sheet_replication_outbox SET claimed_at=?1 WHERE status='?' AND claim_token=?2"
+              },
+              "query_sha256": "07dc298114d762987c649f74a633adcf14c78214b30f13f4fd03f0d598891fbf",
+              "sum": {
+                "queryDurationMs": 121.55250000000004,
+                "rowsRead": 26934,
+                "rowsReturned": 0,
+                "rowsWritten": 4592
+              }
+            },
+            {
+              "count": 1019,
+              "dimensions": {
+                "query": "INSERT INTO sheet_replication_outbox(event_id,status,attempt_count,next_attempt_at,created_at) VALUES(?1,'?',0,?2,?2)"
+              },
+              "query_sha256": "49bb6198d92726ae77cfeaa1735f177c961d8eb9fcc1f5442a5e2449e6d2787f",
+              "sum": {
+                "queryDurationMs": 179.3513,
+                "rowsRead": 3057,
+                "rowsReturned": 0,
+                "rowsWritten": 4076
+              }
+            },
+            {
+              "count": 60,
+              "dimensions": {
+                "query": "UPDATE sheet_replication_outbox SET status='?',claim_token=NULL,claimed_at=NULL,next_attempt_at=?1,last_error_class='?',last_error=?2 WHERE status='?' AND claim_token=?3"
+              },
+              "query_sha256": "24c3be76daaa5381b787e69bcf835a5160dbe7f9336ac39849b4376125edad74",
+              "sum": {
+                "queryDurationMs": 26.430600000000002,
+                "rowsRead": 5772,
+                "rowsReturned": 0,
+                "rowsWritten": 2856
+              }
+            },
+            {
+              "count": 379,
+              "dimensions": {
+                "query": "INSERT INTO events(event_id,event_type,entity_type,entity_id,business_date,authority_epoch,authority_seq,service_generation,base_version,new_version,actor_id,actor_role,device_id,occurred_at,committed_at,payload_json,idempotency_key,origin,schema_version,checksum)\n      VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20)"
+              },
+              "query_sha256": "21f4949f6d583acf1f800d3ca211c3e15ffe9c8519b0f6c68d2e8dd6c99ff3a4",
+              "sum": {
+                "queryDurationMs": 79.36589999999998,
+                "rowsRead": 0,
+                "rowsReturned": 0,
+                "rowsWritten": 2653
+              }
+            },
+            {
+              "count": 993,
+              "dimensions": {
+                "query": "UPDATE sheet_replication_outbox SET status='?',claim_token=NULL,claimed_at=NULL,next_attempt_at=?1,last_error_class=COALESCE(last_error_class,'?'),last_error=COALESCE(last_error,'?') WHERE status='?' AND (claimed_at IS NULL OR claimed_at<=?2)"
+              },
+              "query_sha256": "ed74fd18a4b44553ac892ee28257ed19f42396d94dd91c23b16e0d35e37878bc",
+              "sum": {
+                "queryDurationMs": 242.41829999999993,
+                "rowsRead": 23498,
+                "rowsReturned": 0,
+                "rowsWritten": 2624
+              }
+            },
+            {
+              "count": 1203,
+              "dimensions": {
+                "query": "UPDATE sheet_replication_outbox SET status='?',claim_token=?1,claimed_at=?2,attempt_count=attempt_count+1,last_error_class=NULL,last_error=NULL WHERE outbox_id=?3 AND status IN ('?','?')"
+              },
+              "query_sha256": "89fd4d8f219ec7db4114fffbfaa73b26a0759e395875cd066e826e4c33764092",
+              "sum": {
+                "queryDurationMs": 100.26880000000003,
+                "rowsRead": 2406,
+                "rowsReturned": 0,
+                "rowsWritten": 2406
+              }
+            },
+            {
+              "count": 545,
+              "dimensions": {
+                "query": "INSERT INTO sheet_replication_outbox(event_id,status,next_attempt_at) VALUES(?1,'?',?2)"
+              },
+              "query_sha256": "523dd10ec7bdfec22c99a73216ea18e279274c5c3913c50170acaad7df62bed2",
+              "sum": {
+                "queryDurationMs": 124.59089999999999,
+                "rowsRead": 1635,
+                "rowsReturned": 0,
+                "rowsWritten": 2180
+              }
+            }
+          ]
+        },
+        "ok": true
+      },
+      "usage_model": "standard"
+    },
+    {
+      "audience": "PICK_PACK_1291_STABLE",
+      "d1_id": "47fd0d8d-c96a-435c-85c2-4b12aceedf2c",
+      "d1_name": "pick-pack-1291-service-stable",
+      "deployments": [
+        {
+          "created_on": "2026-08-31T05:04:40.898087Z",
+          "id": "c743436b-5f37-4ce9-bd3a-edfd78ededb5",
+          "source": "wrangler",
+          "strategy": "percentage",
+          "versions": [
+            {
+              "percentage": 100,
+              "version_id": "b876eda2-043a-41e3-8d0a-25022f9822b9"
+            }
+          ]
+        },
+        {
+          "created_on": "2026-08-31T03:40:08.889334Z",
+          "id": "e9a84dfb-8308-4c13-b596-b2b5e58f1d63",
+          "source": "wrangler",
+          "strategy": "percentage",
+          "versions": [
+            {
+              "percentage": 100,
+              "version_id": "a5b3666c-fea7-4a23-bda1-d3518d31c96e"
+            }
+          ]
+        },
+        {
+          "created_on": "2026-08-30T22:03:58.577278Z",
+          "id": "3d450668-8548-40b9-9277-0e697dfe8a90",
+          "source": "wrangler",
+          "strategy": "percentage",
+          "versions": [
+            {
+              "percentage": 100,
+              "version_id": "baeb547c-0227-4489-bfc0-b8c28c75fe4b"
+            }
+          ]
+        }
+      ],
+      "environment_id": "STABLE",
+      "generation": "stable-private-0e78fd6fd173",
+      "has_realtime_hub": true,
+      "limits": null,
+      "name": "pickpack1291-stable-private",
+      "observability": {
+        "enabled": true,
+        "head_sampling_rate": 1,
+        "logs": {
+          "enabled": true,
+          "head_sampling_rate": 1,
+          "invocation_logs": true,
+          "persist": true
+        },
+        "redact_query_string": false,
+        "traces": {
+          "enabled": false,
+          "head_sampling_rate": 1,
+          "persist": true
+        }
+      },
+      "schedules": {
+        "schedules": [
+          {
+            "created_on": "2026-08-30T22:03:57.113033Z",
+            "cron": "*/1 * * * *",
+            "modified_on": "2026-08-31T03:40:10.56603Z"
+          }
+        ]
+      },
+      "settings_read": {
+        "ok": true
+      },
+      "sheet_ids": {
+        "GOOGLE_OUTBOUND_SHEET_ID": "1Z_TlJ5CdrSb2duUeTPY1rmi0W6vP69c8Ml3QbDkd2Wo",
+        "GOOGLE_SOURCE_SHEET_ID": "1Z5tKgGjQxcQqKY-UJO2nOVvM3dA0_VtJx5ayKjWSAy0"
+      },
+      "usage_model": "standard"
+    }
+  ],
+  "workers_utc_today": {
+    "data": {
+      "workersInvocationsAdaptive": [
+        {
+          "dimensions": {
+            "scriptName": "pickpack1291-stable-private"
+          },
+          "quantiles": {
+            "cpuTimeP50": 6574,
+            "cpuTimeP99": 28698
+          },
+          "sum": {
+            "errors": 0,
+            "requests": 1092,
+            "subrequests": 402
+          }
+        },
+        {
+          "dimensions": {
+            "scriptName": "pickpack"
+          },
+          "quantiles": {
+            "cpuTimeP50": 7626,
+            "cpuTimeP99": 77994
+          },
+          "sum": {
+            "errors": 323,
+            "requests": 3988,
+            "subrequests": 8007
+          }
+        }
+      ]
+    },
+    "ok": true
+  }
+}

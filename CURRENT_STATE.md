@@ -1,8 +1,9 @@
 # CURRENT STATE — PICK PACK 1291
 
-- updated_at: 2026-09-06T23:29:48+07:00
+- updated_at: 2026-09-07T00:08:18+07:00
 - status: BETA128_PASS_LIVE
-- continuity_branch: release/beta130-r5-rev6-20260906
+- continuity_branch: beta/current
+- active_work_branch: release/beta130-r5-rev6-20260906
 - source_sha: 5569d1e931436e02d118ed8ab57f2143de43b9f7
 - beta_live: 0.4.2-beta.128 (versionCode 134)
 - package: vn.pickpack1291.app.beta.publicbeta
@@ -14,18 +15,23 @@
 - apk_size: 14461941
 - signer_sha256: d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e
 - terminal_run: 33994851862
-- fast_check: PASS
-- service_gate: NOT_REQUIRED
-- visual_matrix: PASS 320x568 / 360x640 / 480x800
-- human_visual: PASS
-- pda_functional_pre_ota: PASS
-- beta_ota: exact 0.4.2-beta.128 PASS via GitHub Release
+- fast_check: PASS for existing Beta128 release evidence
+- service_gate: existing Beta128 release NOT_REQUIRED; R5 candidate NOT_PASS
+- visual_matrix: prior Beta128 PASS 320x568 / 360x640 / 480x800
+- human_visual: prior Beta128 PASS
+- pda_functional_pre_ota: prior Beta128 PASS; no fresh three-device readback in audit
+- beta_ota: prior exact 0.4.2-beta.128 PASS; fresh GitHub release list confirms Beta128; GAS manifest not re-read in audit
 - beta_ota_url: https://github.com/tam95supra-source/pick-pack-1291/releases/download/v0.4.2-beta.128-publicbeta/pick-pack-1291-public-beta-0.4.2-beta.128.apk
 - apk_transport: GITHUB_RELEASE_ONLY
 - google_drive_apk: FORBIDDEN
-- stable: unchanged / no public Stable; R5 quota parity READY_NOT_LIVE only
+- stable: READY_NOT_LIVE / private runtime older than R5 candidate / quota setup NOT_VERIFIED_COMPLETE
+- stable_live_worker_version: b876eda2-043a-41e3-8d0a-25022f9822b9 / 2026-08-31T05:04:40Z
+- stable_cron_observed: every minute / idle quota optimization pending
 - main_sha: 021dac5c6932b3ac5c60ce8fdba562ddf3d9688f
 - authority: SERVICE_PRIMARY / PRODUCTION / epoch 9 / generation m2-prod-reset-20260823-001
+- authority_seq_observed: 3305
+- beta_worker_version_observed: 128f2e49-a27c-4a3d-b04e-d0a4f3ecae9c / 2026-09-06T15:38:48Z / matches exact Beta128 recovery
+- beta_health_audit: HTTP403 at configured URL / runtime URL resolution needed / not evidence of outage
 - owner_scope_file: ops/OWNER_SCOPE_CURRENT.json
 - owner_scope_id: OWNER_20260906_R5_QUOTA_REALTIME
 - owner_scope_revision: 7
@@ -33,9 +39,25 @@
 - owner_scope_sha256: a15bd89635475b0da7b36876a2a23932cbfebcda6282e705d3f19409c036117d
 - owner_command_ledger: ops/owner-command-ledger.jsonl
 - owner_command_ledger_head: f7399a9b95275ac5ece0c027be137a87aff33c4694aedb105363325c1ea44f3f
-- owner_checklist_id: OWNER_R5_QUOTA_REALTIME
-- owner_checklist_revision: 6
 - owner_acceptance: PENDING requirements 13,14,15
-- r5_work_state: BLOCKED_PLAN_MODEL_MISMATCH / default_usage_model=standard / token read PASS / run 34044419955 attempt 2
-- r5_service_deploy: SKIPPED / no new deployment in this checkpoint
-- next_action: READ_ONLY_QUOTA_AUDIT_AND_PREPARE_EXECUTION_PROMPT
+- r5_work_state: AUDIT_AND_PROMPT_READY / IMPLEMENTATION_PENDING / FULL_TECHNICAL_DOD_NOT_PASS
+- r5_candidate_version: 0.4.2-beta.130 (versionCode 136) / NOT_LIVE
+- r5_candidate_app_source_sha: 99fbdae3c54a8bad42bf102a480dd19378ad1f92
+- r5_candidate_service_fence_sha: d5442338e7413d46a8344a3682f7e08276309630
+- r5_candidate_run: 34031376706
+- r5_candidate_artifact: 9988766781
+- r5_candidate_apk_sha256: f6011a2088350c7ec0062caf2af0762eedfd14be68f03bdbc41f06a104070287
+- r5_candidate_apk_size: 14478325
+- r5_last_service_attempt: 34044419955 attempt2 / blocked plan classification before deploy
+- r5_service_deploy_this_audit: NONE
+- r5_actual_workers_plan: NOT_VERIFIED / standard default model plus zone Free subscription price0 are insufficient product entitlement evidence
+- r5_release_binding: ops/beta-release-request.json still revision6; migrate binding by protocol before next exact gate
+- r5_audit_captured_at: 2026-09-06T16:52:15.996727Z
+- r5_audit_run: 34046817302
+- r5_audit_artifact: 9993346708
+- r5_audit_receipt: ops/r5-quota-audit-20260906.json
+- r5_d1_utc_today_observed: 3043025 rows_read / 69567 rows_written / all returned account DB IDs
+- r5_d1_free_percent_observed: 60.8605% reads / 69.567% writes
+- r5_audit_cost: 30 HTTP calls / direct D1 212 rows_read 0 rows_written / health reads not included
+- r5_execution_prompt: docs/R5_QUOTA_EXECUTION_PROMPT_20260907.md
+- next_action: IMPLEMENT_R5_QUOTA_FIXES_FROM_AUDIT_WITH_BOUNDED_TEST_BUDGET
