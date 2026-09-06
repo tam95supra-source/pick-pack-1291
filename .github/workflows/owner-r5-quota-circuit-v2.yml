@@ -1,5 +1,5 @@
 name: Owner R5 quota circuit dirty-due v2
-# rerun after metering resumable bootstrap Sheets reads
+# rerun after metering history-audit Sheets calls
 
 on:
   push:
@@ -34,8 +34,8 @@ jobs:
       - name: Apply quota circuit patch
         run: |
           set -euo pipefail
-          python3 -m py_compile tools/r5_quota_circuit_apply.py tools/r5_quota_circuit_apply_v2.py tools/r5_quota_circuit_apply_v3.py
-          python3 tools/r5_quota_circuit_apply_v3.py
+          python3 -m py_compile tools/r5_quota_circuit_apply.py tools/r5_quota_circuit_apply_v2.py tools/r5_quota_circuit_apply_v3.py tools/r5_quota_circuit_apply_v4.py
+          python3 tools/r5_quota_circuit_apply_v4.py
       - name: Compile service
         run: |
           set -euo pipefail
@@ -95,6 +95,8 @@ jobs:
           assert 'r5_operational_repair_dirty' in r
           b=Path('service/src/bootstrap_resumable.ts').read_text()
           assert b.count('requireSheetsCall') >= 3
+          h=Path('service/src/beta47_history_audit.ts').read_text()
+          assert h.count('requireSheetsCall') >= 3
           print('R5_METERING_DIRTY_DUE_PASS files='+','.join(files))
           PY
           git diff --check
@@ -103,7 +105,7 @@ jobs:
           set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add service/src/replication.ts service/src/master_replication.ts service/src/beta47_projection.ts service/src/session_hotfix.ts service/src/outbound_beta78.ts service/src/document_management.ts service/src/entry_product.ts service/src/bootstrap_resumable.ts
+          git add service/src/replication.ts service/src/master_replication.ts service/src/beta47_projection.ts service/src/session_hotfix.ts service/src/outbound_beta78.ts service/src/document_management.ts service/src/entry_product.ts service/src/bootstrap_resumable.ts service/src/beta47_history_audit.ts
           test -n "$(git diff --cached --name-only)"
           git diff --cached --check
           git commit -m 'perf(r5): meter Sheets quota and run repair only when dirty'
