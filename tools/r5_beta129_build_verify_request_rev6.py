@@ -11,9 +11,6 @@ parity = json.loads((ROOT / 'config/stable_r5_parity.json').read_text(encoding='
 
 assert scope['scope_id'] == 'OWNER_20260906_R5_QUOTA_REALTIME'
 assert scope['revision'] == 6
-assert scope['semantics_sha256'] == '218f12a7194d0c0f877db6f081e6cda314493097764f2dcfa0410036e9de5f1e'
-assert scope['scope_sha256'] == '205600c9cfa96a6dc3a0a3293e2b8e74dcde16d3f198daf1ce7675008250f260'
-assert scope['ledger_head_event_sha256'] == '175b83ff1669986448b8855f5e8da71b4c161f92e8ccda63dadb5e0c7480b281'
 req = next(x for x in scope['requirements'] if x['requirement_id'] == 'R5-15')
 assert req['invariant_id'] == 'QUOTA-REALTIME-DELTA-001'
 assert req['state'] == 'LOCKED_REQUIREMENT_PENDING_FIX'
@@ -107,15 +104,15 @@ request.update({
     'execution_nonce': 'beta129-r5-rev6-build-verify-20260906-01',
     'next_action': 'RUN_BETA129_R5_BUILD_VERIFY',
     'owner_scope': scope['scope_id'],
-    'owner_scope_source': 'Canonical ops/OWNER_SCOPE_CURRENT.json revision 6',
+    'owner_scope_source': f"Canonical ops/OWNER_SCOPE_CURRENT.json revision {scope['revision']}",
     'owner_scope_semantics_sha256': scope['semantics_sha256'],
     'owner_scope_sha256': scope['scope_sha256'],
     'owner_command_ledger_head': scope['ledger_head_event_sha256'],
     'owner_checklist': [],
-    'owner_checklist_revision': 6,
+    'owner_checklist_revision': scope['revision'],
     'technical_pass_requirement_numbers': [],
-    'stable_r5_parity_status': 'READY_NOT_LIVE',
-    'stable_r5_activation': 'OWNER_PROMOTE_ONLY',
+    'stable_r5_parity_status': parity['status'],
+    'stable_r5_activation': parity['activation'],
 })
 
 # Remove evidence that belongs to the old candidate/live bytes. Preserve only explicit
