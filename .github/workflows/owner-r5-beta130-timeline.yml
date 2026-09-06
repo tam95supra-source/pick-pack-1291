@@ -1,0 +1,39 @@
+name: Owner R5 Beta130 timeline incremental
+on:
+  push:
+    branches: [work/r5-beta130-timeline-20260906]
+    paths:
+      - tools/r5_beta130_timeline_patch.py
+      - .github/workflows/owner-r5-beta130-timeline.yml
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: owner-r5-beta130-timeline
+  cancel-in-progress: false
+jobs:
+  patch-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Canonical owner scope guard
+        run: python3 tools/owner_scope_guard.py --bootstrap
+      - name: Apply minimal incremental timeline patch
+        run: python3 tools/r5_beta130_timeline_patch.py
+      - name: R5 structural guards
+        run: |
+          python3 tools/r5_quota_realtime_guard.py
+          python3 tools/r5_full_technical_dod.py
+      - name: Android compile
+        run: ./gradlew :app:compileBetaDebugKotlin :app:assembleBetaDebug --no-daemon
+      - name: Commit exact Beta130 source
+        run: |
+          set -euo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt app/build.gradle.kts
+          git diff --cached --quiet && { echo NO_PATCH_COMMIT >&2; exit 1; }
+          git commit -m 'fix(r5): render employee timeline incrementally for Beta130'
+          git push origin HEAD:${GITHUB_REF_NAME}
