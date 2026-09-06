@@ -1,0 +1,93 @@
+#!/usr/bin/env python3
+from pathlib import Path
+
+p=Path('service/public/app.js')
+t=p.read_text(encoding='utf-8')
+
+old="wsDay:null,wsMaster:null,tab:'dashboard',import:"
+new="wsDay:null,wsMaster:null,tab:'dashboard',dayRevisions:{},masterRevisions:{},flights:{},import:"
+if old not in t: raise SystemExit('WEB_STATE_ANCHOR_MISSING')
+t=t.replace(old,new,1)
+
+anchor="async function eventPut(e){await idb('events','readwrite',s=>s.put(e));state.events=[e,...state.events.filter(x=>x.event_id!==e.event_id)].slice(0,300)}\n"
+if anchor not in t: raise SystemExit('WEB_EVENTPUT_ANCHOR_MISSING')
+helpers=r'''async function eventPut(e){await idb('events','readwrite',s=>s.put(e));state.events=[e,...state.events.filter(x=>x.event_id!==e.event_id)].slice(0,300)}
+function singleFlight(key,fn){if(state.flights[key])return state.flights[key];const p=Promise.resolve().then(fn).finally(()=>{if(state.flights[key]===p)delete state.flights[key]});state.flights[key]=p;return p}
+function revisionMap(rows){return Object.fromEntries((rows||[]).map(x=>[String(x.business_date||''),Number(x.revision||0)]).filter(x=>x[0]))}
+function upsertCanonical(list,key,id,entity,deleted){const rows=Array.isArray(list)?list:[],next=rows.filter(x=>String(x?.[key]||'')!==String(id||''));if(!deleted&&entity)next.push(entity);return next.sort((a,b)=>String(a?.mnv||'').localeCompare(String(b?.mnv||''),'vi',{numeric:true}))}
+function applyCanonicalPatch(patch){if(!patch||!state.snapshot)return;const type=String(patch.entity_type||''),id=String(patch.entity_id||''),deleted=patch.deleted===true,entity=patch.entity||null;if(type==='ATTENDANCE_SESSION')state.snapshot.attendance=upsertCanonical(state.snapshot.attendance,'session_id',id,entity,deleted);else if(type==='LABOR_SESSION')state.snapshot.labor=upsertCanonical(state.snapshot.labor,'labor_id',id,entity,deleted)}
+async function applyDeltaItem(item){if(item?.canonical_patch)applyCanonicalPatch(item.canonical_patch);const e=item?.compat_event||item?.event;if(e?.event_id)await eventPut(e)}
+function patchBusinessControls(){if(state.tab!=='business')return;const defs=[['#shift',catalog('VÀO - RA TRONG CA_Ca')],['#pda',resources('PDA')],['#pick',resources('USER_PICK')],['#table',resources('PACK_TABLE')],['#pack',resources('USER_PACK')]];for(const [sel,vals] of defs){const el=$(sel);if(!el)continue;const prior=el.value,blank=sel==='#shift'?'':'<option value=""></option>';el.innerHTML=blank+options(vals);if([...el.options].some(o=>o.value===prior))el.value=prior}}
+function patchOperationalUi(){if(!state.snapshot)return;const att=state.snapshot.attendance||[],labor=state.snapshot.labor||[],people=state.snapshot.employees||[],res=state.snapshot.resources||[];if(state.tab==='dashboard'){const active=att.filter(x=>x.state==='ACTIVE').length,open=labor.filter(x=>x.state==='OPEN').length,available=res.filter(x=>Number(x.available)===1).length;if($('#kpiStaff'))$('#kpiStaff').textContent=people.length;if($('#kpiActive'))$('#kpiActive').textContent=active;if($('#kpiLabor'))$('#kpiLabor').textContent=open;if($('#kpiResources'))$('#kpiResources').textContent=available;if($('#dashboardActiveTable'))$('#dashboardActiveTable').innerHTML=attendanceTable(att.filter(x=>x.state==='ACTIVE').slice(0,20))}else if(state.tab==='business'){if($('#businessAttendanceTable'))$('#businessAttendanceTable').innerHTML=attendanceTable(att);patchBusinessControls()}else if(state.tab==='labor'){if($('#laborTableWrap'))$('#laborTableWrap').innerHTML=laborTable(labor,false)}else if(state.tab==='resources'){const g=$('#resourceGroups');if(g){const types=[...new Set(res.map(x=>x.resource_type))];g.innerHTML=types.map(t=>`<div class="card"><h3>${escapeHtml(t)}</h3><div class="resource-list">${res.filter(x=>x.resource_type===t).map(x=>`<span class="resource-pill">${escapeHtml(x.resource_id)} · ${Number(x.available)===1?'Khả dụng':'Không khả dụng'}</span>`).join('')}</div></div>`).join('')}}else if(state.tab==='staff'){if($('#staffCount'))$('#staffCount').textContent=people.length;const q=String($('#staffSearch')?.value||'').toLowerCase(),rows=people.filter(x=>`${x.mnv} ${x.full_name} ${x.main_position}`.toLowerCase().includes(q)).slice(0,300);if($('#staffList'))$('#staffList').innerHTML=staffTable(rows)}else if(state.tab==='history')patchHistoryUi();else if(state.tab==='sync')syncViewAsync()}
+function applyMasterRows(ns,rows){if(!state.snapshot)return;if(ns==='employees')state.snapshot.employees=rows;else if(ns==='catalogs')state.snapshot.catalogs=rows;else if(ns==='accounts'){if(rows?.[0]){state.account={...state.account,...rows[0]};localStorage.setItem('pp_account',JSON.stringify(state.account));applyRoleNav()}}else{const map={pda:'PDA',user_pick:'USER_PICK',pack_table:'PACK_TABLE',user_pack:'USER_PACK'},type=map[ns];if(type){const keep=(state.snapshot.resources||[]).filter(x=>x.resource_type!==type),next=(rows||[]).map(x=>({...x,resource_type:type}));state.snapshot.resources=[...keep,...next]}}}
+async function reconcileMasterNamespace(ns,targetRevision=0){if(!ns)return;return singleFlight(`master:${ns}`,async()=>{const after=Number(state.masterRevisions[ns]||0);if(targetRevision&&targetRevision<=after)return;const d=await api(`/v1/delta/master?namespace=${encodeURIComponent(ns)}&after_revision=${after}`);if(d.changed)applyMasterRows(ns,d.rows||[]);state.masterRevisions[ns]=Number(d.to_revision??targetRevision??after);await cachePut('snapshot',state.snapshot);patchOperationalUi()})}
+async function reconcileDay(targetRevision=0){if(!state.token||!state.businessDate)return;return singleFlight(`day:${state.businessDate}`,async()=>{const date=state.businessDate;let after=Number(state.dayRevisions[date]||0);if(targetRevision&&targetRevision<=after)return;for(let page=0;page<12;page++){const d=await api(`/v1/delta/day?business_date=${encodeURIComponent(date)}&after_revision=${after}&limit=250&client_source=WEB`);if(d.reset_required)return fullRefresh(`delta-reset:${d.reset_reason||'unknown'}`);for(const item of d.items||[])await applyDeltaItem(item);const next=Number(d.to_revision??after),current=Number(d.current_revision??next);if(next<after)return fullRefresh('delta-revision-regressed');state.dayRevisions[date]=next;after=next;if(!d.has_more&&after>=current)break;if(d.has_more&&Number(d.to_revision??0)===Number(d.from_revision??0))return fullRefresh('delta-stalled')}await cachePut('snapshot',state.snapshot);patchOperationalUi();await updateStatus(true)})}
+async function reconcileStatus(){if(!state.token||!navigator.onLine)return;return singleFlight('status',async()=>{const st=await api('/v1/sync/status'),nextWindow=st.business_window||st.business_dates||[],nextDate=nextWindow?.[0]?.business_date||state.businessDate;if(state.businessDate&&nextDate&&nextDate!==state.businessDate)return fullRefresh('business-date-changed');state.authority=st.authority;state.businessWindow=nextWindow;const remoteMaster=st.master_revisions||{};for(const [ns,rev] of Object.entries(remoteMaster))if(Number(rev)!==Number(state.masterRevisions[ns]||0))await reconcileMasterNamespace(ns,Number(rev));const remoteDay=Number((nextWindow||[]).find(x=>x.business_date===state.businessDate)?.revision||0);await reconcileDay(remoteDay);await updateStatus(true);patchOperationalUi();connectRealtime()})}
+'''
+t=t.replace(anchor,helpers,1)
+
+old_refresh="async function refresh(){try{const st=await api('/v1/sync/status');state.authority=st.authority;state.businessWindow=st.business_window||st.business_dates||[];state.businessDate=state.businessWindow?.[0]?.business_date||state.businessDate;if(state.businessDate){const snap=await api(`/v1/bootstrap?business_date=${encodeURIComponent(state.businessDate)}&client_source=WEB`);state.snapshot=snap;await cachePut('snapshot',snap)}await updateStatus(true);render();connectRealtime();replay();refreshEvents().then(()=>{if(state.tab==='history')render()})}catch(e){state.snapshot=state.snapshot||await cacheGet('snapshot');await updateStatus(false);render()}}"
+new_refresh="async function fullRefresh(reason='manual'){return singleFlight('full',async()=>{try{const st=await api('/v1/sync/status');state.authority=st.authority;state.businessWindow=st.business_window||st.business_dates||[];state.businessDate=state.businessWindow?.[0]?.business_date||state.businessDate;if(state.businessDate){const snap=await api(`/v1/bootstrap?business_date=${encodeURIComponent(state.businessDate)}&client_source=WEB`);state.snapshot=snap;await cachePut('snapshot',snap)}state.dayRevisions=revisionMap(state.businessWindow);state.masterRevisions={...(st.master_revisions||{})};await updateStatus(true);render();connectRealtime();void replay();void refreshEvents().then(()=>patchHistoryUi())}catch(e){state.snapshot=state.snapshot||await cacheGet('snapshot');await updateStatus(false);render()}})}\nasync function refresh(){return fullRefresh('manual')}"
+if old_refresh not in t: raise SystemExit('WEB_REFRESH_ANCHOR_MISSING')
+t=t.replace(old_refresh,new_refresh,1)
+
+old_start="async function startApp(){if(!state.token)return clearSession();$('#login').hidden=true;$('#app').hidden=false;applyRoleNav();$('#greeting').textContent=greeting();const cached=await cacheGet('snapshot');if(cached)state.snapshot=cached;render();await refresh();if(!startApp.bound){window.addEventListener('online',()=>{updateStatus(true);refresh()});window.addEventListener('offline',()=>updateStatus(false));startApp.bound=true}if('serviceWorker'in navigator)navigator.serviceWorker.register('/sw.js').catch(()=>{})}"
+new_start="async function startApp(){if(!state.token)return clearSession();$('#login').hidden=true;$('#app').hidden=false;applyRoleNav();$('#greeting').textContent=greeting();const cached=await cacheGet('snapshot');if(cached)state.snapshot=cached;render();await fullRefresh('startup');if(!startApp.bound){window.addEventListener('online',()=>{updateStatus(true);reconcileStatus()});window.addEventListener('offline',()=>updateStatus(false));startApp.bound=true}if('serviceWorker'in navigator)navigator.serviceWorker.register('/sw.js').catch(()=>{})}"
+if old_start not in t: raise SystemExit('WEB_START_ANCHOR_MISSING')
+t=t.replace(old_start,new_start,1)
+
+old_replay="async function replay(){if(!state.token||!navigator.onLine)return;const q=(await allOutbox()).sort((a,b)=>String(a.queued_at).localeCompare(String(b.queued_at)));if(!q.length)return updateStatus(true);try{const r=await api('/v1/mutations/batch',{method:'POST',body:JSON.stringify({events:q})}),results=r.results||[];for(const x of results){const e=q.find(v=>v.event_id===x.local_event_id);if(!e)continue;if(['CONFIRMED','DUPLICATE'].includes(x.status)){await delOutbox(e.event_id);await eventPut({...e,event_id:x.canonical_event_id||e.event_id,local_status:'CONFIRMED'})}else if(x.status==='REJECTED'){await delOutbox(e.event_id);await eventPut({...e,local_status:'REJECTED',error_code:x.error_code});notify(`Service từ chối: ${x.error_code||'không hợp lệ'}`)}else if(x.status==='REVIEW_REQUIRED'){await delOutbox(e.event_id);await eventPut({...e,local_status:'REVIEW_REQUIRED',error_code:x.error_code});showConflict(e,x)}}await updateStatus(true);await refresh()}catch(err){if(!err.network)notify(`Chưa đồng bộ được: ${err.message}`);await updateStatus(false)}}"
+new_replay="async function replay(){if(!state.token||!navigator.onLine)return;return singleFlight('replay',async()=>{const q=(await allOutbox()).sort((a,b)=>String(a.queued_at).localeCompare(String(b.queued_at)));if(!q.length)return updateStatus(true);let target=0;try{for(let i=0;i<q.length;i+=50){const batch=q.slice(i,i+50),r=await api('/v1/mutations/batch',{method:'POST',body:JSON.stringify({events:batch})}),results=r.results||[];for(const x of results){const e=batch.find(v=>v.event_id===x.local_event_id);if(!e)continue;if(['CONFIRMED','DUPLICATE'].includes(x.status)){await delOutbox(e.event_id);if(x.canonical_patch)applyCanonicalPatch(x.canonical_patch);if(x.compat_event?.event_id)await eventPut({...x.compat_event,local_status:'CONFIRMED'});else await eventPut({...e,event_id:x.canonical_event_id||e.event_id,local_status:'CONFIRMED'});target=Math.max(target,Number(x.business_date_revision||x.authority_seq||0))}else if(x.status==='REJECTED'){await delOutbox(e.event_id);await eventPut({...e,local_status:'REJECTED',error_code:x.error_code});notify(`Service từ chối: ${x.error_code||'không hợp lệ'}`)}else if(x.status==='REVIEW_REQUIRED'){await delOutbox(e.event_id);await eventPut({...e,local_status:'REVIEW_REQUIRED',error_code:x.error_code});showConflict(e,x)}}}await cachePut('snapshot',state.snapshot);patchOperationalUi();await updateStatus(true);if(target>0)await reconcileDay(target)}catch(err){if(!err.network)notify(`Chưa đồng bộ được: ${err.message}`);await updateStatus(false)}})}"
+if old_replay not in t: raise SystemExit('WEB_REPLAY_ANCHOR_MISSING')
+t=t.replace(old_replay,new_replay,1)
+
+# Add stable targeted containers.
+t=t.replace('<strong>${people.length}</strong><small>Trong master hiện tại</small>','<strong id="kpiStaff">${people.length}</strong><small>Trong master hiện tại</small>',1)
+t=t.replace('<strong>${active}</strong><small>Phiên ACTIVE</small>','<strong id="kpiActive">${active}</strong><small>Phiên ACTIVE</small>',1)
+t=t.replace('<strong>${open}</strong><small>Chưa hoàn tất</small>','<strong id="kpiLabor">${open}</strong><small>Chưa hoàn tất</small>',1)
+t=t.replace('<strong>${available}</strong><small>PDA / Pick / Pack</small>','<strong id="kpiResources">${available}</strong><small>PDA / Pick / Pack</small>',1)
+t=t.replace('${attendanceTable(att.filter(x=>x.state===\'ACTIVE\').slice(0,20))}</div><div class="card"><div class="health-card">','<div id="dashboardActiveTable">${attendanceTable(att.filter(x=>x.state===\'ACTIVE\').slice(0,20))}</div></div><div class="card"><div class="health-card">',1)
+t=t.replace('<div class="card"><h3>Phiên trong ngày</h3>${attendanceTable(state.snapshot?.attendance||[])}</div>','<div class="card"><h3>Phiên trong ngày</h3><div id="businessAttendanceTable">${attendanceTable(state.snapshot?.attendance||[])}</div></div>',1)
+t=t.replace('<div class="card">${laborTable(rows,false)}</div></section>`}','<div class="card"><div id="laborTableWrap">${laborTable(rows,false)}</div></div></section>`}',1)
+t=t.replace('<p>${people.length} hồ sơ trong master</p>','<p><span id="staffCount">${people.length}</span> hồ sơ trong master</p>',1)
+t=t.replace('<div class="resource-groups">${types.map','<div id="resourceGroups" class="resource-groups">${types.map',1)
+
+# Replace history view with row-level patch target.
+lines=t.splitlines()
+out=[]
+replaced=False
+for line in lines:
+    if line.startswith('function historyView(){'):
+        out.append("function historyRowsHtml(rows){return rows.map(x=>{const p=historyPayload(x),subject=p.mnv||p.target_id||x.entity_id||'—',label=p.target_label||p.full_name||'',detail=p.detail||p.note||p.labor_type||[p.shift,p.work_choice,p.pda_serial,p.user_pick,p.pack_table,p.user_pack].filter(Boolean).join(' · ')||`revision ${x.authority_seq??'—'}`,status=x.local_status==='LOCAL_PENDING'?'Chờ đồng bộ':x.local_status==='REJECTED'?'Bị từ chối':x.local_status==='REVIEW_REQUIRED'?'Cần đối soát':'Đã đồng bộ';return `<tr><td>${escapeHtml(x.committed_at||x.timestamp||x.occurred_at||'')}</td><td><strong>${escapeHtml(historyLabel(x.event_type))}</strong></td><td>${escapeHtml(subject)}${label?`<br><span class=\"muted\">${escapeHtml(label)}</span>`:''}</td><td>${escapeHtml(x.actor_id||state.account?.login_id||'Hệ thống')}</td><td>${escapeHtml(detail)}</td><td><span class=\"badge\">${escapeHtml(status)}</span></td></tr>`}).join('')}")
+        out.append("function historyView(){const rows=state.events||[];return `<section class=\"panel\"><div class=\"section-title\"><div><h2>Lịch sử</h2><p>Thao tác canonical từ Service/D1 và dữ liệu cục bộ đang chờ xác nhận</p></div><span id=\"historyCount\" class=\"chip\">${rows.length}</span></div><div class=\"table-wrap\"><table><thead><tr><th>Thời gian</th><th>Thao tác</th><th>Đối tượng</th><th>Người thực hiện</th><th>Chi tiết</th><th>Trạng thái</th></tr></thead><tbody id=\"historyRows\">${historyRowsHtml(rows)}</tbody></table></div></section>`}")
+        out.append("function patchHistoryUi(){if(state.tab!=='history')return;const rows=state.events||[];if($('#historyCount'))$('#historyCount').textContent=rows.length;if($('#historyRows'))$('#historyRows').innerHTML=historyRowsHtml(rows)}")
+        replaced=True
+    else:
+        out.append(line)
+if not replaced: raise SystemExit('WEB_HISTORY_ANCHOR_MISSING')
+t='\n'.join(out)+'\n'
+
+# Normal post-write paths reconcile revisions; manual refresh remains explicit buttons only.
+t=t.replace("await loadImportHistory();await refresh()","await loadImportHistory();await reconcileStatus()")
+t=t.replace("d.close();notify('Đã tạo correction event.');await refresh()","d.close();notify('Đã tạo correction event.');await reconcileStatus()")
+
+old_socket="if((m.type==='DAY_CHANGED'&&!master&&m.business_date===state.businessDate)||(m.type==='MASTER_CHANGED'&&master)){notify(m.type==='MASTER_CHANGED'?'Master data có cập nhật mới':'Có cập nhật nghiệp vụ mới');await refresh()}"
+new_socket="if(m.type==='DAY_CHANGED'&&!master&&m.business_date===state.businessDate){await reconcileDay(Number(m.day_revision||m.revision||m.authority_seq||0))}else if(m.type==='MASTER_CHANGED'&&master){const ns=String(m.namespace||'');if(ns)await reconcileMasterNamespace(ns,Number(m.revision||0));else await reconcileStatus()}"
+if old_socket not in t: raise SystemExit('WEB_SOCKET_ANCHOR_MISSING')
+t=t.replace(old_socket,new_socket,1)
+
+old_vis="document.addEventListener('visibilitychange',()=>{if(document.hidden){state.wsDay?.close();state.wsMaster?.close()}else refresh()});"
+new_vis="document.addEventListener('visibilitychange',()=>{if(document.hidden){state.wsDay?.close();state.wsMaster?.close()}else reconcileStatus()});"
+if old_vis not in t: raise SystemExit('WEB_VISIBILITY_ANCHOR_MISSING')
+t=t.replace(old_vis,new_vis,1)
+
+p.write_text(t,encoding='utf-8')
+
+# Master pack-table delta should refresh the resource projection used by web/PDA, not the private mapping rows.
+p=Path('service/src/sync_contract.ts')
+s=p.read_text(encoding='utf-8')
+old='else if(ns==="pack_table")rows=(await env.DB.prepare("SELECT pack_table,shift,user_pack,label,available FROM resource_pack_map ORDER BY pack_table,shift").all()).results??[];'
+new='else if(ns==="pack_table")rows=(await env.DB.prepare("SELECT resource_id,status_label,available,metadata_json FROM resources WHERE resource_type=\'PACK_TABLE\' ORDER BY resource_id").all()).results??[];'
+if old not in s: raise SystemExit('MASTER_PACK_TABLE_ANCHOR_MISSING')
+p.write_text(s.replace(old,new,1),encoding='utf-8')
+print('R5_WEB_DELTA_APPLY_PASS')
