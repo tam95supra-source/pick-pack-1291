@@ -1,0 +1,62 @@
+name: Owner R5 phase1 service revision v2
+
+on:
+  push:
+    branches:
+      - work/r5-quota-realtime-20260906
+    paths:
+      - .github/workflows/owner-r5-phase1-service-v2.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: owner-r5-phase1-service-v2
+  cancel-in-progress: false
+
+jobs:
+  implement-test-commit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Canonical guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin beta/current --quiet
+          python3 tools/owner_scope_guard.py --bootstrap
+          python3 - <<'PY'
+          import json
+          s=json.load(open('ops/OWNER_SCOPE_CURRENT.json',encoding='utf-8'))
+          assert s['scope_id']=='OWNER_20260906_R5_QUOTA_REALTIME' and s['revision']==5
+          r=next(x for x in s['requirements'] if x['requirement_id']=='R5-15')
+          assert r['state']=='LOCKED_REQUIREMENT_PENDING_FIX'
+          PY
+      - name: Apply versioned phase1 patch
+        run: python3 tools/r5_phase1_apply.py
+      - name: Compile and contract-test exact patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm --prefix service ci --ignore-scripts --no-audit --no-fund
+          npm --prefix service run typecheck
+          python3 tools/r5_quota_realtime_guard.py
+          ! grep -Eqi 'LEFT[[:space:]]+JOIN[[:space:]]+events|MAX[[:space:]]*\([[:space:]]*(e|events)\.authority_seq' service/src/sync_contract.ts service/src/legacy_sync_portable.ts
+          git diff --check
+      - name: Commit exact tested functional patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add service/migrations/0015_r5_quota_realtime_revision.sql service/src/sync_contract.ts service/src/legacy_sync_portable.ts tools/r5_quota_realtime_guard.py
+          test -n "$(git diff --cached --name-only)"
+          git diff --cached --check
+          git commit -m 'perf(sync): make day revision status O(1)'
+          git push origin HEAD:work/r5-quota-realtime-20260906
