@@ -43,10 +43,11 @@ jobs:
           python3 tools/r5_quota_realtime_guard.py
           echo "SERVICE_SOURCE_SHA=$SOURCE_SHA" >> "$GITHUB_ENV"
           echo "BASE_SERVICE_SOURCE_SHA=$BASE_SOURCE_SHA" >> "$GITHUB_ENV"
-      - name: Patch commit-visible harness in runner only
+      - name: Patch evidence harness in runner only
         run: |
           set -euo pipefail
           python3 tools/r5_beta130_convergence_timing_fix.py
+          python3 tools/r5_beta130_safe_get_retry_fix.py
           git diff --check
           git diff --quiet HEAD -- app service google-apps-script
       - name: Typecheck exact service source
