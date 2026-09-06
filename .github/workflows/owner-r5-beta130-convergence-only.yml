@@ -45,10 +45,12 @@ jobs:
         run: |
           set -euo pipefail
           python3 tools/r5_beta130_convergence_only_cleanup_fix.py
+          python3 tools/r5_beta130_ws_gate_fix.py
           git diff --check
           git diff --quiet HEAD -- app service google-apps-script
           bash -n tools/r5_beta130_convergence_only_gate.sh
-          python3 -m py_compile tools/r5_beta130_five_session_fix.py tools/r5_beta130_convergence_only_cleanup_fix.py tools/r5_beta130_convergence_timing_fix.py tools/r5_beta130_prearm_observers_fix.py tools/r5_beta130_day_delta_probe_fix.py
+          node --check tools/r5_beta130_ws_convergence.mjs
+          python3 -m py_compile tools/r5_beta130_convergence_only_cleanup_fix.py tools/r5_beta130_ws_gate_fix.py
       - name: Deploy exact service and measure five-client convergence
         run: |
           set +e
