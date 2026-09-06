@@ -1,6 +1,7 @@
 import { nowIso, sha256Hex } from "./util";
 import { currentAuthority } from "./core";
 import { isStableEnvironment, stableSheetBridge } from "./stable_sheet_bridge";
+import { requireSheetsCall } from "./quota_budget";
 
 const HEADERS:Record<string,string[]>={
   "Danh mục":["DANH SÁCH NHÂN SỰ_Vị trí chính","DANH SÁCH NHÂN SỰ_Nhà cung cấp","DANH SÁCH NHÂN SỰ_Bộ phận","DANH SÁCH NHÂN SỰ_Site","DANH SÁCH NHÂN SỰ_Kho","DANH SÁCH PDA_Tình trạng","DANH SÁCH USER PICK_Tình trạng","DANH SÁCH BÀN PACK_Tình trạng","DANH SÁCH USER PACK_Tình trạng","RA - VÀO TRONG CA_Loại thao tác","VÀO - RA TRONG CA_Ca","CÔNG NHẬT_Thông tin công nhật","CÔNG NHẬT_Mốc thời gian","CÔNG NHẬT_Trạng thái"],
@@ -24,10 +25,11 @@ function auth(t:string,extra:HeadersInit={}):HeadersInit{return{authorization:`B
 async function writeTable(env:Env,t:string,name:string,rows:unknown[][]):Promise<void>{
   if(isStableEnvironment(env)){await stableSheetBridge(env,"dr","replace_table",{sheet:name,headers:HEADERS[name]!,rows});return;}
   const id=env.GOOGLE_STAGING_SHEET_ID;
+  await requireSheetsCall(env.DB,"WRITE");
   const clear=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(id)}/values/${encodeURIComponent(a1(name,"A:AZ"))}:clear`,{method:"POST",headers:auth(t,{"content-type":"application/json"}),body:"{}"});
   if(!clear.ok)throw new Error(`DR_CLEAR:${name}:${clear.status}`);
   const all=[HEADERS[name]!,...rows];
-  for(let i=0;i<all.length;i+=500){const chunk=all.slice(i,i+500),start=i+1,range=a1(name,`A${start}`);const r=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(id)}/values/${encodeURIComponent(range)}?valueInputOption=RAW`,{method:"PUT",headers:auth(t,{"content-type":"application/json"}),body:JSON.stringify({range,majorDimension:"ROWS",values:chunk})});if(!r.ok)throw new Error(`DR_WRITE:${name}:${start}:${r.status}`);}
+  for(let i=0;i<all.length;i+=500){const chunk=all.slice(i,i+500),start=i+1,range=a1(name,`A${start}`);await requireSheetsCall(env.DB,"WRITE");const r=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(id)}/values/${encodeURIComponent(range)}?valueInputOption=RAW`,{method:"PUT",headers:auth(t,{"content-type":"application/json"}),body:JSON.stringify({range,majorDimension:"ROWS",values:chunk})});if(!r.ok)throw new Error(`DR_WRITE:${name}:${start}:${r.status}`);}
 }
 function resourceMeta(raw:string):Record<string,string>{try{return JSON.parse(raw) as Record<string,string>;}catch{return{};}}
 function label(type:string):string{return type==="ATTENDANCE_ENTER"?"Vào ca":type==="ATTENDANCE_EXIT"?"Ra ca":type==="RESOURCE_CHANGE"?"Đổi tài nguyên":type==="LABOR_START"?"Bắt đầu công nhật":type==="LABOR_FINISH"?"Kết thúc công nhật":type;}

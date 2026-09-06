@@ -1,4 +1,5 @@
 import { isAvailableLabel, nowIso, parseVisibleDate, sha256Hex, visibleToIsoTimestamp, workChoice, fold } from "./util";
+import { requireSheetsCall } from "./quota_budget";
 
 const EXPECTED: Array<{name:string;headers:string[]}> = [
   {name:"Danh mục",headers:["DANH SÁCH NHÂN SỰ_Vị trí chính","DANH SÁCH NHÂN SỰ_Nhà cung cấp","DANH SÁCH NHÂN SỰ_Bộ phận","DANH SÁCH NHÂN SỰ_Site","DANH SÁCH NHÂN SỰ_Kho","DANH SÁCH PDA_Tình trạng","DANH SÁCH USER PICK_Tình trạng","DANH SÁCH BÀN PACK_Tình trạng","DANH SÁCH USER PACK_Tình trạng","RA - VÀO TRONG CA_Loại thao tác","VÀO - RA TRONG CA_Ca","CÔNG NHẬT_Thông tin công nhật","CÔNG NHẬT_Mốc thời gian","CÔNG NHẬT_Trạng thái"]},
@@ -56,6 +57,7 @@ async function ensureShadow(db:D1Database):Promise<void>{const a=await db.prepar
 
 async function validateWorkbook(env:Env):Promise<void>{
   const t=await googleToken(env),id=env.GOOGLE_SOURCE_SHEET_ID;
+  await requireSheetsCall(env.DB,"READ");
   const r=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(id)}?fields=properties.title,sheets.properties.title`,{headers:auth(t)});
   if(!r.ok)throw new Error(`GOOGLE_SOURCE_META:${r.status}`);
   const meta=await r.json<{properties?:{title?:string};sheets?:Array<{properties?:{title?:string}}>}>();
@@ -68,6 +70,7 @@ async function fetchSheetChunk(db:D1Database,env:Env,runId:string,state:State):P
   const spec=EXPECTED[state.sheet_index];if(!spec){state.phase="CATALOG";state.cursor=0;return state;}
   const start=state.next_row,end=start+FETCH_ROWS-1,t=await googleToken(env),id=env.GOOGLE_SOURCE_SHEET_ID;
   const range=encodeURIComponent(`${q(spec.name)}!A${start}:AZ${end}`);
+  await requireSheetsCall(db,"READ");
   const r=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(id)}/values/${range}?majorDimension=ROWS&valueRenderOption=FORMATTED_VALUE`,{headers:auth(t)});
   if(!r.ok)throw new Error(`GOOGLE_SOURCE_VALUES:${spec.name}:${r.status}`);
   const payload=await r.json<{values?:unknown[][]}>(),raw=payload.values??[];

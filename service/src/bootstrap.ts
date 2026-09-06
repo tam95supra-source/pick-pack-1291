@@ -1,4 +1,5 @@
 import { isAvailableLabel, nowIso, parseVisibleDate, sha256Hex, visibleToIsoTimestamp, workChoice, fold } from "./util";
+import { requireSheetsCall } from "./quota_budget";
 
 const EXPECTED: Array<{name:string;headers:string[]}> = [
   {name:"Danh mục",headers:["DANH SÁCH NHÂN SỰ_Vị trí chính","DANH SÁCH NHÂN SỰ_Nhà cung cấp","DANH SÁCH NHÂN SỰ_Bộ phận","DANH SÁCH NHÂN SỰ_Site","DANH SÁCH NHÂN SỰ_Kho","DANH SÁCH PDA_Tình trạng","DANH SÁCH USER PICK_Tình trạng","DANH SÁCH BÀN PACK_Tình trạng","DANH SÁCH USER PACK_Tình trạng","RA - VÀO TRONG CA_Loại thao tác","VÀO - RA TRONG CA_Ca","CÔNG NHẬT_Thông tin công nhật","CÔNG NHẬT_Mốc thời gian","CÔNG NHẬT_Trạng thái"]},
@@ -29,11 +30,13 @@ async function runChunks(db:D1Database,stmts:D1PreparedStatement[],size=50):Prom
 
 async function fetchWorkbook(env:Env):Promise<{title:string;tables:Map<string,Table>;sheetReport:Array<{name:string;row_count:number;checksum:string}>}>{
   const t=await token(env),id=env.GOOGLE_SOURCE_SHEET_ID;
+  await requireSheetsCall(env.DB,"READ");
   const metaR=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(id)}?fields=properties.title,sheets.properties.title`,{headers:auth(t)});if(!metaR.ok)throw new Error(`GOOGLE_SOURCE_META:${metaR.status}`);
   const meta=await metaR.json<{properties?:{title?:string};sheets?:Array<{properties?:{title?:string}}>}>();
   const title=String(meta.properties?.title??"");if(title!=="DỮ LIỆU THEO NGÀY")throw new Error(`SOURCE_TITLE_MISMATCH:${title}`);
   const actual=(meta.sheets??[]).map(x=>x.properties?.title??"").filter(Boolean);const expected=EXPECTED.map(x=>x.name);if(JSON.stringify(actual)!==JSON.stringify(expected))throw new Error(`SOURCE_TABS_MISMATCH:${JSON.stringify(actual)}`);
   const params=EXPECTED.map(x=>`ranges=${encodeURIComponent(`${q(x.name)}!A:AZ`)}`).join("&");
+  await requireSheetsCall(env.DB,"READ");
   const valuesR=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(id)}/values:batchGet?majorDimension=ROWS&valueRenderOption=FORMATTED_VALUE&${params}`,{headers:auth(t)});if(!valuesR.ok)throw new Error(`GOOGLE_SOURCE_VALUES:${valuesR.status}`);
   const values=await valuesR.json<{valueRanges?:Array<{values?:unknown[][]}>}>();const tables=new Map<string,Table>(),sheetReport:Array<{name:string;row_count:number;checksum:string}>=[];
   for(let i=0;i<EXPECTED.length;i++){

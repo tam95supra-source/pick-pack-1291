@@ -2,6 +2,7 @@ import { REPLICA_HEADERS, type EventRow } from "./domain";
 import { nowIso } from "./util";
 import { replicateMasterProjection } from "./master_replication";
 import { isStableEnvironment, stableSheetBridge } from "./stable_sheet_bridge";
+import { requireSheetsCall } from "./quota_budget";
 
 interface OutboxRow { outbox_id:number; event_id:string; attempt_count:number; }
 interface GoogleToken { access_token?:string; expires_in?:number; error?:string; }
@@ -39,16 +40,19 @@ function appendRowNumber(updatedRange:string):number|null{const m=/!A(\d+):/i.ex
 
 async function getValues(env:Env,sheetId:string,token:string,sheet:string,range:string):Promise<unknown[][]>{
   if(isStableEnvironment(env)){const j=await stableSheetBridge<{ok:true;values?:unknown[][]}>(env,"primary","get_values",{sheet,range});return j.values??[];}
+  await requireSheetsCall(env.DB,"READ");
   const url=`https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(sheetId)}/values/${encodeURIComponent(a1(sheet,range))}?valueRenderOption=FORMATTED_VALUE`;
   const r=await fetch(url,{headers:authHeaders(token)});if(!r.ok)throw new Error(`GOOGLE_READ:${sheet}:${r.status}`);const j=await r.json<{values?:unknown[][]}>();return j.values??[];
 }
 async function batchGetValues(env:Env,sheetId:string,token:string,ranges:Array<[string,string]>):Promise<unknown[][][]>{
   if(isStableEnvironment(env)){const j=await stableSheetBridge<{ok:true;values?:unknown[][][]}>(env,"primary","batch_get",{ranges:ranges.map(([sheet,range])=>({sheet,range}))});return j.values??ranges.map(()=>[]);}
+  await requireSheetsCall(env.DB,"READ");
   const qs=ranges.map(([sheet,range])=>`ranges=${encodeURIComponent(a1(sheet,range))}`).join("&"),url=`https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(sheetId)}/values:batchGet?valueRenderOption=FORMATTED_VALUE&${qs}`;
   const r=await fetch(url,{headers:authHeaders(token)});if(!r.ok)throw new Error(`GOOGLE_BATCH_READ:${r.status}`);const j=await r.json<{valueRanges?:Array<{values?:unknown[][]}>}>();return ranges.map((_,i)=>j.valueRanges?.[i]?.values??[]);
 }
 async function putValues(env:Env,sheetId:string,token:string,sheet:string,range:string,values:unknown[][]):Promise<void>{
   if(isStableEnvironment(env)){await stableSheetBridge(env,"primary","put_values",{sheet,range,values});return;}
+  await requireSheetsCall(env.DB,"WRITE");
   const full=a1(sheet,range),url=`https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(sheetId)}/values/${encodeURIComponent(full)}?valueInputOption=RAW`;
   const r=await fetch(url,{method:"PUT",headers:authHeaders(token,{"content-type":"application/json"}),body:JSON.stringify({range:full,majorDimension:"ROWS",values})});
   if(!r.ok){const t=await r.text();throw new Error(`GOOGLE_PUT:${sheet}:${r.status}:${t.slice(0,200)}`);}
@@ -56,6 +60,7 @@ async function putValues(env:Env,sheetId:string,token:string,sheet:string,range:
 async function appendValues(env:Env,sheetId:string,token:string,sheet:string,range:string,values:unknown[][]):Promise<string>{
   if(!values.length)return"NOOP";
   if(isStableEnvironment(env)){const j=await stableSheetBridge<{ok:true;updated_range?:string}>(env,"primary","append_values",{sheet,range,values});return String(j.updated_range||"APPENDED");}
+  await requireSheetsCall(env.DB,"WRITE");
   const full=a1(sheet,range),url=`https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(sheetId)}/values/${encodeURIComponent(full)}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`;
   const r=await fetch(url,{method:"POST",headers:authHeaders(token,{"content-type":"application/json"}),body:JSON.stringify({range:full,majorDimension:"ROWS",values})});
   if(!r.ok){const t=await r.text();throw new Error(`GOOGLE_APPEND:${sheet}:${r.status}:${t.slice(0,240)}`);}const j=await r.json<{updates?:{updatedRange?:string}}>();return j.updates?.updatedRange??"APPENDED";
@@ -63,6 +68,7 @@ async function appendValues(env:Env,sheetId:string,token:string,sheet:string,ran
 async function batchPutValues(env:Env,sheetId:string,token:string,data:Array<{sheet:string;range:string;values:unknown[][]}>):Promise<void>{
   if(!data.length)return;
   if(isStableEnvironment(env)){for(const d of data)await stableSheetBridge(env,"primary","put_values",{sheet:d.sheet,range:d.range,values:d.values});return;}
+  await requireSheetsCall(env.DB,"WRITE");
   const url=`https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(sheetId)}/values:batchUpdate`,body={valueInputOption:"RAW",data:data.map(d=>({range:a1(d.sheet,d.range),majorDimension:"ROWS",values:d.values}))};
   const r=await fetch(url,{method:"POST",headers:authHeaders(token,{"content-type":"application/json"}),body:JSON.stringify(body)});if(!r.ok){const x=await r.text();throw new Error(`GOOGLE_BATCH_PUT:${r.status}:${x.slice(0,240)}`);}
 }
@@ -71,14 +77,17 @@ function assertHeaderValues(sheet:string,values:unknown[][],headers:readonly str
 async function ensureReplicaSheet(env:Env,token:string):Promise<Set<string>>{
   if(isStableEnvironment(env)){const j=await stableSheetBridge<{ok:true;ids?:string[]}>(env,"primary","ensure_replica",{});return new Set(j.ids??[]);}
   const id=env.GOOGLE_STAGING_SHEET_ID;
+  await requireSheetsCall(env.DB,"READ");
   const meta=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(id)}?fields=sheets.properties(sheetId,title,hidden)`,{headers:authHeaders(token)});
   if(!meta.ok)throw new Error(`GOOGLE_META:${meta.status}`);
   const m=await meta.json<{sheets?:Array<{properties?:{sheetId?:number;title?:string;hidden?:boolean}}>}>();
   const p=m.sheets?.map(x=>x.properties).find(x=>x?.title==="__M1_SERVICE_REPLICA");
   if(!p){
+    await requireSheetsCall(env.DB,"WRITE");
     const create=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(id)}:batchUpdate`,{method:"POST",headers:authHeaders(token,{"content-type":"application/json"}),body:JSON.stringify({requests:[{addSheet:{properties:{title:"__M1_SERVICE_REPLICA",hidden:true}}}]})});
     if(!create.ok)throw new Error(`GOOGLE_CREATE_REPLICA:${create.status}`);
   }else if(!p.hidden&&p.sheetId!==undefined){
+    await requireSheetsCall(env.DB,"WRITE");
     const hide=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(id)}:batchUpdate`,{method:"POST",headers:authHeaders(token,{"content-type":"application/json"}),body:JSON.stringify({requests:[{updateSheetProperties:{properties:{sheetId:p.sheetId,hidden:true},fields:"hidden"}}]})});
     if(!hide.ok)throw new Error(`GOOGLE_HIDE_REPLICA:${hide.status}`);
   }
@@ -216,7 +225,7 @@ export async function replicatePending(db:D1Database,env:Env,limit=100):Promise<
     if(op.index)for(const e of allEvents){if(e.event_type==="ATTENDANCE_ENTER"||e.event_type==="ATTENDANCE_EXIT"){const raOk=op.index.raEvents.has(e.event_id),historyOk=op.index.historyEvents.has(e.event_id);if(!raOk||!historyOk)throw new Error(`REPLICATION_OPERATIONAL_INCOMPLETE:${e.event_id}:RA=${raOk?1:0}:HISTORY=${historyOk?1:0}`);}}
     await assertOwnership();const doneAt=nowIso();await db.prepare("UPDATE sheet_replication_outbox SET status='SYNCED',claim_token=NULL,claimed_at=NULL,replicated_at=?1,google_checkpoint=?2,last_error_class=NULL,last_error=NULL WHERE status='INFLIGHT' AND claim_token=?3").bind(doneAt,checkpoint,claim).run();const ackMarks=claimed.map(()=>"?").join(","),acked=await db.prepare(`SELECT COUNT(*) n FROM sheet_replication_outbox WHERE outbox_id IN (${ackMarks}) AND status='SYNCED'`).bind(...claimed.map(x=>x.outbox_id)).first<{n:number}>();if((acked?.n??0)!==claimed.length)throw new Error(`REPLICATION_ACK_FENCE_FAILED:${claim}`);
     const pending=await db.prepare("SELECT COUNT(*) n FROM sheet_replication_outbox WHERE status IN ('PENDING','RETRY','INFLIGHT')").first<{n:number}>();await db.prepare("UPDATE replication_status SET target_identity=?1,state='HEALTHY',checkpoint=?2,pending_count=?3,last_attempt_at=?4,last_success_at=?4,last_error_class=NULL,last_error=NULL,updated_at=?4 WHERE singleton_id=1").bind(isStableEnvironment(env)?"STABLE_PRIMARY_GAS:__M1_SERVICE_REPLICA":env.GOOGLE_STAGING_SHEET_ID,checkpoint,pending?.n??0,doneAt).run();return{ok:true,processed:claimed.length,appended:technical.length,operational,pending:pending?.n??0,checkpoint};
-  }catch(e){const msg=String(e).slice(0,700),failedAt=nowIso(),maxAttempt=Math.max(1,...claimed.map(x=>x.attempt_count)),next=new Date(Date.now()+retryDelaySeconds(maxAttempt)*1000).toISOString();if(claimed.length)await db.prepare("UPDATE sheet_replication_outbox SET status='RETRY',claim_token=NULL,claimed_at=NULL,next_attempt_at=?1,last_error_class='TRANSIENT',last_error=?2 WHERE status='INFLIGHT' AND claim_token=?3").bind(next,msg,claim).run();const pending=await db.prepare("SELECT COUNT(*) n FROM sheet_replication_outbox WHERE status IN ('PENDING','RETRY','INFLIGHT')").first<{n:number}>();await db.prepare("UPDATE replication_status SET state='DEGRADED',pending_count=?1,retry_count=retry_count+1,last_attempt_at=?2,last_error_class='TRANSIENT',last_error=?3,updated_at=?2 WHERE singleton_id=1").bind(pending?.n??0,failedAt,msg).run();return{ok:false,processed:claimed.length,appended:0,operational:0,pending:pending?.n??0,error:msg};}
+  }catch(e){const msg=String(e).slice(0,700),failedAt=nowIso(),maxAttempt=Math.max(1,...claimed.map(x=>x.attempt_count)),next=new Date(Date.now()+retryDelaySeconds(maxAttempt)*1000).toISOString();if(claimed.length)await db.prepare("UPDATE sheet_replication_outbox SET status='RETRY',claim_token=NULL,claimed_at=NULL,next_attempt_at=?1,last_error_class='TRANSIENT',last_error=?2 WHERE status='INFLIGHT' AND claim_token=?3").bind(next,msg,claim).run();const pending=await db.prepare("SELECT COUNT(*) n FROM sheet_replication_outbox WHERE status IN ('PENDING','RETRY','INFLIGHT')").first<{n:number}>();await db.batch([db.prepare("UPDATE replication_status SET state='DEGRADED',pending_count=?1,retry_count=retry_count+1,last_attempt_at=?2,last_error_class='TRANSIENT',last_error=?3,updated_at=?2 WHERE singleton_id=1").bind(pending?.n??0,failedAt,msg),db.prepare("INSERT INTO system_meta(key,value,updated_at) VALUES('r5_operational_repair_dirty','1',?1) ON CONFLICT(key) DO UPDATE SET value='1',updated_at=excluded.updated_at").bind(failedAt)]);return{ok:false,processed:claimed.length,appended:0,operational:0,pending:pending?.n??0,error:msg};}
 }
 
 export async function replicationHealth(db:D1Database):Promise<Record<string,unknown>>{

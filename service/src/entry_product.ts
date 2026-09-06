@@ -7,7 +7,7 @@ import { attendanceEnterV2, sessionResourceMutateV2, sessionResourceSnapshotV2 }
 import { superadminDeleteAccounts } from "./beta44_owner";
 import { serviceConnectionsV47 } from "./beta47_connections";
 import { backfillAllHistoryAudit } from "./beta47_history_audit";
-import { reconcileBeta47OperationalProjection } from "./beta47_projection";
+import { reconcileBeta47OperationalProjection, syncCatalogSource } from "./beta47_projection";
 import { historyDelete } from "./history_delete";
 import { replicateOutboundPending } from "./outbound_beta78";
 import { enqueueInvalidation } from "./push";
@@ -115,11 +115,16 @@ export default {
     try{const outbound=await replicateOutboundPending(env);console.log(JSON.stringify({level:"info",kind:"beta78_outbound_replication",...outbound}));}
     catch(e){console.log(JSON.stringify({level:"error",kind:"beta78_outbound_replication_failed",error:String(e).slice(0,500)}));}
     try{
-      if(await claimMaintenance(env.DB,"repair-30m",30*60_000)){
+      if(await claimMaintenance(env.DB,"catalog-source-30m",30*60_000)){
+        const catalog=await syncCatalogSource(env);if(catalog.changed)await broadcastCatalogRevision(env);
+      }
+      const dirty=await env.DB.prepare("SELECT value FROM system_meta WHERE key='r5_operational_repair_dirty'").first<{value:string}>();
+      if(dirty?.value==="1"&&await claimMaintenance(env.DB,"repair-dirty-5m",5*60_000)){
         const r=await reconcileBeta47OperationalProjection(env);
         if(r.catalog_changed)await broadcastCatalogRevision(env);
         const historyRows=await backfillAllHistoryAudit(env);
-        console.log(JSON.stringify({level:"info",kind:"beta95_bounded_repair",...r,history_backfill_rows:historyRows}));
+        await env.DB.prepare("UPDATE system_meta SET value='0',updated_at=?1 WHERE key='r5_operational_repair_dirty'").bind(nowIso()).run();
+        console.log(JSON.stringify({level:"info",kind:"beta95_dirty_repair",...r,history_backfill_rows:historyRows}));
       }
     }catch(e){console.log(JSON.stringify({level:"error",kind:"beta95_bounded_repair_failed",error:String(e).slice(0,500)}));}
     try{

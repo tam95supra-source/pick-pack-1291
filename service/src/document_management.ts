@@ -104,21 +104,23 @@ async function audit(env:Env,auth:AuthContext,action:string,targetType:string,ta
   const auditId=crypto.randomUUID(),at=nowIso();
   await env.DB.prepare("INSERT INTO document_audit(audit_id,action,target_type,target_id,actor_id,actor_role,detail_json,created_at) VALUES(?1,?2,?3,?4,?5,?6,?7,?8)")
     .bind(auditId,action,targetType,targetId,auth.login_id,auth.role,JSON.stringify(detail),at).run();
-  try{await emitDocumentHistory(env,auth,auditId,action,targetType,targetId,detail);}catch{}
+  try{await emitDocumentHistory(env,auth,auditId,action,targetType,targetId,detail);}catch{await env.DB.prepare("INSERT INTO system_meta(key,value,updated_at) VALUES('r5_document_audit_dirty','1',?1) ON CONFLICT(key) DO UPDATE SET value='1',updated_at=excluded.updated_at").bind(at).run();}
   return auditId;
 }
 export async function flushDocumentAuditHistory(env:Env):Promise<number>{
+  const dirty=await env.DB.prepare("SELECT value FROM system_meta WHERE key='r5_document_audit_dirty'").first<{value:string}>();if(dirty?.value!=="1")return 0;
   const rows=await env.DB.prepare(`SELECT audit_id,action,target_type,target_id,actor_id,actor_role,detail_json,created_at FROM document_audit
     WHERE action IN ('DOCUMENT_UPLOAD_COMPLETE','DOCUMENT_DELETE_SELECTED','DOCUMENT_UPDATE','CATEGORY_CREATE','CATEGORY_RENAME_ALL','CATEGORY_DELETE_ALL')
     ORDER BY created_at DESC LIMIT 200`).all<{audit_id:string;action:string;target_type:string;target_id:string;actor_id:string;actor_role:"ADMIN"|"SUPERADMIN";detail_json:string;created_at:string}>();
-  let emitted=0;
+  let emitted=0,failed=false;
   for(const row of (rows.results||[]).reverse()){
     const eventId=`doc-audit-${row.audit_id}`;
     const exists=await env.DB.prepare("SELECT 1 AS ok FROM events WHERE event_id=?1").bind(eventId).first<{ok:number}>();if(exists?.ok)continue;
     const auth:AuthContext={login_id:row.actor_id,role:row.actor_role,display_name:row.actor_id,device_id:"document-audit-replay",session_id:eventId,verifier_hash:"internal"};
     const detail=(()=>{try{return JSON.parse(row.detail_json) as Record<string,unknown>}catch{return{}}})();
-    try{await emitDocumentHistory(env,auth,row.audit_id,row.action,row.target_type,row.target_id,detail);emitted++;}catch{}
+    try{await emitDocumentHistory(env,auth,row.audit_id,row.action,row.target_type,row.target_id,detail);emitted++;}catch{failed=true;}
   }
+  if(!failed)await env.DB.prepare("UPDATE system_meta SET value='0',updated_at=?1 WHERE key='r5_document_audit_dirty'").bind(nowIso()).run();
   return emitted;
 }
 async function googleToken(env:Env):Promise<string>{
