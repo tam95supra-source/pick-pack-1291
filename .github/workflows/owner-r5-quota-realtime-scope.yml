@@ -1,0 +1,125 @@
+name: Owner R5 quota realtime scope
+
+on:
+  push:
+    branches:
+      - ops/r5-quota-realtime-scope-20260906
+    paths:
+      - .github/workflows/owner-r5-quota-realtime-scope.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: owner-r5-quota-realtime-scope
+  cancel-in-progress: false
+
+jobs:
+  scope-transaction:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Register OWNER command and R5 scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin beta/current --quiet
+          python3 tools/owner_scope_guard.py --bootstrap
+
+          python3 tools/owner_scope_admin.py append-command \
+            --command-id CMD-20260906-007 \
+            --event-type OWNER_REQUIREMENT \
+            --related R5-15 \
+            --recorded-at '2026-09-06T07:24:00+07:00' \
+            --raw-text 'Thực thi toàn bộ nội dung file này. Không chỉ phân tích hoặc lập kế hoạch; hãy sửa code, kiểm thử, đo quota trước/sau và tiếp tục đến khi toàn bộ Technical DoD PASS. Chỉ dừng khi cần quyền thao tác hoặc OWNER nghiệm thu.'
+
+          python3 - <<'PY'
+          import json,re,hashlib
+          from pathlib import Path
+
+          attachment = Path('ops/owner-commands/CMD-20260906-007-quota-realtime.md')
+          expected = '6ce22c182785d447bfc1d2684c38a42cb5c060941514873700913fe96eeef31d'
+          actual = hashlib.sha256(attachment.read_bytes()).hexdigest()
+          if actual != expected:
+              raise SystemExit(f'OWNER_ATTACHMENT_HASH_MISMATCH:{actual}')
+
+          p=Path('ops/OWNER_SCOPE_CURRENT.json')
+          s=json.loads(p.read_text(encoding='utf-8'))
+          if s.get('revision') != 4 or s.get('scope_id') != 'OWNER_20260906_R4_LIVE_SYNC_SEED100':
+              raise SystemExit('OWNER_R5_BASE_SCOPE_MISMATCH')
+          if any(x.get('requirement_id') == 'R5-15' for x in s.get('requirements', [])):
+              raise SystemExit('OWNER_R5_REQUIREMENT_ALREADY_EXISTS')
+
+          s['scope_id']='OWNER_20260906_R5_QUOTA_REALTIME'
+          s['revision']=5
+          s['scope_status']='LOCKED_REQUIREMENT_PENDING_FIX'
+          s['migration_source']='OWNER CMD-20260906-007 + exact attachment SHA256 6ce22c182785d447bfc1d2684c38a42cb5c060941514873700913fe96eeef31d over R4 technical-pass baseline'
+          s['requirements'].append({
+              'requirement_id':'R5-15',
+              'checklist_number':15,
+              'title':'Tối ưu quota + realtime 5 clients / 1.540 events',
+              'acceptance':[
+                  'Thiết kế và triển khai cho tối đa 3 PDA Android + 2 web đồng thời, khoảng 200 nhân sự/ngày và kịch bản cực đại 1.540 canonical events/ngày; không đổi nghiệp vụ hiện hành.',
+                  'Giữ local-first: thao tác optimistic hỗ trợ có UI local p95 <=100 ms; remote convergence mạng bình thường p95 <=1 giây, p99 <=2 giây; không blink/blank/full-page reload và không reset scroll/focus/form.',
+                  'Sync-status/revision là O(1), không JOIN/GROUP/scan events trên hot path; normal realtime sau warm cache chỉ dùng indexed delta/cursor, WebSocket invalidation nhỏ và targeted patch; full bootstrap/full sync-day chỉ dùng bounded reset khi thật sự cần.',
+                  'Android có một logical sync orchestrator với single-flight/revision watermark; foreground/WorkManager/FCM không nhân đôi sync-status/sync-day cho cùng revision; FCM chỉ là coalesced wake, không per-event x per-device durable amplification.',
+                  'Google replication và special session projection dùng durable terminal outbox/checkpoint, batching 25-50/adaptive và retry idempotent; cron/maintenance chạy theo dirty/due, không full-scan định kỳ khi idle; replication lag mục tiêu <=30 phút.',
+                  'Có quota circuit breaker ưu tiên canonical mutation/auth rồi delta/outbox; trì hoãn replication/push/maintenance trước; không bật billing/overage, không nâng plan, không thêm paid provider và không tạo HTTP/D1 probe 5 giây.',
+                  'Đo baseline và after bằng evidence thật: D1 meta/Analytics gắn route/query fingerprint, Worker/DO request-equivalent, latency/bytes, Sheets/GAS, FCM, replication lag/outbox depth và D1 size; không dùng ước lượng làm PASS evidence.',
+                  'Full test-day mục tiêu <=500.000 D1 rows-read, <=20.000 rows-written, <=20.000 Worker requests; Sheets limiter <=30 read và <=30 write/phút/user, <=100/phút/project và target <=250 API calls/ngày; nếu không đạt target dù dưới hard Free limit thì dừng trước release và nêu route/query cùng hai phương án giảm tiếp.',
+                  'PASS full 1.540-event/5-client steady + burst 60 mutations/phút trong 10 phút, resource contention/stale version, WebSocket/FCM loss, offline/reconnect, duplicate/out-of-order, timeout-after-commit, browser background/foreground, pending outbox, 7/45-day retention và eventual state đúng canonical.',
+                  'Backup/restore/replay checksum/count, retention VERIFIED-backup/open/pending guard, Beta/Stable/environment/epoch/generation isolation và DR fencing đều PASS; Render/Deno/Turso không nhận normal primary traffic; không secret/PII trong log/WS hint/FCM payload.',
+                  'Các invariant UI-REALTIME-100MS-006, ATTENDANCE-LOCAL-FIRST-003, QR-INLINE-SHIFT-NAV-003, LABOR-BULK-REALTIME-007, LOCAL-FIRST-RECONCILE-002, QR-LOCAL-001 và UI-PERFORMANCE-COMPACT-005 cùng toàn bộ regression liên quan tiếp tục PASS.',
+                  'Nếu Android source thay đổi, chỉ phát hành Beta sau toàn bộ gate exact candidate/sign/service/regression/visual-human/PDA/release-lock/OTA/install-readback/finalizer PASS; Stable/main/signer/provider/authority không đổi; OWNER acceptance chỉ OWNER được chốt.'
+              ],
+              'invariant_id':'QUOTA-REALTIME-DELTA-001',
+              'state':'LOCKED_REQUIREMENT_PENDING_FIX',
+              'source_command_ids':['CMD-20260906-007'],
+              'source_attachment':{
+                  'path':'ops/owner-commands/CMD-20260906-007-quota-realtime.md',
+                  'sha256':expected
+              }
+          })
+          s.setdefault('release_binding',{})['mode']='CONTROL_PLANE_ONLY'
+          s['release_binding']['owner_acceptance']='PENDING'
+          p.write_text(json.dumps(s,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+
+          cp=Path('CURRENT_STATE.md')
+          t=cp.read_text(encoding='utf-8')
+          t=re.sub(r'(?m)^- owner_checklist_id:.*$','- owner_checklist_id: OWNER_R5_QUOTA_REALTIME',t)
+          t=re.sub(r'(?m)^- owner_checklist_revision:.*$','- owner_checklist_revision: 5',t)
+          t=re.sub(r'(?m)^- owner_acceptance:.*$','- owner_acceptance: PENDING requirements 13,14,15',t)
+          t=re.sub(r'(?m)^- next_action:.*$','- next_action: IMPLEMENT_R5_QUOTA_REALTIME_TECHNICAL_DOD',t)
+          cp.write_text(t,encoding='utf-8')
+
+          hp=Path('docs/handovers/HANDOVER_CURRENT.md')
+          h=hp.read_text(encoding='utf-8')
+          h=re.sub(r'(?m)^- branch:.*$','- branch: beta/current',h)
+          h=re.sub(r'(?ms)(## NEXT_ACTION\n).*?\Z',r'\1IMPLEMENT_R5_QUOTA_REALTIME_TECHNICAL_DOD\n',h)
+          hp.write_text(h,encoding='utf-8')
+          PY
+
+          python3 tools/owner_scope_admin.py refresh
+          python3 tools/owner_scope_guard.py --base-ref origin/beta/current
+          python3 tools/owner_scope_guard.py --bootstrap
+
+      - name: Commit canonical scope transaction
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add ops/owner-command-ledger.jsonl ops/OWNER_SCOPE_CURRENT.json CURRENT_STATE.md docs/handovers/HANDOVER_CURRENT.md
+          git commit -m 'ops(scope): register R5 quota realtime DoD'
+
+      - name: Fast-forward beta/current only
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin beta/current --quiet
+          git merge-base --is-ancestor origin/beta/current HEAD
+          git push origin HEAD:beta/current
