@@ -30,20 +30,19 @@ async function pragmaNumber(db:D1Database,name:"page_count"|"page_size"):Promise
 }
 export async function d1CapacitySnapshot(db:D1Database):Promise<Record<string,unknown>>{
   const at=nowIso(),cfg=await readResilienceConfig(db);
-  const [pageCount,pageSize,dates,pending,authority,gen,rows,previous]=await Promise.all([
+  // Capacity is an operational guard, not a reporting endpoint. Keep its hot-path
+  // reads bounded by retention metadata and indexed pending lookups; never COUNT
+  // large business/event tables on every scheduled run.
+  const [pageCount,pageSize,dates,pending,authority,gen,previous]=await Promise.all([
     pragmaNumber(db,"page_count"),pragmaNumber(db,"page_size"),
-    db.prepare("SELECT MIN(business_date) oldest_business_date,MAX(business_date) newest_business_date,COUNT(DISTINCT business_date) business_dates FROM events").first<Record<string,unknown>>(),
+    db.prepare("SELECT MIN(business_date) oldest_business_date,MAX(business_date) newest_business_date,COUNT(*) business_dates FROM business_dates").first<Record<string,unknown>>(),
     db.prepare(`SELECT
-      (SELECT COUNT(*) FROM sheet_replication_outbox WHERE status IN ('PENDING','RETRY','INFLIGHT')) sheet_pending,
-      (SELECT COUNT(*) FROM outbound_replication_outbox WHERE status IN ('PENDING','RETRY','INFLIGHT')) outbound_pending,
-      (SELECT MIN(created_at) FROM sheet_replication_outbox WHERE status IN ('PENDING','RETRY','INFLIGHT')) oldest_pending_event`).first<Record<string,unknown>>(),
+      EXISTS(SELECT 1 FROM sheet_replication_outbox WHERE status IN ('PENDING','RETRY','INFLIGHT') LIMIT 1) sheet_pending,
+      EXISTS(SELECT 1 FROM outbound_replication_outbox WHERE status IN ('PENDING','RETRY','INFLIGHT') LIMIT 1) outbound_pending,
+      (SELECT created_at FROM sheet_replication_outbox WHERE status IN ('PENDING','RETRY','INFLIGHT') ORDER BY created_at LIMIT 1) oldest_sheet_pending_event,
+      (SELECT created_at FROM outbound_replication_outbox WHERE status IN ('PENDING','RETRY','INFLIGHT') ORDER BY created_at LIMIT 1) oldest_outbound_pending_event`).first<Record<string,unknown>>(),
     db.prepare("SELECT authority_epoch,authority_seq,mode,scope,service_generation FROM authority_state WHERE singleton_id=1").first<Record<string,unknown>>(),
     db.prepare("SELECT generation_id,db_binding,db_name,status,created_at,active_from_event,active_to_event,business_date_from,business_date_to,schema_version,checksum_checkpoint,authority_epoch FROM d1_generation_registry ORDER BY created_at").all<Record<string,unknown>>(),
-    db.prepare(`SELECT 'events' table_name,COUNT(*) rows FROM events
-      UNION ALL SELECT 'attendance_sessions',COUNT(*) FROM attendance_sessions
-      UNION ALL SELECT 'labor_sessions',COUNT(*) FROM labor_sessions
-      UNION ALL SELECT 'sheet_replication_outbox',COUNT(*) FROM sheet_replication_outbox
-      UNION ALL SELECT 'outbound_replication_outbox',COUNT(*) FROM outbound_replication_outbox`).all<Record<string,unknown>>(),
     db.prepare("SELECT checkpoint,updated_at FROM service_maintenance WHERE task_key='capacity-snapshot'").first<{checkpoint:string;updated_at:string}>(),
   ]);
   const bytes=pageCount*pageSize,percent=cfg.dbQuotaBytes>0?(bytes/cfg.dbQuotaBytes)*100:null;
@@ -56,7 +55,7 @@ export async function d1CapacitySnapshot(db:D1Database):Promise<Record<string,un
   if(cfg.dbQuotaBytes>0&&growthPerDay>0)estimatedDaysRemaining=Math.max(0,(cfg.dbQuotaBytes-bytes)/growthPerDay);
   const prepare=percent!==null&&percent>=cfg.preparePercent,cutover=percent!==null&&(percent>=cfg.cutoverPercent||(estimatedDaysRemaining!==null&&estimatedDaysRemaining<=3));
   const state=cutover?"CUTOVER_REQUIRED":prepare?"PREPARE_REQUIRED":percent!==null&&percent>=cfg.warnDbPercent?"WARN":"OK";
-  const snapshot={at,bytes,page_count:pageCount,page_size:pageSize,db_quota_bytes:cfg.dbQuotaBytes,db_percent:percent,growth_bytes_per_day:growthPerDay,estimated_days_remaining:estimatedDaysRemaining,state,thresholds:{warn:cfg.warnDbPercent,prepare:cfg.preparePercent,cutover:cfg.cutoverPercent,owner_total:cfg.ownerTotalPercent},retention_days:cfg.retentionDays,dates:dates??{},pending:pending??{},authority:authority??{},generations:gen.results??[],rows_by_table:rows.results??[]};
+  const snapshot={at,bytes,page_count:pageCount,page_size:pageSize,db_quota_bytes:cfg.dbQuotaBytes,db_percent:percent,growth_bytes_per_day:growthPerDay,estimated_days_remaining:estimatedDaysRemaining,state,thresholds:{warn:cfg.warnDbPercent,prepare:cfg.preparePercent,cutover:cfg.cutoverPercent,owner_total:cfg.ownerTotalPercent},retention_days:cfg.retentionDays,dates:dates??{},pending:pending??{},authority:authority??{},generations:gen.results??[],rows_by_table:"OMITTED_FROM_HOT_PATH"};
   await db.prepare(`INSERT INTO service_maintenance(task_key,last_run_at,checkpoint,updated_at) VALUES('capacity-snapshot',?1,?2,?1)
     ON CONFLICT(task_key) DO UPDATE SET last_run_at=excluded.last_run_at,checkpoint=excluded.checkpoint,updated_at=excluded.updated_at`).bind(at,JSON.stringify({at,bytes,state,db_percent:percent,estimated_days_remaining:estimatedDaysRemaining})).run();
   return snapshot;
