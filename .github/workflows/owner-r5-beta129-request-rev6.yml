@@ -1,0 +1,83 @@
+name: Owner R5 Beta129 request rev6
+
+on:
+  push:
+    branches:
+      - release/beta129-r5-rev6-20260906
+    paths:
+      - .github/workflows/owner-r5-beta129-request-rev6.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: owner-r5-beta129-request-rev6
+  cancel-in-progress: false
+
+jobs:
+  request:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Canonical rev6 guards
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/owner_scope_guard.py --bootstrap
+          python3 tools/finalizer_handoff_contract.py
+          python3 tools/beta_current_sync_contract.py
+          python3 tools/r5_stable_parity_guard.py
+          test "$(jq -r '.scope_id' ops/OWNER_SCOPE_CURRENT.json)" = "OWNER_20260906_R5_QUOTA_REALTIME"
+          test "$(jq -r '.revision' ops/OWNER_SCOPE_CURRENT.json)" = "6"
+          test "$(jq -r '.status' config/stable_r5_parity.json)" = "READY_NOT_LIVE"
+          test "$(jq -r '.deploy_now' config/stable_r5_parity.json)" = "false"
+      - name: Generate canonical BUILD_VERIFY request
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile tools/r5_beta129_build_verify_request_rev6.py
+          python3 tools/r5_beta129_build_verify_request_rev6.py
+      - name: Validate exact-source and release fences
+        shell: bash
+        run: |
+          set -euo pipefail
+          R=ops/beta-release-request.json
+          jq -e '.stage=="BUILD_VERIFY" and
+                 .mode=="BUILD_VERIFY_EXACT_SOURCE_R5_REV6" and
+                 .version_name=="0.4.2-beta.129" and .version_code==135 and
+                 .human_visual_pass==false and .candidate_locked==false and
+                 .service_gate_required==true and .service_gate_status=="PENDING" and
+                 .stable_publish=="FORBIDDEN" and .authority_change=="NONE" and
+                 .technical_pass_status=="PENDING" and .owner_acceptance=="PENDING" and
+                 .stable_r5_parity_status=="READY_NOT_LIVE" and
+                 .stable_r5_activation=="OWNER_PROMOTE_ONLY"' "$R" >/dev/null
+          test "$(jq -r '.owner_scope' "$R")" = "$(jq -r '.scope_id' ops/OWNER_SCOPE_CURRENT.json)"
+          test "$(jq -r '.owner_checklist_revision' "$R")" = "$(jq -r '.revision' ops/OWNER_SCOPE_CURRENT.json)"
+          test "$(jq -r '.owner_scope_semantics_sha256' "$R")" = "$(jq -r '.semantics_sha256' ops/OWNER_SCOPE_CURRENT.json)"
+          test "$(jq -r '.owner_scope_sha256' "$R")" = "$(jq -r '.scope_sha256' ops/OWNER_SCOPE_CURRENT.json)"
+          test "$(jq -r '.owner_command_ledger_head' "$R")" = "$(jq -r '.ledger_head_event_sha256' ops/OWNER_SCOPE_CURRENT.json)"
+          SRC=$(jq -r '.source_sha' "$R")
+          test "$(git rev-parse "$SRC")" = "$SRC"
+          git diff --quiet "$SRC" HEAD -- app service google-apps-script
+          LIVE_VERSION=$(sed -n 's/^- beta_live: \([^ ]*\).*/\1/p' CURRENT_STATE.md | head -n1)
+          LIVE_SOURCE=$(sed -n 's/^- source_sha: \([^ ]*\).*/\1/p' CURRENT_STATE.md | head -n1)
+          test "$(jq -r '.base_version' "$R")" = "$LIVE_VERSION"
+          test "$(jq -r '.base_source_sha' "$R")" = "$LIVE_SOURCE"
+          test "$(jq -r '.stage' "$R")" != "PUBLISH"
+          test "$(jq -r '.live' "$R")" = "false"
+          git diff --check
+      - name: Commit BUILD_VERIFY request only
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add ops/beta-release-request.json
+          test -n "$(git diff --cached --name-only)"
+          test "$(git diff --cached --name-only)" = "ops/beta-release-request.json"
+          git diff --cached --check
+          git commit -m 'release(beta129): request exact R5 rev6 candidate and service gate'
+          git push origin HEAD:release/beta129-r5-rev6-20260906
