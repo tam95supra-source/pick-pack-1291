@@ -42,12 +42,15 @@ jobs:
           git diff --quiet "$SOURCE_SHA" HEAD -- app service google-apps-script
           echo "SERVICE_SOURCE_SHA=$SOURCE_SHA" >> "$GITHUB_ENV"
           echo "BASE_SERVICE_SOURCE_SHA=$BASE_SOURCE_SHA" >> "$GITHUB_ENV"
-      - name: Patch quota-aware service gate in runner only
+      - name: Patch quota and dynamic-runtime service gate in runner only
         shell: bash
         run: |
           set -euo pipefail
           python3 tools/r5_quota_aware_service_gate_patch.py
+          python3 tools/r5_dynamic_runtime_service_gate_patch.py
           bash -n tools/beta89_service_live_gate.sh
+          bash -n tools/r5_resolve_beta_live_runtime.sh
+          bash -n tools/r5_exact_base_service_recovery.sh
           git diff --check
           test -z "$(git diff --name-only -- app service google-apps-script)"
       - name: Typecheck exact service source
@@ -59,6 +62,11 @@ jobs:
           test -x service/node_modules/.bin/wrangler
           test -d service/node_modules/fflate
           npm --prefix service run check
+      - name: Resolve Beta LIVE runtime bindings read-only
+        shell: bash
+        run: |
+          set -euo pipefail
+          R5_RUNTIME_DIR=/tmp/r5-beta-live-runtime bash tools/r5_resolve_beta_live_runtime.sh
       - name: Deploy and verify exact service with canonical automatic recovery
         shell: bash
         run: |
@@ -79,6 +87,7 @@ jobs:
           name: r5-beta130-exact-service-${{ github.run_id }}
           path: |
             /tmp/beta89-service-live
+            /tmp/r5-beta-live-runtime
             /tmp/r5-exact-base-service-recovery
           retention-days: 30
           if-no-files-found: error
