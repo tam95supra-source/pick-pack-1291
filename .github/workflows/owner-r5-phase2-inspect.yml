@@ -1,4 +1,5 @@
 name: Owner R5 phase2 targeted inspect
+# inspect operational snapshot consumers
 
 on:
   push:
@@ -24,9 +25,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          echo '=== ANDROID SYNC MAP ==='
-          grep -R -n -E 'object M2BackgroundSync|class M2BackgroundSync|fun catchUp|sync_day|sync_status|M2WorkScheduler\.schedule|FirebaseMessagingService|FCM|PushRegistration' app/src/main/java/vn/pickpack1291/app/beta --include='*.kt' | head -n 240 || true
-          echo '=== SERVICE BACKGROUND MAP ==='
-          grep -n -E 'flushSessionSpecialProjections|push_outbox|process.*Push|replication|scheduled\(|maintenance|capacity|retention|cron|outbox' service/src/session_hotfix.ts service/src/replication.ts service/src/push.ts service/src/index.ts service/src/entry.ts | head -n 260 || true
-          echo '=== INVARIANT MAP ==='
-          grep -n -E 'QUOTA-REALTIME-DELTA-001|UI-REALTIME-100MS-006|ATTENDANCE-LOCAL-FIRST-003|QR-INLINE-SHIFT-NAV-003|LABOR-BULK-REALTIME-007|LOCAL-FIRST-RECONCILE-002|QR-LOCAL-001|UI-PERFORMANCE-COMPACT-005' docs/STABLE_INVARIANTS.md qa/stable_invariants.yml docs/REGRESSION_GUARD_POLICY.md | head -n 220 || true
+          echo '=== SNAPSHOT CONSUMERS ==='
+          grep -R -n -E 'optJSONArray\("sessions"|optJSONArray\("labor"|optJSONArray\("events"|optJSONObject\("history"|optJSONObject\("report"|loadDay\(' app/src/main/java/vn/pickpack1291/app/beta --include='*.kt' | head -n 300 || true
+          echo '=== COMPAT DAY CALLERS ==='
+          grep -R -n -E 'sync_day|sync_bootstrap|OperationalDataStore|day_revision' app/src/main/java/vn/pickpack1291/app/beta --include='*.kt' | head -n 280 || true
