@@ -37,3 +37,4 @@ jobs:
           git diff --cached --quiet && { echo NO_PATCH_COMMIT >&2; exit 1; }
           git commit -m 'fix(r5): render employee timeline incrementally for Beta130'
           git push origin HEAD:${GITHUB_REF_NAME}
+# trigger: beta130-incremental-20260906-01
