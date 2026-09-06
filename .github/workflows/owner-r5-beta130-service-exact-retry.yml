@@ -5,6 +5,7 @@ on:
     paths:
       - .github/workflows/owner-r5-beta130-service-exact-retry.yml
       - tools/r5_service_convergence_gate.sh
+      - tools/r5_dynamic_runtime_service_gate_patch.py
       - service/src/admin_audit.ts
       - ops/beta-release-request.json
 permissions:
