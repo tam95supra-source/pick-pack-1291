@@ -1102,32 +1102,58 @@ class OperationsActivity : Activity() {
         usage.pdas.forEach{(serial,status)->body.addView(column(surface).apply{setPadding(dp(14),dp(10),dp(14),dp(10));background=outlineBg(surface,14);addView(txt("Seri PDA",9.5f,muted,true));addView(txt(serial,16.5f,navy,true));addView(gap(5));addView(txt("Tình trạng ghi nhận ban đầu",9.5f,muted,true));addView(txt(dash(status),11.2f,ink,true))},matchWrap());body.addView(gap(5))}
     }
 
+    private fun sessionTimelineRenderKey(e:JSONObject):String=e.optString("event_id").ifBlank{
+        listOf(e.optString("event_type"),e.optString("at_iso").ifBlank{e.optString("at")},e.optString("actor").ifBlank{e.optString("actor_id")},e.optString("detail")).joinToString("|")
+    }
+    private fun sessionTimelineRenderSignature(e:JSONObject):String=listOf(
+        sessionTimelineRenderKey(e),e.optString("event_type"),e.optString("label"),e.optString("detail"),e.optString("actor"),e.optString("local_status"),e.optString("local_error"),e.optString("at_iso"),e.optLong("local_queued_at",0L).toString()
+    ).joinToString("")
+    private fun sessionTimelineCard(e:JSONObject):LinearLayout{
+        val title=sessionEventTitle(e.optString("event_type"),e.optString("label"));val detail=e.optString("detail").trim();val actor=e.optString("actor").ifBlank{"Hệ thống"};val localStatus=e.optString("local_status")
+        return column(surface).apply{
+            setPadding(dp(9),dp(6),dp(9),dp(6));background=outlineBg(surface,12)
+            val top=row(surface).apply{gravity=Gravity.CENTER_VERTICAL;addView(txt(title,10.7f,navy,true),LinearLayout.LayoutParams(0,-2,1f));addView(txt(sessionEventTime(e),9.4f,muted,true))};addView(top,matchWrap())
+            if(detail.isNotBlank()){addView(gap(2));addView(txt(detail,10f,ink,false))}
+            addView(gap(2));val statusText=when(localStatus){"LOCAL_PENDING","PENDING","OFFLINE_PROVISIONAL"->" • Chờ đồng bộ";"RETRY"->" • Chờ gửi lại";"REVIEW_REQUIRED","CONFLICT"->" • Cần kiểm tra";"REJECTED"->" • Bị từ chối";else->""};addView(txt("Người thực hiện: $actor$statusText",9.2f,muted,false))
+        }
+    }
     private fun addSessionTimeline(body:LinearLayout,mnv:String,ses:JSONObject){
         body.addView(section("DIỄN BIẾN CÔNG VIỆC TRONG CA"))
         val items=sessionTimelineItems(mnv,ses)
         if(items.isEmpty()){body.addView(txt("—",10.5f,muted,true).apply{setPadding(dp(10),dp(5),dp(10),dp(5))});return}
-        for(e in items){
-            val title=sessionEventTitle(e.optString("event_type"),e.optString("label"));val detail=e.optString("detail").trim();val actor=e.optString("actor").ifBlank{"Hệ thống"};val localStatus=e.optString("local_status")
-            val card=column(surface).apply{
-                setPadding(dp(9),dp(6),dp(9),dp(6));background=outlineBg(surface,12)
-                val top=row(surface).apply{gravity=Gravity.CENTER_VERTICAL;addView(txt(title,10.7f,navy,true),LinearLayout.LayoutParams(0,-2,1f));addView(txt(sessionEventTime(e),9.4f,muted,true))};addView(top,matchWrap())
-                if(detail.isNotBlank()){addView(gap(2));addView(txt(detail,10f,ink,false))}
-                addView(gap(2));val statusText=when(localStatus){"LOCAL_PENDING","PENDING","OFFLINE_PROVISIONAL"->" • Chờ đồng bộ";"RETRY"->" • Chờ gửi lại";"REVIEW_REQUIRED","CONFLICT"->" • Cần kiểm tra";"REJECTED"->" • Bị từ chối";else->""};addView(txt("Người thực hiện: $actor$statusText",9.2f,muted,false))
-            }
-            body.addView(card,matchWrap());body.addView(gap(3))
-        }
+        for(e in items){body.addView(sessionTimelineCard(e),matchWrap());body.addView(gap(3))}
     }
 
     private fun addRealtimeSessionTimeline(body:LinearLayout,mnv:String,ses:JSONObject){
         val host=column(bg)
         val date=ses.optString("business_date").ifBlank{operationalStore.businessDate()}
         var renderedTimelineRevision:Long?=null
+        var renderedKeys=emptyList<String>()
+        var renderedSignatures=emptyMap<String,String>()
+        fun fullRender(items:List<JSONObject>,keys:List<String>,signatures:Map<String,String>){
+            host.removeAllViews();host.addView(section("DIỄN BIẾN CÔNG VIỆC TRONG CA"))
+            if(items.isEmpty())host.addView(txt("—",10.5f,muted,true).apply{setPadding(dp(10),dp(5),dp(10),dp(5))})
+            else for(e in items){host.addView(sessionTimelineCard(e),matchWrap());host.addView(gap(3))}
+            renderedKeys=keys;renderedSignatures=signatures
+        }
         fun renderTimeline(){
             val revision=date.takeIf{it.isNotBlank()}?.let{operationalStore.revision(it)}
             if(renderedTimelineRevision!=null&&revision==renderedTimelineRevision)return
-            renderedTimelineRevision=revision
+            val items=sessionTimelineItems(mnv,ses);val keys=items.map(::sessionTimelineRenderKey);val signatures=items.associate{sessionTimelineRenderKey(it) to sessionTimelineRenderSignature(it)}
             host.suppressLayout(true)
-            try{host.removeAllViews();addSessionTimeline(host,mnv,ses)}finally{host.suppressLayout(false)}
+            try{
+                if(renderedTimelineRevision==null){fullRender(items,keys,signatures)}
+                else if(items.isNotEmpty()&&renderedKeys.isNotEmpty()&&keys.size>=renderedKeys.size&&keys.takeLast(renderedKeys.size)==renderedKeys){
+                    val added=items.take(keys.size-renderedKeys.size)
+                    for(e in added.asReversed()){host.addView(sessionTimelineCard(e),1,matchWrap());host.addView(gap(3),2)}
+                    for(i in renderedKeys.indices){val key=renderedKeys[i];val next=signatures[key];if(next!=null&&next!=renderedSignatures[key]){val item=items.firstOrNull{sessionTimelineRenderKey(it)==key}?:continue;val index=1+(added.size+i)*2;host.removeViewAt(index);host.addView(sessionTimelineCard(item),index,matchWrap())}}
+                    renderedKeys=keys;renderedSignatures=signatures
+                }else if(keys==renderedKeys){
+                    for(i in keys.indices){val key=keys[i];if(signatures[key]!=renderedSignatures[key]){val index=1+i*2;host.removeViewAt(index);host.addView(sessionTimelineCard(items[i]),index,matchWrap())}}
+                    renderedSignatures=signatures
+                }else fullRender(items,keys,signatures)
+            }finally{host.suppressLayout(false)}
+            renderedTimelineRevision=revision
         }
         employeeTimelineRealtimeRefresh={dates->
             if(screenState=="EMPLOYEE"&&liveEmployeeMnv==mnv&&(date.isBlank()||date in dates))renderTimeline()
