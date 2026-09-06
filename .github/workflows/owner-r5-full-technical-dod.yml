@@ -1,4 +1,4 @@
-# continuity rev6 archive aligned
+# continuity rev6 archive aligned; canonical writer O1 guard
 name: Owner R5 full technical DoD preprod
 
 on:
@@ -7,6 +7,7 @@ on:
       - work/r5-quota-realtime-20260906
     paths:
       - .github/workflows/owner-r5-full-technical-dod.yml
+      - tools/r5_quota_realtime_guard.py
 
 permissions:
   contents: read
