@@ -3,7 +3,7 @@ name: Owner R5 quota baseline
 on:
   push:
     branches:
-      - release/beta129-quota-realtime-20260906
+      - work/r5-quota-realtime-20260906
     paths:
       - .github/workflows/owner-r5-quota-baseline.yml
 
@@ -11,7 +11,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: owner-r5-quota-baseline
+  group: owner-r5-quota-baseline-work
   cancel-in-progress: false
 
 jobs:
@@ -55,13 +55,34 @@ jobs:
           pathlib.Path('/tmp/d1_name').write_text(m.group(1).strip(),encoding='utf-8')
           PY
       - name: Read-only D1 baseline
+        id: probes
         shell: bash
         run: |
-          set -euo pipefail
+          set -uo pipefail
           mkdir -p evidence
           D1_NAME=$(cat /tmp/d1_name)
-          npx --prefix service wrangler d1 execute "$D1_NAME" --remote --json --command "SELECT authority_epoch,authority_seq,mode,scope,service_generation,updated_at FROM authority_state WHERE singleton_id=1;" > evidence/authority.json
-          python3 - <<'PY'
+          FAIL=0
+          required_probe() {
+            local name="$1"; shift
+            echo "PROBE_START:$name"
+            if "$@" >"evidence/${name}.json" 2>"evidence/${name}.stderr"; then
+              echo "PROBE_PASS:$name"
+            else
+              rc=$?; echo "PROBE_FAIL:$name:$rc"; echo "$rc" >"evidence/${name}.rc"; FAIL=1
+            fi
+          }
+          optional_probe() {
+            local name="$1"; shift
+            echo "PROBE_START_OPTIONAL:$name"
+            if "$@" >"evidence/${name}.json" 2>"evidence/${name}.stderr"; then
+              echo "PROBE_PASS_OPTIONAL:$name"
+            else
+              rc=$?; echo "PROBE_SKIP_OPTIONAL:$name:$rc"; echo "$rc" >"evidence/${name}.rc"
+            fi
+          }
+          required_probe authority npx --prefix service wrangler d1 execute "$D1_NAME" --remote --json --command "SELECT authority_epoch,authority_seq,mode,scope,service_generation,updated_at FROM authority_state WHERE singleton_id=1;"
+          if [ "$FAIL" -eq 0 ]; then
+            python3 - <<'PY'
           import json
           raw=json.load(open('evidence/authority.json',encoding='utf-8'))
           groups=[]
@@ -75,24 +96,24 @@ jobs:
           rows=[x for g in groups for x in g.get('results',[]) if isinstance(x,dict)]
           a=next((x for x in rows if 'authority_epoch' in x),None)
           if not a or a.get('mode')!='SERVICE_PRIMARY' or a.get('scope')!='PRODUCTION': raise SystemExit(f'AUTHORITY_FENCE_FAILED:{a}')
-          open('/tmp/epoch','w').write(str(int(a['authority_epoch'])))
           PY
-          EPOCH=$(cat /tmp/epoch)
-          # Exact pre-change hot-path shape: recent business dates LEFT JOIN events + GROUP BY.
-          npx --prefix service wrangler d1 execute "$D1_NAME" --remote --json --command "WITH recent AS (SELECT business_date,sequence_no FROM business_dates ORDER BY sequence_no DESC LIMIT 7) SELECT r.business_date,r.sequence_no,COALESCE(MAX(e.authority_seq),0) revision FROM recent r LEFT JOIN events e ON e.business_date=r.business_date GROUP BY r.business_date,r.sequence_no ORDER BY r.sequence_no DESC;" > evidence/status_hotpath_before.json
-          # Representative indexed-delta shape used by normal-path target; bounded to current day and 250 rows.
+          fi
+          required_probe status_hotpath_before npx --prefix service wrangler d1 execute "$D1_NAME" --remote --json --command "WITH recent AS (SELECT business_date,sequence_no FROM business_dates ORDER BY sequence_no DESC LIMIT 7) SELECT r.business_date,r.sequence_no,COALESCE(MAX(e.authority_seq),0) revision FROM recent r LEFT JOIN events e ON e.business_date=r.business_date GROUP BY r.business_date,r.sequence_no ORDER BY r.sequence_no DESC;"
           TODAY=$(TZ=Asia/Bangkok date +%F)
-          npx --prefix service wrangler d1 execute "$D1_NAME" --remote --json --command "SELECT * FROM events WHERE business_date='$TODAY' AND authority_seq>(SELECT MAX(0,authority_seq-250) FROM authority_state WHERE singleton_id=1) ORDER BY authority_seq LIMIT 251;" > evidence/delta_before.json
-          # Bounded outbox/maintenance state reads, no synthetic writes/load.
-          npx --prefix service wrangler d1 execute "$D1_NAME" --remote --json --command "SELECT state,COUNT(*) n FROM sheet_replication_outbox GROUP BY state; SELECT status,COUNT(*) n FROM push_outbox GROUP BY status; SELECT COUNT(*) n FROM events WHERE event_type IN ('ATTENDANCE_TIME_CORRECTED','ATTENDANCE_EXIT_DELETED') AND authority_seq>(SELECT MAX(0,authority_seq-5000) FROM authority_state WHERE singleton_id=1);" > evidence/background_before.json
-          (npx --prefix service wrangler d1 info "$D1_NAME" --remote --json > evidence/d1_info_before.json) || (npx --prefix service wrangler d1 info "$D1_NAME" --remote > evidence/d1_info_before.txt)
-          (npx --prefix service wrangler d1 insights "$D1_NAME" --remote --json --time-period 7d > evidence/d1_insights_7d_before.json) || true
+          required_probe delta_before npx --prefix service wrangler d1 execute "$D1_NAME" --remote --json --command "SELECT * FROM events WHERE business_date='$TODAY' AND authority_seq>(SELECT MAX(0,authority_seq-250) FROM authority_state WHERE singleton_id=1) ORDER BY authority_seq LIMIT 251;"
+          optional_probe schema_before npx --prefix service wrangler d1 execute "$D1_NAME" --remote --json --command "PRAGMA table_info(push_outbox); PRAGMA table_info(sheet_replication_outbox);"
+          optional_probe background_before npx --prefix service wrangler d1 execute "$D1_NAME" --remote --json --command "SELECT state,COUNT(*) n FROM sheet_replication_outbox GROUP BY state; SELECT status,COUNT(*) n FROM push_outbox GROUP BY status; SELECT COUNT(*) n FROM events WHERE event_type IN ('ATTENDANCE_TIME_CORRECTED','ATTENDANCE_EXIT_DELETED') AND authority_seq>(SELECT MAX(0,authority_seq-5000) FROM authority_state WHERE singleton_id=1);"
+          optional_probe d1_info_before npx --prefix service wrangler d1 info "$D1_NAME" --json
+          optional_probe d1_insights_7d_before npx --prefix service wrangler d1 insights "$D1_NAME" --remote --json --time-period 7d
+          echo "$FAIL" > evidence/required_probe_fail
+          exit 0
       - name: Summarize D1 meta without secrets
         shell: bash
         run: |
           set -euo pipefail
           python3 - <<'PY'
-          import json,pathlib,datetime
+          import json,pathlib,datetime,re
+          root=pathlib.Path('evidence')
           def metas(path):
             try: raw=json.load(open(path,encoding='utf-8'))
             except Exception: return []
@@ -107,22 +128,35 @@ jobs:
             walk(raw); return out
           def agg(ms):
             return {'statements':len(ms),'rows_read':sum(int(m.get('rows_read') or 0) for m in ms),'rows_written':sum(int(m.get('rows_written') or 0) for m in ms),'duration_ms':sum(float(m.get('duration') or 0) for m in ms)}
+          failures={}
+          for p in root.glob('*.rc'): failures[p.stem]=p.read_text().strip()
           summary={
-            'status':'PASS',
+            'status':'PASS' if root.joinpath('required_probe_fail').read_text().strip()=='0' else 'HARNESS_FAIL',
             'kind':'R5_READ_ONLY_PRE_CHANGE_BASELINE',
             'captured_at':datetime.datetime.now(datetime.timezone.utc).isoformat(),
             'scope':'OWNER_20260906_R5_QUOTA_REALTIME',
-            'status_hotpath_before':agg(metas('evidence/status_hotpath_before.json')),
-            'delta_before':agg(metas('evidence/delta_before.json')),
-            'background_before':agg(metas('evidence/background_before.json')),
+            'status_hotpath_before':agg(metas(root/'status_hotpath_before.json')),
+            'delta_before':agg(metas(root/'delta_before.json')),
+            'background_before':agg(metas(root/'background_before.json')),
+            'probe_failures':failures,
             'synthetic_production_load':False,
           }
-          pathlib.Path('evidence/summary.json').write_text(json.dumps(summary,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+          root.joinpath('summary.json').write_text(json.dumps(summary,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+          # stderr is kept for diagnosis but redact token-like material defensively.
+          for p in root.glob('*.stderr'):
+            t=p.read_text(encoding='utf-8',errors='replace')
+            t=re.sub(r'(?i)(authorization|token|secret|password)\s*[:=]\s*\S+',r'\1=[REDACTED]',t)
+            p.write_text(t,encoding='utf-8')
           print(json.dumps(summary,ensure_ascii=False,indent=2))
           PY
       - uses: actions/upload-artifact@v4
         with:
-          name: owner-r5-quota-baseline
+          name: owner-r5-quota-baseline-work
           path: evidence/
           if-no-files-found: error
           retention-days: 30
+      - name: Require core baseline probes
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(cat evidence/required_probe_fail)" = "0"
