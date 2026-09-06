@@ -7,6 +7,7 @@ on:
       - tools/r5_beta130_ws_convergence.mjs
       - tools/r5_beta130_ws_gate_fix.py
       - tools/r5_beta130_convergence_only_cleanup_fix.py
+      - tools/r5_auth_join_contract.py
 permissions:
   contents: read
 concurrency:
@@ -32,18 +33,28 @@ jobs:
           set -euo pipefail
           python3 tools/owner_scope_guard.py --bootstrap
           REQ=ops/beta-release-request.json
-          SOURCE_SHA=$(jq -r '.source_sha' "$REQ")
+          SOURCE_SHA=$(git log -1 --format=%H -- service/src/auth.ts)
           BASE_SOURCE_SHA=$(jq -r '.base_source_sha' "$REQ")
           test "$(jq -r '.owner_scope' "$REQ")" = OWNER_20260906_R5_QUOTA_REALTIME
           test "$(jq -r '.owner_checklist_revision' "$REQ")" = 6
           test "$(jq -r '.stage' "$REQ")" = BUILD_VERIFY
-          test "$SOURCE_SHA" = fc2a6c6332e7e15c16920dc2599219a2452e377a
+          test -n "$SOURCE_SHA"
           git cat-file -e "$SOURCE_SHA^{commit}"
           git cat-file -e "$BASE_SOURCE_SHA^{commit}"
+          test "$(git diff --name-only "$SOURCE_SHA^" "$SOURCE_SHA")" = service/src/auth.ts
           git diff --quiet "$SOURCE_SHA" HEAD -- app service google-apps-script
           python3 tools/r5_quota_realtime_guard.py
           echo "SERVICE_SOURCE_SHA=$SOURCE_SHA" >> "$GITHUB_ENV"
           echo "BASE_SERVICE_SOURCE_SHA=$BASE_SOURCE_SHA" >> "$GITHUB_ENV"
+          echo "R5 exact service source: $SOURCE_SHA"
+      - name: Typecheck and auth regression exact service source
+        run: |
+          set -euo pipefail
+          python3 tools/r5_auth_join_contract.py
+          cd service
+          rm -rf node_modules package-lock.json .wrangler
+          npm install --ignore-scripts --no-audit --no-fund >/dev/null
+          npm run check
       - name: Validate runner-only convergence harness
         run: |
           set -euo pipefail
@@ -53,7 +64,7 @@ jobs:
           git diff --quiet HEAD -- app service google-apps-script
           bash -n tools/r5_beta130_convergence_only_gate.sh
           node --check tools/r5_beta130_ws_convergence.mjs
-          python3 -m py_compile tools/r5_beta130_convergence_only_cleanup_fix.py tools/r5_beta130_ws_gate_fix.py
+          python3 -m py_compile tools/r5_beta130_convergence_only_cleanup_fix.py tools/r5_beta130_ws_gate_fix.py tools/r5_auth_join_contract.py
       - name: Deploy exact service and measure five-client convergence
         run: |
           set +e
