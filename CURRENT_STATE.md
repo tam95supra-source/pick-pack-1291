@@ -27,13 +27,13 @@
 - main_sha: 021dac5c6932b3ac5c60ce8fdba562ddf3d9688f
 - authority: SERVICE_PRIMARY / PRODUCTION / epoch 9 / generation m2-prod-reset-20260823-001
 - owner_scope_file: ops/OWNER_SCOPE_CURRENT.json
-- owner_scope_id: OWNER_20260906_R4_LIVE_SYNC_SEED100
-- owner_scope_revision: 4
-- owner_scope_semantics_sha256: be0d473b1042f7a36fc8606e5d5f5202819faa67b167289fb70cabb3d5c817de
-- owner_scope_sha256: d8f8afe6b6946630f2ba722b5232269eb01b58fd4174ac5fc8e3cb120de2827c
+- owner_scope_id: OWNER_20260906_R5_QUOTA_REALTIME
+- owner_scope_revision: 5
+- owner_scope_semantics_sha256: 17d567e9d4d65794cd0c56ff75c93946a932c05f64a649e040eaa17800dd6934
+- owner_scope_sha256: db50e75bfc93aa6b48f662bda00d6408ff424810258848bfdd76d6f78f622cbf
 - owner_command_ledger: ops/owner-command-ledger.jsonl
-- owner_command_ledger_head: 884eaee1d0a83a19f6119214a4f06f865c6270ee9b2c7780b2ed0e1b586ec155
-- owner_checklist_id: OWNER_R4_LIVE_SYNC_SEED100
-- owner_checklist_revision: 4
-- owner_acceptance: PENDING requirements 13,14
-- next_action: WAIT_FOR_OWNER_ACCEPTANCE_REQUIREMENTS_13_14
+- owner_command_ledger_head: 4a6ddfcfd8fba0e681ca27ebb7048aa87e2e2035fe41d7bf4570ae145ae68c05
+- owner_checklist_id: OWNER_R5_QUOTA_REALTIME
+- owner_checklist_revision: 5
+- owner_acceptance: PENDING requirements 13,14,15
+- next_action: IMPLEMENT_R5_QUOTA_REALTIME_TECHNICAL_DOD
