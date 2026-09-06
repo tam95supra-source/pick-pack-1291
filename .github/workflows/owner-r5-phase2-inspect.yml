@@ -1,0 +1,32 @@
+name: Owner R5 phase2 targeted inspect
+
+on:
+  push:
+    branches:
+      - work/r5-quota-realtime-20260906
+    paths:
+      - .github/workflows/owner-r5-phase2-inspect.yml
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Canonical guard
+        run: |
+          python3 tools/owner_scope_guard.py --bootstrap
+          python3 tools/finalizer_handoff_contract.py
+      - name: Targeted R5 source map
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo '=== ANDROID SYNC MAP ==='
+          grep -R -n -E 'object M2BackgroundSync|class M2BackgroundSync|fun catchUp|sync_day|sync_status|M2WorkScheduler\.schedule|FirebaseMessagingService|FCM|PushRegistration' app/src/main/java/vn/pickpack1291/app/beta --include='*.kt' | head -n 240 || true
+          echo '=== SERVICE BACKGROUND MAP ==='
+          grep -n -E 'flushSessionSpecialProjections|push_outbox|process.*Push|replication|scheduled\(|maintenance|capacity|retention|cron|outbox' service/src/session_hotfix.ts service/src/replication.ts service/src/push.ts service/src/index.ts service/src/entry.ts | head -n 260 || true
+          echo '=== INVARIANT MAP ==='
+          grep -n -E 'QUOTA-REALTIME-DELTA-001|UI-REALTIME-100MS-006|ATTENDANCE-LOCAL-FIRST-003|QR-INLINE-SHIFT-NAV-003|LABOR-BULK-REALTIME-007|LOCAL-FIRST-RECONCILE-002|QR-LOCAL-001|UI-PERFORMANCE-COMPACT-005' docs/STABLE_INVARIANTS.md qa/stable_invariants.yml docs/REGRESSION_GUARD_POLICY.md | head -n 220 || true
