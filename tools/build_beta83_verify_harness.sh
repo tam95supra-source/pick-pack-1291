@@ -13,6 +13,7 @@ W=/tmp/beta83-harness
 rm -rf "$W";mkdir -p "$W/src/vn/pickpack1291/verify" "$W/classes" "$W/dex"
 sed -e 's/Beta80 OTA exact candidate/Beta83 OTA exact candidate/g' -e 's/putInt("version_code",86)/putInt("version_code",89)/g' tools/Beta80VerifyInstrumentation.java > "$W/src/vn/pickpack1291/verify/Beta80VerifyInstrumentation.java"
 cp tools/Beta83UiChecksInstrumentation.java "$W/src/vn/pickpack1291/verify/"
+cp tools/R5PerfInstrumentation.java "$W/src/vn/pickpack1291/verify/"
 # Beta117 release notes changed legitimately; keep changelog structure checks but do not pin a stale exact sentence.
 sed -i '/waitText("Quản lý biên bản dùng icon gọn",false,false,10000L);/d' "$W/src/vn/pickpack1291/verify/Beta83UiChecksInstrumentation.java"
 # Owner removed redundant screen title/header areas; verify the attendance module by its functional scan control instead.
@@ -89,6 +90,7 @@ cat > "$W/AndroidManifest.xml" <<'XML'
   <application android:label="Beta83 Verify"/>
   <instrumentation android:name=".Beta80VerifyInstrumentation" android:targetPackage="vn.pickpack1291.app.beta.publicbeta" android:functionalTest="true" android:handleProfiling="false"/>
   <instrumentation android:name=".Beta83UiChecksInstrumentation" android:targetPackage="vn.pickpack1291.app.beta.publicbeta" android:functionalTest="true" android:handleProfiling="false"/>
+  <instrumentation android:name=".R5PerfInstrumentation" android:targetPackage="vn.pickpack1291.app.beta.publicbeta" android:functionalTest="true" android:handleProfiling="false"/>
 </manifest>
 XML
 "$BT/aapt" package -f -M "$W/AndroidManifest.xml" -I "$SDK/platforms/android-36/android.jar" -F "$W/harness-unsigned.apk"

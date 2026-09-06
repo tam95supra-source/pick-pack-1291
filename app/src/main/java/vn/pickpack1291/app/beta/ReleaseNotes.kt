@@ -1,12 +1,12 @@
 package vn.pickpack1291.app.beta
 
 object ReleaseNotes {
-    const val VERSION_NAME = "0.4.2-beta.128"
+    const val VERSION_NAME = "0.4.2-beta.129"
     private val current = listOf(
-        "Nhận hàng Rớt: ưu tiên cột thời gian, thu gọn Chọn/Vị trí/Số kiện và giữ thời gian hiển thị đầy đủ.",
-        "Bỏ tiêu đề lặp cho Scan QR, DO, Số kiện và làm ô nhập nổi bật, dễ nhận biết hơn.",
-        "Công nhật và Điểm danh bỏ render trùng local/Service gây nhấp nháy; phần đầu danh sách được cập nhật ngay trong cùng khung hình.",
-        "QR vào/ra chỉ dựng lại timeline khi revision ngày thực sự thay đổi; Service reconcile nền không làm chớp chi tiết đang xem."
+        "Realtime: cập nhật theo phần thay đổi, không tải lại toàn bộ màn hình khi dữ liệu nền đồng bộ.",
+        "Đồng bộ: dùng revision và delta có chỉ mục, gom yêu cầu trùng và chỉ một bộ điều phối nền trên PDA.",
+        "Quota: gom thông báo, batch đồng bộ Google Sheets và giới hạn tác vụ phụ theo ngân sách động để giữ trong mức miễn phí.",
+        "An toàn dữ liệu: mutation/outbox canonical, ACK fence và cơ chế retry/khôi phục vẫn được giữ nguyên."
     )
     fun currentItems():List<String> = current.toList()
     fun currentText():String = current.joinToString("\n") { "• $it" }

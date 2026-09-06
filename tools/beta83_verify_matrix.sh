@@ -83,6 +83,22 @@ grep -Fq 'THAY ĐỔI BẢN MỚI' "$OPS"
 adb_root_stable 150
 cp /tmp/adb-root-stable.txt "$OUT/adb-root.txt" 2>/dev/null || true
 adb install -r "$APK" >"$OUT/install-candidate.txt";adb install -r "$VERIFY_HARNESS_APK" >"$OUT/install-harness.txt"
+if [[ "$VISUAL_ONLY" != "true" ]]; then
+  adb shell wm size 360x640 >/dev/null;adb shell wm density 180 >/dev/null
+  adb shell am force-stop "$PKG" >/dev/null 2>&1 || true;adb shell pm clear "$PKG" >/dev/null
+  adb shell svc wifi disable >/dev/null 2>&1 || true;adb shell svc data disable >/dev/null 2>&1 || true
+  set +e
+  timeout 120s adb shell am instrument -w -r vn.pickpack1291.verify/.R5PerfInstrumentation >"$OUT/r5-local-ui-instrument.txt" 2>&1
+  PRC=$?
+  set -e
+  test "$PRC" = 0;grep -Fq 'INSTRUMENTATION_CODE: 0' "$OUT/r5-local-ui-instrument.txt";grep -Fq 'R5_LOCAL_UI_P95_PASS' "$OUT/r5-local-ui-instrument.txt"
+  P50=$(sed -n 's/.*r5_local_ui_p50_ms=\([0-9][0-9]*\).*/\1/p' "$OUT/r5-local-ui-instrument.txt" | tail -n1)
+  P95=$(sed -n 's/.*r5_local_ui_p95_ms=\([0-9][0-9]*\).*/\1/p' "$OUT/r5-local-ui-instrument.txt" | tail -n1)
+  P99=$(sed -n 's/.*r5_local_ui_p99_ms=\([0-9][0-9]*\).*/\1/p' "$OUT/r5-local-ui-instrument.txt" | tail -n1)
+  MAX=$(sed -n 's/.*r5_local_ui_max_ms=\([0-9][0-9]*\).*/\1/p' "$OUT/r5-local-ui-instrument.txt" | tail -n1)
+  test -n "$P50" -a -n "$P95" -a -n "$P99" -a -n "$MAX";test "$P95" -le 100
+  jq -nc --argjson p50 "$P50" --argjson p95 "$P95" --argjson p99 "$P99" --argjson max "$MAX" '{status:"PASS",samples:50,p50_ms:$p50,p95_ms:$p95,p99_ms:$p99,max_ms:$max,target_p95_ms:100,measurement:"applyDayDelta_plus_employeeTimelineRealtimeRefresh_to_accessibility_visible",network:"OFFLINE"}' > "$OUT/r5-local-ui-perf.json"
+fi
 for spec in '320 568 160' '360 640 180' '480 800 240'; do
   read -r W H D <<<"$spec";TAG="${W}x${H}"
   MODE=visual
