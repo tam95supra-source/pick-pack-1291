@@ -800,3 +800,11 @@ Technical receipt: `ops/beta121-technical-pass.json`. Regression: `tools/beta121
 - OWNER acceptance Beta128: PASS — OWNER confirmed all remaining items OK, 2026-09-06T05:59:00+07:00.
 - Owner receipt Beta128: `ops/beta128-owner-acceptance.json`
 - Last verified Beta128: `0.4.2-beta.128` LIVE / OWNER acceptance complete 12/12.
+
+
+## R5 — regression bổ sung, chưa Technical PASS toàn scope
+
+- `LABOR-MULTI-INTERVAL-003`: giữ nguyên rule và trạng thái ACTIVE_PASS; thêm `tools/r5_labor_clock_regression.mjs`, 54 trường hợp dùng hàm Service nguyên bản với SQLite tách biệt/đồng hồ cố định, CI `34044419955` PASS. Auth/push được giả lập; kết quả này không thay thế bằng chứng LIVE/UI.
+- `OTA-BETA-001`: `tools/beta83_publish_ota.sh` bootstrap canonical scope, chặn mọi `LOCKED_REQUIREMENT_PENDING_FIX` trước credential và ghi manifest. Kiểm thử local với R5-15 LOCKED bị chặn đúng.
+- Chi tiết coverage/giới hạn: `qa/r5_harness_regression.md`; hồi quy số đo: `tools/r5_measurement_receipt_regression.py`. Mẫu raw 1.500 ms vẫn FAIL dù sau trừ kết nối còn 200 ms; số quy đổi/ngày là model, không phải đo đủ ngày.
+- `R5-15` vẫn `LOCKED_REQUIREMENT_PENDING_FIX`. Run `34044419955` dừng trước deploy vì Cloudflare subscriptions HTTP 403; chưa xác minh Free plan, chưa R5 Technical PASS, chưa OWNER acceptance mới. APK/Service/Stable/main/authority không đổi trong checkpoint này.

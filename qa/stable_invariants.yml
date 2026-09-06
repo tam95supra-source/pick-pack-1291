@@ -45,6 +45,7 @@ invariants:
   - id: OTA-BETA-001
     status: ACTIVE_PASS
     scope: beta-release
+    canonical_pending_guard: "tools/beta83_publish_ota.sh bootstraps canonical OWNER scope and blocks any LOCKED_REQUIREMENT_PENDING_FIX before credentials or manifest writes; regression: qa/r5_harness_regression.md."
     rule: "Beta APK GitHub Release only; Google Drive APK forbidden; exact bytes/signature/readback."
     last_verified: "0.4.2-beta.109 / terminal run 33515483109"
     technical_evidence: "Beta109 terminal 33515483109 PASS; publish 9803429207; OTA/install/readback 9803518172; final 9803526992; exact candidate 33506205883/9799840161 SHA256 1c01a58eefe5d0501eccbfe0359a2d5c0b3ec159f5ef37889d757f0984bbc7c8 size 14167029 signer d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e; GitHub Release asset 539613285 exact; Stable/main/authority unchanged"
@@ -296,6 +297,8 @@ invariants:
   - id: LABOR-MULTI-INTERVAL-003
     status: ACTIVE_PASS
     scope: labor-multi-interval
+    additional_regression_case: "qa/r5_harness_regression.md + tools/r5_labor_clock_regression.mjs"
+    additional_regression_evidence: "CI 34044419955: 54 isolated SQLite/controlled-clock cases on unchanged exact Service functions PASS; auth/push mocked, not LIVE/UI evidence. Service workflow blocked before deploy by Cloudflare subscriptions HTTP 403."
     parent_invariant: LABOR-EXACT-SESSION-002
     rule: "One attendance session may have multiple labor intervals with unique labor_id; max one OPEN; no overlap/auto-merge; start cannot be future or before attendance; end may be preplanned into the future up to the shift cap (Ca1 14:00, CaHC 17:00, Ca2 22:00), may extend beyond shift only when actual attendance extends and never beyond actual exit; exact edit/finish; batch create/finish require real-time password confirmation."
     regression_minimum: [multiple_intervals, one_open, no_overlap, no_auto_merge, exact_labor_id, start_not_future, shift_end_cap, overtime_elapsed_or_exit_cap, deduct_support_exact, grouped_employee_card, batch_create_filters, batch_finish_filters, password_gate]
