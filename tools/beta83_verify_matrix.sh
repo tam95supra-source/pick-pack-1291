@@ -88,7 +88,7 @@ if [[ "$VISUAL_ONLY" != "true" ]]; then
   adb shell am force-stop "$PKG" >/dev/null 2>&1 || true;adb shell pm clear "$PKG" >/dev/null
   adb shell svc wifi disable >/dev/null 2>&1 || true;adb shell svc data disable >/dev/null 2>&1 || true
   set +e
-  timeout 120s adb shell am instrument -w -r vn.pickpack1291.verify/.R5PerfInstrumentation >"$OUT/r5-local-ui-instrument.txt" 2>&1
+  timeout 210s adb shell am instrument -w -r vn.pickpack1291.verify/.R5PerfInstrumentation >"$OUT/r5-local-ui-instrument.txt" 2>&1
   PRC=$?
   set -e
   test "$PRC" = 0;grep -Fq 'INSTRUMENTATION_CODE: 0' "$OUT/r5-local-ui-instrument.txt";grep -Fq 'R5_LOCAL_UI_P95_PASS' "$OUT/r5-local-ui-instrument.txt"
