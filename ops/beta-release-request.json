@@ -59,7 +59,7 @@
   "stable_gas_repair_artifact_name": "stable-primary-canary-source-restore-33821666160",
   "apk_transport": "GITHUB_RELEASE_ONLY",
   "google_drive_apk": "FORBIDDEN",
-  "execution_nonce": "beta129-r5-build-verify-20260906-01",
+  "execution_nonce": "beta129-r5-build-verify-20260906-02",
   "next_action": "RUN_BETA129_R5_BUILD_VERIFY",
   "owner_scope": "OWNER_20260906_R5_QUOTA_REALTIME",
   "owner_scope_source": "Canonical ops/OWNER_SCOPE_CURRENT.json revision 5",
