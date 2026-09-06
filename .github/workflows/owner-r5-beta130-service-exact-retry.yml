@@ -4,6 +4,7 @@ on:
     branches: [release/beta130-r5-rev6-20260906]
     paths:
       - .github/workflows/owner-r5-beta130-service-exact-retry.yml
+      - tools/r5_service_convergence_gate.sh
 permissions:
   contents: read
 concurrency:
@@ -49,6 +50,7 @@ jobs:
           python3 tools/r5_quota_aware_service_gate_patch.py
           python3 tools/r5_dynamic_runtime_service_gate_patch.py
           bash -n tools/beta89_service_live_gate.sh
+          bash -n tools/r5_service_convergence_gate.sh
           bash -n tools/r5_resolve_beta_live_runtime.sh
           bash -n tools/r5_exact_base_service_recovery.sh
           git diff --check
