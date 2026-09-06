@@ -1,0 +1,102 @@
+name: Owner R5 Beta130 harness recovery fix
+on:
+  push:
+    branches: [release/beta130-r5-rev6-20260906]
+    paths:
+      - .github/workflows/owner-r5-beta130-harness-recovery-fix.yml
+permissions:
+  contents: write
+concurrency:
+  group: owner-r5-beta130-harness-recovery-fix
+  cancel-in-progress: false
+jobs:
+  patch:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Canonical and exact-byte fences
+        run: |
+          set -euo pipefail
+          python3 tools/owner_scope_guard.py --bootstrap
+          jq -e '.scope_id=="OWNER_20260906_R5_QUOTA_REALTIME" and .revision==6 and .semantics_sha256=="218f12a7194d0c0f877db6f081e6cda314493097764f2dcfa0410036e9de5f1e"' ops/OWNER_SCOPE_CURRENT.json >/dev/null
+          jq -e '.stage=="BUILD_VERIFY" and .source_sha=="99fbdae3c54a8bad42bf102a480dd19378ad1f92" and .candidate_source_sha=="99fbdae3c54a8bad42bf102a480dd19378ad1f92" and .live==false' ops/beta-release-request.json >/dev/null
+          git diff --quiet 99fbdae3c54a8bad42bf102a480dd19378ad1f92 HEAD -- app service google-apps-script
+      - name: Patch harness only and lock existing candidate
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+
+          p=Path('tools/beta89_service_live_gate.sh')
+          s=p.read_text(encoding='utf-8')
+          replacements={
+            'META=$(curl -fsS -H "Authorization: Bearer $GOOGLE_TOKEN" "https://sheets.googleapis.com/v4/spreadsheets/$OUTBOUND_SHEET_ID?fields=sheets.properties(sheetId,title)")':
+            'META=$(curl --retry 4 --retry-all-errors --retry-delay 1 -fsS -H "Authorization: Bearer $GOOGLE_TOKEN" "https://sheets.googleapis.com/v4/spreadsheets/$OUTBOUND_SHEET_ID?fields=sheets.properties(sheetId,title)")',
+            'curl -fsS -H "Authorization: Bearer $GOOGLE_TOKEN" "https://sheets.googleapis.com/v4/spreadsheets/$OUTBOUND_SHEET_ID/values/\'Nh%E1%BA%ADn%20h%C3%A0ng%20r%E1%BB%9Bt\'!A${BASE_ROW}:H${BASE_ROW}" > "$D/baseline-readback.json"':
+            'curl --retry 4 --retry-all-errors --retry-delay 1 -fsS -H "Authorization: Bearer $GOOGLE_TOKEN" "https://sheets.googleapis.com/v4/spreadsheets/$OUTBOUND_SHEET_ID/values/\'Nh%E1%BA%ADn%20h%C3%A0ng%20r%E1%BB%9Bt\'!A${BASE_ROW}:H${BASE_ROW}" > "$D/baseline-readback.json"',
+            'curl -fsS -H "Authorization: Bearer $GOOGLE_TOKEN" "https://sheets.googleapis.com/v4/spreadsheets/$OUTBOUND_SHEET_ID/values/\'Nh%E1%BA%ADn%20h%C3%A0ng%20r%E1%BB%9Bt\'!A2:H" > "$D/gsheet-drop-readback.json"':
+            'curl --retry 4 --retry-all-errors --retry-delay 1 -fsS -H "Authorization: Bearer $GOOGLE_TOKEN" "https://sheets.googleapis.com/v4/spreadsheets/$OUTBOUND_SHEET_ID/values/\'Nh%E1%BA%ADn%20h%C3%A0ng%20r%E1%BB%9Bt\'!A2:H" > "$D/gsheet-drop-readback.json"',
+            'curl -fsS -H "Authorization: Bearer $GOOGLE_TOKEN" "https://sheets.googleapis.com/v4/spreadsheets/$OUTBOUND_SHEET_ID/values/\'V%E1%BB%8B%20tr%C3%AD\'!A2:A" > "$D/gsheet-location-readback.json"':
+            'curl --retry 4 --retry-all-errors --retry-delay 1 -fsS -H "Authorization: Bearer $GOOGLE_TOKEN" "https://sheets.googleapis.com/v4/spreadsheets/$OUTBOUND_SHEET_ID/values/\'V%E1%BB%8B%20tr%C3%AD\'!A2:A" > "$D/gsheet-location-readback.json"',
+          }
+          for old,new in replacements.items():
+              if s.count(old)!=1: raise SystemExit('SHEETS_RETRY_ANCHOR_COUNT:'+str(s.count(old))+':'+old[:60])
+              s=s.replace(old,new,1)
+          p.write_text(s,encoding='utf-8')
+
+          wf=Path('.github/workflows/beta-release.yml')
+          w=wf.read_text(encoding='utf-8')
+          old='''            git checkout "$BASE_SERVICE_SOURCE_SHA" -- service\n            git clean -fd -- service\n            npm --prefix service install --ignore-scripts --no-audit --no-fund\n            SERVICE_SOURCE_SHA="$BASE_SERVICE_SOURCE_SHA" bash tools/beta78_service_live_gate.sh || exit 97\n'''
+          new='''            git checkout "$BASE_SERVICE_SOURCE_SHA" -- service\n            rm -rf service/node_modules service/package-lock.json service/.wrangler service/worker-configuration.d.ts service/wrangler.live.jsonc\n            git clean -fd -- service\n            npm --prefix service install --ignore-scripts --no-audit --no-fund\n            test -d service/node_modules/fflate\n            SERVICE_SOURCE_SHA="$BASE_SERVICE_SOURCE_SHA" bash tools/beta78_service_live_gate.sh || exit 97\n'''
+          if w.count(old)!=1: raise SystemExit('RECOVERY_ANCHOR_COUNT:'+str(w.count(old)))
+          wf.write_text(w.replace(old,new,1),encoding='utf-8')
+
+          rpath=Path('ops/beta-release-request.json')
+          r=json.loads(rpath.read_text(encoding='utf-8'))
+          r.update({
+            'stage':'SERVICE_ONLY',
+            'mode':'SERVICE_ONLY_REUSE_EXACT_BETA130_CANDIDATE_R5_REV6',
+            'candidate_locked':True,
+            'release_lock_status':'CANDIDATE_BYTES_LOCKED_PRE_SERVICE',
+            'candidate_run_id':34031376706,
+            'candidate_artifact_id':9988766781,
+            'candidate_artifact_name':'beta-candidate-34031376706',
+            'candidate_artifact_digest':'sha256:bae5c5f77338d8947616cb777dc23d32ed24309004791fbbe20e5451fc9e6fd3',
+            'apk_sha256':'f6011a2088350c7ec0062caf2af0762eedfd14be68f03bdbc41f06a104070287',
+            'apk_size':14478325,
+            'signer_sha256':'d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e',
+            'service_gate_required':True,
+            'service_gate_status':'PENDING_RETRY_TRANSIENT_503',
+            'service_gate_last_failed_run_id':34031376706,
+            'service_gate_last_failed_artifact_id':9988851797,
+            'service_gate_last_failure_class':'HARNESS_TRANSIENT_GOOGLE_SHEETS_503',
+            'rebuild':False,
+            'resign':False,
+            'execution_nonce':'beta130-r5-rev6-service-only-20260906-03',
+            'next_action':'RUN_BETA130_R5_SERVICE_ONLY_EXACT_SOURCE',
+          })
+          rpath.write_text(json.dumps(r,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+          PY
+          bash -n tools/beta89_service_live_gate.sh
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('.github/workflows/beta-release.yml').read_text()
+          assert 'rm -rf service/node_modules service/package-lock.json service/.wrangler' in s
+          assert 'test -d service/node_modules/fflate' in s
+          t=Path('tools/beta89_service_live_gate.sh').read_text()
+          assert t.count('--retry 4 --retry-all-errors --retry-delay 1') >= 4
+          PY
+          git diff --check
+          test -z "$(git diff --name-only -- app service google-apps-script)"
+      - name: Commit harness repair and service-only request
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add tools/beta89_service_live_gate.sh .github/workflows/beta-release.yml ops/beta-release-request.json
+          git commit -m 'ci(r5): retry transient Sheets and harden service recovery'
+          git push origin HEAD:release/beta130-r5-rev6-20260906
