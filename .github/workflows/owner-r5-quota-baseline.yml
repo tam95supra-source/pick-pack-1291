@@ -1,0 +1,128 @@
+name: Owner R5 quota baseline
+
+on:
+  push:
+    branches:
+      - release/beta129-quota-realtime-20260906
+    paths:
+      - .github/workflows/owner-r5-quota-baseline.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: owner-r5-quota-baseline
+  cancel-in-progress: false
+
+jobs:
+  baseline:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Canonical guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin beta/current --quiet
+          python3 tools/owner_scope_guard.py --bootstrap
+          python3 - <<'PY'
+          import json
+          s=json.load(open('ops/OWNER_SCOPE_CURRENT.json',encoding='utf-8'))
+          assert s['scope_id']=='OWNER_20260906_R5_QUOTA_REALTIME'
+          assert s['revision']==5
+          assert any(r.get('requirement_id')=='R5-15' for r in s['requirements'])
+          PY
+      - name: Install service tooling
+        run: npm --prefix service install --ignore-scripts --no-audit --no-fund
+      - name: Resolve current official Beta production writer target
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import re,pathlib
+          p=pathlib.Path('.github/workflows/beta118-owner-100-sessions-live-normalize.yml')
+          m=re.search(r'(?m)^\s*D1_NAME:\s*([^\s#]+)',p.read_text(encoding='utf-8'))
+          if not m: raise SystemExit('D1_NAME_SOURCE_MISSING')
+          pathlib.Path('/tmp/d1_name').write_text(m.group(1).strip(),encoding='utf-8')
+          PY
+      - name: Read-only D1 baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p evidence
+          D1_NAME=$(cat /tmp/d1_name)
+          npx --prefix service wrangler d1 execute "$D1_NAME" --remote --json --command "SELECT authority_epoch,authority_seq,mode,scope,service_generation,updated_at FROM authority_state WHERE singleton_id=1;" > evidence/authority.json
+          python3 - <<'PY'
+          import json
+          raw=json.load(open('evidence/authority.json',encoding='utf-8'))
+          groups=[]
+          def walk(v):
+            if isinstance(v,dict):
+              if isinstance(v.get('results'),list): groups.append(v)
+              for x in v.values(): walk(x)
+            elif isinstance(v,list):
+              for x in v: walk(x)
+          walk(raw)
+          rows=[x for g in groups for x in g.get('results',[]) if isinstance(x,dict)]
+          a=next((x for x in rows if 'authority_epoch' in x),None)
+          if not a or a.get('mode')!='SERVICE_PRIMARY' or a.get('scope')!='PRODUCTION': raise SystemExit(f'AUTHORITY_FENCE_FAILED:{a}')
+          open('/tmp/epoch','w').write(str(int(a['authority_epoch'])))
+          PY
+          EPOCH=$(cat /tmp/epoch)
+          # Exact pre-change hot-path shape: recent business dates LEFT JOIN events + GROUP BY.
+          npx --prefix service wrangler d1 execute "$D1_NAME" --remote --json --command "WITH recent AS (SELECT business_date,sequence_no FROM business_dates ORDER BY sequence_no DESC LIMIT 7) SELECT r.business_date,r.sequence_no,COALESCE(MAX(e.authority_seq),0) revision FROM recent r LEFT JOIN events e ON e.business_date=r.business_date GROUP BY r.business_date,r.sequence_no ORDER BY r.sequence_no DESC;" > evidence/status_hotpath_before.json
+          # Representative indexed-delta shape used by normal-path target; bounded to current day and 250 rows.
+          TODAY=$(TZ=Asia/Bangkok date +%F)
+          npx --prefix service wrangler d1 execute "$D1_NAME" --remote --json --command "SELECT * FROM events WHERE business_date='$TODAY' AND authority_seq>(SELECT MAX(0,authority_seq-250) FROM authority_state WHERE singleton_id=1) ORDER BY authority_seq LIMIT 251;" > evidence/delta_before.json
+          # Bounded outbox/maintenance state reads, no synthetic writes/load.
+          npx --prefix service wrangler d1 execute "$D1_NAME" --remote --json --command "SELECT state,COUNT(*) n FROM sheet_replication_outbox GROUP BY state; SELECT status,COUNT(*) n FROM push_outbox GROUP BY status; SELECT COUNT(*) n FROM events WHERE event_type IN ('ATTENDANCE_TIME_CORRECTED','ATTENDANCE_EXIT_DELETED') AND authority_seq>(SELECT MAX(0,authority_seq-5000) FROM authority_state WHERE singleton_id=1);" > evidence/background_before.json
+          (npx --prefix service wrangler d1 info "$D1_NAME" --remote --json > evidence/d1_info_before.json) || (npx --prefix service wrangler d1 info "$D1_NAME" --remote > evidence/d1_info_before.txt)
+          (npx --prefix service wrangler d1 insights "$D1_NAME" --remote --json --time-period 7d > evidence/d1_insights_7d_before.json) || true
+      - name: Summarize D1 meta without secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json,pathlib,datetime
+          def metas(path):
+            try: raw=json.load(open(path,encoding='utf-8'))
+            except Exception: return []
+            out=[]
+            def walk(v):
+              if isinstance(v,dict):
+                m=v.get('meta')
+                if isinstance(m,dict): out.append({k:m.get(k) for k in ('duration','rows_read','rows_written','changes','size_after','served_by_region','served_by_primary') if k in m})
+                for x in v.values(): walk(x)
+              elif isinstance(v,list):
+                for x in v: walk(x)
+            walk(raw); return out
+          def agg(ms):
+            return {'statements':len(ms),'rows_read':sum(int(m.get('rows_read') or 0) for m in ms),'rows_written':sum(int(m.get('rows_written') or 0) for m in ms),'duration_ms':sum(float(m.get('duration') or 0) for m in ms)}
+          summary={
+            'status':'PASS',
+            'kind':'R5_READ_ONLY_PRE_CHANGE_BASELINE',
+            'captured_at':datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            'scope':'OWNER_20260906_R5_QUOTA_REALTIME',
+            'status_hotpath_before':agg(metas('evidence/status_hotpath_before.json')),
+            'delta_before':agg(metas('evidence/delta_before.json')),
+            'background_before':agg(metas('evidence/background_before.json')),
+            'synthetic_production_load':False,
+          }
+          pathlib.Path('evidence/summary.json').write_text(json.dumps(summary,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+          print(json.dumps(summary,ensure_ascii=False,indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: owner-r5-quota-baseline
+          path: evidence/
+          if-no-files-found: error
+          retention-days: 30
