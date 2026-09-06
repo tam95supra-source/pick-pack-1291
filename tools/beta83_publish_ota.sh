@@ -5,6 +5,18 @@ R=ops/beta-release-request.json
 E=/tmp/beta-publish
 rm -rf "$E"; mkdir -p "$E"
 
+# A candidate cannot be published while any canonical OWNER requirement is still
+# awaiting implementation, even if older per-feature receipts report PASS.
+python3 tools/owner_scope_guard.py --bootstrap > "$E/owner-scope-bootstrap.json"
+python3 - <<'PY'
+import json
+from pathlib import Path
+scope=json.loads(Path('ops/OWNER_SCOPE_CURRENT.json').read_text())
+locked=[r['requirement_id'] for r in scope['requirements'] if r.get('state')=='LOCKED_REQUIREMENT_PENDING_FIX']
+if locked:
+    raise SystemExit('PUBLISH_BLOCKED_LOCKED_OWNER_REQUIREMENTS:'+','.join(locked))
+PY
+
 for n in GH_TOKEN GOOGLE_OAUTH_CLIENT_ID GOOGLE_OAUTH_CLIENT_SECRET GOOGLE_OAUTH_REFRESH_TOKEN GAS_SCRIPT_ID GAS_DEPLOYMENT_ID GITHUB_REPOSITORY GITHUB_API_URL; do
   test -n "${!n:-}"
 done

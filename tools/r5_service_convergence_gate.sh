@@ -16,7 +16,7 @@ r5_service_convergence_gate(){
       -H "Authorization: Bearer $TOKEN" \
       "$SERVICE_URL/v1/sync/status" > "$target"
     jq -e '.ok==true and .contract=="LOCAL_FIRST_REVISION_V1" and (.business_window|type=="array" and length>0) and (.business_window[0].business_date|type=="string") and (.business_window[0].revision|type=="number")' "$target" >/dev/null
-    jq -r '.service_telemetry.d1_rows_read // 0' "$target" >> "$out/status-rows.txt"
+    jq -er '.service_telemetry.d1_rows_read | select(type=="number" and .>=0 and floor==.)' "$target" >> "$out/status-rows.txt"
   }
 
   r5_client_delta(){
@@ -36,7 +36,7 @@ r5_service_convergence_gate(){
         -w '%{time_namelookup}\t%{time_connect}\t%{time_appconnect}\t%{time_starttransfer}\t%{time_total}\n' \
         -H "Authorization: Bearer $TOKEN" "$url" >> "$timing"
       jq -e '.ok==true and ((.reset_required // false)==false)' "$resp" >/dev/null
-      rows=$((rows+$(jq -r '.service_telemetry.d1_rows_read // 0' "$resp")))
+      rows=$((rows+$(jq -er '.service_telemetry.d1_rows_read | select(type=="number" and .>=0 and floor==.)' "$resp")))
       # Each shell curl creates a fresh transport even though real PDA/Web clients keep a live connection.
       # Attribute DNS/TCP/TLS setup separately so the canonical <=1s convergence target measures committed-state
       # reconcile on a steady-state client, while raw cross-region wall time remains preserved for audit.
@@ -111,11 +111,9 @@ raw_vals=sorted(r['raw_ms'] for r in rows)
 def q(a,p): return a[max(0,math.ceil(len(a)*p)-1)]
 p50,p95,p99,mx=q(vals,.50),q(vals,.95),q(vals,.99),max(vals)
 raw_p50,raw_p95,raw_p99,raw_mx=q(raw_vals,.50),q(raw_vals,.95),q(raw_vals,.99),max(raw_vals)
-# Canonical target is unchanged. The measured value is steady-state committed-state reconcile latency.
-# Raw fresh-connection cross-region wall time is diagnostic only because GitHub hosted runners are outside the PDA/Web region
-# and shell curl creates a new DNS/TCP/TLS transport for every logical client request.
-assert p95<=1000, f'R5_STEADY_STATE_P95_EXCEEDED:{p95}'
-assert p99<=2000, f'R5_STEADY_STATE_P99_EXCEEDED:{p99}'
+# An arithmetic subtraction of transport setup is diagnostic, not an observed
+# persistent-client measurement. Preserve and gate on the actual elapsed time.
+# This ACK-to-delta sample does not establish UI/WS convergence or a full test day.
 status_rows=[int(x) for x in (out/'status-rows.txt').read_text().splitlines() if x.strip()]
 delta_rows=[r['d1_rows_read'] for r in rows]
 max_status=max(status_rows); max_delta=max(delta_rows)
@@ -129,10 +127,13 @@ assert reads<=500000, f'R5_D1_ROWS_READ_MODEL_EXCEEDED:{reads}'
 assert writes<=20000, f'R5_D1_ROWS_WRITE_MODEL_EXCEEDED:{writes}'
 assert workers<=20000, f'R5_WORKER_REQUEST_MODEL_EXCEEDED:{workers}'
 assert sheets<=250, f'R5_SHEETS_CALL_MODEL_EXCEEDED:{sheets}'
+sample_pass=raw_p95<=1000 and raw_p99<=2000
 receipt={
-  'status':'PASS','classification':'EXACT_DEPLOYED_SERVICE_CANONICAL_SYNC_CONTRACT_5_LOGICAL_CLIENT_FANOUT',
+  'status':'PASS' if sample_pass else 'FAIL','classification':'EXACT_DEPLOYED_SERVICE_ACK_TO_DELTA_HTTP_SAMPLE_ONLY',
+  'full_technical_dod_pass':False,
   'clients':{'total':5,'android_pda':3,'web':2},'trials':10,'samples':50,
-  'steady_state_convergence_ms':{'p50':p50,'p95':p95,'p99':p99,'max':mx,'target_p95_max':1000,'target_p99_max':2000,'clock_start':'canonical_mutation_ack','transport_setup_excluded':True},
+  'remote_convergence_ms':{'p50':raw_p50,'p95':raw_p95,'p99':raw_p99,'max':raw_mx,'target_p95_max':1000,'target_p99_max':2000,'clock_start':'canonical_mutation_ack','transport_setup_excluded':False,'classification':'ACK_TO_DELTA_HTTP_SAMPLE_NOT_UI_CONVERGENCE'},
+  'steady_state_convergence_ms':{'p50':p50,'p95':p95,'p99':p99,'max':mx,'clock_start':'canonical_mutation_ack','transport_setup_excluded':True,'classification':'ARITHMETIC_DIAGNOSTIC_NOT_MEASURED_STEADY_STATE'},
   'raw_cross_region_wall_ms':{'p50':raw_p50,'p95':raw_p95,'p99':raw_p99,'max':raw_mx,'classification':'DIAGNOSTIC_FRESH_DNS_TCP_TLS_FROM_GITHUB_RUNNER'},
   'transport_setup_ms':{'avg':statistics.mean(r['transport_setup_ms'] for r in rows),'max':max(r['transport_setup_ms'] for r in rows)},
   'hot_path_d1':{
@@ -142,6 +143,7 @@ receipt={
     'source':'canonical /v1/sync/status and /v1/delta/day response.service_telemetry on exact deployed R5 service'
   },
   'normalized_max_day':{
+    'classification':'EXTRAPOLATED_MODEL_NOT_MEASURED_1540_EVENT_DAY',
     'events':EVENTS,'clients':CLIENTS,'d1_rows_read':reads,'d1_rows_read_target_max':500000,
     'd1_rows_written':writes,'d1_rows_written_target_max':20000,
     'worker_requests':workers,'worker_requests_target_max':20000,
@@ -149,10 +151,12 @@ receipt={
   },
   'reset_utc':'00:00',
   'before_baseline':{'run_id':34001866785,'rows_read_24h':3522525,'rows_written_24h':33136,'read_queries_24h':40820,'write_queries_24h':2098},
-  'regression_guards':['Every confirmed admin-audit resilience probe must advance the current business-day revision watermark to at least its authority_seq.','Realtime threshold remains P95<=1000ms and P99<=2000ms for steady-state committed-state reconcile; fresh transport setup is separately audited, not silently discarded.'],
-  'notes':['Convergence clock starts after canonical mutation ACK because the R5 requirement measures committed-state fanout/reconcile latency, not mutation request latency.','Five concurrent logical clients use the canonical current sync contract; PDA calls omit WEB override while WEB calls use client_source=WEB.','GitHub hosted CI may execute outside the APAC service/data region; each shell curl also creates a fresh DNS/TCP/TLS transport unlike long-lived app clients. The harness therefore records raw wall time and transport setup separately while applying the unchanged realtime target to steady-state reconcile latency.','Normalized max-day substitutes fresh worst-observed status/delta D1 row costs into the canonical conservative 1540-event structural model.']
+  'regression_guards':['Every confirmed probe must advance the business-day revision watermark.','Missing telemetry fails; transport-subtracted values cannot satisfy the realtime gate.'],
+  'notes':['This bounded sample measures ACK-to-HTTP-delta visibility with five logical clients, not Android/Web rendering or WebSocket notification latency.','Only status/delta row costs are measured here. The daily writes, Workers/Sheets totals and remaining reads are extrapolations, not billing evidence.','Full 1540-event/5-client measurement, real UI convergence, failure matrix and observation remain required before R5 Technical PASS.']
 }
 (out/'receipt.json').write_text(json.dumps(receipt,ensure_ascii=False,indent=2))
+assert raw_p95<=1000, f'R5_MEASURED_ACK_DELTA_P95_EXCEEDED:{raw_p95}'
+assert raw_p99<=2000, f'R5_MEASURED_ACK_DELTA_P99_EXCEEDED:{raw_p99}'
 print(json.dumps({'r5_live_measurement':'PASS','steady_p95_ms':p95,'steady_p99_ms':p99,'steady_max_ms':mx,'raw_p95_ms':raw_p95,'raw_p99_ms':raw_p99,'raw_max_ms':raw_mx,'status_rows_max':max_status,'delta_rows_max':max_delta,'delta_d1_ms_max':max(r['d1_duration_ms'] for r in rows),'normalized_rows_read':reads,'normalized_rows_written':writes,'worker_requests':workers,'sheets_calls':sheets}))
 PY
 }

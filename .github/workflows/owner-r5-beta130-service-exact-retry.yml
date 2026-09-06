@@ -6,6 +6,8 @@ on:
       - .github/workflows/owner-r5-beta130-service-exact-retry.yml
       - tools/r5_service_convergence_gate.sh
       - tools/r5_dynamic_runtime_service_gate_patch.py
+      - tools/r5_labor_clock_regression.mjs
+      - tools/r5_free_plan_preflight.py
       - service/src/admin_audit.ts
       - ops/beta-release-request.json
 permissions:
@@ -58,6 +60,10 @@ jobs:
           bash -n tools/r5_exact_base_service_recovery.sh
           git diff --check
           test -z "$(git diff --name-only -- app service google-apps-script)"
+      - name: Exact labor clock regression without network
+        run: node --experimental-vm-modules tools/r5_labor_clock_regression.mjs /tmp/r5-labor-clock/receipt.json
+      - name: Read-only Free plan preflight before any deployment
+        run: python3 tools/r5_free_plan_preflight.py /tmp/r5-plan-preflight/receipt.json
       - name: Typecheck exact service source
         shell: bash
         run: |
@@ -94,5 +100,7 @@ jobs:
             /tmp/beta89-service-live
             /tmp/r5-beta-live-runtime
             /tmp/r5-exact-base-service-recovery
+            /tmp/r5-labor-clock
+            /tmp/r5-plan-preflight
           retention-days: 30
           if-no-files-found: error
