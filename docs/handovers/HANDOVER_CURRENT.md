@@ -24,14 +24,15 @@
 ## LIVE / TARGET
 - LIVE BETA: 0.4.2-beta.128 (versionCode 134) / package vn.pickpack1291.app.beta.publicbeta.
 - R4-13 và R4-14: TECHNICAL_PASS_AWAITING_OWNER; Stable/main/signer/authority không đổi.
+- R5-15: LOCKED_REQUIREMENT_PENDING_FIX; implementation đang thực hiện trên work branch, chưa publish.
 
 ## Evidence cốt lõi
 - LIVE/current: post-release sync + finalizer same-job FF/readback đã khóa regression bot-push.
 - Seed100: receipt ops/owner-r4-seed100-receipt.json PASS, exact 95 Ca 1 + 5 Ca HC, review/attendance/history PASS.
-- Canonical OWNER checklist: ops/OWNER_SCOPE_CURRENT.json, revision 4, SHA256 d8f8afe6b6946630f2ba722b5232269eb01b58fd4174ac5fc8e3cb120de2827c, 14 requirement(s).
+- Canonical OWNER checklist: ops/OWNER_SCOPE_CURRENT.json, revision 5, SHA256 db50e75bfc93aa6b48f662bda00d6408ff424810258848bfdd76d6f78f622cbf, 15 requirement(s).
 
 ## Blocker
-Không có blocker kỹ thuật; chờ OWNER nghiệm thu requirement 13 và 14.
+Không có blocker kỹ thuật; R5-15 đang implementation; R4-13/R4-14 vẫn chờ OWNER nghiệm thu.
 
 ## NEXT_ACTION
 IMPLEMENT_R5_QUOTA_REALTIME_TECHNICAL_DOD
