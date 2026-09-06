@@ -3,13 +3,13 @@
   "project": "APK PICK PACK 1291",
   "owner": "Nguyễn Văn Tâm",
   "scope_id": "OWNER_20260906_R5_QUOTA_REALTIME",
-  "revision": 6,
+  "revision": 7,
   "scope_status": "LOCKED_REQUIREMENT_PENDING_FIX",
   "source_of_truth": "ops/OWNER_SCOPE_CURRENT.json",
   "migration_source": "OWNER CMD-20260906-007 attachment + CMD-20260906-008 Stable quota parity requirement over R4 technical-pass baseline",
   "owner_command_ledger": "ops/owner-command-ledger.jsonl",
-  "ledger_head_sequence": 8,
-  "ledger_head_event_sha256": "175b83ff1669986448b8855f5e8da71b4c161f92e8ccda63dadb5e0c7480b281",
+  "ledger_head_sequence": 9,
+  "ledger_head_event_sha256": "f7399a9b95275ac5ece0c027be137a87aff33c4694aedb105363325c1ea44f3f",
   "requirements": [
     {
       "requirement_id": "R2-01",
@@ -394,7 +394,7 @@
     {
       "requirement_id": "R5-15",
       "checklist_number": 15,
-      "title": "Tối ưu quota + realtime 5 clients / 1.540 events",
+      "title": "Tối ưu quota + realtime 5 clients / 200 NLĐ / 200 công nhật / 50 đơn rớt",
       "acceptance": [
         "Thiết kế và triển khai cho tối đa 3 PDA Android + 2 web đồng thời, khoảng 200 nhân sự/ngày và kịch bản cực đại 1.540 canonical events/ngày; không đổi nghiệp vụ hiện hành.",
         "Giữ local-first: thao tác optimistic hỗ trợ có UI local p95 <=100 ms; remote convergence mạng bình thường p95 <=1 giây, p99 <=2 giây; không blink/blank/full-page reload và không reset scroll/focus/form.",
@@ -409,13 +409,16 @@
         "Các invariant UI-REALTIME-100MS-006, ATTENDANCE-LOCAL-FIRST-003, QR-INLINE-SHIFT-NAV-003, LABOR-BULK-REALTIME-007, LOCAL-FIRST-RECONCILE-002, QR-LOCAL-001 và UI-PERFORMANCE-COMPACT-005 cùng toàn bộ regression liên quan tiếp tục PASS.",
         "Nếu Android source thay đổi, chỉ phát hành Beta sau toàn bộ gate exact candidate/sign/service/regression/visual-human/PDA/release-lock/OTA/install-readback/finalizer PASS; Stable/main/signer/provider/authority không đổi; OWNER acceptance chỉ OWNER được chốt.",
         "Stable dù chưa có bản public phải được chuẩn bị sẵn parity cùng cơ chế tiết kiệm quota/read/write và realtime của R5: O(1) status/revision, indexed delta/cursor, single-flight, coalesced wake, durable terminal outbox/checkpoint, Sheets metering/batching, dirty/due scheduling và quota circuit; dữ liệu động lấy từ Stable env/config, không hardcode.",
-        "Beta và Stable tiếp tục cách ly data/auth/DB/Sheet/environment/epoch/generation. Trong scope này chỉ chuẩn bị code/workflow/config/test cho Stable, tuyệt đối không deploy/public Stable hoặc đổi Stable LIVE; khi OWNER promote Beta sang Stable thì dùng implementation semantics đã PASS và chạy cùng quota/regression gates, không phải setup lại cơ chế quota."
+        "Beta và Stable tiếp tục cách ly data/auth/DB/Sheet/environment/epoch/generation. Trong scope này chỉ chuẩn bị code/workflow/config/test cho Stable, tuyệt đối không deploy/public Stable hoặc đổi Stable LIVE; khi OWNER promote Beta sang Stable thì dùng implementation semantics đã PASS và chạy cùng quota/regression gates, không phải setup lại cơ chế quota.",
+        "Bổ sung vào mô hình tải đang khóa khoảng 50 đơn rớt/ngày, cùng 2 website + 3 PDA tương tác, 200 NLĐ vào/ra và 200 công nhật, dùng đầy đủ tài nguyên nghiệp vụ. Phải đếm thêm mutations thực tế của đơn rớt, tài nguyên, correction/retry và tải phụ trợ; không coi 1.540 events cũ đã bao phủ phần chưa tính.",
+        "Rà soát đầy đủ trạng thái LIVE và evidence quota/read/write của toàn mô hình, phân biệt đã PASS/chưa PASS/chưa có chứng cứ; chốt phương án Beta hiện tại và Stable READY_NOT_LIVE có thể promote bằng cùng implementation đã nghiệm thu; tạo prompt bàn giao chi tiết cho phiên Trò chuyện mức Cao thực thi tiếp, có ngân sách kiểm thử và điều kiện nghiệm thu thật."
       ],
       "invariant_id": "QUOTA-REALTIME-DELTA-001",
       "state": "LOCKED_REQUIREMENT_PENDING_FIX",
       "source_command_ids": [
         "CMD-20260906-007",
-        "CMD-20260906-008"
+        "CMD-20260906-008",
+        "CMD-20260906-009"
       ],
       "source_attachment": {
         "path": "ops/owner-commands/CMD-20260906-007-quota-realtime.md",
@@ -452,6 +455,6 @@
     "owner_acceptance": "PENDING",
     "owner_acceptance_receipt": "ops/beta128-owner-acceptance.json"
   },
-  "semantics_sha256": "218f12a7194d0c0f877db6f081e6cda314493097764f2dcfa0410036e9de5f1e",
-  "scope_sha256": "205600c9cfa96a6dc3a0a3293e2b8e74dcde16d3f198daf1ce7675008250f260"
+  "semantics_sha256": "4fb15aa87623325fa7ffc4e4e37b9a0b9ce95d90fdf502fce366189e53fdf600",
+  "scope_sha256": "a15bd89635475b0da7b36876a2a23932cbfebcda6282e705d3f19409c036117d"
 }

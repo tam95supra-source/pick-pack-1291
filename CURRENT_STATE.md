@@ -28,14 +28,14 @@
 - authority: SERVICE_PRIMARY / PRODUCTION / epoch 9 / generation m2-prod-reset-20260823-001
 - owner_scope_file: ops/OWNER_SCOPE_CURRENT.json
 - owner_scope_id: OWNER_20260906_R5_QUOTA_REALTIME
-- owner_scope_revision: 6
-- owner_scope_semantics_sha256: 218f12a7194d0c0f877db6f081e6cda314493097764f2dcfa0410036e9de5f1e
-- owner_scope_sha256: 205600c9cfa96a6dc3a0a3293e2b8e74dcde16d3f198daf1ce7675008250f260
+- owner_scope_revision: 7
+- owner_scope_semantics_sha256: 4fb15aa87623325fa7ffc4e4e37b9a0b9ce95d90fdf502fce366189e53fdf600
+- owner_scope_sha256: a15bd89635475b0da7b36876a2a23932cbfebcda6282e705d3f19409c036117d
 - owner_command_ledger: ops/owner-command-ledger.jsonl
-- owner_command_ledger_head: 175b83ff1669986448b8855f5e8da71b4c161f92e8ccda63dadb5e0c7480b281
+- owner_command_ledger_head: f7399a9b95275ac5ece0c027be137a87aff33c4694aedb105363325c1ea44f3f
 - owner_checklist_id: OWNER_R5_QUOTA_REALTIME
 - owner_checklist_revision: 6
 - owner_acceptance: PENDING requirements 13,14,15
 - r5_work_state: BLOCKED_PLAN_MODEL_MISMATCH / default_usage_model=standard / token read PASS / run 34044419955 attempt 2
 - r5_service_deploy: SKIPPED / no new deployment in this checkpoint
-- next_action: WAIT_FOR_OWNER_DECISION_ON_WORKERS_STANDARD_MODEL
+- next_action: READ_ONLY_QUOTA_AUDIT_AND_PREPARE_EXECUTION_PROMPT

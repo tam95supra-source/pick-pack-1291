@@ -1,0 +1,37 @@
+name: R5 bounded quota readonly audit
+on:
+  push:
+    branches: [release/beta130-r5-rev6-20260906]
+    paths: [.github/workflows/r5-quota-readonly-audit.yml, tools/r5_quota_readonly_audit.py]
+permissions:
+  contents: read
+concurrency:
+  group: r5-quota-readonly-audit
+  cancel-in-progress: false
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+      GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+      GOOGLE_OAUTH_REFRESH_TOKEN: ${{ secrets.GOOGLE_OAUTH_REFRESH_TOKEN }}
+      RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+      DENO_DEPLOY_TOKEN: ${{ secrets.DENO_DEPLOY_TOKEN }}
+      TURSO_API_TOKEN: ${{ secrets.TURSO_API_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Canonical scope
+        run: python3 tools/owner_scope_guard.py --bootstrap
+      - name: Bounded read-only metadata and usage
+        run: python3 tools/r5_quota_readonly_audit.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: r5-quota-readonly-audit-${{ github.run_id }}
+          path: /tmp/r5-quota-readonly-audit
+          if-no-files-found: error
+          retention-days: 30
+
