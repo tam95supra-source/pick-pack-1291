@@ -1,0 +1,61 @@
+name: Owner R5 wire live convergence measurement
+
+on:
+  push:
+    branches:
+      - release/beta129-r5-rev6-20260906
+    paths:
+      - .github/workflows/owner-r5-wire-live-measurement.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: owner-r5-wire-live-measurement
+  cancel-in-progress: false
+
+jobs:
+  patch:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Canonical guards
+        run: |
+          set -euo pipefail
+          python3 tools/owner_scope_guard.py --bootstrap
+          python3 tools/finalizer_handoff_contract.py
+          jq -e '.scope_id=="OWNER_20260906_R5_QUOTA_REALTIME" and .revision==6' ops/OWNER_SCOPE_CURRENT.json >/dev/null
+          jq -e '.stage=="VERIFY_ONLY" and .candidate_locked==true and .live==false and .source_sha=="8dfb520c46abf56de8f856fd0af26613fa7bdd04"' ops/beta-release-request.json >/dev/null
+      - name: Wire measurement without changing app or service source
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('tools/beta89_service_live_gate.sh')
+          s=p.read_text()
+          anchor='''\ncleanup_d1\nCLEAN=$(sql "SELECT (SELECT COUNT(*) FROM accounts WHERE login_id='$LOGIN')+(SELECT COUNT(*) FROM events WHERE actor_id='$LOGIN')+(SELECT COUNT(*) FROM outbound_drop_records WHERE record_id='$DROP_ID')+(SELECT COUNT(*) FROM outbound_locations WHERE location LIKE '__B78%') AS n;")\n'''
+          repl='''\nsource ../tools/r5_service_convergence_gate.sh\nr5_service_convergence_gate\n\ncleanup_d1\nCLEAN=$(sql "SELECT (SELECT COUNT(*) FROM accounts WHERE login_id='$LOGIN')+(SELECT COUNT(*) FROM events WHERE actor_id='$LOGIN')+(SELECT COUNT(*) FROM outbound_drop_records WHERE record_id='$DROP_ID')+(SELECT COUNT(*) FROM outbound_locations WHERE location LIKE '__B78%') AS n;")\n'''
+          assert anchor in s, 'R5_MEASUREMENT_INSERT_ANCHOR_MISSING'
+          s=s.replace(anchor,repl,1)
+          old='''B115_RECEIPT_TMP=$(mktemp "$D/receipt-beta115.XXXXXX.json")\njq '.beta115={future_scheduled_end:"PASS",shift_and_actual_exit_cap:"PASS",one_open_and_overlap:"PASS",boolean_deduct_write:"PASS",exact_mnv_shift_report_move:"PASS",multi_interval_no_double_count:"PASS",future_exit_reconcile:"PASS"}' "$D/receipt.json" > "$B115_RECEIPT_TMP" && mv "$B115_RECEIPT_TMP" "$D/receipt.json"\njq -e '.status=="PASS" and .historical_result=="3/3_SERVICE_D1_EXACT" and .outbound.duplicate=="PASS" and .outbound.gsheet_readback=="PASS" and (.beta115|to_entries|all(.value=="PASS"))' "$D/receipt.json" >/dev/null\n'''
+          new='''B115_RECEIPT_TMP=$(mktemp "$D/receipt-beta115.XXXXXX.json")\njq '.beta115={future_scheduled_end:"PASS",shift_and_actual_exit_cap:"PASS",one_open_and_overlap:"PASS",boolean_deduct_write:"PASS",exact_mnv_shift_report_move:"PASS",multi_interval_no_double_count:"PASS",future_exit_reconcile:"PASS"}' "$D/receipt.json" > "$B115_RECEIPT_TMP" && mv "$B115_RECEIPT_TMP" "$D/receipt.json"\nR5_RECEIPT_TMP=$(mktemp "$D/receipt-r5.XXXXXX.json")\njq --slurpfile r5 "$D/r5-live-measurement/receipt.json" '.r5_live_measurement=$r5[0]' "$D/receipt.json" > "$R5_RECEIPT_TMP" && mv "$R5_RECEIPT_TMP" "$D/receipt.json"\njq -e '.status=="PASS" and .historical_result=="3/3_SERVICE_D1_EXACT" and .outbound.duplicate=="PASS" and .outbound.gsheet_readback=="PASS" and (.beta115|to_entries|all(.value=="PASS")) and .r5_live_measurement.status=="PASS" and .r5_live_measurement.remote_convergence_ms.p95<=1000 and .r5_live_measurement.remote_convergence_ms.p99<=2000 and .r5_live_measurement.normalized_max_day.d1_rows_read<=500000 and .r5_live_measurement.normalized_max_day.d1_rows_written<=20000 and .r5_live_measurement.normalized_max_day.worker_requests<=20000 and .r5_live_measurement.normalized_max_day.sheets_api_calls<=250' "$D/receipt.json" >/dev/null\n'''
+          assert old in s, 'R5_RECEIPT_ANCHOR_MISSING'
+          s=s.replace(old,new,1)
+          p.write_text(s)
+          PY
+          bash -n tools/r5_service_convergence_gate.sh tools/beta89_service_live_gate.sh
+          grep -Fq 'r5_service_convergence_gate' tools/beta89_service_live_gate.sh
+          grep -Fq '.r5_live_measurement.status=="PASS"' tools/beta89_service_live_gate.sh
+          git diff --check
+          test -z "$(git diff --name-only -- app service google-apps-script)"
+      - name: Commit tool-only wiring
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add tools/beta89_service_live_gate.sh
+          git commit -m 'test(r5): enforce fresh live convergence in service gate'
+          git push origin HEAD:release/beta129-r5-rev6-20260906
