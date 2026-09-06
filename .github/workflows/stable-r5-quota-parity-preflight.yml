@@ -89,22 +89,11 @@ jobs:
         run: |
           set -euo pipefail
           ! grep -Eiq 'wrangler[[:space:]]+deploy|d1 migrations apply[^\n]*--remote|curl[^\n]*beta\.pickpack|gh release create' .github/workflows/stable-r5-quota-parity-preflight.yml
-          python3 - <<'PY'
-          import json
-          from pathlib import Path
-          c=json.loads(Path('config/stable_r5_parity.json').read_text())
-          assert c['environment_id']=='STABLE'
-          assert c['service_audience']=='PICK_PACK_1291_STABLE'
-          assert c['deploy_now'] is False
-          assert c['activation']=='OWNER_PROMOTE_ONLY'
-          assert all(str(v).startswith('STABLE_') for v in c['dynamic_bindings'])
-          b=Path('app/build.gradle.kts').read_text()
-          stable=b[b.index('create("stable")'):b.index('create("beta")')]
-          assert 'STABLE' in stable
-          assert 'PICK_PACK_1291_STABLE' in stable
-          assert 'stableGsheetApiUrl' in stable
-          assert 'PICK_PACK_1291_BETA' not in stable
-          PY
+          python3 tools/r5_stable_parity_guard.py
+          test "$(jq -r '.environment_id' config/stable_r5_parity.json)" = "STABLE"
+          test "$(jq -r '.service_audience' config/stable_r5_parity.json)" = "PICK_PACK_1291_STABLE"
+          test "$(jq -r '.deploy_now' config/stable_r5_parity.json)" = "false"
+          test "$(jq -r '.activation' config/stable_r5_parity.json)" = "OWNER_PROMOTE_ONLY"
       - name: Write machine-readable preflight evidence
         shell: bash
         run: |
