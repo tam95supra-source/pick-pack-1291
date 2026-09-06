@@ -15,6 +15,7 @@ on:
       - tools/r5_stable_parity_guard.py
       - tools/stable_private_provision.py
       - service/src/quota_budget.ts
+      - service/src/stable_sheet_bridge.ts
       - service/src/core.ts
       - service/src/sync_contract.ts
       - service/src/push.ts
@@ -23,6 +24,7 @@ on:
       - service/migrations/0015_r5_quota_realtime_revision.sql
       - service/migrations/0016_r5_background_terminal.sql
       - service/migrations/0017_r5_quota_budget.sql
+      - service/migrations/0018_r5_gas_operation_budget.sql
       - app/build.gradle.kts
 
 permissions:
@@ -96,6 +98,7 @@ jobs:
           grep -q '0015_r5_quota_realtime_revision.sql' /tmp/stable-r5-migrations.log
           grep -q '0016_r5_background_terminal.sql' /tmp/stable-r5-migrations.log
           grep -q '0017_r5_quota_budget.sql' /tmp/stable-r5-migrations.log
+          grep -q '0018_r5_gas_operation_budget.sql' /tmp/stable-r5-migrations.log
           ! grep -qi 'incomplete input' /tmp/stable-r5-migrations.log
       - name: Quota limiter fail-closed locally
         shell: bash
@@ -113,7 +116,19 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          ! grep -Eiq 'wrangler[[:space:]]+deploy|d1 migrations apply[^\n]*--remote|gh release create' .github/workflows/stable-r5-quota-parity-preflight.yml
+          python3 - <<'PY'
+          from pathlib import Path
+          text=Path('.github/workflows/stable-r5-quota-parity-preflight.yml').read_text()
+          forbidden=[
+            'CLOUDFLARE_'+'API_TOKEN',
+            'GOOGLE_'+'OAUTH',
+            '--'+'remote',
+            'wrangler'+' deploy',
+            'gh release'+' create',
+          ]
+          found=[x for x in forbidden if x in text]
+          assert not found, 'CLOUD_MUTATION_SURFACE:'+','.join(found)
+          PY
           python3 tools/r5_stable_parity_guard.py
           test "$(jq -r '.environment_id' config/stable_r5_parity.json)" = "STABLE"
           test "$(jq -r '.service_audience' config/stable_r5_parity.json)" = "PICK_PACK_1291_STABLE"
@@ -126,7 +141,7 @@ jobs:
           jq -n \
             --arg source_sha "$GITHUB_SHA" \
             --arg scope_sha "$(jq -r '.scope_sha256' ops/OWNER_SCOPE_CURRENT.json)" \
-            '{status:"PASS",evidence_class:"LOCAL_RUNTIME",channel:"STABLE",activation:"OWNER_PROMOTE_ONLY",deploy_now:false,source_sha:$source_sha,owner_scope_sha256:$scope_sha,service_compile:"PASS",stable_android_compile:"PASS",local_migrations:"PASS",quota_fail_closed:"PASS",private_idle_scheduler:"PASS",isolation_static:"PASS",cloud_runtime:"NOT_VERIFIED"}' \
+            '{status:"PASS",evidence_class:"LOCAL_RUNTIME",channel:"STABLE",activation:"OWNER_PROMOTE_ONLY",deploy_now:false,source_sha:$source_sha,owner_scope_sha256:$scope_sha,service_compile:"PASS",stable_android_compile:"PASS",local_migrations:"PASS",quota_fail_closed:"PASS",gas_operation_budget_schema:"PASS",private_idle_scheduler:"PASS",isolation_static:"PASS",cloud_runtime:"NOT_VERIFIED"}' \
             > /tmp/stable-r5-preflight/evidence.json
       - uses: actions/upload-artifact@v4
         if: always()
