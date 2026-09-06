@@ -1,0 +1,77 @@
+name: Owner R5 web delta-only realtime
+
+on:
+  push:
+    branches:
+      - work/r5-quota-realtime-20260906
+    paths:
+      - .github/workflows/owner-r5-web-delta.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: owner-r5-web-delta
+  cancel-in-progress: false
+
+jobs:
+  apply-test-commit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Canonical guard
+        run: |
+          set -euo pipefail
+          python3 tools/owner_scope_guard.py --bootstrap
+          python3 tools/finalizer_handoff_contract.py
+      - name: Apply deterministic web delta patch
+        run: |
+          set -euo pipefail
+          python3 -m py_compile tools/r5_web_delta_apply.py
+          python3 tools/r5_web_delta_apply.py
+      - name: Service and web syntax
+        run: |
+          set -euo pipefail
+          node --check service/public/app.js
+          npm --prefix service install --ignore-scripts --no-audit --no-fund --package-lock=false
+          npm --prefix service run check
+      - name: Realtime no-full-refresh contract
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          t=Path('service/public/app.js').read_text()
+          assert 'singleFlight' in t
+          assert '/v1/delta/day?' in t
+          assert '/v1/delta/master?' in t
+          assert "visibilitychange',()=>{if(document.hidden){state.wsDay?.close();state.wsMaster?.close()}else reconcileStatus()" in t
+          assert "await reconcileDay(Number(m.day_revision||m.revision||m.authority_seq||0))" in t
+          assert "await reconcileMasterNamespace(ns,Number(m.revision||0))" in t
+          replay=t[t.index('async function replay()'):t.index('function showConflict')]
+          assert 'await refresh()' not in replay
+          socket=t[t.index('async function connectSocket'):t.index('function connectRealtime')]
+          assert 'refresh()' not in socket
+          assert t.count('/v1/bootstrap?business_date=') == 1
+          assert 'id="businessAttendanceTable"' in t
+          assert 'id="laborTableWrap"' in t
+          assert 'id="dashboardActiveTable"' in t
+          assert 'id="historyRows"' in t
+          print('R5_WEB_DELTA_GUARD_PASS')
+          PY
+          git diff --check
+      - name: Commit exact tested web source
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add service/public/app.js service/src/sync_contract.ts
+          test -n "$(git diff --cached --name-only)"
+          git diff --cached --check
+          git commit -m 'perf(r5): patch web UI from revision deltas without full reload'
+          git push origin HEAD:work/r5-quota-realtime-20260906
