@@ -1,0 +1,73 @@
+name: Owner R5 background terminal quota
+
+on:
+  push:
+    branches:
+      - work/r5-quota-realtime-20260906
+    paths:
+      - .github/workflows/owner-r5-background-terminal.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: owner-r5-background-terminal
+  cancel-in-progress: false
+
+jobs:
+  apply-test-commit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Canonical guard
+        run: |
+          set -euo pipefail
+          python3 tools/owner_scope_guard.py --bootstrap
+          python3 tools/finalizer_handoff_contract.py
+      - name: Apply terminal background patch
+        run: |
+          set -euo pipefail
+          python3 -m py_compile tools/r5_background_terminal_apply.py
+          python3 tools/r5_background_terminal_apply.py
+      - name: Compile service
+        run: |
+          set -euo pipefail
+          npm --prefix service install --ignore-scripts --no-audit --no-fund --package-lock=false
+          npm --prefix service run check
+      - name: Background quota contracts
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          push=Path('service/src/push.ts').read_text()
+          special=Path('service/src/session_hotfix.ts').read_text()
+          mig=Path('service/migrations/0016_r5_background_terminal.sql').read_text()
+          assert 'push_wake_outbox' in push and 'push_wake_outbox' in mig
+          assert 'day_revision_state' in push
+          assert "FROM events\n    WHERE business_date<>" not in push
+          assert "'day:'||event_id" not in push
+          assert 'deviceState=new Map' in push
+          assert 'session_special_projection_outbox' in special and 'session_special_projection_outbox' in mig
+          assert "ORDER BY authority_seq DESC LIMIT 120" not in special
+          assert "status='SYNCED'" in special
+          assert "status='INFLIGHT'" in special
+          assert 'STALE_INFLIGHT_RECOVERED' in special
+          print('R5_BACKGROUND_TERMINAL_GUARD_PASS')
+          PY
+          git diff --check
+      - name: Commit exact tested background source
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add service/migrations/0016_r5_background_terminal.sql service/src/push.ts service/src/session_hotfix.ts
+          test -n "$(git diff --cached --name-only)"
+          git diff --cached --check
+          git commit -m 'perf(r5): coalesce FCM wakes and terminalize special projection'
+          git push origin HEAD:work/r5-quota-realtime-20260906
