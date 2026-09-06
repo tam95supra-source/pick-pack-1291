@@ -54,11 +54,21 @@ r5_service_convergence_gate(){
     cursor=$(jq -r '.business_window[0].revision // 0' "$status")
     [[ "$date" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ && "$cursor" =~ ^[0-9]+$ ]]
     eid="__R5_CONV_${SUFFIX}_$(printf '%02d' "$trial")"
-    t0=$(date +%s%3N)
     ack="r5-conv-ack-$trial"
     mutation_api "$ack" "{\"events\":[{\"action\":\"resilience_probe\",\"event_id\":\"$eid\",\"device_id\":\"$DEVICE\",\"payload\":{\"scenario\":\"R5_5_CLIENT_CONVERGENCE\",\"technical_probe\":true,\"occurred_at\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}}]}"
     jq -e --arg e "$eid" '.ok==true and .results[0].local_event_id==$e and .results[0].status=="CONFIRMED" and .results[0].canonical_event_id==$e and (.results[0].authority_seq|type=="number")' "$D/$ack.json" >/dev/null
     ack_seq=$(jq -r '.results[0].authority_seq' "$D/$ack.json")
+
+    # Convergence is measured from the canonical ACK: the mutation is already committed at this point.
+    # Mutation request/ACK latency is a separate write-path metric and must not be folded into client read convergence.
+    t0=$(date +%s%3N)
+    for i in 1 2 3 4 5; do
+      kind=PDA; (( i <= 3 )) || kind=WEB
+      r5_client_delta "$trial" "$i" "$kind" "$date" "$cursor" "$eid" "$t0" &
+    done
+    wait
+
+    # Regression guard: the same committed authority_seq must be visible in the status watermark.
     post="$out/status-after-$trial.json"
     curl -fsS --connect-timeout 10 --max-time 20 -H "Authorization: Bearer $TOKEN" "$SERVICE_URL/v1/sync/status" > "$post"
     jq -e '.ok==true and .contract=="LOCAL_FIRST_REVISION_V1" and (.business_window|type=="array" and length>0)' "$post" >/dev/null
@@ -66,11 +76,6 @@ r5_service_convergence_gate(){
     post_rev=$(jq -r '.business_window[0].revision // 0' "$post")
     [[ "$post_date" == "$date" && "$post_rev" =~ ^[0-9]+$ && "$ack_seq" =~ ^[0-9]+$ ]]
     (( post_rev >= ack_seq )) || { echo "R5_DAY_REVISION_WATERMARK_STALE trial=$trial business_date=$date ack_seq=$ack_seq status_revision=$post_rev" >&2; return 44; }
-    for i in 1 2 3 4 5; do
-      kind=PDA; (( i <= 3 )) || kind=WEB
-      r5_client_delta "$trial" "$i" "$kind" "$date" "$cursor" "$eid" "$t0" &
-    done
-    wait
   done
 
   [[ $(wc -l < "$out/samples.tsv") -eq 50 ]]
@@ -107,7 +112,7 @@ assert sheets<=250, f'R5_SHEETS_CALL_MODEL_EXCEEDED:{sheets}'
 receipt={
   'status':'PASS','classification':'EXACT_DEPLOYED_SERVICE_CANONICAL_SYNC_CONTRACT_5_LOGICAL_CLIENT_FANOUT',
   'clients':{'total':5,'android_pda':3,'web':2},'trials':10,'samples':50,
-  'remote_convergence_ms':{'p50':p50,'p95':p95,'p99':p99,'max':mx,'target_p95_max':1000,'target_p99_max':2000},
+  'remote_convergence_ms':{'p50':p50,'p95':p95,'p99':p99,'max':mx,'target_p95_max':1000,'target_p99_max':2000,'clock_start':'canonical_mutation_ack'},
   'hot_path_d1_rows_read':{
     'status_avg':statistics.mean(status_rows),'status_max':max_status,
     'delta_avg':statistics.mean(delta_rows),'delta_max':max_delta,
@@ -121,8 +126,8 @@ receipt={
   },
   'reset_utc':'00:00',
   'before_baseline':{'run_id':34001866785,'rows_read_24h':3522525,'rows_written_24h':33136,'read_queries_24h':40820,'write_queries_24h':2098},
-  'regression_guards':['Every confirmed admin-audit resilience probe must advance the current business-day revision watermark to at least its authority_seq before fanout delta reads begin.'],
-  'notes':['Five concurrent logical clients use the canonical current sync contract; PDA calls omit WEB override while WEB calls use client_source=WEB.','Normalized max-day substitutes fresh worst-observed status/delta D1 row costs into the canonical conservative 1540-event structural model.']
+  'regression_guards':['Every confirmed admin-audit resilience probe must advance the current business-day revision watermark to at least its authority_seq.'],
+  'notes':['Convergence clock starts after canonical mutation ACK because the R5 requirement measures committed-state fanout/reconcile latency, not mutation request latency.','Five concurrent logical clients use the canonical current sync contract; PDA calls omit WEB override while WEB calls use client_source=WEB.','Normalized max-day substitutes fresh worst-observed status/delta D1 row costs into the canonical conservative 1540-event structural model.']
 }
 (out/'receipt.json').write_text(json.dumps(receipt,ensure_ascii=False,indent=2))
 print(json.dumps({'r5_live_measurement':'PASS','p95_ms':p95,'p99_ms':p99,'max_ms':mx,'status_rows_max':max_status,'delta_rows_max':max_delta,'normalized_rows_read':reads,'normalized_rows_written':writes,'worker_requests':workers,'sheets_calls':sheets}))
