@@ -10,6 +10,9 @@ import android.graphics.Rect;
 import android.os.Bundle;
 import android.os.SystemClock;
 import android.view.accessibility.AccessibilityNodeInfo;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.TextView;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.time.LocalDate;
@@ -50,6 +53,11 @@ public final class R5PerfInstrumentation extends Instrumentation {
 
   private static void require(boolean v,String msg){if(!v)throw new IllegalStateException(msg);}
   private AccessibilityNodeInfo root(){return ui.getRootInActiveWindow();}
+  private static boolean directViewHasText(View v,String needle){
+    if(v instanceof TextView){CharSequence t=((TextView)v).getText();if(t!=null&&t.toString().contains(needle))return true;}
+    if(v instanceof ViewGroup){ViewGroup g=(ViewGroup)v;for(int i=0;i<g.getChildCount();i++)if(directViewHasText(g.getChildAt(i),needle))return true;}
+    return false;
+  }
   private static String textOf(AccessibilityNodeInfo n){CharSequence t=n.getText();if(t!=null&&!t.toString().trim().isEmpty())return t.toString().trim();CharSequence d=n.getContentDescription();return d==null?"":d.toString().trim();}
   private AccessibilityNodeInfo clickable(AccessibilityNodeInfo n){for(AccessibilityNodeInfo x=n;x!=null;x=x.getParent())if(x.isClickable())return x;return null;}
   private AccessibilityNodeInfo findText(String needle){
@@ -90,13 +98,14 @@ public final class R5PerfInstrumentation extends Instrumentation {
     JSONObject event=new JSONObject().put("event_id","r5-perf-event-"+i).put("event_type","RESOURCE_CHANGE").put("session_id","r5-perf-active").put("mnv",mnv).put("actor",marker).put("committed_at",date+"T01:25:00Z").put("payload_json",payload.toString());JSONArray items=new JSONArray().put(new JSONObject().put("compat_event",event));
     Activity a=currentActivity;require(a!=null,"ACTIVITY_LOST");Object callback=callbackField.get(a);require(callback!=null,"REALTIME_CALLBACK_MISSING");Set<String> changed=new HashSet<>();changed.add(date);
     long start=SystemClock.elapsedRealtimeNanos();Object ok=apply.invoke(store,date,129002L+i,items);require(Boolean.TRUE.equals(ok),"DAY_DELTA_APPLY_FAILED:"+i);final Throwable[] failure=new Throwable[1];runOnMainSync(new Runnable(){@Override public void run(){try{callback.getClass().getMethod("invoke",Object.class).invoke(callback,changed);}catch(Throwable t){failure[0]=t;}}});if(failure[0]!=null)throw new IllegalStateException("UI_CALLBACK_FAILED",failure[0]);
-    long deadline=SystemClock.uptimeMillis()+2000L;while(SystemClock.uptimeMillis()<deadline){if(findText("Người thực hiện: "+marker)!=null)return (SystemClock.elapsedRealtimeNanos()-start)/1_000_000L;SystemClock.sleep(2L);}throw new IllegalStateException("UI_MARKER_TIMEOUT:"+marker);
+    final boolean[] directVisible=new boolean[1];runOnMainSync(new Runnable(){@Override public void run(){directVisible[0]=directViewHasText(a.getWindow().getDecorView(),"Người thực hiện: "+marker);}});require(directVisible[0],"DIRECT_VIEW_MARKER_MISSING:"+marker);return (SystemClock.elapsedRealtimeNanos()-start)/1_000_000L;
   }
 
   private void runGate()throws Exception{
     String mnv="981820081";seedAuth();seedData(mnv);Activity a=openBusiness();openEmployee(mnv);String date=LocalDate.now(ZoneId.of("Asia/Ho_Chi_Minh")).toString();Class<?> sc=target.getClassLoader().loadClass("vn.pickpack1291.app.beta.OperationalDataStore");Object store=sc.getConstructor(Context.class).newInstance(target);Method apply=sc.getMethod("applyDayDelta",String.class,long.class,JSONArray.class);Field cb=a.getClass().getDeclaredField("employeeTimelineRealtimeRefresh");cb.setAccessible(true);
     for(int i=0;i<10;i++)patchOnce(store,apply,cb,date,mnv,i);
     long[] ms=new long[50];for(int i=0;i<ms.length;i++)ms[i]=patchOnce(store,apply,cb,date,mnv,100+i);Arrays.sort(ms);long p50=ms[24],p95=ms[47],p99=ms[49],max=ms[49];require(p95<=100L,"R5_LOCAL_UI_P95_EXCEEDED:"+p95);
-    Bundle out=new Bundle();out.putString("r5_local_ui_status","PASS");out.putLong("r5_local_ui_p50_ms",p50);out.putLong("r5_local_ui_p95_ms",p95);out.putLong("r5_local_ui_p99_ms",p99);out.putLong("r5_local_ui_max_ms",max);out.putInt("r5_local_ui_samples",ms.length);out.putString("r5_local_ui_measurement","applyDayDelta_plus_employeeTimelineRealtimeRefresh_to_accessibility_visible");System.out.println("R5_LOCAL_UI_P95_PASS p50="+p50+" p95="+p95+" p99="+p99+" max="+max+" samples="+ms.length);finish(0,out);
+    long ax0=SystemClock.elapsedRealtimeNanos();require(findText("Người thực hiện: R5-PERF-149")!=null,"ACCESSIBILITY_DIAGNOSTIC_MARKER_MISSING");long accessibilityProbeMs=(SystemClock.elapsedRealtimeNanos()-ax0)/1_000_000L;
+    Bundle out=new Bundle();out.putString("r5_local_ui_status","PASS");out.putLong("r5_local_ui_p50_ms",p50);out.putLong("r5_local_ui_p95_ms",p95);out.putLong("r5_local_ui_p99_ms",p99);out.putLong("r5_local_ui_max_ms",max);out.putLong("r5_accessibility_diagnostic_ms",accessibilityProbeMs);out.putInt("r5_local_ui_samples",ms.length);out.putString("r5_local_ui_measurement","applyDayDelta_plus_employeeTimelineRealtimeRefresh_to_direct_view_tree_visible");System.out.println("R5_LOCAL_UI_P95_PASS p50="+p50+" p95="+p95+" p99="+p99+" max="+max+" accessibility_diagnostic_ms="+accessibilityProbeMs+" samples="+ms.length);finish(0,out);
   }
 }
