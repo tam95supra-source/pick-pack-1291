@@ -128,7 +128,7 @@ export default {
       }
     }catch(e){console.log(JSON.stringify({level:"error",kind:"beta95_bounded_repair_failed",error:String(e).slice(0,500)}));}
     try{
-      if(await claimMaintenance(env.DB,"capacity-30m",30*60_000)){
+      if(await claimMaintenance(env.DB,"capacity-6h",6*60*60_000)){
         const r=await d1CapacitySnapshot(env.DB);
         console.log(JSON.stringify({level:"info",kind:"resilience_capacity",...r}));
       }
