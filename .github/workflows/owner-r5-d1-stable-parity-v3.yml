@@ -1,0 +1,80 @@
+name: Owner R5 D1 + Stable parity v3
+
+on:
+  push:
+    branches: [work/r5-quota-realtime-20260906]
+    paths:
+      - '.github/workflows/owner-r5-d1-stable-parity-v3.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  validate-commit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Bootstrap canonical rev6 and apply deterministic patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin beta/current
+          git checkout origin/beta/current -- ops/OWNER_SCOPE_CURRENT.json ops/owner-command-ledger.jsonl docs/handovers/HANDOVER_CURRENT.md CURRENT_STATE.md
+          python3 tools/owner_scope_guard.py --bootstrap
+          python3 tools/r5_triggerless_stable_parity_apply.py
+      - name: Service compile + full Wrangler local migration chain
+        shell: bash
+        run: |
+          set -euo pipefail
+          ! grep -R "CREATE TRIGGER" service/migrations/0015_r5_quota_realtime_revision.sql service/migrations/0017_r5_quota_budget.sql
+          npm --prefix service install --ignore-scripts --no-audit --no-fund
+          npm --prefix service run check
+          rm -rf /tmp/r5-d1-local && mkdir -p /tmp/r5-d1-local
+          (cd service && npx wrangler d1 migrations apply DB --local --persist-to /tmp/r5-d1-local --config wrangler.jsonc) | tee /tmp/r5-migrations.txt
+          grep -q '0017_r5_quota_budget.sql' /tmp/r5-migrations.txt
+          ! grep -qi 'incomplete input' /tmp/r5-migrations.txt
+      - name: Quota fail-closed and Stable no-deploy parity guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/r5_stable_parity_guard.py
+          test "$(jq -r '.status' config/stable_r5_parity.json)" = READY_NOT_LIVE
+          test "$(jq -r '.deploy_now' config/stable_r5_parity.json)" = false
+          cd service
+          npx wrangler d1 execute DB --local --persist-to /tmp/r5-d1-local --config wrangler.jsonc --command "INSERT INTO quota_usage(window_key,metric,used,hard_limit) SELECT 'T','GOOGLE_SHEETS_DAILY',250,hard_limit FROM quota_policy WHERE metric='GOOGLE_SHEETS_DAILY';" >/tmp/r5-quota-ok.txt
+          set +e
+          npx wrangler d1 execute DB --local --persist-to /tmp/r5-d1-local --config wrangler.jsonc --command "UPDATE quota_usage SET used=251 WHERE window_key='T' AND metric='GOOGLE_SHEETS_DAILY';" >/tmp/r5-quota-over.txt 2>&1
+          rc=$?
+          set -e
+          test "$rc" -ne 0
+          grep -qi 'constraint\|quota_hard_limit' /tmp/r5-quota-over.txt
+      - name: Exact Beta128 Service recovery regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          base=5569d1e931436e02d118ed8ab57f2143de43b9f7
+          git worktree add --detach /tmp/r5-recover-test HEAD >/dev/null
+          cd /tmp/r5-recover-test
+          mkdir -p service/migrations
+          echo candidate-only > service/migrations/__candidate_only_r5.sql
+          git add -f service/migrations/__candidate_only_r5.sql
+          bash tools/restore_exact_service_tree.sh "$base"
+          test ! -e service/migrations/__candidate_only_r5.sql
+          git diff --quiet "$base" -- service
+      - name: Inherit Stable compile proof and commit exact-tested bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Run 34008327191 compiled Stable successfully; app tree is unchanged by this Service/migration repair.
+          test "$(git rev-parse HEAD:app)" = "$(git rev-parse a17a914c3daecfe73b34ab5c54ee2204fd70bce7:app)"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add service/migrations/0015_r5_quota_realtime_revision.sql service/migrations/0017_r5_quota_budget.sql service/src/core.ts service/src/quota_budget.ts config/stable_r5_parity.json tools/r5_stable_parity_guard.py tools/beta78_service_live_gate.sh ops/OWNER_SCOPE_CURRENT.json ops/owner-command-ledger.jsonl docs/handovers/HANDOVER_CURRENT.md CURRENT_STATE.md
+          git commit -m 'fix(r5): repair D1 migrations and preconfigure Stable quota parity'
+          git push origin HEAD:work/r5-quota-realtime-20260906
