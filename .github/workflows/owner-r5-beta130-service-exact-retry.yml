@@ -62,13 +62,16 @@ jobs:
               new=old.replace('curl -fsS ','curl --retry 4 --retry-all-errors --retry-delay 1 -fsS ',1)
               s=s.replace(old,new,1)
           old='[[ "$REPL_OK" == 1 ]] || { echo OUTBOUND_OUTBOX_NOT_SYNCED >&2; exit 8; }'
-          new='''if [[ "$REPL_OK" != 1 ]]; then
-  sql "SELECT o.* FROM outbound_replication_outbox o JOIN events e ON e.event_id=o.event_id WHERE e.actor_id='$LOGIN' ORDER BY o.event_id;" > "$D/outbound-outbox-pending.json" || true
-  sql "SELECT name,sql FROM sqlite_master WHERE type='table' AND name IN ('outbound_replication_outbox','sheet_replication_outbox','runtime_config');" > "$D/outbound-outbox-schema.json" || true
-  sql "SELECT config_key,config_value,updated_at FROM runtime_config WHERE upper(config_key) LIKE '%QUOTA%' OR upper(config_key) LIKE '%SHEET%' OR upper(config_key) LIKE '%OUTBOX%' OR upper(config_key) LIKE '%REPLIC%';" > "$D/outbound-runtime-config.json" || true
-  echo OUTBOUND_OUTBOX_NOT_SYNCED >&2
-  exit 8
-fi'''
+          diag=[
+              'if [[ "$REPL_OK" != 1 ]]; then',
+              '  sql "SELECT o.* FROM outbound_replication_outbox o JOIN events e ON e.event_id=o.event_id WHERE e.actor_id=\'$LOGIN\' ORDER BY o.event_id;" > "$D/outbound-outbox-pending.json" || true',
+              '  sql "SELECT name,sql FROM sqlite_master WHERE type=\'table\' AND name IN (\'outbound_replication_outbox\',\'sheet_replication_outbox\',\'runtime_config\');" > "$D/outbound-outbox-schema.json" || true',
+              '  sql "SELECT config_key,config_value,updated_at FROM runtime_config WHERE upper(config_key) LIKE \'%QUOTA%\' OR upper(config_key) LIKE \'%SHEET%\' OR upper(config_key) LIKE \'%OUTBOX%\' OR upper(config_key) LIKE \'%REPLIC%\';" > "$D/outbound-runtime-config.json" || true',
+              '  echo OUTBOUND_OUTBOX_NOT_SYNCED >&2',
+              '  exit 8',
+              'fi',
+          ]
+          new='\n'.join(diag)
           if s.count(old)!=1:
               raise SystemExit('OUTBOX_DIAG_ANCHOR_COUNT:'+str(s.count(old)))
           s=s.replace(old,new,1)
