@@ -1,0 +1,63 @@
+name: Owner R5 auth single-query apply
+on:
+  push:
+    branches: [work/r5-beta130-timeline-20260906]
+    paths:
+      - tools/r5_auth_single_query_fix.py
+      - .github/workflows/owner-r5-auth-single-query-apply.yml
+permissions:
+  contents: write
+concurrency:
+  group: owner-r5-auth-single-query-apply
+  cancel-in-progress: false
+jobs:
+  apply:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Canonical and invariant fences
+        run: |
+          set -euo pipefail
+          python3 tools/owner_scope_guard.py --bootstrap
+          test "$(jq -r '.owner_scope_id' ops/OWNER_SCOPE_CURRENT.json)" = OWNER_20260906_R5_QUOTA_REALTIME
+          test "$(jq -r '.revision' ops/OWNER_SCOPE_CURRENT.json)" = 6
+          python3 tools/r5_quota_realtime_guard.py
+          git diff --quiet fc2a6c6332e7e15c16920dc2599219a2452e377a HEAD -- app service google-apps-script
+      - name: Apply minimal auth read optimization
+        run: |
+          set -euo pipefail
+          python3 tools/r5_auth_single_query_fix.py
+          git diff --check
+          test "$(git diff --name-only)" = service/src/auth.ts
+          grep -q 'const sessionTable=kind==="WEB"?"auth_web_sessions":"auth_sessions"' service/src/auth.ts
+          grep -q 'row.status!=="ACTIVE"' service/src/auth.ts
+          grep -q 'row.role!==payload.r' service/src/auth.ts
+          grep -q 'row.verifier_hash!==payload.v' service/src/auth.ts
+          grep -q 'row.session_id!==payload.s' service/src/auth.ts
+          grep -q 'row.device_id!==payload.d' service/src/auth.ts
+          ! grep -q 'const sessionQuery=' service/src/auth.ts
+      - name: Typecheck exact proposed service
+        working-directory: service
+        run: |
+          set -euo pipefail
+          rm -rf node_modules package-lock.json .wrangler
+          npm install --ignore-scripts --no-audit --no-fund >/dev/null
+          npm run check
+      - name: Commit verified service-only change
+        run: |
+          set -euo pipefail
+          git diff --quiet -- app google-apps-script
+          test "$(git diff --name-only)" = service/src/auth.ts
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add service/src/auth.ts
+          git commit -m 'perf(r5): collapse auth session validation to one D1 read'
+          git push origin HEAD:work/r5-beta130-timeline-20260906
+          echo "R5_AUTH_SOURCE_SHA=$(git rev-parse HEAD)" >> "$GITHUB_STEP_SUMMARY"
+          echo R5_AUTH_SINGLE_QUERY_COMMIT_PASS
