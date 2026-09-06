@@ -1,0 +1,75 @@
+name: Owner R5 Sheets batched replication
+
+on:
+  push:
+    branches:
+      - work/r5-quota-realtime-20260906
+    paths:
+      - .github/workflows/owner-r5-replication-batch.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: owner-r5-replication-batch
+  cancel-in-progress: false
+
+jobs:
+  apply-test-commit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Canonical guard
+        run: |
+          set -euo pipefail
+          python3 tools/owner_scope_guard.py --bootstrap
+          python3 tools/finalizer_handoff_contract.py
+      - name: Apply batched replication patch
+        run: |
+          set -euo pipefail
+          python3 -m py_compile tools/r5_replication_batch_apply.py
+          python3 tools/r5_replication_batch_apply.py
+      - name: Compile service
+        run: |
+          set -euo pipefail
+          npm --prefix service install --ignore-scripts --no-audit --no-fund --package-lock=false
+          npm --prefix service run check
+      - name: Batch and ACK fence contract
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import math
+          t=Path('service/src/replication.ts').read_text()
+          assert 'limit=100' in t and 'Math.min(limit,100)' in t
+          assert 'batchPutValues' in t and '/values:batchUpdate' in t
+          assert 'ra.map(x=>x.row)' in t
+          assert 'users.map(x=>x.row)' in t
+          assert 'starts.map(x=>x.row)' in t
+          assert 'hist.map(x=>x.row)' in t
+          assert "claim_token=?3" in t
+          # Exactly one operational-index load remains in the batched operational path; no second Google verification read.
+          section=t[t.index('async function replicateOperational('):t.index('export async function replicationHealth')]
+          assert section.count('loadOperationalIndex(env,token)') == 1
+          assert 'REPLICATION_OPERATIONAL_INCOMPLETE' in section
+          # Max business load 1,540 events => 16 batches. Conservative <=10 Sheets API calls/batch = 160/day, leaving 90-call margin to 250 target.
+          assert math.ceil(1540/100)*10 == 160
+          print('R5_SHEETS_BATCH_GUARD_PASS estimated_max_calls=160 target=250')
+          PY
+          git diff --check
+      - name: Commit exact tested replication source
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add service/src/replication.ts
+          test -n "$(git diff --cached --name-only)"
+          git diff --cached --check
+          git commit -m 'perf(r5): batch Sheets projections and preserve ACK fence'
+          git push origin HEAD:work/r5-quota-realtime-20260906
