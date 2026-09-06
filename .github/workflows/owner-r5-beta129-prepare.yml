@@ -1,0 +1,80 @@
+name: Owner R5 Beta129 prepare
+
+on:
+  push:
+    branches:
+      - work/r5-quota-realtime-20260906
+    paths:
+      - .github/workflows/owner-r5-beta129-prepare.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: owner-r5-beta129-prepare
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.4.1'
+      - name: Canonical guards
+        run: |
+          set -euo pipefail
+          python3 tools/owner_scope_guard.py --bootstrap
+          python3 tools/finalizer_handoff_contract.py
+      - name: Apply Beta129 version and exact-candidate perf harness
+        run: |
+          set -euo pipefail
+          python3 -m py_compile tools/r5_beta129_prepare.py
+          python3 tools/r5_beta129_prepare.py
+      - name: Compile exact Android source
+        run: |
+          set -euo pipefail
+          gradle :app:compileBetaDebugKotlin --no-daemon --stacktrace
+          gradle :app:assembleBetaDebug --no-daemon --stacktrace
+      - name: Compile R5 instrumentation source
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDK="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          if [[ ! -f "$SDK/platforms/android-36/android.jar" ]]; then
+            yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
+            "$SDK/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-36'
+          fi
+          mkdir -p /tmp/r5-perf-classes
+          javac -encoding UTF-8 -source 8 -target 8 -cp "$SDK/platforms/android-36/android.jar" -d /tmp/r5-perf-classes tools/R5PerfInstrumentation.java
+          test -f /tmp/r5-perf-classes/vn/pickpack1291/verify/R5PerfInstrumentation.class
+      - name: Verify release metadata and harness wiring
+        run: |
+          set -euo pipefail
+          bash -n tools/build_beta83_verify_harness.sh tools/beta83_verify_matrix.sh
+          grep -Fq 'versionCode = 135' app/build.gradle.kts
+          grep -Fq 'versionName = "0.4.2-beta.129"' app/build.gradle.kts
+          grep -Fq 'const val VERSION_NAME = "0.4.2-beta.129"' app/src/main/java/vn/pickpack1291/app/beta/ReleaseNotes.kt
+          grep -Fq 'cp tools/R5PerfInstrumentation.java' tools/build_beta83_verify_harness.sh
+          grep -Fq '.R5PerfInstrumentation' tools/build_beta83_verify_harness.sh
+          grep -Fq 'R5_LOCAL_UI_P95_PASS' tools/beta83_verify_matrix.sh
+          grep -Fq 'test "$P95" -le 100' tools/beta83_verify_matrix.sh
+          git diff --check
+      - name: Commit exact tested Beta129 source
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/build.gradle.kts app/src/main/java/vn/pickpack1291/app/beta/ReleaseNotes.kt tools/build_beta83_verify_harness.sh tools/beta83_verify_matrix.sh
+          test -n "$(git diff --cached --name-only)"
+          git diff --cached --check
+          git commit -m 'release(beta129): wire R5 quota realtime candidate and p95 gate'
+          git push origin HEAD:work/r5-quota-realtime-20260906
