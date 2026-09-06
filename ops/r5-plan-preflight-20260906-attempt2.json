@@ -1,0 +1,34 @@
+{
+  "status": "BLOCKED_NON_FREE",
+  "observed_at": "2026-09-06T16:28:33.079581+00:00",
+  "read_only": true,
+  "api_calls": 2,
+  "configuration_writes": 0,
+  "subscriptions_read": {
+    "ok": true
+  },
+  "settings_read": {
+    "ok": true
+  },
+  "source": "Cloudflare accounts subscriptions + Workers account-settings",
+  "workers_subscriptions": [],
+  "default_usage_model": "standard",
+  "reason": "OWNER_REQUIRES_FREE_PLAN",
+  "evidence": {
+    "run_id": 34044419955,
+    "run_attempt": 2,
+    "job_id": 101519839436,
+    "head_sha": "c4fe88622688abc555b716a967287d55eecb4f40",
+    "artifact_id": 9992976889,
+    "artifact_digest": "sha256:74d06aabe9e622713d42347f312663e84827d7bc242dc062ec7c20406c9ffff5",
+    "deployment": "SKIPPED",
+    "token_permission": "READ_ACCESS_CONFIRMED"
+  },
+  "interpretation": {
+    "observed": "Account default_usage_model is standard; the filtered Workers subscriptions list is empty.",
+    "official_reference": "https://developers.cloudflare.com/workers/platform/pricing/",
+    "inference": "Cloudflare documents Standard as a Workers Paid usage model. This receipt does not establish a subscription price or billing charge.",
+    "decision": "STOP_BEFORE_DEPLOY_PENDING_OWNER_PLAN_DECISION_UNDER_SECTION_6",
+    "proposed_continuation": "Keep the existing account plan and billing unchanged; retain all canonical Free-envelope optimization targets. Requires OWNER instruction before changing the current plan guard."
+  }
+}

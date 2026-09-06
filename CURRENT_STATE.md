@@ -1,6 +1,6 @@
 # CURRENT STATE — PICK PACK 1291
 
-- updated_at: 2026-09-06T23:16:20+07:00
+- updated_at: 2026-09-06T23:29:48+07:00
 - status: BETA128_PASS_LIVE
 - continuity_branch: release/beta130-r5-rev6-20260906
 - source_sha: 5569d1e931436e02d118ed8ab57f2143de43b9f7
@@ -36,6 +36,6 @@
 - owner_checklist_id: OWNER_R5_QUOTA_REALTIME
 - owner_checklist_revision: 6
 - owner_acceptance: PENDING requirements 13,14,15
-- r5_work_state: BLOCKED_FREE_PLAN_READ_PERMISSION / subscriptions HTTP 403 / run 34044419955
+- r5_work_state: BLOCKED_PLAN_MODEL_MISMATCH / default_usage_model=standard / token read PASS / run 34044419955 attempt 2
 - r5_service_deploy: SKIPPED / no new deployment in this checkpoint
-- next_action: VERIFY_FREE_PLAN_PERMISSION_AND_RESUME_EXACT_R5_SERVICE_GATE
+- next_action: WAIT_FOR_OWNER_DECISION_ON_WORKERS_STANDARD_MODEL
