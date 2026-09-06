@@ -13,32 +13,25 @@ r5_service_convergence_gate(){
   r5_status(){
     local target=$1
     curl -fsS --connect-timeout 10 --max-time 20 \
-      -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-      --data-binary '{"action":"sync_status"}' "$SERVICE_URL/v1/mobile/read" > "$target"
-    jq -e '.ok==true and .mode=="APP_SERVICE_D1" and (.business_date|type=="string")' "$target" >/dev/null
-    jq -r '.service_telemetry.db_rows_read // 0' "$target" >> "$out/status-rows.txt"
+      -H "Authorization: Bearer $TOKEN" \
+      "$SERVICE_URL/v1/sync/status" > "$target"
+    jq -e '.ok==true and .contract=="LOCAL_FIRST_REVISION_V1" and (.business_window|type=="array" and length>0) and (.business_window[0].business_date|type=="string") and (.business_window[0].revision|type=="number")' "$target" >/dev/null
+    jq -r '.service_telemetry.d1_rows_read // 0' "$target" >> "$out/status-rows.txt"
   }
 
   r5_client_delta(){
     local trial=$1 client=$2 kind=$3 date=$4 cursor=$5 eid=$6 t0=$7
-    local deadline=$((t0+2200)) attempts=0 rows=0 now resp next
+    local deadline=$((t0+2200)) attempts=0 rows=0 now resp next url
     resp="$out/t${trial}-c${client}.json"
     while true; do
       attempts=$((attempts+1))
       now=$(date +%s%3N)
       (( now <= deadline )) || { echo "R5_REMOTE_CONVERGENCE_TIMEOUT trial=$trial client=$client kind=$kind" >&2; return 41; }
-      if [[ "$kind" == PDA ]]; then
-        local body
-        body=$(jq -nc --arg d "$date" --argjson a "$cursor" '{action:"sync_delta",business_date:$d,after_revision:$a}')
-        curl -fsS --connect-timeout 10 --max-time 20 \
-          -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-          --data-binary "$body" "$SERVICE_URL/v1/mobile/read" > "$resp"
-      else
-        curl -fsS --connect-timeout 10 --max-time 20 \
-          -H "Authorization: Bearer $TOKEN" \
-          "$SERVICE_URL/v1/delta/day?business_date=$date&after_revision=$cursor&limit=250&client_source=WEB" > "$resp"
-      fi
-      jq -e '.ok==true and (.reset_required|not or .==false)' "$resp" >/dev/null
+      url="$SERVICE_URL/v1/delta/day?business_date=$date&after_revision=$cursor&limit=250"
+      [[ "$kind" == WEB ]] && url="${url}&client_source=WEB"
+      curl -fsS --connect-timeout 10 --max-time 20 \
+        -H "Authorization: Bearer $TOKEN" "$url" > "$resp"
+      jq -e '.ok==true and ((.reset_required // false)==false)' "$resp" >/dev/null
       rows=$((rows+$(jq -r '.service_telemetry.d1_rows_read // 0' "$resp")))
       if jq -e --arg e "$eid" 'any(.items[]?; .event.event_id==$e)' "$resp" >/dev/null; then
         now=$(date +%s%3N)
@@ -57,8 +50,8 @@ r5_service_convergence_gate(){
   for trial in $(seq 1 "$trials"); do
     status="$out/status-$trial.json"
     r5_status "$status"
-    date=$(jq -r '.business_date' "$status")
-    cursor=$(jq -r --arg d "$date" '.day_revisions[$d] // 0' "$status")
+    date=$(jq -r '.business_window[0].business_date' "$status")
+    cursor=$(jq -r '.business_window[0].revision // 0' "$status")
     [[ "$date" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ && "$cursor" =~ ^[0-9]+$ ]]
     eid="__R5_CONV_${SUFFIX}_$(printf '%02d' "$trial")"
     t0=$(date +%s%3N)
@@ -106,13 +99,13 @@ assert writes<=20000, f'R5_D1_ROWS_WRITE_MODEL_EXCEEDED:{writes}'
 assert workers<=20000, f'R5_WORKER_REQUEST_MODEL_EXCEEDED:{workers}'
 assert sheets<=250, f'R5_SHEETS_CALL_MODEL_EXCEEDED:{sheets}'
 receipt={
-  'status':'PASS','classification':'EXACT_DEPLOYED_SERVICE_TRUSTED_FIXTURE_5_LOGICAL_CLIENT_FANOUT',
+  'status':'PASS','classification':'EXACT_DEPLOYED_SERVICE_CANONICAL_SYNC_CONTRACT_5_LOGICAL_CLIENT_FANOUT',
   'clients':{'total':5,'android_pda':3,'web':2},'trials':10,'samples':50,
   'remote_convergence_ms':{'p50':p50,'p95':p95,'p99':p99,'max':mx,'target_p95_max':1000,'target_p99_max':2000},
   'hot_path_d1_rows_read':{
     'status_avg':statistics.mean(status_rows),'status_max':max_status,
     'delta_avg':statistics.mean(delta_rows),'delta_max':max_delta,
-    'source':'response.service_telemetry on exact deployed R5 service'
+    'source':'canonical /v1/sync/status and /v1/delta/day response.service_telemetry on exact deployed R5 service'
   },
   'normalized_max_day':{
     'events':EVENTS,'clients':CLIENTS,'d1_rows_read':reads,'d1_rows_read_target_max':500000,
@@ -122,7 +115,7 @@ receipt={
   },
   'reset_utc':'00:00',
   'before_baseline':{'run_id':34001866785,'rows_read_24h':3522525,'rows_written_24h':33136,'read_queries_24h':40820,'write_queries_24h':2098},
-  'notes':['Same trusted disposable SUPERADMIN fixture is used for all five transport fanout reads; 3 PDA and 2 WEB endpoint paths are measured concurrently.','Client topology/orchestrator isolation is independently guarded by the full R5 preprod contract.','Normalized max-day substitutes fresh worst-observed status/delta D1 row costs into the canonical conservative 1540-event structural model.']
+  'notes':['Five concurrent logical clients use the canonical current sync contract; PDA calls omit WEB override while WEB calls use client_source=WEB.','Normalized max-day substitutes fresh worst-observed status/delta D1 row costs into the canonical conservative 1540-event structural model.']
 }
 (out/'receipt.json').write_text(json.dumps(receipt,ensure_ascii=False,indent=2))
 print(json.dumps({'r5_live_measurement':'PASS','p95_ms':p95,'p99_ms':p99,'max_ms':mx,'status_rows_max':max_status,'delta_rows_max':max_delta,'normalized_rows_read':reads,'normalized_rows_written':writes,'worker_requests':workers,'sheets_calls':sheets}))
