@@ -1,4 +1,5 @@
 name: Owner R5 phase1 service revision v2
+# retrigger after R5 READY archive sync
 
 on:
   push:
