@@ -1,79 +1,53 @@
 {
-  "stage": "pass_live",
-  "mode": "PASS_LIVE_EXACT_BYTES_GITHUB_RELEASE_ONLY",
-  "version_name": "0.4.2-beta.128",
-  "version_code": 134,
-  "base_version": "0.4.2-beta.127",
-  "base_version_code": 133,
-  "base_source_sha": "014ea67eb05773d0d61593f705c2171b5ec574ee",
-  "base_candidate_source_sha": "014ea67eb05773d0d61593f705c2171b5ec574ee",
-  "base_apk_sha256": "922dd571c8e8d6cb5e6d8dbe7fd4f3d73433e14a9f35a50a78d97bf64fa9fbf7",
+  "stage": "BUILD_VERIFY",
+  "mode": "BUILD_VERIFY_EXACT_SOURCE_R5",
+  "version_name": "0.4.2-beta.129",
+  "version_code": 135,
+  "base_version": "0.4.2-beta.128",
+  "base_version_code": 134,
+  "base_source_sha": "5569d1e931436e02d118ed8ab57f2143de43b9f7",
+  "base_candidate_source_sha": "5569d1e931436e02d118ed8ab57f2143de43b9f7",
+  "base_apk_sha256": "04b135c554c6de6aa979b113a3435cec65063c87e79f232d8c8ea28e1d75f4ce",
   "base_apk_size": 14461941,
-  "source_sha": "5569d1e931436e02d118ed8ab57f2143de43b9f7",
-  "candidate_source_sha": "5569d1e931436e02d118ed8ab57f2143de43b9f7",
+  "source_sha": "a17a914c3daecfe73b34ab5c54ee2204fd70bce7",
+  "candidate_source_sha": "a17a914c3daecfe73b34ab5c54ee2204fd70bce7",
   "package": "vn.pickpack1291.app.beta.publicbeta",
   "signer_sha256": "d180450ae47ac6e8daf26840308e62bd602d5f8d6ac12ee0da58e5eb1a44731e",
-  "candidate_locked": true,
-  "candidate_run_id": 33980153560,
-  "candidate_artifact_id": 9973576823,
-  "candidate_artifact_name": "beta-candidate-33980153560",
-  "apk_sha256": "04b135c554c6de6aa979b113a3435cec65063c87e79f232d8c8ea28e1d75f4ce",
-  "apk_size": 14461941,
-  "release_lock_status": "PRE_OTA_ALL_GATES_PASS",
+  "candidate_locked": false,
+  "release_lock_status": "BUILD_VERIFY_PENDING",
   "rebuild": false,
   "resign": false,
-  "live": true,
+  "live": false,
   "stable_publish": "FORBIDDEN",
   "authority_change": "NONE",
   "release_notes": [
-    "Nhận hàng Rớt: ưu tiên chiều rộng cho Thời gian, bỏ nhãn input lặp và làm ô nhập nổi bật.",
-    "Công nhật/Điểm danh/QR: loại bỏ render lặp khi canonical state không đổi; không tạo khung trắng giữa local và reconcile.",
-    "Realtime UI: Service reconcile nền không được xóa/dựng lại UI nếu revision hoặc state không đổi."
+    "Realtime theo delta/revision: không full reload ở đường đồng bộ bình thường.",
+    "PDA dùng một bộ điều phối sync; wake/push được coalesce và outbox nền có trạng thái terminal.",
+    "Google Sheets batch có ACK fence; tác vụ phụ dùng quota circuit động và dirty/due scheduling.",
+    "Beta129 bổ sung gate đo local UI p95 trên exact signed candidate."
   ],
-  "base_candidate_run_id": 33967758178,
-  "base_candidate_artifact_id": 9970037896,
-  "base_candidate_artifact_name": "beta-candidate-33967758178",
+  "base_candidate_run_id": 33980153560,
+  "base_candidate_artifact_id": 9973576823,
+  "base_candidate_artifact_name": "beta-candidate-33980153560",
   "base_live_final_run_id": 33969468377,
   "base_live_final_artifact_id": 9970522619,
   "base_live_final_artifact_name": "beta-final-33969468377",
-  "service_gate_required": false,
-  "service_gate_status": "PASS",
-  "service_gate_run_id": 33948613913,
-  "service_gate_artifact_id": 9964208973,
-  "service_gate_artifact_name": "beta-service-33948613913",
-  "service_gate_inherited_reason": "Beta128 changes Android UI/realtime rendering and release/control-plane files only; service and google-apps-script bytes are unchanged from Beta127.",
-  "fast_check": "PASS",
-  "fast_check_run_id": 33981305129,
-  "verify_run_id": 33980153560,
-  "verify_artifact_id": 9973660685,
-  "verify_artifact_name": "beta-verify-33980153560",
-  "human_visual_pass": true,
-  "human_visual_sizes": [
-    "320x568",
-    "360x640",
-    "480x800"
-  ],
-  "human_visual_screenshot_count": 47,
-  "human_visual_evidence": "run 33981091286 artifact 9973828749; full 47-screenshot matrix human-inspected across 320x568, 360x640, 480x800. Drop input layout is visibly unclipped/prominent at all three sizes; empty fixture has no drop row, while exact-source contract verifies narrowed Chọn/Vị trí/Số kiện weights, widened Thời gian and single-line non-ellipsized time cell.",
-  "visual_matrix": "PASS",
-  "pda_functional_pre_ota": "PASS",
-  "pda_functional_run_id": 33980153560,
-  "pda_functional_artifact_id": 9973660685,
-  "back_api36": "PASS",
-  "back_api36_run_id": 33980153560,
-  "back_api36_artifact_id": 9973660685,
+  "service_gate_required": true,
+  "service_gate_status": "PENDING",
+  "fast_check": "PENDING",
+  "human_visual_pass": false,
+  "human_visual_sizes": [],
+  "human_visual_screenshot_count": 0,
+  "human_visual_evidence": "",
+  "visual_matrix": "PENDING",
+  "pda_functional_pre_ota": "PENDING",
+  "back_api36": "PENDING",
   "beta_auth_status": "PASS",
   "beta_auth_run_id": 33874702285,
   "beta_auth_inherited_reason": "Auth semantics and backend bytes unchanged.",
-  "device_regression_status": "PASS",
-  "device_regression_run_id": 33980153560,
-  "device_regression_artifact_id": 9973660685,
-  "service_discovery_status": "PASS",
-  "service_discovery_run_id": 33980153560,
-  "runtime_dod_status": "PASS",
-  "runtime_dod_run_id": 33981305147,
-  "runtime_dod_artifact_id": 9973871632,
-  "runtime_dod_artifact_name": "beta-stable-runtime-33981305147",
+  "device_regression_status": "PENDING",
+  "service_discovery_status": "PENDING",
+  "runtime_dod_status": "PENDING",
   "beta_domain_status": "PASS",
   "beta_domain_run_id": 33934032820,
   "beta_domain_artifact_id": 9959551837,
@@ -85,142 +59,20 @@
   "stable_gas_repair_artifact_name": "stable-primary-canary-source-restore-33821666160",
   "apk_transport": "GITHUB_RELEASE_ONLY",
   "google_drive_apk": "FORBIDDEN",
-  "execution_nonce": "beta128-publish-owner-r3-20260906-01",
-  "next_action": "WAIT_FOR_OWNER_NEW_SCOPE",
-  "owner_scope": "OWNER_20260905_R3_DROP_REALTIME_BETA128",
-  "owner_scope_source": "Canonical ops/OWNER_SCOPE_CURRENT.json revision 3",
+  "execution_nonce": "beta129-r5-build-verify-20260906-01",
+  "next_action": "RUN_BETA129_R5_BUILD_VERIFY",
+  "owner_scope": "OWNER_20260906_R5_QUOTA_REALTIME",
+  "owner_scope_source": "Canonical ops/OWNER_SCOPE_CURRENT.json revision 5",
   "owner_checklist_id": "BETA128_OWNER_ACCEPTANCE_20260905_R3",
-  "owner_checklist_revision": 3,
-  "owner_checklist": [
-    {
-      "id": 1,
-      "title": "Cài đặt",
-      "acceptance": [
-        "Trong Thông tin ứng dụng có Xóa cache và Xóa dữ liệu ứng dụng.",
-        "Xóa dữ liệu cho phép cả USER; chỉ cần xác nhận, không yêu cầu mật khẩu; chỉ xóa dữ liệu local và đưa app về trạng thái như mới cài, không xóa dữ liệu Service/server.",
-        "Sau reset, app đồng bộ lại đúng dữ liệu canonical từ Service.",
-        "Layout các nhóm cài đặt có màu sắc rõ ràng, dễ phân biệt và vẫn giữ bố cục logic."
-      ]
-    },
-    {
-      "id": 2,
-      "title": "Lịch sử",
-      "acceptance": [
-        "Có nút Xóa toàn bộ cùng hàng với Chọn/Bỏ chọn/Xóa đã chọn; xóa toàn bộ lịch sử của ngày đang chọn theo quyền/xác thực đã chốt.",
-        "Ô tìm kiếm hiển thị Tìm mã nhân viên, họ tên, nghiệp vụ …",
-        "Chọn ngày/search/nút có kích thước gọn, đồng bộ toàn app và tăng diện tích hiển thị lịch sử.",
-        "Chi tiết lịch sử thuần Việt, dễ hiểu, bỏ text hướng dẫn OWNER thừa và hiển thị đủ thông tin chi tiết hữu ích."
-      ]
-    },
-    {
-      "id": 3,
-      "title": "Ba ô Mạng / Đồng bộ / Dịch vụ",
-      "acceptance": [
-        "Dịch vụ hiển thị loại/nguồn đang dùng thực tế như Cloudflare/LAN; chỉ hiện Không hoạt động/OFFLINE khi thực sự không hoạt động.",
-        "Mạng hiển thị ping cạnh loại mạng.",
-        "Các mục Đồng bộ/Dịch vụ đang chờ có thao tác xử lý lại từng mục, xử lý lại tất cả/cưỡng ép thử lại theo cơ chế an toàn.",
-        "ADMIN/SUPERADMIN có thể tự xử lý; chỉ cho xóa hẳn mục đã xác minh terminal/stale/không còn giá trị nghiệp vụ, không làm mất mutation chưa commit."
-      ]
-    },
-    {
-      "id": 4,
-      "title": "Nhân sự",
-      "acceptance": [
-        "Gõ ô search không còn giật/khựng dù danh sách lớn hoặc giới hạn hiển thị đang áp dụng.",
-        "Không rebuild toàn bộ danh sách đồng bộ theo từng ký tự; kết quả tìm kiếm vẫn đúng."
-      ]
-    },
-    {
-      "id": 5,
-      "title": "Hàng rớt",
-      "acceptance": [
-        "Cột thời gian được căn để không tràn xuống hai dòng.",
-        "Hiển thị 50 DO mỗi trang; có tiến/lùi trang khi dữ liệu nhiều hơn 50.",
-        "Đã bỏ text thừa Service / D1 xác nhận ngay …."
-      ]
-    },
-    {
-      "id": 6,
-      "title": "Báo cáo tình hình nhân sự",
-      "acceptance": [
-        "Bỏ text Phạm vi báo cáo; tiêu đề đúng Báo cáo tình hình nhân sự.",
-        "Select ca có đúng 3 lựa chọn: Ca 1 và HC / C2 / Cả ngày; đi cùng chọn ngày-tháng-năm; kích thước gọn và đồng bộ toàn app.",
-        "Tiêu đề bảng và Vị trí dùng chữ đậm.",
-        "Bỏ Tổng nhân sự và Khấu trừ nhân sự; vùng kết quả mang tiêu đề Nhân sự pick & pack thực tế sau khi loại trừ hỗ trợ.",
-        "Có chi tiết công nhật dưới bảng thâm niên và trên vùng Pick & Pack thực tế: hiển thị vị trí công nhật và số lượng mỗi vị trí với layout hợp lý."
-      ]
-    },
-    {
-      "id": 7,
-      "title": "Công nhật",
-      "acceptance": [
-        "Màn công nhật không còn cảm giác giật/khựng.",
-        "Tạo/kết thúc nhiều người không load tuần tự gây đơ; trạng thái hoàn thành cập nhật mượt.",
-        "Bỏ qua cảnh báo Tổ trưởng/Kéo hàng lưu theo từng NLĐ + phiên/ngày; xử lý một người không ẩn cảnh báo người khác; NLĐ mới xuất hiện vẫn có cảnh báo.",
-        "Có thể chọn riêng/chọn nhiều/chọn tất cả; select không dính nhau và có kích thước hợp lý.",
-        "Có Sửa nhiều cho giờ bắt đầu, giờ kết thúc và tính/không tính khấu trừ."
-      ]
-    },
-    {
-      "id": 8,
-      "title": "Đổi / trả PDA",
-      "acceptance": [
-        "Hiển thị nguồn PDA.",
-        "Layout Đổi PDA được thiết kế lại đơn giản, dễ hiểu cho người dùng và không làm sai canonical PDA/session."
-      ]
-    },
-    {
-      "id": 9,
-      "title": "Điểm danh",
-      "acceptance": [
-        "Ô search hiển thị Tìm mã nhân viên / họ tên.",
-        "Bấm/mở/lọc không còn reload-like, nhấp nháy hoặc giật lag."
-      ]
-    },
-    {
-      "id": 10,
-      "title": "Scan QR vào / ra",
-      "acceptance": [
-        "Sau khi quét có kết quả thì không hiển thị danh sách nhân sự chi tiết; danh sách này chỉ hiển thị khi chưa quét.",
-        "Layout chi tiết theo ca được đưa ra ngay trong danh sách chi tiết; không phải mở danh sách rồi bấm ca để vào thêm một tầng trang chi tiết.",
-        "Luồng scan/result/back giữ đúng navigation thực tế và không làm UI chớp/reload."
-      ]
-    },
-    {
-      "id": 11,
-      "title": "Realtime UI toàn app",
-      "acceptance": [
-        "Cảnh báo có dữ liệu local xuất hiện gần như tức thì, không chờ 1–2 giây.",
-        "Thao tác local/UI phản hồi mục tiêu khoảng <=100 ms theo phương án OWNER đã chốt; không chờ round-trip Service để render.",
-        "Service xử lý/reconcile nền vào state hiện tại; Service chậm không làm UI khựng, reload hoặc chớp giật.",
-        "Rà soát toàn app: các màn bị tác động giữ realtime UI update mượt và đúng canonical state."
-      ]
-    },
-    {
-      "id": 12,
-      "title": "Nhận hàng Rớt – bố cục nhập và bảng",
-      "acceptance": [
-        "Thu hẹp cột Chọn, Vị trí và Số kiện để cột Thời gian rộng hơn; thời gian hiển thị đầy đủ, không bị che hoặc biến thành ba chấm.",
-        "Scan QR, DO và Số kiện không có tiêu đề lặp phía trên khi nội dung/hint trong ô đã đủ nhận biết trường.",
-        "Các ô nhập Scan QR, DO và Số kiện nổi bật, dễ nhìn nhưng không thay đổi logic nhập/quét hiện hành."
-      ]
-    }
-  ],
-  "owner_scope_semantics_sha256": "4ba607f61fd8877c1bbf0a86a69ac947e0fa0912e039e9f1085fb6d2e179eb90",
-  "owner_scope_sha256": "72b55f9c0f6eba3b6c6da4c2f612ae3fdfe02008f0c9400cfe7dd67c0872069c",
-  "owner_command_ledger_head": "082b266eeed4017ac6bd76df724dd72b6a37de198b94dd52063b4e34abbee13a",
-  "technical_pass_status": "PASS",
-  "owner_acceptance": "COMPLETE",
-  "ota_readback_status": "PASS",
-  "publish_run_id": "33994851862",
-  "ota_readback_run_id": 33994851862,
-  "technical_pass_requirement_numbers": [
-    7,
-    9,
-    10,
-    11,
-    12
-  ],
+  "owner_checklist_revision": 5,
+  "owner_checklist": [],
+  "owner_scope_semantics_sha256": "17d567e9d4d65794cd0c56ff75c93946a932c05f64a649e040eaa17800dd6934",
+  "owner_scope_sha256": "db50e75bfc93aa6b48f662bda00d6408ff424810258848bfdd76d6f78f622cbf",
+  "owner_command_ledger_head": "4a6ddfcfd8fba0e681ca27ebb7048aa87e2e2035fe41d7bf4570ae145ae68c05",
+  "technical_pass_status": "PENDING",
+  "owner_acceptance": "PENDING",
+  "ota_readback_status": "PENDING",
+  "technical_pass_requirement_numbers": [],
   "technical_pass_recovery_run_id": 33995062256,
   "owner_acceptance_receipt": "ops/beta128-owner-acceptance.json",
   "owner_acceptance_completed_at": "2026-09-06T05:59:00+07:00"
