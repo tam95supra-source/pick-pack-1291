@@ -37,6 +37,10 @@ export async function commitAdminAudit(db:D1Database,auth:AuthContext,input:Admi
   await db.batch([
     db.prepare("UPDATE authority_state SET authority_seq=?1,updated_at=?2 WHERE singleton_id=1 AND authority_epoch=?3 AND authority_seq=?4 AND mode='SERVICE_PRIMARY' AND scope='PRODUCTION'").bind(seq,at,a.authority_epoch,a.authority_seq),
     db.prepare(`INSERT INTO events(event_id,event_type,entity_type,entity_id,business_date,authority_epoch,authority_seq,service_generation,base_version,new_version,actor_id,actor_role,device_id,occurred_at,committed_at,payload_json,idempotency_key,origin,schema_version,checksum) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20)`).bind(e.event_id,e.event_type,e.entity_type,e.entity_id,e.business_date,e.authority_epoch,e.authority_seq,e.service_generation,e.base_version,e.new_version,e.actor_id,e.actor_role,e.device_id,e.occurred_at,e.committed_at,e.payload_json,e.idempotency_key,e.origin,e.schema_version,e.checksum),
+    db.prepare(`INSERT INTO day_revision_state(business_date,authority_epoch,service_generation,revision,updated_at) VALUES(?1,?2,?3,?4,?5)
+      ON CONFLICT(business_date,authority_epoch,service_generation) DO UPDATE SET
+        revision=CASE WHEN excluded.revision>day_revision_state.revision THEN excluded.revision ELSE day_revision_state.revision END,
+        updated_at=CASE WHEN excluded.revision>=day_revision_state.revision THEN excluded.updated_at ELSE day_revision_state.updated_at END`).bind(e.business_date,e.authority_epoch,e.service_generation,e.authority_seq,at),
     db.prepare("INSERT INTO sheet_replication_outbox(event_id,status,attempt_count,next_attempt_at,created_at) VALUES(?1,'PENDING',0,?2,?2)").bind(e.event_id,at),
     db.prepare("INSERT INTO mutation_assertions(event_id,ok) VALUES(?1,1)").bind(e.event_id),
   ]);
