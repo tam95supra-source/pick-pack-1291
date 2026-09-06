@@ -40,9 +40,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          rm -rf service/node_modules service/package-lock.json service/.wrangler service/worker-configuration.d.ts service/wrangler.live.jsonc
+          rm -rf service
           git checkout "$BASE_SERVICE_SOURCE_SHA" -- service
-          git clean -fd -- service
           git diff --quiet "$BASE_SERVICE_SOURCE_SHA" -- service
           npm --prefix service install --include=dev --ignore-scripts --no-audit --no-fund
           test -d service/node_modules/fflate
