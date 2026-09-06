@@ -1,0 +1,156 @@
+name: Owner R5 D1 migration + Stable parity fix
+
+on:
+  push:
+    branches: [work/r5-quota-realtime-20260906]
+    paths:
+      - '.github/workflows/owner-r5-d1-migration-stable-parity-fix.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  repair-test-commit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.4.1'
+      - name: Sync canonical OWNER scope revision 6
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin beta/current
+          git checkout origin/beta/current -- ops/OWNER_SCOPE_CURRENT.json ops/owner-command-ledger.jsonl docs/handovers/HANDOVER_CURRENT.md CURRENT_STATE.md
+          python3 tools/owner_scope_guard.py --bootstrap
+          python3 - <<'PY'
+          import json
+          s=json.load(open('ops/OWNER_SCOPE_CURRENT.json'))
+          assert s['scope_id']=='OWNER_20260906_R5_QUOTA_REALTIME'
+          assert s['revision']==6
+          assert s['ledger_head_sequence']==8
+          assert s['ledger_head_event_sha256']=='175b83ff1669986448b8855f5e8da71b4c161f92e8ccda63dadb5e0c7480b281'
+          r=next(x for x in s['requirements'] if x['requirement_id']=='R5-15')
+          assert 'CMD-20260906-008' in r['source_command_ids']
+          PY
+      - name: Apply minimal root-cause patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+
+          # 0015: D1 remote rejected trigger body as incomplete input. Maintain revision in canonical writer batch instead.
+          p=Path('service/migrations/0015_r5_quota_realtime_revision.sql')
+          s=p.read_text()
+          marker='CREATE TRIGGER IF NOT EXISTS trg_events_day_revision\n'
+          if marker not in s: raise SystemExit('R5_FIX_FAIL:0015_TRIGGER_ANCHOR')
+          s=s[:s.index(marker)] + "-- Revision maintenance is performed explicitly inside the canonical writer D1 batch.\n"
+          p.write_text(s)
+
+          # Canonical writer: event insert and revision projection are committed in the same D1 batch.
+          p=Path('service/src/core.ts'); s=p.read_text()
+          anchor='''.bind(event.event_id,event.event_type,event.entity_type,event.entity_id,event.business_date,event.authority_epoch,event.authority_seq,event.service_generation,event.base_version,event.new_version,event.actor_id,event.actor_role,event.device_id,event.occurred_at,event.committed_at,event.payload_json,event.idempotency_key,event.origin,event.schema_version,event.checksum),\n    db.prepare("INSERT INTO sheet_replication_outbox(event_id,status,next_attempt_at) VALUES(?1,'PENDING',?2)").bind(event.event_id,event.committed_at),'''
+          repl='''.bind(event.event_id,event.event_type,event.entity_type,event.entity_id,event.business_date,event.authority_epoch,event.authority_seq,event.service_generation,event.base_version,event.new_version,event.actor_id,event.actor_role,event.device_id,event.occurred_at,event.committed_at,event.payload_json,event.idempotency_key,event.origin,event.schema_version,event.checksum),\n    db.prepare(`INSERT INTO day_revision_state(business_date,authority_epoch,service_generation,revision,updated_at) VALUES(?1,?2,?3,?4,?5)\n      ON CONFLICT(business_date,authority_epoch,service_generation) DO UPDATE SET\n        revision=CASE WHEN excluded.revision>day_revision_state.revision THEN excluded.revision ELSE day_revision_state.revision END,\n        updated_at=CASE WHEN excluded.revision>=day_revision_state.revision THEN excluded.updated_at ELSE day_revision_state.updated_at END`)\n      .bind(event.business_date,event.authority_epoch,event.service_generation,event.authority_seq,event.committed_at),\n    db.prepare("INSERT INTO sheet_replication_outbox(event_id,status,next_attempt_at) VALUES(?1,'PENDING',?2)").bind(event.event_id,event.committed_at),'''
+          if anchor not in s: raise SystemExit('R5_FIX_FAIL:CORE_EVENT_ANCHOR')
+          p.write_text(s.replace(anchor,repl,1))
+
+          # 0017: remove trigger dependency. Duplicate current policy limit into each usage row and let a named CHECK
+          # constraint abort D1 batch atomically if any of the 3 reservation windows would exceed policy.
+          Path('service/migrations/0017_r5_quota_budget.sql').write_text('''PRAGMA foreign_keys = ON;\n\nCREATE TABLE IF NOT EXISTS quota_policy (\n  metric TEXT PRIMARY KEY,\n  hard_limit INTEGER NOT NULL CHECK(hard_limit > 0),\n  unit TEXT NOT NULL,\n  source_requirement TEXT NOT NULL,\n  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))\n);\n\nINSERT INTO quota_policy(metric,hard_limit,unit,source_requirement) VALUES\n  ('GOOGLE_SHEETS_DAILY',250,'requests/day','R5-15'),\n  ('GOOGLE_SHEETS_PROJECT_MINUTE',100,'requests/minute/project','R5-15'),\n  ('GOOGLE_SHEETS_READ_MINUTE',30,'read requests/minute/user','R5-15'),\n  ('GOOGLE_SHEETS_WRITE_MINUTE',30,'write requests/minute/user','R5-15')\nON CONFLICT(metric) DO UPDATE SET\n  hard_limit=excluded.hard_limit,\n  unit=excluded.unit,\n  source_requirement=excluded.source_requirement,\n  updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now');\n\nCREATE TABLE IF NOT EXISTS quota_usage (\n  window_key TEXT NOT NULL,\n  metric TEXT NOT NULL REFERENCES quota_policy(metric),\n  used INTEGER NOT NULL DEFAULT 0 CHECK(used >= 0),\n  hard_limit INTEGER NOT NULL CHECK(hard_limit > 0),\n  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),\n  PRIMARY KEY(window_key,metric),\n  CONSTRAINT quota_hard_limit CHECK(used <= hard_limit)\n);\nCREATE INDEX IF NOT EXISTS idx_quota_usage_metric_window ON quota_usage(metric,window_key);\n\n-- Dirty flags make recovery/repair jobs event-driven rather than periodic full scans.\nINSERT INTO system_meta(key,value,updated_at) VALUES('r5_operational_repair_dirty','1',strftime('%Y-%m-%dT%H:%M:%fZ','now'))\nON CONFLICT(key) DO NOTHING;\nINSERT INTO system_meta(key,value,updated_at) VALUES('r5_document_audit_dirty','1',strftime('%Y-%m-%dT%H:%M:%fZ','now'))\nON CONFLICT(key) DO NOTHING;\n\nINSERT OR IGNORE INTO schema_migrations(version,checksum)\nVALUES('0017_r5_quota_budget','R5_QUOTA_BUDGET_V2_NO_TRIGGER');\n''')
+
+          p=Path('service/src/quota_budget.ts'); s=p.read_text()
+          old='''function usageStmt(db:D1Database,windowKey:string,metric:string,count:number):D1PreparedStatement{\n  return db.prepare(`INSERT INTO quota_usage(window_key,metric,used,updated_at) VALUES(?1,?2,?3,strftime('%Y-%m-%dT%H:%M:%fZ','now'))\n    ON CONFLICT(window_key,metric) DO UPDATE SET used=used+excluded.used,updated_at=excluded.updated_at`).bind(windowKey,metric,count);\n}'''
+          new='''function usageStmt(db:D1Database,windowKey:string,metric:string,count:number):D1PreparedStatement{\n  return db.prepare(`INSERT INTO quota_usage(window_key,metric,used,hard_limit,updated_at)\n    SELECT ?1,p.metric,?3,p.hard_limit,strftime('%Y-%m-%dT%H:%M:%fZ','now') FROM quota_policy p WHERE p.metric=?2\n    ON CONFLICT(window_key,metric) DO UPDATE SET\n      used=quota_usage.used+excluded.used,hard_limit=excluded.hard_limit,updated_at=excluded.updated_at`)\n    .bind(windowKey,metric,count);\n}'''
+          if old not in s: raise SystemExit('R5_FIX_FAIL:QUOTA_STMT_ANCHOR')
+          s=s.replace(old,new,1)
+          s=s.replace('if(String(e).includes("QUOTA_HARD_LIMIT"))return false;','if(String(e).includes("quota_hard_limit")||String(e).includes("CHECK constraint failed"))return false;',1)
+          s=s.replace('D1 batch rollback on trigger abort guarantees daily/project/kind windows advance together or not at all.','D1 batch rollback on named CHECK constraint guarantees daily/project/kind windows advance together or not at all.',1)
+          p.write_text(s)
+
+          # Recovery must make service tree byte-exact to base; checkout alone leaves candidate-only tracked migrations.
+          p=Path('.github/workflows/beta-release.yml'); s=p.read_text()
+          old='''            git checkout "$BASE_SERVICE_SOURCE_SHA" -- service\n            git clean -fd -- service'''
+          new='''            git rm -r -f --ignore-unmatch service >/dev/null 2>&1 || true\n            git checkout "$BASE_SERVICE_SOURCE_SHA" -- service\n            git clean -fd -- service'''
+          if old not in s: raise SystemExit('R5_FIX_FAIL:RECOVERY_ANCHOR')
+          p.write_text(s.replace(old,new,1))
+
+          # Stable is deliberately READY_NOT_LIVE: parity contract only, all dynamic identifiers injected later.
+          Path('config/stable_r5_parity.json').write_text(json.dumps({
+            'schema_version':1,
+            'status':'READY_NOT_LIVE',
+            'environment_id':'STABLE',
+            'service_audience':'PICK_PACK_1291_STABLE',
+            'implementation_contract':'R5-15/QUOTA-REALTIME-DELTA-001',
+            'shared_runtime_source':True,
+            'required_mechanisms':['O1_REVISION_STATUS','INDEXED_DELTA_CURSOR','SINGLE_FLIGHT_SYNC','COALESCED_WAKE','TERMINAL_OUTBOX','SHEETS_BATCH_METERING','DIRTY_DUE_SCHEDULING','QUOTA_CIRCUIT'],
+            'dynamic_bindings':['STABLE_DB','STABLE_GSHEET_API_URL','STABLE_FIREBASE_PROJECT_ID','STABLE_FIREBASE_GOOGLE_APP_ID','STABLE_FIREBASE_API_KEY','STABLE_FIREBASE_GCM_SENDER_ID'],
+            'activation':'OWNER_PROMOTE_ONLY',
+            'deploy_now':False
+          },ensure_ascii=False,indent=2)+'\n')
+
+          Path('tools/r5_stable_parity_guard.py').write_text(r'''#!/usr/bin/env python3\nimport json,re\nfrom pathlib import Path\n\ndef need(c,m):\n    if not c: raise SystemExit('R5_STABLE_PARITY_FAIL:'+m)\n\ncfg=json.loads(Path('config/stable_r5_parity.json').read_text())\nneed(cfg['status']=='READY_NOT_LIVE','STATUS')\nneed(cfg['environment_id']=='STABLE' and cfg['service_audience']=='PICK_PACK_1291_STABLE','IDENTITY')\nneed(cfg['shared_runtime_source'] is True and cfg['deploy_now'] is False and cfg['activation']=='OWNER_PROMOTE_ONLY','NO_DEPLOY')\nneed(set(cfg['required_mechanisms'])=={'O1_REVISION_STATUS','INDEXED_DELTA_CURSOR','SINGLE_FLIGHT_SYNC','COALESCED_WAKE','TERMINAL_OUTBOX','SHEETS_BATCH_METERING','DIRTY_DUE_SCHEDULING','QUOTA_CIRCUIT'},'MECHANISMS')\nb=Path('app/build.gradle.kts').read_text()\nfor x in ['create("stable")','ENVIRONMENT_ID", "\\"STABLE\\"','SERVICE_AUDIENCE", "\\"PICK_PACK_1291_STABLE\\"','val stableGsheetApiUrl','STABLE_FIREBASE_PROJECT_ID']:\n    need(x in b,'ANDROID_'+x[:18])\nneed('approvedBetaGsheetApiUrl).get()' not in b[b.index('val stableGsheetApiUrl'):b.index('val betaFirebaseProjectId')],'STABLE_GSHEET_BETA_FALLBACK')\nq=Path('service/src/quota_budget.ts').read_text(); core=Path('service/src/core.ts').read_text(); sync=Path('service/src/sync_contract.ts').read_text(); push=Path('service/src/push.ts').read_text()\nneed('quota_usage.used+excluded.used' in q and 'hard_limit=excluded.hard_limit' in q,'QUOTA_ATOMIC')\nneed('day_revision_state' in core and 'ON CONFLICT(business_date,authority_epoch,service_generation)' in core,'REVISION_WRITER')\nneed('day_revision_state' in sync,'O1_STATUS')\nneed('push_wake_outbox' in push,'COALESCED_WAKE')\nneed(not Path('app/src/stable').exists(),'STABLE_SOURCE_FORK')\nprint('R5_STABLE_PARITY_PASS READY_NOT_LIVE shared_runtime=PASS isolation_config=PASS deploy_now=false')\n''')
+          Path('tools/r5_stable_parity_guard.py').chmod(0o755)
+          PY
+      - name: Service compile and no-trigger migration contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          ! grep -R "CREATE TRIGGER" service/migrations/0015_r5_quota_realtime_revision.sql service/migrations/0017_r5_quota_budget.sql
+          grep -q "CONSTRAINT quota_hard_limit CHECK(used <= hard_limit)" service/migrations/0017_r5_quota_budget.sql
+          grep -q "INSERT INTO day_revision_state" service/src/core.ts
+          npm --prefix service install --ignore-scripts --no-audit --no-fund
+          npm --prefix service run check
+      - name: Apply full migration chain locally with Wrangler
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/r5-d1-local
+          mkdir -p /tmp/r5-d1-local
+          (cd service && npx wrangler d1 migrations apply DB --local --persist-to /tmp/r5-d1-local --config wrangler.jsonc) | tee /tmp/r5-d1-local/migrations.log
+          ! grep -qi "incomplete input" /tmp/r5-d1-local/migrations.log
+      - name: Quota hard-limit rollback contract on local D1
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd service
+          npx wrangler d1 execute DB --local --persist-to /tmp/r5-d1-local --config wrangler.jsonc --command "INSERT INTO quota_usage(window_key,metric,used,hard_limit) SELECT 'T','GOOGLE_SHEETS_DAILY',250,hard_limit FROM quota_policy WHERE metric='GOOGLE_SHEETS_DAILY';" >/tmp/quota-ok.txt
+          set +e
+          npx wrangler d1 execute DB --local --persist-to /tmp/r5-d1-local --config wrangler.jsonc --command "UPDATE quota_usage SET used=251 WHERE window_key='T' AND metric='GOOGLE_SHEETS_DAILY';" >/tmp/quota-over.txt 2>&1
+          rc=$?
+          set -e
+          test "$rc" -ne 0
+          grep -qi "constraint\|quota_hard_limit" /tmp/quota-over.txt
+      - name: Stable shared-runtime compile and parity guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/r5_stable_parity_guard.py
+          gradle :app:compileStableDebugKotlin --no-daemon
+      - name: Guard Stable preflight against deployment
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(jq -r '.deploy_now' config/stable_r5_parity.json)" = false
+          test "$(jq -r '.status' config/stable_r5_parity.json)" = READY_NOT_LIVE
+      - name: Commit exact-tested repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add service/migrations/0015_r5_quota_realtime_revision.sql service/migrations/0017_r5_quota_budget.sql service/src/core.ts service/src/quota_budget.ts .github/workflows/beta-release.yml config/stable_r5_parity.json tools/r5_stable_parity_guard.py ops/OWNER_SCOPE_CURRENT.json ops/owner-command-ledger.jsonl docs/handovers/HANDOVER_CURRENT.md CURRENT_STATE.md
+          git commit -m 'fix(r5): make D1 quota migrations triggerless and prepare Stable parity'
+          git push origin HEAD:work/r5-quota-realtime-20260906
