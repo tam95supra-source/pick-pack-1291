@@ -48,6 +48,7 @@ jobs:
           set -euo pipefail
           python3 tools/r5_beta130_convergence_timing_fix.py
           python3 tools/r5_beta130_prearm_observers_fix.py
+          python3 tools/r5_beta130_day_delta_probe_fix.py
           python3 tools/r5_beta130_safe_get_retry_fix.py
           git diff --check
           git diff --quiet HEAD -- app service google-apps-script
