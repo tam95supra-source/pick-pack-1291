@@ -4,7 +4,7 @@ import { commitMutation, CoreError, currentAuthority, delta, transitionAuthority
 import { commitLegacyMutation, type LegacyMutationInput } from "./legacy";
 import { commitAdminAudit, type AdminAuditInput } from "./admin_audit"; // S30D_CANONICAL_AUDIT_BATCH
 import { replicatePending } from "./replication";
-import { dayDeltaV2, masterDeltaV2, syncStatusV2 } from "./sync_contract";
+import { dayDeltaData, dayDeltaV2, masterDeltaV2, syncStatusV2 } from "./sync_contract";
 import { historicalCorrection } from "./correction";
 import { importChunk, importHistory, importPreview, importSchema, importStart } from "./import_engine";
 import { importCommitAtomic, importRollbackAtomic } from "./import_atomic";
@@ -39,6 +39,13 @@ function eventPublic(e:Record<string,unknown>):Record<string,unknown>{return e;}
 
 async function broadcastEvent(env:Env,e:{event_id:string;event_type:string;entity_type:string;entity_id:string;business_date:string;authority_epoch:number;authority_seq:number;service_generation:string;new_version:number}):Promise<number>{
   const hub=env.REALTIME_HUB.getByName(`business:${e.business_date}`) as unknown as {broadcast(event:typeof e):Promise<number>};try{return await hub.broadcast(e);}catch(err){console.log(JSON.stringify({level:"warn",kind:"realtime_broadcast_failed",event_id:e.event_id,error:String(err)}));return 0;}
+}
+async function canonicalAck(env:Env,e:{event_id:string;business_date:string;authority_epoch:number;authority_seq:number;service_generation:string}):Promise<Record<string,unknown>>{
+  const d=await dayDeltaData(env.DB,e.business_date,Math.max(0,e.authority_seq-1),1);
+  const items=(Array.isArray(d.items)?d.items:[]) as Record<string,unknown>[];
+  const item=items.find((x:Record<string,unknown>)=>String((x.event as Record<string,unknown>|undefined)?.event_id||"")===e.event_id)??items[0]??{};
+  const rev=Math.max(e.authority_seq,Number(d.current_revision||e.authority_seq));
+  return{canonical_patch:item.canonical_patch??null,compat_event:item.compat_event??null,business_date:e.business_date,business_date_revision:rev,cursor:{authority_epoch:e.authority_epoch,authority_seq:rev,service_generation:e.service_generation}};
 }
 
 async function healthSnapshot(env:Env):Promise<Response>{
@@ -104,12 +111,12 @@ async function syncStatus(request:Request,env:Env):Promise<Response>{
 
 async function mutate(request:Request,env:Env):Promise<Response>{
   const auth=await requireAuth(request,env),body=await readJsonBody<CanonicalMutationRequest>(request),result=await commitMutation(env.DB,env,auth,body),e=result.event;
-  const delivered=await broadcastEvent(env,{event_id:e.event_id,event_type:e.event_type,entity_type:e.entity_type,entity_id:e.entity_id,business_date:e.business_date,authority_epoch:e.authority_epoch,authority_seq:e.authority_seq,service_generation:e.service_generation,new_version:e.new_version});
-  return json({ok:true,duplicate:result.duplicate,event:eventPublic(e as unknown as Record<string,unknown>),realtime_delivered:delivered},result.duplicate?200:201);
+  const delivered=await broadcastEvent(env,{event_id:e.event_id,event_type:e.event_type,entity_type:e.entity_type,entity_id:e.entity_id,business_date:e.business_date,authority_epoch:e.authority_epoch,authority_seq:e.authority_seq,service_generation:e.service_generation,new_version:e.new_version}),ack=await canonicalAck(env,e);
+  return json({ok:true,duplicate:result.duplicate,event:eventPublic(e as unknown as Record<string,unknown>),...ack,realtime_delivered:delivered},result.duplicate?200:201);
 }
 async function mutateBatch(request:Request,env:Env):Promise<Response>{
   const auth=await requireAuth(request,env),body=await readJsonBody<{events:CanonicalMutationRequest[]}>(request),events=Array.isArray(body.events)?body.events:[];if(!events.length||events.length>100)return apiError("MUTATION_BATCH_INVALID","VALIDATION",400);const results:Record<string,unknown>[]=[];
-  for(const input of events){const localEventId=String(input?.event_id||"");try{const result=await commitMutation(env.DB,env,auth,input),e=result.event,delivered=await broadcastEvent(env,e);results.push({local_event_id:localEventId,status:result.duplicate?"DUPLICATE":"CONFIRMED",canonical_event_id:e.event_id,authority_epoch:e.authority_epoch,authority_seq:e.authority_seq,new_version:e.new_version,error_code:null,conflict:null,realtime_delivered:delivered});}catch(err){if(err instanceof CoreError){const review=err.errorClass==="CONFLICT"||err.errorClass==="RESOURCE";results.push({local_event_id:localEventId,status:review?"REVIEW_REQUIRED":"REJECTED",canonical_event_id:null,authority_epoch:null,authority_seq:null,new_version:null,error_code:err.code,conflict:err.conflict??null,retryable:err.retryable});continue;}throw err;}}
+  for(const input of events){const localEventId=String(input?.event_id||"");try{const result=await commitMutation(env.DB,env,auth,input),e=result.event,delivered=await broadcastEvent(env,e),ack=await canonicalAck(env,e);results.push({local_event_id:localEventId,status:result.duplicate?"DUPLICATE":"CONFIRMED",canonical_event_id:e.event_id,authority_epoch:e.authority_epoch,authority_seq:e.authority_seq,new_version:e.new_version,error_code:null,conflict:null,...ack,realtime_delivered:delivered});}catch(err){if(err instanceof CoreError){const review=err.errorClass==="CONFLICT"||err.errorClass==="RESOURCE";results.push({local_event_id:localEventId,status:review?"REVIEW_REQUIRED":"REJECTED",canonical_event_id:null,authority_epoch:null,authority_seq:null,new_version:null,error_code:err.code,conflict:err.conflict??null,retryable:err.retryable});continue;}throw err;}}
   return json({ok:true,results});
 }
 async function commitResilienceProbe(env:Env,auth:AuthContext,input:LegacyMutationInput){
@@ -134,7 +141,7 @@ async function legacyMutation(request:Request,env:Env):Promise<Response>{
     return json({ok:true,duplicate:result.duplicate,event:eventPublic(e as unknown as Record<string,unknown>),realtime_delivered:delivered},result.duplicate?200:201);
   }
   const result=await commitLegacyMutation(env.DB,env,auth,input),e=result.event as {event_id:string;event_type:string;entity_type:string;entity_id:string;business_date:string;authority_epoch:number;authority_seq:number;service_generation:string;new_version:number};
-  const delivered=await broadcastEvent(env,e);return json({...result,realtime_delivered:delivered},result.duplicate?200:201);
+  const delivered=await broadcastEvent(env,e),ack=await canonicalAck(env,e);return json({...result,...ack,realtime_delivered:delivered},result.duplicate?200:201);
 }
 async function adminAuditDirect(request:Request,env:Env):Promise<Response>{
   const auth=await requireAuth(request,env),input=await readJsonBody<AdminAuditInput>(request),result=await commitAdminAudit(env.DB,auth,input),e=result.event;
@@ -155,8 +162,8 @@ async function legacyMutationBatch(request:Request,env:Env):Promise<Response>{
       const ar=await commitAdminAudit(env.DB,auth,ai),ae=ar.event,delivered=await broadcastEvent(env,ae);
       results.push({local_event_id:localEventId,status:ar.duplicate?"DUPLICATE":"CONFIRMED",canonical_event_id:ae.event_id,authority_epoch:ae.authority_epoch,authority_seq:ae.authority_seq,new_version:0,error_code:null,conflict:null,realtime_delivered:delivered});continue;
     }
-    const result=await commitLegacyMutation(env.DB,env,auth,input),e=result.event as {event_id:string;event_type:string;entity_type:string;entity_id:string;business_date:string;authority_epoch:number;authority_seq:number;service_generation:string;new_version:number},delivered=await broadcastEvent(env,e);
-    results.push({local_event_id:localEventId,status:result.duplicate?"DUPLICATE":"CONFIRMED",canonical_event_id:e.event_id,authority_epoch:e.authority_epoch,authority_seq:e.authority_seq,new_version:e.new_version,error_code:null,conflict:null,realtime_delivered:delivered});
+    const result=await commitLegacyMutation(env.DB,env,auth,input),e=result.event as {event_id:string;event_type:string;entity_type:string;entity_id:string;business_date:string;authority_epoch:number;authority_seq:number;service_generation:string;new_version:number},delivered=await broadcastEvent(env,e),ack=await canonicalAck(env,e);
+    results.push({local_event_id:localEventId,status:result.duplicate?"DUPLICATE":"CONFIRMED",canonical_event_id:e.event_id,authority_epoch:e.authority_epoch,authority_seq:e.authority_seq,new_version:e.new_version,error_code:null,conflict:null,...ack,realtime_delivered:delivered});
   }catch(err){if(err instanceof CoreError){const review=err.errorClass==="CONFLICT"||err.errorClass==="RESOURCE";results.push({local_event_id:localEventId,status:review?"REVIEW_REQUIRED":"REJECTED",canonical_event_id:null,authority_epoch:null,authority_seq:null,new_version:null,error_code:err.code,conflict:err.conflict??null,retryable:err.retryable});continue;}throw err;}}
   return json({ok:true,results});
 }

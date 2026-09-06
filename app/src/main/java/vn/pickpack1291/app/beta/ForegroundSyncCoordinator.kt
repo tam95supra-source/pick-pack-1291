@@ -86,7 +86,7 @@ class ForegroundSyncCoordinator(
             main.post {
                 if (state == State.ACTIVE) {
                     failureRetriesRemaining = 1
-                    M2WorkScheduler.schedule(app)
+                    M2WorkScheduler.scheduleOutbox(app)
                     M2PushRegistration.flush(app)
                     LanCoordinator.get(app).onNetworkChanged()
                     requestSync()
@@ -184,8 +184,7 @@ class ForegroundSyncCoordinator(
                     val businessDate = body.optString("business_date")
                     if (businessDate.isNotBlank()) dayRealtime.start(businessDate)
                     masterRealtime.start()
-                    M2WorkScheduler.schedule(app)
-                    M2PushRegistration.flush(app)
+                    // R5: successful foreground status is already the orchestrator wake; do not enqueue a second catch-up.
 
                     if (state == State.ACTIVE && requestGeneration == generation) {
                         listener.onStatus(

@@ -95,13 +95,13 @@ class M2FirebaseMessagingService : FirebaseMessagingService() {
         val type = message.data["type"].orEmpty()
         if (type == "DAY_CHANGED" || type == "MASTER_CHANGED") {
             // Payload is an invalidation only. WorkManager performs the authoritative delta/sync.
-            M2WorkScheduler.schedule(applicationContext)
+            M2WorkScheduler.scheduleCatchUp(applicationContext)
         }
     }
 
     override fun onDeletedMessages() {
         // A deleted FCM invalidation means the next durable worker must catch up by revision.
-        M2WorkScheduler.schedule(applicationContext)
+        M2WorkScheduler.scheduleCatchUp(applicationContext)
     }
 }
 

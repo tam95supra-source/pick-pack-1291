@@ -1,6 +1,7 @@
 import { authenticate } from "./auth";
 import { compatBootstrap, compatDay } from "./compat";
 import { apiError, json, readJsonBody } from "./util";
+import { dayDeltaData } from "./sync_contract";
 
 interface ClientSyncRow{
   business_date:string;sequence_no:number;max_seq:number|null;
@@ -46,8 +47,9 @@ export async function m2ClientSyncStatus(db:D1Database):Promise<Record<string,un
 
 export async function legacySyncPortable(request:Request,env:Env):Promise<Response>{
   const auth=await authenticate(env.DB,env,request);if(!auth)return apiError("UNAUTHORIZED","AUTH",401);
-  const body=await readJsonBody<{action:string;business_date?:string;dates?:unknown[]}>(request),action=String(body.action||"");
+  const body=await readJsonBody<{action:string;business_date?:string;dates?:unknown[];after_revision?:number}>(request),action=String(body.action||"");
   if(action==="sync_status")return json(await m2ClientSyncStatus(env.DB));
+  if(action==="sync_delta")return json(await dayDeltaData(env.DB,String(body.business_date||""),Math.max(0,Number(body.after_revision||0)),250));
   if(action==="sync_day")return json({ok:true,sync_engine:"M2_SERVICE_BUSINESS_WINDOW_7",day:await compatDay(env.DB,String(body.business_date||""))});
   if(action==="sync_bootstrap")return json(await compatBootstrap(env.DB,body.dates));
   return apiError("LEGACY_SYNC_ACTION_UNSUPPORTED","VALIDATION",400);

@@ -497,7 +497,14 @@ class M2ServiceTransport(context: Context) {
                 val result=results.optJSONObject(i)?:continue;val eventId=result.optString("local_event_id");val item=byId[eventId]?:continue
                 val error=result.optString("error_code").ifBlank{result.optJSONObject("conflict")?.toString().orEmpty()}
                 when(result.optString("status")){
-                    "CONFIRMED","DUPLICATE"->{store.markMutationSynced(eventId);finalized.put(JSONObject().put("event_id",eventId).put("status",result.optString("status")).put("canonical_event_id",result.optString("event_id").ifBlank{eventId}))}
+                    "CONFIRMED","DUPLICATE"->{
+                        val date=result.optString("business_date");val revision=result.optLong("business_date_revision",0L)
+                        if(date.isNotBlank()&&revision>0L){
+                            val ackItem=JSONObject().put("canonical_patch",result.optJSONObject("canonical_patch")).put("compat_event",result.optJSONObject("compat_event"))
+                            runCatching{store.applyDayDelta(date,revision,JSONArray().put(ackItem))}
+                        }
+                        store.markMutationSynced(eventId);finalized.put(JSONObject().put("event_id",eventId).put("status",result.optString("status")).put("canonical_event_id",result.optString("canonical_event_id").ifBlank{eventId}))
+                    }
                     "REVIEW_REQUIRED"->{store.markMutationReviewRequired(eventId,error);finalized.put(JSONObject().put("event_id",eventId).put("status","REVIEW_REQUIRED").put("last_error_code",error))}
                     "REJECTED"->if(result.optBoolean("retryable",false)){store.markMutationRetry(eventId,error.ifBlank{"RETRYABLE_REJECT"},retryDelay(item.attemptCount));retryNeeded=true}else{store.markMutationRejected(eventId,error);finalized.put(JSONObject().put("event_id",eventId).put("status","REJECTED").put("last_error_code",error))}
                     else->{store.markMutationRetry(eventId,"BATCH_RESULT_INVALID",retryDelay(item.attemptCount));retryNeeded=true}
@@ -649,7 +656,7 @@ class M2ServiceTransport(context: Context) {
     companion object {
         private val FLUSH_LOCK=Any() // S44_SESSION_SINGLEFLIGHT_OBSERVABILITY
         private val DEVICE_SEQUENCE_LOCK=Any()
-        private const val PREFS = "pp_m2_service_transport"; private const val KEY_SERVICE_TOKEN = "service_token"; private const val KEY_DISCOVERY_JSON = "discovery_json"; private const val KEY_DISCOVERY_AT = "discovery_at"; private const val KEY_FAILURES = "service_failures"; private const val KEY_CIRCUIT_UNTIL = "circuit_until"; private const val KEY_LAST_FALLBACK_PROBE_AT = "fallback_probe_at"; private const val KEY_DEVICE_SEQUENCE = "device_sequence"; private const val AUTH_PREFS = "pick_pack_auth_session_v2"; private const val AUTH_TOKEN = "token"; private const val DISCOVERY_TTL_MS = 10 * 60_000L; private const val CIRCUIT_MS = 15_000L; private const val FALLBACK_PROBE_FAILURES = 3; private const val FALLBACK_PROBE_MIN_MS = 30_000L; val ADMIN_AUDIT_ACTIONS = setOf("staff_upsert","staff_delete","account_upsert","account_status","change_email","change_password"); val OPERATIONAL = setOf("enter", "exit", "resource_change", "labor_start", "labor_finish", "meal_checkin", "meal_status"); val TECHNICAL = setOf("resilience_probe"); val SYNC_ACTIONS = setOf("sync_status", "sync_day", "sync_bootstrap", "service_connections")
+        private const val PREFS = "pp_m2_service_transport"; private const val KEY_SERVICE_TOKEN = "service_token"; private const val KEY_DISCOVERY_JSON = "discovery_json"; private const val KEY_DISCOVERY_AT = "discovery_at"; private const val KEY_FAILURES = "service_failures"; private const val KEY_CIRCUIT_UNTIL = "circuit_until"; private const val KEY_LAST_FALLBACK_PROBE_AT = "fallback_probe_at"; private const val KEY_DEVICE_SEQUENCE = "device_sequence"; private const val AUTH_PREFS = "pick_pack_auth_session_v2"; private const val AUTH_TOKEN = "token"; private const val DISCOVERY_TTL_MS = 10 * 60_000L; private const val CIRCUIT_MS = 15_000L; private const val FALLBACK_PROBE_FAILURES = 3; private const val FALLBACK_PROBE_MIN_MS = 30_000L; val ADMIN_AUDIT_ACTIONS = setOf("staff_upsert","staff_delete","account_upsert","account_status","change_email","change_password"); val OPERATIONAL = setOf("enter", "exit", "resource_change", "labor_start", "labor_finish", "meal_checkin", "meal_status"); val TECHNICAL = setOf("resilience_probe"); val SYNC_ACTIONS = setOf("sync_status", "sync_delta", "sync_day", "sync_bootstrap", "service_connections")
         fun resetFaultTestCircuit(context:Context){
             context.applicationContext.getSharedPreferences(PREFS,Context.MODE_PRIVATE).edit()
                 .putInt(KEY_FAILURES,0).putLong(KEY_CIRCUIT_UNTIL,0L).putLong(KEY_LAST_FALLBACK_PROBE_AT,0L).apply()

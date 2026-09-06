@@ -79,6 +79,62 @@ class OperationalDataStore(context: Context) {
         copies.forEach { (date, copy) -> MEMORY[date] = copy }
     }
 
+    fun applyDayDelta(date: String, toRevision: Long, items: JSONArray): Boolean = withDbLock {
+        if (date.isBlank() || toRevision <= 0L) return@withDbLock false
+        val db = writableDb()
+        val raw = db.query("day_snapshot", arrayOf("snapshot_json"), "business_date=?", arrayOf(date), null, null, null, "1").use { c ->
+            if (c.moveToFirst()) c.getString(0) else null
+        } ?: return@withDbLock false
+        val day = runCatching { JSONObject(raw) }.getOrNull() ?: return@withDbLock false
+        val sessions = day.optJSONArray("sessions") ?: JSONArray()
+        val labor = day.optJSONArray("labor") ?: JSONArray()
+        val events = day.optJSONArray("events") ?: JSONArray()
+
+        fun upsert(array: JSONArray, key: String, id: String, entity: JSONObject?, deleted: Boolean) {
+            if (id.isBlank()) return
+            var found = -1
+            for (i in 0 until array.length()) if (array.optJSONObject(i)?.optString(key) == id) { found = i; break }
+            if (deleted) { if (found >= 0) array.remove(found); return }
+            if (entity == null) return
+            if (found >= 0) array.put(found, JSONObject(entity.toString())) else array.put(JSONObject(entity.toString()))
+        }
+        fun upsertEvent(event: JSONObject?) {
+            if (event == null) return
+            val id = event.optString("event_id")
+            if (id.isBlank()) return
+            var found = -1
+            for (i in 0 until events.length()) if (events.optJSONObject(i)?.optString("event_id") == id) { found = i; break }
+            if (found >= 0) events.put(found, JSONObject(event.toString())) else events.put(JSONObject(event.toString()))
+        }
+
+        for (i in 0 until items.length()) {
+            val item = items.optJSONObject(i) ?: continue
+            val patch = item.optJSONObject("canonical_patch")
+            if (patch != null) {
+                val entityType = patch.optString("entity_type")
+                val entityId = patch.optString("entity_id")
+                val deleted = patch.optBoolean("deleted", false)
+                val entity = patch.optJSONObject("entity")
+                when (entityType) {
+                    "ATTENDANCE_SESSION" -> upsert(sessions, "id", entityId, entity, deleted)
+                    "LABOR_SESSION" -> upsert(labor, "labor_id", entityId, entity, deleted)
+                }
+            }
+            upsertEvent(item.optJSONObject("compat_event"))
+        }
+        day.put("sessions", sessions).put("labor", labor).put("events", events).put("day_revision", toRevision)
+        val values = ContentValues().apply {
+            put("business_date", date); put("day_revision", toRevision); put("snapshot_json", day.toString()); put("saved_at", System.currentTimeMillis())
+        }
+        db.beginTransaction()
+        try {
+            db.insertWithOnConflict("day_snapshot", null, values, SQLiteDatabase.CONFLICT_REPLACE)
+            db.setTransactionSuccessful()
+        } finally { db.endTransaction() }
+        MEMORY[date] = JSONObject(day.toString())
+        true
+    }
+
     fun loadDay(date: String): JSONObject? {
         MEMORY[date]?.let { return JSONObject(it.toString()) }
         return withDbLock {
