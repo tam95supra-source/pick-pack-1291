@@ -57,7 +57,7 @@ jobs:
         run: |
           set -euo pipefail
           test "$(jq -r '.scope_id' ops/OWNER_SCOPE_CURRENT.json)" = "OWNER_20260906_R5_QUOTA_REALTIME"
-          test "$(jq -r '.requirements[] | select(.requirement_id==\"R5-15\") | .state' ops/OWNER_SCOPE_CURRENT.json)" = "LOCKED_REQUIREMENT_PENDING_FIX"
+          test "$(jq -r '.requirements[] | select(.requirement_id=="R5-15") | .state' ops/OWNER_SCOPE_CURRENT.json)" = "LOCKED_REQUIREMENT_PENDING_FIX"
           test "$(jq -r '.stage' ops/beta-release-request.json)" = "pass_live"
           echo R5_PREPROD_RELEASE_FENCE_PASS
       - uses: actions/upload-artifact@v4
