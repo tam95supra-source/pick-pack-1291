@@ -72,11 +72,25 @@ jobs:
           set -euo pipefail
           rm -rf /tmp/r5-rev7-d1-local && mkdir -p /tmp/r5-rev7-d1-local
           (cd service && npx wrangler d1 migrations apply DB --local --persist-to /tmp/r5-rev7-d1-local --config wrangler.jsonc) | tee /tmp/r5-rev7-migrations.log
+          grep -q '0018_r5_gas_operation_budget.sql' /tmp/r5-rev7-migrations.log
           ! grep -qi 'incomplete input' /tmp/r5-rev7-migrations.log
       - name: Prove workflow cannot mutate cloud
         run: |
           set -euo pipefail
-          ! grep -Eiq 'CLOUDFLARE_API_TOKEN|GOOGLE_OAUTH|--remote|wrangler[[:space:]]+deploy|gh release create|workflow_dispatch' .github/workflows/r5-rev7-local-quota-validation.yml
+          python3 - <<'PY'
+          from pathlib import Path
+          text=Path('.github/workflows/r5-rev7-local-quota-validation.yml').read_text()
+          forbidden=[
+            'CLOUDFLARE_'+'API_TOKEN',
+            'GOOGLE_'+'OAUTH',
+            '--'+'remote',
+            'wrangler'+' deploy',
+            'gh release'+' create',
+            'workflow_'+'dispatch',
+          ]
+          found=[x for x in forbidden if x in text]
+          assert not found, 'CLOUD_MUTATION_SURFACE:'+','.join(found)
+          PY
       - name: Write local evidence
         run: |
           mkdir -p /tmp/r5-rev7-local
