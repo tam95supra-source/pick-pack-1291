@@ -1,4 +1,5 @@
 name: Owner R5 phase1b service Android delta
+# retrigger after generated canonicalAck typing repair
 
 on:
   push:
@@ -37,8 +38,9 @@ jobs:
       - name: Apply R5 indexed delta patch
         run: |
           set -euo pipefail
-          python3 -m py_compile tools/r5_phase1b_apply.py
+          python3 -m py_compile tools/r5_phase1b_apply.py tools/r5_phase1b_generated_fix.py
           python3 tools/r5_phase1b_apply.py
+          python3 tools/r5_phase1b_generated_fix.py
       - name: Service compile and delta contract
         run: |
           set -euo pipefail
