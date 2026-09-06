@@ -1,0 +1,121 @@
+name: Stable R5 quota parity preflight
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - work/r5-quota-realtime-20260906
+    paths:
+      - .github/workflows/stable-r5-quota-parity-preflight.yml
+      - config/stable_r5_parity.json
+      - tools/r5_stable_parity_guard.py
+      - service/src/quota_budget.ts
+      - service/src/core.ts
+      - service/src/sync_contract.ts
+      - service/src/push.ts
+      - service/migrations/0015_r5_quota_realtime_revision.sql
+      - service/migrations/0016_r5_background_terminal.sql
+      - service/migrations/0017_r5_quota_budget.sql
+      - app/build.gradle.kts
+
+permissions:
+  contents: read
+
+concurrency:
+  group: stable-r5-quota-parity-preflight
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.4.1'
+      - name: Canonical scope rev6 and Stable READY_NOT_LIVE guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/owner_scope_guard.py --bootstrap
+          test "$(jq -r '.revision' ops/OWNER_SCOPE_CURRENT.json)" = "6"
+          test "$(jq -r '.ledger_head_sequence' ops/OWNER_SCOPE_CURRENT.json)" = "8"
+          python3 tools/r5_stable_parity_guard.py
+          test "$(jq -r '.status' config/stable_r5_parity.json)" = "READY_NOT_LIVE"
+          test "$(jq -r '.deploy_now' config/stable_r5_parity.json)" = "false"
+          test "$(jq -r '.activation' config/stable_r5_parity.json)" = "OWNER_PROMOTE_ONLY"
+      - name: Compile shared Service and Stable Android runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm --prefix service install --ignore-scripts --no-audit --no-fund --package-lock=false
+          npm --prefix service run check
+          gradle :app:compileStableDebugKotlin --no-daemon --stacktrace
+      - name: Apply complete Stable schema locally only
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/stable-r5-d1-local && mkdir -p /tmp/stable-r5-d1-local
+          (cd service && npx wrangler d1 migrations apply DB --local --persist-to /tmp/stable-r5-d1-local --config wrangler.jsonc) | tee /tmp/stable-r5-migrations.log
+          grep -q '0015_r5_quota_realtime_revision.sql' /tmp/stable-r5-migrations.log
+          grep -q '0016_r5_background_terminal.sql' /tmp/stable-r5-migrations.log
+          grep -q '0017_r5_quota_budget.sql' /tmp/stable-r5-migrations.log
+          ! grep -qi 'incomplete input' /tmp/stable-r5-migrations.log
+      - name: Quota limiter fail-closed locally
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd service
+          npx wrangler d1 execute DB --local --persist-to /tmp/stable-r5-d1-local --config wrangler.jsonc --command "INSERT INTO quota_usage(window_key,metric,used,hard_limit) SELECT 'STABLE_PREFLIGHT','GOOGLE_SHEETS_DAILY',250,hard_limit FROM quota_policy WHERE metric='GOOGLE_SHEETS_DAILY';" >/dev/null
+          set +e
+          npx wrangler d1 execute DB --local --persist-to /tmp/stable-r5-d1-local --config wrangler.jsonc --command "UPDATE quota_usage SET used=251 WHERE window_key='STABLE_PREFLIGHT' AND metric='GOOGLE_SHEETS_DAILY';" >/tmp/stable-r5-over.log 2>&1
+          rc=$?
+          set -e
+          test "$rc" -ne 0
+          grep -qi 'constraint\|quota_hard_limit' /tmp/stable-r5-over.log
+      - name: Prove preflight cannot deploy or bind Beta resources
+        shell: bash
+        run: |
+          set -euo pipefail
+          ! grep -Eiq 'wrangler[[:space:]]+deploy|d1 migrations apply[^\n]*--remote|curl[^\n]*beta\.pickpack|gh release create' .github/workflows/stable-r5-quota-parity-preflight.yml
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          c=json.loads(Path('config/stable_r5_parity.json').read_text())
+          assert c['environment_id']=='STABLE'
+          assert c['service_audience']=='PICK_PACK_1291_STABLE'
+          assert c['deploy_now'] is False
+          assert all(str(v).startswith('STABLE_') for v in c['dynamic_bindings'])
+          b=Path('app/build.gradle.kts').read_text()
+          stable=b[b.index('create("stable")'):b.index('create("beta")')]
+          assert 'ENVIRONMENT_ID", "\\"STABLE\\"' in stable
+          assert 'PICK_PACK_1291_STABLE' in stable
+          assert 'STABLE_GSHEET_API_URL' in b
+          PY
+      - name: Write machine-readable preflight evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/stable-r5-preflight
+          jq -n \
+            --arg source_sha "$GITHUB_SHA" \
+            --arg scope_sha "$(jq -r '.scope_sha256' ops/OWNER_SCOPE_CURRENT.json)" \
+            '{status:"PASS",channel:"STABLE",activation:"OWNER_PROMOTE_ONLY",deploy_now:false,source_sha:$source_sha,owner_scope_sha256:$scope_sha,service_compile:"PASS",stable_android_compile:"PASS",local_migrations:"PASS",quota_fail_closed:"PASS",isolation_static:"PASS"}' \
+            > /tmp/stable-r5-preflight/evidence.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stable-r5-quota-parity-preflight-${{ github.run_id }}
+          path: /tmp/stable-r5-preflight
+          retention-days: 90
+          if-no-files-found: error
