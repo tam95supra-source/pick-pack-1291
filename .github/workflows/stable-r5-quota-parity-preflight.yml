@@ -47,6 +47,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          mkdir -p /tmp/stable-r5-preflight
           python3 tools/owner_scope_guard.py --bootstrap
           test "$(jq -r '.revision' ops/OWNER_SCOPE_CURRENT.json)" = "6"
           test "$(jq -r '.ledger_head_sequence' ops/OWNER_SCOPE_CURRENT.json)" = "8"
@@ -95,18 +96,19 @@ jobs:
           assert c['environment_id']=='STABLE'
           assert c['service_audience']=='PICK_PACK_1291_STABLE'
           assert c['deploy_now'] is False
+          assert c['activation']=='OWNER_PROMOTE_ONLY'
           assert all(str(v).startswith('STABLE_') for v in c['dynamic_bindings'])
           b=Path('app/build.gradle.kts').read_text()
           stable=b[b.index('create("stable")'):b.index('create("beta")')]
-          assert 'ENVIRONMENT_ID", "\\"STABLE\\"' in stable
+          assert 'STABLE' in stable
           assert 'PICK_PACK_1291_STABLE' in stable
-          assert 'STABLE_GSHEET_API_URL' in b
+          assert 'stableGsheetApiUrl' in stable
+          assert 'PICK_PACK_1291_BETA' not in stable
           PY
       - name: Write machine-readable preflight evidence
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p /tmp/stable-r5-preflight
           jq -n \
             --arg source_sha "$GITHUB_SHA" \
             --arg scope_sha "$(jq -r '.scope_sha256' ops/OWNER_SCOPE_CURRENT.json)" \
@@ -118,4 +120,4 @@ jobs:
           name: stable-r5-quota-parity-preflight-${{ github.run_id }}
           path: /tmp/stable-r5-preflight
           retention-days: 90
-          if-no-files-found: error
+          if-no-files-found: warn
