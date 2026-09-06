@@ -1,8 +1,8 @@
 # CURRENT STATE — PICK PACK 1291
 
-- updated_at: 2026-09-06T10:02:00+07:00
+- updated_at: 2026-09-06T23:16:20+07:00
 - status: BETA128_PASS_LIVE
-- continuity_branch: release/beta128-live-sync-seed100-20260906
+- continuity_branch: release/beta130-r5-rev6-20260906
 - source_sha: 5569d1e931436e02d118ed8ab57f2143de43b9f7
 - beta_live: 0.4.2-beta.128 (versionCode 134)
 - package: vn.pickpack1291.app.beta.publicbeta
@@ -36,4 +36,6 @@
 - owner_checklist_id: OWNER_R5_QUOTA_REALTIME
 - owner_checklist_revision: 6
 - owner_acceptance: PENDING requirements 13,14,15
-- next_action: FIX_B115_LATE_DAY_FUTURE_EXIT_HARNESS_AND_RERUN_EXACT_SERVICE_GATE_ONLY
+- r5_work_state: BLOCKED_FREE_PLAN_READ_PERMISSION / subscriptions HTTP 403 / run 34044419955
+- r5_service_deploy: SKIPPED / no new deployment in this checkpoint
+- next_action: VERIFY_FREE_PLAN_PERMISSION_AND_RESUME_EXACT_R5_SERVICE_GATE
