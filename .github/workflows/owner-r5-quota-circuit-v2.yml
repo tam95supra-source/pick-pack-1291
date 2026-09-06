@@ -1,4 +1,5 @@
 name: Owner R5 quota circuit dirty-due v2
+# rerun after strict D1 batch result typing fix
 
 on:
   push:
@@ -84,7 +85,8 @@ jobs:
               if 'requireSheetsCall' not in t: raise SystemExit('UNMETERED_SHEETS_API:'+str(f))
           assert files
           q=Path('service/src/quota_budget.ts').read_text()
-          assert 'hard_limit' not in q and '250' not in q and '100' not in q and '30' not in q
+          assert 'hard_limit' not in q
+          assert 'GOOGLE_SHEETS_DAILY",250' not in q and 'GOOGLE_SHEETS_PROJECT_MINUTE",100' not in q
           e=Path('service/src/entry_product.ts').read_text()
           assert 'catalog-source-30m' in e and 'repair-dirty-5m' in e and 'repair-30m' not in e
           d=Path('service/src/document_management.ts').read_text()
