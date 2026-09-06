@@ -1,0 +1,51 @@
+name: Owner R5 verify harness timeout fix
+
+on:
+  push:
+    branches:
+      - release/beta129-r5-rev6-20260906
+    paths:
+      - .github/workflows/owner-r5-verify-harness-timeout-fix.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: owner-r5-verify-harness-timeout-fix
+  cancel-in-progress: false
+
+jobs:
+  patch:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Canonical guards
+        run: |
+          set -euo pipefail
+          python3 tools/owner_scope_guard.py --bootstrap
+          python3 tools/finalizer_handoff_contract.py
+          jq -e '.scope_id=="OWNER_20260906_R5_QUOTA_REALTIME" and .revision==6' ops/OWNER_SCOPE_CURRENT.json >/dev/null
+          jq -e '.stage=="BUILD_VERIFY" and .version_name=="0.4.2-beta.129" and .source_sha=="8dfb520c46abf56de8f856fd0af26613fa7bdd04" and .live==false' ops/beta-release-request.json >/dev/null
+      - name: Patch only outer instrumentation timeout
+        run: |
+          set -euo pipefail
+          F=tools/beta83_verify_matrix.sh
+          grep -Fq 'timeout 120s adb shell am instrument -w -r vn.pickpack1291.verify/.R5PerfInstrumentation' "$F"
+          sed -i 's/timeout 120s adb shell am instrument -w -r vn.pickpack1291.verify\/.R5PerfInstrumentation/timeout 210s adb shell am instrument -w -r vn.pickpack1291.verify\/.R5PerfInstrumentation/' "$F"
+          grep -Fq 'timeout 210s adb shell am instrument -w -r vn.pickpack1291.verify/.R5PerfInstrumentation' "$F"
+          grep -Fq 'test "$P95" -le 100' "$F"
+          grep -Fq 'target_p95_ms:100' "$F"
+          bash -n "$F"
+          git diff --check
+          test "$(git diff --name-only | tr '\n' ' ')" = 'tools/beta83_verify_matrix.sh '
+      - name: Commit harness-only fix
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add tools/beta83_verify_matrix.sh
+          git commit -m 'test(r5): extend perf harness outer timeout only'
+          git push origin HEAD:release/beta129-r5-rev6-20260906
