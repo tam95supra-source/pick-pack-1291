@@ -4,6 +4,7 @@ on:
     branches: [work/r5-beta130-timeline-20260906]
     paths:
       - tools/r5_beta130_timeline_patch.py
+      - tools/r5_beta130_release_notes_patch.py
       - .github/workflows/owner-r5-beta130-timeline.yml
   workflow_dispatch:
 permissions:
@@ -29,7 +30,13 @@ jobs:
       - name: Canonical owner scope guard
         run: python3 tools/owner_scope_guard.py --bootstrap
       - name: Apply minimal incremental timeline patch
-        run: python3 tools/r5_beta130_timeline_patch.py
+        run: |
+          set -euo pipefail
+          python3 tools/r5_beta130_timeline_patch.py
+          python3 tools/r5_beta130_release_notes_patch.py
+          grep -Fq 'versionCode = 136' app/build.gradle.kts
+          grep -Fq 'versionName = "0.4.2-beta.130"' app/build.gradle.kts
+          grep -Fq 'const val VERSION_NAME = "0.4.2-beta.130"' app/src/main/java/vn/pickpack1291/app/beta/ReleaseNotes.kt
       - name: R5 structural guards
         run: |
           python3 tools/r5_quota_realtime_guard.py
@@ -44,9 +51,9 @@ jobs:
           set -euo pipefail
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt app/build.gradle.kts
+          git add app/src/main/java/vn/pickpack1291/app/beta/OperationsActivity.kt app/src/main/java/vn/pickpack1291/app/beta/ReleaseNotes.kt app/build.gradle.kts
           git diff --cached --check
           git diff --cached --quiet && { echo NO_PATCH_COMMIT >&2; exit 1; }
           git commit -m 'fix(r5): render employee timeline incrementally for Beta130'
           git push origin HEAD:${GITHUB_REF_NAME}
-# trigger: beta130-incremental-20260906-02
+# trigger: beta130-incremental-20260906-03
