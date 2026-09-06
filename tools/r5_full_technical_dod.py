@@ -27,7 +27,12 @@ quota=(ROOT/'service/src/quota_budget.ts').read_text()
 # STATIC contract checks only. These checks are useful, but they are not runtime evidence.
 assert 'day_revision_state' in sc and '15*60_000' in sc
 assert 'LEFT JOIN events' not in sc
-assert 'authority_epoch=?2 AND e.service_generation=?3 AND e.authority_seq>?4' in sc
+assert 'FROM st JOIN events e ON st.allowed=1' in sc
+assert 'e.business_date=?1' in sc
+assert 'e.authority_epoch=st.authority_epoch' in sc
+assert 'e.service_generation=st.service_generation' in sc
+assert 'e.authority_seq>?2' in sc
+assert 'ORDER BY e.authority_seq LIMIT ?4' in sc
 assert 'revision_state' in legacy and 'MAX(source_row)' not in legacy
 assert 'singleFlight' in web
 assert '/v1/delta/day?' in web and '/v1/delta/master?' in web
