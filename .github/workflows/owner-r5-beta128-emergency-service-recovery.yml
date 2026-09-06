@@ -54,6 +54,8 @@ jobs:
           old='D1_NAME=pick-pack-1291-service-prod'
           if s.count(old)!=1: raise SystemExit('D1_EXPORT_ANCHOR_COUNT:'+str(s.count(old)))
           s=s.replace(old,'export '+old,1)
+          if 'npx wrangler' not in s: raise SystemExit('WRANGLER_COMMAND_ANCHOR_MISSING')
+          s=s.replace('npx wrangler','./node_modules/.bin/wrangler')
           anchor="jq -e --arg gen \"$GEN\" --argjson epoch \"$EPOCH\" '.ok==true and .environment==\"production\" and (.generation|tostring)==$gen and .authority.mode==\"SERVICE_PRIMARY\" and .authority.scope==\"PRODUCTION\" and .authority.authority_epoch==$epoch' \"$D/health-after.json\" >/dev/null"
           if s.count(anchor)!=1: raise SystemExit('RECOVERY_HEALTH_ANCHOR_COUNT:'+str(s.count(anchor)))
           s=s.replace(anchor,anchor+'\necho exact_beta128_service_recovery=PASS\nexit 0',1)
