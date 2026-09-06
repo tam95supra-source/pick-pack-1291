@@ -1,6 +1,6 @@
 # CURRENT STATE — PICK PACK 1291
 
-- updated_at: 2026-09-05T23:48:13Z
+- updated_at: 2026-09-06T10:02:00+07:00
 - status: BETA128_PASS_LIVE
 - continuity_branch: release/beta128-live-sync-seed100-20260906
 - source_sha: 5569d1e931436e02d118ed8ab57f2143de43b9f7
@@ -23,7 +23,7 @@
 - beta_ota_url: https://github.com/tam95supra-source/pick-pack-1291/releases/download/v0.4.2-beta.128-publicbeta/pick-pack-1291-public-beta-0.4.2-beta.128.apk
 - apk_transport: GITHUB_RELEASE_ONLY
 - google_drive_apk: FORBIDDEN
-- stable: unchanged
+- stable: unchanged / no public Stable; R5 quota parity READY_NOT_LIVE only
 - main_sha: 021dac5c6932b3ac5c60ce8fdba562ddf3d9688f
 - authority: SERVICE_PRIMARY / PRODUCTION / epoch 9 / generation m2-prod-reset-20260823-001
 - owner_scope_file: ops/OWNER_SCOPE_CURRENT.json
@@ -34,6 +34,6 @@
 - owner_command_ledger: ops/owner-command-ledger.jsonl
 - owner_command_ledger_head: 175b83ff1669986448b8855f5e8da71b4c161f92e8ccda63dadb5e0c7480b281
 - owner_checklist_id: OWNER_R5_QUOTA_REALTIME
-- owner_checklist_revision: 5
+- owner_checklist_revision: 6
 - owner_acceptance: PENDING requirements 13,14,15
 - next_action: IMPLEMENT_R5_QUOTA_REALTIME_TECHNICAL_DOD
