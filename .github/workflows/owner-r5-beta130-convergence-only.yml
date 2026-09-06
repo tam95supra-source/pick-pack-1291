@@ -4,6 +4,9 @@ on:
     branches: [work/r5-beta130-timeline-20260906]
     paths:
       - .github/workflows/owner-r5-beta130-convergence-only.yml
+      - tools/r5_beta130_ws_convergence.mjs
+      - tools/r5_beta130_ws_gate_fix.py
+      - tools/r5_beta130_convergence_only_cleanup_fix.py
 permissions:
   contents: read
 concurrency:
