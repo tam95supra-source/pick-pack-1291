@@ -139,3 +139,4 @@ jobs:
         run: python3 tools/verify_promotion_lock.py ops/promotion-lock-dry-run.json
 # beta126-full-active-regression-20260905
 # r5-watermark-fix-full-fast-check-20260906
+# r5-delta-batch-fresh-fast-check-20260906
