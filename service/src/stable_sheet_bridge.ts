@@ -1,3 +1,5 @@
+import { requireGasSheetOperations, type GasSheetOperationCost } from "./quota_budget";
+
 export type StableSheetBridgeKind="primary"|"outbound"|"dr";
 
 function stableEnv(env:Env):boolean{return String(env.ENVIRONMENT_ID||"").toUpperCase()==="STABLE";}
@@ -7,6 +9,23 @@ function bridgeUrl(env:Env,kind:StableSheetBridgeKind):string{
   if(kind==="outbound")return String(env.OUTBOUND_GAS_API_URL||"").trim();
   return String(env.DR_GAS_API_URL||"").trim();
 }
+function itemCount(value:unknown,max:number):number{return Array.isArray(value)?Math.min(max,value.length):0;}
+function gasOperationCost(kind:StableSheetBridgeKind,operation:string,payload:Record<string,unknown>):GasSheetOperationCost{
+  const op=operation.toLowerCase();
+  if(op==="get_values")return{read:1};
+  if(op==="batch_get"||op==="batch_get_a1")return{read:itemCount(payload.ranges,30)};
+  if(op==="put_values")return{write:Array.isArray(payload.values)&&payload.values.length?1:0};
+  if(op==="append_values")return Array.isArray(payload.values)&&payload.values.length?{read:1,write:1}:{};
+  if(op==="batch_put_a1"){
+    const data=Array.isArray(payload.data)?payload.data.slice(0,50) as Array<Record<string,unknown>>:[];
+    return{write:data.filter(x=>Array.isArray(x.values)&&x.values.length>0).length};
+  }
+  // Primary ensure_replica reads sheet/header/id index and can create/update the hidden
+  // replica sheet. Reserve conservatively because one bridge HTTP call is not one
+  // SpreadsheetApp operation.
+  if(kind==="primary"&&op==="ensure_replica")return{read:2,write:2};
+  return{};
+}
 
 export function isStableEnvironment(env:Env):boolean{return stableEnv(env);}
 
@@ -14,6 +33,7 @@ export async function stableSheetBridge<T=Record<string,unknown>>(env:Env,kind:S
   if(!stableEnv(env))throw new Error("STABLE_BRIDGE_ENV_REQUIRED");
   const url=bridgeUrl(env,kind);
   if(!url.startsWith("https://script.google.com/"))throw new Error(`STABLE_${kind.toUpperCase()}_GAS_URL_INVALID`);
+  await requireGasSheetOperations(env.DB,gasOperationCost(kind,operation,payload));
   const body={
     action:kind==="primary"?"service_sheet_bridge":"stable_bound_bridge",
     operation,
