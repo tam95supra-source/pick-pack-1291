@@ -25,7 +25,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 tools/owner_scope_guard.py --bootstrap
-          test "$(jq -r '.owner_scope_id' ops/OWNER_SCOPE_CURRENT.json)" = OWNER_20260906_R5_QUOTA_REALTIME
+          test "$(jq -r '.scope_id' ops/OWNER_SCOPE_CURRENT.json)" = OWNER_20260906_R5_QUOTA_REALTIME
           test "$(jq -r '.revision' ops/OWNER_SCOPE_CURRENT.json)" = 6
           python3 tools/r5_quota_realtime_guard.py
           git diff --quiet fc2a6c6332e7e15c16920dc2599219a2452e377a HEAD -- app service google-apps-script
