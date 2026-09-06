@@ -4,9 +4,6 @@ on:
   workflow_run:
     workflows: ["Beta release"]
     types: [completed]
-  push:
-    branches:
-      - 'release/**'
 
 permissions:
   contents: write
@@ -18,15 +15,13 @@ concurrency:
 jobs:
   sync-current:
     if: >-
-      (github.event_name == 'workflow_run' &&
-       github.event.workflow_run.conclusion == 'success' &&
-       startsWith(github.event.workflow_run.head_branch, 'release/')) ||
-      (github.event_name == 'push' && startsWith(github.ref_name, 'release/'))
+      github.event.workflow_run.conclusion == 'success' &&
+      startsWith(github.event.workflow_run.head_branch, 'release/')
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_branch || github.ref_name }}
+          ref: ${{ github.event.workflow_run.head_branch }}
           fetch-depth: 0
 
       - name: Verify sync contract
@@ -35,7 +30,7 @@ jobs:
       - name: Fast-forward beta/current to exact PASS/LIVE state
         shell: bash
         env:
-          RELEASE_BRANCH: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_branch || github.ref_name }}
+          RELEASE_BRANCH: ${{ github.event.workflow_run.head_branch }}
         run: |
           set -euo pipefail
           git fetch origin beta/current "$RELEASE_BRANCH" --quiet
