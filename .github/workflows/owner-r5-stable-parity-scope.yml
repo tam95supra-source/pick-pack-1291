@@ -1,0 +1,73 @@
+name: Owner R5 Stable quota parity scope
+
+on:
+  push:
+    branches: [beta/current]
+    paths:
+      - '.github/workflows/owner-r5-stable-parity-scope.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  scope-transaction:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Append OWNER command and revise R5 semantics atomically
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/owner_scope_guard.py --bootstrap
+          python3 - <<'PY'
+          import json
+          s=json.load(open('ops/OWNER_SCOPE_CURRENT.json'))
+          assert s['scope_id']=='OWNER_20260906_R5_QUOTA_REALTIME'
+          assert s['revision']==5
+          assert s['ledger_head_sequence']==7
+          assert s['ledger_head_event_sha256']=='4a6ddfcfd8fba0e681ca27ebb7048aa87e2e2035fe41d7bf4570ae145ae68c05'
+          r=next(x for x in s['requirements'] if x['requirement_id']=='R5-15')
+          assert r['state']=='LOCKED_REQUIREMENT_PENDING_FIX'
+          PY
+          python3 tools/owner_scope_admin.py append-command \
+            --command-id CMD-20260906-008 \
+            --recorded-at '2026-09-06T10:02:00+07:00' \
+            --event-type OWNER_REQUIREMENT_CHANGE \
+            --related R5-15 \
+            --raw-text 'Tiếp tục xử lí. Đồng thời áp dụng cho stable luôn. Dù chưa có bản stable nào nhưng anh muốn setup trước cho stable. Để khi beta ok anh public stable là ko phải setup vấn đề cơ chế tiết kiệm quota, read, write'
+          python3 - <<'PY'
+          import sys
+          sys.path.insert(0,'tools')
+          import owner_scope_admin as a
+          s=a.read_scope()
+          assert s['revision']==5
+          r=next(x for x in s['requirements'] if x['requirement_id']=='R5-15')
+          stable_acceptance=[
+            'Stable dù chưa có bản public phải được chuẩn bị sẵn parity cùng cơ chế tiết kiệm quota/read/write và realtime của R5: O(1) status/revision, indexed delta/cursor, single-flight, coalesced wake, durable terminal outbox/checkpoint, Sheets metering/batching, dirty/due scheduling và quota circuit; dữ liệu động lấy từ Stable env/config, không hardcode.',
+            'Beta và Stable tiếp tục cách ly data/auth/DB/Sheet/environment/epoch/generation. Trong scope này chỉ chuẩn bị code/workflow/config/test cho Stable, tuyệt đối không deploy/public Stable hoặc đổi Stable LIVE; khi OWNER promote Beta sang Stable thì dùng implementation semantics đã PASS và chạy cùng quota/regression gates, không phải setup lại cơ chế quota.'
+          ]
+          for text in stable_acceptance:
+              if text not in r['acceptance']:
+                  r['acceptance'].append(text)
+          if 'CMD-20260906-008' not in r['source_command_ids']:
+              r['source_command_ids'].append('CMD-20260906-008')
+          s['revision']=6
+          s['migration_source']='OWNER CMD-20260906-007 attachment + CMD-20260906-008 Stable quota parity requirement over R4 technical-pass baseline'
+          a.write_scope(s)
+          s=a.read_scope()
+          a.sync_pointers(s)
+          print({'scope_id':s['scope_id'],'revision':s['revision'],'semantics_sha256':s['semantics_sha256'],'scope_sha256':s['scope_sha256'],'ledger_head':s['ledger_head_event_sha256']})
+          PY
+          python3 tools/owner_scope_guard.py --bootstrap
+      - name: Commit canonical OWNER scope transaction
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add ops/owner-command-ledger.jsonl ops/OWNER_SCOPE_CURRENT.json docs/handovers/HANDOVER_CURRENT.md CURRENT_STATE.md
+          test -n "$(git status --porcelain)"
+          git commit -m 'scope(r5): require stable quota parity before first public Stable'
+          git push origin HEAD:beta/current
